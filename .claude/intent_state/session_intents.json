@@ -1,34 +1,34 @@
 {
-  "session_id": "9b8c96ac6bae",
+  "session_id": "95bf7e872d72",
   "stack": {
     "session": {
-      "id": "9b8c96ac6bae-21",
-      "text": "[Generation] Feature #15: Implement tool selection logic based on agent requirements Criteria: Tool list matches agent capabilities needed",
+      "id": "95bf7e872d72-23",
+      "text": "[Validation] Feature #20: Build agent syntax validator Criteria: Catches YAML and markdown errors",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1767906302.917211,
-      "updated_at": 1767906302.9172115,
+      "created_at": 1767906806.3216937,
+      "updated_at": 1767906806.3216941,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 15,
-        "category": "Generation"
+        "feature_id": 20,
+        "category": "Validation"
       },
       "keywords": []
     },
     "task": {
-      "id": "9b8c96ac6bae-22",
-      "text": "Implement: Implement tool selection logic based on agent requirements",
+      "id": "95bf7e872d72-24",
+      "text": "Implement: Build agent syntax validator",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1767906302.93731,
-      "updated_at": 1767906302.9373107,
+      "created_at": 1767906806.3382728,
+      "updated_at": 1767906806.3382733,
       "completed_at": null,
-      "parent_id": "9b8c96ac6bae-21",
+      "parent_id": "95bf7e872d72-23",
       "metadata": {
-        "feature_id": 15
+        "feature_id": 20
       },
       "keywords": []
     },
@@ -375,9 +375,40 @@
         "feature_id": 15
       },
       "keywords": []
+    },
+    {
+      "id": "95bf7e872d72-23",
+      "text": "[Validation] Feature #20: Build agent syntax validator Criteria: Catches YAML and markdown errors",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1767906806.3216937,
+      "updated_at": 1767906806.3216941,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 20,
+        "category": "Validation"
+      },
+      "keywords": []
+    },
+    {
+      "id": "95bf7e872d72-24",
+      "text": "Implement: Build agent syntax validator",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1767906806.3382728,
+      "updated_at": 1767906806.3382733,
+      "completed_at": null,
+      "parent_id": "95bf7e872d72-23",
+      "metadata": {
+        "feature_id": 20
+      },
+      "keywords": []
     }
   ],
-  "intent_counter": 22,
+  "intent_counter": 24,
   "created_at": 1767898213.9376826,
-  "updated_at": 1767906302.9373288
+  "updated_at": 1767906806.3382833
 }
