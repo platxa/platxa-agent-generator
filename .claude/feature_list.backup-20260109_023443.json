@@ -12,10 +12,10 @@
   "generated_at": "2026-01-08T18:49:47.948965Z",
   "spec_source": ".claude/generated_features.json",
   "summary": "Building effective AI agents system - NLP to production agents using Claude Code CLI",
-  "current_feature_id": 15,
+  "current_feature_id": null,
   "session": {
-    "count": 11,
-    "last_started_at": "2026-01-08T21:04:43.714441Z",
+    "count": 10,
+    "last_started_at": "2026-01-08T20:57:59.783860Z",
     "total_duration_minutes": 0
   },
   "stats": {
@@ -23,9 +23,9 @@
     "passed": 10,
     "failed": 0,
     "skipped": 0,
-    "in_progress": 1,
+    "in_progress": 0,
     "paused": 0,
-    "pending": 37,
+    "pending": 38,
     "completion_percentage": 20.8
   },
   "categories": [
@@ -586,9 +586,9 @@
         "source_1",
         "source_5"
       ],
-      "status": "in_progress",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-08T21:04:43.714422Z",
+      "started_at": null,
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,

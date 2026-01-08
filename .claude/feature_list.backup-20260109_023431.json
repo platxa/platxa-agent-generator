@@ -12,21 +12,21 @@
   "generated_at": "2026-01-08T18:49:47.948965Z",
   "spec_source": ".claude/generated_features.json",
   "summary": "Building effective AI agents system - NLP to production agents using Claude Code CLI",
-  "current_feature_id": 15,
+  "current_feature_id": 14,
   "session": {
-    "count": 11,
-    "last_started_at": "2026-01-08T21:04:43.714441Z",
+    "count": 10,
+    "last_started_at": "2026-01-08T20:57:59.783860Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 48,
-    "passed": 10,
+    "passed": 9,
     "failed": 0,
     "skipped": 0,
     "in_progress": 1,
     "paused": 0,
-    "pending": 37,
-    "completion_percentage": 20.8
+    "pending": 38,
+    "completion_percentage": 18.8
   },
   "categories": [
     {
@@ -64,7 +64,7 @@
     {
       "name": "Generation",
       "total": 4,
-      "passed": 2,
+      "passed": 1,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -547,20 +547,20 @@
       "verification": {
         "type": "manual",
         "criteria": "System prompts are clear, specific, and effective",
-        "completed": true,
-        "evidence": "9148a38",
-        "verified_at": "2026-01-08T21:04:33.771414Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "source_1",
         "source_4"
       ],
-      "status": "passed",
+      "status": "in_progress",
       "status_reason": null,
       "started_at": "2026-01-08T20:57:59.783846Z",
-      "completed_at": "2026-01-08T21:04:33.771506Z",
-      "commit_hash": "9148a38",
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -586,9 +586,9 @@
         "source_1",
         "source_5"
       ],
-      "status": "in_progress",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-08T21:04:43.714422Z",
+      "started_at": null,
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,
