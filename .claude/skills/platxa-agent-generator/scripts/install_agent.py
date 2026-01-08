@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """
-Agent Installation Script for User Scope
+Agent Installation Script
 
-Installs validated agent definition files to ~/.claude/agents/ for user-wide availability.
+Installs validated agent definition files to user or project scope.
+
+Scopes:
+    user: ~/.claude/agents/ (available across all projects)
+    project: .claude/agents/ (available only in current project)
 
 Usage:
-    python install_agent.py install agent.md
-    python install_agent.py install agent.md --force
-    python install_agent.py uninstall agent-name
-    python install_agent.py list
+    python install_agent.py install agent.md                    # Install to user scope (default)
+    python install_agent.py install agent.md --scope project    # Install to project scope
+    python install_agent.py install agent.md --force            # Overwrite existing
+    python install_agent.py uninstall agent-name                # Uninstall from user scope
+    python install_agent.py uninstall agent-name --scope project
+    python install_agent.py list                                # List user scope agents
+    python install_agent.py list --scope project                # List project scope agents
 """
 
 from __future__ import annotations
@@ -36,6 +43,59 @@ class InstallResult:
 def get_user_agents_dir() -> Path:
     """Get the user-scope agents directory."""
     return Path.home() / ".claude" / "agents"
+
+
+def get_project_root() -> Path | None:
+    """
+    Find the project root by looking for .claude directory or .git.
+
+    Returns:
+        Path to project root, or None if not in a project
+    """
+    current = Path.cwd()
+
+    # Walk up the directory tree
+    for parent in [current, *current.parents]:
+        # Check for .claude directory (Claude Code project marker)
+        if (parent / ".claude").is_dir():
+            return parent
+        # Check for .git directory (git repository root)
+        if (parent / ".git").exists():
+            return parent
+
+    # No project root found, use current directory
+    return None
+
+
+def get_project_agents_dir() -> Path | None:
+    """
+    Get the project-scope agents directory.
+
+    Returns:
+        Path to .claude/agents/ in project root, or None if not in a project
+    """
+    project_root = get_project_root()
+    if project_root is None:
+        return None
+    return project_root / ".claude" / "agents"
+
+
+def get_agents_dir(scope: str) -> Path | None:
+    """
+    Get agents directory based on scope.
+
+    Args:
+        scope: "user" or "project"
+
+    Returns:
+        Path to agents directory, or None if project scope not available
+    """
+    if scope == "user":
+        return get_user_agents_dir()
+    elif scope == "project":
+        return get_project_agents_dir()
+    else:
+        return None
 
 
 def ensure_agents_dir(agents_dir: Path) -> bool:
@@ -182,16 +242,18 @@ def run_security_scan(source: Path) -> tuple[bool, float]:
 
 def install_agent(
     source_path: str | Path,
+    scope: str = "user",
     force: bool = False,
     backup: bool = True,
     skip_validation: bool = False,
     min_security_score: float = 5.0,
 ) -> InstallResult:
     """
-    Install an agent definition file to user scope.
+    Install an agent definition file to specified scope.
 
     Args:
         source_path: Path to the agent file to install
+        scope: Installation scope ("user" or "project")
         force: Overwrite existing without prompt
         backup: Create backup of existing file before overwrite
         skip_validation: Skip syntax and security validation
@@ -250,8 +312,14 @@ def install_agent(
                 agent_name=agent_name,
             )
 
-    # Get target directory
-    agents_dir = get_user_agents_dir()
+    # Get target directory based on scope
+    agents_dir = get_agents_dir(scope)
+    if agents_dir is None:
+        return InstallResult(
+            success=False,
+            message=f"Invalid scope '{scope}' or not in a project (for project scope)",
+            agent_name=agent_name,
+        )
     if not ensure_agents_dir(agents_dir):
         return InstallResult(
             success=False,
@@ -287,31 +355,41 @@ def install_agent(
 
     return InstallResult(
         success=True,
-        message=f"Successfully installed agent '{agent_name}' to user scope",
+        message=f"Successfully installed agent '{agent_name}' to {scope} scope",
         installed_path=str(target_path),
         backup_path=str(backup_path) if backup_path else None,
         agent_name=agent_name,
     )
 
 
-def uninstall_agent(agent_name: str, backup: bool = True) -> InstallResult:
+def uninstall_agent(
+    agent_name: str, scope: str = "user", backup: bool = True
+) -> InstallResult:
     """
-    Uninstall an agent from user scope.
+    Uninstall an agent from specified scope.
 
     Args:
         agent_name: Name of the agent to uninstall
+        scope: Installation scope ("user" or "project")
         backup: Create backup before removing
 
     Returns:
         InstallResult with success status
     """
-    agents_dir = get_user_agents_dir()
+    agents_dir = get_agents_dir(scope)
+    if agents_dir is None:
+        return InstallResult(
+            success=False,
+            message=f"Invalid scope '{scope}' or not in a project (for project scope)",
+            agent_name=agent_name,
+        )
+
     target_path = agents_dir / f"{agent_name}.md"
 
     if not target_path.exists():
         return InstallResult(
             success=False,
-            message=f"Agent not found: {agent_name}",
+            message=f"Agent not found in {scope} scope: {agent_name}",
             agent_name=agent_name,
         )
 
@@ -330,23 +408,26 @@ def uninstall_agent(agent_name: str, backup: bool = True) -> InstallResult:
 
     return InstallResult(
         success=True,
-        message=f"Successfully uninstalled agent '{agent_name}'",
+        message=f"Successfully uninstalled agent '{agent_name}' from {scope} scope",
         backup_path=str(backup_path) if backup_path else None,
         agent_name=agent_name,
     )
 
 
-def list_installed_agents() -> list[dict]:
+def list_installed_agents(scope: str = "user") -> list[dict]:
     """
-    List all installed user-scope agents.
+    List all installed agents in specified scope.
+
+    Args:
+        scope: Installation scope ("user" or "project")
 
     Returns:
         List of agent info dictionaries
     """
-    agents_dir = get_user_agents_dir()
-    agents = []
+    agents_dir = get_agents_dir(scope)
+    agents: list[dict] = []
 
-    if not agents_dir.exists():
+    if agents_dir is None or not agents_dir.exists():
         return agents
 
     for agent_file in agents_dir.glob("*.md"):
@@ -372,7 +453,7 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Install agent definitions to user scope (~/.claude/agents/)"
+        description="Install agent definitions to user or project scope"
     )
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
@@ -392,6 +473,12 @@ def main() -> None:
         "--min-score", type=float, default=5.0, help="Minimum security score (default: 5.0)"
     )
     install_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    install_parser.add_argument(
+        "--scope",
+        choices=["user", "project"],
+        default="user",
+        help="Installation scope: user (~/.claude/agents/) or project (.claude/agents/)",
+    )
 
     # Uninstall command
     uninstall_parser = subparsers.add_parser("uninstall", help="Uninstall an agent")
@@ -400,10 +487,22 @@ def main() -> None:
         "--no-backup", action="store_true", help="Don't create backup before removing"
     )
     uninstall_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    uninstall_parser.add_argument(
+        "--scope",
+        choices=["user", "project"],
+        default="user",
+        help="Scope to uninstall from: user or project",
+    )
 
     # List command
     list_parser = subparsers.add_parser("list", help="List installed agents")
     list_parser.add_argument("--json", action="store_true", help="Output as JSON")
+    list_parser.add_argument(
+        "--scope",
+        choices=["user", "project"],
+        default="user",
+        help="Scope to list agents from: user or project",
+    )
 
     # Default to install if just a file is provided
     args, remaining = parser.parse_known_args()
@@ -417,6 +516,7 @@ def main() -> None:
     if args.command == "install":
         result = install_agent(
             args.file,
+            scope=args.scope,
             force=args.force,
             backup=not args.no_backup,
             skip_validation=args.skip_validation,
@@ -444,7 +544,7 @@ def main() -> None:
         sys.exit(0 if result.success else 1)
 
     elif args.command == "uninstall":
-        result = uninstall_agent(args.name, backup=not args.no_backup)
+        result = uninstall_agent(args.name, scope=args.scope, backup=not args.no_backup)
 
         if args.json:
             output = {
@@ -465,20 +565,20 @@ def main() -> None:
         sys.exit(0 if result.success else 1)
 
     elif args.command == "list":
-        agents = list_installed_agents()
+        agents = list_installed_agents(scope=args.scope)
 
         if args.json:
             print(json.dumps(agents, indent=2))
         else:
             if agents:
-                print(f"Installed agents ({len(agents)}):")
+                print(f"Installed agents in {args.scope} scope ({len(agents)}):")
                 print("-" * 40)
                 for agent in agents:
                     print(f"  {agent['name']}")
                     print(f"    Path: {agent['path']}")
                     print(f"    Modified: {agent['modified']}")
             else:
-                print("No agents installed in user scope")
+                print(f"No agents installed in {args.scope} scope")
 
         sys.exit(0)
 
