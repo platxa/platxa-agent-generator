@@ -77,9 +77,13 @@ DOMAIN_TOOLS: dict[str, list[str]] = {
     "code-review": ["Grep", "LSP"],  # Code analysis
     "refactoring": ["Edit", "LSP"],  # Code modification
     "deployment": ["Bash"],  # Shell operations
+    "web": ["WebFetch", "WebSearch"],  # Web development
     "web-scraping": ["WebFetch"],  # Web content
     "research": ["WebSearch", "WebFetch"],  # Web research
     "data-analysis": ["NotebookEdit", "Bash"],  # Notebooks and scripts
+    "api": ["WebFetch"],  # API integration
+    "devops": ["Bash"],  # DevOps operations
+    "data": ["NotebookEdit"],  # Data processing
 }
 
 # Capability keywords that imply specific tools
