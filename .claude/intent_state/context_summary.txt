@@ -1,0 +1,2 @@
+Session goal: [Generation] Feature #14: Build system prompt generator based on agent type and purpose Criteria: System prompts are clear, specific, and effective
+Current task: Implement: Build system prompt generator based on agent type and purpose

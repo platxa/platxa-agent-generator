@@ -1,0 +1,1570 @@
+{
+  "schema_version": "1.0.0",
+  "version": "1.0.0",
+  "description": "Spec-driven feature tracking for autonomous coding sessions. Based on Anthropic autonomous-coding pattern.",
+  "important_rules": [
+    "NEVER remove features from this list - only update status",
+    "NEVER mark a feature as 'passed' without end-to-end verification",
+    "NEVER modify feature descriptions after generation",
+    "Work on ONE feature at a time until it passes or is marked failed",
+    "Always leave code in merge-ready state before ending session"
+  ],
+  "generated_at": "2026-01-08T18:49:47.948965Z",
+  "spec_source": ".claude/generated_features.json",
+  "summary": "Building effective AI agents system - NLP to production agents using Claude Code CLI",
+  "current_feature_id": 5,
+  "session": {
+    "count": 5,
+    "last_started_at": "2026-01-08T20:39:06.096262Z",
+    "total_duration_minutes": 0
+  },
+  "stats": {
+    "total": 48,
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "in_progress": 1,
+    "paused": 0,
+    "pending": 43,
+    "completion_percentage": 8.3
+  },
+  "categories": [
+    {
+      "name": "Setup",
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Core",
+      "total": 5,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Subagents",
+      "total": 4,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Patterns",
+      "total": 5,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Generation",
+      "total": 4,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Integration",
+      "total": 4,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Validation",
+      "total": 4,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Testing",
+      "total": 3,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Deployment",
+      "total": 2,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Catalog",
+      "total": 1,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Templates",
+      "total": 6,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "UX",
+      "total": 2,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Documentation",
+      "total": 2,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Advanced",
+      "total": 4,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "CI",
+      "total": 1,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    }
+  ],
+  "features": [
+    {
+      "id": 1,
+      "description": "Create platxa-agent-generator skill with SKILL.md entry point",
+      "category": "Setup",
+      "priority": "high",
+      "rationale": "Core skill structure following Anthropic Agent Skills specification",
+      "verification": {
+        "type": "manual",
+        "criteria": "SKILL.md exists with valid frontmatter",
+        "completed": true,
+        "evidence": "f42e051",
+        "verified_at": "2026-01-08T20:16:57.481163Z",
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1",
+        "source_4"
+      ],
+      "status": "passed",
+      "status_reason": null,
+      "started_at": "2026-01-08T18:49:56.960666Z",
+      "completed_at": "2026-01-08T20:16:57.487053Z",
+      "commit_hash": "f42e051",
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 2,
+      "description": "Implement NLP parser to extract agent requirements from natural language",
+      "category": "Core",
+      "priority": "high",
+      "rationale": "NL2Agent requires structured extraction from free-form descriptions",
+      "verification": {
+        "type": "test",
+        "criteria": "Parser extracts agent name, type, tools, and description",
+        "completed": true,
+        "evidence": "0abd79b",
+        "verified_at": "2026-01-08T20:28:07.236585Z",
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_6"
+      ],
+      "status": "passed",
+      "status_reason": null,
+      "started_at": "2026-01-08T20:17:06.316420Z",
+      "completed_at": "2026-01-08T20:28:07.236685Z",
+      "commit_hash": "0abd79b",
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 3,
+      "description": "Create agent type classifier (simple, orchestrator, multi-agent, pipeline)",
+      "category": "Core",
+      "priority": "high",
+      "rationale": "Different agent types require different generation patterns",
+      "verification": {
+        "type": "test",
+        "criteria": "Classifier correctly identifies agent type from description",
+        "completed": true,
+        "evidence": "11d7182",
+        "verified_at": "2026-01-08T20:33:00.112280Z",
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1",
+        "source_3"
+      ],
+      "status": "passed",
+      "status_reason": null,
+      "started_at": "2026-01-08T20:28:17.384613Z",
+      "completed_at": "2026-01-08T20:33:00.112386Z",
+      "commit_hash": "11d7182",
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 4,
+      "description": "Build discovery subagent for researching domain patterns",
+      "category": "Subagents",
+      "priority": "high",
+      "rationale": "Discovery phase needs web research and pattern analysis capabilities",
+      "verification": {
+        "type": "manual",
+        "criteria": "Subagent returns relevant domain knowledge",
+        "completed": true,
+        "evidence": "4403c05",
+        "verified_at": "2026-01-08T20:38:56.528167Z",
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2",
+        "source_5"
+      ],
+      "status": "passed",
+      "status_reason": null,
+      "started_at": "2026-01-08T20:33:11.038351Z",
+      "completed_at": "2026-01-08T20:38:56.533524Z",
+      "commit_hash": "4403c05",
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 5,
+      "description": "Create architecture subagent for determining agent structure",
+      "category": "Subagents",
+      "priority": "high",
+      "rationale": "Architecture decisions require analysis of patterns and best practices",
+      "verification": {
+        "type": "manual",
+        "criteria": "Subagent produces valid architecture blueprint",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1",
+        "source_2"
+      ],
+      "status": "in_progress",
+      "status_reason": null,
+      "started_at": "2026-01-08T20:39:06.096245Z",
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 6,
+      "description": "Implement generation subagent for creating agent files",
+      "category": "Subagents",
+      "priority": "high",
+      "rationale": "File generation requires Claude Code-specific knowledge",
+      "verification": {
+        "type": "manual",
+        "criteria": "Subagent generates valid .claude/agents/ files",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4",
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 7,
+      "description": "Build validation subagent for quality checks",
+      "category": "Subagents",
+      "priority": "high",
+      "rationale": "Production agents require rigorous validation",
+      "verification": {
+        "type": "manual",
+        "criteria": "Subagent validates syntax, security, and completeness",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 8,
+      "description": "Create prompt-chaining pattern template generator",
+      "category": "Patterns",
+      "priority": "medium",
+      "rationale": "Prompt chaining is fundamental pattern for task decomposition",
+      "verification": {
+        "type": "test",
+        "criteria": "Generates valid sequential workflow agent",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1",
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 9,
+      "description": "Implement routing pattern template generator",
+      "category": "Patterns",
+      "priority": "medium",
+      "rationale": "Routing enables separation of concerns and specialized handling",
+      "verification": {
+        "type": "test",
+        "criteria": "Generates valid classifier + handler agents",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1",
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 10,
+      "description": "Build orchestrator-workers pattern template generator",
+      "category": "Patterns",
+      "priority": "high",
+      "rationale": "Most powerful pattern for dynamic task decomposition",
+      "verification": {
+        "type": "test",
+        "criteria": "Generates valid orchestrator with worker spawning",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1",
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 11,
+      "description": "Create evaluator-optimizer pattern template generator",
+      "category": "Patterns",
+      "priority": "medium",
+      "rationale": "Essential for tasks requiring iterative refinement",
+      "verification": {
+        "type": "test",
+        "criteria": "Generates valid feedback loop agent",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1",
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 12,
+      "description": "Implement parallelization pattern template generator",
+      "category": "Patterns",
+      "priority": "medium",
+      "rationale": "Parallelization maximizes efficiency for independent subtasks",
+      "verification": {
+        "type": "test",
+        "criteria": "Generates agents with parallel Task tool calls",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1",
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 13,
+      "description": "Create agent.md file generator with valid frontmatter",
+      "category": "Generation",
+      "priority": "high",
+      "rationale": "Claude Code agents require specific file format",
+      "verification": {
+        "type": "test",
+        "criteria": "Generated files have valid YAML frontmatter",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 14,
+      "description": "Build system prompt generator based on agent type and purpose",
+      "category": "Generation",
+      "priority": "high",
+      "rationale": "System prompt quality directly impacts agent effectiveness",
+      "verification": {
+        "type": "manual",
+        "criteria": "System prompts are clear, specific, and effective",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1",
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 15,
+      "description": "Implement tool selection logic based on agent requirements",
+      "category": "Generation",
+      "priority": "high",
+      "rationale": "Appropriate tool selection is critical for agent function",
+      "verification": {
+        "type": "test",
+        "criteria": "Tool list matches agent capabilities needed",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1",
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 16,
+      "description": "Create CLAUDE.md generator for agent-specific context",
+      "category": "Generation",
+      "priority": "medium",
+      "rationale": "CLAUDE.md enables project-specific agent behavior",
+      "verification": {
+        "type": "test",
+        "criteria": "CLAUDE.md provides useful project context",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 17,
+      "description": "Build MCP server configuration generator",
+      "category": "Integration",
+      "priority": "medium",
+      "rationale": "MCP enables external system integration",
+      "verification": {
+        "type": "test",
+        "criteria": "Generates valid .mcp.json configurations",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2",
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 18,
+      "description": "Implement slash command generator for agent invocation",
+      "category": "Integration",
+      "priority": "medium",
+      "rationale": "Slash commands provide user-friendly agent access",
+      "verification": {
+        "type": "test",
+        "criteria": "Commands invoke agents correctly",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4",
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 19,
+      "description": "Create hooks generator for compliance and logging",
+      "category": "Integration",
+      "priority": "low",
+      "rationale": "Enterprise agents need audit trails and compliance",
+      "verification": {
+        "type": "test",
+        "criteria": "Hooks execute on agent events",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2",
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 20,
+      "description": "Build agent syntax validator",
+      "category": "Validation",
+      "priority": "high",
+      "rationale": "Syntax errors prevent agent loading",
+      "verification": {
+        "type": "test",
+        "criteria": "Catches YAML and markdown errors",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 21,
+      "description": "Implement security scanner for agent definitions",
+      "category": "Validation",
+      "priority": "high",
+      "rationale": "Agents should not enable security vulnerabilities",
+      "verification": {
+        "type": "test",
+        "criteria": "Detects dangerous patterns and tool combinations",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 22,
+      "description": "Create completeness checker for agent definitions",
+      "category": "Validation",
+      "priority": "medium",
+      "rationale": "Incomplete agents may fail at runtime",
+      "verification": {
+        "type": "test",
+        "criteria": "Validates all required fields present",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 23,
+      "description": "Build quality scorer for generated agents",
+      "category": "Validation",
+      "priority": "medium",
+      "rationale": "Quality gates prevent low-quality agents from deployment",
+      "verification": {
+        "type": "test",
+        "criteria": "Score reflects agent quality objectively",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 24,
+      "description": "Implement test harness for agent invocation testing",
+      "category": "Testing",
+      "priority": "medium",
+      "rationale": "Agents should be tested before deployment",
+      "verification": {
+        "type": "manual",
+        "criteria": "Can invoke agent and verify response",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 25,
+      "description": "Create dry-run mode for agent generation",
+      "category": "Testing",
+      "priority": "medium",
+      "rationale": "Users should preview before committing changes",
+      "verification": {
+        "type": "test",
+        "criteria": "Shows what would be created without creating",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 26,
+      "description": "Build installation script for user scope agents",
+      "category": "Deployment",
+      "priority": "high",
+      "rationale": "User scope agents are available across all projects",
+      "verification": {
+        "type": "test",
+        "criteria": "Installs to ~/.claude/agents/",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 27,
+      "description": "Create installation script for project scope agents",
+      "category": "Deployment",
+      "priority": "high",
+      "rationale": "Project scope agents are shared with team",
+      "verification": {
+        "type": "test",
+        "criteria": "Installs to .claude/agents/",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 28,
+      "description": "Implement agent catalog for pre-built agents",
+      "category": "Catalog",
+      "priority": "medium",
+      "rationale": "Pre-built agents accelerate adoption",
+      "verification": {
+        "type": "manual",
+        "criteria": "Catalog lists available agent templates",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 29,
+      "description": "Create code-reviewer agent template",
+      "category": "Templates",
+      "priority": "medium",
+      "rationale": "Common use case for Claude Code agents",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent performs code reviews effectively",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 30,
+      "description": "Build research-agent template with web search",
+      "category": "Templates",
+      "priority": "medium",
+      "rationale": "Research agents demonstrated in Claude SDK",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent performs web research effectively",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 31,
+      "description": "Create documentation-agent template",
+      "category": "Templates",
+      "priority": "medium",
+      "rationale": "Documentation is common automation need",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent generates documentation effectively",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 32,
+      "description": "Implement test-writer-agent template",
+      "category": "Templates",
+      "priority": "medium",
+      "rationale": "Test writing is high-value automation",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent writes tests effectively",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 33,
+      "description": "Build refactoring-agent template",
+      "category": "Templates",
+      "priority": "medium",
+      "rationale": "Refactoring benefits from subagent parallelization",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent performs refactoring effectively",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 34,
+      "description": "Create security-scanner-agent template",
+      "category": "Templates",
+      "priority": "medium",
+      "rationale": "Security analysis is critical capability",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent identifies security issues",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 35,
+      "description": "Implement workflow state machine for generation phases",
+      "category": "Core",
+      "priority": "high",
+      "rationale": "State machine ensures consistent workflow",
+      "verification": {
+        "type": "test",
+        "criteria": "State transitions correctly through phases",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 36,
+      "description": "Build state persistence in .claude/ directory",
+      "category": "Core",
+      "priority": "medium",
+      "rationale": "Long workflows need persistence for resume",
+      "verification": {
+        "type": "test",
+        "criteria": "State persists across sessions",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 37,
+      "description": "Create progress tracking and display system",
+      "category": "UX",
+      "priority": "medium",
+      "rationale": "Complex generation needs progress visibility",
+      "verification": {
+        "type": "manual",
+        "criteria": "User sees clear progress indicators",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 38,
+      "description": "Implement interactive mode with AskUserQuestion",
+      "category": "UX",
+      "priority": "high",
+      "rationale": "User input improves generation quality",
+      "verification": {
+        "type": "manual",
+        "criteria": "User can guide generation interactively",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 39,
+      "description": "Build extended thinking integration for complex decisions",
+      "category": "Core",
+      "priority": "medium",
+      "rationale": "Extended thinking improves architecture decisions",
+      "verification": {
+        "type": "manual",
+        "criteria": "Complex decisions use deeper analysis",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 40,
+      "description": "Create references directory with pattern documentation",
+      "category": "Documentation",
+      "priority": "medium",
+      "rationale": "Reference docs guide generation quality",
+      "verification": {
+        "type": "manual",
+        "criteria": "Patterns documented with examples",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1",
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 41,
+      "description": "Implement multi-agent system generator",
+      "category": "Advanced",
+      "priority": "high",
+      "rationale": "Multi-agent is key differentiator",
+      "verification": {
+        "type": "manual",
+        "criteria": "Generates coordinated multi-agent systems",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_1",
+        "source_3"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 42,
+      "description": "Build agent composition feature for combining agents",
+      "category": "Advanced",
+      "priority": "medium",
+      "rationale": "Composition enables complex behaviors",
+      "verification": {
+        "type": "test",
+        "criteria": "Agents can invoke other agents as subagents",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2",
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 43,
+      "description": "Create agent versioning and update system",
+      "category": "Advanced",
+      "priority": "low",
+      "rationale": "Production agents need version control",
+      "verification": {
+        "type": "test",
+        "criteria": "Agents can be versioned and updated",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 44,
+      "description": "Implement agent export for sharing",
+      "category": "Advanced",
+      "priority": "low",
+      "rationale": "Sharing agents builds ecosystem",
+      "verification": {
+        "type": "test",
+        "criteria": "Agents can be exported as packages",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 45,
+      "description": "Build comprehensive test suite for generator",
+      "category": "Testing",
+      "priority": "high",
+      "rationale": "Generator reliability requires testing",
+      "verification": {
+        "type": "test",
+        "criteria": "All core features have tests",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 46,
+      "description": "Create documentation with examples and tutorials",
+      "category": "Documentation",
+      "priority": "medium",
+      "rationale": "Good docs drive adoption",
+      "verification": {
+        "type": "manual",
+        "criteria": "Users can follow docs to create agents",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 47,
+      "description": "Implement CLI interface for standalone usage",
+      "category": "Integration",
+      "priority": "medium",
+      "rationale": "CLI enables automation and scripting",
+      "verification": {
+        "type": "test",
+        "criteria": "Can run from command line",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 48,
+      "description": "Create GitHub Actions workflow for validation",
+      "category": "CI",
+      "priority": "medium",
+      "rationale": "CI ensures quality for contributions",
+      "verification": {
+        "type": "test",
+        "criteria": "PR validation works",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    }
+  ],
+  "spec_config": {
+    "source_of_truth": "ask",
+    "format": "auto",
+    "verification_level": "manual"
+  }
+}

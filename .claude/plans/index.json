@@ -1,0 +1,86 @@
+{
+  "version": "1.0",
+  "updated_at": "2026-01-09T02:28:14.534831",
+  "plans": [
+    {
+      "id": "plan-feature-3",
+      "title": "Implementation: Create agent type classifier (simple, orchestrator, multi-ag...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-09T01:58:30.525611",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-10",
+      "title": "Implementation: Build orchestrator-workers pattern template generator",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-09T02:19:27.044744",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-14",
+      "title": "Implementation: Build system prompt generator based on agent type and purpos...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-09T02:28:14.534397",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-5",
+      "title": "Implementation: Create architecture subagent for determining agent structure",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-09T02:09:19.931923",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-4",
+      "title": "Implementation: Build discovery subagent for researching domain patterns",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-09T02:03:25.571313",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-13",
+      "title": "Implementation: Create agent.md file generator with valid frontmatter",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-09T02:22:23.526482",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-1",
+      "title": "Implementation: Create platxa-agent-generator skill with SKILL.md entry poin...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-09T00:20:08.384800",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-2",
+      "title": "Implementation: Implement NLP parser to extract agent requirements from natu...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-09T01:47:19.502680",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-6",
+      "title": "Implementation: Implement generation subagent for creating agent files",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-09T02:12:10.006697",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-7",
+      "title": "Implementation: Build validation subagent for quality checks",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-09T02:16:40.184992",
+      "constitution_check": true
+    }
+  ]
+}
