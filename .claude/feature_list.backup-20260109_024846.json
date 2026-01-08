@@ -12,21 +12,21 @@
   "generated_at": "2026-01-08T18:49:47.948965Z",
   "spec_source": ".claude/generated_features.json",
   "summary": "Building effective AI agents system - NLP to production agents using Claude Code CLI",
-  "current_feature_id": 21,
+  "current_feature_id": 20,
   "session": {
-    "count": 13,
-    "last_started_at": "2026-01-08T21:18:56.506882Z",
+    "count": 12,
+    "last_started_at": "2026-01-08T21:13:04.435811Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 48,
-    "passed": 12,
+    "passed": 11,
     "failed": 0,
     "skipped": 0,
     "in_progress": 1,
     "paused": 0,
-    "pending": 35,
-    "completion_percentage": 25.0
+    "pending": 36,
+    "completion_percentage": 22.9
   },
   "categories": [
     {
@@ -80,7 +80,7 @@
     {
       "name": "Validation",
       "total": 4,
-      "passed": 1,
+      "passed": 0,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -726,19 +726,19 @@
       "verification": {
         "type": "test",
         "criteria": "Catches YAML and markdown errors",
-        "completed": true,
-        "evidence": "fc8e746",
-        "verified_at": "2026-01-08T21:18:48.132522Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "source_4"
       ],
-      "status": "passed",
+      "status": "in_progress",
       "status_reason": null,
       "started_at": "2026-01-08T21:13:04.435789Z",
-      "completed_at": "2026-01-08T21:18:48.132595Z",
-      "commit_hash": "fc8e746",
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -763,9 +763,9 @@
       "research_refs": [
         "source_4"
       ],
-      "status": "in_progress",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-08T21:18:56.506867Z",
+      "started_at": null,
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,
