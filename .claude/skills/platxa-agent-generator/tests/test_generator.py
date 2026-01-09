@@ -50,7 +50,7 @@ This is a test agent.
             text=True,
         )
         output = json.loads(result.stdout)
-        assert output["valid"] is True
+        assert output["passed"] is True
         assert len(output["errors"]) == 0
 
     def test_missing_frontmatter_fails(self, tmp_path: Path) -> None:
@@ -71,7 +71,7 @@ No frontmatter in this file.
             text=True,
         )
         output = json.loads(result.stdout)
-        assert output["valid"] is False
+        assert output["passed"] is False
 
     def test_missing_name_field_fails(self, tmp_path: Path) -> None:
         """Real test: missing required 'name' field should fail."""
@@ -94,7 +94,7 @@ tools: Read
             text=True,
         )
         output = json.loads(result.stdout)
-        assert output["valid"] is False
+        assert output["passed"] is False
 
     def test_invalid_yaml_syntax_fails(self, tmp_path: Path) -> None:
         """Real test: invalid YAML syntax should fail."""
@@ -118,7 +118,7 @@ tools: Read
             text=True,
         )
         output = json.loads(result.stdout)
-        assert output["valid"] is False
+        assert output["passed"] is False
 
 
 class TestSecurityScanner:
@@ -571,7 +571,7 @@ class TestMultiAgentGenerator:
                 text=True,
             )
             output = json.loads(result.stdout)
-            assert output["valid"] is True, (
+            assert output["passed"] is True, (
                 f"Validation failed for {md_file.name}: {output['errors']}"
             )
 
@@ -789,7 +789,7 @@ class TestIntegration:
                 text=True,
             )
             syntax_output = json.loads(syntax_result.stdout)
-            assert syntax_output["valid"] is True, f"Syntax failed: {md_file.name}"
+            assert syntax_output["passed"] is True, f"Syntax failed: {md_file.name}"
 
             # Security scan
             security_result = subprocess.run(
@@ -1138,7 +1138,7 @@ class TestPromptChainingPattern:
             text=True,
         )
         output = json.loads(result.stdout)
-        assert output["valid"] is True, f"Validation failed: {output.get('errors', [])}"
+        assert output["passed"] is True, f"Validation failed: {output.get('errors', [])}"
 
 
 class TestOtherPatternTemplates:
@@ -1221,11 +1221,15 @@ class TestOtherPatternTemplates:
         assert result.returncode == 0
         output = result.stdout
 
-        assert "Step 1: Generate" in output
-        assert "Step 2: Evaluate" in output
-        assert "Step 3: Optimize" in output
-        assert "Step 4: Finalize" in output
-        assert "Evaluation Criteria:" in output
+        assert "Step 1: Generate Initial Output" in output
+        assert "Step 2: Evaluate Quality" in output
+        assert "Step 3: Optimize (Iterative)" in output
+        assert "Step 4: Finalize & Report" in output
+        assert "Evaluation Criteria (weighted):" in output
+        # Feature 17: Iteration tracking
+        assert "Iteration Configuration" in output
+        assert "max_iterations" in output
+        assert "improvement_threshold" in output
 
 
 class TestMultiAgentRoutingPattern:
@@ -1407,7 +1411,7 @@ class TestMultiAgentRoutingPattern:
                 text=True,
             )
             output = json.loads(result.stdout)
-            assert output["valid"] is True, (
+            assert output["passed"] is True, (
                 f"Validation failed for {md_file.name}: {output['errors']}"
             )
 
@@ -1629,7 +1633,7 @@ class TestMultiAgentEvaluatorOptimizerPattern:
                 text=True,
             )
             output = json.loads(result.stdout)
-            assert output["valid"] is True, (
+            assert output["passed"] is True, (
                 f"Validation failed for {md_file.name}: {output['errors']}"
             )
 
@@ -1840,7 +1844,7 @@ class TestMultiAgentParallelizationPattern:
                 text=True,
             )
             output = json.loads(result.stdout)
-            assert output["valid"] is True, (
+            assert output["passed"] is True, (
                 f"Validation failed for {md_file.name}: {output['errors']}"
             )
 

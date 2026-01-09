@@ -41,6 +41,43 @@ class SecurityFinding:
     recommendation: str | None = None
 
 
+class MAESTROLayer(Enum):
+    """MAESTRO framework security analysis layers.
+
+    Based on the MAESTRO framework for AI agent security analysis.
+    Each layer represents a different aspect of agent security.
+    """
+
+    FOUNDATION = "foundation"  # Base model security
+    DATA = "data"  # Input/output data handling
+    APPLICATION = "application"  # Agent logic, prompts, tools
+    INFRASTRUCTURE = "infrastructure"  # Runtime environment
+    ORCHESTRATION = "orchestration"  # Multi-agent coordination
+    GOVERNANCE = "governance"  # Policies, compliance, audit
+
+
+@dataclass
+class LayerAnalysis:
+    """Security analysis for a single MAESTRO layer."""
+
+    layer: MAESTROLayer
+    score: float  # 0-10 for this layer
+    status: str  # "secure", "at_risk", "vulnerable"
+    findings: list[SecurityFinding] = field(default_factory=list)
+    recommendations: list[str] = field(default_factory=list)
+
+
+@dataclass
+class MAESTROReport:
+    """Complete MAESTRO framework security analysis report."""
+
+    overall_score: float
+    overall_status: str
+    layer_analyses: list[LayerAnalysis] = field(default_factory=list)
+    critical_gaps: list[str] = field(default_factory=list)
+    remediation_priority: list[str] = field(default_factory=list)
+
+
 @dataclass
 class ScanResult:
     """Result of security scan."""
@@ -50,6 +87,7 @@ class ScanResult:
     findings: list[SecurityFinding] = field(default_factory=list)
     tools_detected: list[str] = field(default_factory=list)
     risk_summary: dict[str, int] = field(default_factory=dict)
+    maestro_report: MAESTROReport | None = None
 
 
 def _build_patterns() -> tuple[list[dict], list[dict], list[dict], list[dict]]:
@@ -426,6 +464,171 @@ def calculate_score(findings: list[SecurityFinding]) -> float:
     return max(0, min(10, score))
 
 
+def _categorize_finding_to_layer(finding: SecurityFinding) -> MAESTROLayer:
+    """Map a security finding to its corresponding MAESTRO layer."""
+    code = finding.code
+
+    # Data layer: credential leaks, sensitive data
+    if code in {"SEC010", "SEC011", "SEC012", "SEC015", "SEC016"}:
+        return MAESTROLayer.DATA
+
+    # Application layer: code execution, injection
+    if code in {"SEC004", "SEC005", "SEC013", "SEC014", "SEC020", "SEC023", "SEC024", "SEC025"}:
+        return MAESTROLayer.APPLICATION
+
+    # Infrastructure layer: system access, file operations
+    if code in {"SEC001", "SEC002", "SEC003", "SEC006", "SEC007", "SEC008", "SEC017", "SEC018"}:
+        return MAESTROLayer.INFRASTRUCTURE
+
+    # Orchestration layer: tool combinations, multi-agent
+    if code in {"SEC040", "SEC041", "SEC042", "SEC043"}:
+        return MAESTROLayer.ORCHESTRATION
+
+    # Governance layer: incomplete code, audit trail
+    if code in {"SEC030", "SEC031", "SEC032"}:
+        return MAESTROLayer.GOVERNANCE
+
+    # Default to application layer
+    return MAESTROLayer.APPLICATION
+
+
+def perform_maestro_analysis(
+    tools: list[str],
+    findings: list[SecurityFinding],
+) -> MAESTROReport:
+    """
+    Perform MAESTRO framework security analysis.
+
+    Analyzes agent security across six layers:
+    1. Foundation - Base model security considerations
+    2. Data - Input/output data handling
+    3. Application - Agent logic, prompts, tool usage
+    4. Infrastructure - Runtime environment security
+    5. Orchestration - Multi-agent coordination
+    6. Governance - Policies, compliance, audit
+
+    Returns comprehensive security report with layer-by-layer analysis.
+    """
+    layer_analyses: list[LayerAnalysis] = []
+
+    # Categorize findings by layer
+    layer_findings: dict[MAESTROLayer, list[SecurityFinding]] = {
+        layer: [] for layer in MAESTROLayer
+    }
+    for finding in findings:
+        layer = _categorize_finding_to_layer(finding)
+        layer_findings[layer].append(finding)
+
+    # Analyze each layer
+    for layer in MAESTROLayer:
+        layer_f = layer_findings[layer]
+        recommendations: list[str] = []
+
+        # Calculate layer score
+        layer_score = calculate_score(layer_f)
+
+        # Determine status
+        if layer_score >= 8:
+            status = "secure"
+        elif layer_score >= 5:
+            status = "at_risk"
+        else:
+            status = "vulnerable"
+
+        # Layer-specific recommendations
+        if layer == MAESTROLayer.FOUNDATION:
+            if "Task" in tools:
+                recommendations.append("Ensure subagents inherit security constraints")
+            recommendations.append("Verify model alignment with agent objectives")
+
+        elif layer == MAESTROLayer.DATA:
+            if layer_f:
+                recommendations.append("Implement secrets scanning in CI/CD pipeline")
+                recommendations.append("Use environment variables for sensitive data")
+            if any(t in tools for t in ["Read", "Glob"]):
+                recommendations.append("Add file path validation before reading")
+
+        elif layer == MAESTROLayer.APPLICATION:
+            if "Bash" in tools:
+                recommendations.append("Implement command allowlist for Bash operations")
+                recommendations.append("Use parameterized commands, never interpolate user input")
+            if layer_f:
+                recommendations.append("Add input sanitization layer before tool execution")
+
+        elif layer == MAESTROLayer.INFRASTRUCTURE:
+            if "Write" in tools or "Edit" in tools:
+                recommendations.append("Restrict file operations to sandboxed directories")
+            if layer_f:
+                recommendations.append("Implement least-privilege access controls")
+                recommendations.append("Add runtime monitoring for suspicious operations")
+
+        elif layer == MAESTROLayer.ORCHESTRATION:
+            if "Task" in tools:
+                recommendations.append("Limit subagent spawning depth and count")
+                recommendations.append("Implement result validation between agent handoffs")
+            if layer_f:
+                recommendations.append("Add coordination guards for multi-tool operations")
+
+        elif layer == MAESTROLayer.GOVERNANCE:
+            recommendations.append("Maintain audit log of agent actions")
+            recommendations.append("Implement human-in-the-loop for high-stakes operations")
+            if layer_f:
+                recommendations.append("Complete all TODO/FIXME items before deployment")
+
+        layer_analyses.append(LayerAnalysis(
+            layer=layer,
+            score=layer_score,
+            status=status,
+            findings=layer_f,
+            recommendations=recommendations,
+        ))
+
+    # Calculate overall score (weighted average)
+    weights = {
+        MAESTROLayer.FOUNDATION: 0.10,
+        MAESTROLayer.DATA: 0.20,
+        MAESTROLayer.APPLICATION: 0.25,
+        MAESTROLayer.INFRASTRUCTURE: 0.20,
+        MAESTROLayer.ORCHESTRATION: 0.15,
+        MAESTROLayer.GOVERNANCE: 0.10,
+    }
+    overall_score = sum(
+        la.score * weights[la.layer] for la in layer_analyses
+    )
+
+    # Determine overall status
+    vulnerable_layers = [la for la in layer_analyses if la.status == "vulnerable"]
+    at_risk_layers = [la for la in layer_analyses if la.status == "at_risk"]
+
+    if vulnerable_layers:
+        overall_status = "vulnerable"
+    elif at_risk_layers:
+        overall_status = "at_risk"
+    else:
+        overall_status = "secure"
+
+    # Identify critical gaps
+    critical_gaps: list[str] = []
+    for la in layer_analyses:
+        if la.status == "vulnerable":
+            critical_gaps.append(f"{la.layer.value.upper()} layer: {len(la.findings)} critical issues")
+
+    # Prioritize remediation
+    remediation_priority: list[str] = []
+    sorted_analyses = sorted(layer_analyses, key=lambda x: x.score)
+    for la in sorted_analyses:
+        if la.recommendations:
+            remediation_priority.append(f"[{la.layer.value}] {la.recommendations[0]}")
+
+    return MAESTROReport(
+        overall_score=round(overall_score, 1),
+        overall_status=overall_status,
+        layer_analyses=layer_analyses,
+        critical_gaps=critical_gaps,
+        remediation_priority=remediation_priority[:5],  # Top 5 priorities
+    )
+
+
 def scan_file(file_path: str | Path) -> ScanResult:
     """
     Perform security scan on an agent definition file.
@@ -452,7 +655,7 @@ def scan_file(file_path: str | Path) -> ScanResult:
             ],
         )
 
-    content, frontmatter, tools = parse_agent_file(path)
+    content, _frontmatter, tools = parse_agent_file(path)
     all_findings: list[SecurityFinding] = []
 
     # Scan for critical patterns
@@ -473,6 +676,9 @@ def scan_file(file_path: str | Path) -> ScanResult:
     # Calculate score
     score = calculate_score(all_findings)
 
+    # Perform MAESTRO layer analysis
+    maestro_report = perform_maestro_analysis(tools, all_findings)
+
     # Determine pass/fail (critical findings or score < 5 = fail)
     has_critical = any(f.severity == Severity.CRITICAL for f in all_findings)
     passed = not has_critical and score >= 5.0
@@ -491,6 +697,7 @@ def scan_file(file_path: str | Path) -> ScanResult:
         findings=all_findings,
         tools_detected=tools,
         risk_summary=risk_summary,
+        maestro_report=maestro_report,
     )
 
 
@@ -539,6 +746,9 @@ def scan_content(content: str, tools: list[str] | None = None) -> ScanResult:
     # Calculate score
     score = calculate_score(all_findings)
 
+    # Perform MAESTRO layer analysis
+    maestro_report = perform_maestro_analysis(tools, all_findings)
+
     # Determine pass/fail
     has_critical = any(f.severity == Severity.CRITICAL for f in all_findings)
     passed = not has_critical and score >= 5.0
@@ -557,6 +767,7 @@ def scan_content(content: str, tools: list[str] | None = None) -> ScanResult:
         findings=all_findings,
         tools_detected=tools,
         risk_summary=risk_summary,
+        maestro_report=maestro_report,
     )
 
 
@@ -571,6 +782,59 @@ def format_finding(finding: SecurityFinding) -> str:
     if finding.recommendation:
         result += f"  Recommendation: {finding.recommendation}\n"
     return result
+
+
+def format_maestro_report(report: MAESTROReport) -> str:
+    """Format MAESTRO analysis report for display."""
+    lines: list[str] = []
+
+    lines.append("\n" + "=" * 60)
+    lines.append("MAESTRO SECURITY ANALYSIS")
+    lines.append("=" * 60)
+
+    # Overall status
+    status_icon = {"secure": "✓", "at_risk": "⚠", "vulnerable": "✗"}.get(
+        report.overall_status, "?"
+    )
+    lines.append(f"\nOverall Status: {status_icon} {report.overall_status.upper()}")
+    lines.append(f"Overall Score: {report.overall_score}/10")
+
+    # Layer-by-layer analysis
+    lines.append("\n" + "-" * 40)
+    lines.append("LAYER ANALYSIS")
+    lines.append("-" * 40)
+
+    for la in report.layer_analyses:
+        status_icon = {"secure": "✓", "at_risk": "⚠", "vulnerable": "✗"}.get(
+            la.status, "?"
+        )
+        lines.append(f"\n{la.layer.value.upper():15} [{status_icon}] Score: {la.score}/10")
+        if la.findings:
+            lines.append(f"  Issues: {len(la.findings)}")
+        if la.recommendations:
+            lines.append("  Recommendations:")
+            for rec in la.recommendations[:2]:  # Show top 2
+                lines.append(f"    - {rec}")
+
+    # Critical gaps
+    if report.critical_gaps:
+        lines.append("\n" + "-" * 40)
+        lines.append("CRITICAL GAPS")
+        lines.append("-" * 40)
+        for gap in report.critical_gaps:
+            lines.append(f"  ✗ {gap}")
+
+    # Remediation priority
+    if report.remediation_priority:
+        lines.append("\n" + "-" * 40)
+        lines.append("REMEDIATION PRIORITY")
+        lines.append("-" * 40)
+        for i, item in enumerate(report.remediation_priority, 1):
+            lines.append(f"  {i}. {item}")
+
+    lines.append("\n" + "=" * 60)
+
+    return "\n".join(lines)
 
 
 def main() -> None:
@@ -592,6 +856,27 @@ def main() -> None:
     result = scan_file(args.file)
 
     if args.json:
+        # Serialize MAESTRO report
+        maestro_data = None
+        if result.maestro_report:
+            mr = result.maestro_report
+            maestro_data = {
+                "overall_score": mr.overall_score,
+                "overall_status": mr.overall_status,
+                "critical_gaps": mr.critical_gaps,
+                "remediation_priority": mr.remediation_priority,
+                "layer_analyses": [
+                    {
+                        "layer": la.layer.value,
+                        "score": la.score,
+                        "status": la.status,
+                        "finding_count": len(la.findings),
+                        "recommendations": la.recommendations,
+                    }
+                    for la in mr.layer_analyses
+                ],
+            }
+
         output = {
             "passed": result.passed if not args.strict else result.score == 10.0,
             "score": result.score,
@@ -609,6 +894,7 @@ def main() -> None:
                 }
                 for f in result.findings
             ],
+            "maestro_analysis": maestro_data,
         }
         print(json.dumps(output, indent=2))
     else:
@@ -634,6 +920,10 @@ def main() -> None:
             counts = [f"{k}: {v}" for k, v in result.risk_summary.items() if v > 0]
             if counts:
                 print(f"Findings: {', '.join(counts)}")
+
+        # Print MAESTRO analysis
+        if result.maestro_report:
+            print(format_maestro_report(result.maestro_report))
 
     # Exit code
     if not result.passed:

@@ -366,7 +366,7 @@ Examples:
             return 1
 
         content = args.path.read_text(encoding="utf-8")
-        results: dict[str, Any] = {"path": str(args.path), "valid": True}
+        results: dict[str, Any] = {"path": str(args.path), "passed": True}
         exit_code = 0
 
         # Syntax validation
@@ -374,11 +374,11 @@ Examples:
             print("Checking syntax...")
             syntax_result = syntax_validator.validate_content(content)
             results["syntax"] = {
-                "valid": syntax_result.valid,
+                "passed": syntax_result.passed,
                 "errors": [str(e) for e in syntax_result.errors],
             }
-            if not syntax_result.valid:
-                results["valid"] = False
+            if not syntax_result.passed:
+                results["passed"] = False
                 exit_code = 1
 
         # Security scan
@@ -391,7 +391,7 @@ Examples:
                 "passed": security_result.passed,
             }
             if not security_result.passed:
-                results["valid"] = False
+                results["passed"] = False
                 exit_code = 1
 
         # Quality scoring
@@ -404,7 +404,7 @@ Examples:
                 "passed": quality_result.passed,
             }
             if quality_result.total_score < args.min_quality:
-                results["valid"] = False
+                results["passed"] = False
                 exit_code = 1
 
         if hasattr(args, "json") and args.json:
@@ -415,7 +415,7 @@ Examples:
             print("=" * 40)
 
             if "syntax" in results:
-                status = "✓ Valid" if results["syntax"]["valid"] else "✗ Invalid"
+                status = "✓ Valid" if results["syntax"]["passed"] else "✗ Invalid"
                 print(f"Syntax: {status}")
 
             if "security" in results:
@@ -428,7 +428,7 @@ Examples:
                 status = "✓" if score >= args.min_quality else "✗"
                 print(f"Quality: {status} {score:.1f}/10 ({results['quality']['grade']})")
 
-            print("\n" + ("✓ PASSED" if results["valid"] else "✗ FAILED"))
+            print("\n" + ("✓ PASSED" if results["passed"] else "✗ FAILED"))
 
         return exit_code
 
@@ -497,7 +497,7 @@ Examples:
             content = args.path.read_text(encoding="utf-8")
             syntax_result = syntax_validator.validate_content(content)
 
-            if not syntax_result.valid:
+            if not syntax_result.passed:
                 print("Error: Agent definition has syntax errors")
                 for error in syntax_result.errors:
                     print(f"  - {error}")

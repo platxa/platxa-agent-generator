@@ -32,7 +32,7 @@ class ValidationError:
 class ValidationResult:
     """Result of syntax validation."""
 
-    valid: bool
+    passed: bool
     errors: list[ValidationError] = field(default_factory=list)
     warnings: list[ValidationError] = field(default_factory=list)
     frontmatter: dict | None = None
@@ -394,7 +394,7 @@ def validate_content(content: str) -> ValidationResult:
             all_warnings.append(err)
 
     return ValidationResult(
-        valid=len(all_errors) == 0,
+        passed=len(all_errors) == 0,
         errors=all_errors,
         warnings=all_warnings,
         frontmatter=frontmatter,
@@ -416,7 +416,7 @@ def validate_file(file_path: str | Path) -> ValidationResult:
 
     if not path.exists():
         return ValidationResult(
-            valid=False,
+            passed=False,
             errors=[
                 ValidationError(
                     line=0,
@@ -430,7 +430,7 @@ def validate_file(file_path: str | Path) -> ValidationResult:
 
     if not path.suffix == ".md":
         return ValidationResult(
-            valid=False,
+            passed=False,
             errors=[
                 ValidationError(
                     line=0,
@@ -472,7 +472,7 @@ def main() -> None:
 
     if args.json:
         output = {
-            "valid": result.valid and (not args.strict or len(result.warnings) == 0),
+            "passed": result.passed and (not args.strict or len(result.warnings) == 0),
             "errors": [
                 {
                     "line": e.line,
@@ -516,7 +516,7 @@ def main() -> None:
             print(f"\n{error_count} error(s), {warning_count} warning(s)")
 
     # Exit code
-    if not result.valid:
+    if not result.passed:
         sys.exit(1)
     if args.strict and result.warnings:
         sys.exit(1)

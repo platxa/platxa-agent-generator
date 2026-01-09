@@ -54,13 +54,14 @@ class QualityReport:
 
 
 # Quality criteria weights (must sum to 1.0)
+# Updated based on research: Examples and Documentation increased for production-grade agents
 CRITERIA_WEIGHTS = {
-    "clarity": 0.20,
-    "completeness": 0.20,
-    "tool_design": 0.20,
-    "examples": 0.15,
+    "clarity": 0.15,
+    "completeness": 0.15,
+    "tool_design": 0.15,
+    "examples": 0.20,  # Increased from 0.15 - examples critical for LLM understanding
     "security": 0.15,
-    "documentation": 0.10,
+    "documentation": 0.20,  # Increased from 0.10 - production requires comprehensive docs
 }
 
 # Valid Claude Code tools
@@ -376,14 +377,17 @@ def score_examples(sections: dict[str, str]) -> CriterionScore:
     Score quality and coverage of examples.
 
     Evaluates:
-    - Number of examples
+    - Number of examples (minimum 3 required for production-grade agents)
     - Examples have input/output
     - Code blocks present
-    - Variety of use cases
+    - Variety of use cases (basic, advanced, edge case)
     """
     findings: list[str] = []
     suggestions: list[str] = []
     score = 10.0
+
+    # Minimum examples required for production-grade agents
+    MIN_EXAMPLES_REQUIRED = 3
 
     # Find examples section
     examples_content = ""
@@ -393,8 +397,8 @@ def score_examples(sections: dict[str, str]) -> CriterionScore:
             break
 
     if not examples_content:
-        score -= 5.0
-        suggestions.append("Add Examples section")
+        score -= 6.0  # Increased penalty - examples are critical
+        suggestions.append("Add Examples section with at least 3 examples")
         return CriterionScore(
             name="Examples",
             weight=CRITERIA_WEIGHTS["examples"],
@@ -419,17 +423,23 @@ def score_examples(sections: dict[str, str]) -> CriterionScore:
         code_blocks = examples_content.count("```")
         example_count = code_blocks // 2
 
-    if example_count >= 3:
-        findings.append(f"Good example coverage: {example_count} examples")
-    elif example_count >= 2:
-        findings.append(f"Adequate examples: {example_count}")
-        score -= 1.0
+    # Stricter scoring: require 3+ examples for production-grade agents
+    if example_count >= MIN_EXAMPLES_REQUIRED:
+        findings.append(f"Production-grade example coverage: {example_count} examples")
+        # Bonus for having more than minimum
+        if example_count >= 5:
+            findings.append("Excellent example variety")
+    elif example_count == 2:
+        score -= 2.5  # Increased penalty
+        findings.append(f"Insufficient examples: {example_count} (minimum {MIN_EXAMPLES_REQUIRED} required)")
+        suggestions.append(f"Add at least {MIN_EXAMPLES_REQUIRED - example_count} more examples (basic, advanced, edge case)")
     elif example_count == 1:
-        score -= 2.0
-        suggestions.append("Add more examples (recommend 2-3)")
+        score -= 4.0  # Increased penalty
+        findings.append(f"Critical: Only {example_count} example (minimum {MIN_EXAMPLES_REQUIRED} required)")
+        suggestions.append("Add examples: basic usage, advanced orchestration, edge case handling")
     else:
-        score -= 4.0
-        suggestions.append("Add usage examples")
+        score -= 6.0  # Severe penalty
+        suggestions.append("Add 3 required examples: basic usage, advanced orchestration, edge case handling")
 
     # Check for code blocks
     has_code_blocks = "```" in examples_content
