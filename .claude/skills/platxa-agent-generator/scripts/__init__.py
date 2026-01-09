@@ -52,6 +52,7 @@ from . import interactive_prompts
 from . import multiagent_generator
 from . import hooks_generator
 from . import agent_catalog
+from . import state_persistence
 
 __all__ = [
     # Core generators
@@ -78,4 +79,5 @@ __all__ = [
     "multiagent_generator",
     "hooks_generator",
     "agent_catalog",
+    "state_persistence",
 ]
