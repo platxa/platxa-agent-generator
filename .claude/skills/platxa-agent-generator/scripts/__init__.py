@@ -24,6 +24,7 @@ Modules:
     interactive_prompts: Interactive CLI prompts
     multiagent_generator: Multi-agent system generator
     progress_tracker: Progress tracking and display system
+    extended_thinking: Extended thinking integration for complex decisions
 """
 
 from __future__ import annotations
@@ -55,6 +56,7 @@ from . import hooks_generator
 from . import agent_catalog
 from . import state_persistence
 from . import progress_tracker
+from . import extended_thinking
 
 __all__ = [
     # Core generators
@@ -83,4 +85,5 @@ __all__ = [
     "agent_catalog",
     "state_persistence",
     "progress_tracker",
+    "extended_thinking",
 ]
