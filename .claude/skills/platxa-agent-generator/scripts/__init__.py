@@ -59,6 +59,7 @@ from . import state_persistence
 from . import progress_tracker
 from . import extended_thinking
 from . import cli
+from . import agent_composer
 
 __all__ = [
     # Core generators
@@ -89,4 +90,5 @@ __all__ = [
     "progress_tracker",
     "extended_thinking",
     "cli",
+    "agent_composer",
 ]
