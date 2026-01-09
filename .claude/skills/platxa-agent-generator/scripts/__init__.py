@@ -25,6 +25,7 @@ Modules:
     multiagent_generator: Multi-agent system generator
     progress_tracker: Progress tracking and display system
     extended_thinking: Extended thinking integration for complex decisions
+    cli: Command-line interface for standalone usage
 """
 
 from __future__ import annotations
@@ -57,6 +58,7 @@ from . import agent_catalog
 from . import state_persistence
 from . import progress_tracker
 from . import extended_thinking
+from . import cli
 
 __all__ = [
     # Core generators
@@ -86,4 +88,5 @@ __all__ = [
     "state_persistence",
     "progress_tracker",
     "extended_thinking",
+    "cli",
 ]
