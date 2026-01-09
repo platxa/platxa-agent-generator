@@ -359,6 +359,108 @@ Iteration | Score | Status
 """
         return content
 
+    def generate_parallel_orchestrator_markdown(self) -> str:
+        """Generate parallel orchestrator markdown with concurrent Task tool calls."""
+        worker_table = "\n".join(
+            f"| {w.name} | {w.description} | {', '.join(w.tools)} |"
+            for w in self.workers
+        )
+
+        # Generate worker names for parallel call example
+        worker_names = [w.name for w in self.workers]
+
+        content = f"""---
+name: {self.orchestrator.name}
+description: {self.orchestrator.description}
+tools: Task, Read, Write, Glob
+---
+
+# {self.orchestrator.name.replace("-", " ").title()}
+
+## Overview
+Parallel orchestrator that decomposes tasks and executes them concurrently
+across multiple specialized worker agents, then aggregates results.
+
+## Pattern
+Parallelization (Decompose → Parallel Execute → Aggregate)
+
+## Worker Agents
+| Agent | Description | Tools |
+|-------|-------------|-------|
+{worker_table}
+
+## Workflow
+
+### Step 1: Decompose
+1. Analyze incoming task for parallelizable components
+2. Partition work into independent subtasks
+3. Validate subtasks have no circular dependencies
+
+### Step 2: Parallel Execution
+**CRITICAL: Launch all independent tasks in a SINGLE message with multiple Task tool calls.**
+
+Example parallel invocation:
+```xml
+<function_calls>
+<invoke name="Task">
+  <parameter name="subagent_type">{worker_names[0] if worker_names else "worker-1"}</parameter>
+  <parameter name="prompt">Process partition 1</parameter>
+  <parameter name="description">Handle first partition</parameter>
+</invoke>
+<invoke name="Task">
+  <parameter name="subagent_type">{worker_names[1] if len(worker_names) > 1 else "worker-2"}</parameter>
+  <parameter name="prompt">Process partition 2</parameter>
+  <parameter name="description">Handle second partition</parameter>
+</invoke>
+</function_calls>
+```
+
+**Key Rules:**
+- All independent Task calls MUST be in the same message
+- Do NOT wait for one task before starting another
+- Use `run_in_background: true` for long-running tasks
+
+### Step 3: Aggregate
+1. Collect results from all parallel workers
+2. Merge/combine results based on task type:
+   - **Union**: Combine all results (e.g., search results)
+   - **Reduce**: Summarize/aggregate (e.g., statistics)
+   - **Concatenate**: Join sequentially (e.g., reports)
+3. Resolve any conflicts between worker outputs
+4. Format final aggregated result
+
+## Partition Strategy
+| Task Type | Partition By | Example |
+|-----------|--------------|---------|
+| File processing | File chunks | 100 files → 4 workers × 25 files |
+| Search | Directories | src/, tests/, docs/ |
+| Analysis | Modules | auth, api, db |
+| Generation | Components | header, body, footer |
+
+## Error Handling
+- **Worker timeout**: Mark partition as failed, continue with others
+- **Worker error**: Log error, attempt reassignment to available worker
+- **Partial success**: Return completed results with failure report
+- **All failures**: Return error with diagnostic information
+
+## Performance Considerations
+- Optimal partition size: Balance overhead vs. parallelism
+- Max concurrent workers: {len(self.workers)} (configured)
+- Result aggregation: O(n) where n = number of partitions
+
+## Output Format
+```json
+{{{{
+  "status": "completed|partial|failed",
+  "partitions_total": <number>,
+  "partitions_completed": <number>,
+  "results": [<aggregated results>],
+  "errors": [<any errors encountered>]
+}}}}
+```
+"""
+        return content
+
 
 # Pre-defined system templates
 SYSTEM_TEMPLATES: dict[str, dict[str, Any]] = {
@@ -618,6 +720,64 @@ SYSTEM_TEMPLATES: dict[str, dict[str, Any]] = {
             },
         ],
     },
+    "parallelization": {
+        "name": "parallelization-system",
+        "description": "Parallel execution system with concurrent workers",
+        "pattern": "parallelization",
+        "orchestrator": {
+            "name": "parallel-orchestrator",
+            "description": "Decomposes tasks and coordinates parallel execution",
+            "role": "orchestrator",
+            "tools": ["Task", "Read", "Write", "Glob"],
+            "responsibilities": [
+                "Decompose tasks into parallelizable partitions",
+                "Launch multiple workers concurrently",
+                "Monitor parallel execution progress",
+                "Aggregate results from all workers",
+            ],
+        },
+        "workers": [
+            {
+                "name": "partition-worker-1",
+                "description": "Processes first partition of work",
+                "role": "worker",
+                "tools": ["Read", "Write", "Grep"],
+                "responsibilities": [
+                    "Process assigned partition",
+                    "Report progress and results",
+                    "Handle partition-specific errors",
+                ],
+                "inputs": ["Partition data and processing instructions"],
+                "outputs": ["Processed partition results"],
+            },
+            {
+                "name": "partition-worker-2",
+                "description": "Processes second partition of work",
+                "role": "worker",
+                "tools": ["Read", "Write", "Grep"],
+                "responsibilities": [
+                    "Process assigned partition",
+                    "Report progress and results",
+                    "Handle partition-specific errors",
+                ],
+                "inputs": ["Partition data and processing instructions"],
+                "outputs": ["Processed partition results"],
+            },
+            {
+                "name": "partition-worker-3",
+                "description": "Processes third partition of work",
+                "role": "worker",
+                "tools": ["Read", "Write", "Grep"],
+                "responsibilities": [
+                    "Process assigned partition",
+                    "Report progress and results",
+                    "Handle partition-specific errors",
+                ],
+                "inputs": ["Partition data and processing instructions"],
+                "outputs": ["Processed partition results"],
+            },
+        ],
+    },
 }
 
 
@@ -771,6 +931,10 @@ def save_system(system: MultiAgentSystem, output_dir: Path) -> list[Path]:
         orchestrator_path.write_text(
             system.generate_evaluator_orchestrator_markdown(), encoding="utf-8"
         )
+    elif system.pattern == "parallelization":
+        orchestrator_path.write_text(
+            system.generate_parallel_orchestrator_markdown(), encoding="utf-8"
+        )
     else:
         orchestrator_path.write_text(
             system.generate_orchestrator_markdown(), encoding="utf-8"
@@ -812,6 +976,7 @@ def main() -> None:
             "parallel",
             "routing",
             "evaluator-optimizer",
+            "parallelization",
         ],
         default="orchestrator-workers",
         help="Workflow pattern",
@@ -850,6 +1015,7 @@ def main() -> None:
             "parallel",
             "routing",
             "evaluator-optimizer",
+            "parallelization",
         ],
         default="orchestrator-workers",
         help="Pattern to show",
@@ -925,6 +1091,8 @@ def main() -> None:
             system = create_system_from_template("routing")
         elif args.pattern == "evaluator-optimizer":
             system = create_system_from_template("evaluator-optimizer")
+        elif args.pattern == "parallelization":
+            system = create_system_from_template("parallelization")
         else:
             system = create_system_from_template("test-suite")
 
@@ -933,6 +1101,8 @@ def main() -> None:
                 print(system.generate_classifier_markdown())
             elif system.pattern == "evaluator-optimizer":
                 print(system.generate_evaluator_orchestrator_markdown())
+            elif system.pattern == "parallelization":
+                print(system.generate_parallel_orchestrator_markdown())
             else:
                 print(system.generate_orchestrator_markdown())
 

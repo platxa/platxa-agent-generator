@@ -1648,5 +1648,216 @@ class TestMultiAgentEvaluatorOptimizerPattern:
         assert "evaluator-optimizer" in result.stdout
 
 
+class TestMultiAgentParallelizationPattern:
+    """Tests for multi-agent parallelization pattern with concurrent execution."""
+
+    def test_parallelization_template_generates_orchestrator_and_workers(
+        self, tmp_path: Path
+    ) -> None:
+        """Parallelization template should generate orchestrator + 3 partition workers."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "parallelization",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+
+        # Verify orchestrator agent
+        orchestrator_file = tmp_path / "parallel-orchestrator.md"
+        assert orchestrator_file.exists(), "Orchestrator agent file should exist"
+
+        # Verify worker agents
+        assert (tmp_path / "partition-worker-1.md").exists(), "Worker 1 should exist"
+        assert (tmp_path / "partition-worker-2.md").exists(), "Worker 2 should exist"
+        assert (tmp_path / "partition-worker-3.md").exists(), "Worker 3 should exist"
+
+        # Verify manifest
+        manifest_file = tmp_path / "parallelization-system-manifest.json"
+        assert manifest_file.exists(), "Manifest should exist"
+
+        manifest = json.loads(manifest_file.read_text())
+        assert manifest["pattern"] == "parallelization"
+
+    def test_orchestrator_contains_parallel_task_calls(self, tmp_path: Path) -> None:
+        """Orchestrator should contain example of parallel Task tool calls."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "parallelization",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        orchestrator_content = (tmp_path / "parallel-orchestrator.md").read_text()
+
+        # Verify parallel Task call examples
+        assert "CRITICAL" in orchestrator_content
+        assert "SINGLE message" in orchestrator_content
+        assert "multiple Task tool calls" in orchestrator_content
+        assert "<invoke name=" in orchestrator_content
+        assert "partition-worker-1" in orchestrator_content
+        assert "partition-worker-2" in orchestrator_content
+
+    def test_orchestrator_has_decompose_execute_aggregate_workflow(
+        self, tmp_path: Path
+    ) -> None:
+        """Orchestrator should have workflow steps for decompose, execute, aggregate."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "parallelization",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        orchestrator_content = (tmp_path / "parallel-orchestrator.md").read_text()
+
+        # Verify workflow steps
+        assert "Step 1: Decompose" in orchestrator_content
+        assert "Step 2: Parallel Execution" in orchestrator_content
+        assert "Step 3: Aggregate" in orchestrator_content
+
+    def test_orchestrator_includes_partition_strategy(self, tmp_path: Path) -> None:
+        """Orchestrator should include partition strategy guidance."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "parallelization",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        orchestrator_content = (tmp_path / "parallel-orchestrator.md").read_text()
+
+        assert "Partition Strategy" in orchestrator_content
+        assert "Task Type" in orchestrator_content
+
+    def test_orchestrator_includes_error_handling(self, tmp_path: Path) -> None:
+        """Orchestrator should include error handling for parallel execution."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "parallelization",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        orchestrator_content = (tmp_path / "parallel-orchestrator.md").read_text()
+
+        assert "Error Handling" in orchestrator_content
+        assert "timeout" in orchestrator_content.lower()
+        assert "Partial success" in orchestrator_content
+
+    def test_orchestrator_includes_aggregation_strategies(self, tmp_path: Path) -> None:
+        """Orchestrator should document different aggregation strategies."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "parallelization",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        orchestrator_content = (tmp_path / "parallel-orchestrator.md").read_text()
+
+        # Should have aggregation strategies
+        assert "Union" in orchestrator_content
+        assert "Reduce" in orchestrator_content
+        assert "Concatenate" in orchestrator_content
+
+    def test_parallelization_example_shows_orchestrator(self) -> None:
+        """Example command should show parallel orchestrator markdown."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "example",
+                "parallelization",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        # Should show orchestrator content with parallel calls
+        assert "Parallel Orchestrator" in output
+        assert "Parallelization" in output
+        assert "function_calls" in output
+
+    def test_generated_parallelization_agents_pass_validation(
+        self, tmp_path: Path
+    ) -> None:
+        """All generated parallelization agents should pass syntax validation."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "parallelization",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        for md_file in tmp_path.glob("*.md"):
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS_DIR / "syntax_validator.py"),
+                    "--json",
+                    str(md_file),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            output = json.loads(result.stdout)
+            assert output["valid"] is True, (
+                f"Validation failed for {md_file.name}: {output['errors']}"
+            )
+
+    def test_parallelization_cli_pattern_option(self) -> None:
+        """Parallelization should be available as a pattern option in CLI."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "generate",
+                "--help",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert "parallelization" in result.stdout
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
