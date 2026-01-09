@@ -274,7 +274,9 @@ def select_tools(
         "LSP",
     ]
 
-    sorted_tools = sorted(final_tools, key=lambda t: tool_order.index(t) if t in tool_order else 999)
+    sorted_tools = sorted(
+        final_tools, key=lambda t: tool_order.index(t) if t in tool_order else 999
+    )
 
     return ToolSelection(
         tools=sorted_tools,
@@ -345,11 +347,20 @@ def main() -> None:
     parser.add_argument(
         "--type",
         required=True,
-        choices=["analyzer", "builder", "automation", "guide", "validator", "orchestrator"],
+        choices=[
+            "analyzer",
+            "builder",
+            "automation",
+            "guide",
+            "validator",
+            "orchestrator",
+        ],
         help="Agent type",
     )
     parser.add_argument("--purpose", default="", help="Agent purpose description")
-    parser.add_argument("--domain", default="", help="Domain (security, documentation, etc.)")
+    parser.add_argument(
+        "--domain", default="", help="Domain (security, documentation, etc.)"
+    )
     parser.add_argument("--capabilities", help="Comma-separated capabilities")
     parser.add_argument("--tools", help="Comma-separated explicit tools")
     parser.add_argument("--json", help="JSON input with all parameters")

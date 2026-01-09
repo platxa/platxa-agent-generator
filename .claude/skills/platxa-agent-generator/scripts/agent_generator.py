@@ -21,6 +21,7 @@ from typing import Any
 @dataclass
 class AgentSection:
     """A section in the agent definition."""
+
     title: str
     content: str
     level: int = 2  # H2 by default
@@ -29,10 +30,11 @@ class AgentSection:
 @dataclass
 class ChainStep:
     """A step in a prompt-chaining workflow."""
+
     name: str
     description: str
     input_from: str = ""  # Previous step or "user_input"
-    output_to: str = ""   # Next step or "final_output"
+    output_to: str = ""  # Next step or "final_output"
     tools: list[str] = field(default_factory=list)
     validation: str = ""  # Quality gate criteria
 
@@ -40,6 +42,7 @@ class ChainStep:
 @dataclass
 class WorkerDefinition:
     """A worker agent for orchestrator pattern."""
+
     name: str
     role: str
     tools: list[str]
@@ -50,6 +53,7 @@ class WorkerDefinition:
 @dataclass
 class AgentDefinition:
     """Complete agent definition for file generation."""
+
     name: str
     description: str
     tools: list[str]
@@ -62,9 +66,20 @@ class AgentDefinition:
 
 # Valid Claude Code tools
 VALID_TOOLS = {
-    "Read", "Write", "Edit", "Grep", "Glob", "Bash",
-    "WebSearch", "WebFetch", "Task", "AskUserQuestion",
-    "TodoWrite", "NotebookEdit", "LSP", "Skill",
+    "Read",
+    "Write",
+    "Edit",
+    "Grep",
+    "Glob",
+    "Bash",
+    "WebSearch",
+    "WebFetch",
+    "Task",
+    "AskUserQuestion",
+    "TodoWrite",
+    "NotebookEdit",
+    "LSP",
+    "Skill",
 }
 
 # Allowed directories for blueprint files
@@ -76,7 +91,9 @@ ALLOWED_BLUEPRINT_DIRS = [
 ]
 
 
-def validate_path_safe(filepath: str, allowed_extensions: list[str]) -> tuple[bool, str]:
+def validate_path_safe(
+    filepath: str, allowed_extensions: list[str]
+) -> tuple[bool, str]:
     """Validate file path to prevent path traversal attacks."""
     import tempfile
 
@@ -95,7 +112,10 @@ def validate_path_safe(filepath: str, allowed_extensions: list[str]) -> tuple[bo
 
         allowed_roots = [str(cwd), str(home), str(temp)]
         if not any(str(resolved).startswith(root) for root in allowed_roots):
-            return False, "Path must be within current directory, home directory, or temp directory"
+            return (
+                False,
+                "Path must be within current directory, home directory, or temp directory",
+            )
     except (OSError, ValueError) as e:
         return False, f"Invalid path: {e}"
 
@@ -121,11 +141,14 @@ def validate_name(name: str) -> tuple[bool, str]:
     if len(name) > 64:
         return False, f"Name too long ({len(name)} > 64 chars)"
 
-    if not re.match(r'^[a-z][a-z0-9-]*[a-z0-9]$', name) and len(name) > 1:
-        if not re.match(r'^[a-z][a-z0-9-]*$', name):
-            return False, "Name must be hyphen-case (lowercase letters, numbers, hyphens)"
+    if not re.match(r"^[a-z][a-z0-9-]*[a-z0-9]$", name) and len(name) > 1:
+        if not re.match(r"^[a-z][a-z0-9-]*$", name):
+            return (
+                False,
+                "Name must be hyphen-case (lowercase letters, numbers, hyphens)",
+            )
 
-    if '--' in name:
+    if "--" in name:
         return False, "Name cannot contain consecutive hyphens"
 
     return True, ""
@@ -181,7 +204,7 @@ def generate_frontmatter(definition: AgentDefinition) -> str:
 
     # Escape description if it contains special characters
     desc = definition.description
-    if ':' in desc or '\n' in desc or desc.startswith('{') or desc.startswith('['):
+    if ":" in desc or "\n" in desc or desc.startswith("{") or desc.startswith("["):
         # Use quoted string for complex descriptions
         desc_escaped = desc.replace('"', '\\"')
         lines.append(f'description: "{desc_escaped}"')
@@ -225,8 +248,7 @@ def generate_overview_section(definition: AgentDefinition) -> str:
 
 
 def generate_workflow_section(
-    definition: AgentDefinition,
-    pattern: str = "prompt-chaining"
+    definition: AgentDefinition, pattern: str = "prompt-chaining"
 ) -> str:
     """Generate Workflow section based on pattern."""
     lines = ["## Workflow", ""]
@@ -322,8 +344,12 @@ def _generate_prompt_chaining_workflow(definition: AgentDefinition) -> list[str]
 
     if definition.chain_steps:
         # Use defined chain steps
-        lines.append("This agent uses a **prompt-chaining** pattern where each step's output")
-        lines.append("becomes the input for the next step, ensuring quality at each stage.")
+        lines.append(
+            "This agent uses a **prompt-chaining** pattern where each step's output"
+        )
+        lines.append(
+            "becomes the input for the next step, ensuring quality at each stage."
+        )
         lines.append("")
 
         for i, step in enumerate(definition.chain_steps, 1):
@@ -336,7 +362,7 @@ def _generate_prompt_chaining_workflow(definition: AgentDefinition) -> list[str]
             if i == 1:
                 input_source = step.input_from or "User request"
             else:
-                input_source = step.input_from or f"Output from Step {i-1}"
+                input_source = step.input_from or f"Output from Step {i - 1}"
             lines.append(f"**Input:** {input_source}")
 
             # Tools used in this step
@@ -347,7 +373,7 @@ def _generate_prompt_chaining_workflow(definition: AgentDefinition) -> list[str]
             if i == len(definition.chain_steps):
                 output_dest = step.output_to or "Final result"
             else:
-                output_dest = step.output_to or f"Input to Step {i+1}"
+                output_dest = step.output_to or f"Input to Step {i + 1}"
             lines.append(f"**Output:** {output_dest}")
             lines.append("")
 
@@ -376,11 +402,15 @@ def _generate_prompt_chaining_workflow(definition: AgentDefinition) -> list[str]
 
     else:
         # Generate default prompt-chaining workflow based on agent description
-        lines.append("This agent uses a **prompt-chaining** pattern for sequential task execution.")
+        lines.append(
+            "This agent uses a **prompt-chaining** pattern for sequential task execution."
+        )
         lines.append("")
 
         # Analyze description to generate appropriate steps
-        default_steps = _infer_chain_steps_from_description(definition.description, definition.tools)
+        default_steps = _infer_chain_steps_from_description(
+            definition.description, definition.tools
+        )
 
         for i, (step_name, step_desc, step_tools) in enumerate(default_steps, 1):
             lines.append(f"### Step {i}: {step_name}")
@@ -391,7 +421,7 @@ def _generate_prompt_chaining_workflow(definition: AgentDefinition) -> list[str]
             if i == 1:
                 lines.append("**Input:** User request and context")
             else:
-                lines.append(f"**Input:** Output from Step {i-1}")
+                lines.append(f"**Input:** Output from Step {i - 1}")
 
             if step_tools:
                 lines.append(f"**Tools:** {', '.join(step_tools)}")
@@ -399,7 +429,7 @@ def _generate_prompt_chaining_workflow(definition: AgentDefinition) -> list[str]
             if i == len(default_steps):
                 lines.append("**Output:** Final formatted result")
             else:
-                lines.append(f"**Output:** Processed data for Step {i+1}")
+                lines.append(f"**Output:** Processed data for Step {i + 1}")
 
             lines.append("")
 
@@ -424,61 +454,128 @@ def _generate_prompt_chaining_workflow(definition: AgentDefinition) -> list[str]
     return lines
 
 
-def _infer_chain_steps_from_description(description: str, tools: list[str]) -> list[tuple[str, str, list[str]]]:
+def _infer_chain_steps_from_description(
+    description: str, tools: list[str]
+) -> list[tuple[str, str, list[str]]]:
     """Infer chain steps from agent description and tools."""
     desc_lower = description.lower()
     steps: list[tuple[str, str, list[str]]] = []
 
     # Categorize tools for step assignment
-    read_tools = [t for t in tools if t in {"Read", "Grep", "Glob", "WebFetch", "WebSearch"}]
+    read_tools = [
+        t for t in tools if t in {"Read", "Grep", "Glob", "WebFetch", "WebSearch"}
+    ]
     write_tools = [t for t in tools if t in {"Write", "Edit", "NotebookEdit"}]
     exec_tools = [t for t in tools if t in {"Bash", "Task", "LSP"}]
 
     # Analysis/research agents
-    if any(word in desc_lower for word in ["analyze", "review", "examine", "inspect", "audit"]):
-        steps.append(("Discovery", "Gather relevant files and context", read_tools or ["Read", "Glob"]))
-        steps.append(("Analysis", "Perform detailed examination of gathered data", read_tools or ["Read", "Grep"]))
+    if any(
+        word in desc_lower
+        for word in ["analyze", "review", "examine", "inspect", "audit"]
+    ):
+        steps.append(
+            (
+                "Discovery",
+                "Gather relevant files and context",
+                read_tools or ["Read", "Glob"],
+            )
+        )
+        steps.append(
+            (
+                "Analysis",
+                "Perform detailed examination of gathered data",
+                read_tools or ["Read", "Grep"],
+            )
+        )
         steps.append(("Synthesis", "Compile findings into structured report", []))
 
     # Generator/builder agents
-    elif any(word in desc_lower for word in ["generate", "create", "build", "produce", "write"]):
-        steps.append(("Research", "Understand requirements and existing patterns", read_tools or ["Read", "Grep"]))
+    elif any(
+        word in desc_lower
+        for word in ["generate", "create", "build", "produce", "write"]
+    ):
+        steps.append(
+            (
+                "Research",
+                "Understand requirements and existing patterns",
+                read_tools or ["Read", "Grep"],
+            )
+        )
         steps.append(("Design", "Plan the structure and approach", []))
-        steps.append(("Generate", "Create the output artifact", write_tools or ["Write"]))
-        steps.append(("Validate", "Verify output meets requirements", read_tools or ["Read"]))
+        steps.append(
+            ("Generate", "Create the output artifact", write_tools or ["Write"])
+        )
+        steps.append(
+            ("Validate", "Verify output meets requirements", read_tools or ["Read"])
+        )
 
     # Transformer/processor agents
-    elif any(word in desc_lower for word in ["transform", "convert", "process", "migrate", "refactor"]):
+    elif any(
+        word in desc_lower
+        for word in ["transform", "convert", "process", "migrate", "refactor"]
+    ):
         steps.append(("Load", "Read and parse input data", read_tools or ["Read"]))
         steps.append(("Transform", "Apply transformations to data", []))
         steps.append(("Output", "Write transformed result", write_tools or ["Write"]))
 
     # Test/validation agents
     elif any(word in desc_lower for word in ["test", "validate", "verify", "check"]):
-        steps.append(("Setup", "Prepare test environment and gather targets", read_tools or ["Read", "Glob"]))
+        steps.append(
+            (
+                "Setup",
+                "Prepare test environment and gather targets",
+                read_tools or ["Read", "Glob"],
+            )
+        )
         steps.append(("Execute", "Run validation checks", exec_tools or ["Bash"]))
         steps.append(("Report", "Format and return results", []))
 
     # Search/find agents
     elif any(word in desc_lower for word in ["search", "find", "locate", "discover"]):
         steps.append(("Scope", "Define search parameters and boundaries", []))
-        steps.append(("Search", "Execute search across targets", read_tools or ["Grep", "Glob"]))
+        steps.append(
+            ("Search", "Execute search across targets", read_tools or ["Grep", "Glob"])
+        )
         steps.append(("Filter", "Refine and rank results", []))
         steps.append(("Present", "Format results for user", []))
 
     # Fix/repair/debug agents
-    elif any(word in desc_lower for word in ["fix", "repair", "debug", "resolve", "correct"]):
-        steps.append(("Diagnose", "Identify the root cause of the issue", read_tools or ["Read", "Grep"]))
+    elif any(
+        word in desc_lower for word in ["fix", "repair", "debug", "resolve", "correct"]
+    ):
+        steps.append(
+            (
+                "Diagnose",
+                "Identify the root cause of the issue",
+                read_tools or ["Read", "Grep"],
+            )
+        )
         steps.append(("Plan", "Design the fix approach", []))
         steps.append(("Implement", "Apply the fix", write_tools or ["Edit"]))
-        steps.append(("Verify", "Confirm the fix resolves the issue", exec_tools or ["Bash"]))
+        steps.append(
+            ("Verify", "Confirm the fix resolves the issue", exec_tools or ["Bash"])
+        )
 
     # Default generic workflow
     else:
-        steps.append(("Initialize", "Prepare context and validate inputs", read_tools[:1] if read_tools else []))
-        steps.append(("Process", "Execute main task logic", exec_tools[:1] if exec_tools else []))
+        steps.append(
+            (
+                "Initialize",
+                "Prepare context and validate inputs",
+                read_tools[:1] if read_tools else [],
+            )
+        )
+        steps.append(
+            ("Process", "Execute main task logic", exec_tools[:1] if exec_tools else [])
+        )
         steps.append(("Validate", "Verify results meet requirements", []))
-        steps.append(("Finalize", "Format and return output", write_tools[:1] if write_tools else []))
+        steps.append(
+            (
+                "Finalize",
+                "Format and return output",
+                write_tools[:1] if write_tools else [],
+            )
+        )
 
     return steps
 
@@ -594,7 +691,9 @@ def generate_workers_section(definition: AgentDefinition) -> str:
     return "\n".join(lines)
 
 
-def generate_agent_file(definition: AgentDefinition, pattern: str = "prompt-chaining") -> str:
+def generate_agent_file(
+    definition: AgentDefinition, pattern: str = "prompt-chaining"
+) -> str:
     """Generate complete agent file content."""
     parts = []
 
@@ -647,22 +746,26 @@ def create_definition_from_dict(data: dict[str, Any]) -> AgentDefinition:
         worker_tools = w.get("tools", [])
         if isinstance(worker_tools, str):
             worker_tools = [t.strip() for t in worker_tools.split(",")]
-        workers.append(WorkerDefinition(
-            name=w.get("name", "worker"),
-            role=w.get("role", ""),
-            tools=worker_tools,
-            input_format=w.get("input_format", ""),
-            output_format=w.get("output_format", ""),
-        ))
+        workers.append(
+            WorkerDefinition(
+                name=w.get("name", "worker"),
+                role=w.get("role", ""),
+                tools=worker_tools,
+                input_format=w.get("input_format", ""),
+                output_format=w.get("output_format", ""),
+            )
+        )
 
     # Parse sections
     sections = []
     for s in data.get("sections", []):
-        sections.append(AgentSection(
-            title=s.get("title", ""),
-            content=s.get("content", ""),
-            level=s.get("level", 2),
-        ))
+        sections.append(
+            AgentSection(
+                title=s.get("title", ""),
+                content=s.get("content", ""),
+                level=s.get("level", 2),
+            )
+        )
 
     # Parse chain_steps for prompt-chaining pattern
     chain_steps = []
@@ -670,14 +773,16 @@ def create_definition_from_dict(data: dict[str, Any]) -> AgentDefinition:
         step_tools = cs.get("tools", [])
         if isinstance(step_tools, str):
             step_tools = [t.strip() for t in step_tools.split(",")]
-        chain_steps.append(ChainStep(
-            name=cs.get("name", "Step"),
-            description=cs.get("description", ""),
-            input_from=cs.get("input_from", ""),
-            output_to=cs.get("output_to", ""),
-            tools=step_tools,
-            validation=cs.get("validation", ""),
-        ))
+        chain_steps.append(
+            ChainStep(
+                name=cs.get("name", "Step"),
+                description=cs.get("description", ""),
+                input_from=cs.get("input_from", ""),
+                output_to=cs.get("output_to", ""),
+                tools=step_tools,
+                validation=cs.get("validation", ""),
+            )
+        )
 
     return AgentDefinition(
         name=data.get("name", "unnamed-agent"),
@@ -779,15 +884,26 @@ def main() -> None:
     parser.add_argument("--name", help="Agent name (hyphen-case)")
     parser.add_argument("--description", help="Agent description")
     parser.add_argument("--tools", help="Comma-separated tool list")
-    parser.add_argument("--pattern", default="prompt-chaining",
-                       choices=["prompt-chaining", "orchestrator-workers", "routing",
-                               "parallelization", "evaluator-optimizer"],
-                       help="Workflow pattern")
+    parser.add_argument(
+        "--pattern",
+        default="prompt-chaining",
+        choices=[
+            "prompt-chaining",
+            "orchestrator-workers",
+            "routing",
+            "parallelization",
+            "evaluator-optimizer",
+        ],
+        help="Workflow pattern",
+    )
     parser.add_argument("--json", help="JSON input with all parameters")
     parser.add_argument("--blueprint", help="Path to blueprint JSON file")
     parser.add_argument("--output", help="Output file or directory path")
-    parser.add_argument("--validate-only", action="store_true",
-                       help="Only validate inputs, don't generate")
+    parser.add_argument(
+        "--validate-only",
+        action="store_true",
+        help="Only validate inputs, don't generate",
+    )
 
     args = parser.parse_args()
 

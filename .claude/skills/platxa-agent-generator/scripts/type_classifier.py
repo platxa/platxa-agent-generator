@@ -22,6 +22,7 @@ from enum import Enum
 
 class ArchitectureType(Enum):
     """Agent architectural patterns based on Anthropic's research."""
+
     SIMPLE = "simple"
     ORCHESTRATOR = "orchestrator"
     MULTI_AGENT = "multi-agent"
@@ -31,6 +32,7 @@ class ArchitectureType(Enum):
 @dataclass
 class ClassificationResult:
     """Result of architectural classification."""
+
     architecture_type: str
     confidence: float
     reasoning: str
@@ -42,45 +44,88 @@ class ClassificationResult:
 ARCHITECTURE_INDICATORS: dict[ArchitectureType, dict[str, list[str]]] = {
     ArchitectureType.ORCHESTRATOR: {
         "strong": [
-            "orchestrat", "coordinate", "delegate", "manage workers",
-            "spawn", "distribute tasks", "main agent", "worker agents",
-            "decompos", "break down", "subtasks", "subagents",
+            "orchestrat",
+            "coordinate",
+            "delegate",
+            "manage workers",
+            "spawn",
+            "distribute tasks",
+            "main agent",
+            "worker agents",
+            "decompos",
+            "break down",
+            "subtasks",
+            "subagents",
         ],
         "moderate": [
-            "multiple workers", "team of", "supervise", "dispatch",
-            "fan out", "parallelize", "concurrent workers",
+            "multiple workers",
+            "team of",
+            "supervise",
+            "dispatch",
+            "fan out",
+            "parallelize",
+            "concurrent workers",
         ],
     },
     ArchitectureType.MULTI_AGENT: {
         "strong": [
-            "multi-agent", "multiple agents", "agent team", "collaborate",
-            "peer agents", "independent agents", "agent network",
-            "agents working together", "agent collaboration",
+            "multi-agent",
+            "multiple agents",
+            "agent team",
+            "collaborate",
+            "peer agents",
+            "independent agents",
+            "agent network",
+            "agents working together",
+            "agent collaboration",
         ],
         "moderate": [
-            "several agents", "different agents", "specialized agents",
-            "agent roles", "role-based", "crew of",
+            "several agents",
+            "different agents",
+            "specialized agents",
+            "agent roles",
+            "role-based",
+            "crew of",
         ],
     },
     ArchitectureType.PIPELINE: {
         "strong": [
-            "pipeline", "sequential", "chain of", "stages",
-            "step by step", "phase by phase", "workflow stages",
-            "processing chain", "data pipeline", "ETL",
+            "pipeline",
+            "sequential",
+            "chain of",
+            "stages",
+            "step by step",
+            "phase by phase",
+            "workflow stages",
+            "processing chain",
+            "data pipeline",
+            "ETL",
         ],
         "moderate": [
-            "then", "after that", "followed by", "next step",
-            "first.*then", "process.*transform.*output",
+            "then",
+            "after that",
+            "followed by",
+            "next step",
+            "first.*then",
+            "process.*transform.*output",
             "input.*process.*output",
         ],
     },
     ArchitectureType.SIMPLE: {
         "strong": [
-            "single agent", "simple", "straightforward", "direct",
-            "basic", "one agent", "standalone",
+            "single agent",
+            "simple",
+            "straightforward",
+            "direct",
+            "basic",
+            "one agent",
+            "standalone",
         ],
         "moderate": [
-            "just", "only", "simply", "quick",
+            "just",
+            "only",
+            "simply",
+            "quick",
         ],
     },
 }
@@ -88,17 +133,37 @@ ARCHITECTURE_INDICATORS: dict[ArchitectureType, dict[str, list[str]]] = {
 # Complexity indicators
 COMPLEXITY_INDICATORS = {
     "high": [
-        "complex", "sophisticated", "advanced", "enterprise",
-        "large-scale", "distributed", "scalable", "production",
-        "multiple", "various", "different types", "comprehensive",
+        "complex",
+        "sophisticated",
+        "advanced",
+        "enterprise",
+        "large-scale",
+        "distributed",
+        "scalable",
+        "production",
+        "multiple",
+        "various",
+        "different types",
+        "comprehensive",
     ],
     "medium": [
-        "moderate", "several", "some", "various",
-        "configurable", "flexible", "extensible",
+        "moderate",
+        "several",
+        "some",
+        "various",
+        "configurable",
+        "flexible",
+        "extensible",
     ],
     "low": [
-        "simple", "basic", "straightforward", "quick",
-        "single", "one", "minimal", "lightweight",
+        "simple",
+        "basic",
+        "straightforward",
+        "quick",
+        "single",
+        "one",
+        "minimal",
+        "lightweight",
     ],
 }
 
@@ -112,8 +177,7 @@ ARCHITECTURE_TO_PATTERN = {
 
 
 def calculate_type_score(
-    description: str,
-    arch_type: ArchitectureType
+    description: str, arch_type: ArchitectureType
 ) -> tuple[float, list[str]]:
     """Calculate score for a specific architecture type."""
     desc_lower = description.lower()
@@ -151,7 +215,9 @@ def estimate_complexity(description: str) -> int:
     desc_lower = description.lower()
 
     high_count = sum(1 for ind in COMPLEXITY_INDICATORS["high"] if ind in desc_lower)
-    medium_count = sum(1 for ind in COMPLEXITY_INDICATORS["medium"] if ind in desc_lower)
+    medium_count = sum(
+        1 for ind in COMPLEXITY_INDICATORS["medium"] if ind in desc_lower
+    )
     low_count = sum(1 for ind in COMPLEXITY_INDICATORS["low"] if ind in desc_lower)
 
     # Word count also indicates complexity
@@ -177,9 +243,7 @@ def estimate_complexity(description: str) -> int:
 
 
 def generate_reasoning(
-    arch_type: ArchitectureType,
-    matches: list[str],
-    complexity: int
+    arch_type: ArchitectureType, matches: list[str], complexity: int
 ) -> str:
     """Generate human-readable reasoning for classification."""
     if not matches:
@@ -189,7 +253,13 @@ def generate_reasoning(
     if len(matches) > 3:
         match_str += f" (+{len(matches) - 3} more)"
 
-    complexity_desc = {1: "low", 2: "medium-low", 3: "medium", 4: "high", 5: "very high"}
+    complexity_desc = {
+        1: "low",
+        2: "medium-low",
+        3: "medium",
+        4: "high",
+        5: "very high",
+    }
 
     return (
         f"Classified as {arch_type.value} based on indicators: {match_str}. "
@@ -240,9 +310,13 @@ def classify(description: str) -> ClassificationResult:
     desc_lower = description.lower()
     if "parallel" in desc_lower or "concurrent" in desc_lower:
         suggested_pattern = "parallelization"
-    elif "iterative" in desc_lower or "refine" in desc_lower or "feedback" in desc_lower:
+    elif (
+        "iterative" in desc_lower or "refine" in desc_lower or "feedback" in desc_lower
+    ):
         suggested_pattern = "evaluator-optimizer"
-    elif "route" in desc_lower or "classify" in desc_lower or "categorize" in desc_lower:
+    elif (
+        "route" in desc_lower or "classify" in desc_lower or "categorize" in desc_lower
+    ):
         suggested_pattern = "routing"
 
     # Generate reasoning

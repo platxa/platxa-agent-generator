@@ -143,9 +143,7 @@ class WorkflowState:
 
         return True, f"Transitioned: {previous.value} → {target.value}"
 
-    def advance(
-        self, artifacts: dict[str, Any] | None = None
-    ) -> tuple[bool, str]:
+    def advance(self, artifacts: dict[str, Any] | None = None) -> tuple[bool, str]:
         """
         Advance to the next logical phase.
 

@@ -438,12 +438,14 @@ def list_installed_agents(scope: str = "user") -> list[dict]:
         agent_name = extract_agent_name(agent_file)
         if agent_name:
             stat = agent_file.stat()
-            agents.append({
-                "name": agent_name,
-                "path": str(agent_file),
-                "size": stat.st_size,
-                "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
-            })
+            agents.append(
+                {
+                    "name": agent_name,
+                    "path": str(agent_file),
+                    "size": stat.st_size,
+                    "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                }
+            )
 
     return sorted(agents, key=lambda a: a["name"])
 
@@ -467,10 +469,15 @@ def main() -> None:
         "--no-backup", action="store_true", help="Don't create backup of existing"
     )
     install_parser.add_argument(
-        "--skip-validation", action="store_true", help="Skip syntax and security validation"
+        "--skip-validation",
+        action="store_true",
+        help="Skip syntax and security validation",
     )
     install_parser.add_argument(
-        "--min-score", type=float, default=5.0, help="Minimum security score (default: 5.0)"
+        "--min-score",
+        type=float,
+        default=5.0,
+        help="Minimum security score (default: 5.0)",
     )
     install_parser.add_argument("--json", action="store_true", help="Output as JSON")
     install_parser.add_argument(

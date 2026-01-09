@@ -261,11 +261,18 @@ def _build_patterns() -> tuple[list[dict], list[dict], list[dict], list[dict]]:
         },
     ]
 
-    return critical_patterns, high_risk_patterns, medium_risk_patterns, low_risk_patterns
+    return (
+        critical_patterns,
+        high_risk_patterns,
+        medium_risk_patterns,
+        low_risk_patterns,
+    )
 
 
 # Build patterns at module load
-CRITICAL_PATTERNS, HIGH_RISK_PATTERNS, MEDIUM_RISK_PATTERNS, LOW_RISK_PATTERNS = _build_patterns()
+CRITICAL_PATTERNS, HIGH_RISK_PATTERNS, MEDIUM_RISK_PATTERNS, LOW_RISK_PATTERNS = (
+    _build_patterns()
+)
 
 # Dangerous tool combinations
 DANGEROUS_TOOL_COMBINATIONS = [
@@ -571,10 +578,14 @@ def main() -> None:
     import argparse
     import sys
 
-    parser = argparse.ArgumentParser(description="Scan agent definitions for security issues")
+    parser = argparse.ArgumentParser(
+        description="Scan agent definitions for security issues"
+    )
     parser.add_argument("file", help="Agent definition file to scan")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument("--strict", action="store_true", help="Fail on any finding (score < 10)")
+    parser.add_argument(
+        "--strict", action="store_true", help="Fail on any finding (score < 10)"
+    )
 
     args = parser.parse_args()
 
@@ -602,7 +613,12 @@ def main() -> None:
         print(json.dumps(output, indent=2))
     else:
         # Print findings grouped by severity
-        for severity in [Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW]:
+        for severity in [
+            Severity.CRITICAL,
+            Severity.HIGH,
+            Severity.MEDIUM,
+            Severity.LOW,
+        ]:
             severity_findings = [f for f in result.findings if f.severity == severity]
             if severity_findings:
                 print(f"\n{severity.value.upper()} ({len(severity_findings)}):")

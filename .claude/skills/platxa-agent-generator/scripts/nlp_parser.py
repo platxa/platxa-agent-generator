@@ -22,6 +22,7 @@ from dataclasses import dataclass, asdict
 @dataclass
 class AgentRequirements:
     """Extracted requirements from NLP description."""
+
     name: str
     agent_type: str
     description: str
@@ -33,68 +34,174 @@ class AgentRequirements:
 # Agent type classification keywords
 AGENT_TYPES = {
     "analyzer": [
-        "analyze", "review", "audit", "inspect", "check", "scan", "detect",
-        "find", "identify", "assess", "evaluate", "examine", "validate"
+        "analyze",
+        "review",
+        "audit",
+        "inspect",
+        "check",
+        "scan",
+        "detect",
+        "find",
+        "identify",
+        "assess",
+        "evaluate",
+        "examine",
+        "validate",
     ],
     "builder": [
-        "create", "build", "generate", "make", "produce", "construct",
-        "develop", "write", "scaffold", "bootstrap", "initialize"
+        "create",
+        "build",
+        "generate",
+        "make",
+        "produce",
+        "construct",
+        "develop",
+        "write",
+        "scaffold",
+        "bootstrap",
+        "initialize",
     ],
     "automation": [
-        "automate", "run", "execute", "trigger", "schedule", "batch",
-        "process", "transform", "convert", "migrate", "deploy"
+        "automate",
+        "run",
+        "execute",
+        "trigger",
+        "schedule",
+        "batch",
+        "process",
+        "transform",
+        "convert",
+        "migrate",
+        "deploy",
     ],
     "guide": [
-        "help", "guide", "explain", "teach", "show", "demonstrate",
-        "walk through", "assist", "support", "advise"
+        "help",
+        "guide",
+        "explain",
+        "teach",
+        "show",
+        "demonstrate",
+        "walk through",
+        "assist",
+        "support",
+        "advise",
     ],
     "validator": [
-        "validate", "verify", "test", "ensure", "confirm", "assert",
-        "check", "lint", "format", "enforce"
+        "validate",
+        "verify",
+        "test",
+        "ensure",
+        "confirm",
+        "assert",
+        "check",
+        "lint",
+        "format",
+        "enforce",
     ],
     "orchestrator": [
-        "coordinate", "orchestrate", "manage", "delegate", "distribute",
-        "multi-agent", "pipeline", "workflow", "chain"
-    ]
+        "coordinate",
+        "orchestrate",
+        "manage",
+        "delegate",
+        "distribute",
+        "multi-agent",
+        "pipeline",
+        "workflow",
+        "chain",
+    ],
 }
 
 # Tool detection patterns
 TOOL_PATTERNS = {
     "Read": [
-        "read", "file", "content", "source", "code", "examine", "inspect",
-        "load", "parse", "extract"
+        "read",
+        "file",
+        "content",
+        "source",
+        "code",
+        "examine",
+        "inspect",
+        "load",
+        "parse",
+        "extract",
     ],
     "Write": [
-        "write", "create", "generate", "output", "save", "produce",
-        "document", "report"
+        "write",
+        "create",
+        "generate",
+        "output",
+        "save",
+        "produce",
+        "document",
+        "report",
     ],
     "Edit": [
-        "edit", "modify", "update", "change", "refactor", "fix", "patch",
-        "replace", "transform"
+        "edit",
+        "modify",
+        "update",
+        "change",
+        "refactor",
+        "fix",
+        "patch",
+        "replace",
+        "transform",
     ],
     "Grep": [
-        "search", "find", "grep", "pattern", "regex", "match", "locate",
-        "scan", "query"
+        "search",
+        "find",
+        "grep",
+        "pattern",
+        "regex",
+        "match",
+        "locate",
+        "scan",
+        "query",
     ],
     "Glob": [
-        "files", "directory", "folder", "path", "glob", "list", "tree",
-        "structure", "navigate"
+        "files",
+        "directory",
+        "folder",
+        "path",
+        "glob",
+        "list",
+        "tree",
+        "structure",
+        "navigate",
     ],
     "Bash": [
-        "run", "execute", "command", "shell", "terminal", "script", "cli",
-        "install", "build", "test", "deploy"
+        "run",
+        "execute",
+        "command",
+        "shell",
+        "terminal",
+        "script",
+        "cli",
+        "install",
+        "build",
+        "test",
+        "deploy",
     ],
     "WebSearch": [
-        "search", "web", "internet", "online", "research", "lookup",
-        "find information", "documentation"
+        "search",
+        "web",
+        "internet",
+        "online",
+        "research",
+        "lookup",
+        "find information",
+        "documentation",
     ],
-    "WebFetch": [
-        "fetch", "download", "url", "api", "http", "request", "retrieve"
-    ],
+    "WebFetch": ["fetch", "download", "url", "api", "http", "request", "retrieve"],
     "Task": [
-        "subagent", "delegate", "parallel", "concurrent", "multi",
-        "orchestrate", "coordinate", "spawn"
-    ]
+        "subagent",
+        "delegate",
+        "parallel",
+        "concurrent",
+        "multi",
+        "orchestrate",
+        "coordinate",
+        "spawn",
+    ],
 }
 
 # Domain-specific tool mappings
@@ -115,17 +222,55 @@ def extract_name(description: str) -> str:
     # Remove common filler words and action verbs
     stopwords = {
         # Articles and conjunctions
-        "a", "an", "the", "that", "which", "for", "to", "and", "or", "with",
-        "from", "into", "onto", "upon", "about", "through", "during", "before",
-        "after", "above", "below", "between", "under", "over",
+        "a",
+        "an",
+        "the",
+        "that",
+        "which",
+        "for",
+        "to",
+        "and",
+        "or",
+        "with",
+        "from",
+        "into",
+        "onto",
+        "upon",
+        "about",
+        "through",
+        "during",
+        "before",
+        "after",
+        "above",
+        "below",
+        "between",
+        "under",
+        "over",
         # Common verbs used in descriptions
-        "create", "build", "make", "agent", "can", "will", "should", "would",
-        "want", "need", "like", "help", "use", "using", "used",
+        "create",
+        "build",
+        "make",
+        "agent",
+        "can",
+        "will",
+        "should",
+        "would",
+        "want",
+        "need",
+        "like",
+        "help",
+        "use",
+        "using",
+        "used",
         # Request phrases
-        "please", "could", "would", "might", "must",
+        "please",
+        "could",
+        "would",
+        "might",
+        "must",
     }
 
-    words = re.findall(r'\b[a-z]+\b', description.lower())
+    words = re.findall(r"\b[a-z]+\b", description.lower())
     meaningful = [w for w in words if w not in stopwords and len(w) > 2]
 
     # Take first 2-3 meaningful words
@@ -193,19 +338,29 @@ def detect_patterns(description: str) -> list[str]:
     patterns: list[str] = []
 
     # Orchestrator-workers for multi-agent/complex
-    if any(w in desc_lower for w in ["multi", "coordinate", "orchestrate", "complex", "pipeline"]):
+    if any(
+        w in desc_lower
+        for w in ["multi", "coordinate", "orchestrate", "complex", "pipeline"]
+    ):
         patterns.append("orchestrator-workers")
 
     # Parallelization for concurrent work
-    if any(w in desc_lower for w in ["parallel", "concurrent", "multiple files", "batch"]):
+    if any(
+        w in desc_lower for w in ["parallel", "concurrent", "multiple files", "batch"]
+    ):
         patterns.append("parallelization")
 
     # Evaluator-optimizer for iterative refinement
-    if any(w in desc_lower for w in ["iterative", "improve", "optimize", "refine", "feedback"]):
+    if any(
+        w in desc_lower
+        for w in ["iterative", "improve", "optimize", "refine", "feedback"]
+    ):
         patterns.append("evaluator-optimizer")
 
     # Routing for classification
-    if any(w in desc_lower for w in ["classify", "route", "categorize", "different types"]):
+    if any(
+        w in desc_lower for w in ["classify", "route", "categorize", "different types"]
+    ):
         patterns.append("routing")
 
     # Default to prompt-chaining for sequential
@@ -250,7 +405,7 @@ def generate_description(original: str, agent_type: str) -> str:
         # Extract the subject (e.g., "documentation" from "documentation generator")
         subject = tool_noun_match.group(1)
         tool_noun = tool_noun_match.group(2).lower()
-        rest = desc[tool_noun_match.end():].strip()
+        rest = desc[tool_noun_match.end() :].strip()
 
         # Map tool noun to verb and whether subject needs pluralization
         tool_noun_mapping = {
@@ -283,41 +438,111 @@ def generate_description(original: str, agent_type: str) -> str:
     # Phase 5: Handle verb-starting descriptions
     # Common base verbs that might start descriptions (infinitive form)
     base_verbs_to_third_person = {
-        "review": "Reviews", "reviews": "Reviews", "reviewing": "Reviews",
-        "analyze": "Analyzes", "analyzes": "Analyzes", "analyzing": "Analyzes",
-        "validate": "Validates", "validates": "Validates", "validating": "Validates",
-        "verify": "Verifies", "verifies": "Verifies", "verifying": "Verifies",
-        "check": "Checks", "checks": "Checks", "checking": "Checks",
-        "scan": "Scans", "scans": "Scans", "scanning": "Scans",
-        "detect": "Detects", "detects": "Detects", "detecting": "Detects",
-        "find": "Finds", "finds": "Finds", "finding": "Finds",
-        "search": "Searches", "searches": "Searches", "searching": "Searches",
-        "generate": "Generates", "generates": "Generates", "generating": "Generates",
-        "create": "Creates", "creates": "Creates", "creating": "Creates",
-        "build": "Builds", "builds": "Builds", "building": "Builds",
-        "write": "Writes", "writes": "Writes", "writing": "Writes",
-        "produce": "Produces", "produces": "Produces", "producing": "Produces",
-        "automate": "Automates", "automates": "Automates", "automating": "Automates",
-        "run": "Runs", "runs": "Runs", "running": "Runs",
-        "execute": "Executes", "executes": "Executes", "executing": "Executes",
-        "process": "Processes", "processes": "Processes", "processing": "Processes",
-        "transform": "Transforms", "transforms": "Transforms", "transforming": "Transforms",
-        "convert": "Converts", "converts": "Converts", "converting": "Converts",
-        "orchestrate": "Orchestrates", "orchestrates": "Orchestrates", "orchestrating": "Orchestrates",
-        "coordinate": "Coordinates", "coordinates": "Coordinates", "coordinating": "Coordinates",
-        "manage": "Manages", "manages": "Manages", "managing": "Manages",
-        "help": "Helps", "helps": "Helps", "helping": "Helps",
-        "guide": "Guides", "guides": "Guides", "guiding": "Guides",
-        "test": "Tests", "tests": "Tests", "testing": "Tests",
-        "deploy": "Deploys", "deploys": "Deploys", "deploying": "Deploys",
-        "monitor": "Monitors", "monitors": "Monitors", "monitoring": "Monitors",
-        "audit": "Audits", "audits": "Audits", "auditing": "Audits",
-        "inspect": "Inspects", "inspects": "Inspects", "inspecting": "Inspects",
-        "examine": "Examines", "examines": "Examines", "examining": "Examines",
-        "fix": "Fixes", "fixes": "Fixes", "fixing": "Fixes",
-        "refactor": "Refactors", "refactors": "Refactors", "refactoring": "Refactors",
-        "optimize": "Optimizes", "optimizes": "Optimizes", "optimizing": "Optimizes",
-        "improve": "Improves", "improves": "Improves", "improving": "Improves",
+        "review": "Reviews",
+        "reviews": "Reviews",
+        "reviewing": "Reviews",
+        "analyze": "Analyzes",
+        "analyzes": "Analyzes",
+        "analyzing": "Analyzes",
+        "validate": "Validates",
+        "validates": "Validates",
+        "validating": "Validates",
+        "verify": "Verifies",
+        "verifies": "Verifies",
+        "verifying": "Verifies",
+        "check": "Checks",
+        "checks": "Checks",
+        "checking": "Checks",
+        "scan": "Scans",
+        "scans": "Scans",
+        "scanning": "Scans",
+        "detect": "Detects",
+        "detects": "Detects",
+        "detecting": "Detects",
+        "find": "Finds",
+        "finds": "Finds",
+        "finding": "Finds",
+        "search": "Searches",
+        "searches": "Searches",
+        "searching": "Searches",
+        "generate": "Generates",
+        "generates": "Generates",
+        "generating": "Generates",
+        "create": "Creates",
+        "creates": "Creates",
+        "creating": "Creates",
+        "build": "Builds",
+        "builds": "Builds",
+        "building": "Builds",
+        "write": "Writes",
+        "writes": "Writes",
+        "writing": "Writes",
+        "produce": "Produces",
+        "produces": "Produces",
+        "producing": "Produces",
+        "automate": "Automates",
+        "automates": "Automates",
+        "automating": "Automates",
+        "run": "Runs",
+        "runs": "Runs",
+        "running": "Runs",
+        "execute": "Executes",
+        "executes": "Executes",
+        "executing": "Executes",
+        "process": "Processes",
+        "processes": "Processes",
+        "processing": "Processes",
+        "transform": "Transforms",
+        "transforms": "Transforms",
+        "transforming": "Transforms",
+        "convert": "Converts",
+        "converts": "Converts",
+        "converting": "Converts",
+        "orchestrate": "Orchestrates",
+        "orchestrates": "Orchestrates",
+        "orchestrating": "Orchestrates",
+        "coordinate": "Coordinates",
+        "coordinates": "Coordinates",
+        "coordinating": "Coordinates",
+        "manage": "Manages",
+        "manages": "Manages",
+        "managing": "Manages",
+        "help": "Helps",
+        "helps": "Helps",
+        "helping": "Helps",
+        "guide": "Guides",
+        "guides": "Guides",
+        "guiding": "Guides",
+        "test": "Tests",
+        "tests": "Tests",
+        "testing": "Tests",
+        "deploy": "Deploys",
+        "deploys": "Deploys",
+        "deploying": "Deploys",
+        "monitor": "Monitors",
+        "monitors": "Monitors",
+        "monitoring": "Monitors",
+        "audit": "Audits",
+        "audits": "Audits",
+        "auditing": "Audits",
+        "inspect": "Inspects",
+        "inspects": "Inspects",
+        "inspecting": "Inspects",
+        "examine": "Examines",
+        "examines": "Examines",
+        "examining": "Examines",
+        "fix": "Fixes",
+        "fixes": "Fixes",
+        "fixing": "Fixes",
+        "refactor": "Refactors",
+        "refactors": "Refactors",
+        "refactoring": "Refactors",
+        "optimize": "Optimizes",
+        "optimizes": "Optimizes",
+        "optimizing": "Optimizes",
+        "improve": "Improves",
+        "improves": "Improves",
+        "improving": "Improves",
     }
 
     # Check if description starts with a known verb
@@ -367,7 +592,7 @@ def parse(description: str) -> AgentRequirements:
         description=clean_desc,
         tools=tools,
         patterns=patterns,
-        confidence=confidence
+        confidence=confidence,
     )
 
 

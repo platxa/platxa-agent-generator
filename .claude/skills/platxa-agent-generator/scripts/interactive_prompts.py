@@ -489,7 +489,9 @@ def main() -> None:
         default="all",
         help="Command to run",
     )
-    parser.add_argument("phase_name", nargs="?", help="Phase name (for 'phase' command)")
+    parser.add_argument(
+        "phase_name", nargs="?", help="Phase name (for 'phase' command)"
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument("--key", help="Get single question by key")
 
@@ -539,7 +541,9 @@ def main() -> None:
         keys = []
         for phase in ALL_PHASES.values():
             for q in phase.questions:
-                keys.append({"key": q.key, "phase": phase.phase, "question": q.question})
+                keys.append(
+                    {"key": q.key, "phase": phase.phase, "question": q.question}
+                )
 
         if args.json:
             print(json.dumps(keys, indent=2))
@@ -556,7 +560,9 @@ def main() -> None:
             print(json.dumps(output, indent=2))
         else:
             total = sum(len(p.questions) for p in all_questions)
-            print(f"Interactive Prompts ({total} questions across {len(all_questions)} phases)")
+            print(
+                f"Interactive Prompts ({total} questions across {len(all_questions)} phases)"
+            )
             print("=" * 60)
             for phase in all_questions:
                 print(f"\n[{phase.phase.upper()}] {phase.description}")

@@ -17,6 +17,7 @@ from typing import Any
 @dataclass
 class PromptConfig:
     """Configuration for prompt generation."""
+
     agent_type: str  # analyzer, builder, automation, guide, validator, orchestrator
     domain: str  # security, documentation, testing, etc.
     purpose: str  # specific purpose description
@@ -28,6 +29,7 @@ class PromptConfig:
 @dataclass
 class GeneratedPrompt:
     """Generated system prompt components."""
+
     role_statement: str
     capabilities: list[str]
     workflow_steps: list[str]
@@ -414,10 +416,22 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Generate agent system prompts")
-    parser.add_argument("--type", required=True,
-                       choices=["analyzer", "builder", "automation", "guide", "validator", "orchestrator"],
-                       help="Agent type")
-    parser.add_argument("--domain", required=True, help="Domain (security, documentation, etc.)")
+    parser.add_argument(
+        "--type",
+        required=True,
+        choices=[
+            "analyzer",
+            "builder",
+            "automation",
+            "guide",
+            "validator",
+            "orchestrator",
+        ],
+        help="Agent type",
+    )
+    parser.add_argument(
+        "--domain", required=True, help="Domain (security, documentation, etc.)"
+    )
     parser.add_argument("--purpose", required=True, help="Specific purpose description")
     parser.add_argument("--tools", help="Comma-separated tool list")
     parser.add_argument("--constraints", help="Comma-separated custom constraints")
