@@ -61,6 +61,7 @@ from . import extended_thinking
 from . import cli
 from . import agent_composer
 from . import agent_versioning
+from . import agent_export
 
 __all__ = [
     # Core generators
@@ -93,4 +94,5 @@ __all__ = [
     "cli",
     "agent_composer",
     "agent_versioning",
+    "agent_export",
 ]
