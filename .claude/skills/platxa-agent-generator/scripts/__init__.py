@@ -50,6 +50,7 @@ from . import workflow_state
 from . import install_agent
 from . import interactive_prompts
 from . import multiagent_generator
+from . import hooks_generator
 
 __all__ = [
     # Core generators
@@ -74,4 +75,5 @@ __all__ = [
     "install_agent",
     "interactive_prompts",
     "multiagent_generator",
+    "hooks_generator",
 ]
