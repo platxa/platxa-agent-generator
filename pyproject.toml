@@ -1,0 +1,74 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "platxa-agent-generator"
+version = "1.0.0"
+description = "Transform natural language descriptions into production-ready AI agents for Claude Code CLI"
+readme = "README.md"
+license = {text = "Proprietary"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Platxa", email = "dev@platxa.com"}
+]
+keywords = [
+    "ai",
+    "agents",
+    "claude",
+    "anthropic",
+    "code-generation",
+    "llm",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: Other/Proprietary License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.0",
+    "pyright>=1.1",
+    "ruff>=0.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/platxa/platxa-agent-generator"
+Repository = "https://github.com/platxa/platxa-agent-generator"
+Documentation = "https://github.com/platxa/platxa-agent-generator#readme"
+
+[project.scripts]
+platxa-agent = "scripts.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = [".claude/skills/platxa-agent-generator/scripts"]
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+include = [".claude/skills/platxa-agent-generator/scripts"]
+exclude = ["**/__pycache__", "**/.pytest_cache"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = [".claude/skills/platxa-agent-generator/tests"]
+pythonpath = [".claude/skills/platxa-agent-generator"]

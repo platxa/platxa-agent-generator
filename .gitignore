@@ -114,3 +114,11 @@ CLAUDE.md
 .claude/*.backup*
 .claude/**/.ruff_cache/
 .claude/**/__pycache__/
+.claude/**/.pytest_cache/
+.claude/**/.benchmarks/
+
+# Hatch
+.hatch/
+
+# MCP configuration (user-specific paths)
+.mcp.json

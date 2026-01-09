@@ -88,6 +88,39 @@ Expected structure.
 - **Research**: docs/RESEARCH_SYNTHESIS.md - Source analysis
 - **Features**: .claude/generated_features.json - 48 planned features
 
+## MCP Server Configuration
+
+This project uses MCP servers for enhanced capabilities. Create `.mcp.json` in the project root:
+
+```json
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"],
+      "env": {
+        "DISABLE_THOUGHT_LOGGING": "false"
+      }
+    },
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/path/to/this/project",
+        "~/.claude/agents",
+        "~/.claude/commands"
+      ],
+      "env": {}
+    }
+  }
+}
+```
+
+**Servers:**
+- **sequential-thinking**: Structured problem-solving with revision and branching capabilities
+- **filesystem**: Safe file operations for agent generation and deployment
+
 ## Development Notes
 
 - This project generates Claude Code agents, not a traditional codebase
