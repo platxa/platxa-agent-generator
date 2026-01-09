@@ -260,6 +260,105 @@ Task tool with:
 """
         return content
 
+    def generate_evaluator_orchestrator_markdown(self) -> str:
+        """Generate feedback loop controller markdown for evaluator-optimizer pattern."""
+        worker_table = "\n".join(
+            f"| {w.name} | {w.role} | {w.description} |" for w in self.workers
+        )
+
+        content = f"""---
+name: {self.orchestrator.name}
+description: {self.orchestrator.description}
+tools: Task, Read, Write
+---
+
+# {self.orchestrator.name.replace("-", " ").title()}
+
+## Overview
+Feedback loop controller that orchestrates iterative content generation,
+evaluation, and optimization until quality thresholds are met.
+
+## Pattern
+Evaluator-Optimizer (Generate → Evaluate → Optimize → Loop/Finalize)
+
+## Worker Agents
+| Agent | Role | Description |
+|-------|------|-------------|
+{worker_table}
+
+## Quality Criteria
+| Criterion | Weight | Threshold |
+|-----------|--------|-----------|
+| Clarity | 25% | ≥7.0/10 |
+| Completeness | 25% | ≥7.0/10 |
+| Correctness | 30% | ≥8.0/10 |
+| Style | 20% | ≥6.0/10 |
+
+**Overall threshold: ≥7.0/10 to finalize**
+
+## Workflow
+
+### Step 1: Initialize
+1. Parse requirements and constraints
+2. Set iteration limit (default: 5)
+3. Initialize quality tracking
+
+### Step 2: Generate
+Spawn content-generator:
+```
+Task tool with:
+  subagent_type: content-generator
+  prompt: <requirements or improvement instructions>
+  description: "Generate/improve content"
+```
+
+### Step 3: Evaluate
+Spawn quality-evaluator:
+```
+Task tool with:
+  subagent_type: quality-evaluator
+  prompt: <generated content + criteria>
+  description: "Evaluate content quality"
+```
+
+**Decision Point:**
+- If score ≥ threshold → Proceed to Finalize
+- If iterations exhausted → Proceed to Finalize with warning
+- Otherwise → Proceed to Optimize
+
+### Step 4: Optimize
+Spawn improvement-optimizer:
+```
+Task tool with:
+  subagent_type: improvement-optimizer
+  prompt: <evaluation feedback>
+  description: "Generate improvement plan"
+```
+
+Then loop back to Step 2 (Generate) with optimization instructions.
+
+### Step 5: Finalize
+1. Record final quality scores
+2. Document iteration history
+3. Return final content with quality report
+
+## Iteration Tracking
+```
+Iteration | Score | Status
+----------|-------|--------
+1         | 5.2   | Continue
+2         | 6.1   | Continue
+3         | 7.4   | Finalized ✓
+```
+
+## Error Handling
+- Generator failure → Retry with simplified requirements
+- Evaluator failure → Use previous evaluation, flag for review
+- Max iterations reached → Finalize with quality warning
+- All workers fail → Return partial result with error report
+"""
+        return content
+
 
 # Pre-defined system templates
 SYSTEM_TEMPLATES: dict[str, dict[str, Any]] = {
@@ -461,6 +560,64 @@ SYSTEM_TEMPLATES: dict[str, dict[str, Any]] = {
             },
         ],
     },
+    "evaluator-optimizer": {
+        "name": "evaluator-optimizer-system",
+        "description": "Iterative improvement system with feedback loops",
+        "pattern": "evaluator-optimizer",
+        "orchestrator": {
+            "name": "feedback-loop-controller",
+            "description": "Controls iterative generation and refinement cycle",
+            "role": "orchestrator",
+            "tools": ["Task", "Read", "Write"],
+            "responsibilities": [
+                "Initialize generation cycle",
+                "Route between generator, evaluator, and optimizer",
+                "Track iteration count and quality scores",
+                "Determine when to finalize output",
+            ],
+        },
+        "workers": [
+            {
+                "name": "content-generator",
+                "description": "Generates initial content and incorporates improvements",
+                "role": "generator",
+                "tools": ["Read", "Write", "Grep"],
+                "responsibilities": [
+                    "Generate initial content from requirements",
+                    "Apply suggested improvements to content",
+                    "Maintain consistency across iterations",
+                ],
+                "inputs": ["Requirements or improvement suggestions"],
+                "outputs": ["Generated or improved content"],
+            },
+            {
+                "name": "quality-evaluator",
+                "description": "Evaluates content against quality criteria",
+                "role": "evaluator",
+                "tools": ["Read", "Grep"],
+                "responsibilities": [
+                    "Assess content against quality criteria",
+                    "Score each dimension (clarity, completeness, correctness)",
+                    "Identify specific areas needing improvement",
+                ],
+                "inputs": ["Content to evaluate"],
+                "outputs": ["Quality scores and improvement suggestions"],
+            },
+            {
+                "name": "improvement-optimizer",
+                "description": "Analyzes feedback and plans optimizations",
+                "role": "optimizer",
+                "tools": ["Read", "Grep"],
+                "responsibilities": [
+                    "Analyze evaluator feedback",
+                    "Prioritize improvements by impact",
+                    "Generate actionable optimization instructions",
+                ],
+                "inputs": ["Evaluation feedback and scores"],
+                "outputs": ["Prioritized improvement instructions"],
+            },
+        ],
+    },
 }
 
 
@@ -604,11 +761,15 @@ def save_system(system: MultiAgentSystem, output_dir: Path) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     created_files: list[Path] = []
 
-    # Save orchestrator/classifier based on pattern
+    # Save orchestrator/classifier/controller based on pattern
     orchestrator_path = output_dir / f"{system.orchestrator.name}.md"
     if system.pattern == "routing":
         orchestrator_path.write_text(
             system.generate_classifier_markdown(), encoding="utf-8"
+        )
+    elif system.pattern == "evaluator-optimizer":
+        orchestrator_path.write_text(
+            system.generate_evaluator_orchestrator_markdown(), encoding="utf-8"
         )
     else:
         orchestrator_path.write_text(
@@ -645,7 +806,13 @@ def main() -> None:
     gen_parser.add_argument("--description", default="", help="System description")
     gen_parser.add_argument(
         "--pattern",
-        choices=["orchestrator-workers", "pipeline", "parallel", "routing"],
+        choices=[
+            "orchestrator-workers",
+            "pipeline",
+            "parallel",
+            "routing",
+            "evaluator-optimizer",
+        ],
         default="orchestrator-workers",
         help="Workflow pattern",
     )
@@ -677,7 +844,13 @@ def main() -> None:
     ex_parser.add_argument(
         "pattern",
         nargs="?",
-        choices=["orchestrator-workers", "pipeline", "parallel", "routing"],
+        choices=[
+            "orchestrator-workers",
+            "pipeline",
+            "parallel",
+            "routing",
+            "evaluator-optimizer",
+        ],
         default="orchestrator-workers",
         help="Pattern to show",
     )
@@ -743,19 +916,23 @@ def main() -> None:
             print()
 
     elif args.command == "example":
-        # Show example orchestrator/classifier markdown
+        # Show example orchestrator/classifier/controller markdown
         if args.pattern == "orchestrator-workers":
             system = create_system_from_template("code-review")
         elif args.pattern == "pipeline":
             system = create_system_from_template("documentation")
         elif args.pattern == "routing":
             system = create_system_from_template("routing")
+        elif args.pattern == "evaluator-optimizer":
+            system = create_system_from_template("evaluator-optimizer")
         else:
             system = create_system_from_template("test-suite")
 
         if system:
             if system.pattern == "routing":
                 print(system.generate_classifier_markdown())
+            elif system.pattern == "evaluator-optimizer":
+                print(system.generate_evaluator_orchestrator_markdown())
             else:
                 print(system.generate_orchestrator_markdown())
 

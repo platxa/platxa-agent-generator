@@ -1426,5 +1426,227 @@ class TestMultiAgentRoutingPattern:
         assert "routing" in result.stdout
 
 
+class TestMultiAgentEvaluatorOptimizerPattern:
+    """Tests for multi-agent evaluator-optimizer pattern with feedback loops."""
+
+    def test_evaluator_optimizer_template_generates_all_agents(
+        self, tmp_path: Path
+    ) -> None:
+        """Evaluator-optimizer template should generate controller + 3 worker agents."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "evaluator-optimizer",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+
+        # Verify controller agent
+        controller_file = tmp_path / "feedback-loop-controller.md"
+        assert controller_file.exists(), "Controller agent file should exist"
+
+        # Verify worker agents
+        assert (tmp_path / "content-generator.md").exists(), "Generator should exist"
+        assert (tmp_path / "quality-evaluator.md").exists(), "Evaluator should exist"
+        assert (tmp_path / "improvement-optimizer.md").exists(), (
+            "Optimizer should exist"
+        )
+
+        # Verify manifest
+        manifest_file = tmp_path / "evaluator-optimizer-system-manifest.json"
+        assert manifest_file.exists(), "Manifest should exist"
+
+        manifest = json.loads(manifest_file.read_text())
+        assert manifest["pattern"] == "evaluator-optimizer"
+
+    def test_controller_contains_quality_criteria(self, tmp_path: Path) -> None:
+        """Controller agent should contain quality criteria with thresholds."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "evaluator-optimizer",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        controller_content = (tmp_path / "feedback-loop-controller.md").read_text()
+
+        # Verify quality criteria section
+        assert "Quality Criteria" in controller_content
+        assert "Clarity" in controller_content
+        assert "Completeness" in controller_content
+        assert "Correctness" in controller_content
+        assert "Threshold" in controller_content
+
+    def test_controller_has_feedback_loop_workflow(self, tmp_path: Path) -> None:
+        """Controller should have workflow steps for feedback loop."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "evaluator-optimizer",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        controller_content = (tmp_path / "feedback-loop-controller.md").read_text()
+
+        # Verify workflow steps
+        assert "Step 1: Initialize" in controller_content
+        assert "Step 2: Generate" in controller_content
+        assert "Step 3: Evaluate" in controller_content
+        assert "Step 4: Optimize" in controller_content
+        assert "Step 5: Finalize" in controller_content
+
+        # Verify decision point for loop
+        assert "Decision Point" in controller_content
+
+    def test_controller_includes_iteration_tracking(self, tmp_path: Path) -> None:
+        """Controller should include iteration tracking mechanism."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "evaluator-optimizer",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        controller_content = (tmp_path / "feedback-loop-controller.md").read_text()
+
+        assert "Iteration Tracking" in controller_content
+        assert "Iteration" in controller_content
+        assert "Score" in controller_content
+
+    def test_controller_includes_error_handling(self, tmp_path: Path) -> None:
+        """Controller should include error handling for various failure modes."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "evaluator-optimizer",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        controller_content = (tmp_path / "feedback-loop-controller.md").read_text()
+
+        assert "Error Handling" in controller_content
+        assert "Generator failure" in controller_content
+        assert "Evaluator failure" in controller_content
+        assert "Max iterations" in controller_content
+
+    def test_workers_have_specialized_roles(self, tmp_path: Path) -> None:
+        """Each worker should have appropriate role and responsibilities."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "evaluator-optimizer",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        # Generator should create content
+        generator_content = (tmp_path / "content-generator.md").read_text()
+        assert "generator" in generator_content.lower()
+
+        # Evaluator should assess quality
+        evaluator_content = (tmp_path / "quality-evaluator.md").read_text()
+        assert "evaluat" in evaluator_content.lower()
+
+        # Optimizer should plan improvements
+        optimizer_content = (tmp_path / "improvement-optimizer.md").read_text()
+        assert "optimi" in optimizer_content.lower()
+
+    def test_evaluator_optimizer_example_shows_controller(self) -> None:
+        """Example command should show feedback loop controller markdown."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "example",
+                "evaluator-optimizer",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        # Should show controller content
+        assert "Feedback Loop Controller" in output
+        assert "Quality Criteria" in output
+        assert "Evaluator-Optimizer" in output
+
+    def test_generated_evaluator_optimizer_agents_pass_validation(
+        self, tmp_path: Path
+    ) -> None:
+        """All generated evaluator-optimizer agents should pass syntax validation."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "evaluator-optimizer",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        for md_file in tmp_path.glob("*.md"):
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS_DIR / "syntax_validator.py"),
+                    "--json",
+                    str(md_file),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            output = json.loads(result.stdout)
+            assert output["valid"] is True, (
+                f"Validation failed for {md_file.name}: {output['errors']}"
+            )
+
+    def test_evaluator_optimizer_cli_pattern_option(self) -> None:
+        """Evaluator-optimizer should be available as a pattern option in CLI."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "generate",
+                "--help",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert "evaluator-optimizer" in result.stdout
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
