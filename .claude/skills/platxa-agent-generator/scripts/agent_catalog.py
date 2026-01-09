@@ -252,17 +252,163 @@ For each file, verify:
     ),
     "test-writer": AgentTemplate(
         name="test-writer",
-        description="Generates comprehensive test suites for code including unit, integration, and e2e tests",
+        description="Generates comprehensive test suites with unit, integration, and e2e tests following TDD principles and achieving high coverage",
         category="code-quality",
-        version="1.0.0",
-        tools=["Read", "Write", "Grep", "Glob", "Bash"],
+        version="2.0.0",
+        tools=["Read", "Write", "Grep", "Glob", "Bash", "Task"],
         pattern="prompt-chaining",
-        tags=["testing", "unit-tests", "coverage"],
+        tags=["testing", "unit-tests", "integration", "e2e", "coverage", "tdd"],
         examples=[
             "Write tests for the auth module",
             "Generate unit tests for utils.py",
             "Create e2e tests for the login flow",
         ],
+        workflow_steps=[
+            WorkflowStep(
+                name="Code Analysis",
+                description="Read and understand the target code. Identify public APIs, edge cases, error paths, and dependencies that need mocking.",
+                tools_used=["Read", "Grep", "Glob"],
+                quality_gate="All testable functions/methods identified with their signatures",
+            ),
+            WorkflowStep(
+                name="Test Framework Detection",
+                description="Detect existing test framework (pytest, jest, mocha, etc.) and testing patterns. Check for existing test utilities and fixtures.",
+                tools_used=["Glob", "Read", "Bash"],
+                quality_gate="Test framework identified; existing patterns documented",
+            ),
+            WorkflowStep(
+                name="Test Strategy Planning",
+                description="Plan test categories: unit tests for isolated logic, integration tests for component interactions, e2e tests for user flows. Prioritize by risk.",
+                tools_used=["Read"],
+                quality_gate="Test plan covers all critical paths and edge cases",
+            ),
+            WorkflowStep(
+                name="Unit Test Generation",
+                description="Generate unit tests with proper isolation, mocking of dependencies, and coverage of happy path, edge cases, and error conditions.",
+                tools_used=["Write", "Read"],
+                quality_gate="Unit tests cover >80% of functions with edge cases",
+            ),
+            WorkflowStep(
+                name="Integration Test Generation",
+                description="Generate integration tests that verify component interactions, database operations, API endpoints, and service communications.",
+                tools_used=["Write", "Read"],
+                quality_gate="Integration tests cover critical component boundaries",
+            ),
+            WorkflowStep(
+                name="Test Execution & Validation",
+                description="Run generated tests to verify they pass. Fix any syntax errors or logical issues. Ensure tests are deterministic.",
+                tools_used=["Bash"],
+                quality_gate="All generated tests pass; no flaky tests",
+            ),
+            WorkflowStep(
+                name="Coverage Analysis",
+                description="Analyze test coverage and identify gaps. Generate additional tests for uncovered paths if needed.",
+                tools_used=["Bash", "Read"],
+                quality_gate="Coverage meets project threshold (typically >80%)",
+            ),
+        ],
+        detailed_examples=[
+            AgentExample(
+                title="Unit Tests for Utility Module",
+                user_input="Write unit tests for src/utils/validators.py",
+                agent_response="I'll analyze the validators module and create comprehensive tests.\n\n**Analysis:**\n- 5 validation functions found\n- Dependencies: `re`, `datetime`\n- No external services to mock\n\n**Generated Tests:** `tests/utils/test_validators.py`\n\n```python\nimport pytest\nfrom src.utils.validators import (\n    validate_email, validate_phone, validate_date,\n    validate_password_strength, validate_username\n)\n\nclass TestEmailValidator:\n    def test_valid_email(self):\n        assert validate_email('user@example.com') is True\n    \n    def test_invalid_email_no_at(self):\n        assert validate_email('userexample.com') is False\n    \n    def test_invalid_email_empty(self):\n        assert validate_email('') is False\n    \n    @pytest.mark.parametrize('email', [\n        'user@domain.co.uk',\n        'user+tag@example.com',\n        'user.name@subdomain.example.com',\n    ])\n    def test_valid_email_variations(self, email):\n        assert validate_email(email) is True\n```\n\n**Coverage:** 94% (47/50 lines)\n**Tests:** 23 total (all passing)",
+                key_actions=[
+                    "Analyzed validators.py for function signatures",
+                    "Identified edge cases for each validator",
+                    "Used pytest parametrize for efficient test coverage",
+                    "Ran tests to verify correctness",
+                    "Generated coverage report",
+                ],
+            ),
+            AgentExample(
+                title="Integration Tests for API Endpoint",
+                user_input="Create integration tests for the /api/users endpoint",
+                agent_response="I'll create integration tests for the users API endpoint.\n\n**Endpoint Analysis:**\n- GET /api/users - List users (paginated)\n- POST /api/users - Create user\n- GET /api/users/:id - Get user by ID\n- PUT /api/users/:id - Update user\n- DELETE /api/users/:id - Delete user\n\n**Generated Tests:** `tests/api/test_users_api.py`\n\n```python\nimport pytest\nfrom fastapi.testclient import TestClient\nfrom app.main import app\nfrom tests.factories import UserFactory\n\n@pytest.fixture\ndef client():\n    return TestClient(app)\n\n@pytest.fixture\ndef auth_headers(client):\n    # Login and return auth headers\n    response = client.post('/api/auth/login', json={\n        'email': 'admin@test.com',\n        'password': 'testpass123'\n    })\n    token = response.json()['access_token']\n    return {'Authorization': f'Bearer {token}'}\n\nclass TestUsersAPI:\n    def test_list_users_unauthorized(self, client):\n        response = client.get('/api/users')\n        assert response.status_code == 401\n    \n    def test_list_users_success(self, client, auth_headers):\n        response = client.get('/api/users', headers=auth_headers)\n        assert response.status_code == 200\n        assert 'users' in response.json()\n    \n    def test_create_user_success(self, client, auth_headers):\n        user_data = UserFactory.build_dict()\n        response = client.post('/api/users', \n            json=user_data, headers=auth_headers)\n        assert response.status_code == 201\n```\n\n**Tests:** 18 total | **Coverage:** 89%",
+                key_actions=[
+                    "Analyzed API routes and handlers",
+                    "Created test fixtures for authentication",
+                    "Used factory pattern for test data",
+                    "Tested auth, validation, and CRUD operations",
+                    "Verified with running test database",
+                ],
+            ),
+        ],
+        system_prompt_additions="""
+## Test Writing Philosophy
+
+You are an expert test engineer focused on writing maintainable, effective tests:
+
+1. **Test Behavior, Not Implementation**: Focus on what code does, not how
+2. **One Assertion Per Concept**: Each test should verify one logical concept
+3. **Arrange-Act-Assert**: Structure tests clearly with setup, action, verification
+4. **Meaningful Names**: Test names should describe the scenario and expected outcome
+
+## Test Categories
+
+- **Unit Tests**: Test individual functions/methods in isolation
+- **Integration Tests**: Test component interactions and external systems
+- **E2E Tests**: Test complete user workflows through the application
+
+## Coverage Guidelines
+
+- Aim for >80% line coverage on new code
+- 100% coverage on critical paths (auth, payments, data integrity)
+- Don't chase coverage metrics at the expense of test quality
+- Focus on testing behavior rather than implementation details
+
+## Mocking Strategy
+
+- Mock external services (APIs, databases in unit tests)
+- Use real dependencies in integration tests where possible
+- Create reusable fixtures for common test scenarios
+- Avoid over-mocking; test real behavior when feasible
+""",
+        security_considerations=[
+            "Never use real credentials in tests",
+            "Use test-specific database or in-memory stores",
+            "Ensure test data is cleaned up after test runs",
+            "Don't test with production data or configs",
+            "Validate that security tests don't create vulnerabilities",
+        ],
+        best_practices=[
+            "Follow existing test patterns in the codebase",
+            "Use descriptive test names that explain the scenario",
+            "Keep tests independent - no shared state between tests",
+            "Use fixtures and factories for test data",
+            "Run tests before committing to verify they pass",
+            "Add both positive and negative test cases",
+        ],
+        quality_criteria=[
+            "All generated tests pass on first run",
+            "Tests are deterministic (no flaky tests)",
+            "Coverage increases for target code",
+            "Tests follow project conventions",
+            "Edge cases and error paths are covered",
+        ],
+        error_handling=[
+            "If test framework not installed, suggest installation",
+            "If tests fail, analyze and fix the test logic",
+            "If mocking fails, provide alternative approaches",
+            "If coverage tools unavailable, skip coverage step",
+        ],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "summary": {"type": "object", "properties": {
+                    "tests_generated": {"type": "integer"},
+                    "tests_passing": {"type": "integer"},
+                    "coverage_before": {"type": "number"},
+                    "coverage_after": {"type": "number"},
+                }},
+                "files_created": {"type": "array", "items": {"type": "string"}},
+                "test_breakdown": {"type": "object", "properties": {
+                    "unit_tests": {"type": "integer"},
+                    "integration_tests": {"type": "integer"},
+                    "e2e_tests": {"type": "integer"},
+                }},
+                "uncovered_paths": {"type": "array", "items": {"type": "string"}},
+            },
+        },
     ),
     "refactoring-agent": AgentTemplate(
         name="refactoring-agent",
@@ -368,17 +514,152 @@ For each file, verify:
     # Security Agents
     "security-scanner": AgentTemplate(
         name="security-scanner",
-        description="Scans code for security vulnerabilities, secrets, and OWASP top 10 issues",
+        description="Comprehensive security scanner detecting OWASP Top 10, secrets exposure, injection vulnerabilities, and insecure configurations",
         category="security",
-        version="1.0.0",
-        tools=["Read", "Grep", "Glob", "Bash"],
+        version="2.0.0",
+        tools=["Read", "Grep", "Glob", "Bash", "Task"],
         pattern="parallelization",
-        tags=["security", "vulnerabilities", "owasp", "secrets"],
+        tags=["security", "vulnerabilities", "owasp", "secrets", "sast", "injection"],
         examples=[
             "Scan this codebase for vulnerabilities",
             "Check for exposed secrets",
             "Analyze authentication security",
         ],
+        workflow_steps=[
+            WorkflowStep(
+                name="Scope Definition",
+                description="Identify files to scan based on language, framework, and risk profile. Exclude test files and generated code unless specified.",
+                tools_used=["Glob", "Read"],
+                quality_gate="All scannable files identified; exclusions documented",
+            ),
+            WorkflowStep(
+                name="Secrets Detection",
+                description="Scan for exposed secrets: API keys, tokens, certificates, private keys. Check env files, configs, and source code.",
+                tools_used=["Grep", "Read"],
+                quality_gate="All potential secrets flagged with severity",
+            ),
+            WorkflowStep(
+                name="Injection Analysis",
+                description="Detect SQL injection, command injection, XSS, LDAP injection by tracing user input to dangerous sinks.",
+                tools_used=["Read", "Grep"],
+                quality_gate="All user input paths traced to potential injection points",
+            ),
+            WorkflowStep(
+                name="Authentication Audit",
+                description="Review auth mechanisms: credential storage, session management, token handling, MFA, access controls.",
+                tools_used=["Read", "Grep"],
+                quality_gate="Auth implementation reviewed against security checklist",
+            ),
+            WorkflowStep(
+                name="Configuration Review",
+                description="Check for insecure configs: debug modes, CORS policies, security headers, TLS settings.",
+                tools_used=["Read", "Grep", "Bash"],
+                quality_gate="Configuration files audited for security settings",
+            ),
+            WorkflowStep(
+                name="Dependency Scan",
+                description="Check dependencies for known CVEs using npm audit, pip-audit, or language-specific tools.",
+                tools_used=["Bash", "Read"],
+                quality_gate="All dependencies checked against vulnerability databases",
+            ),
+            WorkflowStep(
+                name="Report Generation",
+                description="Compile findings into severity-ranked report with remediation guidance and CVE references.",
+                tools_used=[],
+                quality_gate="Report includes severity, location, description, and remediation",
+            ),
+        ],
+        detailed_examples=[
+            AgentExample(
+                title="Full Codebase Security Scan",
+                user_input="Scan this codebase for security vulnerabilities",
+                agent_response="**Security Scan Report**\n\n**Scope:** 127 files scanned\n\n**CRITICAL (2)**\n1. Hardcoded secret in config/settings.py:23\n2. SQL injection in api/users.py:45\n\n**HIGH (3)**\n1. Weak hashing algorithm\n2. Missing CSRF protection\n3. Verbose error messages exposed\n\n**MEDIUM (5)**\n- Missing rate limiting\n- Session timeout not configured\n- Debug mode enabled\n- Missing security headers\n- Outdated dependency with CVE\n\n**Summary:** 10 issues found",
+                key_actions=[
+                    "Scanned for hardcoded secrets",
+                    "Traced user inputs to database queries",
+                    "Reviewed authentication implementation",
+                    "Checked HTTP security headers",
+                    "Ran dependency vulnerability scan",
+                ],
+            ),
+            AgentExample(
+                title="Secrets Audit",
+                user_input="Check for exposed secrets in the repository",
+                agent_response="**Secrets Audit Report**\n\n**Files Scanned:** 234\n**Issues Found:** 7\n\n**CRITICAL:** 3 hardcoded credentials found\n**HIGH:** 2 weak secrets in test files\n\n**Recommendations:**\n1. Rotate exposed credentials\n2. Add .env to .gitignore\n3. Use secrets manager\n4. Add pre-commit hooks",
+                key_actions=[
+                    "Searched for API key patterns",
+                    "Checked .env and docker configs",
+                    "Scanned CI/CD workflows",
+                    "Verified gitignore coverage",
+                ],
+            ),
+        ],
+        system_prompt_additions="""
+## Security Scanner Philosophy
+
+1. **Assume Breach Mentality**: Look for exploitable vulnerabilities
+2. **Defense in Depth**: Check multiple security layers
+3. **Least Privilege**: Flag overly permissive access controls
+4. **Secure by Default**: Identify insecure configurations
+
+## OWASP Top 10 Checklist
+
+- A01: Broken Access Control
+- A02: Cryptographic Failures
+- A03: Injection
+- A04: Insecure Design
+- A05: Security Misconfiguration
+- A06: Vulnerable Components
+- A07: Authentication Failures
+- A08: Software/Data Integrity Failures
+- A09: Security Logging Failures
+- A10: Server-Side Request Forgery
+
+## Severity Levels
+
+- **CRITICAL**: Immediate exploitation risk
+- **HIGH**: Significant vulnerability
+- **MEDIUM**: Security weakness
+- **LOW**: Best practice violation
+""",
+        security_considerations=[
+            "Never log or display full secret values",
+            "Redact sensitive data in reports",
+            "Do not execute suspicious code during analysis",
+            "Report findings securely",
+        ],
+        best_practices=[
+            "Start with automated scanning then manual review",
+            "Focus on user input paths and trust boundaries",
+            "Check both frontend and backend code",
+            "Review third-party integrations",
+            "Verify secrets are not in git history",
+        ],
+        quality_criteria=[
+            "All OWASP Top 10 categories checked",
+            "No false negatives on critical issues",
+            "Minimal false positives",
+            "Clear remediation guidance provided",
+        ],
+        error_handling=[
+            "If security tools not installed, use grep-based detection",
+            "If files too large, scan in chunks",
+            "If binary files found, skip with note",
+        ],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "summary": {"type": "object", "properties": {
+                    "files_scanned": {"type": "integer"},
+                    "critical": {"type": "integer"},
+                    "high": {"type": "integer"},
+                    "medium": {"type": "integer"},
+                }},
+                "findings": {"type": "array"},
+                "secrets_found": {"type": "array"},
+                "vulnerable_dependencies": {"type": "array"},
+            },
+        },
     ),
     "dependency-auditor": AgentTemplate(
         name="dependency-auditor",
