@@ -23,6 +23,7 @@ Modules:
     install_agent: Agent installation utilities
     interactive_prompts: Interactive CLI prompts
     multiagent_generator: Multi-agent system generator
+    progress_tracker: Progress tracking and display system
 """
 
 from __future__ import annotations
@@ -53,6 +54,7 @@ from . import multiagent_generator
 from . import hooks_generator
 from . import agent_catalog
 from . import state_persistence
+from . import progress_tracker
 
 __all__ = [
     # Core generators
@@ -80,4 +82,5 @@ __all__ = [
     "hooks_generator",
     "agent_catalog",
     "state_persistence",
+    "progress_tracker",
 ]

@@ -431,7 +431,7 @@ class StatePersistence:
         try:
             with FileLock(self.lock_file):
                 self._write_state(state)
-                return True
+            return True
         except (OSError, LockError) as e:
             self._log_error("save", str(e))
             return False
