@@ -1,0 +1,204 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyright pytest ruff
+          pip install -r requirements.txt || true
+
+      - name: Type checking with Pyright
+        run: pyright .
+
+      - name: Linting with Ruff
+        run: |
+          ruff check . --output-format=github
+          ruff format --check .
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+  validate-agents:
+    name: Validate Agent Definitions
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml
+
+      - name: Validate agent syntax
+        run: |
+          python -c "
+          import sys
+          from pathlib import Path
+          import yaml
+
+          errors = []
+          agent_dirs = [
+              Path('.claude/agents'),
+              Path('.claude/skills/platxa-agent-generator/templates'),
+          ]
+
+          for agent_dir in agent_dirs:
+              if not agent_dir.exists():
+                  continue
+              for agent_file in agent_dir.glob('*.md'):
+                  content = agent_file.read_text()
+
+                  # Check frontmatter
+                  if not content.startswith('---'):
+                      errors.append(f'{agent_file}: Missing frontmatter')
+                      continue
+
+                  parts = content.split('---', 2)
+                  if len(parts) < 3:
+                      errors.append(f'{agent_file}: Invalid frontmatter format')
+                      continue
+
+                  try:
+                      frontmatter = yaml.safe_load(parts[1])
+                      if not frontmatter.get('name'):
+                          errors.append(f'{agent_file}: Missing name in frontmatter')
+                      if not frontmatter.get('description'):
+                          errors.append(f'{agent_file}: Missing description in frontmatter')
+                  except yaml.YAMLError as e:
+                      errors.append(f'{agent_file}: Invalid YAML: {e}')
+
+          if errors:
+              print('Agent validation errors:')
+              for error in errors:
+                  print(f'  - {error}')
+              sys.exit(1)
+          else:
+              print('All agent definitions valid!')
+          "
+
+  validate-references:
+    name: Validate Reference Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check reference files exist
+        run: |
+          required_files=(
+            "references/README.md"
+            "references/prompt-chaining.md"
+            "references/routing.md"
+            "references/parallelization.md"
+            "references/orchestrator-workers.md"
+            "references/evaluator-optimizer.md"
+            "references/best-practices.md"
+          )
+
+          missing=()
+          for file in "${required_files[@]}"; do
+            if [[ ! -f "$file" ]]; then
+              missing+=("$file")
+            fi
+          done
+
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "Missing reference files:"
+            printf '  - %s\n' "${missing[@]}"
+            exit 1
+          fi
+
+          echo "All reference files present!"
+
+      - name: Check markdown links
+        run: |
+          # Simple check for broken internal links
+          python -c "
+          import re
+          from pathlib import Path
+
+          errors = []
+          for md_file in Path('references').glob('*.md'):
+              content = md_file.read_text()
+              # Find markdown links
+              links = re.findall(r'\[.*?\]\(((?!http)[^)]+)\)', content)
+              for link in links:
+                  # Resolve relative to file location
+                  target = (md_file.parent / link).resolve()
+                  if not target.exists():
+                      errors.append(f'{md_file}: Broken link to {link}')
+
+          if errors:
+              print('Broken links found:')
+              for error in errors:
+                  print(f'  - {error}')
+              # Warning only, don't fail
+          else:
+              print('No broken links found!')
+          "
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for secrets
+        run: |
+          # Simple secret detection
+          patterns=(
+            'password\s*=\s*["\x27][^"\x27]+'
+            'api[_-]?key\s*=\s*["\x27][^"\x27]+'
+            'secret\s*=\s*["\x27][^"\x27]+'
+            'AKIA[0-9A-Z]{16}'
+          )
+
+          found=0
+          for pattern in "${patterns[@]}"; do
+            if grep -rniE "$pattern" --include="*.py" --include="*.yml" --include="*.yaml" . 2>/dev/null | grep -v "test" | grep -v "example" | head -5; then
+              found=1
+            fi
+          done
+
+          if [[ $found -eq 1 ]]; then
+            echo "::warning::Potential secrets detected. Please review."
+          else
+            echo "No obvious secrets detected."
+          fi
+
+      - name: Check file permissions
+        run: |
+          # Ensure no overly permissive files
+          find . -type f -perm /go+w -not -path "./.git/*" | head -10 | while read f; do
+            echo "::warning::World-writable file: $f"
+          done
