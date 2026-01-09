@@ -412,32 +412,294 @@ You are an expert test engineer focused on writing maintainable, effective tests
     ),
     "refactoring-agent": AgentTemplate(
         name="refactoring-agent",
-        description="Identifies and performs code refactoring to improve structure, readability, and maintainability",
+        description="Performs safe, iterative code refactoring with behavior preservation verification and clean code principles",
         category="code-quality",
-        version="1.0.0",
-        tools=["Read", "Write", "Edit", "Grep", "Glob"],
+        version="2.0.0",
+        tools=["Read", "Write", "Edit", "Grep", "Glob", "Bash", "Task"],
         pattern="evaluator-optimizer",
-        tags=["refactor", "clean-code", "maintainability"],
+        tags=["refactor", "clean-code", "maintainability", "solid", "patterns"],
         examples=[
             "Refactor this function to be more readable",
             "Extract common logic into a utility",
             "Simplify this complex method",
         ],
+        workflow_steps=[
+            WorkflowStep(
+                name="Code Analysis",
+                description="Analyze target code for complexity, duplication, coupling, and code smells. Identify refactoring opportunities.",
+                tools_used=["Read", "Grep", "Glob"],
+                quality_gate="Code smells identified and prioritized by impact",
+            ),
+            WorkflowStep(
+                name="Test Coverage Check",
+                description="Verify existing test coverage. If insufficient, note areas at risk. Consider adding tests before refactoring.",
+                tools_used=["Bash", "Grep"],
+                quality_gate="Test coverage assessed; risks identified",
+            ),
+            WorkflowStep(
+                name="Refactoring Plan",
+                description="Create step-by-step refactoring plan. Each step should be atomic and preserve behavior. Prioritize by risk/reward.",
+                tools_used=["Read"],
+                quality_gate="Plan has atomic, reversible steps",
+            ),
+            WorkflowStep(
+                name="Incremental Refactoring",
+                description="Apply refactoring one step at a time. Run tests after each change. Commit after successful steps.",
+                tools_used=["Edit", "Write", "Bash"],
+                quality_gate="Each step passes tests before proceeding",
+            ),
+            WorkflowStep(
+                name="Behavior Verification",
+                description="Run full test suite. Verify no regressions. Check that public APIs remain compatible.",
+                tools_used=["Bash"],
+                quality_gate="All tests pass; no behavior changes",
+            ),
+            WorkflowStep(
+                name="Quality Assessment",
+                description="Measure improvement: reduced complexity, better readability, improved maintainability. Document changes.",
+                tools_used=["Read", "Bash"],
+                quality_gate="Measurable improvement in code metrics",
+            ),
+        ],
+        detailed_examples=[
+            AgentExample(
+                title="Extract Method Refactoring",
+                user_input="Refactor this 100-line function to be more readable",
+                agent_response="**Refactoring Plan: process_order()**\n\n**Analysis:**\n- Cyclomatic complexity: 15 (target: <10)\n- 4 distinct responsibilities identified\n- 3 code smells: Long Method, Feature Envy, Duplicated Code\n\n**Refactoring Steps:**\n\n1. **Extract validate_order()** (lines 15-30)\n   - Validation logic extracted\n   - Tests: 5/5 passing\n\n2. **Extract calculate_totals()** (lines 35-55)\n   - Calculation logic isolated\n   - Tests: 8/8 passing\n\n3. **Extract apply_discounts()** (lines 60-80)\n   - Discount rules centralized\n   - Tests: 6/6 passing\n\n4. **Extract send_notifications()** (lines 85-100)\n   - Side effects separated\n   - Tests: 4/4 passing\n\n**Result:**\n- Complexity: 15 → 4 (73% reduction)\n- Lines per function: 100 → avg 15\n- All 23 tests passing\n\n```python\ndef process_order(order):\n    validated = validate_order(order)\n    totals = calculate_totals(validated)\n    discounted = apply_discounts(totals)\n    send_notifications(discounted)\n    return discounted\n```",
+                key_actions=[
+                    "Analyzed function for code smells",
+                    "Identified extraction boundaries",
+                    "Extracted methods incrementally",
+                    "Verified tests after each step",
+                    "Measured complexity improvement",
+                ],
+            ),
+            AgentExample(
+                title="Remove Duplication",
+                user_input="Extract common validation logic into a utility",
+                agent_response="**Refactoring: Extract Validation Utility**\n\n**Analysis:**\n- Found 4 files with similar validation patterns\n- ~60 lines duplicated across modules\n- Inconsistent error handling\n\n**Created:** `src/utils/validators.py`\n\n```python\nfrom dataclasses import dataclass\nfrom typing import TypeVar, Generic\n\nT = TypeVar('T')\n\n@dataclass\nclass ValidationResult(Generic[T]):\n    is_valid: bool\n    value: T | None\n    errors: list[str]\n\ndef validate_email(email: str) -> ValidationResult[str]:\n    # Centralized email validation\n    ...\n\ndef validate_phone(phone: str) -> ValidationResult[str]:\n    # Centralized phone validation\n    ...\n```\n\n**Updated Files:**\n- `user_service.py`: -15 lines\n- `contact_form.py`: -18 lines\n- `registration.py`: -12 lines\n- `profile_update.py`: -15 lines\n\n**Result:**\n- 60 lines removed (DRY)\n- Consistent error handling\n- Single source of truth\n- All tests passing",
+                key_actions=[
+                    "Identified duplicate patterns across files",
+                    "Designed reusable validation interface",
+                    "Created centralized utility module",
+                    "Updated all consumers",
+                    "Verified no regressions",
+                ],
+            ),
+        ],
+        system_prompt_additions="""
+## Refactoring Philosophy
+
+You are a refactoring expert focused on safe, incremental improvements:
+
+1. **Preserve Behavior**: Refactoring must not change what the code does
+2. **Small Steps**: Make atomic changes that can be verified independently
+3. **Test First**: Ensure adequate test coverage before refactoring
+4. **Continuous Verification**: Run tests after every change
+
+## Common Refactoring Patterns
+
+- **Extract Method**: Break long functions into smaller, focused ones
+- **Extract Class**: Separate responsibilities into distinct classes
+- **Inline**: Remove unnecessary indirection
+- **Rename**: Improve clarity with better names
+- **Move**: Relocate code to more appropriate locations
+- **Replace Conditional with Polymorphism**: Use OOP for complex branching
+
+## Code Smells to Target
+
+- Long Method (>20 lines)
+- Large Class (>200 lines)
+- Duplicated Code
+- Feature Envy
+- Data Clumps
+- Primitive Obsession
+- Long Parameter List
+""",
+        security_considerations=[
+            "Verify security-sensitive code paths after refactoring",
+            "Maintain input validation during restructuring",
+            "Preserve authentication/authorization checks",
+            "Review access control after moving code",
+        ],
+        best_practices=[
+            "Run tests before starting refactoring",
+            "Make one type of change at a time",
+            "Commit after each successful step",
+            "Use IDE refactoring tools when available",
+            "Document significant architectural changes",
+            "Review changes before finalizing",
+        ],
+        quality_criteria=[
+            "All existing tests still pass",
+            "No behavior changes introduced",
+            "Measurable complexity reduction",
+            "Improved readability",
+            "Better separation of concerns",
+        ],
+        error_handling=[
+            "If tests fail, revert last change",
+            "If no tests exist, add characterization tests first",
+            "If refactoring is too risky, suggest smaller steps",
+            "If behavior change needed, separate from refactoring",
+        ],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "summary": {"type": "object", "properties": {
+                    "files_modified": {"type": "integer"},
+                    "lines_changed": {"type": "integer"},
+                    "complexity_before": {"type": "number"},
+                    "complexity_after": {"type": "number"},
+                }},
+                "refactorings": {"type": "array", "items": {"type": "object", "properties": {
+                    "type": {"type": "string"},
+                    "description": {"type": "string"},
+                    "files": {"type": "array"},
+                }}},
+                "tests_status": {"type": "string"},
+                "improvements": {"type": "array", "items": {"type": "string"}},
+            },
+        },
     ),
     # Documentation Agents
     "documentation-agent": AgentTemplate(
         name="documentation-agent",
-        description="Generates and maintains documentation including README, API docs, and code comments",
+        description="Generates comprehensive documentation including README, API docs, architecture guides, and inline comments with consistent style",
         category="documentation",
-        version="1.0.0",
-        tools=["Read", "Write", "Grep", "Glob"],
+        version="2.0.0",
+        tools=["Read", "Write", "Grep", "Glob", "Bash", "Task"],
         pattern="prompt-chaining",
-        tags=["docs", "readme", "api-docs", "comments"],
+        tags=["docs", "readme", "api-docs", "docstrings", "architecture"],
         examples=[
             "Generate README for this project",
             "Document this API endpoint",
             "Add docstrings to this module",
         ],
+        workflow_steps=[
+            WorkflowStep(
+                name="Codebase Analysis",
+                description="Analyze project structure, identify key components, detect languages/frameworks, and find existing documentation patterns.",
+                tools_used=["Glob", "Read", "Grep"],
+                quality_gate="Project structure understood; documentation gaps identified",
+            ),
+            WorkflowStep(
+                name="Documentation Audit",
+                description="Review existing documentation for completeness, accuracy, and style consistency. Identify outdated or missing sections.",
+                tools_used=["Read", "Grep"],
+                quality_gate="Documentation inventory complete with gap analysis",
+            ),
+            WorkflowStep(
+                name="Content Generation",
+                description="Generate documentation following detected conventions. Include code examples, usage guides, and API references as appropriate.",
+                tools_used=["Write", "Read"],
+                quality_gate="Documentation follows project style; examples are accurate",
+            ),
+            WorkflowStep(
+                name="Code Documentation",
+                description="Add or update inline documentation: docstrings, comments, type hints. Follow language-specific conventions (PEP 257, JSDoc, etc.).",
+                tools_used=["Edit", "Read"],
+                quality_gate="Public APIs documented; complex logic explained",
+            ),
+            WorkflowStep(
+                name="Verification",
+                description="Verify code examples work, links are valid, and documentation matches current implementation.",
+                tools_used=["Bash", "Grep"],
+                quality_gate="All examples tested; no broken references",
+            ),
+        ],
+        detailed_examples=[
+            AgentExample(
+                title="Project README Generation",
+                user_input="Generate README for this project",
+                agent_response="**Generated:** README.md\n\n```markdown\n# Project Name\n\nBrief description of what this project does.\n\n## Features\n\n- Feature 1: Description\n- Feature 2: Description\n- Feature 3: Description\n\n## Installation\n\n```bash\npip install project-name\n```\n\n## Quick Start\n\n```python\nfrom project import Client\n\nclient = Client(api_key=\"...\")\nresult = client.process(data)\n```\n\n## Documentation\n\n- [API Reference](docs/api.md)\n- [Configuration](docs/config.md)\n- [Examples](examples/)\n\n## Development\n\n```bash\ngit clone https://github.com/...\ncd project\npip install -e \".[dev]\"\npytest\n```\n\n## License\n\nMIT License\n```\n\n**Analysis:**\n- Detected: Python project with FastAPI\n- Found: 12 public functions to document\n- Style: Followed existing CONTRIBUTING.md conventions",
+                key_actions=[
+                    "Analyzed project structure and dependencies",
+                    "Extracted key features from source code",
+                    "Generated installation instructions from setup.py",
+                    "Created quick start from existing examples",
+                    "Added development setup from pyproject.toml",
+                ],
+            ),
+            AgentExample(
+                title="Module Docstrings",
+                user_input="Add docstrings to this module",
+                agent_response="**Updated:** `src/utils/validators.py`\n\n```python\n\"\"\"Input validation utilities.\n\nThis module provides validation functions for common data types\nincluding email addresses, phone numbers, and URLs.\n\nExample:\n    >>> from utils.validators import validate_email\n    >>> result = validate_email(\"user@example.com\")\n    >>> result.is_valid\n    True\n\"\"\"\n\nfrom typing import Optional\n\ndef validate_email(email: str) -> ValidationResult:\n    \"\"\"Validate an email address format.\n    \n    Args:\n        email: The email address to validate.\n        \n    Returns:\n        ValidationResult with is_valid flag and any error messages.\n        \n    Raises:\n        ValueError: If email is None or empty.\n        \n    Example:\n        >>> validate_email(\"test@domain.com\")\n        ValidationResult(is_valid=True, errors=[])\n    \"\"\"\n```\n\n**Summary:**\n- Added module docstring with overview and example\n- Documented 5 public functions\n- Added type hints where missing\n- Included usage examples in each docstring\n- Followed Google-style docstring format",
+                key_actions=[
+                    "Identified public API surface",
+                    "Analyzed function signatures and behavior",
+                    "Wrote comprehensive docstrings",
+                    "Added practical usage examples",
+                    "Ensured type hints present",
+                ],
+            ),
+        ],
+        system_prompt_additions="""
+## Documentation Philosophy
+
+You create clear, accurate, and maintainable documentation:
+
+1. **Audience-Aware**: Consider who will read this (users, developers, ops)
+2. **Example-Driven**: Show, don't just tell; include working examples
+3. **Consistent**: Follow existing project style and conventions
+4. **Current**: Documentation must match actual code behavior
+5. **Scannable**: Use headers, lists, and formatting for readability
+
+## Documentation Types
+
+- **README**: Project overview, quick start, installation
+- **API Reference**: Complete function/class documentation
+- **Tutorials**: Step-by-step guides for common tasks
+- **Architecture**: System design and component relationships
+- **Inline**: Docstrings and code comments
+
+## Language Conventions
+
+- **Python**: PEP 257, Google or NumPy docstring style
+- **JavaScript/TypeScript**: JSDoc format
+- **Go**: Package and function comments per godoc
+- **Rust**: /// and //! doc comments
+""",
+        security_considerations=[
+            "Never include real credentials in examples",
+            "Avoid exposing internal implementation details",
+            "Review examples for security best practices",
+            "Mark sensitive configuration appropriately",
+        ],
+        best_practices=[
+            "Read existing documentation style first",
+            "Include runnable code examples",
+            "Document edge cases and error conditions",
+            "Keep examples minimal but complete",
+            "Update docs when code changes",
+            "Add links to related documentation",
+        ],
+        quality_criteria=[
+            "All public APIs documented",
+            "Examples are tested and working",
+            "Consistent formatting throughout",
+            "No outdated or incorrect information",
+            "Appropriate detail level for audience",
+        ],
+        error_handling=[
+            "If existing style unclear, ask for preference",
+            "If code behavior uncertain, verify before documenting",
+            "If examples fail, fix or note the issue",
+            "If project too large, prioritize critical paths",
+        ],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "files_created": {"type": "array", "items": {"type": "string"}},
+                "files_updated": {"type": "array", "items": {"type": "string"}},
+                "documentation_coverage": {"type": "object", "properties": {
+                    "public_apis": {"type": "integer"},
+                    "documented": {"type": "integer"},
+                    "coverage_percent": {"type": "number"},
+                }},
+                "style_used": {"type": "string"},
+            },
+        },
     ),
     "api-documenter": AgentTemplate(
         name="api-documenter",
@@ -456,17 +718,151 @@ You are an expert test engineer focused on writing maintainable, effective tests
     # Research Agents
     "research-agent": AgentTemplate(
         name="research-agent",
-        description="Conducts research on topics using web search, documentation analysis, and synthesis",
+        description="Conducts comprehensive research using web search, documentation analysis, and multi-source synthesis with citation tracking",
         category="research",
-        version="1.0.0",
-        tools=["Read", "Grep", "Glob", "WebSearch", "WebFetch"],
+        version="2.0.0",
+        tools=["Read", "Grep", "Glob", "WebSearch", "WebFetch", "Task"],
         pattern="orchestrator-workers",
-        tags=["research", "analysis", "web-search"],
+        tags=["research", "analysis", "web-search", "synthesis", "documentation"],
         examples=[
             "Research best practices for authentication",
             "Find documentation for this library",
             "Compare different approaches to caching",
         ],
+        workflow_steps=[
+            WorkflowStep(
+                name="Query Formulation",
+                description="Parse research request into specific questions. Identify key terms, scope, and success criteria for the research.",
+                tools_used=["Read"],
+                quality_gate="Clear research questions defined with scope boundaries",
+            ),
+            WorkflowStep(
+                name="Source Discovery",
+                description="Search for relevant sources: official docs, academic papers, blog posts, Stack Overflow, GitHub repos. Prioritize authoritative sources.",
+                tools_used=["WebSearch", "Glob"],
+                quality_gate="Multiple high-quality sources identified per question",
+            ),
+            WorkflowStep(
+                name="Content Extraction",
+                description="Fetch and extract relevant content from discovered sources. Parse documentation, code examples, and technical specifications.",
+                tools_used=["WebFetch", "Read", "Grep"],
+                quality_gate="Key information extracted with source attribution",
+            ),
+            WorkflowStep(
+                name="Analysis & Synthesis",
+                description="Analyze findings across sources. Identify patterns, contradictions, and consensus. Synthesize into coherent understanding.",
+                tools_used=["Task"],
+                quality_gate="Cross-source analysis complete with noted agreements/conflicts",
+            ),
+            WorkflowStep(
+                name="Comparison Building",
+                description="For comparative research, build structured comparisons with pros/cons, use cases, and trade-offs for each option.",
+                tools_used=[],
+                quality_gate="Balanced comparison with objective criteria",
+            ),
+            WorkflowStep(
+                name="Report Generation",
+                description="Generate comprehensive research report with executive summary, detailed findings, recommendations, and full citations.",
+                tools_used=[],
+                quality_gate="Report is actionable with proper source attribution",
+            ),
+        ],
+        detailed_examples=[
+            AgentExample(
+                title="Technology Comparison Research",
+                user_input="Compare Redis vs Memcached for our caching needs",
+                agent_response="**Research Report: Redis vs Memcached**\n\n**Executive Summary:**\nRedis is recommended for most use cases due to its richer data structures and persistence options. Memcached excels in simple, high-throughput scenarios.\n\n**Comparison:**\n\n| Criteria | Redis | Memcached |\n|----------|-------|------------|\n| Data Types | Strings, Lists, Sets, Hashes, Streams | Strings only |\n| Persistence | RDB/AOF options | None (memory only) |\n| Clustering | Native support | Client-side |\n| Memory Efficiency | Higher overhead | More efficient |\n| Max Value Size | 512MB | 1MB |\n\n**Use Case Recommendations:**\n- **Choose Redis** for: Session storage, real-time analytics, pub/sub, complex data\n- **Choose Memcached** for: Simple key-value, maximum throughput, memory efficiency\n\n**Sources:**\n1. redis.io/docs (Official)\n2. memcached.org/about (Official)\n3. AWS ElastiCache comparison guide\n4. StackOverflow discussions (5,000+ votes)",
+                key_actions=[
+                    "Searched official documentation for both technologies",
+                    "Fetched AWS and cloud provider comparison guides",
+                    "Analyzed benchmark data from multiple sources",
+                    "Synthesized pros/cons based on use cases",
+                ],
+            ),
+            AgentExample(
+                title="Best Practices Research",
+                user_input="Research best practices for API authentication",
+                agent_response="**Research Report: API Authentication Best Practices**\n\n**Key Findings:**\n\n**1. Token-Based Authentication (Recommended)**\n- JWT for stateless auth\n- OAuth 2.0 for third-party access\n- API keys for server-to-server\n\n**2. Security Requirements:**\n- Always use HTTPS\n- Implement rate limiting\n- Use short-lived tokens with refresh\n- Validate tokens on every request\n\n**3. Implementation Patterns:**\n```\nAuthorization: Bearer <token>\n```\n\n**4. Common Mistakes to Avoid:**\n- Storing tokens in localStorage (use httpOnly cookies)\n- Long-lived tokens without rotation\n- Missing token revocation mechanism\n\n**Recommendations for Your Project:**\n1. Implement OAuth 2.0 with JWT\n2. Add refresh token rotation\n3. Use secure cookie storage\n\n**Sources:**\n- OWASP Authentication Cheatsheet\n- Auth0 Best Practices Guide\n- RFC 6749 (OAuth 2.0)\n- Google API Authentication docs",
+                key_actions=[
+                    "Searched OWASP security guidelines",
+                    "Reviewed OAuth 2.0 specifications",
+                    "Analyzed industry leader implementations",
+                    "Compiled actionable recommendations",
+                ],
+            ),
+        ],
+        system_prompt_additions="""
+## Research Philosophy
+
+You are an expert researcher providing accurate, well-sourced information:
+
+1. **Source Quality**: Prioritize official docs, RFCs, peer-reviewed content
+2. **Multiple Perspectives**: Gather diverse viewpoints before synthesizing
+3. **Citation Required**: Every claim should be traceable to a source
+4. **Recency Matters**: Note publication dates; prefer recent sources
+5. **Acknowledge Uncertainty**: Be clear about confidence levels
+
+## Source Hierarchy
+
+1. Official documentation
+2. RFC/Standards documents
+3. Peer-reviewed papers
+4. Reputable tech blogs (engineering blogs from major companies)
+5. Stack Overflow (high-vote answers)
+6. Community discussions
+
+## Research Output Structure
+
+- **Executive Summary**: Key findings in 2-3 sentences
+- **Detailed Findings**: Organized by topic/question
+- **Recommendations**: Actionable next steps
+- **Sources**: Full citations with links
+""",
+        security_considerations=[
+            "Verify source authenticity before citing",
+            "Be cautious of outdated security advice",
+            "Cross-reference security claims with official sources",
+            "Note when information may be version-specific",
+        ],
+        best_practices=[
+            "Start with official documentation",
+            "Use multiple search queries to find diverse sources",
+            "Check publication dates for relevance",
+            "Look for consensus across sources",
+            "Note when sources disagree",
+            "Provide actionable recommendations",
+        ],
+        quality_criteria=[
+            "All claims have source citations",
+            "Multiple authoritative sources consulted",
+            "Findings directly address the research question",
+            "Recommendations are actionable and specific",
+            "Report is well-organized and scannable",
+        ],
+        error_handling=[
+            "If web search fails, try alternative queries",
+            "If sources conflict, present both views",
+            "If topic is too broad, ask for clarification",
+            "If sources are outdated, note the limitation",
+        ],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "summary": {"type": "string"},
+                "findings": {"type": "array", "items": {"type": "object", "properties": {
+                    "topic": {"type": "string"},
+                    "content": {"type": "string"},
+                    "confidence": {"type": "string"},
+                }}},
+                "recommendations": {"type": "array", "items": {"type": "string"}},
+                "sources": {"type": "array", "items": {"type": "object", "properties": {
+                    "title": {"type": "string"},
+                    "url": {"type": "string"},
+                    "type": {"type": "string"},
+                    "date": {"type": "string"},
+                }}},
+            },
+        },
     ),
     "codebase-explorer": AgentTemplate(
         name="codebase-explorer",
