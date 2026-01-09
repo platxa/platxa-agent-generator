@@ -40,7 +40,12 @@ This is a test agent.
 2. Write output
 """)
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "syntax_validator.py"), "--json", str(agent_file)],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
             capture_output=True,
             text=True,
         )
@@ -56,7 +61,12 @@ This is a test agent.
 No frontmatter in this file.
 """)
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "syntax_validator.py"), "--json", str(agent_file)],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
             capture_output=True,
             text=True,
         )
@@ -74,7 +84,12 @@ tools: Read
 # Test
 """)
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "syntax_validator.py"), "--json", str(agent_file)],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
             capture_output=True,
             text=True,
         )
@@ -93,7 +108,12 @@ tools: Read
 # Test
 """)
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "syntax_validator.py"), "--json", str(agent_file)],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
             capture_output=True,
             text=True,
         )
@@ -121,7 +141,12 @@ tools: Read, Glob, Grep
 3. Report findings
 """)
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "security_scanner.py"), "--json", str(agent_file)],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "security_scanner.py"),
+                "--json",
+                str(agent_file),
+            ],
             capture_output=True,
             text=True,
         )
@@ -146,7 +171,12 @@ tools: Bash, Write, WebFetch
 3. Modify system files
 """)
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "security_scanner.py"), "--json", str(agent_file)],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "security_scanner.py"),
+                "--json",
+                str(agent_file),
+            ],
             capture_output=True,
             text=True,
         )
@@ -166,8 +196,10 @@ class TestWorkflowState:
                 sys.executable,
                 str(SCRIPTS_DIR / "workflow_state.py"),
                 "new",
-                "--name", "test-agent",
-                "--output", str(state_file),
+                "--name",
+                "test-agent",
+                "--output",
+                str(state_file),
             ],
             capture_output=True,
             text=True,
@@ -185,13 +217,25 @@ class TestWorkflowState:
 
         # Create workflow
         subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "workflow_state.py"), "new", "--output", str(state_file)],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "workflow_state.py"),
+                "new",
+                "--output",
+                str(state_file),
+            ],
             capture_output=True,
         )
 
         # Transition: idle -> discovery
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "workflow_state.py"), "transition", str(state_file), "discovery"],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "workflow_state.py"),
+                "transition",
+                str(state_file),
+                "discovery",
+            ],
             capture_output=True,
             text=True,
         )
@@ -203,7 +247,13 @@ class TestWorkflowState:
 
         # Transition: discovery -> architecture
         subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "workflow_state.py"), "transition", str(state_file), "architecture"],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "workflow_state.py"),
+                "transition",
+                str(state_file),
+                "architecture",
+            ],
             capture_output=True,
         )
         data = json.loads(state_file.read_text())
@@ -215,13 +265,25 @@ class TestWorkflowState:
 
         # Create workflow (starts at idle)
         subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "workflow_state.py"), "new", "--output", str(state_file)],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "workflow_state.py"),
+                "new",
+                "--output",
+                str(state_file),
+            ],
             capture_output=True,
         )
 
         # Try invalid transition: idle -> generation (should fail)
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "workflow_state.py"), "transition", str(state_file), "generation"],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "workflow_state.py"),
+                "transition",
+                str(state_file),
+                "generation",
+            ],
             capture_output=True,
             text=True,
         )
@@ -237,17 +299,34 @@ class TestWorkflowState:
 
         # Create and advance workflow
         subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "workflow_state.py"), "new", "--output", str(state_file)],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "workflow_state.py"),
+                "new",
+                "--output",
+                str(state_file),
+            ],
             capture_output=True,
         )
         subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "workflow_state.py"), "transition", str(state_file), "discovery"],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "workflow_state.py"),
+                "transition",
+                str(state_file),
+                "discovery",
+            ],
             capture_output=True,
         )
 
         # Reset
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "workflow_state.py"), "reset", str(state_file)],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "workflow_state.py"),
+                "reset",
+                str(state_file),
+            ],
             capture_output=True,
             text=True,
         )
@@ -263,7 +342,13 @@ class TestToolSelector:
     def test_analyzer_type_tools(self) -> None:
         """Real test: analyzer type should get read/search tools."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "tool_selector.py"), "--type", "analyzer", "--json-output"],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "tool_selector.py"),
+                "--type",
+                "analyzer",
+                "--json-output",
+            ],
             capture_output=True,
             text=True,
         )
@@ -276,7 +361,13 @@ class TestToolSelector:
     def test_builder_type_tools(self) -> None:
         """Real test: builder type should get write/edit tools."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "tool_selector.py"), "--type", "builder", "--json-output"],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "tool_selector.py"),
+                "--type",
+                "builder",
+                "--json-output",
+            ],
             capture_output=True,
             text=True,
         )
@@ -288,7 +379,13 @@ class TestToolSelector:
     def test_automation_type_tools(self) -> None:
         """Real test: automation type should get bash tool."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "tool_selector.py"), "--type", "automation", "--json-output"],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "tool_selector.py"),
+                "--type",
+                "automation",
+                "--json-output",
+            ],
             capture_output=True,
             text=True,
         )
@@ -299,7 +396,15 @@ class TestToolSelector:
     def test_domain_enhancement(self) -> None:
         """Real test: web domain should add web tools."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "tool_selector.py"), "--type", "analyzer", "--domain", "web", "--json-output"],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "tool_selector.py"),
+                "--type",
+                "analyzer",
+                "--domain",
+                "web",
+                "--json-output",
+            ],
             capture_output=True,
             text=True,
         )
@@ -315,7 +420,12 @@ class TestInteractivePrompts:
     def test_list_all_phases(self) -> None:
         """Real test: list all phases and questions."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "interactive_prompts.py"), "all", "--json"],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "interactive_prompts.py"),
+                "all",
+                "--json",
+            ],
             capture_output=True,
             text=True,
         )
@@ -332,7 +442,13 @@ class TestInteractivePrompts:
     def test_get_discovery_phase(self) -> None:
         """Real test: get discovery phase questions."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "interactive_prompts.py"), "phase", "discovery", "--json"],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "interactive_prompts.py"),
+                "phase",
+                "discovery",
+                "--json",
+            ],
             capture_output=True,
             text=True,
         )
@@ -350,7 +466,13 @@ class TestInteractivePrompts:
     def test_get_question_by_key(self) -> None:
         """Real test: lookup specific question by key."""
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "interactive_prompts.py"), "--key", "agent_type", "--json"],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "interactive_prompts.py"),
+                "--key",
+                "agent_type",
+                "--json",
+            ],
             capture_output=True,
             text=True,
         )
@@ -381,9 +503,12 @@ class TestMultiAgentGenerator:
                 sys.executable,
                 str(SCRIPTS_DIR / "multiagent_generator.py"),
                 "generate",
-                "--name", "test-system",
-                "--workers", "2",
-                "--domain", "data",
+                "--name",
+                "test-system",
+                "--workers",
+                "2",
+                "--domain",
+                "data",
                 "--json",
             ],
             capture_output=True,
@@ -402,7 +527,8 @@ class TestMultiAgentGenerator:
                 str(SCRIPTS_DIR / "multiagent_generator.py"),
                 "template",
                 "code-review",
-                "--output", str(tmp_path),
+                "--output",
+                str(tmp_path),
             ],
             capture_output=True,
             text=True,
@@ -426,7 +552,8 @@ class TestMultiAgentGenerator:
                 str(SCRIPTS_DIR / "multiagent_generator.py"),
                 "template",
                 "code-review",
-                "--output", str(tmp_path),
+                "--output",
+                str(tmp_path),
             ],
             capture_output=True,
         )
@@ -434,12 +561,19 @@ class TestMultiAgentGenerator:
         # Validate each generated .md file
         for md_file in tmp_path.glob("*.md"):
             result = subprocess.run(
-                [sys.executable, str(SCRIPTS_DIR / "syntax_validator.py"), "--json", str(md_file)],
+                [
+                    sys.executable,
+                    str(SCRIPTS_DIR / "syntax_validator.py"),
+                    "--json",
+                    str(md_file),
+                ],
                 capture_output=True,
                 text=True,
             )
             output = json.loads(result.stdout)
-            assert output["valid"] is True, f"Validation failed for {md_file.name}: {output['errors']}"
+            assert output["valid"] is True, (
+                f"Validation failed for {md_file.name}: {output['errors']}"
+            )
 
 
 class TestPromptGenerator:
@@ -451,9 +585,12 @@ class TestPromptGenerator:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "prompt_generator.py"),
-                "--type", "analyzer",
-                "--domain", "code",
-                "--purpose", "Analyzes code quality and patterns",
+                "--type",
+                "analyzer",
+                "--domain",
+                "code",
+                "--purpose",
+                "Analyzes code quality and patterns",
             ],
             capture_output=True,
             text=True,
@@ -469,9 +606,12 @@ class TestPromptGenerator:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "prompt_generator.py"),
-                "--type", "builder",
-                "--domain", "features",
-                "--purpose", "Builds new features and components",
+                "--type",
+                "builder",
+                "--domain",
+                "features",
+                "--purpose",
+                "Builds new features and components",
             ],
             capture_output=True,
             text=True,
@@ -486,9 +626,12 @@ class TestPromptGenerator:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "prompt_generator.py"),
-                "--type", "analyzer",
-                "--domain", "general",
-                "--purpose", "General purpose",
+                "--type",
+                "analyzer",
+                "--domain",
+                "general",
+                "--purpose",
+                "General purpose",
             ],
             capture_output=True,
             text=True,
@@ -497,9 +640,12 @@ class TestPromptGenerator:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "prompt_generator.py"),
-                "--type", "builder",
-                "--domain", "general",
-                "--purpose", "General purpose",
+                "--type",
+                "builder",
+                "--domain",
+                "general",
+                "--purpose",
+                "General purpose",
             ],
             capture_output=True,
             text=True,
@@ -537,7 +683,8 @@ tools: Read, Write
                 str(SCRIPTS_DIR / "install_agent.py"),
                 "install",
                 str(agent_file),
-                "--scope", "project",
+                "--scope",
+                "project",
                 "--skip-validation",
                 "--json",
             ],
@@ -574,17 +721,32 @@ class TestIntegration:
                 sys.executable,
                 str(SCRIPTS_DIR / "workflow_state.py"),
                 "new",
-                "--name", "integration-test",
-                "--output", str(state_file),
+                "--name",
+                "integration-test",
+                "--output",
+                str(state_file),
             ],
             capture_output=True,
         )
 
         # Walk through all phases
-        phases = ["discovery", "architecture", "generation", "validation", "installation", "complete"]
+        phases = [
+            "discovery",
+            "architecture",
+            "generation",
+            "validation",
+            "installation",
+            "complete",
+        ]
         for phase in phases:
             result = subprocess.run(
-                [sys.executable, str(SCRIPTS_DIR / "workflow_state.py"), "transition", str(state_file), phase],
+                [
+                    sys.executable,
+                    str(SCRIPTS_DIR / "workflow_state.py"),
+                    "transition",
+                    str(state_file),
+                    phase,
+                ],
                 capture_output=True,
             )
             assert result.returncode == 0, f"Failed transition to {phase}"
@@ -604,7 +766,8 @@ class TestIntegration:
                 str(SCRIPTS_DIR / "multiagent_generator.py"),
                 "template",
                 "documentation",
-                "--output", str(output_dir),
+                "--output",
+                str(output_dir),
             ],
             capture_output=True,
         )
@@ -616,7 +779,12 @@ class TestIntegration:
         for md_file in md_files:
             # Syntax validation
             syntax_result = subprocess.run(
-                [sys.executable, str(SCRIPTS_DIR / "syntax_validator.py"), "--json", str(md_file)],
+                [
+                    sys.executable,
+                    str(SCRIPTS_DIR / "syntax_validator.py"),
+                    "--json",
+                    str(md_file),
+                ],
                 capture_output=True,
                 text=True,
             )
@@ -625,7 +793,12 @@ class TestIntegration:
 
             # Security scan
             security_result = subprocess.run(
-                [sys.executable, str(SCRIPTS_DIR / "security_scanner.py"), "--json", str(md_file)],
+                [
+                    sys.executable,
+                    str(SCRIPTS_DIR / "security_scanner.py"),
+                    "--json",
+                    str(md_file),
+                ],
                 capture_output=True,
                 text=True,
             )
@@ -642,10 +815,14 @@ class TestPromptChainingPattern:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--name", "code-analyzer",
-                "--description", "Analyzes code for quality issues",
-                "--tools", "Read,Grep,Glob",
-                "--pattern", "prompt-chaining",
+                "--name",
+                "code-analyzer",
+                "--description",
+                "Analyzes code for quality issues",
+                "--tools",
+                "Read,Grep,Glob",
+                "--pattern",
+                "prompt-chaining",
             ],
             capture_output=True,
             text=True,
@@ -673,10 +850,14 @@ class TestPromptChainingPattern:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--name", "doc-generator",
-                "--description", "Generates documentation from code",
-                "--tools", "Read,Write,Grep",
-                "--pattern", "prompt-chaining",
+                "--name",
+                "doc-generator",
+                "--description",
+                "Generates documentation from code",
+                "--tools",
+                "Read,Write,Grep",
+                "--pattern",
+                "prompt-chaining",
             ],
             capture_output=True,
             text=True,
@@ -695,10 +876,14 @@ class TestPromptChainingPattern:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--name", "format-converter",
-                "--description", "Transforms JSON to YAML format",
-                "--tools", "Read,Write",
-                "--pattern", "prompt-chaining",
+                "--name",
+                "format-converter",
+                "--description",
+                "Transforms JSON to YAML format",
+                "--tools",
+                "Read,Write",
+                "--pattern",
+                "prompt-chaining",
             ],
             capture_output=True,
             text=True,
@@ -716,10 +901,14 @@ class TestPromptChainingPattern:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--name", "test-runner",
-                "--description", "Validates code against test cases",
-                "--tools", "Read,Bash,Glob",
-                "--pattern", "prompt-chaining",
+                "--name",
+                "test-runner",
+                "--description",
+                "Validates code against test cases",
+                "--tools",
+                "Read,Bash,Glob",
+                "--pattern",
+                "prompt-chaining",
             ],
             capture_output=True,
             text=True,
@@ -737,10 +926,14 @@ class TestPromptChainingPattern:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--name", "code-finder",
-                "--description", "Searches codebase for patterns and functions",
-                "--tools", "Grep,Glob,Read",
-                "--pattern", "prompt-chaining",
+                "--name",
+                "code-finder",
+                "--description",
+                "Searches codebase for patterns and functions",
+                "--tools",
+                "Grep,Glob,Read",
+                "--pattern",
+                "prompt-chaining",
             ],
             capture_output=True,
             text=True,
@@ -759,10 +952,14 @@ class TestPromptChainingPattern:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--name", "bug-fixer",
-                "--description", "Fixes bugs and resolves issues in code",
-                "--tools", "Read,Edit,Bash",
-                "--pattern", "prompt-chaining",
+                "--name",
+                "bug-fixer",
+                "--description",
+                "Fixes bugs and resolves issues in code",
+                "--tools",
+                "Read,Edit,Bash",
+                "--pattern",
+                "prompt-chaining",
             ],
             capture_output=True,
             text=True,
@@ -777,36 +974,40 @@ class TestPromptChainingPattern:
 
     def test_custom_chain_steps_from_json(self) -> None:
         """Custom chain_steps should be used when provided via JSON."""
-        json_input = json.dumps({
-            "name": "custom-workflow",
-            "description": "Agent with custom workflow steps",
-            "tools": ["Read", "Write"],
-            "chain_steps": [
-                {
-                    "name": "Fetch",
-                    "description": "Retrieve data from source",
-                    "tools": ["Read"],
-                    "validation": "Data retrieved successfully"
-                },
-                {
-                    "name": "Process",
-                    "description": "Transform the data",
-                    "validation": "Transformation complete"
-                },
-                {
-                    "name": "Store",
-                    "description": "Save processed data",
-                    "tools": ["Write"],
-                    "validation": "Data stored correctly"
-                }
-            ]
-        })
+        json_input = json.dumps(
+            {
+                "name": "custom-workflow",
+                "description": "Agent with custom workflow steps",
+                "tools": ["Read", "Write"],
+                "chain_steps": [
+                    {
+                        "name": "Fetch",
+                        "description": "Retrieve data from source",
+                        "tools": ["Read"],
+                        "validation": "Data retrieved successfully",
+                    },
+                    {
+                        "name": "Process",
+                        "description": "Transform the data",
+                        "validation": "Transformation complete",
+                    },
+                    {
+                        "name": "Store",
+                        "description": "Save processed data",
+                        "tools": ["Write"],
+                        "validation": "Data stored correctly",
+                    },
+                ],
+            }
+        )
         result = subprocess.run(
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--json", json_input,
-                "--pattern", "prompt-chaining",
+                "--json",
+                json_input,
+                "--pattern",
+                "prompt-chaining",
             ],
             capture_output=True,
             text=True,
@@ -833,10 +1034,14 @@ class TestPromptChainingPattern:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--name", "full-analyzer",
-                "--description", "Analyzes and reports on code",
-                "--tools", "Read,Grep,Glob,Write",
-                "--pattern", "prompt-chaining",
+                "--name",
+                "full-analyzer",
+                "--description",
+                "Analyzes and reports on code",
+                "--tools",
+                "Read,Grep,Glob,Write",
+                "--pattern",
+                "prompt-chaining",
             ],
             capture_output=True,
             text=True,
@@ -853,10 +1058,14 @@ class TestPromptChainingPattern:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--name", "flow-test",
-                "--description", "Test agent for data flow",
-                "--tools", "Read",
-                "--pattern", "prompt-chaining",
+                "--name",
+                "flow-test",
+                "--description",
+                "Test agent for data flow",
+                "--tools",
+                "Read",
+                "--pattern",
+                "prompt-chaining",
             ],
             capture_output=True,
             text=True,
@@ -875,10 +1084,14 @@ class TestPromptChainingPattern:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--name", "quality-test",
-                "--description", "Analyzes quality metrics",
-                "--tools", "Read,Grep",
-                "--pattern", "prompt-chaining",
+                "--name",
+                "quality-test",
+                "--description",
+                "Analyzes quality metrics",
+                "--tools",
+                "Read,Grep",
+                "--pattern",
+                "prompt-chaining",
             ],
             capture_output=True,
             text=True,
@@ -899,18 +1112,28 @@ class TestPromptChainingPattern:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--name", "validated-agent",
-                "--description", "Agent for validation test",
-                "--tools", "Read,Write",
-                "--pattern", "prompt-chaining",
-                "--output", str(output_file),
+                "--name",
+                "validated-agent",
+                "--description",
+                "Agent for validation test",
+                "--tools",
+                "Read,Write",
+                "--pattern",
+                "prompt-chaining",
+                "--output",
+                str(output_file),
             ],
             capture_output=True,
         )
 
         # Validate the generated file
         result = subprocess.run(
-            [sys.executable, str(SCRIPTS_DIR / "syntax_validator.py"), "--json", str(output_file)],
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(output_file),
+            ],
             capture_output=True,
             text=True,
         )
@@ -927,10 +1150,14 @@ class TestOtherPatternTemplates:
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--name", "request-router",
-                "--description", "Routes requests to handlers",
-                "--tools", "Read,Task",
-                "--pattern", "routing",
+                "--name",
+                "request-router",
+                "--description",
+                "Routes requests to handlers",
+                "--tools",
+                "Read,Task",
+                "--pattern",
+                "routing",
             ],
             capture_output=True,
             text=True,
@@ -943,16 +1170,22 @@ class TestOtherPatternTemplates:
         assert "Step 3: Process" in output
         assert "| Input Type | Handler |" in output
 
-    def test_parallelization_pattern_generates_decompose_parallel_aggregate(self) -> None:
+    def test_parallelization_pattern_generates_decompose_parallel_aggregate(
+        self,
+    ) -> None:
         """Parallelization pattern should generate Decompose -> Parallel -> Aggregate workflow."""
         result = subprocess.run(
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--name", "parallel-processor",
-                "--description", "Processes items in parallel",
-                "--tools", "Read,Task",
-                "--pattern", "parallelization",
+                "--name",
+                "parallel-processor",
+                "--description",
+                "Processes items in parallel",
+                "--tools",
+                "Read,Task",
+                "--pattern",
+                "parallelization",
             ],
             capture_output=True,
             text=True,
@@ -965,16 +1198,22 @@ class TestOtherPatternTemplates:
         assert "Step 3: Aggregate" in output
         assert "Task 1:" in output
 
-    def test_evaluator_optimizer_generates_generate_evaluate_optimize_finalize(self) -> None:
+    def test_evaluator_optimizer_generates_generate_evaluate_optimize_finalize(
+        self,
+    ) -> None:
         """Evaluator-optimizer should generate Generate -> Evaluate -> Optimize -> Finalize workflow."""
         result = subprocess.run(
             [
                 sys.executable,
                 str(SCRIPTS_DIR / "agent_generator.py"),
-                "--name", "code-optimizer",
-                "--description", "Optimizes code iteratively",
-                "--tools", "Read,Edit",
-                "--pattern", "evaluator-optimizer",
+                "--name",
+                "code-optimizer",
+                "--description",
+                "Optimizes code iteratively",
+                "--tools",
+                "Read,Edit",
+                "--pattern",
+                "evaluator-optimizer",
             ],
             capture_output=True,
             text=True,
@@ -987,6 +1226,204 @@ class TestOtherPatternTemplates:
         assert "Step 3: Optimize" in output
         assert "Step 4: Finalize" in output
         assert "Evaluation Criteria:" in output
+
+
+class TestMultiAgentRoutingPattern:
+    """Tests for multi-agent routing pattern with classifier + handlers."""
+
+    def test_routing_template_generates_classifier_and_handlers(
+        self, tmp_path: Path
+    ) -> None:
+        """Routing template should generate classifier + 3 handler agents."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "routing",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+
+        # Verify classifier agent
+        classifier_file = tmp_path / "request-classifier.md"
+        assert classifier_file.exists(), "Classifier agent file should exist"
+
+        # Verify handler agents
+        assert (tmp_path / "query-handler.md").exists(), "Query handler should exist"
+        assert (tmp_path / "action-handler.md").exists(), "Action handler should exist"
+        assert (tmp_path / "analysis-handler.md").exists(), (
+            "Analysis handler should exist"
+        )
+
+        # Verify manifest
+        manifest_file = tmp_path / "routing-system-manifest.json"
+        assert manifest_file.exists(), "Manifest should exist"
+
+        manifest = json.loads(manifest_file.read_text())
+        assert manifest["pattern"] == "routing"
+
+    def test_classifier_contains_classification_rules(self, tmp_path: Path) -> None:
+        """Classifier agent should contain classification rules for routing."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "routing",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        classifier_content = (tmp_path / "request-classifier.md").read_text()
+
+        # Verify classification rules
+        assert "Classification Rules" in classifier_content
+        assert "Query Requests" in classifier_content
+        assert "Action Requests" in classifier_content
+        assert "Analysis Requests" in classifier_content
+        assert "Default Route" in classifier_content
+
+        # Verify handler table
+        assert "Handler | Description | Tools" in classifier_content
+        assert "query-handler" in classifier_content
+        assert "action-handler" in classifier_content
+        assert "analysis-handler" in classifier_content
+
+    def test_classifier_has_workflow_with_routing_steps(self, tmp_path: Path) -> None:
+        """Classifier should have workflow steps for classification, routing, response."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "routing",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        classifier_content = (tmp_path / "request-classifier.md").read_text()
+
+        assert "Step 1: Classification" in classifier_content
+        assert "Step 2: Route" in classifier_content
+        assert "Step 3: Response" in classifier_content
+
+    def test_classifier_includes_error_handling(self, tmp_path: Path) -> None:
+        """Classifier should include error handling strategies."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "routing",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        classifier_content = (tmp_path / "request-classifier.md").read_text()
+
+        assert "Error Handling" in classifier_content
+        assert "Handler failure" in classifier_content
+
+    def test_handlers_have_correct_tools(self, tmp_path: Path) -> None:
+        """Each handler should have appropriate tools for its role."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "routing",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        # Query handler should have search tools
+        query_content = (tmp_path / "query-handler.md").read_text()
+        assert "Grep" in query_content or "Read" in query_content
+
+        # Action handler should have write/edit tools
+        action_content = (tmp_path / "action-handler.md").read_text()
+        assert "Write" in action_content or "Edit" in action_content
+
+        # Analysis handler should have read tools
+        analysis_content = (tmp_path / "analysis-handler.md").read_text()
+        assert "Read" in analysis_content
+
+    def test_routing_example_command_shows_classifier(self) -> None:
+        """Example routing command should show classifier markdown."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "example",
+                "routing",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        # Should show classifier content, not orchestrator
+        assert "Classification Rules" in output
+        assert "Handler Agents" in output
+        assert "Routing" in output
+
+    def test_generated_routing_agents_pass_validation(self, tmp_path: Path) -> None:
+        """All generated routing pattern agents should pass syntax validation."""
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "routing",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+        )
+
+        for md_file in tmp_path.glob("*.md"):
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPTS_DIR / "syntax_validator.py"),
+                    "--json",
+                    str(md_file),
+                ],
+                capture_output=True,
+                text=True,
+            )
+            output = json.loads(result.stdout)
+            assert output["valid"] is True, (
+                f"Validation failed for {md_file.name}: {output['errors']}"
+            )
+
+    def test_routing_cli_pattern_option(self) -> None:
+        """Routing should be available as a pattern option in CLI."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "generate",
+                "--help",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert "routing" in result.stdout
 
 
 if __name__ == "__main__":

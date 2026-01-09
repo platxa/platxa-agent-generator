@@ -111,9 +111,11 @@ class MultiAgentSystem:
     def generate_orchestrator_markdown(self) -> str:
         """Generate orchestrator agent with Task tool coordination."""
         worker_names = [w.name for w in self.workers]
-        worker_list = "\n".join(f"- `{name}`: Specialized worker" for name in worker_names)
+        worker_list = "\n".join(
+            f"- `{name}`: Specialized worker" for name in worker_names
+        )
         worker_spawns = "\n".join(
-            f'   - Spawn `{name}` for {self.workers[i].responsibilities[0] if self.workers[i].responsibilities else "specialized task"}'
+            f"   - Spawn `{name}` for {self.workers[i].responsibilities[0] if self.workers[i].responsibilities else 'specialized task'}"
             for i, name in enumerate(worker_names)
         )
 
@@ -175,6 +177,86 @@ Provide structured summary including:
 - Tasks completed successfully
 - Any issues encountered
 - Final aggregated results
+"""
+        return content
+
+    def generate_classifier_markdown(self) -> str:
+        """Generate classifier agent markdown for routing pattern."""
+        handler_table = "\n".join(
+            f"| {w.name} | {w.description} | {', '.join(w.tools)} |"
+            for w in self.workers
+        )
+
+        content = f"""---
+name: {self.orchestrator.name}
+description: {self.orchestrator.description}
+tools: Task, Read, Grep
+---
+
+# {self.orchestrator.name.replace("-", " ").title()}
+
+## Overview
+Classifier agent that analyzes incoming requests and routes them to
+specialized handler agents based on request type and content.
+
+## Pattern
+Routing (Classification → Handler Selection → Execution)
+
+## Handler Agents
+| Handler | Description | Tools |
+|---------|-------------|-------|
+{handler_table}
+
+## Classification Rules
+
+### Query Requests
+Route to `query-handler` when request:
+- Contains search/find/lookup keywords
+- Asks for information retrieval
+- Requests data queries
+
+### Action Requests
+Route to `action-handler` when request:
+- Contains create/modify/update/delete keywords
+- Requests file operations
+- Asks for changes to be made
+
+### Analysis Requests
+Route to `analysis-handler` when request:
+- Contains analyze/examine/inspect keywords
+- Requests deep inspection
+- Asks for reports or assessments
+
+### Default Route
+If classification is unclear, route to `analysis-handler` for initial assessment.
+
+## Workflow
+
+### Step 1: Classification
+1. Parse incoming request
+2. Extract key terms and intent
+3. Match against classification rules
+4. Determine target handler
+
+### Step 2: Route
+1. Prepare handler-specific prompt
+2. Spawn handler using Task tool:
+```
+Task tool with:
+  subagent_type: <handler-name>
+  prompt: <request with context>
+  description: "Handle <type> request"
+```
+
+### Step 3: Response
+1. Receive handler result
+2. Format response for user
+3. Include handler attribution
+
+## Error Handling
+- Unknown request type → Route to analysis-handler
+- Handler failure → Retry with alternative handler
+- All handlers fail → Return error with suggestions
 """
         return content
 
@@ -321,6 +403,64 @@ SYSTEM_TEMPLATES: dict[str, dict[str, Any]] = {
             },
         ],
     },
+    "routing": {
+        "name": "routing-system",
+        "description": "Routing pattern with classifier and specialized handlers",
+        "pattern": "routing",
+        "orchestrator": {
+            "name": "request-classifier",
+            "description": "Classifies inputs and routes to appropriate handlers",
+            "role": "classifier",
+            "tools": ["Task", "Read", "Grep"],
+            "responsibilities": [
+                "Analyze incoming request type and content",
+                "Classify request into appropriate category",
+                "Route to specialized handler agent",
+                "Aggregate handler responses",
+            ],
+        },
+        "workers": [
+            {
+                "name": "query-handler",
+                "description": "Handles query and search requests",
+                "role": "handler",
+                "tools": ["Read", "Grep", "Glob"],
+                "responsibilities": [
+                    "Process search and query requests",
+                    "Execute lookups and searches",
+                    "Return formatted query results",
+                ],
+                "inputs": ["Query request with search criteria"],
+                "outputs": ["Query results in structured format"],
+            },
+            {
+                "name": "action-handler",
+                "description": "Handles action and modification requests",
+                "role": "handler",
+                "tools": ["Read", "Write", "Edit"],
+                "responsibilities": [
+                    "Process action and modification requests",
+                    "Execute file operations safely",
+                    "Return action completion status",
+                ],
+                "inputs": ["Action request with target and operation"],
+                "outputs": ["Action result with status and details"],
+            },
+            {
+                "name": "analysis-handler",
+                "description": "Handles analysis and inspection requests",
+                "role": "handler",
+                "tools": ["Read", "Grep", "Glob"],
+                "responsibilities": [
+                    "Process analysis and inspection requests",
+                    "Perform deep examination of targets",
+                    "Return detailed analysis report",
+                ],
+                "inputs": ["Analysis request with target and scope"],
+                "outputs": ["Analysis report with findings"],
+            },
+        ],
+    },
 }
 
 
@@ -399,7 +539,10 @@ def generate_custom_system(
             description=role_desc,
             role="worker",
             tools=role_tools,
-            responsibilities=[f"Handle {role_name} tasks", "Report results to orchestrator"],
+            responsibilities=[
+                f"Handle {role_name} tasks",
+                "Report results to orchestrator",
+            ],
             outputs=[f"{role_name.title()} output"],
         )
         workers.append(worker)
@@ -413,9 +556,7 @@ def generate_custom_system(
     )
 
 
-def _get_worker_roles(
-    domain: str, count: int
-) -> list[tuple[str, str, list[str]]]:
+def _get_worker_roles(domain: str, count: int) -> list[tuple[str, str, list[str]]]:
     """Get worker role definitions based on domain."""
     domain_roles: dict[str, list[tuple[str, str, list[str]]]] = {
         "general": [
@@ -463,11 +604,16 @@ def save_system(system: MultiAgentSystem, output_dir: Path) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     created_files: list[Path] = []
 
-    # Save orchestrator
+    # Save orchestrator/classifier based on pattern
     orchestrator_path = output_dir / f"{system.orchestrator.name}.md"
-    orchestrator_path.write_text(
-        system.generate_orchestrator_markdown(), encoding="utf-8"
-    )
+    if system.pattern == "routing":
+        orchestrator_path.write_text(
+            system.generate_classifier_markdown(), encoding="utf-8"
+        )
+    else:
+        orchestrator_path.write_text(
+            system.generate_orchestrator_markdown(), encoding="utf-8"
+        )
     created_files.append(orchestrator_path)
 
     # Save workers
@@ -478,9 +624,7 @@ def save_system(system: MultiAgentSystem, output_dir: Path) -> list[Path]:
 
     # Save system manifest
     manifest_path = output_dir / f"{system.name}-manifest.json"
-    manifest_path.write_text(
-        json.dumps(system.to_dict(), indent=2), encoding="utf-8"
-    )
+    manifest_path.write_text(json.dumps(system.to_dict(), indent=2), encoding="utf-8")
     created_files.append(manifest_path)
 
     return created_files
@@ -501,13 +645,11 @@ def main() -> None:
     gen_parser.add_argument("--description", default="", help="System description")
     gen_parser.add_argument(
         "--pattern",
-        choices=["orchestrator-workers", "pipeline", "parallel"],
+        choices=["orchestrator-workers", "pipeline", "parallel", "routing"],
         default="orchestrator-workers",
         help="Workflow pattern",
     )
-    gen_parser.add_argument(
-        "--workers", type=int, default=3, help="Number of workers"
-    )
+    gen_parser.add_argument("--workers", type=int, default=3, help="Number of workers")
     gen_parser.add_argument(
         "--domain",
         choices=["general", "web", "data", "devops"],
@@ -535,7 +677,7 @@ def main() -> None:
     ex_parser.add_argument(
         "pattern",
         nargs="?",
-        choices=["orchestrator-workers", "pipeline", "parallel"],
+        choices=["orchestrator-workers", "pipeline", "parallel", "routing"],
         default="orchestrator-workers",
         help="Pattern to show",
     )
@@ -601,16 +743,21 @@ def main() -> None:
             print()
 
     elif args.command == "example":
-        # Show example orchestrator markdown
+        # Show example orchestrator/classifier markdown
         if args.pattern == "orchestrator-workers":
             system = create_system_from_template("code-review")
         elif args.pattern == "pipeline":
             system = create_system_from_template("documentation")
+        elif args.pattern == "routing":
+            system = create_system_from_template("routing")
         else:
             system = create_system_from_template("test-suite")
 
         if system:
-            print(system.generate_orchestrator_markdown())
+            if system.pattern == "routing":
+                print(system.generate_classifier_markdown())
+            else:
+                print(system.generate_orchestrator_markdown())
 
     else:
         parser.print_help()
