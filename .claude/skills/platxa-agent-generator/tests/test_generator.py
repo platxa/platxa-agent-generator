@@ -633,5 +633,361 @@ class TestIntegration:
             assert security_output["passed"] is True, f"Security failed: {md_file.name}"
 
 
+class TestPromptChainingPattern:
+    """Tests for prompt-chaining pattern template generator."""
+
+    def test_analyzer_generates_discovery_analysis_synthesis_steps(self) -> None:
+        """Analyzer agents should generate Discovery -> Analysis -> Synthesis workflow."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name", "code-analyzer",
+                "--description", "Analyzes code for quality issues",
+                "--tools", "Read,Grep,Glob",
+                "--pattern", "prompt-chaining",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        # Verify sequential steps
+        assert "Step 1: Discovery" in output
+        assert "Step 2: Analysis" in output
+        assert "Step 3: Synthesis" in output
+
+        # Verify data flow
+        assert "Data Flow" in output
+        assert "[Input]" in output
+        assert "[Discovery]" in output
+        assert "[Output]" in output
+
+        # Verify quality gates
+        assert "Quality Gate" in output
+
+    def test_generator_produces_research_design_generate_validate_steps(self) -> None:
+        """Generator agents should produce Research -> Design -> Generate -> Validate workflow."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name", "doc-generator",
+                "--description", "Generates documentation from code",
+                "--tools", "Read,Write,Grep",
+                "--pattern", "prompt-chaining",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        assert "Step 1: Research" in output
+        assert "Step 2: Design" in output
+        assert "Step 3: Generate" in output
+        assert "Step 4: Validate" in output
+
+    def test_transformer_produces_load_transform_output_steps(self) -> None:
+        """Transformer agents should produce Load -> Transform -> Output workflow."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name", "format-converter",
+                "--description", "Transforms JSON to YAML format",
+                "--tools", "Read,Write",
+                "--pattern", "prompt-chaining",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        assert "Step 1: Load" in output
+        assert "Step 2: Transform" in output
+        assert "Step 3: Output" in output
+
+    def test_tester_produces_setup_execute_report_steps(self) -> None:
+        """Test agents should produce Setup -> Execute -> Report workflow."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name", "test-runner",
+                "--description", "Validates code against test cases",
+                "--tools", "Read,Bash,Glob",
+                "--pattern", "prompt-chaining",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        assert "Step 1: Setup" in output
+        assert "Step 2: Execute" in output
+        assert "Step 3: Report" in output
+
+    def test_search_agent_produces_scope_search_filter_present_steps(self) -> None:
+        """Search agents should produce Scope -> Search -> Filter -> Present workflow."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name", "code-finder",
+                "--description", "Searches codebase for patterns and functions",
+                "--tools", "Grep,Glob,Read",
+                "--pattern", "prompt-chaining",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        assert "Step 1: Scope" in output
+        assert "Step 2: Search" in output
+        assert "Step 3: Filter" in output
+        assert "Step 4: Present" in output
+
+    def test_fixer_produces_diagnose_plan_implement_verify_steps(self) -> None:
+        """Fixer agents should produce Diagnose -> Plan -> Implement -> Verify workflow."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name", "bug-fixer",
+                "--description", "Fixes bugs and resolves issues in code",
+                "--tools", "Read,Edit,Bash",
+                "--pattern", "prompt-chaining",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        assert "Step 1: Diagnose" in output
+        assert "Step 2: Plan" in output
+        assert "Step 3: Implement" in output
+        assert "Step 4: Verify" in output
+
+    def test_custom_chain_steps_from_json(self) -> None:
+        """Custom chain_steps should be used when provided via JSON."""
+        json_input = json.dumps({
+            "name": "custom-workflow",
+            "description": "Agent with custom workflow steps",
+            "tools": ["Read", "Write"],
+            "chain_steps": [
+                {
+                    "name": "Fetch",
+                    "description": "Retrieve data from source",
+                    "tools": ["Read"],
+                    "validation": "Data retrieved successfully"
+                },
+                {
+                    "name": "Process",
+                    "description": "Transform the data",
+                    "validation": "Transformation complete"
+                },
+                {
+                    "name": "Store",
+                    "description": "Save processed data",
+                    "tools": ["Write"],
+                    "validation": "Data stored correctly"
+                }
+            ]
+        })
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--json", json_input,
+                "--pattern", "prompt-chaining",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        # Verify custom steps are used
+        assert "Step 1: Fetch" in output
+        assert "Step 2: Process" in output
+        assert "Step 3: Store" in output
+
+        # Verify custom descriptions
+        assert "Retrieve data from source" in output
+        assert "Transform the data" in output
+        assert "Save processed data" in output
+
+        # Verify custom validation
+        assert "Data retrieved successfully" in output
+
+    def test_tools_assigned_to_steps(self) -> None:
+        """Tools should be properly assigned to relevant steps."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name", "full-analyzer",
+                "--description", "Analyzes and reports on code",
+                "--tools", "Read,Grep,Glob,Write",
+                "--pattern", "prompt-chaining",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        # Read tools should appear in discovery/analysis steps
+        assert "**Tools:**" in output
+
+    def test_data_flow_diagram_generated(self) -> None:
+        """Data flow diagram should always be generated."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name", "flow-test",
+                "--description", "Test agent for data flow",
+                "--tools", "Read",
+                "--pattern", "prompt-chaining",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        assert "### Data Flow" in output
+        assert "[Input]" in output
+        assert "[Output]" in output
+        assert "→" in output
+
+    def test_quality_gates_include_validation_criteria(self) -> None:
+        """Each step should have quality gate with validation criteria."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name", "quality-test",
+                "--description", "Analyzes quality metrics",
+                "--tools", "Read,Grep",
+                "--pattern", "prompt-chaining",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        # Should have quality gates
+        assert "**Quality Gate:**" in output
+        assert "Check completeness" in output
+        assert "Verify format" in output
+        assert "Confirm no errors" in output
+
+    def test_generated_agent_passes_syntax_validation(self, tmp_path: Path) -> None:
+        """Generated prompt-chaining agent should pass syntax validation."""
+        output_file = tmp_path / "test-agent.md"
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name", "validated-agent",
+                "--description", "Agent for validation test",
+                "--tools", "Read,Write",
+                "--pattern", "prompt-chaining",
+                "--output", str(output_file),
+            ],
+            capture_output=True,
+        )
+
+        # Validate the generated file
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "syntax_validator.py"), "--json", str(output_file)],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["valid"] is True, f"Validation failed: {output.get('errors', [])}"
+
+
+class TestOtherPatternTemplates:
+    """Tests for routing, parallelization, and evaluator-optimizer patterns."""
+
+    def test_routing_pattern_generates_classification_route_process(self) -> None:
+        """Routing pattern should generate Classification -> Route -> Process workflow."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name", "request-router",
+                "--description", "Routes requests to handlers",
+                "--tools", "Read,Task",
+                "--pattern", "routing",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        assert "Step 1: Classification" in output
+        assert "Step 2: Route" in output
+        assert "Step 3: Process" in output
+        assert "| Input Type | Handler |" in output
+
+    def test_parallelization_pattern_generates_decompose_parallel_aggregate(self) -> None:
+        """Parallelization pattern should generate Decompose -> Parallel -> Aggregate workflow."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name", "parallel-processor",
+                "--description", "Processes items in parallel",
+                "--tools", "Read,Task",
+                "--pattern", "parallelization",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        assert "Step 1: Decompose" in output
+        assert "Step 2: Parallel Execution" in output
+        assert "Step 3: Aggregate" in output
+        assert "Task 1:" in output
+
+    def test_evaluator_optimizer_generates_generate_evaluate_optimize_finalize(self) -> None:
+        """Evaluator-optimizer should generate Generate -> Evaluate -> Optimize -> Finalize workflow."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name", "code-optimizer",
+                "--description", "Optimizes code iteratively",
+                "--tools", "Read,Edit",
+                "--pattern", "evaluator-optimizer",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        output = result.stdout
+
+        assert "Step 1: Generate" in output
+        assert "Step 2: Evaluate" in output
+        assert "Step 3: Optimize" in output
+        assert "Step 4: Finalize" in output
+        assert "Evaluation Criteria:" in output
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
