@@ -51,6 +51,7 @@ from . import install_agent
 from . import interactive_prompts
 from . import multiagent_generator
 from . import hooks_generator
+from . import agent_catalog
 
 __all__ = [
     # Core generators
@@ -76,4 +77,5 @@ __all__ = [
     "interactive_prompts",
     "multiagent_generator",
     "hooks_generator",
+    "agent_catalog",
 ]
