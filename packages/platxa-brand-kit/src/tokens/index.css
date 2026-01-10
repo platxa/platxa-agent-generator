@@ -31,3 +31,6 @@
 
 /* Component tokens - UI element specific */
 @import "./components.css";
+
+/* Effects tokens - Shadows, gradients, animations */
+@import "./effects.css";
