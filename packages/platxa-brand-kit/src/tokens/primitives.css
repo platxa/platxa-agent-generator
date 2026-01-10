@@ -64,6 +64,52 @@
   --purple-a10: oklch(0.50 0.22 295 / 0.72);
   --purple-a11: oklch(0.50 0.22 295 / 0.84);
   --purple-a12: oklch(0.50 0.22 295 / 0.94);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * TEAL - Accent Brand Color
+   * Brand Color: Step 9 = oklch(0.72 0.14 185) = #2ECCC4
+   * Hue: 185° (Cyan-Teal)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* App backgrounds */
+  --teal-1:  oklch(0.99 0.005 185);    /* Near white with teal tint */
+  --teal-2:  oklch(0.97 0.02 185);     /* Subtle teal background */
+
+  /* UI element backgrounds */
+  --teal-3:  oklch(0.94 0.04 185);     /* Hover background */
+  --teal-4:  oklch(0.90 0.06 185);     /* Active background */
+  --teal-5:  oklch(0.85 0.08 185);     /* Selected background */
+
+  /* Borders and separators */
+  --teal-6:  oklch(0.80 0.10 185);     /* Subtle border */
+  --teal-7:  oklch(0.76 0.12 185);     /* Default border */
+  --teal-8:  oklch(0.74 0.13 185);     /* Strong border */
+
+  /* Solid backgrounds */
+  --teal-9:  oklch(0.72 0.14 185);     /* ★ Brand accent - Teal */
+  --teal-10: oklch(0.67 0.13 185);     /* Hovered state */
+
+  /* Text colors */
+  --teal-11: oklch(0.45 0.10 185);     /* Low-contrast text */
+  --teal-12: oklch(0.28 0.08 185);     /* High-contrast text */
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * TEAL ALPHA - Semi-transparent variants
+   * For overlays, shadows, and layered effects
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --teal-a1:  oklch(0.72 0.14 185 / 0.02);
+  --teal-a2:  oklch(0.72 0.14 185 / 0.04);
+  --teal-a3:  oklch(0.72 0.14 185 / 0.08);
+  --teal-a4:  oklch(0.72 0.14 185 / 0.12);
+  --teal-a5:  oklch(0.72 0.14 185 / 0.18);
+  --teal-a6:  oklch(0.72 0.14 185 / 0.26);
+  --teal-a7:  oklch(0.72 0.14 185 / 0.36);
+  --teal-a8:  oklch(0.72 0.14 185 / 0.48);
+  --teal-a9:  oklch(0.72 0.14 185 / 0.64);
+  --teal-a10: oklch(0.72 0.14 185 / 0.72);
+  --teal-a11: oklch(0.72 0.14 185 / 0.84);
+  --teal-a12: oklch(0.72 0.14 185 / 0.94);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -97,5 +143,32 @@
     --purple-a10: rgba(139, 53, 168, 0.72);
     --purple-a11: rgba(139, 53, 168, 0.84);
     --purple-a12: rgba(139, 53, 168, 0.94);
+
+    /* Teal fallbacks */
+    --teal-1:  #F7FEFE;
+    --teal-2:  #EFFCFB;
+    --teal-3:  #E0F7F6;
+    --teal-4:  #CDF1EF;
+    --teal-5:  #B5E9E6;
+    --teal-6:  #98DFDC;
+    --teal-7:  #78D5D1;
+    --teal-8:  #54CCC7;
+    --teal-9:  #2ECCC4;  /* Brand accent */
+    --teal-10: #26B5AE;
+    --teal-11: #1A7A76;
+    --teal-12: #0F4D4A;
+
+    --teal-a1:  rgba(46, 204, 196, 0.02);
+    --teal-a2:  rgba(46, 204, 196, 0.04);
+    --teal-a3:  rgba(46, 204, 196, 0.08);
+    --teal-a4:  rgba(46, 204, 196, 0.12);
+    --teal-a5:  rgba(46, 204, 196, 0.18);
+    --teal-a6:  rgba(46, 204, 196, 0.26);
+    --teal-a7:  rgba(46, 204, 196, 0.36);
+    --teal-a8:  rgba(46, 204, 196, 0.48);
+    --teal-a9:  rgba(46, 204, 196, 0.64);
+    --teal-a10: rgba(46, 204, 196, 0.72);
+    --teal-a11: rgba(46, 204, 196, 0.84);
+    --teal-a12: rgba(46, 204, 196, 0.94);
   }
 }
