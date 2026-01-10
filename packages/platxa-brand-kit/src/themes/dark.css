@@ -1,0 +1,211 @@
+/**
+ * Platxa Dark Theme
+ *
+ * Dark mode with inverted lightness scale.
+ * Maintains brand identity while optimizing for low-light viewing.
+ *
+ * Applied via [data-theme="dark"] or prefers-color-scheme: dark
+ *
+ * @platxa/brand-kit
+ * DJ Patel | Founder & CEO @ Platxa
+ */
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * BASE COLORS (Inverted)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Backgrounds - Use dark end of scale */
+  --background:         var(--gray-12);
+  --background-subtle:  var(--gray-11);
+  --background-muted:   var(--gray-10);
+  --background-overlay: var(--gray-a9);
+
+  /* Foreground (text) - Use light end of scale */
+  --foreground:         var(--gray-1);
+  --foreground-muted:   var(--gray-4);
+  --foreground-subtle:  var(--gray-6);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * PRIMARY (Purple) - Adjusted for dark backgrounds
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --primary:            var(--purple-9);
+  --primary-hover:      var(--purple-8);
+  --primary-active:     var(--purple-7);
+  --primary-foreground: white;
+
+  --primary-subtle:       var(--purple-11);
+  --primary-subtle-hover: var(--purple-10);
+  --primary-muted:        var(--purple-a4);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * ACCENT (Teal) - Adjusted for dark backgrounds
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --accent:             var(--teal-9);
+  --accent-hover:       var(--teal-8);
+  --accent-active:      var(--teal-7);
+  --accent-foreground:  var(--gray-12);
+
+  --accent-subtle:       var(--teal-11);
+  --accent-subtle-hover: var(--teal-10);
+  --accent-muted:        var(--teal-a4);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * UI ELEMENTS (Inverted)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Muted */
+  --muted:            var(--gray-10);
+  --muted-hover:      var(--gray-9);
+  --muted-foreground: var(--gray-4);
+
+  /* Card - Slightly elevated from background */
+  --card:            var(--gray-11);
+  --card-hover:      var(--gray-10);
+  --card-foreground: var(--gray-1);
+
+  /* Popover - Elevated surface */
+  --popover:            var(--gray-11);
+  --popover-foreground: var(--gray-1);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * BORDERS & INPUTS (Inverted)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --border:        var(--gray-9);
+  --border-subtle: var(--gray-10);
+  --border-strong: var(--gray-7);
+  --border-focus:  var(--purple-7);
+
+  --input:             var(--gray-11);
+  --input-border:      var(--gray-8);
+  --input-focus:       var(--purple-7);
+  --input-placeholder: var(--gray-6);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * FOCUS & SELECTION
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --ring:        var(--purple-8);
+  --ring-offset: var(--gray-12);
+
+  --selection:            var(--purple-a5);
+  --selection-foreground: var(--gray-1);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * FEEDBACK COLORS (Adjusted for dark mode)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Destructive/Error - Brighter for visibility */
+  --destructive:            oklch(0.60 0.20 25);
+  --destructive-hover:      oklch(0.65 0.20 25);
+  --destructive-foreground: white;
+
+  /* Success - Brighter for visibility */
+  --success:            oklch(0.70 0.17 145);
+  --success-hover:      oklch(0.75 0.17 145);
+  --success-foreground: var(--gray-12);
+
+  /* Warning - Adjusted for dark backgrounds */
+  --warning:            oklch(0.78 0.16 85);
+  --warning-hover:      oklch(0.82 0.16 85);
+  --warning-foreground: var(--gray-12);
+
+  /* Info - Brighter for visibility */
+  --info:            oklch(0.70 0.13 230);
+  --info-hover:      oklch(0.75 0.13 230);
+  --info-foreground: var(--gray-12);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * SYSTEM PREFERENCE SUPPORT
+ * Auto-apply dark theme when system prefers dark mode
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    /* Backgrounds */
+    --background:         var(--gray-12);
+    --background-subtle:  var(--gray-11);
+    --background-muted:   var(--gray-10);
+    --background-overlay: var(--gray-a9);
+
+    /* Foreground */
+    --foreground:         var(--gray-1);
+    --foreground-muted:   var(--gray-4);
+    --foreground-subtle:  var(--gray-6);
+
+    /* Primary */
+    --primary:            var(--purple-9);
+    --primary-hover:      var(--purple-8);
+    --primary-active:     var(--purple-7);
+    --primary-foreground: white;
+
+    --primary-subtle:       var(--purple-11);
+    --primary-subtle-hover: var(--purple-10);
+    --primary-muted:        var(--purple-a4);
+
+    /* Accent */
+    --accent:             var(--teal-9);
+    --accent-hover:       var(--teal-8);
+    --accent-active:      var(--teal-7);
+    --accent-foreground:  var(--gray-12);
+
+    --accent-subtle:       var(--teal-11);
+    --accent-subtle-hover: var(--teal-10);
+    --accent-muted:        var(--teal-a4);
+
+    /* UI Elements */
+    --muted:            var(--gray-10);
+    --muted-hover:      var(--gray-9);
+    --muted-foreground: var(--gray-4);
+
+    --card:            var(--gray-11);
+    --card-hover:      var(--gray-10);
+    --card-foreground: var(--gray-1);
+
+    --popover:            var(--gray-11);
+    --popover-foreground: var(--gray-1);
+
+    /* Borders & Inputs */
+    --border:        var(--gray-9);
+    --border-subtle: var(--gray-10);
+    --border-strong: var(--gray-7);
+    --border-focus:  var(--purple-7);
+
+    --input:             var(--gray-11);
+    --input-border:      var(--gray-8);
+    --input-focus:       var(--purple-7);
+    --input-placeholder: var(--gray-6);
+
+    /* Focus & Selection */
+    --ring:        var(--purple-8);
+    --ring-offset: var(--gray-12);
+
+    --selection:            var(--purple-a5);
+    --selection-foreground: var(--gray-1);
+
+    /* Feedback Colors */
+    --destructive:            oklch(0.60 0.20 25);
+    --destructive-hover:      oklch(0.65 0.20 25);
+    --destructive-foreground: white;
+
+    --success:            oklch(0.70 0.17 145);
+    --success-hover:      oklch(0.75 0.17 145);
+    --success-foreground: var(--gray-12);
+
+    --warning:            oklch(0.78 0.16 85);
+    --warning-hover:      oklch(0.82 0.16 85);
+    --warning-foreground: var(--gray-12);
+
+    --info:            oklch(0.70 0.13 230);
+    --info-hover:      oklch(0.75 0.13 230);
+    --info-foreground: var(--gray-12);
+  }
+}
