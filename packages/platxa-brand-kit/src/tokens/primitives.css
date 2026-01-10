@@ -1,0 +1,101 @@
+/**
+ * Platxa Design Tokens - Primitive Colors
+ *
+ * OKLCH Color Space: oklch(Lightness Chroma Hue)
+ * - Lightness: 0-1 (0% to 100%)
+ * - Chroma: 0-0.4 (saturation intensity)
+ * - Hue: 0-360 (color wheel angle)
+ *
+ * 12-Step Scale (Radix-inspired):
+ * - Steps 1-2:  App/subtle backgrounds
+ * - Steps 3-5:  UI element backgrounds
+ * - Steps 6-8:  Borders and separators
+ * - Step 9:     Solid backgrounds (brand color)
+ * - Step 10:    Hovered solid backgrounds
+ * - Steps 11-12: High-contrast text
+ *
+ * @platxa/brand-kit
+ * DJ Patel | Founder & CEO @ Platxa
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════════════════
+   * PURPLE - Primary Brand Color
+   * Brand Color: Step 9 = oklch(0.50 0.22 295) = #8B35A8
+   * Hue: 295° (Magenta-Purple)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* App backgrounds */
+  --purple-1:  oklch(0.99 0.005 295);   /* Near white with purple tint */
+  --purple-2:  oklch(0.97 0.015 295);   /* Subtle purple background */
+
+  /* UI element backgrounds */
+  --purple-3:  oklch(0.93 0.04 295);    /* Hover background */
+  --purple-4:  oklch(0.88 0.07 295);    /* Active background */
+  --purple-5:  oklch(0.82 0.10 295);    /* Selected background */
+
+  /* Borders and separators */
+  --purple-6:  oklch(0.75 0.13 295);    /* Subtle border */
+  --purple-7:  oklch(0.67 0.16 295);    /* Default border */
+  --purple-8:  oklch(0.58 0.19 295);    /* Strong border */
+
+  /* Solid backgrounds */
+  --purple-9:  oklch(0.50 0.22 295);    /* ★ Brand color - Primary */
+  --purple-10: oklch(0.45 0.21 295);    /* Hovered state */
+
+  /* Text colors */
+  --purple-11: oklch(0.35 0.18 295);    /* Low-contrast text */
+  --purple-12: oklch(0.22 0.12 295);    /* High-contrast text */
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * PURPLE ALPHA - Semi-transparent variants
+   * For overlays, shadows, and layered effects
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --purple-a1:  oklch(0.50 0.22 295 / 0.02);
+  --purple-a2:  oklch(0.50 0.22 295 / 0.04);
+  --purple-a3:  oklch(0.50 0.22 295 / 0.08);
+  --purple-a4:  oklch(0.50 0.22 295 / 0.12);
+  --purple-a5:  oklch(0.50 0.22 295 / 0.18);
+  --purple-a6:  oklch(0.50 0.22 295 / 0.26);
+  --purple-a7:  oklch(0.50 0.22 295 / 0.36);
+  --purple-a8:  oklch(0.50 0.22 295 / 0.48);
+  --purple-a9:  oklch(0.50 0.22 295 / 0.64);
+  --purple-a10: oklch(0.50 0.22 295 / 0.72);
+  --purple-a11: oklch(0.50 0.22 295 / 0.84);
+  --purple-a12: oklch(0.50 0.22 295 / 0.94);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * HEX FALLBACKS - For browsers without OKLCH support
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+@supports not (color: oklch(0.5 0.2 295)) {
+  :root {
+    --purple-1:  #FDFBFE;
+    --purple-2:  #F9F5FB;
+    --purple-3:  #F0E5F5;
+    --purple-4:  #E4D1ED;
+    --purple-5:  #D5BBE3;
+    --purple-6:  #C3A0D6;
+    --purple-7:  #AD83C6;
+    --purple-8:  #9662B4;
+    --purple-9:  #8B35A8;  /* Brand color */
+    --purple-10: #7A2E95;
+    --purple-11: #5E2473;
+    --purple-12: #3D1850;
+
+    --purple-a1:  rgba(139, 53, 168, 0.02);
+    --purple-a2:  rgba(139, 53, 168, 0.04);
+    --purple-a3:  rgba(139, 53, 168, 0.08);
+    --purple-a4:  rgba(139, 53, 168, 0.12);
+    --purple-a5:  rgba(139, 53, 168, 0.18);
+    --purple-a6:  rgba(139, 53, 168, 0.26);
+    --purple-a7:  rgba(139, 53, 168, 0.36);
+    --purple-a8:  rgba(139, 53, 168, 0.48);
+    --purple-a9:  rgba(139, 53, 168, 0.64);
+    --purple-a10: rgba(139, 53, 168, 0.72);
+    --purple-a11: rgba(139, 53, 168, 0.84);
+    --purple-a12: rgba(139, 53, 168, 0.94);
+  }
+}
