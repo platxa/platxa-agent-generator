@@ -1,0 +1,121 @@
+/**
+ * Platxa Light Theme
+ *
+ * Default theme with light backgrounds and dark text.
+ * Applied via :root or [data-theme="light"]
+ *
+ * @platxa/brand-kit
+ * DJ Patel | Founder & CEO @ Platxa
+ */
+
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * BASE COLORS
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Backgrounds */
+  --background:         var(--gray-1);
+  --background-subtle:  var(--gray-2);
+  --background-muted:   var(--gray-3);
+  --background-overlay: var(--gray-a9);
+
+  /* Foreground (text) */
+  --foreground:         var(--gray-12);
+  --foreground-muted:   var(--gray-11);
+  --foreground-subtle:  var(--gray-9);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * PRIMARY (Purple)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --primary:            var(--purple-9);
+  --primary-hover:      var(--purple-10);
+  --primary-active:     var(--purple-11);
+  --primary-foreground: white;
+
+  --primary-subtle:       var(--purple-3);
+  --primary-subtle-hover: var(--purple-4);
+  --primary-muted:        var(--purple-a3);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * ACCENT (Teal)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --accent:             var(--teal-9);
+  --accent-hover:       var(--teal-10);
+  --accent-active:      var(--teal-11);
+  --accent-foreground:  var(--gray-12);
+
+  --accent-subtle:       var(--teal-3);
+  --accent-subtle-hover: var(--teal-4);
+  --accent-muted:        var(--teal-a3);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * UI ELEMENTS
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Muted */
+  --muted:            var(--gray-4);
+  --muted-hover:      var(--gray-5);
+  --muted-foreground: var(--gray-11);
+
+  /* Card */
+  --card:            var(--gray-1);
+  --card-hover:      var(--gray-2);
+  --card-foreground: var(--gray-12);
+
+  /* Popover */
+  --popover:            var(--gray-1);
+  --popover-foreground: var(--gray-12);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * BORDERS & INPUTS
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --border:        var(--gray-6);
+  --border-subtle: var(--gray-4);
+  --border-strong: var(--gray-8);
+  --border-focus:  var(--purple-8);
+
+  --input:             var(--gray-1);
+  --input-border:      var(--gray-7);
+  --input-focus:       var(--purple-8);
+  --input-placeholder: var(--gray-9);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * FOCUS & SELECTION
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --ring:        var(--purple-7);
+  --ring-offset: var(--gray-1);
+
+  --selection:            var(--purple-a4);
+  --selection-foreground: var(--gray-12);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * FEEDBACK COLORS
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Destructive/Error */
+  --destructive:            oklch(0.55 0.22 25);
+  --destructive-hover:      oklch(0.50 0.22 25);
+  --destructive-foreground: white;
+
+  /* Success */
+  --success:            oklch(0.65 0.19 145);
+  --success-hover:      oklch(0.60 0.19 145);
+  --success-foreground: white;
+
+  /* Warning */
+  --warning:            oklch(0.75 0.18 85);
+  --warning-hover:      oklch(0.70 0.18 85);
+  --warning-foreground: var(--gray-12);
+
+  /* Info */
+  --info:            oklch(0.65 0.15 230);
+  --info-hover:      oklch(0.60 0.15 230);
+  --info-foreground: white;
+}
