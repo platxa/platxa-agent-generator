@@ -1,0 +1,121 @@
+/**
+ * Platxa Design Tokens - Semantic Colors
+ *
+ * Layer 2: Maps primitive colors to semantic meanings.
+ * These tokens describe PURPOSE, not color.
+ *
+ * Architecture: Primitives → Semantic → Components
+ *
+ * Compatible with shadcn/ui token naming conventions.
+ *
+ * @platxa/brand-kit
+ * DJ Patel | Founder & CEO @ Platxa
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════════════════
+   * BASE - Core application colors
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Background colors */
+  --background:         var(--gray-1);
+  --background-subtle:  var(--gray-2);
+  --background-muted:   var(--gray-3);
+  --background-overlay: var(--gray-a9);
+
+  /* Foreground (text) colors */
+  --foreground:         var(--gray-12);
+  --foreground-muted:   var(--gray-11);
+  --foreground-subtle:  var(--gray-9);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * PRIMARY - Main brand color (Purple)
+   * Use for primary actions, navigation, key UI elements
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --primary:            var(--purple-9);
+  --primary-hover:      var(--purple-10);
+  --primary-active:     var(--purple-11);
+  --primary-foreground: white;
+
+  /* Primary subtle variants */
+  --primary-subtle:     var(--purple-3);
+  --primary-subtle-hover: var(--purple-4);
+  --primary-muted:      var(--purple-a3);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * ACCENT - Secondary brand color (Teal)
+   * Use for highlights, CTAs, interactive elements (10% of UI)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --accent:             var(--teal-9);
+  --accent-hover:       var(--teal-10);
+  --accent-active:      var(--teal-11);
+  --accent-foreground:  var(--gray-12);
+
+  /* Accent subtle variants */
+  --accent-subtle:      var(--teal-3);
+  --accent-subtle-hover: var(--teal-4);
+  --accent-muted:       var(--teal-a3);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * MUTED - Low emphasis elements
+   * Use for disabled states, secondary content, backgrounds
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --muted:              var(--gray-4);
+  --muted-hover:        var(--gray-5);
+  --muted-foreground:   var(--gray-11);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * CARD - Container surfaces
+   * Use for cards, dialogs, dropdowns
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --card:               var(--gray-1);
+  --card-hover:         var(--gray-2);
+  --card-foreground:    var(--gray-12);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * POPOVER - Elevated surfaces
+   * Use for popovers, tooltips, menus
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --popover:            var(--gray-1);
+  --popover-foreground: var(--gray-12);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * BORDER - Edge colors
+   * Use for borders, dividers, separators
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --border:             var(--gray-6);
+  --border-subtle:      var(--gray-4);
+  --border-strong:      var(--gray-8);
+  --border-focus:       var(--purple-8);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * INPUT - Form elements
+   * Use for inputs, textareas, selects
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --input:              var(--gray-1);
+  --input-border:       var(--gray-7);
+  --input-focus:        var(--purple-8);
+  --input-placeholder:  var(--gray-9);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * RING - Focus indicators
+   * Accessibility: visible focus states
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --ring:               var(--purple-7);
+  --ring-offset:        var(--gray-1);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * SELECTION - Text selection
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --selection:          var(--purple-a4);
+  --selection-foreground: var(--gray-12);
+}
