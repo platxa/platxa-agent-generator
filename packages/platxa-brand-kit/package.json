@@ -1,0 +1,66 @@
+{
+  "name": "@platxa/brand-kit",
+  "version": "1.0.0",
+  "description": "Platxa Brand Kit - Design tokens, OKLCH colors, and Tailwind v4 theming for Platxa platform development",
+  "author": "Platxa <hello@platxa.com>",
+  "license": "MIT",
+  "homepage": "https://platxa.com",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/platxa/platxa-agent-generator.git",
+    "directory": "packages/platxa-brand-kit"
+  },
+  "keywords": [
+    "platxa",
+    "brand",
+    "design-tokens",
+    "oklch",
+    "tailwind",
+    "css",
+    "design-system",
+    "theming"
+  ],
+  "type": "module",
+  "main": "./src/tokens/index.css",
+  "exports": {
+    ".": "./src/tokens/index.css",
+    "./tokens": "./src/tokens/index.css",
+    "./tokens/primitives": "./src/tokens/primitives.css",
+    "./tokens/semantic": "./src/tokens/semantic.css",
+    "./tokens/components": "./src/tokens/components.css",
+    "./tokens/typography": "./src/tokens/typography.css",
+    "./tokens/spacing": "./src/tokens/spacing.css",
+    "./tokens/effects": "./src/tokens/effects.css",
+    "./themes": "./src/themes/index.css",
+    "./themes/light": "./src/themes/light.css",
+    "./themes/dark": "./src/themes/dark.css",
+    "./tailwind": "./src/tailwind.preset.ts",
+    "./tailwind.preset": "./src/tailwind.preset.ts"
+  },
+  "files": [
+    "src",
+    "assets",
+    "BRAND.md",
+    "README.md"
+  ],
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "peerDependencies": {
+    "tailwindcss": ">=4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "tailwindcss": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.3.0"
+  },
+  "scripts": {
+    "build": "echo 'CSS-only package, no build needed'",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo 'Add linting if needed'"
+  }
+}
