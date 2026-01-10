@@ -110,6 +110,53 @@
   --teal-a10: oklch(0.72 0.14 185 / 0.72);
   --teal-a11: oklch(0.72 0.14 185 / 0.84);
   --teal-a12: oklch(0.72 0.14 185 / 0.94);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * GRAY - Neutral with Purple Tint
+   * Sophisticated grays that harmonize with the brand
+   * Hue: 285° (subtle purple undertone)
+   * Chroma: 0.002-0.006 (barely perceptible)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* App backgrounds */
+  --gray-1:  oklch(0.99 0.002 285);     /* App background */
+  --gray-2:  oklch(0.97 0.003 285);     /* Subtle background */
+
+  /* UI element backgrounds */
+  --gray-3:  oklch(0.94 0.004 285);     /* Hover background */
+  --gray-4:  oklch(0.90 0.004 285);     /* Active background */
+  --gray-5:  oklch(0.85 0.005 285);     /* Selected background */
+
+  /* Borders and separators */
+  --gray-6:  oklch(0.80 0.005 285);     /* Subtle border */
+  --gray-7:  oklch(0.72 0.005 285);     /* Default border */
+  --gray-8:  oklch(0.62 0.006 285);     /* Strong border */
+
+  /* Solid backgrounds */
+  --gray-9:  oklch(0.50 0.006 285);     /* Solid gray */
+  --gray-10: oklch(0.44 0.006 285);     /* Hovered state */
+
+  /* Text colors */
+  --gray-11: oklch(0.32 0.005 285);     /* Secondary text */
+  --gray-12: oklch(0.12 0.006 285);     /* Primary text */
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * GRAY ALPHA - Semi-transparent variants
+   * For overlays, shadows, and layered effects
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --gray-a1:  oklch(0.12 0.006 285 / 0.02);
+  --gray-a2:  oklch(0.12 0.006 285 / 0.04);
+  --gray-a3:  oklch(0.12 0.006 285 / 0.08);
+  --gray-a4:  oklch(0.12 0.006 285 / 0.12);
+  --gray-a5:  oklch(0.12 0.006 285 / 0.18);
+  --gray-a6:  oklch(0.12 0.006 285 / 0.26);
+  --gray-a7:  oklch(0.12 0.006 285 / 0.36);
+  --gray-a8:  oklch(0.12 0.006 285 / 0.48);
+  --gray-a9:  oklch(0.12 0.006 285 / 0.64);
+  --gray-a10: oklch(0.12 0.006 285 / 0.72);
+  --gray-a11: oklch(0.12 0.006 285 / 0.84);
+  --gray-a12: oklch(0.12 0.006 285 / 0.94);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -170,5 +217,32 @@
     --teal-a10: rgba(46, 204, 196, 0.72);
     --teal-a11: rgba(46, 204, 196, 0.84);
     --teal-a12: rgba(46, 204, 196, 0.94);
+
+    /* Gray fallbacks (with subtle purple tint) */
+    --gray-1:  #FCFCFD;
+    --gray-2:  #F8F8FA;
+    --gray-3:  #F0F0F3;
+    --gray-4:  #E6E6EA;
+    --gray-5:  #DADADF;
+    --gray-6:  #CCCCD2;
+    --gray-7:  #B8B8BF;
+    --gray-8:  #9C9CA5;
+    --gray-9:  #7E7E88;
+    --gray-10: #6E6E78;
+    --gray-11: #4F4F58;
+    --gray-12: #1C1C21;
+
+    --gray-a1:  rgba(28, 28, 33, 0.02);
+    --gray-a2:  rgba(28, 28, 33, 0.04);
+    --gray-a3:  rgba(28, 28, 33, 0.08);
+    --gray-a4:  rgba(28, 28, 33, 0.12);
+    --gray-a5:  rgba(28, 28, 33, 0.18);
+    --gray-a6:  rgba(28, 28, 33, 0.26);
+    --gray-a7:  rgba(28, 28, 33, 0.36);
+    --gray-a8:  rgba(28, 28, 33, 0.48);
+    --gray-a9:  rgba(28, 28, 33, 0.64);
+    --gray-a10: rgba(28, 28, 33, 0.72);
+    --gray-a11: rgba(28, 28, 33, 0.84);
+    --gray-a12: rgba(28, 28, 33, 0.94);
   }
 }
