@@ -94,6 +94,7 @@ CLAUDE.md
 *.log
 
 # Claude Code session files (not the skill code)
+.claude/research.json
 .claude/session_state.json
 .claude/debug_sessions.json
 .claude/PROGRESS.md
