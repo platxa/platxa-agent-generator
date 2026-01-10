@@ -28,3 +28,6 @@
 
 /* Spacing tokens - 8px grid system */
 @import "./spacing.css";
+
+/* Component tokens - UI element specific */
+@import "./components.css";

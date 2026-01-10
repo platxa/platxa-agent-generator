@@ -1,0 +1,215 @@
+/**
+ * Platxa Design Tokens - Component Tokens
+ *
+ * Layer 3: Component-specific tokens for UI elements.
+ * These reference semantic tokens for consistent theming.
+ *
+ * Architecture: Primitives → Semantic → Components
+ *
+ * @platxa/brand-kit
+ * DJ Patel | Founder & CEO @ Platxa
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════════════════
+   * BUTTON - Interactive button components
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Primary Button */
+  --button-primary-bg:         var(--primary);
+  --button-primary-bg-hover:   var(--primary-hover);
+  --button-primary-bg-active:  var(--primary-active);
+  --button-primary-text:       var(--primary-foreground);
+  --button-primary-border:     transparent;
+
+  /* Secondary Button */
+  --button-secondary-bg:       var(--muted);
+  --button-secondary-bg-hover: var(--muted-hover);
+  --button-secondary-text:     var(--foreground);
+  --button-secondary-border:   var(--border);
+
+  /* Ghost Button */
+  --button-ghost-bg:           transparent;
+  --button-ghost-bg-hover:     var(--muted);
+  --button-ghost-text:         var(--foreground);
+  --button-ghost-border:       transparent;
+
+  /* Outline Button */
+  --button-outline-bg:         transparent;
+  --button-outline-bg-hover:   var(--primary-subtle);
+  --button-outline-text:       var(--primary);
+  --button-outline-border:     var(--primary);
+
+  /* Destructive Button */
+  --button-destructive-bg:       var(--destructive);
+  --button-destructive-bg-hover: var(--destructive-hover);
+  --button-destructive-text:     var(--destructive-foreground);
+  --button-destructive-border:   transparent;
+
+  /* Button Sizing */
+  --button-sm-padding:   var(--space-1) var(--space-3);
+  --button-sm-font:      var(--text-sm);
+  --button-md-padding:   var(--space-2) var(--space-4);
+  --button-md-font:      var(--text-sm);
+  --button-lg-padding:   var(--space-3) var(--space-6);
+  --button-lg-font:      var(--text-base);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * CARD - Container components
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --card-bg:             var(--card);
+  --card-bg-hover:       var(--card-hover);
+  --card-text:           var(--card-foreground);
+  --card-border:         var(--border);
+  --card-radius:         var(--radius-lg);
+  --card-shadow:         0 1px 3px 0 var(--gray-a3), 0 1px 2px -1px var(--gray-a2);
+  --card-padding:        var(--space-6);
+
+  /* Card Header */
+  --card-header-padding:  var(--space-6);
+  --card-header-gap:      var(--space-1-5);
+
+  /* Card Content */
+  --card-content-padding: var(--space-6);
+  --card-content-pt:      0;
+
+  /* Card Footer */
+  --card-footer-padding:  var(--space-6);
+  --card-footer-pt:       0;
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * INPUT - Form input components
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --input-bg:             var(--input);
+  --input-text:           var(--foreground);
+  --input-placeholder:    var(--gray-9);
+  --input-border:         var(--input-border);
+  --input-border-focus:   var(--input-focus);
+  --input-radius:         var(--radius-md);
+  --input-padding:        var(--space-2) var(--space-3);
+
+  /* Input States */
+  --input-disabled-bg:    var(--muted);
+  --input-disabled-text:  var(--muted-foreground);
+  --input-error-border:   var(--destructive);
+  --input-success-border: var(--success);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * SELECT - Dropdown select components
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --select-bg:            var(--input);
+  --select-text:          var(--foreground);
+  --select-border:        var(--input-border);
+  --select-radius:        var(--radius-md);
+  --select-padding:       var(--space-2) var(--space-3);
+
+  /* Select Dropdown */
+  --select-content-bg:    var(--popover);
+  --select-content-border: var(--border);
+  --select-item-hover:    var(--muted);
+  --select-item-selected: var(--primary-subtle);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * BADGE - Status indicator components
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --badge-default-bg:      var(--muted);
+  --badge-default-text:    var(--foreground);
+  --badge-primary-bg:      var(--primary);
+  --badge-primary-text:    var(--primary-foreground);
+  --badge-secondary-bg:    var(--muted);
+  --badge-secondary-text:  var(--muted-foreground);
+  --badge-success-bg:      var(--success);
+  --badge-success-text:    var(--success-foreground);
+  --badge-warning-bg:      var(--warning);
+  --badge-warning-text:    var(--warning-foreground);
+  --badge-destructive-bg:  var(--destructive);
+  --badge-destructive-text: var(--destructive-foreground);
+
+  --badge-padding:         var(--space-1) var(--space-2-5);
+  --badge-radius:          var(--radius-full);
+  --badge-font:            var(--text-xs);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * ALERT - Notification components
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --alert-default-bg:      var(--muted);
+  --alert-default-text:    var(--foreground);
+  --alert-default-border:  var(--border);
+
+  --alert-info-bg:         var(--info);
+  --alert-info-text:       var(--info-foreground);
+  --alert-success-bg:      var(--success);
+  --alert-success-text:    var(--success-foreground);
+  --alert-warning-bg:      var(--warning);
+  --alert-warning-text:    var(--warning-foreground);
+  --alert-error-bg:        var(--destructive);
+  --alert-error-text:      var(--destructive-foreground);
+
+  --alert-padding:         var(--space-4);
+  --alert-radius:          var(--radius-lg);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * DIALOG / MODAL - Overlay components
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --dialog-bg:             var(--background);
+  --dialog-text:           var(--foreground);
+  --dialog-border:         var(--border);
+  --dialog-radius:         var(--radius-xl);
+  --dialog-shadow:         0 25px 50px -12px var(--gray-a8);
+  --dialog-padding:        var(--space-6);
+
+  --dialog-overlay-bg:     var(--background-overlay);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * TOOLTIP - Contextual hint components
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --tooltip-bg:            var(--gray-12);
+  --tooltip-text:          var(--gray-1);
+  --tooltip-radius:        var(--radius-md);
+  --tooltip-padding:       var(--space-1-5) var(--space-3);
+  --tooltip-font:          var(--text-sm);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * AVATAR - User representation components
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --avatar-bg:             var(--muted);
+  --avatar-text:           var(--muted-foreground);
+  --avatar-border:         var(--border);
+  --avatar-radius:         var(--radius-full);
+
+  --avatar-sm:             var(--space-8);    /* 32px */
+  --avatar-md:             var(--space-10);   /* 40px */
+  --avatar-lg:             var(--space-12);   /* 48px */
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * TABLE - Data display components
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --table-header-bg:       var(--muted);
+  --table-header-text:     var(--muted-foreground);
+  --table-row-bg:          var(--background);
+  --table-row-bg-hover:    var(--muted);
+  --table-row-text:        var(--foreground);
+  --table-border:          var(--border);
+  --table-cell-padding:    var(--space-4);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * NAVIGATION - Nav components
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --nav-bg:                var(--background);
+  --nav-text:              var(--foreground);
+  --nav-text-muted:        var(--muted-foreground);
+  --nav-item-hover:        var(--muted);
+  --nav-item-active:       var(--primary-subtle);
+  --nav-item-active-text:  var(--primary);
+  --nav-border:            var(--border);
+}
