@@ -126,6 +126,15 @@ export type {
   FixValidatorConfig,
 } from './core/fix-validator.js';
 
+// Test Runner
+export { TestRunner, createTestRunner } from './core/test-runner.js';
+export type {
+  TestResult,
+  TestSuiteResult,
+  TestExecutionOptions,
+  TestRunnerConfig,
+} from './core/test-runner.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
