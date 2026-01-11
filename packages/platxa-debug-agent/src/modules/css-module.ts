@@ -111,6 +111,281 @@ function buildSourceLocation(
 }
 
 // =============================================================================
+// CSS Specificity Calculator
+// =============================================================================
+
+/**
+ * CSS specificity represented as a tuple [inline, ids, classes, elements]
+ * Based on CSS specification: https://www.w3.org/TR/selectors-3/#specificity
+ */
+export interface Specificity {
+  /** Inline styles (style attribute) - highest priority */
+  inline: number;
+  /** ID selectors (#id) */
+  ids: number;
+  /** Class selectors (.class), attribute selectors ([attr]), and pseudo-classes (:hover) */
+  classes: number;
+  /** Element selectors (div) and pseudo-elements (::before) */
+  elements: number;
+}
+
+/**
+ * Represents a CSS rule with its specificity
+ */
+export interface CSSRule {
+  /** The CSS selector string */
+  selector: string;
+  /** Property being set */
+  property: string;
+  /** Value being applied */
+  value: string;
+  /** Calculated specificity */
+  specificity: Specificity;
+  /** Source location if available */
+  location?: SourceLocation;
+  /** Whether this rule is marked !important */
+  important: boolean;
+}
+
+/**
+ * Represents a specificity conflict between CSS rules
+ */
+export interface SpecificityConflict {
+  /** The CSS property being overridden */
+  property: string;
+  /** The winning rule (higher specificity or later in cascade) */
+  winner: CSSRule;
+  /** The overridden rule(s) */
+  overridden: CSSRule[];
+  /** Reason for the override */
+  reason: 'specificity' | 'importance' | 'cascade-order';
+}
+
+/**
+ * Calculate CSS specificity for a selector string.
+ *
+ * Specificity is calculated as:
+ * - Inline styles: 1,0,0,0
+ * - ID selectors: 0,1,0,0
+ * - Class/attribute/pseudo-class: 0,0,1,0
+ * - Element/pseudo-element: 0,0,0,1
+ *
+ * @param selector - CSS selector string
+ * @param isInline - Whether this is an inline style
+ * @returns Specificity tuple
+ */
+export function calculateSpecificity(selector: string, isInline = false): Specificity {
+  const specificity: Specificity = {
+    inline: isInline ? 1 : 0,
+    ids: 0,
+    classes: 0,
+    elements: 0,
+  };
+
+  if (isInline) {
+    return specificity;
+  }
+
+  // Remove :not() wrapper but count its contents
+  // :not() itself doesn't add specificity, but its argument does
+  let processedSelector = selector;
+  const notMatches = selector.match(/:not\(([^)]+)\)/g);
+  if (notMatches !== null) {
+    for (const notMatch of notMatches) {
+      const innerSelector = notMatch.slice(5, -1); // Remove ":not(" and ")"
+      const innerSpec = calculateSpecificity(innerSelector);
+      specificity.ids += innerSpec.ids;
+      specificity.classes += innerSpec.classes;
+      specificity.elements += innerSpec.elements;
+    }
+    processedSelector = processedSelector.replace(/:not\([^)]+\)/g, '');
+  }
+
+  // Remove :where() completely (it has 0 specificity)
+  processedSelector = processedSelector.replace(/:where\([^)]+\)/g, '');
+
+  // Handle :is() and :has() - take the highest specificity of arguments
+  const isHasMatches = processedSelector.match(/:(?:is|has)\(([^)]+)\)/g);
+  if (isHasMatches !== null) {
+    for (const match of isHasMatches) {
+      const innerSelectors = match.slice(match.indexOf('(') + 1, -1).split(',');
+      let maxSpec: Specificity = { inline: 0, ids: 0, classes: 0, elements: 0 };
+      for (const inner of innerSelectors) {
+        const innerSpec = calculateSpecificity(inner.trim());
+        if (compareSpecificity(innerSpec, maxSpec) > 0) {
+          maxSpec = innerSpec;
+        }
+      }
+      specificity.ids += maxSpec.ids;
+      specificity.classes += maxSpec.classes;
+      specificity.elements += maxSpec.elements;
+    }
+    processedSelector = processedSelector.replace(/:(?:is|has)\([^)]+\)/g, '');
+  }
+
+  // Count ID selectors (#id)
+  const idMatches = processedSelector.match(/#[\w-]+/g);
+  if (idMatches !== null) {
+    specificity.ids += idMatches.length;
+  }
+
+  // Count class selectors (.class)
+  const classMatches = processedSelector.match(/\.[\w-]+/g);
+  if (classMatches !== null) {
+    specificity.classes += classMatches.length;
+  }
+
+  // Count attribute selectors ([attr], [attr=value], etc.)
+  const attrMatches = processedSelector.match(/\[[^\]]+\]/g);
+  if (attrMatches !== null) {
+    specificity.classes += attrMatches.length;
+  }
+
+  // Count pseudo-classes (:hover, :focus, :nth-child, etc.)
+  // Exclude pseudo-elements (::before, ::after)
+  const pseudoClassMatches = processedSelector.match(/:(?!:)[\w-]+(?:\([^)]*\))?/g);
+  if (pseudoClassMatches !== null) {
+    specificity.classes += pseudoClassMatches.length;
+  }
+
+  // Count pseudo-elements (::before, ::after, ::first-line, etc.)
+  const pseudoElementMatches = processedSelector.match(/::[\w-]+/g);
+  if (pseudoElementMatches !== null) {
+    specificity.elements += pseudoElementMatches.length;
+  }
+
+  // Count element selectors (div, span, etc.)
+  // Remove IDs, classes, attributes, and pseudo-selectors first
+  const cleanedSelector = processedSelector
+    .replace(/#[\w-]+/g, '')
+    .replace(/\.[\w-]+/g, '')
+    .replace(/\[[^\]]+\]/g, '')
+    .replace(/::?[\w-]+(?:\([^)]*\))?/g, '')
+    .replace(/[>\+~\s]+/g, ' ')
+    .trim();
+
+  const elementMatches = cleanedSelector.match(/[\w-]+/g);
+  if (elementMatches !== null) {
+    // Filter out combinators and empty strings
+    const elements = elementMatches.filter((e) => e !== '' && !/^[>\+~]$/.test(e));
+    specificity.elements += elements.length;
+  }
+
+  return specificity;
+}
+
+/**
+ * Compare two specificities.
+ * @returns Positive if a > b, negative if a < b, 0 if equal
+ */
+export function compareSpecificity(a: Specificity, b: Specificity): number {
+  if (a.inline !== b.inline) return a.inline - b.inline;
+  if (a.ids !== b.ids) return a.ids - b.ids;
+  if (a.classes !== b.classes) return a.classes - b.classes;
+  return a.elements - b.elements;
+}
+
+/**
+ * Convert specificity to a string representation (e.g., "0,1,2,3")
+ */
+export function specificityToString(spec: Specificity): string {
+  return `${spec.inline},${spec.ids},${spec.classes},${spec.elements}`;
+}
+
+/**
+ * Convert specificity to a numeric value for quick comparison.
+ * Uses base-1000 encoding to handle up to 999 selectors per category.
+ */
+export function specificityToNumber(spec: Specificity): number {
+  return (
+    spec.inline * 1000000000 +
+    spec.ids * 1000000 +
+    spec.classes * 1000 +
+    spec.elements
+  );
+}
+
+/**
+ * Detect specificity conflicts between CSS rules targeting the same property.
+ *
+ * @param rules - Array of CSS rules to analyze
+ * @returns Array of detected conflicts
+ */
+export function detectSpecificityConflicts(rules: CSSRule[]): SpecificityConflict[] {
+  const conflicts: SpecificityConflict[] = [];
+
+  // Group rules by property
+  const rulesByProperty = new Map<string, CSSRule[]>();
+  for (const rule of rules) {
+    const existing = rulesByProperty.get(rule.property) ?? [];
+    existing.push(rule);
+    rulesByProperty.set(rule.property, existing);
+  }
+
+  // Find conflicts for each property
+  for (const [property, propertyRules] of rulesByProperty) {
+    if (propertyRules.length < 2) continue;
+
+    // Sort by importance first, then specificity, then cascade order (array index)
+    const sortedRules = [...propertyRules].map((rule, index) => ({ rule, index }));
+    sortedRules.sort((a, b) => {
+      // !important always wins
+      if (a.rule.important !== b.rule.important) {
+        return a.rule.important ? 1 : -1;
+      }
+      // Then compare specificity
+      const specCompare = compareSpecificity(a.rule.specificity, b.rule.specificity);
+      if (specCompare !== 0) return specCompare;
+      // Finally, cascade order (later wins)
+      return a.index - b.index;
+    });
+
+    // The last rule in sorted order is the winner
+    const winnerEntry = sortedRules[sortedRules.length - 1];
+    if (winnerEntry === undefined) continue;
+
+    const winner = winnerEntry.rule;
+    const overridden = sortedRules
+      .slice(0, -1)
+      .map((entry) => entry.rule);
+
+    if (overridden.length > 0) {
+      // Determine the reason for the override
+      let reason: 'specificity' | 'importance' | 'cascade-order' = 'specificity';
+
+      const firstOverridden = overridden[0];
+      if (firstOverridden !== undefined) {
+        if (winner.important && !firstOverridden.important) {
+          reason = 'importance';
+        } else if (compareSpecificity(winner.specificity, firstOverridden.specificity) === 0) {
+          reason = 'cascade-order';
+        }
+      }
+
+      conflicts.push({
+        property,
+        winner,
+        overridden,
+        reason,
+      });
+    }
+  }
+
+  return conflicts;
+}
+
+/**
+ * Parse a CSS declaration value and check if it has !important
+ */
+export function parseImportant(value: string): { value: string; important: boolean } {
+  const importantMatch = value.match(/^(.+?)\s*!important\s*$/i);
+  if (importantMatch !== null && importantMatch[1] !== undefined) {
+    return { value: importantMatch[1].trim(), important: true };
+  }
+  return { value: value.trim(), important: false };
+}
+
+// =============================================================================
 // CSS Language Module
 // =============================================================================
 
