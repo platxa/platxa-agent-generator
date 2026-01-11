@@ -146,6 +146,19 @@ export type {
   RegressionDetectionOptions,
 } from './core/regression-detector.js';
 
+// Semantic Validator
+export { SemanticValidator, createSemanticValidator } from './core/semantic-validator.js';
+export type {
+  TypeConstraint,
+  Invariant,
+  DataFlowConstraint,
+  ValueRangeConstraint,
+  SemanticValidationResult,
+  ConstraintDefinition,
+  SemanticValidatorConfig,
+  SemanticValidationOptions,
+} from './core/semantic-validator.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
