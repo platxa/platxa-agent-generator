@@ -124,6 +124,7 @@ CLAUDE.md
 .claude/**/__pycache__/
 .claude/**/.pytest_cache/
 .claude/**/.benchmarks/
+packages/platxa-debug-agent/.claude/
 
 # Hatch
 .hatch/
