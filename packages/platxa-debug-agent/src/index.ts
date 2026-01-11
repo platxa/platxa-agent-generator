@@ -54,6 +54,17 @@ export type {
   ContextExtractionOptions,
 } from './core/context-engine.js';
 
+// RCA Engine
+export { RCAEngine, createRCAEngine } from './core/rca-engine.js';
+export type {
+  ErrorPattern,
+  FixTemplate,
+  LLMPromptTemplate,
+  HypothesisGenerationResult,
+  GeneratedPrompt,
+  RCAEngineConfig,
+} from './core/rca-engine.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
