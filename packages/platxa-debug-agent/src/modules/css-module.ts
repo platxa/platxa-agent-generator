@@ -8,6 +8,10 @@
  */
 
 import { randomUUID } from 'crypto';
+import { existsSync, readFileSync, statSync } from 'fs';
+import { readFile } from 'fs/promises';
+import { glob } from 'glob';
+import { dirname, isAbsolute, join, relative, resolve } from 'path';
 import {
   type AnalysisContext,
   type Evidence,
@@ -463,6 +467,432 @@ export class TailwindValidator {
    */
   isValid(className: string): boolean {
     return validateTailwindClass(className, this.customUtilities).valid;
+  }
+}
+
+// =============================================================================
+// Tailwind Content Path Analyzer
+// =============================================================================
+
+/**
+ * Result of analyzing a single content path
+ */
+export interface ContentPathResult {
+  /** The original path pattern from config */
+  pattern: string;
+  /** Whether the path/pattern is valid */
+  valid: boolean;
+  /** Files matched by this pattern */
+  matchedFiles: string[];
+  /** Error message if invalid */
+  error?: string;
+  /** Warning message if potentially problematic */
+  warning?: string;
+}
+
+/**
+ * Result of analyzing content path configuration
+ */
+export interface ContentAnalysisResult {
+  /** Results for each content path */
+  paths: ContentPathResult[];
+  /** Files containing Tailwind classes but not in content paths */
+  unreachableFiles: UnreachableFile[];
+  /** Overall validity */
+  valid: boolean;
+  /** Summary of issues found */
+  issues: ContentIssue[];
+  /** Total files covered by content paths */
+  totalCoveredFiles: number;
+}
+
+/**
+ * A file that contains Tailwind classes but isn't covered by content paths
+ */
+export interface UnreachableFile {
+  /** File path */
+  file: string;
+  /** Tailwind classes found in the file */
+  classesFound: string[];
+  /** Suggested content path pattern to add */
+  suggestedPattern: string;
+}
+
+/**
+ * An issue found during content path analysis
+ */
+export interface ContentIssue {
+  /** Issue severity */
+  severity: 'error' | 'warning';
+  /** Issue type */
+  type: 'missing_path' | 'empty_pattern' | 'unreachable_file' | 'invalid_glob' | 'no_matches';
+  /** Human-readable message */
+  message: string;
+  /** Related path or file */
+  path?: string;
+  /** Suggested fix */
+  suggestion?: string;
+}
+
+/**
+ * Tailwind CSS content path analyzer for detecting purge/content configuration issues.
+ *
+ * Analyzes tailwind.config.js content paths to detect:
+ * - Missing or invalid paths
+ * - Glob patterns that don't match any files
+ * - Template files containing Tailwind classes but not covered by content paths
+ */
+export class ContentPathAnalyzer {
+  /** Project root directory */
+  private readonly projectRoot: string;
+  /** File extensions to scan for Tailwind classes */
+  private readonly scanExtensions: string[];
+  /** Regex pattern to detect Tailwind class usage */
+  private readonly tailwindClassPattern: RegExp;
+
+  constructor(
+    projectRoot: string = process.cwd(),
+    scanExtensions: string[] = ['.html', '.jsx', '.tsx', '.vue', '.svelte', '.astro', '.php', '.blade.php', '.erb', '.ejs', '.hbs', '.twig']
+  ) {
+    this.projectRoot = resolve(projectRoot);
+    this.scanExtensions = scanExtensions;
+    // Pattern to detect className, class, or :class attributes with Tailwind-like classes
+    this.tailwindClassPattern = /(?:className|class|:class)\s*=\s*["'`{]([^"'`}]+)["'`}]/g;
+  }
+
+  /**
+   * Analyze Tailwind content paths from configuration.
+   *
+   * @param contentPaths - Array of content path patterns from tailwind.config.js
+   * @param additionalScanDirs - Additional directories to scan for unreachable files
+   * @returns Analysis result with issues and suggestions
+   */
+  async analyze(
+    contentPaths: string[],
+    additionalScanDirs: string[] = ['./src', './pages', './components', './app']
+  ): Promise<ContentAnalysisResult> {
+    const result: ContentAnalysisResult = {
+      paths: [],
+      unreachableFiles: [],
+      valid: true,
+      issues: [],
+      totalCoveredFiles: 0,
+    };
+
+    const allCoveredFiles = new Set<string>();
+
+    // Analyze each content path
+    for (const pattern of contentPaths) {
+      const pathResult = await this.analyzeContentPath(pattern);
+      result.paths.push(pathResult);
+
+      if (!pathResult.valid) {
+        result.valid = false;
+      }
+
+      // Collect all covered files
+      for (const file of pathResult.matchedFiles) {
+        allCoveredFiles.add(file);
+      }
+
+      // Add issues from path analysis
+      if (pathResult.error !== undefined) {
+        result.issues.push({
+          severity: 'error',
+          type: pathResult.matchedFiles.length === 0 ? 'no_matches' : 'invalid_glob',
+          message: pathResult.error,
+          path: pattern,
+        });
+      }
+
+      if (pathResult.warning !== undefined) {
+        result.issues.push({
+          severity: 'warning',
+          type: 'empty_pattern',
+          message: pathResult.warning,
+          path: pattern,
+        });
+      }
+    }
+
+    result.totalCoveredFiles = allCoveredFiles.size;
+
+    // Scan for unreachable files
+    const unreachable = await this.findUnreachableFiles(allCoveredFiles, additionalScanDirs);
+    result.unreachableFiles = unreachable;
+
+    for (const file of unreachable) {
+      result.issues.push({
+        severity: 'warning',
+        type: 'unreachable_file',
+        message: `File '${file.file}' contains Tailwind classes but is not covered by content paths`,
+        path: file.file,
+        suggestion: `Add '${file.suggestedPattern}' to content paths`,
+      });
+    }
+
+    if (unreachable.length > 0) {
+      result.valid = false;
+    }
+
+    return result;
+  }
+
+  /**
+   * Analyze a single content path pattern.
+   */
+  private async analyzeContentPath(pattern: string): Promise<ContentPathResult> {
+    const result: ContentPathResult = {
+      pattern,
+      valid: true,
+      matchedFiles: [],
+    };
+
+    // Handle empty pattern
+    if (pattern.trim() === '') {
+      result.valid = false;
+      result.error = 'Empty content path pattern';
+      return result;
+    }
+
+    // Resolve relative paths
+    const absolutePattern = isAbsolute(pattern)
+      ? pattern
+      : join(this.projectRoot, pattern);
+
+    try {
+      // Check if it's a direct file path (no glob characters)
+      if (!this.isGlobPattern(pattern)) {
+        if (existsSync(absolutePattern)) {
+          const stat = statSync(absolutePattern);
+          if (stat.isFile()) {
+            result.matchedFiles = [absolutePattern];
+          } else if (stat.isDirectory()) {
+            result.warning = `'${pattern}' is a directory. Consider using a glob pattern like '${pattern}/**/*.{html,js,jsx,tsx}'`;
+          }
+        } else {
+          result.valid = false;
+          result.error = `Path '${pattern}' does not exist`;
+        }
+        return result;
+      }
+
+      // Expand glob pattern
+      const matches = await glob(absolutePattern, {
+        cwd: this.projectRoot,
+        absolute: true,
+        nodir: true,
+        ignore: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.git/**'],
+      });
+
+      result.matchedFiles = matches;
+
+      if (matches.length === 0) {
+        result.warning = `Pattern '${pattern}' does not match any files`;
+      }
+    } catch (error) {
+      result.valid = false;
+      result.error = `Invalid glob pattern '${pattern}': ${error instanceof Error ? error.message : String(error)}`;
+    }
+
+    return result;
+  }
+
+  /**
+   * Check if a pattern contains glob characters.
+   */
+  private isGlobPattern(pattern: string): boolean {
+    return /[*?[\]{}!]/.test(pattern);
+  }
+
+  /**
+   * Find files containing Tailwind classes that aren't covered by content paths.
+   */
+  private async findUnreachableFiles(
+    coveredFiles: Set<string>,
+    scanDirs: string[]
+  ): Promise<UnreachableFile[]> {
+    const unreachable: UnreachableFile[] = [];
+
+    for (const scanDir of scanDirs) {
+      const absoluteDir = isAbsolute(scanDir)
+        ? scanDir
+        : join(this.projectRoot, scanDir);
+
+      if (!existsSync(absoluteDir)) {
+        continue;
+      }
+
+      try {
+        // Find all potential template files
+        const extensionGlob = `**/*{${this.scanExtensions.join(',')}}`;
+        const files = await glob(extensionGlob, {
+          cwd: absoluteDir,
+          absolute: true,
+          nodir: true,
+          ignore: ['**/node_modules/**', '**/dist/**', '**/build/**', '**/.git/**'],
+        });
+
+        for (const file of files) {
+          // Skip if already covered
+          if (coveredFiles.has(file)) {
+            continue;
+          }
+
+          // Check if file contains Tailwind classes
+          const classes = this.extractTailwindClasses(file);
+          if (classes.length > 0) {
+            unreachable.push({
+              file: relative(this.projectRoot, file),
+              classesFound: classes.slice(0, 10), // Limit to first 10 classes
+              suggestedPattern: this.suggestPattern(file),
+            });
+          }
+        }
+      } catch {
+        // Skip directories that can't be scanned
+      }
+    }
+
+    return unreachable;
+  }
+
+  /**
+   * Extract Tailwind classes from a file.
+   */
+  private extractTailwindClasses(filePath: string): string[] {
+    try {
+      const content = readFileSync(filePath, 'utf-8');
+      const classes = new Set<string>();
+
+      let match: RegExpExecArray | null;
+      while ((match = this.tailwindClassPattern.exec(content)) !== null) {
+        const classString = match[1];
+        if (classString !== undefined) {
+          // Split class string and filter for Tailwind-like classes
+          const classList = classString.split(/\s+/);
+          for (const cls of classList) {
+            if (this.looksLikeTailwindClass(cls)) {
+              classes.add(cls);
+            }
+          }
+        }
+      }
+
+      // Reset regex state
+      this.tailwindClassPattern.lastIndex = 0;
+
+      return Array.from(classes);
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Check if a class name looks like a Tailwind utility class.
+   */
+  private looksLikeTailwindClass(className: string): boolean {
+    // Skip empty or very short classes
+    if (className.length < 2) {
+      return false;
+    }
+
+    // Skip classes that are clearly not Tailwind (e.g., BEM-style)
+    if (className.includes('__') || className.includes('--')) {
+      return false;
+    }
+
+    // Check for common Tailwind patterns
+    const tailwindPatterns = [
+      /^-?[mpwh][trblxy]?-/, // margin, padding, width, height
+      /^(flex|grid|block|inline|hidden)/, // display
+      /^(text|font|leading|tracking)-/, // typography
+      /^(bg|border|rounded|shadow)-/, // backgrounds, borders
+      /^(hover|focus|active|dark):/, // variants
+      /^(sm|md|lg|xl|2xl):/, // responsive
+      /^(justify|items|content|self)-/, // flexbox/grid alignment
+      /^(gap|space)-/, // spacing
+      /^(absolute|relative|fixed|sticky)$/, // position
+      /^(top|right|bottom|left|inset)-/, // position values
+      /^(z-|opacity-|overflow-)/, // other utilities
+      /^(transition|duration|ease|delay|animate)-/, // transitions
+      /^(scale|rotate|translate|skew|origin)-/, // transforms
+    ];
+
+    return tailwindPatterns.some((pattern) => pattern.test(className));
+  }
+
+  /**
+   * Suggest a content path pattern for an unreachable file.
+   */
+  private suggestPattern(filePath: string): string {
+    const relativePath = relative(this.projectRoot, filePath);
+    const dir = dirname(relativePath);
+    const ext = filePath.match(/\.[^.]+$/)?.[0] ?? '';
+
+    // Suggest a pattern that covers the directory
+    if (dir === '.') {
+      return `./*${ext}`;
+    }
+
+    return `./${dir}/**/*${ext}`;
+  }
+
+  /**
+   * Parse content paths from a tailwind.config.js file.
+   *
+   * @param configPath - Path to tailwind.config.js
+   * @returns Array of content paths or null if parsing fails
+   */
+  async parseConfigFile(configPath: string): Promise<string[] | null> {
+    const absolutePath = isAbsolute(configPath)
+      ? configPath
+      : join(this.projectRoot, configPath);
+
+    if (!existsSync(absolutePath)) {
+      return null;
+    }
+
+    try {
+      const content = await readFile(absolutePath, 'utf-8');
+
+      // Try to extract content array using regex (handles most common formats)
+      // This is a simplified parser - for full parsing, would need to evaluate JS
+      const contentMatch = content.match(/content\s*:\s*\[([\s\S]*?)\]/);
+      if (contentMatch !== null && contentMatch[1] !== undefined) {
+        const pathsString = contentMatch[1];
+        const paths: string[] = [];
+
+        // Extract string literals
+        const stringMatches = pathsString.matchAll(/['"]([^'"]+)['"]/g);
+        for (const match of stringMatches) {
+          if (match[1] !== undefined) {
+            paths.push(match[1]);
+          }
+        }
+
+        return paths;
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Analyze content paths directly from tailwind.config.js file.
+   *
+   * @param configPath - Path to tailwind.config.js (default: './tailwind.config.js')
+   * @returns Analysis result or null if config can't be parsed
+   */
+  async analyzeFromConfig(configPath = './tailwind.config.js'): Promise<ContentAnalysisResult | null> {
+    const contentPaths = await this.parseConfigFile(configPath);
+    if (contentPaths === null) {
+      return null;
+    }
+
+    return this.analyze(contentPaths);
   }
 }
 
