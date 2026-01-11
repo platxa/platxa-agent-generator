@@ -116,6 +116,16 @@ export type {
   LLMPatchSynthesizerConfig,
 } from './core/llm-patch-synthesizer.js';
 
+// Fix Validator
+export { FixValidator, createFixValidator } from './core/fix-validator.js';
+export type {
+  TypeCheckError,
+  TypeCheckResult,
+  FixValidationResult,
+  ValidationOptions,
+  FixValidatorConfig,
+} from './core/fix-validator.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
