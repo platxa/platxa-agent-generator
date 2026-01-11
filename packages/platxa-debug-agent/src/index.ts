@@ -172,6 +172,20 @@ export type {
   ExplanationGeneratorConfig,
 } from './core/explanation-generator.js';
 
+// Diff Visualizer
+export { DiffVisualizer, createDiffVisualizer } from './core/diff-visualizer.js';
+export type {
+  DiffFormat,
+  DiffOutput,
+  LineChangeType,
+  DiffLine,
+  DiffHunk,
+  FileDiff,
+  SideBySideLine,
+  DiffVisualization,
+  DiffVisualizerConfig,
+} from './core/diff-visualizer.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
