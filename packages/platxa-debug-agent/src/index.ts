@@ -159,6 +159,19 @@ export type {
   SemanticValidationOptions,
 } from './core/semantic-validator.js';
 
+// Explanation Generator
+export { ExplanationGenerator, createExplanationGenerator } from './core/explanation-generator.js';
+export type {
+  VerbosityLevel,
+  ExplanationSection,
+  CodeSnippet as ExplanationCodeSnippet,
+  BugExplanation,
+  RootCauseExplanation,
+  FixExplanation,
+  DebuggingExplanation,
+  ExplanationGeneratorConfig,
+} from './core/explanation-generator.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
