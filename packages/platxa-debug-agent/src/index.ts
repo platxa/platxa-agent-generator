@@ -91,6 +91,15 @@ export type {
   DatabaseStats,
 } from './core/fix-database.js';
 
+// Fix Generator (Template-based)
+export { FixGenerator, createFixGenerator } from './core/fix-generator.js';
+export type {
+  FixGeneratorTemplate,
+  TemplateVariables,
+  GeneratedFix,
+  FixGeneratorConfig,
+} from './core/fix-generator.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
