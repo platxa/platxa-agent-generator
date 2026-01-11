@@ -41,6 +41,19 @@ export type { ErrorParserConfig } from './core/error-parser.js';
 // Orchestrator
 export { Orchestrator, createOrchestrator } from './core/orchestrator.js';
 
+// Context Engine
+export { ContextEngine, createContextEngine } from './core/context-engine.js';
+export type {
+  ASTNode,
+  SymbolInfo,
+  ParameterInfo,
+  ImportInfo,
+  ImportedName,
+  CodeContext,
+  FileContext,
+  ContextExtractionOptions,
+} from './core/context-engine.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
