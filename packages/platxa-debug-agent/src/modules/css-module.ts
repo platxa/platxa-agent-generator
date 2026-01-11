@@ -897,6 +897,704 @@ export class ContentPathAnalyzer {
 }
 
 // =============================================================================
+// Dynamic Class Name Detector for JIT Safelist
+// =============================================================================
+
+/**
+ * Types of dynamic class patterns detected
+ */
+export type DynamicClassType =
+  | 'template_literal'
+  | 'string_concatenation'
+  | 'conditional_ternary'
+  | 'array_join'
+  | 'object_keys'
+  | 'function_call';
+
+/**
+ * A detected dynamic class pattern
+ */
+export interface DynamicClassPattern {
+  /** Type of dynamic pattern */
+  type: DynamicClassType;
+  /** The raw code containing the pattern */
+  raw: string;
+  /** Source location in the file */
+  location: SourceLocation;
+  /** Static parts that can be identified */
+  staticParts: string[];
+  /** Variable parts (interpolations) */
+  variableParts: string[];
+  /** Suggested safelist patterns */
+  safelistSuggestions: string[];
+  /** Risk level for purging */
+  riskLevel: 'high' | 'medium' | 'low';
+  /** Human-readable description */
+  description: string;
+}
+
+/**
+ * Result of scanning a file for dynamic classes
+ */
+export interface DynamicClassScanResult {
+  /** File path */
+  file: string;
+  /** Detected dynamic patterns */
+  patterns: DynamicClassPattern[];
+  /** Total patterns found */
+  totalPatterns: number;
+  /** Suggested safelist entries */
+  safelistSuggestions: SafelistEntry[];
+}
+
+/**
+ * A safelist entry for tailwind.config.js
+ */
+export interface SafelistEntry {
+  /** Pattern string or regex */
+  pattern: string;
+  /** Whether this is a regex pattern */
+  isRegex: boolean;
+  /** Optional variants to include */
+  variants?: string[];
+  /** Source patterns that led to this suggestion */
+  sourcePatterns: string[];
+}
+
+/**
+ * Patterns for detecting dynamic Tailwind class names
+ */
+const DYNAMIC_CLASS_PATTERNS = {
+  // Template literal with interpolation: `bg-${color}-500`
+  templateLiteral: /`([^`]*\$\{[^}]+\}[^`]*)`/g,
+
+  // String concatenation: 'bg-' + color + '-500'
+  stringConcat: /['"]([a-z]+-?)['"]s*\+\s*(\w+)(?:\s*\+\s*['"](-?\w+)['"])?/gi,
+
+  // Conditional/ternary in className: condition ? 'class-a' : 'class-b'
+  conditionalClass: /(?:className|class)\s*=\s*\{[^}]*\?\s*['"]([^'"]+)['"]\s*:\s*['"]([^'"]+)['"]/g,
+
+  // Array join pattern: ['mt-4', someVar].join(' ')
+  arrayJoin: /\[([^\]]*)\]\.join\s*\(\s*['"]['"]\s*\)/g,
+
+  // clsx/classnames function: clsx('base', { 'active': isActive })
+  classnamesCall: /(?:clsx|classnames|cn|cx)\s*\(([^)]+)\)/gi,
+
+  // Object.keys for conditional classes
+  objectKeys: /Object\.keys\s*\(\s*\{([^}]+)\}\s*\)/g,
+} as const;
+
+/**
+ * Common Tailwind utility prefixes for pattern generation
+ */
+const TAILWIND_PREFIXES = [
+  'bg', 'text', 'border', 'rounded', 'shadow', 'opacity',
+  'p', 'px', 'py', 'pt', 'pr', 'pb', 'pl', 'm', 'mx', 'my', 'mt', 'mr', 'mb', 'ml',
+  'w', 'h', 'min-w', 'max-w', 'min-h', 'max-h',
+  'font', 'leading', 'tracking', 'gap', 'space',
+  'grid-cols', 'grid-rows', 'col-span', 'row-span',
+  'translate', 'rotate', 'scale', 'skew',
+  'duration', 'delay', 'ease',
+  'z', 'top', 'right', 'bottom', 'left', 'inset',
+];
+
+/**
+ * Common color/size suffixes for safelist generation.
+ * Used by generateExpandedSafelist for comprehensive class coverage.
+ */
+const COMMON_SUFFIXES = {
+  colors: ['50', '100', '200', '300', '400', '500', '600', '700', '800', '900', '950'],
+  sizes: ['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl', '5xl'],
+  spacing: ['0', '0.5', '1', '1.5', '2', '2.5', '3', '3.5', '4', '5', '6', '7', '8', '9', '10', '11', '12', '14', '16', '20', '24', '28', '32', '36', '40', '44', '48', '52', '56', '60', '64', '72', '80', '96'],
+} as const;
+
+/**
+ * Detector for dynamic Tailwind class names that need JIT safelist.
+ *
+ * Finds patterns like:
+ * - Template literals: `bg-${color}-500`
+ * - String concatenation: 'text-' + size
+ * - Conditional ternary: condition ? 'bg-blue' : 'bg-red'
+ * - Array joins: [baseClass, variantClass].join(' ')
+ * - classnames/clsx calls with dynamic parts
+ */
+export class DynamicClassDetector {
+  /** Project root directory */
+  private readonly projectRoot: string;
+
+  constructor(projectRoot: string = process.cwd()) {
+    this.projectRoot = resolve(projectRoot);
+  }
+
+  /**
+   * Scan a file for dynamic class patterns.
+   *
+   * @param filePath - Path to the file to scan
+   * @returns Scan result with detected patterns and safelist suggestions
+   */
+  async scanFile(filePath: string): Promise<DynamicClassScanResult> {
+    const absolutePath = isAbsolute(filePath)
+      ? filePath
+      : join(this.projectRoot, filePath);
+
+    const result: DynamicClassScanResult = {
+      file: relative(this.projectRoot, absolutePath),
+      patterns: [],
+      totalPatterns: 0,
+      safelistSuggestions: [],
+    };
+
+    try {
+      const content = readFileSync(absolutePath, 'utf-8');
+      const lines = content.split('\n');
+
+      // Scan for each pattern type
+      result.patterns.push(...this.findTemplateLiterals(content, lines));
+      result.patterns.push(...this.findStringConcatenation(content, lines));
+      result.patterns.push(...this.findConditionalClasses(content, lines));
+      result.patterns.push(...this.findArrayJoins(content, lines));
+      result.patterns.push(...this.findClassnamesCalls(content, lines));
+
+      result.totalPatterns = result.patterns.length;
+
+      // Generate safelist suggestions
+      result.safelistSuggestions = this.generateSafelistSuggestions(result.patterns);
+    } catch {
+      // File couldn't be read
+    }
+
+    return result;
+  }
+
+  /**
+   * Scan multiple files for dynamic class patterns.
+   *
+   * @param filePaths - Array of file paths to scan
+   * @returns Combined scan results
+   */
+  async scanFiles(filePaths: string[]): Promise<DynamicClassScanResult[]> {
+    const results: DynamicClassScanResult[] = [];
+
+    for (const filePath of filePaths) {
+      const result = await this.scanFile(filePath);
+      if (result.patterns.length > 0) {
+        results.push(result);
+      }
+    }
+
+    return results;
+  }
+
+  /**
+   * Find template literal patterns with interpolation.
+   */
+  private findTemplateLiterals(content: string, lines: string[]): DynamicClassPattern[] {
+    const patterns: DynamicClassPattern[] = [];
+    const regex = new RegExp(DYNAMIC_CLASS_PATTERNS.templateLiteral.source, 'g');
+
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(content)) !== null) {
+      const fullMatch = match[0];
+      const templateContent = match[1];
+
+      if (templateContent === undefined) continue;
+
+      // Check if this looks like a Tailwind class pattern
+      if (!this.looksLikeTailwindTemplate(templateContent)) continue;
+
+      const location = this.getLocationFromOffset(lines, match.index);
+      const { staticParts, variableParts } = this.parseTemplateLiteral(templateContent);
+
+      patterns.push({
+        type: 'template_literal',
+        raw: fullMatch,
+        location,
+        staticParts,
+        variableParts,
+        safelistSuggestions: this.generateTemplatePatterns(staticParts, variableParts),
+        riskLevel: variableParts.length > 1 ? 'high' : 'medium',
+        description: `Template literal with ${variableParts.length} dynamic part(s): ${templateContent}`,
+      });
+    }
+
+    return patterns;
+  }
+
+  /**
+   * Find string concatenation patterns.
+   */
+  private findStringConcatenation(content: string, lines: string[]): DynamicClassPattern[] {
+    const patterns: DynamicClassPattern[] = [];
+    const regex = new RegExp(DYNAMIC_CLASS_PATTERNS.stringConcat.source, 'gi');
+
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(content)) !== null) {
+      const fullMatch = match[0];
+      const prefix = match[1];
+      const variable = match[2];
+      const suffix = match[3];
+
+      if (prefix === undefined || variable === undefined) continue;
+
+      // Check if prefix looks like a Tailwind utility
+      if (!this.looksLikeTailwindPrefix(prefix)) continue;
+
+      const location = this.getLocationFromOffset(lines, match.index);
+      const staticParts = [prefix];
+      if (suffix !== undefined) {
+        staticParts.push(suffix);
+      }
+
+      patterns.push({
+        type: 'string_concatenation',
+        raw: fullMatch,
+        location,
+        staticParts,
+        variableParts: [variable],
+        safelistSuggestions: this.generateConcatPatterns(prefix, suffix),
+        riskLevel: 'medium',
+        description: `String concatenation: "${prefix}" + ${variable}${suffix !== undefined ? ` + "${suffix}"` : ''}`,
+      });
+    }
+
+    return patterns;
+  }
+
+  /**
+   * Find conditional ternary patterns in className.
+   */
+  private findConditionalClasses(content: string, lines: string[]): DynamicClassPattern[] {
+    const patterns: DynamicClassPattern[] = [];
+    const regex = new RegExp(DYNAMIC_CLASS_PATTERNS.conditionalClass.source, 'g');
+
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(content)) !== null) {
+      const fullMatch = match[0];
+      const trueClass = match[1];
+      const falseClass = match[2];
+
+      if (trueClass === undefined || falseClass === undefined) continue;
+
+      const location = this.getLocationFromOffset(lines, match.index);
+
+      // Both classes are static, but we flag them as they're conditional
+      patterns.push({
+        type: 'conditional_ternary',
+        raw: fullMatch,
+        location,
+        staticParts: [trueClass, falseClass],
+        variableParts: [],
+        safelistSuggestions: [trueClass, falseClass],
+        riskLevel: 'low',
+        description: `Conditional class: "${trueClass}" or "${falseClass}"`,
+      });
+    }
+
+    return patterns;
+  }
+
+  /**
+   * Find array join patterns.
+   */
+  private findArrayJoins(content: string, lines: string[]): DynamicClassPattern[] {
+    const patterns: DynamicClassPattern[] = [];
+    const regex = new RegExp(DYNAMIC_CLASS_PATTERNS.arrayJoin.source, 'g');
+
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(content)) !== null) {
+      const fullMatch = match[0];
+      const arrayContent = match[1];
+
+      if (arrayContent === undefined) continue;
+
+      const location = this.getLocationFromOffset(lines, match.index);
+
+      // Extract static strings from array
+      const staticStrings: string[] = [];
+      const variableNames: string[] = [];
+      const stringMatches = arrayContent.matchAll(/['"]([^'"]+)['"]/g);
+      for (const strMatch of stringMatches) {
+        if (strMatch[1] !== undefined) {
+          staticStrings.push(strMatch[1]);
+        }
+      }
+
+      // Find variable references
+      const varMatches = arrayContent.matchAll(/(?:^|,\s*)(\w+)(?:\s*,|$)/g);
+      for (const varMatch of varMatches) {
+        if (varMatch[1] !== undefined && !varMatch[1].startsWith("'") && !varMatch[1].startsWith('"')) {
+          variableNames.push(varMatch[1]);
+        }
+      }
+
+      if (variableNames.length === 0 && staticStrings.length === 0) continue;
+
+      patterns.push({
+        type: 'array_join',
+        raw: fullMatch,
+        location,
+        staticParts: staticStrings,
+        variableParts: variableNames,
+        safelistSuggestions: staticStrings,
+        riskLevel: variableNames.length > 0 ? 'medium' : 'low',
+        description: `Array join with ${staticStrings.length} static and ${variableNames.length} dynamic parts`,
+      });
+    }
+
+    return patterns;
+  }
+
+  /**
+   * Find classnames/clsx function calls with dynamic parts.
+   */
+  private findClassnamesCalls(content: string, lines: string[]): DynamicClassPattern[] {
+    const patterns: DynamicClassPattern[] = [];
+    const regex = new RegExp(DYNAMIC_CLASS_PATTERNS.classnamesCall.source, 'gi');
+
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(content)) !== null) {
+      const fullMatch = match[0];
+      const callContent = match[1];
+
+      if (callContent === undefined) continue;
+
+      const location = this.getLocationFromOffset(lines, match.index);
+
+      // Extract static class strings
+      const staticStrings: string[] = [];
+      const stringMatches = callContent.matchAll(/['"]([^'"]+)['"]/g);
+      for (const strMatch of stringMatches) {
+        if (strMatch[1] !== undefined) {
+          staticStrings.push(strMatch[1]);
+        }
+      }
+
+      // Check for object notation { 'class-name': condition }
+      const objectMatches = callContent.matchAll(/\{\s*['"]([^'"]+)['"]\s*:/g);
+      for (const objMatch of objectMatches) {
+        if (objMatch[1] !== undefined) {
+          staticStrings.push(objMatch[1]);
+        }
+      }
+
+      // Check for variables
+      const hasVariables = /[^'"]\w+[^'"]/.test(callContent.replace(/['"][^'"]+['"]/g, ''));
+
+      if (staticStrings.length === 0) continue;
+
+      patterns.push({
+        type: 'function_call',
+        raw: fullMatch,
+        location,
+        staticParts: staticStrings,
+        variableParts: hasVariables ? ['<dynamic>'] : [],
+        safelistSuggestions: staticStrings,
+        riskLevel: hasVariables ? 'medium' : 'low',
+        description: `clsx/classnames call with ${staticStrings.length} detectable classes`,
+      });
+    }
+
+    return patterns;
+  }
+
+  /**
+   * Check if a template literal looks like it contains Tailwind classes.
+   */
+  private looksLikeTailwindTemplate(template: string): boolean {
+    // Remove interpolations and check remaining parts
+    const staticPart = template.replace(/\$\{[^}]+\}/g, '');
+    return TAILWIND_PREFIXES.some((prefix) =>
+      staticPart.includes(`${prefix}-`) || staticPart.startsWith(prefix)
+    );
+  }
+
+  /**
+   * Check if a string prefix looks like a Tailwind utility.
+   */
+  private looksLikeTailwindPrefix(prefix: string): boolean {
+    const cleanPrefix = prefix.replace(/-$/, '');
+    return TAILWIND_PREFIXES.includes(cleanPrefix);
+  }
+
+  /**
+   * Parse a template literal into static and variable parts.
+   */
+  private parseTemplateLiteral(template: string): { staticParts: string[]; variableParts: string[] } {
+    const staticParts: string[] = [];
+    const variableParts: string[] = [];
+
+    // Split by interpolation
+    const parts = template.split(/\$\{([^}]+)\}/);
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (part === undefined) continue;
+
+      if (i % 2 === 0) {
+        // Static part
+        if (part.trim()) {
+          staticParts.push(part.trim());
+        }
+      } else {
+        // Variable part
+        variableParts.push(part.trim());
+      }
+    }
+
+    return { staticParts, variableParts };
+  }
+
+  /**
+   * Get source location from character offset.
+   */
+  private getLocationFromOffset(
+    lines: string[],
+    offset: number
+  ): SourceLocation {
+    let currentOffset = 0;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (line === undefined) continue;
+
+      const lineLength = line.length + 1; // +1 for newline
+      if (currentOffset + lineLength > offset) {
+        return {
+          file: '',
+          line: i + 1,
+          column: offset - currentOffset,
+        };
+      }
+      currentOffset += lineLength;
+    }
+    return { file: '', line: 1 };
+  }
+
+  /**
+   * Generate safelist patterns for template literals.
+   *
+   * Analyzes both static parts and variable names to generate more accurate patterns.
+   * Variable names like 'color', 'size', 'spacing' provide hints about expected values.
+   */
+  private generateTemplatePatterns(staticParts: string[], variableParts: string[]): string[] {
+    const suggestions: string[] = [];
+
+    if (staticParts.length === 0) return suggestions;
+
+    const prefix = staticParts[0]?.replace(/-$/, '') ?? '';
+
+    // Analyze variable names to infer expected value types
+    const inferredType = this.inferValueTypeFromVariables(variableParts);
+
+    // Check what kind of suffix is expected based on prefix and variable analysis
+    if (inferredType === 'color' || prefix.includes('bg-') || prefix.includes('text-') || prefix.includes('border-')) {
+      // Color-based utility - suggest color patterns
+      suggestions.push(`{ pattern: /^${prefix}-(\\w+)-(\\d+)$/ }`);
+      // Also suggest without shade for cases like `bg-${colorName}`
+      suggestions.push(`{ pattern: /^${prefix}-\\w+$/ }`);
+    } else if (inferredType === 'spacing' || ['p', 'px', 'py', 'pt', 'pr', 'pb', 'pl', 'm', 'mx', 'my', 'mt', 'mr', 'mb', 'ml', 'w', 'h', 'gap'].includes(prefix)) {
+      // Spacing utility - suggest spacing patterns
+      suggestions.push(`{ pattern: /^${prefix}-\\d+(\\.5)?$/ }`);
+    } else if (inferredType === 'size') {
+      // Size utility - suggest size patterns (xs, sm, md, lg, xl, etc.)
+      suggestions.push(`{ pattern: /^${prefix}-(xs|sm|md|lg|xl|2xl|3xl|4xl|5xl)$/ }`);
+    } else {
+      // Generic pattern
+      suggestions.push(`{ pattern: /^${prefix}-.+$/ }`);
+    }
+
+    return suggestions;
+  }
+
+  /**
+   * Infer the expected value type from variable names.
+   *
+   * @param variableParts - Array of variable names/expressions from the template
+   * @returns Inferred type: 'color', 'size', 'spacing', or 'unknown'
+   */
+  private inferValueTypeFromVariables(variableParts: string[]): 'color' | 'size' | 'spacing' | 'unknown' {
+    const colorKeywords = ['color', 'colour', 'bg', 'background', 'text', 'border', 'fill', 'stroke'];
+    const sizeKeywords = ['size', 'variant', 'breakpoint', 'screen'];
+    const spacingKeywords = ['spacing', 'space', 'gap', 'margin', 'padding', 'width', 'height', 'inset'];
+
+    for (const varPart of variableParts) {
+      const lowerVar = varPart.toLowerCase();
+
+      // Check for color-related variables
+      if (colorKeywords.some((keyword) => lowerVar.includes(keyword))) {
+        return 'color';
+      }
+
+      // Check for size-related variables
+      if (sizeKeywords.some((keyword) => lowerVar.includes(keyword))) {
+        return 'size';
+      }
+
+      // Check for spacing-related variables
+      if (spacingKeywords.some((keyword) => lowerVar.includes(keyword))) {
+        return 'spacing';
+      }
+    }
+
+    return 'unknown';
+  }
+
+  /**
+   * Generate safelist patterns for string concatenation.
+   */
+  private generateConcatPatterns(prefix: string, suffix?: string): string[] {
+    const suggestions: string[] = [];
+    const cleanPrefix = prefix.replace(/-$/, '');
+
+    if (suffix !== undefined) {
+      // Known suffix pattern: prefix-{var}-suffix
+      suggestions.push(`{ pattern: /^${cleanPrefix}-.+-${suffix.replace(/^-/, '')}$/ }`);
+    } else {
+      // Just prefix-{var}
+      suggestions.push(`{ pattern: /^${cleanPrefix}-.+$/ }`);
+    }
+
+    return suggestions;
+  }
+
+  /**
+   * Generate consolidated safelist suggestions from all patterns.
+   */
+  private generateSafelistSuggestions(patterns: DynamicClassPattern[]): SafelistEntry[] {
+    const suggestions = new Map<string, SafelistEntry>();
+
+    for (const pattern of patterns) {
+      for (const suggestion of pattern.safelistSuggestions) {
+        // Check if this is a regex pattern or a static class
+        const isRegex = suggestion.includes('pattern:') || suggestion.startsWith('/');
+
+        const key = suggestion;
+        const existing = suggestions.get(key);
+
+        if (existing !== undefined) {
+          existing.sourcePatterns.push(pattern.raw);
+        } else {
+          suggestions.set(key, {
+            pattern: suggestion,
+            isRegex,
+            sourcePatterns: [pattern.raw],
+          });
+        }
+      }
+    }
+
+    return Array.from(suggestions.values());
+  }
+
+  /**
+   * Generate a safelist configuration string for tailwind.config.js.
+   *
+   * @param entries - Safelist entries to format
+   * @returns Formatted safelist configuration string
+   */
+  formatSafelistConfig(entries: SafelistEntry[]): string {
+    const lines = ['safelist: ['];
+
+    for (const entry of entries) {
+      if (entry.isRegex) {
+        lines.push(`  ${entry.pattern},`);
+      } else {
+        lines.push(`  '${entry.pattern}',`);
+      }
+    }
+
+    lines.push(']');
+    return lines.join('\n');
+  }
+
+  /**
+   * Generate an expanded safelist from detected patterns.
+   *
+   * Uses COMMON_SUFFIXES to expand patterns like `bg-${color}` into
+   * concrete class names like `bg-red-500`, `bg-blue-600`, etc.
+   *
+   * @param patterns - Detected dynamic class patterns
+   * @param options - Expansion options
+   * @returns Array of expanded class names for safelist
+   */
+  generateExpandedSafelist(
+    patterns: DynamicClassPattern[],
+    options: {
+      includeColors?: boolean;
+      includeSizes?: boolean;
+      includeSpacing?: boolean;
+      colorNames?: string[];
+    } = {}
+  ): string[] {
+    const {
+      includeColors = true,
+      includeSizes = true,
+      includeSpacing = true,
+      colorNames = ['slate', 'gray', 'zinc', 'neutral', 'stone', 'red', 'orange', 'amber', 'yellow', 'lime', 'green', 'emerald', 'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet', 'purple', 'fuchsia', 'pink', 'rose'],
+    } = options;
+
+    const expanded = new Set<string>();
+
+    for (const pattern of patterns) {
+      // Only expand patterns with variable parts
+      if (pattern.variableParts.length === 0) {
+        // Add static parts directly
+        for (const staticPart of pattern.staticParts) {
+          expanded.add(staticPart);
+        }
+        continue;
+      }
+
+      const prefix = pattern.staticParts[0]?.replace(/-$/, '') ?? '';
+
+      // Determine what kind of values to expand based on prefix
+      if (this.isColorUtility(prefix) && includeColors) {
+        // Expand with color values
+        for (const color of colorNames) {
+          for (const shade of COMMON_SUFFIXES.colors) {
+            expanded.add(`${prefix}-${color}-${shade}`);
+          }
+        }
+      } else if (this.isSizeUtility(prefix) && includeSizes) {
+        // Expand with size values
+        for (const size of COMMON_SUFFIXES.sizes) {
+          expanded.add(`${prefix}-${size}`);
+        }
+      } else if (this.isSpacingUtility(prefix) && includeSpacing) {
+        // Expand with spacing values
+        for (const spacing of COMMON_SUFFIXES.spacing) {
+          expanded.add(`${prefix}-${spacing}`);
+        }
+      }
+    }
+
+    return Array.from(expanded).sort();
+  }
+
+  /**
+   * Check if a utility prefix is color-based.
+   */
+  private isColorUtility(prefix: string): boolean {
+    const colorUtilities = ['bg', 'text', 'border', 'ring', 'outline', 'shadow', 'accent', 'caret', 'fill', 'stroke', 'from', 'via', 'to', 'decoration', 'divide'];
+    return colorUtilities.includes(prefix);
+  }
+
+  /**
+   * Check if a utility prefix is size-based.
+   */
+  private isSizeUtility(prefix: string): boolean {
+    const sizeUtilities = ['text', 'font', 'rounded', 'shadow', 'blur', 'max-w', 'container'];
+    return sizeUtilities.includes(prefix);
+  }
+
+  /**
+   * Check if a utility prefix is spacing-based.
+   */
+  private isSpacingUtility(prefix: string): boolean {
+    const spacingUtilities = ['p', 'px', 'py', 'pt', 'pr', 'pb', 'pl', 'ps', 'pe', 'm', 'mx', 'my', 'mt', 'mr', 'mb', 'ml', 'ms', 'me', 'gap', 'space', 'w', 'h', 'min-w', 'max-w', 'min-h', 'max-h', 'inset', 'top', 'right', 'bottom', 'left'];
+    return spacingUtilities.includes(prefix);
+  }
+}
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
