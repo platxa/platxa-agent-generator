@@ -8,6 +8,9 @@
  */
 
 import { randomUUID } from 'crypto';
+import { readFile } from 'fs/promises';
+import { dirname, join, resolve } from 'path';
+import { SourceMapConsumer, type RawSourceMap } from 'source-map';
 import {
   type AnalysisContext,
   type Evidence,
@@ -157,6 +160,270 @@ function isLibraryPath(filePath: string): boolean {
     filePath.includes('webpack:') ||
     filePath.startsWith('<')
   );
+}
+
+// =============================================================================
+// Source Map Resolver
+// =============================================================================
+
+/**
+ * Resolved source location from a source map
+ */
+export interface ResolvedSourceLocation {
+  /** Original source file path */
+  source: string;
+  /** Original line number (1-based) */
+  line: number;
+  /** Original column number (0-based) */
+  column: number;
+  /** Original symbol name if available */
+  name: string | null;
+  /** Whether resolution was successful */
+  resolved: boolean;
+}
+
+/**
+ * Source map resolver for production stack traces.
+ * Resolves minified/bundled locations back to original source.
+ */
+export class SourceMapResolver {
+  /** Cache of parsed source map consumers */
+  private readonly consumerCache: Map<string, SourceMapConsumer> = new Map();
+  /** Cache of failed lookups to avoid repeated filesystem access */
+  private readonly failedLookups: Set<string> = new Set();
+  /** Base directories to search for source maps */
+  private readonly searchPaths: string[];
+
+  constructor(searchPaths: string[] = [process.cwd()]) {
+    this.searchPaths = searchPaths;
+  }
+
+  /**
+   * Resolve a minified location to its original source location.
+   *
+   * @param file - The minified file path
+   * @param line - Line number in minified file (1-based)
+   * @param column - Column number in minified file (0-based)
+   * @returns Resolved source location or original if resolution fails
+   */
+  async resolve(
+    file: string,
+    line: number,
+    column: number
+  ): Promise<ResolvedSourceLocation> {
+    const consumer = await this.getConsumer(file);
+
+    if (consumer === null) {
+      return {
+        source: file,
+        line,
+        column,
+        name: null,
+        resolved: false,
+      };
+    }
+
+    const originalPosition = consumer.originalPositionFor({
+      line,
+      column,
+    });
+
+    if (originalPosition.source === null) {
+      return {
+        source: file,
+        line,
+        column,
+        name: null,
+        resolved: false,
+      };
+    }
+
+    return {
+      source: originalPosition.source,
+      line: originalPosition.line ?? line,
+      column: originalPosition.column ?? column,
+      name: originalPosition.name,
+      resolved: true,
+    };
+  }
+
+  /**
+   * Resolve all frames in a stack trace to original locations.
+   *
+   * @param frames - Stack frames with minified locations
+   * @returns Stack frames with resolved original locations
+   */
+  async resolveStackTrace(frames: StackFrame[]): Promise<StackFrame[]> {
+    const resolvedFrames: StackFrame[] = [];
+
+    for (const frame of frames) {
+      if (frame.location === undefined) {
+        resolvedFrames.push(frame);
+        continue;
+      }
+
+      const resolved = await this.resolve(
+        frame.location.file,
+        frame.location.line,
+        frame.location.column ?? 0
+      );
+
+      if (resolved.resolved) {
+        const resolvedFrame: StackFrame = {
+          ...frame,
+          location: {
+            file: resolved.source,
+            line: resolved.line,
+            column: resolved.column,
+          },
+          isUserCode: !isLibraryPath(resolved.source),
+        };
+        // Only set functionName if we have a value
+        const newFunctionName = resolved.name ?? frame.functionName;
+        if (newFunctionName !== undefined) {
+          resolvedFrame.functionName = newFunctionName;
+        }
+        resolvedFrames.push(resolvedFrame);
+      } else {
+        resolvedFrames.push(frame);
+      }
+    }
+
+    return resolvedFrames;
+  }
+
+  /**
+   * Get or create a SourceMapConsumer for a file.
+   */
+  private async getConsumer(file: string): Promise<SourceMapConsumer | null> {
+    // Check cache first
+    if (this.consumerCache.has(file)) {
+      return this.consumerCache.get(file) ?? null;
+    }
+
+    // Skip if we already know this file has no source map
+    if (this.failedLookups.has(file)) {
+      return null;
+    }
+
+    const sourceMap = await this.loadSourceMap(file);
+    if (sourceMap === null) {
+      this.failedLookups.add(file);
+      return null;
+    }
+
+    const consumer = await new SourceMapConsumer(sourceMap);
+    this.consumerCache.set(file, consumer);
+    return consumer;
+  }
+
+  /**
+   * Load a source map for a given file.
+   * Tries multiple strategies:
+   * 1. Look for inline source map in the file
+   * 2. Look for .map file next to the original file
+   * 3. Look for sourceMappingURL comment in the file
+   */
+  private async loadSourceMap(file: string): Promise<RawSourceMap | null> {
+    // Try loading the source file to check for inline map or sourceMappingURL
+    const sourceContent = await this.readFileSafe(file);
+
+    if (sourceContent !== null) {
+      // Check for inline base64 source map
+      const inlineMatch = sourceContent.match(
+        /\/\/[#@]\s*sourceMappingURL=data:application\/json;(?:charset=utf-8;)?base64,([A-Za-z0-9+/=]+)/
+      );
+      if (inlineMatch !== null && inlineMatch[1] !== undefined) {
+        try {
+          const decoded = Buffer.from(inlineMatch[1], 'base64').toString('utf-8');
+          return JSON.parse(decoded) as RawSourceMap;
+        } catch {
+          // Invalid inline source map, continue to other strategies
+        }
+      }
+
+      // Check for external sourceMappingURL
+      const urlMatch = sourceContent.match(
+        /\/\/[#@]\s*sourceMappingURL=(.+?)(?:\s|$)/
+      );
+      if (urlMatch !== null && urlMatch[1] !== undefined) {
+        const mapPath = this.resolveMapPath(file, urlMatch[1]);
+        const mapContent = await this.readFileSafe(mapPath);
+        if (mapContent !== null) {
+          try {
+            return JSON.parse(mapContent) as RawSourceMap;
+          } catch {
+            // Invalid source map JSON
+          }
+        }
+      }
+    }
+
+    // Try conventional .map file location
+    const conventionalMapPath = `${file}.map`;
+    const mapContent = await this.readFileSafe(conventionalMapPath);
+    if (mapContent !== null) {
+      try {
+        return JSON.parse(mapContent) as RawSourceMap;
+      } catch {
+        // Invalid source map JSON
+      }
+    }
+
+    // Search in configured paths
+    for (const searchPath of this.searchPaths) {
+      const searchMapPath = join(searchPath, `${file}.map`);
+      const searchContent = await this.readFileSafe(searchMapPath);
+      if (searchContent !== null) {
+        try {
+          return JSON.parse(searchContent) as RawSourceMap;
+        } catch {
+          // Invalid source map JSON
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolve a source map path relative to the source file.
+   */
+  private resolveMapPath(sourceFile: string, mapUrl: string): string {
+    if (mapUrl.startsWith('/')) {
+      return mapUrl;
+    }
+    return resolve(dirname(sourceFile), mapUrl);
+  }
+
+  /**
+   * Safely read a file, returning null on any error.
+   */
+  private async readFileSafe(filePath: string): Promise<string | null> {
+    try {
+      return await readFile(filePath, 'utf-8');
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Clear the source map cache.
+   */
+  clearCache(): void {
+    for (const consumer of this.consumerCache.values()) {
+      consumer.destroy();
+    }
+    this.consumerCache.clear();
+    this.failedLookups.clear();
+  }
+
+  /**
+   * Destroy the resolver and release resources.
+   */
+  destroy(): void {
+    this.clearCache();
+  }
 }
 
 // =============================================================================
