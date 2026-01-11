@@ -65,6 +65,20 @@ export type {
   RCAEngineConfig,
 } from './core/rca-engine.js';
 
+// Confidence Scorer
+export { ConfidenceScorer, createConfidenceScorer, quickScore } from './core/confidence-scorer.js';
+export type {
+  ScoringStrategy,
+  EvidenceTypeWeights,
+  ConfidenceScorerConfig,
+  ScoreBreakdown,
+  EvidenceContribution,
+  ScoreAdjustment,
+  EvidenceConflict,
+  EvidenceCorrelation,
+  ScoreQuality,
+} from './core/confidence-scorer.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
