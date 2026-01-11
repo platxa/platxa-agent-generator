@@ -47,7 +47,7 @@ export interface TypeCheckResult {
   /** Warnings found */
   warnings: TypeCheckError[];
   /** Type checker used */
-  checker: 'pyright' | 'tsc' | 'eslint' | 'stylelint' | 'none';
+  checker: 'pyright' | 'tsc' | 'eslint' | 'stylelint' | 'ruff' | 'none';
   /** Raw output from type checker */
   rawOutput: string;
   /** Exit code */
@@ -108,6 +108,8 @@ export interface FixValidatorConfig {
   eslintPath?: string;
   /** Path to Stylelint executable */
   stylelintPath?: string;
+  /** Path to Ruff executable (Python linter) */
+  ruffPath?: string;
   /** Default timeout in milliseconds */
   defaultTimeout?: number;
   /** Temporary directory for validation files */
@@ -133,6 +135,7 @@ export class FixValidator {
       tscPath: config.tscPath ?? 'tsc',
       eslintPath: config.eslintPath ?? 'eslint',
       stylelintPath: config.stylelintPath ?? 'stylelint',
+      ruffPath: config.ruffPath ?? 'ruff',
       defaultTimeout: config.defaultTimeout ?? 30000,
       tempDir: config.tempDir ?? os.tmpdir(),
       cleanupTempFiles: config.cleanupTempFiles ?? true,
@@ -451,6 +454,9 @@ export class FixValidator {
     options: ValidationOptions
   ): Promise<TypeCheckResult> {
     switch (language) {
+      case 'python':
+        return this.runRuffCheck(code, options);
+
       case 'javascript':
       case 'typescript':
         return this.runEslintCheck(code, language, options);
@@ -469,6 +475,92 @@ export class FixValidator {
           exitCode: 0,
           durationMs: 0,
         };
+    }
+  }
+
+  /**
+   * Run Ruff for Python linting.
+   */
+  private async runRuffCheck(
+    code: string,
+    options: ValidationOptions
+  ): Promise<TypeCheckResult> {
+    const startTime = Date.now();
+    const tempFile = await this.createTempFile(code, '.py');
+
+    try {
+      const cmdOptions = this.buildCommandOptions(options);
+      const result = await this.runCommand(
+        this.config.ruffPath,
+        ['check', '--output-format', 'json', tempFile],
+        cmdOptions
+      );
+
+      const errors: TypeCheckError[] = [];
+      const warnings: TypeCheckError[] = [];
+
+      // Parse Ruff JSON output
+      try {
+        const output = JSON.parse(result.stdout) as Array<{
+          message: string;
+          filename: string;
+          location: {
+            row: number;
+            column: number;
+          };
+          code: string;
+          fix?: {
+            applicability: string;
+          };
+        }>;
+
+        for (const diag of output) {
+          // Ruff uses codes like E501, W503, F401, etc.
+          // E and F codes are errors, W codes are warnings
+          const isWarning = diag.code.startsWith('W');
+
+          const error: TypeCheckError = {
+            message: diag.message,
+            file: diag.filename,
+            line: diag.location.row,
+            column: diag.location.column,
+            code: diag.code,
+            severity: isWarning ? 'warning' : 'error',
+          };
+
+          if (isWarning) {
+            warnings.push(error);
+          } else {
+            errors.push(error);
+          }
+        }
+      } catch {
+        // If JSON parsing fails, try to parse text output
+        const parsed = this.parseRuffTextOutput(result.stdout, tempFile);
+        errors.push(...parsed.errors);
+        warnings.push(...parsed.warnings);
+      }
+
+      return {
+        success: errors.length === 0,
+        errors,
+        warnings,
+        checker: 'ruff',
+        rawOutput: result.stdout,
+        exitCode: result.exitCode,
+        durationMs: Date.now() - startTime,
+      };
+    } catch (error) {
+      // Ruff not available - skip
+      return {
+        success: true,
+        errors: [],
+        warnings: [],
+        checker: 'ruff',
+        rawOutput: error instanceof Error ? error.message : 'Ruff not available',
+        exitCode: 0,
+        durationMs: Date.now() - startTime,
+      };
     }
   }
 
@@ -673,6 +765,48 @@ export class FixValidator {
         errors.push(error);
       } else {
         warnings.push(error);
+      }
+    }
+
+    return { errors, warnings };
+  }
+
+  /**
+   * Parse Ruff text output.
+   */
+  private parseRuffTextOutput(
+    output: string,
+    _file: string
+  ): { errors: TypeCheckError[]; warnings: TypeCheckError[] } {
+    const errors: TypeCheckError[] = [];
+    const warnings: TypeCheckError[] = [];
+
+    // Pattern: /path/to/file.py:10:5: E501 Line too long
+    const pattern = /^(.+):(\d+):(\d+):\s+([A-Z]\d+)\s+(.+)$/gm;
+    let match;
+
+    while ((match = pattern.exec(output)) !== null) {
+      const [, file, lineStr, colStr, code, message] = match;
+      if (file === undefined || lineStr === undefined || colStr === undefined || code === undefined || message === undefined) {
+        continue;
+      }
+
+      // W codes are warnings, everything else (E, F, etc.) are errors
+      const isWarning = code.startsWith('W');
+
+      const error: TypeCheckError = {
+        message,
+        file,
+        line: parseInt(lineStr, 10),
+        column: parseInt(colStr, 10),
+        code,
+        severity: isWarning ? 'warning' : 'error',
+      };
+
+      if (isWarning) {
+        warnings.push(error);
+      } else {
+        errors.push(error);
       }
     }
 
