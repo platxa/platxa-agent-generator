@@ -199,6 +199,18 @@ export type {
   ConfidenceDisplayConfig,
 } from './core/confidence-display.js';
 
+// Fix Presenter
+export { FixPresenter, createFixPresenter } from './core/fix-presenter.js';
+export type {
+  PresentationFormat,
+  SelectionCriteria,
+  TradeoffCategory,
+  TradeoffAnalysis,
+  FixComparison,
+  FixPresentationResult,
+  FixPresenterConfig,
+} from './core/fix-presenter.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
