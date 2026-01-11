@@ -95,6 +95,378 @@ const TAILWIND_CLASS_FIXES: Readonly<Record<string, string>> = {
 };
 
 // =============================================================================
+// Tailwind CSS Class Validator
+// =============================================================================
+
+/**
+ * Core Tailwind CSS utility prefixes and patterns.
+ * These are the base utilities available in Tailwind CSS v3.x
+ */
+const TAILWIND_UTILITY_PREFIXES = new Set([
+  // Layout
+  'container', 'columns', 'break-after', 'break-before', 'break-inside',
+  'box-decoration', 'box', 'float', 'clear', 'isolation', 'object',
+  'overflow', 'overscroll', 'position', 'inset', 'top', 'right', 'bottom', 'left',
+  'visible', 'invisible', 'z',
+  // Flexbox & Grid
+  'basis', 'flex', 'shrink', 'grow', 'order', 'grid', 'col', 'row',
+  'auto-cols', 'auto-rows', 'gap', 'justify', 'content', 'items', 'self', 'place',
+  // Spacing
+  'm', 'mx', 'my', 'mt', 'mr', 'mb', 'ml', 'ms', 'me',
+  'p', 'px', 'py', 'pt', 'pr', 'pb', 'pl', 'ps', 'pe',
+  'space',
+  // Sizing
+  'w', 'min-w', 'max-w', 'h', 'min-h', 'max-h', 'size',
+  // Typography
+  'font', 'text', 'antialiased', 'subpixel-antialiased',
+  'italic', 'not-italic', 'normal-nums', 'ordinal', 'slashed-zero',
+  'lining-nums', 'oldstyle-nums', 'proportional-nums', 'tabular-nums',
+  'diagonal-fractions', 'stacked-fractions',
+  'tracking', 'leading', 'list', 'placeholder',
+  'decoration', 'underline', 'overline', 'line-through', 'no-underline',
+  'uppercase', 'lowercase', 'capitalize', 'normal-case',
+  'truncate', 'indent', 'align', 'whitespace', 'break', 'hyphens', 'content',
+  // Backgrounds
+  'bg', 'from', 'via', 'to', 'gradient',
+  // Borders
+  'border', 'rounded', 'divide', 'outline', 'ring', 'ring-offset',
+  // Effects
+  'shadow', 'opacity', 'mix-blend', 'bg-blend',
+  // Filters
+  'blur', 'brightness', 'contrast', 'drop-shadow', 'grayscale',
+  'hue-rotate', 'invert', 'saturate', 'sepia', 'backdrop',
+  // Tables
+  'table', 'caption', 'border-collapse', 'border-separate', 'border-spacing',
+  // Transitions & Animation
+  'transition', 'duration', 'ease', 'delay', 'animate',
+  // Transforms
+  'scale', 'rotate', 'translate', 'skew', 'origin', 'transform',
+  // Interactivity
+  'accent', 'appearance', 'cursor', 'caret', 'pointer-events', 'resize',
+  'scroll', 'snap', 'touch', 'select', 'will-change',
+  // SVG
+  'fill', 'stroke',
+  // Accessibility
+  'sr-only', 'not-sr-only', 'forced-color-adjust',
+]);
+
+/**
+ * Tailwind CSS responsive/state variant prefixes
+ */
+const TAILWIND_VARIANTS = new Set([
+  // Responsive
+  'sm', 'md', 'lg', 'xl', '2xl',
+  // State
+  'hover', 'focus', 'focus-within', 'focus-visible', 'active', 'visited',
+  'target', 'first', 'last', 'only', 'odd', 'even', 'first-of-type',
+  'last-of-type', 'only-of-type', 'empty', 'disabled', 'enabled', 'checked',
+  'indeterminate', 'default', 'required', 'valid', 'invalid', 'in-range',
+  'out-of-range', 'placeholder-shown', 'autofill', 'read-only',
+  // Dark mode
+  'dark',
+  // Reduced motion
+  'motion-safe', 'motion-reduce',
+  // Print
+  'print',
+  // Contrast
+  'contrast-more', 'contrast-less',
+  // Portrait/Landscape
+  'portrait', 'landscape',
+  // LTR/RTL
+  'ltr', 'rtl',
+  // Group/Peer
+  'group-hover', 'group-focus', 'group-active', 'group-visited',
+  'peer-hover', 'peer-focus', 'peer-active', 'peer-checked', 'peer-disabled',
+  // Before/After
+  'before', 'after',
+  // Markers
+  'marker', 'selection', 'file', 'placeholder', 'backdrop', 'first-line', 'first-letter',
+  // Open
+  'open',
+]);
+
+/**
+ * Result of Tailwind class validation
+ */
+export interface TailwindValidationResult {
+  /** Whether the class is valid */
+  valid: boolean;
+  /** The original class name */
+  className: string;
+  /** Parsed variants (e.g., ['hover', 'md']) */
+  variants: string[];
+  /** The utility part of the class */
+  utility: string;
+  /** The value/modifier if present */
+  value?: string;
+  /** Suggested fix if invalid */
+  suggestion?: string;
+  /** Reason for invalidity */
+  reason?: string;
+}
+
+/**
+ * Validate a single Tailwind CSS class name.
+ *
+ * @param className - The class name to validate
+ * @param customUtilities - Optional set of custom utility names from config
+ * @returns Validation result with details
+ */
+export function validateTailwindClass(
+  className: string,
+  customUtilities?: Set<string>
+): TailwindValidationResult {
+  const result: TailwindValidationResult = {
+    valid: false,
+    className,
+    variants: [],
+    utility: '',
+  };
+
+  // Handle arbitrary values [...]
+  if (className.includes('[') && className.includes(']')) {
+    const arbitraryMatch = className.match(/^(.+?)\[(.+)\]$/);
+    if (arbitraryMatch !== null) {
+      const prefix = arbitraryMatch[1]?.replace(/-$/, '') ?? '';
+      const arbitraryValue = arbitraryMatch[2];
+      result.utility = prefix;
+      if (arbitraryValue !== undefined) {
+        result.value = arbitraryValue;
+      }
+      // Arbitrary values are valid if the prefix is a known utility
+      result.valid = isValidUtilityPrefix(prefix, customUtilities);
+      if (!result.valid) {
+        result.reason = `Unknown utility prefix '${prefix}' for arbitrary value`;
+      }
+      return result;
+    }
+  }
+
+  // Split by colon for variants
+  const parts = className.split(':');
+  const utilityPart = parts.pop() ?? '';
+  result.variants = parts;
+  result.utility = utilityPart;
+
+  // Validate variants
+  for (const variant of result.variants) {
+    if (!TAILWIND_VARIANTS.has(variant) && !variant.startsWith('group-') && !variant.startsWith('peer-')) {
+      result.reason = `Unknown variant '${variant}'`;
+      const closestVariant = findClosestVariant(variant);
+      if (closestVariant !== undefined) {
+        result.suggestion = closestVariant;
+      }
+      return result;
+    }
+  }
+
+  // Handle negative values (e.g., -mt-4)
+  let utility = utilityPart;
+  const isNegative = utility.startsWith('-');
+  if (isNegative) {
+    utility = utility.slice(1);
+  }
+
+  // Split utility from value (e.g., mt-4 -> mt, 4)
+  const dashIndex = utility.indexOf('-');
+  let utilityPrefix: string;
+  let utilityValue: string | undefined;
+
+  if (dashIndex === -1) {
+    utilityPrefix = utility;
+  } else {
+    utilityPrefix = utility.slice(0, dashIndex);
+    utilityValue = utility.slice(dashIndex + 1);
+  }
+
+  if (utilityValue !== undefined) {
+    result.value = utilityValue;
+  }
+
+  // Check if it's a valid utility
+  if (isValidUtilityPrefix(utilityPrefix, customUtilities)) {
+    result.valid = true;
+    return result;
+  }
+
+  // Check if the full utility name matches (for utilities like 'flex', 'hidden')
+  if (TAILWIND_UTILITY_PREFIXES.has(utility) || customUtilities?.has(utility)) {
+    result.valid = true;
+    result.utility = utility;
+    // Don't set value - it remains unset for standalone utilities
+    return result;
+  }
+
+  // Check for known fixes
+  const fix = TAILWIND_CLASS_FIXES[className];
+  if (fix !== undefined) {
+    result.suggestion = fix;
+    result.reason = `'${className}' is not a valid Tailwind class`;
+    return result;
+  }
+
+  // Try to find closest match
+  result.reason = `Unknown utility '${utilityPrefix}'`;
+  const closestUtility = findClosestUtility(utilityPrefix);
+  if (closestUtility !== undefined) {
+    result.suggestion = closestUtility;
+  }
+  return result;
+}
+
+/**
+ * Check if a utility prefix is valid
+ */
+function isValidUtilityPrefix(prefix: string, customUtilities?: Set<string>): boolean {
+  if (TAILWIND_UTILITY_PREFIXES.has(prefix)) {
+    return true;
+  }
+  if (customUtilities?.has(prefix)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Find the closest matching utility prefix using Levenshtein distance
+ */
+function findClosestUtility(input: string): string | undefined {
+  let closest: string | undefined;
+  let minDistance = Infinity;
+
+  for (const utility of TAILWIND_UTILITY_PREFIXES) {
+    const distance = levenshteinDistance(input, utility);
+    if (distance < minDistance && distance <= 2) {
+      minDistance = distance;
+      closest = utility;
+    }
+  }
+
+  return closest;
+}
+
+/**
+ * Find the closest matching variant
+ */
+function findClosestVariant(input: string): string | undefined {
+  let closest: string | undefined;
+  let minDistance = Infinity;
+
+  for (const variant of TAILWIND_VARIANTS) {
+    const distance = levenshteinDistance(input, variant);
+    if (distance < minDistance && distance <= 2) {
+      minDistance = distance;
+      closest = variant;
+    }
+  }
+
+  return closest;
+}
+
+/**
+ * Calculate Levenshtein distance between two strings
+ */
+function levenshteinDistance(a: string, b: string): number {
+  const matrix: number[][] = [];
+
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+  for (let j = 0; j <= a.length; j++) {
+    const row = matrix[0];
+    if (row !== undefined) {
+      row[j] = j;
+    }
+  }
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      const row = matrix[i];
+      const prevRow = matrix[i - 1];
+      if (row !== undefined && prevRow !== undefined) {
+        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+          row[j] = prevRow[j - 1] ?? 0;
+        } else {
+          row[j] = Math.min(
+            (prevRow[j - 1] ?? 0) + 1, // substitution
+            (prevRow[j] ?? 0) + 1,     // deletion
+            (row[j - 1] ?? 0) + 1      // insertion
+          );
+        }
+      }
+    }
+  }
+
+  const lastRow = matrix[b.length];
+  return lastRow?.[a.length] ?? Infinity;
+}
+
+/**
+ * Validate multiple Tailwind CSS classes
+ *
+ * @param classString - Space-separated class names
+ * @param customUtilities - Optional set of custom utility names
+ * @returns Array of validation results for invalid classes
+ */
+export function validateTailwindClasses(
+  classString: string,
+  customUtilities?: Set<string>
+): TailwindValidationResult[] {
+  const classes = classString.split(/\s+/).filter((c) => c.length > 0);
+  const results: TailwindValidationResult[] = [];
+
+  for (const className of classes) {
+    const result = validateTailwindClass(className, customUtilities);
+    if (!result.valid) {
+      results.push(result);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Tailwind CSS class validator with config support
+ */
+export class TailwindValidator {
+  private readonly customUtilities: Set<string>;
+
+  constructor(customUtilities: string[] = []) {
+    this.customUtilities = new Set(customUtilities);
+  }
+
+  /**
+   * Add custom utilities from Tailwind config
+   */
+  addCustomUtilities(utilities: string[]): void {
+    for (const utility of utilities) {
+      this.customUtilities.add(utility);
+    }
+  }
+
+  /**
+   * Validate a single class
+   */
+  validate(className: string): TailwindValidationResult {
+    return validateTailwindClass(className, this.customUtilities);
+  }
+
+  /**
+   * Validate multiple classes
+   */
+  validateAll(classString: string): TailwindValidationResult[] {
+    return validateTailwindClasses(classString, this.customUtilities);
+  }
+
+  /**
+   * Check if a class is valid
+   */
+  isValid(className: string): boolean {
+    return validateTailwindClass(className, this.customUtilities).valid;
+  }
+}
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
