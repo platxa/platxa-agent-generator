@@ -135,6 +135,17 @@ export type {
   TestRunnerConfig,
 } from './core/test-runner.js';
 
+// Regression Detector
+export { RegressionDetector, createRegressionDetector } from './core/regression-detector.js';
+export type {
+  BehaviorSnapshot,
+  BehaviorMetrics,
+  Regression,
+  RegressionResult,
+  RegressionDetectorConfig,
+  RegressionDetectionOptions,
+} from './core/regression-detector.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
