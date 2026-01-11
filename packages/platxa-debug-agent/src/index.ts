@@ -186,6 +186,19 @@ export type {
   DiffVisualizerConfig,
 } from './core/diff-visualizer.js';
 
+// Confidence Display
+export { ConfidenceDisplay, createConfidenceDisplay } from './core/confidence-display.js';
+export type {
+  ConfidenceCategory,
+  DisplayFormat,
+  EvidenceCategory,
+  IndicatorStyle,
+  ConfidenceBreakdown,
+  EvidenceSummary,
+  ConfidenceDisplayResult,
+  ConfidenceDisplayConfig,
+} from './core/confidence-display.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
