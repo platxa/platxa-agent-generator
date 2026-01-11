@@ -100,6 +100,22 @@ export type {
   FixGeneratorConfig,
 } from './core/fix-generator.js';
 
+// LLM Patch Synthesizer
+export { LLMPatchSynthesizer, createLLMPatchSynthesizer } from './core/llm-patch-synthesizer.js';
+export type {
+  PatchPromptTemplate,
+  ResponseFormat,
+  ResponseMarkers,
+  GenerationParameters,
+  ParsedPatch,
+  SynthesisAttempt,
+  SynthesisResult,
+  SynthesisContext,
+  CodeSnippet,
+  FileContent,
+  LLMPatchSynthesizerConfig,
+} from './core/llm-patch-synthesizer.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
