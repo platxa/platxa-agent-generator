@@ -79,6 +79,18 @@ export type {
   ScoreQuality,
 } from './core/confidence-scorer.js';
 
+// Fix Database (RAG System)
+export { FixDatabase, createFixDatabase, createFixDatabaseWithDefaults } from './core/fix-database.js';
+export type {
+  BugFixEntry,
+  BugFix,
+  BugSearchQuery,
+  BugSearchResult,
+  SimilarityBreakdown,
+  FixDatabaseConfig,
+  DatabaseStats,
+} from './core/fix-database.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
