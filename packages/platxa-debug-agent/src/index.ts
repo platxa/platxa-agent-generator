@@ -643,6 +643,30 @@ export type {
   RankingFactor as BRTRankingFactor,
 } from './core/brt-generator.js';
 
+// Mutation Targeter (Features #26-31: Fault-Targeted Mutation Testing)
+export {
+  MutationTargeter,
+  createMutationTargeter,
+  targetFault,
+  generateMutants,
+} from './core/mutation-targeter.js';
+export type {
+  // Fault Description types (Feature #26)
+  FaultDescription,
+  FaultDomain,
+  FaultSeverity,
+  // Mutant types (Feature #27)
+  Mutant,
+  MutationOperator,
+  // Catching test types (Feature #31)
+  MutantCatchingTest,
+  TestInput,
+  TestFramework as MutationTestFramework,
+  // Config and result types
+  MutationTargeterConfig,
+  MutationResult,
+} from './core/mutation-targeter.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
