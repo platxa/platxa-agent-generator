@@ -272,6 +272,23 @@ export type {
   DebugLoopConfig,
 } from './core/debug-loop.js';
 
+// MCP Browser Integration
+export {
+  MCPBrowserIntegration,
+  createMCPBrowserIntegration,
+} from './core/mcp-browser-integration.js';
+export type {
+  ConsoleLevel,
+  ConsoleMessage,
+  NetworkRequestStatus,
+  NetworkRequest,
+  PageSnapshot,
+  MCPBrowserTool,
+  ScreenshotOptions,
+  BrowserDebugContext,
+  MCPBrowserIntegrationConfig,
+} from './core/mcp-browser-integration.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
