@@ -6,8 +6,10 @@ import { readFileSync, existsSync } from 'node:fs';
 import { LanguageDetector } from '../../core/language-detector.js';
 import { createErrorParser } from '../../core/error-parser.js';
 import { getSharedConfigLoader } from '../config-loader.js';
+import { createOutputFormatter } from '../output-formatter.js';
 import type { Language } from '../../core/types.js';
 import type { CLIFlags } from '../config-loader.js';
+import type { OutputFormat } from '../output-formatter.js';
 
 export interface AnalyzeOptions {
   language?: string;
@@ -79,10 +81,26 @@ export async function analyzeCommand(
   const normalized = errors[0]!;
 
   if (output === 'json') {
-    console.log(JSON.stringify({
+    // Use structured output formatter for consistent JSON schema
+    const formatter = createOutputFormatter('analyze', {
+      format: 'json' as OutputFormat,
+      verbose,
+      color: config.output.color,
+    });
+    const result = formatter.success({
       language: detection,
-      errors: errors,
-    }, null, 2));
+      errors: errors.map(e => ({
+        type: e.type,
+        message: e.message,
+        location: e.location,
+        stackTrace: e.stackTrace?.map(f => ({
+          functionName: f.functionName,
+          file: f.location.file,
+          line: f.location.line,
+        })),
+      })),
+    }, { errorCount: errors.length });
+    console.log(result);
   } else if (output === 'markdown') {
     console.log(`# Error Analysis\n`);
     console.log(`**Language:** ${detection.language} (${Math.round(detection.score * 100)}% confidence)\n`);
