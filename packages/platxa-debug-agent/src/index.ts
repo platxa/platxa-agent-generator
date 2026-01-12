@@ -411,6 +411,78 @@ export type {
   MetricsDashboardConfig,
 } from './core/metrics-dashboard.js';
 
+// Causal Chain Reconstructor
+export {
+  CausalChainReconstructor,
+  createCausalChainReconstructor,
+  reconstructCausalChain,
+  generateCausalHypotheses,
+} from './core/causal-chain.js';
+export type {
+  CausalRelationType,
+  CausalNode,
+  CausalNodeType,
+  CausalEdge,
+  CausalChain,
+  CausalHypothesis,
+  DataFlowInfo,
+  DataTransformation,
+  CausalChainConfig,
+} from './core/causal-chain.js';
+
+// SBFL Analyzer
+export {
+  SBFLAnalyzer,
+  createSBFLAnalyzer,
+  analyzeFaultLocalization,
+  getTopSuspiciousLines,
+} from './core/sbfl-analyzer.js';
+export type {
+  SBFLFormula,
+  CodeElement,
+  TestExecution,
+  CoverageSpectrum,
+  SuspiciousnessScore,
+  ExecutionStats,
+  SBFLResult,
+  SBFLStatistics,
+  SBFLConfig,
+} from './core/sbfl-analyzer.js';
+
+// Semantic Similarity
+export {
+  SemanticSimilarityExtractor,
+  createSemanticSimilarityExtractor,
+  compareCode,
+  findRelatedCode,
+} from './core/semantic-similarity.js';
+export type {
+  TokenType,
+  CodeToken,
+  CodeStructure,
+  SimilarityBreakdown as SemanticSimilarityBreakdown,
+  SimilarityResult,
+  CodeSnippet as SemanticCodeSnippet,
+  CodeDifference,
+  RelatedCodeMatch,
+  SemanticSimilarityConfig,
+} from './core/semantic-similarity.js';
+
+// Git Analyzer
+export { GitAnalyzer, createGitAnalyzer, analyzeGitHistory, findBugIntroducingCommit } from './core/git-analyzer.js';
+export type {
+  CommitInfo,
+  BlameInfo,
+  GitFileChange,
+  GitDiffHunk,
+  GitDiffLine,
+  SuspiciousCommitAnalysis,
+  SuspicionReason,
+  RelevantChange,
+  GitAnalysisResult,
+  GitAnalyzerConfig,
+} from './core/git-analyzer.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
