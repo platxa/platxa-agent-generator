@@ -1595,6 +1595,778 @@ export class DynamicClassDetector {
 }
 
 // =============================================================================
+// Framework Conflict Detector (Feature #24)
+// =============================================================================
+
+/**
+ * CSS framework identifiers for conflict detection.
+ */
+export type CSSFramework = 'tailwind' | 'bootstrap' | 'material-ui' | 'bulma' | 'foundation' | 'semantic-ui' | 'ant-design' | 'chakra-ui';
+
+/**
+ * Category of CSS property that may conflict between frameworks.
+ */
+export type ConflictCategory =
+  | 'spacing'      // margin, padding
+  | 'typography'   // font-size, font-weight, line-height
+  | 'color'        // text color, background color
+  | 'layout'       // display, flexbox, grid
+  | 'sizing'       // width, height
+  | 'border'       // border, border-radius
+  | 'shadow'       // box-shadow
+  | 'position'     // position, z-index
+  | 'animation'    // transitions, animations
+  | 'reset'        // CSS resets/normalizations
+  | 'component';   // component-specific styles
+
+/**
+ * Severity of a framework conflict.
+ */
+export type ConflictSeverity = 'error' | 'warning' | 'info';
+
+/**
+ * A detected conflict between CSS frameworks.
+ */
+export interface FrameworkConflict {
+  /** Unique identifier */
+  id: string;
+  /** Conflicting frameworks */
+  frameworks: [CSSFramework, CSSFramework];
+  /** Category of the conflict */
+  category: ConflictCategory;
+  /** Severity level */
+  severity: ConflictSeverity;
+  /** The conflicting class names */
+  classes: {
+    framework: CSSFramework;
+    className: string;
+    cssProperties: string[];
+  }[];
+  /** Description of the conflict */
+  description: string;
+  /** Suggested resolution */
+  resolution: string;
+  /** Source location if available */
+  location?: SourceLocation;
+  /** Element or component where conflict was detected */
+  element?: string;
+}
+
+/**
+ * Result of framework conflict analysis.
+ */
+export interface FrameworkConflictResult {
+  /** Whether conflicts were detected */
+  hasConflicts: boolean;
+  /** Total number of conflicts */
+  totalConflicts: number;
+  /** Conflicts grouped by severity */
+  bySeverity: {
+    error: number;
+    warning: number;
+    info: number;
+  };
+  /** Detected frameworks in use */
+  detectedFrameworks: CSSFramework[];
+  /** All detected conflicts */
+  conflicts: FrameworkConflict[];
+  /** Summary of conflicts by category */
+  byCategory: Map<ConflictCategory, FrameworkConflict[]>;
+  /** Recommendations for resolving conflicts */
+  recommendations: string[];
+}
+
+/**
+ * Configuration for the framework conflict detector.
+ */
+export interface FrameworkConflictDetectorConfig {
+  /** Frameworks to check for (default: all supported) */
+  frameworks?: CSSFramework[];
+  /** Minimum severity to report (default: 'info') */
+  minSeverity?: ConflictSeverity;
+  /** Whether to include component-level conflicts (default: true) */
+  includeComponentConflicts?: boolean;
+  /** Custom class patterns for framework detection */
+  customPatterns?: Map<CSSFramework, RegExp[]>;
+}
+
+/**
+ * Framework class pattern definition.
+ */
+interface FrameworkPattern {
+  /** Pattern to match class names */
+  pattern: RegExp;
+  /** CSS properties this pattern affects */
+  cssProperties: string[];
+  /** Category of the pattern */
+  category: ConflictCategory;
+  /** Description of what this pattern does */
+  description: string;
+}
+
+/**
+ * Predefined patterns for common CSS frameworks.
+ */
+const FRAMEWORK_PATTERNS: Record<CSSFramework, FrameworkPattern[]> = {
+  tailwind: [
+    // Spacing
+    { pattern: /^[mp][trblxy]?-\d+$/, cssProperties: ['margin', 'padding'], category: 'spacing', description: 'Tailwind spacing utility' },
+    { pattern: /^-?[mp][trblxy]?-\d+$/, cssProperties: ['margin', 'padding'], category: 'spacing', description: 'Tailwind negative spacing' },
+    { pattern: /^space-[xy]-\d+$/, cssProperties: ['margin'], category: 'spacing', description: 'Tailwind space between' },
+    { pattern: /^gap-\d+$/, cssProperties: ['gap'], category: 'spacing', description: 'Tailwind gap utility' },
+    // Typography
+    { pattern: /^text-(xs|sm|base|lg|xl|[2-9]xl)$/, cssProperties: ['font-size', 'line-height'], category: 'typography', description: 'Tailwind font size' },
+    { pattern: /^font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black)$/, cssProperties: ['font-weight'], category: 'typography', description: 'Tailwind font weight' },
+    { pattern: /^leading-(none|tight|snug|normal|relaxed|loose|\d+)$/, cssProperties: ['line-height'], category: 'typography', description: 'Tailwind line height' },
+    { pattern: /^tracking-(tighter|tight|normal|wide|wider|widest)$/, cssProperties: ['letter-spacing'], category: 'typography', description: 'Tailwind letter spacing' },
+    // Colors
+    { pattern: /^text-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|black|white)-\d+$/, cssProperties: ['color'], category: 'color', description: 'Tailwind text color' },
+    { pattern: /^bg-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose|black|white)-\d+$/, cssProperties: ['background-color'], category: 'color', description: 'Tailwind background color' },
+    // Layout
+    { pattern: /^(flex|inline-flex|grid|inline-grid|block|inline-block|inline|hidden)$/, cssProperties: ['display'], category: 'layout', description: 'Tailwind display utility' },
+    { pattern: /^(flex-row|flex-col|flex-row-reverse|flex-col-reverse)$/, cssProperties: ['flex-direction'], category: 'layout', description: 'Tailwind flex direction' },
+    { pattern: /^(justify|items|content|self)-(start|end|center|between|around|evenly|stretch|baseline)$/, cssProperties: ['justify-content', 'align-items', 'align-content', 'align-self'], category: 'layout', description: 'Tailwind alignment' },
+    { pattern: /^grid-cols-\d+$/, cssProperties: ['grid-template-columns'], category: 'layout', description: 'Tailwind grid columns' },
+    // Sizing
+    { pattern: /^w-(\d+|auto|full|screen|min|max|fit)$/, cssProperties: ['width'], category: 'sizing', description: 'Tailwind width' },
+    { pattern: /^h-(\d+|auto|full|screen|min|max|fit)$/, cssProperties: ['height'], category: 'sizing', description: 'Tailwind height' },
+    { pattern: /^(min|max)-(w|h)-(\d+|full|screen|min|max|fit)$/, cssProperties: ['min-width', 'max-width', 'min-height', 'max-height'], category: 'sizing', description: 'Tailwind min/max sizing' },
+    // Border
+    { pattern: /^border(-[trbl])?(-\d+)?$/, cssProperties: ['border-width'], category: 'border', description: 'Tailwind border width' },
+    { pattern: /^rounded(-[trbl]{1,2})?(-none|-sm|-md|-lg|-xl|-2xl|-3xl|-full)?$/, cssProperties: ['border-radius'], category: 'border', description: 'Tailwind border radius' },
+    // Shadow
+    { pattern: /^shadow(-sm|-md|-lg|-xl|-2xl|-inner|-none)?$/, cssProperties: ['box-shadow'], category: 'shadow', description: 'Tailwind box shadow' },
+    // Position
+    { pattern: /^(static|fixed|absolute|relative|sticky)$/, cssProperties: ['position'], category: 'position', description: 'Tailwind position' },
+    { pattern: /^z-(\d+|auto)$/, cssProperties: ['z-index'], category: 'position', description: 'Tailwind z-index' },
+  ],
+  bootstrap: [
+    // Spacing (Bootstrap 5)
+    { pattern: /^[mp][tbselrxy]?-[0-5]$/, cssProperties: ['margin', 'padding'], category: 'spacing', description: 'Bootstrap spacing utility' },
+    { pattern: /^[mp][tbselrxy]?-auto$/, cssProperties: ['margin', 'padding'], category: 'spacing', description: 'Bootstrap auto spacing' },
+    { pattern: /^g-[0-5]$/, cssProperties: ['gap'], category: 'spacing', description: 'Bootstrap gutter' },
+    // Typography
+    { pattern: /^fs-[1-6]$/, cssProperties: ['font-size'], category: 'typography', description: 'Bootstrap font size' },
+    { pattern: /^fw-(lighter|light|normal|medium|semibold|bold|bolder)$/, cssProperties: ['font-weight'], category: 'typography', description: 'Bootstrap font weight' },
+    { pattern: /^lh-(1|sm|base|lg)$/, cssProperties: ['line-height'], category: 'typography', description: 'Bootstrap line height' },
+    { pattern: /^h[1-6]$/, cssProperties: ['font-size', 'font-weight'], category: 'typography', description: 'Bootstrap heading' },
+    // Colors
+    { pattern: /^text-(primary|secondary|success|danger|warning|info|light|dark|body|muted|white|black-50|white-50)$/, cssProperties: ['color'], category: 'color', description: 'Bootstrap text color' },
+    { pattern: /^bg-(primary|secondary|success|danger|warning|info|light|dark|body|white|transparent)$/, cssProperties: ['background-color'], category: 'color', description: 'Bootstrap background color' },
+    // Layout
+    { pattern: /^d-(none|inline|inline-block|block|grid|inline-grid|table|table-row|table-cell|flex|inline-flex)$/, cssProperties: ['display'], category: 'layout', description: 'Bootstrap display utility' },
+    { pattern: /^flex-(row|column|row-reverse|column-reverse)$/, cssProperties: ['flex-direction'], category: 'layout', description: 'Bootstrap flex direction' },
+    { pattern: /^(justify-content|align-items|align-content|align-self)-(start|end|center|between|around|evenly|stretch|baseline)$/, cssProperties: ['justify-content', 'align-items'], category: 'layout', description: 'Bootstrap alignment' },
+    { pattern: /^col(-\d+)?(-sm|-md|-lg|-xl|-xxl)?(-\d+)?$/, cssProperties: ['width', 'flex'], category: 'layout', description: 'Bootstrap grid column' },
+    { pattern: /^row$/, cssProperties: ['display', 'flex-wrap'], category: 'layout', description: 'Bootstrap row' },
+    // Sizing
+    { pattern: /^w-(25|50|75|100|auto)$/, cssProperties: ['width'], category: 'sizing', description: 'Bootstrap width' },
+    { pattern: /^h-(25|50|75|100|auto)$/, cssProperties: ['height'], category: 'sizing', description: 'Bootstrap height' },
+    { pattern: /^(mw|mh)-100$/, cssProperties: ['max-width', 'max-height'], category: 'sizing', description: 'Bootstrap max sizing' },
+    // Border
+    { pattern: /^border(-top|-end|-bottom|-start)?(-0)?$/, cssProperties: ['border-width'], category: 'border', description: 'Bootstrap border' },
+    { pattern: /^rounded(-top|-end|-bottom|-start|-circle|-pill)?(-0|-1|-2|-3|-4|-5)?$/, cssProperties: ['border-radius'], category: 'border', description: 'Bootstrap border radius' },
+    // Shadow
+    { pattern: /^shadow(-none|-sm|-lg)?$/, cssProperties: ['box-shadow'], category: 'shadow', description: 'Bootstrap shadow' },
+    // Position
+    { pattern: /^position-(static|relative|absolute|fixed|sticky)$/, cssProperties: ['position'], category: 'position', description: 'Bootstrap position' },
+    // Components
+    { pattern: /^btn(-[a-z]+)?$/, cssProperties: ['display', 'padding', 'font-size', 'border-radius'], category: 'component', description: 'Bootstrap button' },
+    { pattern: /^card(-[a-z]+)?$/, cssProperties: ['display', 'flex-direction', 'border', 'border-radius'], category: 'component', description: 'Bootstrap card' },
+    { pattern: /^navbar(-[a-z]+)?$/, cssProperties: ['display', 'flex-wrap', 'align-items'], category: 'component', description: 'Bootstrap navbar' },
+    { pattern: /^modal(-[a-z]+)?$/, cssProperties: ['position', 'display'], category: 'component', description: 'Bootstrap modal' },
+    { pattern: /^alert(-[a-z]+)?$/, cssProperties: ['padding', 'border', 'border-radius'], category: 'component', description: 'Bootstrap alert' },
+  ],
+  'material-ui': [
+    // Spacing (MUI sx prop classes)
+    { pattern: /^MuiBox-root$/, cssProperties: ['margin', 'padding'], category: 'spacing', description: 'MUI Box component' },
+    { pattern: /^Mui[A-Z][a-zA-Z]+-root$/, cssProperties: ['margin', 'padding', 'display'], category: 'component', description: 'MUI component root' },
+    // Typography
+    { pattern: /^MuiTypography-(h[1-6]|subtitle[12]|body[12]|caption|overline)$/, cssProperties: ['font-size', 'font-weight', 'line-height'], category: 'typography', description: 'MUI Typography variant' },
+    { pattern: /^MuiTypography-root$/, cssProperties: ['font-family', 'font-size'], category: 'typography', description: 'MUI Typography' },
+    // Layout
+    { pattern: /^MuiGrid-root$/, cssProperties: ['display', 'flex-wrap'], category: 'layout', description: 'MUI Grid' },
+    { pattern: /^MuiGrid-item$/, cssProperties: ['flex-grow'], category: 'layout', description: 'MUI Grid item' },
+    { pattern: /^MuiStack-root$/, cssProperties: ['display', 'flex-direction'], category: 'layout', description: 'MUI Stack' },
+    { pattern: /^MuiContainer-root$/, cssProperties: ['width', 'max-width', 'padding'], category: 'layout', description: 'MUI Container' },
+    // Components
+    { pattern: /^MuiButton-root$/, cssProperties: ['display', 'padding', 'font-size', 'border-radius'], category: 'component', description: 'MUI Button' },
+    { pattern: /^MuiCard-root$/, cssProperties: ['display', 'overflow', 'border-radius'], category: 'component', description: 'MUI Card' },
+    { pattern: /^MuiAppBar-root$/, cssProperties: ['display', 'flex-direction', 'position'], category: 'component', description: 'MUI AppBar' },
+    { pattern: /^MuiDrawer-root$/, cssProperties: ['position', 'width'], category: 'component', description: 'MUI Drawer' },
+    { pattern: /^MuiDialog-root$/, cssProperties: ['position', 'display'], category: 'component', description: 'MUI Dialog' },
+    { pattern: /^MuiPaper-root$/, cssProperties: ['background-color', 'box-shadow'], category: 'component', description: 'MUI Paper' },
+    { pattern: /^MuiChip-root$/, cssProperties: ['display', 'padding', 'border-radius'], category: 'component', description: 'MUI Chip' },
+  ],
+  bulma: [
+    // Spacing
+    { pattern: /^[mp][trblxy]?-[0-6]$/, cssProperties: ['margin', 'padding'], category: 'spacing', description: 'Bulma spacing helper' },
+    // Typography
+    { pattern: /^is-size-[1-7]$/, cssProperties: ['font-size'], category: 'typography', description: 'Bulma font size' },
+    { pattern: /^has-text-weight-(light|normal|medium|semibold|bold)$/, cssProperties: ['font-weight'], category: 'typography', description: 'Bulma font weight' },
+    { pattern: /^title$/, cssProperties: ['font-size', 'font-weight'], category: 'typography', description: 'Bulma title' },
+    { pattern: /^subtitle$/, cssProperties: ['font-size', 'font-weight'], category: 'typography', description: 'Bulma subtitle' },
+    // Colors
+    { pattern: /^has-text-(white|black|light|dark|primary|link|info|success|warning|danger)$/, cssProperties: ['color'], category: 'color', description: 'Bulma text color' },
+    { pattern: /^has-background-(white|black|light|dark|primary|link|info|success|warning|danger)$/, cssProperties: ['background-color'], category: 'color', description: 'Bulma background color' },
+    // Layout
+    { pattern: /^is-(flex|inline-flex|block|inline-block|inline)$/, cssProperties: ['display'], category: 'layout', description: 'Bulma display helper' },
+    { pattern: /^is-flex-direction-(row|row-reverse|column|column-reverse)$/, cssProperties: ['flex-direction'], category: 'layout', description: 'Bulma flex direction' },
+    { pattern: /^is-justify-content-(flex-start|flex-end|center|space-between|space-around|space-evenly)$/, cssProperties: ['justify-content'], category: 'layout', description: 'Bulma justify content' },
+    { pattern: /^columns$/, cssProperties: ['display', 'flex-wrap'], category: 'layout', description: 'Bulma columns' },
+    { pattern: /^column$/, cssProperties: ['flex'], category: 'layout', description: 'Bulma column' },
+    // Components
+    { pattern: /^button$/, cssProperties: ['display', 'padding', 'border-radius'], category: 'component', description: 'Bulma button' },
+    { pattern: /^card$/, cssProperties: ['display', 'flex-direction', 'background-color'], category: 'component', description: 'Bulma card' },
+    { pattern: /^navbar$/, cssProperties: ['display', 'min-height'], category: 'component', description: 'Bulma navbar' },
+    { pattern: /^modal$/, cssProperties: ['display', 'position'], category: 'component', description: 'Bulma modal' },
+  ],
+  foundation: [
+    // Spacing (Foundation Sites)
+    { pattern: /^(margin|padding)-(top|right|bottom|left|horizontal|vertical)?-[0-3]$/, cssProperties: ['margin', 'padding'], category: 'spacing', description: 'Foundation spacing' },
+    // Typography
+    { pattern: /^h[1-6]$/, cssProperties: ['font-size', 'font-weight'], category: 'typography', description: 'Foundation heading' },
+    { pattern: /^lead$/, cssProperties: ['font-size'], category: 'typography', description: 'Foundation lead text' },
+    // Layout
+    { pattern: /^grid-(x|y)$/, cssProperties: ['display'], category: 'layout', description: 'Foundation grid' },
+    { pattern: /^cell$/, cssProperties: ['flex'], category: 'layout', description: 'Foundation cell' },
+    { pattern: /^(small|medium|large)-\d+$/, cssProperties: ['width'], category: 'layout', description: 'Foundation responsive column' },
+    // Components
+    { pattern: /^button$/, cssProperties: ['display', 'padding', 'font-size'], category: 'component', description: 'Foundation button' },
+    { pattern: /^callout$/, cssProperties: ['padding', 'margin', 'border'], category: 'component', description: 'Foundation callout' },
+    { pattern: /^top-bar$/, cssProperties: ['display', 'flex-wrap'], category: 'component', description: 'Foundation top bar' },
+    { pattern: /^reveal$/, cssProperties: ['position', 'display'], category: 'component', description: 'Foundation reveal modal' },
+  ],
+  'semantic-ui': [
+    // Spacing
+    { pattern: /^(very\s+)?(fitted|padded)$/, cssProperties: ['padding'], category: 'spacing', description: 'Semantic UI padding' },
+    // Typography
+    { pattern: /^(tiny|small|medium|large|big|huge|massive)$/, cssProperties: ['font-size'], category: 'typography', description: 'Semantic UI size' },
+    // Layout
+    { pattern: /^ui\s+grid$/, cssProperties: ['display', 'flex-wrap'], category: 'layout', description: 'Semantic UI grid' },
+    { pattern: /^(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen)\s+wide\s+column$/, cssProperties: ['width'], category: 'layout', description: 'Semantic UI column' },
+    // Components
+    { pattern: /^ui\s+button$/, cssProperties: ['display', 'padding', 'font-size'], category: 'component', description: 'Semantic UI button' },
+    { pattern: /^ui\s+card$/, cssProperties: ['display', 'flex-direction', 'background'], category: 'component', description: 'Semantic UI card' },
+    { pattern: /^ui\s+menu$/, cssProperties: ['display', 'margin'], category: 'component', description: 'Semantic UI menu' },
+    { pattern: /^ui\s+modal$/, cssProperties: ['position', 'display'], category: 'component', description: 'Semantic UI modal' },
+  ],
+  'ant-design': [
+    // Layout
+    { pattern: /^ant-row$/, cssProperties: ['display', 'flex-flow'], category: 'layout', description: 'Ant Design row' },
+    { pattern: /^ant-col(-\d+)?$/, cssProperties: ['flex', 'max-width'], category: 'layout', description: 'Ant Design column' },
+    { pattern: /^ant-space$/, cssProperties: ['display', 'gap'], category: 'layout', description: 'Ant Design space' },
+    // Typography
+    { pattern: /^ant-typography$/, cssProperties: ['font-family', 'font-size'], category: 'typography', description: 'Ant Design typography' },
+    { pattern: /^ant-typography-h[1-5]$/, cssProperties: ['font-size', 'font-weight'], category: 'typography', description: 'Ant Design heading' },
+    // Components
+    { pattern: /^ant-btn(-[a-z]+)?$/, cssProperties: ['display', 'padding', 'font-size'], category: 'component', description: 'Ant Design button' },
+    { pattern: /^ant-card(-[a-z]+)?$/, cssProperties: ['display', 'background', 'border-radius'], category: 'component', description: 'Ant Design card' },
+    { pattern: /^ant-menu(-[a-z]+)?$/, cssProperties: ['display', 'margin'], category: 'component', description: 'Ant Design menu' },
+    { pattern: /^ant-modal(-[a-z]+)?$/, cssProperties: ['position', 'display'], category: 'component', description: 'Ant Design modal' },
+    { pattern: /^ant-table(-[a-z]+)?$/, cssProperties: ['display', 'width'], category: 'component', description: 'Ant Design table' },
+    { pattern: /^ant-form(-[a-z]+)?$/, cssProperties: ['display', 'margin'], category: 'component', description: 'Ant Design form' },
+  ],
+  'chakra-ui': [
+    // Layout
+    { pattern: /^chakra-stack$/, cssProperties: ['display', 'flex-direction'], category: 'layout', description: 'Chakra UI Stack' },
+    { pattern: /^chakra-flex$/, cssProperties: ['display'], category: 'layout', description: 'Chakra UI Flex' },
+    { pattern: /^chakra-grid$/, cssProperties: ['display'], category: 'layout', description: 'Chakra UI Grid' },
+    { pattern: /^chakra-container$/, cssProperties: ['max-width', 'padding'], category: 'layout', description: 'Chakra UI Container' },
+    // Typography
+    { pattern: /^chakra-heading$/, cssProperties: ['font-family', 'font-size', 'font-weight'], category: 'typography', description: 'Chakra UI Heading' },
+    { pattern: /^chakra-text$/, cssProperties: ['font-family', 'font-size'], category: 'typography', description: 'Chakra UI Text' },
+    // Components
+    { pattern: /^chakra-button$/, cssProperties: ['display', 'padding', 'font-size'], category: 'component', description: 'Chakra UI Button' },
+    { pattern: /^chakra-card$/, cssProperties: ['display', 'background', 'border-radius'], category: 'component', description: 'Chakra UI Card' },
+    { pattern: /^chakra-modal(-[a-z]+)?$/, cssProperties: ['position', 'display'], category: 'component', description: 'Chakra UI Modal' },
+    { pattern: /^chakra-menu(-[a-z]+)?$/, cssProperties: ['display', 'position'], category: 'component', description: 'Chakra UI Menu' },
+  ],
+};
+
+/**
+ * Detector for conflicts between Tailwind CSS and other CSS frameworks.
+ *
+ * This detector identifies when classes from multiple CSS frameworks are used
+ * together in a way that may cause style conflicts, unexpected overrides, or
+ * unpredictable rendering behavior.
+ *
+ * @example
+ * ```typescript
+ * const detector = new FrameworkConflictDetector();
+ *
+ * // Scan HTML content for conflicts
+ * const result = detector.scanHTML('<div class="flex d-flex p-4 m-3 bg-primary">');
+ * console.log(result.conflicts);
+ *
+ * // Scan class list
+ * const classes = ['flex', 'd-flex', 'p-4', 'm-3', 'bg-primary'];
+ * const result2 = detector.scanClasses(classes);
+ * ```
+ */
+export class FrameworkConflictDetector {
+  private readonly config: Required<FrameworkConflictDetectorConfig>;
+  private readonly patterns: Map<CSSFramework, FrameworkPattern[]>;
+
+  constructor(config: FrameworkConflictDetectorConfig = {}) {
+    this.config = {
+      frameworks: config.frameworks ?? ['tailwind', 'bootstrap', 'material-ui', 'bulma', 'foundation', 'semantic-ui', 'ant-design', 'chakra-ui'],
+      minSeverity: config.minSeverity ?? 'info',
+      includeComponentConflicts: config.includeComponentConflicts ?? true,
+      customPatterns: config.customPatterns ?? new Map(),
+    };
+
+    // Initialize patterns
+    this.patterns = new Map();
+    for (const framework of this.config.frameworks) {
+      const builtIn = FRAMEWORK_PATTERNS[framework] ?? [];
+      const custom = this.config.customPatterns.get(framework) ?? [];
+      const customPatterns: FrameworkPattern[] = custom.map((pattern) => ({
+        pattern,
+        cssProperties: ['unknown'],
+        category: 'component' as ConflictCategory,
+        description: `Custom ${framework} pattern`,
+      }));
+      this.patterns.set(framework, [...builtIn, ...customPatterns]);
+    }
+  }
+
+  /**
+   * Scan HTML content for framework conflicts.
+   *
+   * @param html - HTML content to scan
+   * @param fileName - Optional file name for location tracking
+   * @returns Analysis result with detected conflicts
+   */
+  scanHTML(html: string, fileName?: string): FrameworkConflictResult {
+    const classRegex = /class\s*=\s*["']([^"']+)["']/gi;
+    const allClasses: { classes: string[]; line: number; element: string }[] = [];
+
+    let match: RegExpExecArray | null;
+    const lines = html.split('\n');
+    let lineIndex = 0;
+    let charIndex = 0;
+
+    while ((match = classRegex.exec(html)) !== null) {
+      // Find line number
+      while (charIndex < match.index && lineIndex < lines.length) {
+        const currentLine = lines[lineIndex];
+        if (currentLine !== undefined) {
+          charIndex += currentLine.length + 1; // +1 for newline
+        }
+        lineIndex++;
+      }
+
+      const classString = match[1] ?? '';
+      const classes = classString.split(/\s+/).filter(Boolean);
+
+      // Try to extract element name
+      const beforeClass = html.slice(Math.max(0, match.index - 50), match.index);
+      const elementMatch = beforeClass.match(/<(\w+)[^>]*$/);
+      const element = elementMatch?.[1] ?? 'unknown';
+
+      allClasses.push({
+        classes,
+        line: lineIndex + 1,
+        element,
+      });
+    }
+
+    const result = this.createEmptyResult();
+
+    for (const { classes, line, element } of allClasses) {
+      const conflicts = this.detectConflicts(classes, element);
+      for (const conflict of conflicts) {
+        if (fileName !== undefined) {
+          conflict.location = { file: fileName, line };
+        }
+        conflict.element = element;
+        this.addConflict(result, conflict);
+      }
+    }
+
+    this.generateRecommendations(result);
+    return result;
+  }
+
+  /**
+   * Scan a list of class names for conflicts.
+   *
+   * @param classes - Array of class names to check
+   * @param element - Optional element context
+   * @returns Analysis result with detected conflicts
+   */
+  scanClasses(classes: string[], element?: string): FrameworkConflictResult {
+    const result = this.createEmptyResult();
+    const conflicts = this.detectConflicts(classes, element);
+
+    for (const conflict of conflicts) {
+      this.addConflict(result, conflict);
+    }
+
+    this.generateRecommendations(result);
+    return result;
+  }
+
+  /**
+   * Scan a class string for conflicts.
+   *
+   * @param classString - Space-separated class string
+   * @param element - Optional element context
+   * @returns Analysis result with detected conflicts
+   */
+  scanClassString(classString: string, element?: string): FrameworkConflictResult {
+    const classes = classString.split(/\s+/).filter(Boolean);
+    return this.scanClasses(classes, element);
+  }
+
+  /**
+   * Detect which frameworks are being used based on class names.
+   *
+   * @param classes - Array of class names
+   * @returns Array of detected frameworks
+   */
+  detectFrameworks(classes: string[]): CSSFramework[] {
+    const detected = new Set<CSSFramework>();
+
+    for (const className of classes) {
+      for (const [framework, patterns] of this.patterns) {
+        for (const { pattern } of patterns) {
+          if (pattern.test(className)) {
+            detected.add(framework);
+            break;
+          }
+        }
+      }
+    }
+
+    return Array.from(detected);
+  }
+
+  /**
+   * Get framework information for a specific class.
+   *
+   * @param className - Class name to look up
+   * @returns Framework and pattern info, or undefined if not matched
+   */
+  getClassInfo(className: string): { framework: CSSFramework; pattern: FrameworkPattern } | undefined {
+    for (const [framework, patterns] of this.patterns) {
+      for (const pattern of patterns) {
+        if (pattern.pattern.test(className)) {
+          return { framework, pattern };
+        }
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Detect conflicts between class names.
+   */
+  private detectConflicts(classes: string[], element?: string): FrameworkConflict[] {
+    const conflicts: FrameworkConflict[] = [];
+    const classInfos: { className: string; framework: CSSFramework; pattern: FrameworkPattern }[] = [];
+
+    // Gather information about each class
+    for (const className of classes) {
+      const info = this.getClassInfo(className);
+      if (info !== undefined) {
+        classInfos.push({ className, ...info });
+      }
+    }
+
+    // Check for conflicts between different frameworks
+    const frameworks = new Set(classInfos.map((i) => i.framework));
+    if (frameworks.size < 2) {
+      return conflicts; // No cross-framework conflicts possible
+    }
+
+    // Group by CSS property
+    const byProperty = new Map<string, typeof classInfos>();
+    for (const info of classInfos) {
+      for (const prop of info.pattern.cssProperties) {
+        if (!byProperty.has(prop)) {
+          byProperty.set(prop, []);
+        }
+        byProperty.get(prop)!.push(info);
+      }
+    }
+
+    // Find conflicts (same property from different frameworks)
+    for (const [property, infos] of byProperty) {
+      const frameworksForProperty = new Set(infos.map((i) => i.framework));
+      if (frameworksForProperty.size < 2) continue;
+
+      // Group by framework
+      const byFramework = new Map<CSSFramework, typeof classInfos>();
+      for (const info of infos) {
+        if (!byFramework.has(info.framework)) {
+          byFramework.set(info.framework, []);
+        }
+        byFramework.get(info.framework)!.push(info);
+      }
+
+      // Create conflict for each pair of frameworks
+      const frameworkList = Array.from(frameworksForProperty);
+      for (let i = 0; i < frameworkList.length; i++) {
+        for (let j = i + 1; j < frameworkList.length; j++) {
+          const fw1 = frameworkList[i];
+          const fw2 = frameworkList[j];
+
+          // Skip if frameworks are undefined (should not happen but TypeScript requires check)
+          if (fw1 === undefined || fw2 === undefined) continue;
+
+          // Skip component conflicts if disabled
+          const fw1Infos = byFramework.get(fw1);
+          const fw2Infos = byFramework.get(fw2);
+          if (fw1Infos === undefined || fw2Infos === undefined) continue;
+
+          const isComponentConflict =
+            fw1Infos.some((info) => info.pattern.category === 'component') ||
+            fw2Infos.some((info) => info.pattern.category === 'component');
+
+          if (isComponentConflict && !this.config.includeComponentConflicts) {
+            continue;
+          }
+
+          const severity = this.determineSeverity(property, fw1Infos, fw2Infos);
+          if (!this.meetsMinSeverity(severity)) continue;
+
+          const category = fw1Infos[0]?.pattern.category ?? 'component';
+
+          const conflict: FrameworkConflict = {
+            id: randomUUID(),
+            frameworks: [fw1, fw2],
+            category,
+            severity,
+            classes: [
+              ...fw1Infos.map((info) => ({
+                framework: fw1,
+                className: info.className,
+                cssProperties: info.pattern.cssProperties,
+              })),
+              ...fw2Infos.map((info) => ({
+                framework: fw2,
+                className: info.className,
+                cssProperties: info.pattern.cssProperties,
+              })),
+            ],
+            description: this.generateDescription(property, fw1, fw2, fw1Infos, fw2Infos),
+            resolution: this.generateResolution(property, fw1, fw2, fw1Infos, fw2Infos),
+          };
+          if (element !== undefined) {
+            conflict.element = element;
+          }
+          conflicts.push(conflict);
+        }
+      }
+    }
+
+    return conflicts;
+  }
+
+  /**
+   * Determine severity of a conflict.
+   */
+  private determineSeverity(
+    property: string,
+    fw1Infos: { pattern: FrameworkPattern }[],
+    fw2Infos: { pattern: FrameworkPattern }[]
+  ): ConflictSeverity {
+    // Layout conflicts are errors - they cause major visual issues
+    const layoutProperties = ['display', 'flex-direction', 'grid-template-columns', 'position'];
+    if (layoutProperties.includes(property)) {
+      return 'error';
+    }
+
+    // Sizing conflicts are warnings
+    const sizingProperties = ['width', 'height', 'max-width', 'min-width'];
+    if (sizingProperties.includes(property)) {
+      return 'warning';
+    }
+
+    // Component conflicts are warnings if they affect layout
+    const isComponentConflict =
+      fw1Infos.some((i) => i.pattern.category === 'component') ||
+      fw2Infos.some((i) => i.pattern.category === 'component');
+    if (isComponentConflict) {
+      return 'warning';
+    }
+
+    // Everything else is info
+    return 'info';
+  }
+
+  /**
+   * Check if severity meets minimum threshold.
+   */
+  private meetsMinSeverity(severity: ConflictSeverity): boolean {
+    const severityOrder: ConflictSeverity[] = ['error', 'warning', 'info'];
+    const minIndex = severityOrder.indexOf(this.config.minSeverity);
+    const currentIndex = severityOrder.indexOf(severity);
+    return currentIndex <= minIndex;
+  }
+
+  /**
+   * Generate conflict description.
+   */
+  private generateDescription(
+    property: string,
+    fw1: CSSFramework,
+    fw2: CSSFramework,
+    fw1Infos: { className: string; pattern: FrameworkPattern }[],
+    fw2Infos: { className: string; pattern: FrameworkPattern }[]
+  ): string {
+    const fw1Classes = fw1Infos.map((i) => i.className).join(', ');
+    const fw2Classes = fw2Infos.map((i) => i.className).join(', ');
+
+    return `Conflicting ${property} styles: ${fw1} classes (${fw1Classes}) conflict with ${fw2} classes (${fw2Classes}). Both frameworks are trying to control the same CSS property, which may cause unpredictable styling.`;
+  }
+
+  /**
+   * Generate resolution suggestion.
+   */
+  private generateResolution(
+    property: string,
+    fw1: CSSFramework,
+    fw2: CSSFramework,
+    fw1Infos: { className: string; pattern: FrameworkPattern }[],
+    fw2Infos: { className: string; pattern: FrameworkPattern }[]
+  ): string {
+    // Prefer Tailwind if it's one of the frameworks
+    if (fw1 === 'tailwind' || fw2 === 'tailwind') {
+      const tailwindFw = fw1 === 'tailwind' ? fw1 : fw2;
+      const otherFw = fw1 === 'tailwind' ? fw2 : fw1;
+      const tailwindClasses = (tailwindFw === fw1 ? fw1Infos : fw2Infos).map((i) => i.className).join(', ');
+      const otherClasses = (otherFw === fw1 ? fw1Infos : fw2Infos).map((i) => i.className).join(', ');
+
+      return `Choose one framework for ${property}. If using Tailwind as primary, remove ${otherFw} classes (${otherClasses}) and keep Tailwind classes (${tailwindClasses}). Alternatively, use Tailwind's @layer directive to control cascade order.`;
+    }
+
+    // Generic resolution
+    return `Remove duplicate ${property} styling. Choose either ${fw1} or ${fw2} classes for this property to avoid conflicts. Consider consolidating to a single CSS framework for consistency.`;
+  }
+
+  /**
+   * Create an empty result object.
+   */
+  private createEmptyResult(): FrameworkConflictResult {
+    return {
+      hasConflicts: false,
+      totalConflicts: 0,
+      bySeverity: { error: 0, warning: 0, info: 0 },
+      detectedFrameworks: [],
+      conflicts: [],
+      byCategory: new Map(),
+      recommendations: [],
+    };
+  }
+
+  /**
+   * Add a conflict to the result.
+   */
+  private addConflict(result: FrameworkConflictResult, conflict: FrameworkConflict): void {
+    result.conflicts.push(conflict);
+    result.hasConflicts = true;
+    result.totalConflicts++;
+    result.bySeverity[conflict.severity]++;
+
+    // Update detected frameworks
+    for (const fw of conflict.frameworks) {
+      if (!result.detectedFrameworks.includes(fw)) {
+        result.detectedFrameworks.push(fw);
+      }
+    }
+
+    // Update by category
+    if (!result.byCategory.has(conflict.category)) {
+      result.byCategory.set(conflict.category, []);
+    }
+    result.byCategory.get(conflict.category)!.push(conflict);
+  }
+
+  /**
+   * Generate recommendations based on detected conflicts.
+   */
+  private generateRecommendations(result: FrameworkConflictResult): void {
+    if (!result.hasConflicts) {
+      return;
+    }
+
+    const recommendations: string[] = [];
+
+    // General recommendation about using multiple frameworks
+    if (result.detectedFrameworks.length > 2) {
+      recommendations.push(
+        `Consider consolidating CSS frameworks. You are using ${result.detectedFrameworks.length} different frameworks (${result.detectedFrameworks.join(', ')}), which increases complexity and potential for conflicts.`
+      );
+    } else if (result.detectedFrameworks.length === 2) {
+      recommendations.push(
+        `You are mixing ${result.detectedFrameworks[0]} and ${result.detectedFrameworks[1]}. Consider choosing one as your primary framework to reduce maintenance overhead and conflicts.`
+      );
+    }
+
+    // Severity-based recommendations
+    if (result.bySeverity.error > 0) {
+      recommendations.push(
+        `Found ${result.bySeverity.error} critical conflict(s) affecting layout. These should be resolved immediately as they may cause significant visual issues.`
+      );
+    }
+
+    // Category-specific recommendations
+    if (result.byCategory.has('layout')) {
+      recommendations.push(
+        'Layout conflicts detected. Using multiple grid/flex systems can cause unpredictable layouts. Stick to one layout system per component.'
+      );
+    }
+
+    if (result.byCategory.has('component')) {
+      recommendations.push(
+        'Component conflicts detected. Avoid mixing component classes from different frameworks on the same element. Create wrapper components instead.'
+      );
+    }
+
+    // Tailwind-specific recommendations
+    if (result.detectedFrameworks.includes('tailwind')) {
+      const otherFrameworks = result.detectedFrameworks.filter((f) => f !== 'tailwind');
+      if (otherFrameworks.length > 0) {
+        recommendations.push(
+          `When using Tailwind with ${otherFrameworks.join('/')}, consider using Tailwind's @layer directive to control cascade order, or use the important: prefix in tailwind.config.js to ensure Tailwind utilities take precedence.`
+        );
+      }
+    }
+
+    result.recommendations = recommendations;
+  }
+}
+
+/**
+ * Create a new FrameworkConflictDetector with default configuration.
+ *
+ * @param config - Optional configuration
+ * @returns New detector instance
+ */
+export function createFrameworkConflictDetector(
+  config?: FrameworkConflictDetectorConfig
+): FrameworkConflictDetector {
+  return new FrameworkConflictDetector(config);
+}
+
+/**
+ * Quick utility to scan for framework conflicts.
+ *
+ * @param classes - Classes to check (array or space-separated string)
+ * @returns Framework conflict result
+ */
+export function detectFrameworkConflicts(
+  classes: string | string[]
+): FrameworkConflictResult {
+  const detector = new FrameworkConflictDetector();
+  const classArray = Array.isArray(classes) ? classes : classes.split(/\s+/).filter(Boolean);
+  return detector.scanClasses(classArray);
+}
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 

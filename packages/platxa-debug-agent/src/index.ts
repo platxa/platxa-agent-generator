@@ -483,6 +483,84 @@ export type {
   GitAnalyzerConfig,
 } from './core/git-analyzer.js';
 
+// Dependency Graph Builder
+export {
+  DefaultModuleResolver,
+  DependencyGraphBuilder,
+  createDependencyGraphBuilder,
+  createModuleResolver,
+  buildDependencyGraph,
+  analyzeGraph,
+} from './core/dependency-graph.js';
+export type {
+  ModuleType,
+  ImportType,
+  ExportType,
+  ModuleImport,
+  ImportedName as DependencyImportedName,
+  ModuleExport,
+  DependencyNode,
+  DependencyEdge,
+  CircularDependency,
+  UnusedExport,
+  MissingImport,
+  DependencyGraph,
+  DependencyGraphStats,
+  DependencyGraphConfig,
+  ModuleResolver,
+} from './core/dependency-graph.js';
+
+// Evidence Collector
+export {
+  EvidenceCollector,
+  createEvidenceCollector,
+  collectEvidence,
+  collectBatchEvidence,
+} from './core/evidence-collector.js';
+export type {
+  EvidenceType,
+  EvidenceDirection,
+  EvidenceSource,
+  DetailedEvidence,
+  CodeStructure as EvidenceCodeStructure,
+  FunctionDefinition,
+  ParameterDefinition as EvidenceParameterDefinition,
+  VariableDeclaration,
+  ClassDefinition as EvidenceClassDefinition,
+  ImportStatement as EvidenceImportStatement,
+  ExportStatement as EvidenceExportStatement,
+  ControlFlowStructure,
+  CoverageData,
+  EvidenceCollectionResult,
+  BatchEvidenceResult,
+  EvidenceCollectorConfig,
+  EvidenceContext,
+  GitHistoryData,
+} from './core/evidence-collector.js';
+
+// Fix Ranker
+export {
+  FixRanker,
+  createFixRanker,
+  rankFixes,
+  createFixCandidate,
+  buildNGramModel,
+} from './core/fix-ranker.js';
+export type {
+  RankingStrategy,
+  RankingFactor,
+  FixCandidate,
+  FactorScore,
+  EntropyScore,
+  RankedFix,
+  RankingResult,
+  FixTestResult,
+  HistoricalFix,
+  FixRankerConfig,
+  NGramModel,
+  RankingContext,
+} from './core/fix-ranker.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
@@ -507,6 +585,10 @@ export {
   specificityToNumber,
   detectSpecificityConflicts,
   parseImportant,
+  // Framework Conflict Detector
+  FrameworkConflictDetector,
+  createFrameworkConflictDetector,
+  detectFrameworkConflicts,
 } from './modules/css-module.js';
 export type {
   // Cascade Layer types
@@ -524,6 +606,13 @@ export type {
   Specificity,
   CSSRule,
   SpecificityConflict,
+  // Framework Conflict types
+  CSSFramework,
+  ConflictCategory,
+  ConflictSeverity,
+  FrameworkConflict,
+  FrameworkConflictResult,
+  FrameworkConflictDetectorConfig,
 } from './modules/css-module.js';
 export {
   HTMLModule,
