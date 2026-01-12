@@ -574,6 +574,27 @@ export {
   cfgExtractor,
   cfgVisualizer,
 } from './core/cfg-extractor.js';
+
+// Taint Inferencer (Features #13-19: Taint Inference)
+export {
+  TaintInferencer,
+  createTaintInferencer,
+  inferTaintSpecs,
+  generateCodeQLPredicates,
+} from './core/taint-inferencer.js';
+export type {
+  // Taint types (Feature #13)
+  TaintSpecification,
+  TaintClassification,
+  CWEType,
+  // API Signature types (Feature #14)
+  APISignature,
+  ParameterSignature,
+  // Config and result types
+  TaintInferencerConfig,
+  BatchProcessResult,
+  CodeQLPredicate,
+} from './core/taint-inferencer.js';
 export type {
   // Basic Block types (Feature #7)
   BasicBlock,
