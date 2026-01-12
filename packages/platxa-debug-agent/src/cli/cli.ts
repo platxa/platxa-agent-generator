@@ -121,5 +121,56 @@ program
     await configCommand(key, value, options);
   });
 
+program
+  .command('localize')
+  .description('Perform fault localization to identify suspicious code locations')
+  .argument('<error>', 'Error message or file path')
+  .option('-f, --formula <name>', 'SBFL formula (ochiai, tarantula, dstar, barinel)', 'ochiai')
+  .option('-t, --top <count>', 'Number of top suspicious locations', '10')
+  .option('--files <paths...>', 'Additional source files for analysis')
+  .option('-v, --verbose', 'Verbose output')
+  .option('-o, --output <format>', 'Output format (json, text, markdown)', 'text')
+  .action(async (error: string, options: Record<string, unknown>) => {
+    const { localizeCommand } = await import('./commands/localize.js');
+    await localizeCommand(error, options);
+  });
+
+program
+  .command('suggest')
+  .description('Generate ranked fix suggestions for an error')
+  .argument('<error>', 'Error message or file path')
+  .option('-t, --top <count>', 'Number of top suggestions', '5')
+  .option('-f, --format <type>', 'Output format (terminal, json, markdown, html)', 'terminal')
+  .option('-v, --verbose', 'Include detailed explanations')
+  .action(async (error: string, options: Record<string, unknown>) => {
+    const { suggestCommand } = await import('./commands/suggest.js');
+    await suggestCommand(error, options);
+  });
+
+program
+  .command('validate')
+  .description('Validate a fix suggestion against the codebase')
+  .argument('<error>', 'Error message or file path')
+  .option('--fix <number>', 'Fix number to validate (default: 1)')
+  .option('--file <path>', 'Source file for validation context')
+  .option('--strict', 'Enable strict validation with linting')
+  .option('-o, --output <format>', 'Output format (json, text)', 'text')
+  .action(async (error: string, options: Record<string, unknown>) => {
+    const { validateCommand } = await import('./commands/validate.js');
+    await validateCommand(error, options);
+  });
+
+program
+  .command('patterns')
+  .description('Manage error patterns and fix templates')
+  .option('-a, --action <type>', 'Action to perform (list, export, clear, stats)', 'list')
+  .option('-f, --format <type>', 'Output format (json, text, csv)', 'text')
+  .option('-o, --output <path>', 'Output file path')
+  .option('-p, --period <type>', 'Time period (hour, day, week, all)', 'day')
+  .action(async (options: Record<string, unknown>) => {
+    const { patternsCommand } = await import('./commands/patterns.js');
+    await patternsCommand(options);
+  });
+
 // Parse and execute
 program.parse();
