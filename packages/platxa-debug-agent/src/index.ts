@@ -363,6 +363,33 @@ export type {
   CICDIntegrationConfig,
 } from './core/cicd-integration.js';
 
+// VS Code Integration
+export {
+  VSCodeIntegration,
+  createVSCodeIntegration,
+  mapLanguageId,
+  getLanguageId,
+} from './core/vscode-integration.js';
+export type {
+  VSCodeSeverity,
+  VSCodePosition,
+  VSCodeRange,
+  VSCodeDiagnostic,
+  VSCodeCodeAction,
+  VSCodeWorkspaceEdit,
+  VSCodeTextEdit,
+  VSCodeHover,
+  VSCodeDocumentLink,
+  DebugSessionStatus,
+  RealTimeDebugSession,
+  ExtensionMessageType,
+  ExtensionMessage,
+  AgentResponse,
+  AnalyzeRequest,
+  AnalyzeResponse,
+  VSCodeIntegrationConfig,
+} from './core/vscode-integration.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
