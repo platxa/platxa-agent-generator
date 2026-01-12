@@ -616,6 +616,33 @@ export type {
   CFGExtractorOptions,
 } from './core/cfg-extractor.js';
 
+// BRT Generator (Features #20-25: Bug Reproduction Test Generator)
+export {
+  BRTGenerator,
+  createBRTGenerator,
+  rankBugTests,
+} from './core/brt-generator.js';
+export type {
+  // Bug Report types (Feature #20)
+  BugReport,
+  ReproductionStep,
+  BugSeverity,
+  EnvironmentInfo,
+  CodeSnippet as BRTCodeSnippet,
+  // Bug Reproduction Test types (Feature #21)
+  BugReproductionTest,
+  TestPlausibility,
+  TestFramework,
+  AssertionType,
+  TestAssertion,
+  // Config and result types
+  BRTGeneratorConfig,
+  TestValidationResult,
+  ExecutionResult,
+  RankedTest,
+  RankingFactor as BRTRankingFactor,
+} from './core/brt-generator.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
