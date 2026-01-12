@@ -234,6 +234,39 @@ export interface SelfDebugIteration {
   timestamp: Date;
 }
 
+/**
+ * Reason for self-debug loop termination
+ */
+export type SelfDebugTerminationReason =
+  | 'success'                    // Fix was successful
+  | 'max_iterations'             // Reached maxIterations limit
+  | 'diminishing_returns'        // Early termination due to low improvement
+  | 'consecutive_below_threshold' // Consecutive iterations below threshold
+  | 'decreasing_trend'           // Improvement trend is decreasing
+  | 'regression'                 // Multiple consecutive regressions
+  | 'oscillation';               // Alternating positive/negative improvements
+
+/**
+ * Self-debugging loop result
+ *
+ * Complete result of running the self-debug loop, including
+ * all iterations, termination reason, and final state.
+ */
+export interface SelfDebugResult {
+  /** All iterations performed */
+  iterations: SelfDebugIteration[];
+  /** Why the loop terminated */
+  terminationReason: SelfDebugTerminationReason;
+  /** Whether debugging was ultimately successful */
+  success: boolean;
+  /** Total duration in milliseconds */
+  totalDurationMs: number;
+  /** Final code after all iterations (if successful) */
+  finalCode?: string;
+  /** Summary of the debugging session */
+  summary: string;
+}
+
 // =============================================================================
 // Logging Injection Templates
 // =============================================================================
@@ -416,28 +449,33 @@ export class DebugLoop {
    * Run self-debugging loop with iteration tracking
    *
    * Implements the Self-Debug pattern from research (ICLR 2024).
-   * Returns detailed iteration results for analysis and improvement tracking.
+   * Returns detailed result including iterations and termination reason.
+   *
+   * Feature #6: Includes early termination logic using diminishing returns detection.
    *
    * @param code - The code to debug
    * @param error - The error to fix
    * @param config - Self-debug configuration (defaults to research-recommended values)
-   * @returns Array of iteration results with improvement deltas
+   * @returns SelfDebugResult with iterations and termination reason
    */
   async iterate(
     code: string,
     error: NormalizedError,
     config: Partial<SelfDebugConfig> = {}
-  ): Promise<SelfDebugIteration[]> {
+  ): Promise<SelfDebugResult> {
     const selfDebugConfig: SelfDebugConfig = {
       maxIterations: config.maxIterations ?? 5, // Research shows diminishing returns after 5
       enableExplanation: config.enableExplanation ?? true,
       earlyTerminationThreshold: config.earlyTerminationThreshold ?? 0.05,
     };
 
+    const loopStartTime = Date.now();
     const iterations: SelfDebugIteration[] = [];
     let currentCode = code;
     let previousScore = 0;
     let iterationNum = 0;
+    let terminationReason: SelfDebugTerminationReason = 'max_iterations';
+    let finalSuccess = false;
 
     while (iterationNum < selfDebugConfig.maxIterations) {
       iterationNum++;
@@ -481,9 +519,14 @@ export class DebugLoop {
       iterations.push(iteration);
 
       // Check for early termination due to diminishing returns
-      if (this.detectDiminishingReturns(iterations, selfDebugConfig.earlyTerminationThreshold)) {
+      const diminishingResult = this.detectDiminishingReturnsWithReason(
+        iterations,
+        selfDebugConfig.earlyTerminationThreshold
+      );
+      if (diminishingResult.detected) {
+        terminationReason = diminishingResult.reason;
         this.handlers.onMessage(
-          `Early termination: improvement delta (${improvementDelta.toFixed(3)}) below threshold`,
+          `Early termination (${terminationReason}): improvement delta (${improvementDelta.toFixed(3)}) below threshold`,
           'info'
         );
         break;
@@ -491,6 +534,9 @@ export class DebugLoop {
 
       // Check for success
       if (evaluationResult.success) {
+        terminationReason = 'success';
+        finalSuccess = true;
+        currentCode = evaluationResult.updatedCode ?? currentCode;
         this.handlers.onMessage(
           `Fix successful after ${iterationNum} iteration(s)`,
           'success'
@@ -505,7 +551,53 @@ export class DebugLoop {
       }
     }
 
-    return iterations;
+    // Build summary
+    const totalDurationMs = Date.now() - loopStartTime;
+    const summary = this.buildDebugSummary(iterations, terminationReason, totalDurationMs);
+
+    const result: SelfDebugResult = {
+      iterations,
+      terminationReason,
+      success: finalSuccess,
+      totalDurationMs,
+      summary,
+    };
+
+    if (finalSuccess) {
+      result.finalCode = currentCode;
+    }
+
+    return result;
+  }
+
+  /**
+   * Build a human-readable summary of the debugging session
+   */
+  private buildDebugSummary(
+    iterations: SelfDebugIteration[],
+    terminationReason: SelfDebugTerminationReason,
+    totalDurationMs: number
+  ): string {
+    const parts: string[] = [];
+
+    parts.push(`Self-debug completed after ${iterations.length} iteration(s)`);
+    parts.push(`Termination reason: ${terminationReason}`);
+    parts.push(`Total duration: ${totalDurationMs}ms`);
+
+    if (iterations.length > 0) {
+      const lastIteration = iterations[iterations.length - 1];
+      if (lastIteration) {
+        parts.push(`Final improvement delta: ${lastIteration.improvementDelta.toFixed(4)}`);
+      }
+
+      const totalImprovement = iterations.reduce(
+        (sum, iter) => sum + iter.improvementDelta,
+        0
+      );
+      parts.push(`Total improvement: ${totalImprovement.toFixed(4)}`);
+    }
+
+    return parts.join('. ');
   }
 
   /**
@@ -758,9 +850,28 @@ export class DebugLoop {
     threshold: number,
     consecutiveRequired: number = 2
   ): boolean {
+    return this.detectDiminishingReturnsWithReason(iterations, threshold, consecutiveRequired).detected;
+  }
+
+  /**
+   * Detect diminishing returns with specific termination reason
+   *
+   * Feature #6: Enhanced version that returns the specific reason for early termination.
+   * Used by iterate() to provide detailed termination information.
+   *
+   * @param iterations - History of iterations
+   * @param threshold - Minimum improvement threshold (0-1)
+   * @param consecutiveRequired - Number of consecutive low improvements (default: 2)
+   * @returns Detection result with reason
+   */
+  detectDiminishingReturnsWithReason(
+    iterations: SelfDebugIteration[],
+    threshold: number,
+    consecutiveRequired: number = 2
+  ): { detected: boolean; reason: SelfDebugTerminationReason } {
     // Need at least consecutiveRequired iterations to detect diminishing returns
     if (iterations.length < consecutiveRequired) {
-      return false;
+      return { detected: false, reason: 'max_iterations' };
     }
 
     // Get recent iterations to analyze
@@ -772,7 +883,7 @@ export class DebugLoop {
     );
 
     if (allBelowThreshold) {
-      return true;
+      return { detected: true, reason: 'consecutive_below_threshold' };
     }
 
     // Criterion 2: Check for decreasing improvement trend
@@ -783,7 +894,7 @@ export class DebugLoop {
 
       // Diminishing if trend is decreasing and last improvement is very low
       if (isDecreasingTrend && Math.abs(lastImprovement) < threshold / 2) {
-        return true;
+        return { detected: true, reason: 'decreasing_trend' };
       }
     }
 
@@ -795,18 +906,18 @@ export class DebugLoop {
 
     // Multiple consecutive regressions indicate we're making things worse
     if (hasRegression && consecutiveRegressions >= 2) {
-      return true;
+      return { detected: true, reason: 'regression' };
     }
 
     // Criterion 4: Oscillation detection (improvements alternating positive/negative)
     if (iterations.length >= 4) {
       const isOscillating = this.detectOscillation(iterations.slice(-4));
       if (isOscillating) {
-        return true;
+        return { detected: true, reason: 'oscillation' };
       }
     }
 
-    return false;
+    return { detected: false, reason: 'max_iterations' };
   }
 
   /**
