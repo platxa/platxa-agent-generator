@@ -131,3 +131,5 @@ packages/platxa-debug-agent/.claude/
 
 # MCP configuration (user-specific paths)
 .mcp.json
+# Debug session state files
+.claude/debug_sessions.json
