@@ -741,22 +741,143 @@ export class DebugLoop {
    * Feature #5: Analyzes iteration history to detect when improvements
    * fall below threshold, indicating further iterations are unlikely to help.
    *
+   * Detection criteria:
+   * 1. Consecutive iterations with improvement below threshold
+   * 2. Decreasing trend in improvements over recent iterations
+   * 3. Regression detection (negative improvement)
+   *
+   * Based on Self-Debug research showing diminishing returns after ~5 iterations.
+   *
    * @param iterations - History of iterations
    * @param threshold - Minimum improvement threshold (0-1)
+   * @param consecutiveRequired - Number of consecutive low improvements (default: 2)
    * @returns true if diminishing returns detected
    */
   detectDiminishingReturns(
     iterations: SelfDebugIteration[],
-    threshold: number
+    threshold: number,
+    consecutiveRequired: number = 2
   ): boolean {
-    // Placeholder implementation - will be enhanced in Feature #5
-    if (iterations.length < 2) {
+    // Need at least consecutiveRequired iterations to detect diminishing returns
+    if (iterations.length < consecutiveRequired) {
       return false;
     }
 
-    // Check last two iterations for improvement below threshold
-    const recent = iterations.slice(-2);
-    return recent.every((iter) => Math.abs(iter.improvementDelta) < threshold);
+    // Get recent iterations to analyze
+    const recentIterations = iterations.slice(-consecutiveRequired);
+
+    // Criterion 1: Check for consecutive iterations below threshold
+    const allBelowThreshold = recentIterations.every(
+      (iter) => Math.abs(iter.improvementDelta) < threshold
+    );
+
+    if (allBelowThreshold) {
+      return true;
+    }
+
+    // Criterion 2: Check for decreasing improvement trend
+    if (iterations.length >= 3) {
+      const trendWindow = iterations.slice(-3);
+      const isDecreasingTrend = this.calculateImprovementTrend(trendWindow) < 0;
+      const lastImprovement = trendWindow[trendWindow.length - 1]?.improvementDelta ?? 0;
+
+      // Diminishing if trend is decreasing and last improvement is very low
+      if (isDecreasingTrend && Math.abs(lastImprovement) < threshold / 2) {
+        return true;
+      }
+    }
+
+    // Criterion 3: Check for regression (negative improvement)
+    const hasRegression = recentIterations.some(
+      (iter) => iter.improvementDelta < -threshold
+    );
+    const consecutiveRegressions = this.countConsecutiveRegressions(iterations);
+
+    // Multiple consecutive regressions indicate we're making things worse
+    if (hasRegression && consecutiveRegressions >= 2) {
+      return true;
+    }
+
+    // Criterion 4: Oscillation detection (improvements alternating positive/negative)
+    if (iterations.length >= 4) {
+      const isOscillating = this.detectOscillation(iterations.slice(-4));
+      if (isOscillating) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
+   * Calculate the trend of improvements (positive = increasing, negative = decreasing)
+   */
+  private calculateImprovementTrend(iterations: SelfDebugIteration[]): number {
+    if (iterations.length < 2) {
+      return 0;
+    }
+
+    // Simple linear regression on improvement deltas
+    let sumX = 0;
+    let sumY = 0;
+    let sumXY = 0;
+    let sumX2 = 0;
+    const n = iterations.length;
+
+    for (let i = 0; i < n; i++) {
+      const x = i;
+      const y = iterations[i]?.improvementDelta ?? 0;
+      sumX += x;
+      sumY += y;
+      sumXY += x * y;
+      sumX2 += x * x;
+    }
+
+    // Calculate slope
+    const denominator = n * sumX2 - sumX * sumX;
+    if (denominator === 0) {
+      return 0;
+    }
+
+    return (n * sumXY - sumX * sumY) / denominator;
+  }
+
+  /**
+   * Count consecutive regressions (negative improvements) at the end
+   */
+  private countConsecutiveRegressions(iterations: SelfDebugIteration[]): number {
+    let count = 0;
+    for (let i = iterations.length - 1; i >= 0; i--) {
+      if ((iterations[i]?.improvementDelta ?? 0) < 0) {
+        count++;
+      } else {
+        break;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * Detect oscillation pattern (alternating positive/negative improvements)
+   */
+  private detectOscillation(iterations: SelfDebugIteration[]): boolean {
+    if (iterations.length < 4) {
+      return false;
+    }
+
+    let alternations = 0;
+    for (let i = 1; i < iterations.length; i++) {
+      const prev = iterations[i - 1]?.improvementDelta ?? 0;
+      const curr = iterations[i]?.improvementDelta ?? 0;
+
+      // Check if signs alternate
+      if ((prev > 0 && curr < 0) || (prev < 0 && curr > 0)) {
+        alternations++;
+      }
+    }
+
+    // If most transitions are alternations, we're oscillating
+    return alternations >= iterations.length - 2;
   }
 
   /**
