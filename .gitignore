@@ -103,7 +103,7 @@ CLAUDE.md
 # Claude Code session files (not the skill code)
 .claude/research.json
 .claude/session_state.json
-.claude/debug_sessions.json
+**/.claude/debug_sessions.json
 .claude/PROGRESS.md
 .claude/feature_list.json
 .claude/generated_features.json
@@ -132,4 +132,4 @@ packages/platxa-debug-agent/.claude/
 # MCP configuration (user-specific paths)
 .mcp.json
 # Debug session state files
-.claude/debug_sessions.json
+**/.claude/debug_sessions.json
