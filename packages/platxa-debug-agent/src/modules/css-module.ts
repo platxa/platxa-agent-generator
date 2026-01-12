@@ -1886,6 +1886,1088 @@ export function parseImportant(value: string): { value: string; important: boole
 }
 
 // =============================================================================
+// CSS Cascade Layer (@layer) Analyzer
+// =============================================================================
+
+/**
+ * Represents a CSS cascade layer as defined by @layer.
+ * Layers establish a predictable ordering for the cascade, independent of specificity.
+ *
+ * @see https://www.w3.org/TR/css-cascade-5/#layering
+ */
+export interface CascadeLayer {
+  /** Unique identifier for this layer */
+  id: string;
+  /** Layer name (e.g., "base", "components", "utilities") */
+  name: string;
+  /** Full qualified name for nested layers (e.g., "framework.base") */
+  qualifiedName: string;
+  /** Parent layer name if this is a nested layer */
+  parent: string | null;
+  /** Child layer names */
+  children: string[];
+  /** Order in which this layer was declared (lower = earlier = lower priority) */
+  order: number;
+  /** Whether this is an anonymous layer (unnamed @layer block) */
+  isAnonymous: boolean;
+  /** Source locations where this layer is declared or used */
+  sources: LayerSource[];
+  /** CSS rules contained within this layer */
+  rules: LayerRule[];
+}
+
+/**
+ * Source location where a layer is declared or referenced
+ */
+export interface LayerSource {
+  /** Source file path */
+  file: string;
+  /** Line number (1-based) */
+  line: number;
+  /** Column number (1-based) */
+  column?: number;
+  /** Type of layer reference */
+  type: 'declaration' | 'block' | 'import';
+  /** Raw @layer statement or block header */
+  raw: string;
+}
+
+/**
+ * A CSS rule within a cascade layer
+ */
+export interface LayerRule {
+  /** The CSS selector */
+  selector: string;
+  /** Property being set */
+  property: string;
+  /** Value being applied */
+  value: string;
+  /** Specificity of the selector */
+  specificity: Specificity;
+  /** Whether marked !important */
+  important: boolean;
+  /** Source location */
+  location?: SourceLocation;
+  /** The layer this rule belongs to */
+  layerName: string;
+}
+
+/**
+ * Conflict between rules in different cascade layers
+ */
+export interface LayerConflict {
+  /** Unique identifier for this conflict */
+  id: string;
+  /** The CSS property being contested */
+  property: string;
+  /** The selector(s) involved in the conflict */
+  selectors: string[];
+  /** The winning rule and its layer */
+  winner: {
+    rule: LayerRule;
+    layer: CascadeLayer;
+    reason: LayerConflictReason;
+  };
+  /** The losing rule(s) and their layers */
+  losers: Array<{
+    rule: LayerRule;
+    layer: CascadeLayer;
+  }>;
+  /** Severity of the conflict */
+  severity: 'info' | 'warning' | 'error';
+  /** Human-readable explanation of the conflict */
+  explanation: string;
+  /** Suggested resolution */
+  suggestion?: string;
+}
+
+/**
+ * Reason why a rule won over another in layer cascade
+ */
+export type LayerConflictReason =
+  | 'layer-order'        // Later layer wins
+  | 'importance'         // !important in earlier layer beats normal in later layer
+  | 'unlayered'          // Unlayered styles beat all layered styles
+  | 'specificity'        // Same layer, higher specificity wins
+  | 'cascade-order';     // Same layer and specificity, later declaration wins
+
+/**
+ * Result of analyzing cascade layers in CSS content
+ */
+export interface LayerAnalysisResult {
+  /** All discovered layers in cascade order (lowest to highest priority) */
+  layers: CascadeLayer[];
+  /** Layer hierarchy as a tree structure */
+  hierarchy: LayerHierarchyNode;
+  /** Detected conflicts between layers */
+  conflicts: LayerConflict[];
+  /** Unlayered rules (implicitly highest priority) */
+  unlayeredRules: LayerRule[];
+  /** Warnings and informational messages */
+  diagnostics: LayerDiagnostic[];
+  /** Statistics about the analysis */
+  stats: LayerAnalysisStats;
+}
+
+/**
+ * Tree node representing layer hierarchy
+ */
+export interface LayerHierarchyNode {
+  /** Layer name (empty string for root) */
+  name: string;
+  /** Full qualified name */
+  qualifiedName: string;
+  /** Cascade order (lower = lower priority) */
+  order: number;
+  /** Child layers */
+  children: LayerHierarchyNode[];
+}
+
+/**
+ * Diagnostic message from layer analysis
+ */
+export interface LayerDiagnostic {
+  /** Diagnostic level */
+  level: 'info' | 'warning' | 'error';
+  /** Diagnostic code for programmatic handling */
+  code: string;
+  /** Human-readable message */
+  message: string;
+  /** Related source location */
+  location?: SourceLocation;
+  /** Related layer name */
+  layerName?: string;
+}
+
+/**
+ * Statistics from layer analysis
+ */
+export interface LayerAnalysisStats {
+  /** Total number of layers found */
+  totalLayers: number;
+  /** Number of nested layers */
+  nestedLayers: number;
+  /** Number of anonymous layers */
+  anonymousLayers: number;
+  /** Total rules across all layers */
+  totalLayeredRules: number;
+  /** Total unlayered rules */
+  totalUnlayeredRules: number;
+  /** Number of conflicts detected */
+  totalConflicts: number;
+  /** Maximum nesting depth */
+  maxNestingDepth: number;
+}
+
+/**
+ * Configuration for the cascade layer analyzer
+ */
+export interface LayerAnalyzerConfig {
+  /** Whether to analyze nested layers */
+  analyzeNestedLayers?: boolean;
+  /** Whether to detect conflicts */
+  detectConflicts?: boolean;
+  /** Whether to include rules in the analysis */
+  includeRules?: boolean;
+  /** Maximum nesting depth to analyze (default: 10) */
+  maxNestingDepth?: number;
+  /** Whether to treat warnings as errors */
+  strictMode?: boolean;
+}
+
+/**
+ * Default configuration for the layer analyzer
+ */
+const DEFAULT_LAYER_ANALYZER_CONFIG: Required<LayerAnalyzerConfig> = {
+  analyzeNestedLayers: true,
+  detectConflicts: true,
+  includeRules: true,
+  maxNestingDepth: 10,
+  strictMode: false,
+};
+
+/**
+ * Regular expressions for parsing @layer syntax
+ */
+const LAYER_PATTERNS = {
+  // @layer statement: @layer name1, name2, name3;
+  layerStatement: /@layer\s+([^{;]+);/g,
+  // @layer block: @layer name { ... }
+  layerBlock: /@layer\s+([^{]*)\{/g,
+  // Anonymous layer block: @layer { ... }
+  anonymousLayerBlock: /@layer\s*\{/g,
+  // @import with layer: @import url("...") layer(name);
+  importWithLayer: /@import\s+(?:url\s*\(\s*)?["']([^"']+)["']\s*\)?\s+layer\s*\(\s*([^)]+)\s*\)/g,
+  // Layer name validation (CSS ident)
+  validLayerName: /^[a-zA-Z_-][a-zA-Z0-9_-]*$/,
+  // Nested layer name (e.g., framework.base.reset)
+  nestedLayerName: /^[a-zA-Z_-][a-zA-Z0-9_.-]*$/,
+  // CSS rule selector and declarations
+  cssRule: /([^{]+)\{([^}]+)\}/g,
+  // CSS declaration
+  cssDeclaration: /([a-zA-Z-]+)\s*:\s*([^;]+)/g,
+} as const;
+
+/**
+ * Production-grade CSS Cascade Layer Analyzer.
+ *
+ * Analyzes CSS content for @layer declarations, maps the layer hierarchy,
+ * and detects cascade conflicts between layers.
+ *
+ * Features:
+ * - Parses @layer statements (order declarations)
+ * - Parses @layer blocks (rules within layers)
+ * - Handles nested layers (e.g., framework.base)
+ * - Detects anonymous layers
+ * - Tracks @import with layer()
+ * - Analyzes cascade conflicts
+ * - Provides detailed diagnostics
+ *
+ * @example
+ * ```typescript
+ * const analyzer = new CascadeLayerAnalyzer();
+ * const result = analyzer.analyze(cssContent, 'styles.css');
+ *
+ * // Check layer hierarchy
+ * console.log(result.layers.map(l => l.qualifiedName));
+ *
+ * // Check for conflicts
+ * for (const conflict of result.conflicts) {
+ *   console.log(`Conflict: ${conflict.explanation}`);
+ * }
+ * ```
+ */
+export class CascadeLayerAnalyzer {
+  private readonly config: Required<LayerAnalyzerConfig>;
+  private layerCounter: number = 0;
+  private anonymousCounter: number = 0;
+
+  constructor(config: LayerAnalyzerConfig = {}) {
+    this.config = { ...DEFAULT_LAYER_ANALYZER_CONFIG, ...config };
+  }
+
+  /**
+   * Analyze CSS content for cascade layers.
+   *
+   * @param content - CSS content to analyze
+   * @param file - Source file path (for diagnostics)
+   * @returns Complete layer analysis result
+   */
+  analyze(content: string, file: string = '<unknown>'): LayerAnalysisResult {
+    // Reset counters for fresh analysis
+    this.layerCounter = 0;
+    this.anonymousCounter = 0;
+
+    const layers = new Map<string, CascadeLayer>();
+    const diagnostics: LayerDiagnostic[] = [];
+    const unlayeredRules: LayerRule[] = [];
+
+    // Step 1: Parse @layer statements (order declarations)
+    this.parseLayerStatements(content, file, layers, diagnostics);
+
+    // Step 2: Parse @import with layer()
+    this.parseLayerImports(content, file, layers, diagnostics);
+
+    // Step 3: Parse @layer blocks and extract rules
+    this.parseLayerBlocks(content, file, layers, diagnostics, unlayeredRules);
+
+    // Step 4: Build layer hierarchy
+    const hierarchy = this.buildHierarchy(layers);
+
+    // Step 5: Assign final cascade order based on hierarchy
+    this.assignCascadeOrder(layers, hierarchy);
+
+    // Step 6: Detect conflicts if enabled
+    const conflicts: LayerConflict[] = [];
+    if (this.config.detectConflicts) {
+      conflicts.push(...this.detectConflicts(layers, unlayeredRules));
+    }
+
+    // Step 7: Compute statistics
+    const stats = this.computeStats(layers, unlayeredRules, conflicts);
+
+    // Sort layers by cascade order for output
+    const sortedLayers = Array.from(layers.values()).sort((a, b) => a.order - b.order);
+
+    return {
+      layers: sortedLayers,
+      hierarchy,
+      conflicts,
+      unlayeredRules,
+      diagnostics,
+      stats,
+    };
+  }
+
+  /**
+   * Analyze multiple CSS files and merge results.
+   *
+   * @param files - Array of { content, file } objects
+   * @returns Merged layer analysis result
+   */
+  analyzeMultiple(files: Array<{ content: string; file: string }>): LayerAnalysisResult {
+    const allLayers = new Map<string, CascadeLayer>();
+    const allDiagnostics: LayerDiagnostic[] = [];
+    const allUnlayeredRules: LayerRule[] = [];
+
+    for (const { content, file } of files) {
+      const result = this.analyze(content, file);
+
+      // Merge layers
+      for (const layer of result.layers) {
+        const existing = allLayers.get(layer.qualifiedName);
+        if (existing !== undefined) {
+          // Merge sources and rules
+          existing.sources.push(...layer.sources);
+          existing.rules.push(...layer.rules);
+        } else {
+          allLayers.set(layer.qualifiedName, { ...layer });
+        }
+      }
+
+      allDiagnostics.push(...result.diagnostics);
+      allUnlayeredRules.push(...result.unlayeredRules);
+    }
+
+    // Rebuild hierarchy and recompute
+    const hierarchy = this.buildHierarchy(allLayers);
+    this.assignCascadeOrder(allLayers, hierarchy);
+
+    const conflicts = this.config.detectConflicts
+      ? this.detectConflicts(allLayers, allUnlayeredRules)
+      : [];
+
+    const stats = this.computeStats(allLayers, allUnlayeredRules, conflicts);
+    const sortedLayers = Array.from(allLayers.values()).sort((a, b) => a.order - b.order);
+
+    return {
+      layers: sortedLayers,
+      hierarchy,
+      conflicts,
+      unlayeredRules: allUnlayeredRules,
+      diagnostics: allDiagnostics,
+      stats,
+    };
+  }
+
+  /**
+   * Parse @layer statement declarations (e.g., @layer base, components, utilities;)
+   */
+  private parseLayerStatements(
+    content: string,
+    file: string,
+    layers: Map<string, CascadeLayer>,
+    diagnostics: LayerDiagnostic[]
+  ): void {
+    const pattern = new RegExp(LAYER_PATTERNS.layerStatement.source, 'g');
+    let match: RegExpExecArray | null;
+
+    while ((match = pattern.exec(content)) !== null) {
+      const layerNames = match[1];
+      if (layerNames === undefined) continue;
+
+      const line = this.getLineNumber(content, match.index);
+      const column = this.getColumnNumber(content, match.index);
+
+      // Parse comma-separated layer names
+      const names = layerNames.split(',').map((n) => n.trim()).filter((n) => n.length > 0);
+
+      for (const name of names) {
+        // Validate layer name
+        if (!this.isValidLayerName(name)) {
+          diagnostics.push({
+            level: this.config.strictMode ? 'error' : 'warning',
+            code: 'INVALID_LAYER_NAME',
+            message: `Invalid layer name: "${name}". Layer names must be valid CSS identifiers.`,
+            location: { file, line, column },
+            layerName: name,
+          });
+          continue;
+        }
+
+        this.getOrCreateLayer(name, layers, {
+          file,
+          line,
+          column,
+          type: 'declaration',
+          raw: match[0],
+        });
+      }
+    }
+  }
+
+  /**
+   * Parse @import with layer() syntax
+   */
+  private parseLayerImports(
+    content: string,
+    file: string,
+    layers: Map<string, CascadeLayer>,
+    diagnostics: LayerDiagnostic[]
+  ): void {
+    const pattern = new RegExp(LAYER_PATTERNS.importWithLayer.source, 'g');
+    let match: RegExpExecArray | null;
+
+    while ((match = pattern.exec(content)) !== null) {
+      const importUrl = match[1];
+      const layerName = match[2]?.trim();
+
+      if (layerName === undefined || layerName.length === 0) continue;
+
+      const line = this.getLineNumber(content, match.index);
+      const column = this.getColumnNumber(content, match.index);
+
+      if (!this.isValidLayerName(layerName)) {
+        diagnostics.push({
+          level: this.config.strictMode ? 'error' : 'warning',
+          code: 'INVALID_LAYER_NAME',
+          message: `Invalid layer name in @import: "${layerName}"`,
+          location: { file, line, column },
+          layerName,
+        });
+        continue;
+      }
+
+      this.getOrCreateLayer(layerName, layers, {
+        file,
+        line,
+        column,
+        type: 'import',
+        raw: match[0],
+      });
+
+      diagnostics.push({
+        level: 'info',
+        code: 'LAYER_IMPORT',
+        message: `Layer "${layerName}" imports styles from "${importUrl}"`,
+        location: { file, line, column },
+        layerName: layerName,
+      });
+    }
+  }
+
+  /**
+   * Parse @layer blocks and extract CSS rules within them
+   */
+  private parseLayerBlocks(
+    content: string,
+    file: string,
+    layers: Map<string, CascadeLayer>,
+    diagnostics: LayerDiagnostic[],
+    unlayeredRules: LayerRule[]
+  ): void {
+    // Track current position and nesting
+    let pos = 0;
+    const contentLength = content.length;
+
+    while (pos < contentLength) {
+      // Look for @layer
+      const layerIndex = content.indexOf('@layer', pos);
+
+      // Extract unlayered rules before this @layer (or to end if no more @layer)
+      const unlayeredEnd = layerIndex === -1 ? contentLength : layerIndex;
+      if (this.config.includeRules && pos < unlayeredEnd) {
+        const unlayeredContent = content.slice(pos, unlayeredEnd);
+        const rules = this.extractRulesFromContent(unlayeredContent, file, null, pos);
+        unlayeredRules.push(...rules);
+      }
+
+      if (layerIndex === -1) break;
+
+      // Find the layer name and opening brace
+      const afterLayer = content.slice(layerIndex + 6); // Skip "@layer"
+      const braceIndex = afterLayer.indexOf('{');
+      const semicolonIndex = afterLayer.indexOf(';');
+
+      // Check if this is a statement (@layer name;) or block (@layer name { })
+      if (semicolonIndex !== -1 && (braceIndex === -1 || semicolonIndex < braceIndex)) {
+        // This is a @layer statement, already handled
+        pos = layerIndex + 6 + semicolonIndex + 1;
+        continue;
+      }
+
+      if (braceIndex === -1) {
+        // Malformed @layer, no opening brace
+        diagnostics.push({
+          level: 'error',
+          code: 'MALFORMED_LAYER',
+          message: 'Malformed @layer block: missing opening brace',
+          location: { file, line: this.getLineNumber(content, layerIndex) },
+        });
+        pos = layerIndex + 6;
+        continue;
+      }
+
+      // Extract layer name(s)
+      const layerNamePart = afterLayer.slice(0, braceIndex).trim();
+      const line = this.getLineNumber(content, layerIndex);
+      const column = this.getColumnNumber(content, layerIndex);
+
+      // Find matching closing brace
+      const blockStart = layerIndex + 6 + braceIndex + 1;
+      const blockEnd = this.findMatchingBrace(content, blockStart - 1);
+
+      if (blockEnd === -1) {
+        const diagnostic: LayerDiagnostic = {
+          level: 'error',
+          code: 'UNCLOSED_LAYER',
+          message: `Unclosed @layer block for "${layerNamePart || 'anonymous'}"`,
+          location: { file, line, column },
+        };
+        if (layerNamePart.length > 0) {
+          diagnostic.layerName = layerNamePart;
+        }
+        diagnostics.push(diagnostic);
+        pos = blockStart;
+        continue;
+      }
+
+      const blockContent = content.slice(blockStart, blockEnd);
+
+      // Handle anonymous layer
+      let layerName: string;
+      let isAnonymous = false;
+
+      if (layerNamePart.length === 0) {
+        this.anonymousCounter++;
+        layerName = `__anonymous_${this.anonymousCounter}__`;
+        isAnonymous = true;
+
+        diagnostics.push({
+          level: 'info',
+          code: 'ANONYMOUS_LAYER',
+          message: `Anonymous layer detected at line ${line}`,
+          location: { file, line, column },
+        });
+      } else {
+        layerName = layerNamePart;
+      }
+
+      // Validate and create layer
+      if (!isAnonymous && !this.isValidLayerName(layerName)) {
+        diagnostics.push({
+          level: this.config.strictMode ? 'error' : 'warning',
+          code: 'INVALID_LAYER_NAME',
+          message: `Invalid layer name: "${layerName}"`,
+          location: { file, line, column },
+          layerName,
+        });
+      }
+
+      const layer = this.getOrCreateLayer(layerName, layers, {
+        file,
+        line,
+        column,
+        type: 'block',
+        raw: `@layer ${layerNamePart} { ... }`,
+      });
+
+      if (isAnonymous) {
+        layer.isAnonymous = true;
+      }
+
+      // Extract rules from block content
+      if (this.config.includeRules) {
+        // Check for nested @layer blocks
+        if (blockContent.includes('@layer') && this.config.analyzeNestedLayers) {
+          // Recursively parse nested layers
+          this.parseLayerBlocks(
+            blockContent,
+            file,
+            layers,
+            diagnostics,
+            layer.rules // Nested unlayered rules go to parent layer
+          );
+        } else {
+          const rules = this.extractRulesFromContent(blockContent, file, layerName, blockStart);
+          layer.rules.push(...rules);
+        }
+      }
+
+      pos = blockEnd + 1;
+    }
+  }
+
+  /**
+   * Extract CSS rules from content
+   */
+  private extractRulesFromContent(
+    content: string,
+    file: string,
+    layerName: string | null,
+    baseOffset: number
+  ): LayerRule[] {
+    const rules: LayerRule[] = [];
+    const rulePattern = new RegExp(LAYER_PATTERNS.cssRule.source, 'g');
+    let match: RegExpExecArray | null;
+
+    while ((match = rulePattern.exec(content)) !== null) {
+      const selector = match[1]?.trim();
+      const declarations = match[2];
+
+      if (selector === undefined || declarations === undefined) continue;
+
+      // Skip @-rules
+      if (selector.startsWith('@')) continue;
+
+      const declPattern = new RegExp(LAYER_PATTERNS.cssDeclaration.source, 'g');
+      let declMatch: RegExpExecArray | null;
+
+      while ((declMatch = declPattern.exec(declarations)) !== null) {
+        const property = declMatch[1]?.trim();
+        let value = declMatch[2]?.trim();
+
+        if (property === undefined || value === undefined) continue;
+
+        // Check for !important
+        const { value: cleanValue, important } = parseImportant(value);
+        value = cleanValue;
+
+        const line = this.getLineNumber(content, match.index) +
+          this.getLineNumber(content.slice(0, baseOffset), 0) - 1;
+
+        rules.push({
+          selector,
+          property,
+          value,
+          specificity: calculateSpecificity(selector),
+          important,
+          location: { file, line },
+          layerName: layerName ?? '__unlayered__',
+        });
+      }
+    }
+
+    return rules;
+  }
+
+  /**
+   * Get or create a layer entry
+   */
+  private getOrCreateLayer(
+    name: string,
+    layers: Map<string, CascadeLayer>,
+    source: LayerSource
+  ): CascadeLayer {
+    // Handle nested layer names (e.g., "framework.base")
+    const parts = name.split('.');
+    let currentName = '';
+    let parentName: string | null = null;
+    let layer: CascadeLayer | undefined;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (part === undefined) continue;
+
+      parentName = currentName || null;
+      currentName = currentName ? `${currentName}.${part}` : part;
+
+      layer = layers.get(currentName);
+
+      if (layer === undefined) {
+        this.layerCounter++;
+        layer = {
+          id: `layer_${this.layerCounter}`,
+          name: part,
+          qualifiedName: currentName,
+          parent: parentName,
+          children: [],
+          order: this.layerCounter,
+          isAnonymous: false,
+          sources: i === parts.length - 1 ? [source] : [],
+          rules: [],
+        };
+        layers.set(currentName, layer);
+
+        // Add to parent's children
+        if (parentName !== null) {
+          const parentLayer = layers.get(parentName);
+          if (parentLayer !== undefined && !parentLayer.children.includes(part)) {
+            parentLayer.children.push(part);
+          }
+        }
+      } else if (i === parts.length - 1) {
+        // Add source to existing layer
+        layer.sources.push(source);
+      }
+    }
+
+    return layer!;
+  }
+
+  /**
+   * Build layer hierarchy tree
+   */
+  private buildHierarchy(layers: Map<string, CascadeLayer>): LayerHierarchyNode {
+    const root: LayerHierarchyNode = {
+      name: '',
+      qualifiedName: '',
+      order: -1,
+      children: [],
+    };
+
+    // Find top-level layers (no parent)
+    const topLevelLayers = Array.from(layers.values())
+      .filter((l) => l.parent === null)
+      .sort((a, b) => a.order - b.order);
+
+    for (const layer of topLevelLayers) {
+      root.children.push(this.buildHierarchyNode(layer, layers));
+    }
+
+    return root;
+  }
+
+  /**
+   * Build a hierarchy node for a layer and its children
+   */
+  private buildHierarchyNode(
+    layer: CascadeLayer,
+    layers: Map<string, CascadeLayer>
+  ): LayerHierarchyNode {
+    const node: LayerHierarchyNode = {
+      name: layer.name,
+      qualifiedName: layer.qualifiedName,
+      order: layer.order,
+      children: [],
+    };
+
+    for (const childName of layer.children) {
+      const childQualifiedName = `${layer.qualifiedName}.${childName}`;
+      const childLayer = layers.get(childQualifiedName);
+      if (childLayer !== undefined) {
+        node.children.push(this.buildHierarchyNode(childLayer, layers));
+      }
+    }
+
+    // Sort children by order
+    node.children.sort((a, b) => a.order - b.order);
+
+    return node;
+  }
+
+  /**
+   * Assign final cascade order based on declaration order and hierarchy
+   */
+  private assignCascadeOrder(
+    layers: Map<string, CascadeLayer>,
+    hierarchy: LayerHierarchyNode
+  ): void {
+    let order = 0;
+
+    const assignOrder = (node: LayerHierarchyNode): void => {
+      if (node.qualifiedName !== '') {
+        const layer = layers.get(node.qualifiedName);
+        if (layer !== undefined) {
+          layer.order = order++;
+        }
+      }
+      for (const child of node.children) {
+        assignOrder(child);
+      }
+    };
+
+    assignOrder(hierarchy);
+  }
+
+  /**
+   * Detect conflicts between rules in different layers
+   */
+  private detectConflicts(
+    layers: Map<string, CascadeLayer>,
+    unlayeredRules: LayerRule[]
+  ): LayerConflict[] {
+    const conflicts: LayerConflict[] = [];
+
+    // Collect all rules with their layer info
+    const allRules: Array<{ rule: LayerRule; layer: CascadeLayer | null }> = [];
+
+    for (const layer of layers.values()) {
+      for (const rule of layer.rules) {
+        allRules.push({ rule, layer });
+      }
+    }
+
+    for (const rule of unlayeredRules) {
+      allRules.push({ rule, layer: null });
+    }
+
+    // Group by property
+    const rulesByProperty = new Map<string, Array<{ rule: LayerRule; layer: CascadeLayer | null }>>();
+    for (const entry of allRules) {
+      const key = entry.rule.property;
+      const existing = rulesByProperty.get(key) ?? [];
+      existing.push(entry);
+      rulesByProperty.set(key, existing);
+    }
+
+    // Find conflicts for each property
+    for (const [property, propertyRules] of rulesByProperty) {
+      if (propertyRules.length < 2) continue;
+
+      // Sort by cascade priority:
+      // 1. Unlayered styles win over layered (unless layered is !important)
+      // 2. !important in earlier layer beats normal in later layer
+      // 3. Later layers win over earlier layers
+      // 4. Same layer: specificity, then source order
+
+      const sorted = [...propertyRules].sort((a, b) => {
+        const aImportant = a.rule.important;
+        const bImportant = b.rule.important;
+        const aLayered = a.layer !== null;
+        const bLayered = b.layer !== null;
+        const aOrder = a.layer?.order ?? Number.MAX_SAFE_INTEGER;
+        const bOrder = b.layer?.order ?? Number.MAX_SAFE_INTEGER;
+
+        // !important handling across layers
+        if (aImportant !== bImportant) {
+          if (aLayered && bLayered) {
+            // !important in earlier layer beats normal in later layer
+            if (aImportant && aOrder < bOrder) return 1;
+            if (bImportant && bOrder < aOrder) return -1;
+          }
+          // Otherwise, !important wins
+          return aImportant ? 1 : -1;
+        }
+
+        // Unlayered beats layered (for normal declarations)
+        if (aLayered !== bLayered) {
+          return aLayered ? -1 : 1;
+        }
+
+        // Both layered: later layer wins
+        if (aLayered && bLayered && aOrder !== bOrder) {
+          return aOrder - bOrder;
+        }
+
+        // Same layer or both unlayered: compare specificity
+        const specCompare = compareSpecificity(a.rule.specificity, b.rule.specificity);
+        if (specCompare !== 0) return specCompare;
+
+        // Same specificity: cascade order (later wins)
+        return 0;
+      });
+
+      const winnerEntry = sorted[sorted.length - 1];
+      if (winnerEntry === undefined) continue;
+
+      const losers = sorted.slice(0, -1);
+      if (losers.length === 0) continue;
+
+      // Determine conflict reason
+      let reason: LayerConflictReason = 'layer-order';
+      const firstLoser = losers[0];
+
+      if (firstLoser !== undefined) {
+        if (winnerEntry.layer === null && firstLoser.layer !== null) {
+          reason = 'unlayered';
+        } else if (winnerEntry.rule.important && !firstLoser.rule.important) {
+          reason = 'importance';
+        } else if (winnerEntry.layer === firstLoser.layer) {
+          if (compareSpecificity(winnerEntry.rule.specificity, firstLoser.rule.specificity) !== 0) {
+            reason = 'specificity';
+          } else {
+            reason = 'cascade-order';
+          }
+        }
+      }
+
+      // Generate explanation
+      const winnerLayerName = winnerEntry.layer?.qualifiedName ?? 'unlayered styles';
+      const loserLayerNames = [...new Set(losers.map((l) => l.layer?.qualifiedName ?? 'unlayered'))];
+
+      let explanation = `Property "${property}" conflict: `;
+      switch (reason) {
+        case 'unlayered':
+          explanation += `Unlayered styles override layered styles (${loserLayerNames.join(', ')})`;
+          break;
+        case 'importance':
+          explanation += `!important in "${winnerLayerName}" overrides normal declarations`;
+          break;
+        case 'layer-order':
+          explanation += `Layer "${winnerLayerName}" (later) overrides earlier layers (${loserLayerNames.join(', ')})`;
+          break;
+        case 'specificity':
+          explanation += `Higher specificity selector wins within same layer`;
+          break;
+        case 'cascade-order':
+          explanation += `Later declaration wins (same layer and specificity)`;
+          break;
+      }
+
+      const selectors = [...new Set([
+        winnerEntry.rule.selector,
+        ...losers.map((l) => l.rule.selector),
+      ])];
+
+      // Determine severity
+      let severity: 'info' | 'warning' | 'error' = 'info';
+      if (reason === 'importance') {
+        severity = 'warning'; // !important across layers can be confusing
+      }
+      if (losers.some((l) => l.rule.important)) {
+        severity = 'warning'; // Overriding !important is usually intentional but noteworthy
+      }
+
+      const conflict: LayerConflict = {
+        id: `conflict_${conflicts.length + 1}`,
+        property,
+        selectors,
+        winner: {
+          rule: winnerEntry.rule,
+          layer: winnerEntry.layer!,
+          reason,
+        },
+        losers: losers.map((l) => ({
+          rule: l.rule,
+          layer: l.layer!,
+        })),
+        severity,
+        explanation,
+      };
+
+      const suggestion = this.generateConflictSuggestion(reason, winnerEntry, losers);
+      if (suggestion !== undefined) {
+        conflict.suggestion = suggestion;
+      }
+
+      conflicts.push(conflict);
+    }
+
+    return conflicts;
+  }
+
+  /**
+   * Generate a suggestion for resolving a conflict
+   */
+  private generateConflictSuggestion(
+    reason: LayerConflictReason,
+    winner: { rule: LayerRule; layer: CascadeLayer | null },
+    losers: Array<{ rule: LayerRule; layer: CascadeLayer | null }>
+  ): string | undefined {
+    switch (reason) {
+      case 'unlayered':
+        return 'Consider moving unlayered styles into an appropriate layer for better cascade control.';
+      case 'importance':
+        return 'Avoid using !important across layers when possible. Consider restructuring layer order instead.';
+      case 'layer-order':
+        if (losers.some((l) => l.rule.value !== winner.rule.value)) {
+          return 'If the overridden value is needed, consider adjusting layer order or using a more specific selector.';
+        }
+        return undefined;
+      default:
+        return undefined;
+    }
+  }
+
+  /**
+   * Compute analysis statistics
+   */
+  private computeStats(
+    layers: Map<string, CascadeLayer>,
+    unlayeredRules: LayerRule[],
+    conflicts: LayerConflict[]
+  ): LayerAnalysisStats {
+    let nestedLayers = 0;
+    let anonymousLayers = 0;
+    let totalLayeredRules = 0;
+    let maxDepth = 0;
+
+    for (const layer of layers.values()) {
+      if (layer.parent !== null) nestedLayers++;
+      if (layer.isAnonymous) anonymousLayers++;
+      totalLayeredRules += layer.rules.length;
+
+      const depth = layer.qualifiedName.split('.').length;
+      if (depth > maxDepth) maxDepth = depth;
+    }
+
+    return {
+      totalLayers: layers.size,
+      nestedLayers,
+      anonymousLayers,
+      totalLayeredRules,
+      totalUnlayeredRules: unlayeredRules.length,
+      totalConflicts: conflicts.length,
+      maxNestingDepth: maxDepth,
+    };
+  }
+
+  /**
+   * Validate a layer name
+   */
+  private isValidLayerName(name: string): boolean {
+    // Check for nested names
+    if (name.includes('.')) {
+      return LAYER_PATTERNS.nestedLayerName.test(name);
+    }
+    return LAYER_PATTERNS.validLayerName.test(name);
+  }
+
+  /**
+   * Find matching closing brace
+   */
+  private findMatchingBrace(content: string, openIndex: number): number {
+    let depth = 0;
+    for (let i = openIndex; i < content.length; i++) {
+      const char = content[i];
+      if (char === '{') depth++;
+      else if (char === '}') {
+        depth--;
+        if (depth === 0) return i;
+      }
+    }
+    return -1;
+  }
+
+  /**
+   * Get line number for a position in content
+   */
+  private getLineNumber(content: string, index: number): number {
+    return content.slice(0, index).split('\n').length;
+  }
+
+  /**
+   * Get column number for a position in content
+   */
+  private getColumnNumber(content: string, index: number): number {
+    const lastNewline = content.lastIndexOf('\n', index - 1);
+    return index - lastNewline;
+  }
+}
+
+/**
+ * Create a cascade layer analyzer with default configuration
+ */
+export function createCascadeLayerAnalyzer(
+  config?: LayerAnalyzerConfig
+): CascadeLayerAnalyzer {
+  return new CascadeLayerAnalyzer(config);
+}
+
+/**
+ * Quick function to analyze CSS content for layer conflicts
+ */
+export function analyzeLayerConflicts(
+  content: string,
+  file?: string
+): LayerConflict[] {
+  const analyzer = new CascadeLayerAnalyzer({ detectConflicts: true });
+  return analyzer.analyze(content, file).conflicts;
+}
+
+/**
+ * Quick function to map layer hierarchy from CSS content
+ */
+export function mapLayerHierarchy(
+  content: string,
+  file?: string
+): LayerHierarchyNode {
+  const analyzer = new CascadeLayerAnalyzer({ detectConflicts: false });
+  return analyzer.analyze(content, file).hierarchy;
+}
+
+// =============================================================================
 // CSS Language Module
 // =============================================================================
 

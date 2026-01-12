@@ -423,4 +423,33 @@ export {
   createCSSModule,
   createSCSSModule,
   createTailwindModule,
+  // Cascade Layer Analyzer
+  CascadeLayerAnalyzer,
+  createCascadeLayerAnalyzer,
+  analyzeLayerConflicts,
+  mapLayerHierarchy,
+  // Specificity utilities
+  calculateSpecificity,
+  compareSpecificity,
+  specificityToString,
+  specificityToNumber,
+  detectSpecificityConflicts,
+  parseImportant,
+} from './modules/css-module.js';
+export type {
+  // Cascade Layer types
+  CascadeLayer,
+  LayerSource,
+  LayerRule,
+  LayerConflict,
+  LayerConflictReason,
+  LayerAnalysisResult,
+  LayerHierarchyNode,
+  LayerDiagnostic,
+  LayerAnalysisStats,
+  LayerAnalyzerConfig,
+  // Specificity types
+  Specificity,
+  CSSRule,
+  SpecificityConflict,
 } from './modules/css-module.js';
