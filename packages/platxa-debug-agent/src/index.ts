@@ -258,6 +258,20 @@ export type {
   LogPipeConfig,
 } from './core/log-pipe.js';
 
+// Debug Loop
+export { DebugLoop, createDebugLoop } from './core/debug-loop.js';
+export type {
+  DebugLoopState,
+  UserAction,
+  LoggingInjection,
+  DebugIteration,
+  UserActionRecord,
+  GatheredContext,
+  DebugLoopHandlers,
+  DebugLoopResult,
+  DebugLoopConfig,
+} from './core/debug-loop.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
