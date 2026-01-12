@@ -225,6 +225,27 @@ export type {
   ClaudeMdTemplateConfig,
 } from './core/claude-md-template.js';
 
+// Subagent Spawner
+export {
+  SubagentSpawner,
+  createSubagentSpawner,
+  MockSubagentExecutor,
+  createMockExecutor,
+} from './core/subagent-spawner.js';
+export type {
+  SubagentType,
+  SubagentStatus,
+  SubagentPriority,
+  SubagentDefinition,
+  SubagentTask,
+  SubagentResult,
+  SubagentFinding,
+  VerificationPlan,
+  VerificationResult,
+  SubagentSpawnerConfig,
+  SubagentExecutor,
+} from './core/subagent-spawner.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
