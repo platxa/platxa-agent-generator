@@ -750,6 +750,57 @@ export type {
   FilterStats,
 } from './core/false-positive-filter.js';
 
+// EPR Selector (Features #42-47: Ensemble Pass Rate Fix Selection)
+export {
+  EPRSelector,
+  createEPRSelector,
+  calculateFixEPR,
+  selectBestFix,
+} from './core/epr-selector.js';
+export type {
+  // Fix Candidate types (Feature #42)
+  FixCandidate as EPRFixCandidate,
+  CodeChange as EPRCodeChange,
+  ChangeType,
+  TestResult as EPRTestResult,
+  TestCategory,
+  Assertion,
+  AssertionType as EPRAssertionType,
+  FixMetadata,
+  FixSource,
+  // Test Ensemble types (Feature #44)
+  TestEnsembleConfig,
+  CategoryDistribution,
+  TestFramework as EPRTestFramework,
+  TestEnsemble,
+  GeneratedTest,
+  TestInput as EPRTestInput,
+  InputSource,
+  ExpectedOutput,
+  SideEffect,
+  StateChange,
+  GenerationMethod,
+  CoverageInfo,
+  BranchInfo,
+  EnsembleStats,
+  // EPR Calculation types (Feature #45)
+  EPRResult,
+  ConfidenceInterval,
+  CategoryEPR,
+  // Fix Selection types (Feature #46)
+  FixSelectionConfig,
+  FixSelectionResult,
+  RankedFixCandidate,
+  SelectionStats,
+  SelectionReason,
+  SelectionCriterion,
+  // Config types (Feature #43)
+  EPRSelectorConfig,
+  TestExecutor,
+  TestGenerator,
+  BugContext,
+} from './core/epr-selector.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
