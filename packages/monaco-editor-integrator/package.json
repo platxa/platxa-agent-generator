@@ -1,0 +1,57 @@
+{
+  "name": "@platxa/monaco-editor-integrator",
+  "version": "1.0.0",
+  "description": "Production-grade Claude Code agent for Monaco Editor + y-monaco + Yjs real-time collaborative editing integration",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "claude-code",
+    "agent",
+    "monaco-editor",
+    "yjs",
+    "y-monaco",
+    "collaborative-editing",
+    "real-time",
+    "crdt",
+    "react",
+    "next.js",
+    "vite"
+  ],
+  "author": "Platxa",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/platxa/platxa-agent-generator"
+  },
+  "dependencies": {
+    "glob": "^11.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0",
+    "eslint": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist",
+    ".claude",
+    "docs",
+    "README.md"
+  ]
+}
