@@ -565,6 +565,36 @@ export type {
   RankingContext,
 } from './core/fix-ranker.js';
 
+// CFG Extractor (Features #7-12: CFG Debugger)
+export {
+  CFGExtractor,
+  CFGVisualizer,
+  createCFGExtractor,
+  createCFGVisualizer,
+  cfgExtractor,
+  cfgVisualizer,
+} from './core/cfg-extractor.js';
+export type {
+  // Basic Block types (Feature #7)
+  BasicBlock,
+  BasicBlockType,
+  BasicBlockStatement,
+  BasicBlockStatementType,
+  // Execution Trace types (Feature #9)
+  ExecutionTrace,
+  VariableSnapshot,
+  TraceError,
+  // Variable State Diff (Feature #12)
+  VariableStateDiff,
+  // CFG Node/Edge types
+  CFGNode,
+  CFGNodeType,
+  CFGEdge,
+  CFGEdgeType,
+  ControlFlowGraph,
+  CFGExtractorOptions,
+} from './core/cfg-extractor.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {

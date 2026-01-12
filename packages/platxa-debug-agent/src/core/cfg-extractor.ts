@@ -12,7 +12,156 @@ import JavaScript from 'tree-sitter-javascript';
 import TypeScript from 'tree-sitter-typescript';
 
 // =============================================================================
-// Types
+// Types - Basic Block (Feature #7-12)
+// =============================================================================
+
+/**
+ * Basic Block in a Control Flow Graph
+ *
+ * Feature #7: Represents a sequence of statements with single entry/exit.
+ * Used for fine-grained debugging and variable state tracking.
+ */
+export interface BasicBlock {
+  /** Unique identifier for this block */
+  id: string;
+  /** Statements in this block (in execution order) */
+  statements: BasicBlockStatement[];
+  /** Variables and their values at block entry */
+  entryVariables: Map<string, unknown>;
+  /** Variables and their values at block exit */
+  exitVariables: Map<string, unknown>;
+  /** Block type (entry, exit, branch, loop, etc.) */
+  type: BasicBlockType;
+  /** Start line number in source code (1-based) */
+  startLine: number;
+  /** End line number in source code (1-based) */
+  endLine: number;
+  /** Predecessor block IDs */
+  predecessors: string[];
+  /** Successor block IDs */
+  successors: string[];
+  /** Condition for conditional blocks (if any) */
+  condition?: string;
+}
+
+/**
+ * Types of basic blocks
+ */
+export type BasicBlockType =
+  | 'entry'       // Function/method entry point
+  | 'exit'        // Function/method exit point
+  | 'sequential'  // Sequential statements
+  | 'branch'      // Conditional branch (if/switch)
+  | 'loop_header' // Loop condition check
+  | 'loop_body'   // Loop body
+  | 'loop_exit'   // Loop exit
+  | 'try'         // Try block start
+  | 'catch'       // Catch block
+  | 'finally'     // Finally block
+  | 'throw';      // Exception throw
+
+/**
+ * Statement in a basic block
+ */
+export interface BasicBlockStatement {
+  /** Line number in source code (1-based) */
+  line: number;
+  /** Column number (1-based) */
+  column: number;
+  /** Original source code */
+  code: string;
+  /** Statement type */
+  type: BasicBlockStatementType;
+  /** Variables read by this statement */
+  reads: string[];
+  /** Variables written by this statement */
+  writes: string[];
+  /** Function calls made by this statement */
+  calls: string[];
+}
+
+/**
+ * Types of statements in basic blocks
+ */
+export type BasicBlockStatementType =
+  | 'assignment'
+  | 'declaration'
+  | 'expression'
+  | 'return'
+  | 'break'
+  | 'continue'
+  | 'throw'
+  | 'call'
+  | 'import'
+  | 'export'
+  | 'other';
+
+/**
+ * Execution trace through basic blocks
+ *
+ * Feature #9: Tracks block execution order and variable snapshots
+ */
+export interface ExecutionTrace {
+  /** Sequence of executed block IDs */
+  blockSequence: string[];
+  /** Variable snapshots at each step */
+  variableSnapshots: VariableSnapshot[];
+  /** Total execution time in milliseconds */
+  executionTime: number;
+  /** Whether execution completed successfully */
+  completed: boolean;
+  /** Error if execution failed */
+  error?: TraceError;
+}
+
+/**
+ * Variable snapshot at a point in execution
+ */
+export interface VariableSnapshot {
+  /** Block ID where snapshot was taken */
+  blockId: string;
+  /** Statement index within block (0-based) */
+  statementIndex: number;
+  /** Variable values at this point */
+  variables: Map<string, unknown>;
+  /** Timestamp of snapshot */
+  timestamp: number;
+}
+
+/**
+ * Error encountered during tracing
+ */
+export interface TraceError {
+  /** Error message */
+  message: string;
+  /** Error type */
+  type: string;
+  /** Block where error occurred */
+  blockId: string;
+  /** Statement index where error occurred */
+  statementIndex: number;
+  /** Stack trace */
+  stackTrace?: string;
+}
+
+/**
+ * Variable state diff between entry and exit
+ *
+ * Feature #12: Shows variable changes within a block
+ */
+export interface VariableStateDiff {
+  /** Block ID */
+  blockId: string;
+  /** Variables that were added */
+  added: Map<string, unknown>;
+  /** Variables that were modified */
+  modified: Map<string, { before: unknown; after: unknown }>;
+  /** Variables that were removed */
+  removed: Map<string, unknown>;
+}
+
+// =============================================================================
+// Types - CFG Nodes and Edges
 // =============================================================================
 
 /**
