@@ -1176,7 +1176,7 @@ export class CFGExtractor {
     this.addEdge(prevId, returnId, 'sequential');
 
     // Find or create exit node and connect
-    let exitNode = Array.from(this.nodes.values()).find((n) => n.type === 'exit');
+    const exitNode = Array.from(this.nodes.values()).find((n) => n.type === 'exit');
     if (!exitNode) {
       const exitId = this.createNode('exit', 'Exit', 'EXIT');
       this.addEdge(returnId, exitId, 'return');

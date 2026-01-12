@@ -383,7 +383,7 @@ export class SemanticValidator {
     switch (language) {
       case 'python':
         // Check for type hints: var: Type = value
-        const pythonTypeHints = code.matchAll(/(\w+):\s*([\w\[\],\s|]+)\s*=/g);
+        const pythonTypeHints = code.matchAll(/(\w+):\s*([\w[],\s|]+)\s*=/g);
         for (const match of pythonTypeHints) {
           if (match[1] !== undefined && match[2] !== undefined) {
             checks.push({
@@ -410,7 +410,7 @@ export class SemanticValidator {
       case 'typescript':
       case 'javascript':
         // Check for TypeScript type annotations
-        const tsAnnotations = code.matchAll(/(\w+):\s*([\w<>\[\],\s|&]+)\s*[=;)]/g);
+        const tsAnnotations = code.matchAll(/(\w+):\s*([\w<>[],\s|&]+)\s*[=;)]/g);
         for (const match of tsAnnotations) {
           if (match[1] !== undefined && match[2] !== undefined) {
             checks.push({

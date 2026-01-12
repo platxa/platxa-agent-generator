@@ -564,6 +564,7 @@ export class Orchestrator {
    */
   private log(message: string): void {
     if (this.config.verbose) {
+      // eslint-disable-next-line no-console
       console.log(`[Orchestrator] ${message}`);
     }
   }

@@ -3364,7 +3364,7 @@ export class PythonModule implements LanguageModule {
 
   async validateFix(fix: FixSuggestion): Promise<ValidationResult> {
     const results: ValidationResult['steps'] = [];
-    let allPassed = true;
+    const allPassed = true;
 
     for (const step of fix.validationSteps) {
       // In production, this would actually run the commands

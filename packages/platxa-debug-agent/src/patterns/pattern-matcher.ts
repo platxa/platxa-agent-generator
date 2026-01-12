@@ -233,7 +233,7 @@ export class PatternMatcher {
     let confidence = 1.0;
     let typeMatches = true;
     let propertiesMatch = true;
-    let contextMatches = true;
+    const contextMatches = true;
 
     // Check node type
     if (astPattern.type) {

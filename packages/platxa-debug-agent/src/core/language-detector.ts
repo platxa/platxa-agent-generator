@@ -86,7 +86,7 @@ const CONTENT_PATTERNS: readonly ContentPattern[] = [
   { pattern: /^#!.*\bpython\b/m, language: 'python', weight: 1.0 },
   { pattern: /^from\s+\w+\s+import\s+/m, language: 'python', weight: 0.9 },
   { pattern: /^import\s+\w+\s*$/m, language: 'python', weight: 0.7 },
-  { pattern: /\bdef\s+\w+\s*\([^)]*\)\s*(?:->\s*[\w\[\],\s]+)?\s*:/m, language: 'python', weight: 0.9 },
+  { pattern: /\bdef\s+\w+\s*\([^)]*\)\s*(?:->\s*[\w[],\s]+)?\s*:/m, language: 'python', weight: 0.9 },
   { pattern: /\bclass\s+\w+(?:\s*\([^)]*\))?\s*:/m, language: 'python', weight: 0.8 },
   { pattern: /if\s+__name__\s*==\s*["']__main__["']\s*:/m, language: 'python', weight: 1.0 },
   { pattern: /^\s*@\w+(?:\.\w+)*(?:\([^)]*\))?\s*$/m, language: 'python', weight: 0.6 },

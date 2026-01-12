@@ -845,7 +845,7 @@ export interface RankingContext {
 function tokenize(code: string): string[] {
   // Split on whitespace and punctuation, keeping meaningful tokens
   return code
-    .split(/(\s+|[{}()\[\];,.<>:=+\-*/%&|^!?@#$~`'"\\])/g)
+    .split(/(\s+|[{}()[\];,.<>:=+\-*/%&|^!?@#$~`'"\\])/g)
     .filter((t) => t.trim().length > 0);
 }
 

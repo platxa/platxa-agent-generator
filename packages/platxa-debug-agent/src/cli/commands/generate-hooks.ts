@@ -7,7 +7,7 @@
  * @module generate-hooks
  */
 
-import { existsSync, mkdirSync, writeFileSync, chmodSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync, chmodSync, unlinkSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 // =============================================================================
@@ -167,10 +167,10 @@ if command -v platxa-debug &> /dev/null; then
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   echo "💡 For more detailed analysis, run:"
-  echo "   platxa-debug rca \"$CLAUDE_ERROR_MESSAGE\""
+  echo '   platxa-debug rca "$CLAUDE_ERROR_MESSAGE"'
   echo ""
   echo "🔧 For fix suggestions, run:"
-  echo "   platxa-debug suggest \"$CLAUDE_ERROR_MESSAGE\""
+  echo '   platxa-debug suggest "$CLAUDE_ERROR_MESSAGE"'
 else
   echo "⚠️  platxa-debug not found in PATH"
   echo "   Install with: npm install -g platxa-debug-agent"
@@ -397,7 +397,6 @@ export function checkHooksInstalled(targetDir?: string): {
  */
 export function removeHooks(targetDir?: string): void {
   const hooksDir = targetDir ?? join(process.cwd(), '.claude', 'hooks');
-  const { unlinkSync } = require('fs');
 
   const hookFiles = [
     'pre-commit.sh',

@@ -2534,13 +2534,13 @@ export function calculateSpecificity(selector: string, isInline = false): Specif
     .replace(/\.[\w-]+/g, '')
     .replace(/\[[^\]]+\]/g, '')
     .replace(/::?[\w-]+(?:\([^)]*\))?/g, '')
-    .replace(/[>\+~\s]+/g, ' ')
+    .replace(/[>+~\s]+/g, ' ')
     .trim();
 
   const elementMatches = cleanedSelector.match(/[\w-]+/g);
   if (elementMatches !== null) {
     // Filter out combinators and empty strings
-    const elements = elementMatches.filter((e) => e !== '' && !/^[>\+~]$/.test(e));
+    const elements = elementMatches.filter((e) => e !== '' && !/^[>+~]$/.test(e));
     specificity.elements += elements.length;
   }
 

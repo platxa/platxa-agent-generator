@@ -863,7 +863,7 @@ export class FixValidator {
    * Apply fix changes to original code.
    */
   private applyFix(originalCode: string, changes: CodeChange[]): string {
-    let code = originalCode;
+    const code = originalCode;
     const lines = code.split('\n');
 
     // Sort changes by line number in reverse order to apply from bottom to top
