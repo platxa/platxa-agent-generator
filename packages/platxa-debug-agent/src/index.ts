@@ -343,6 +343,26 @@ export type {
   IncrementalAnalyzerConfig,
 } from './core/incremental-analyzer.js';
 
+// CI/CD Integration
+export {
+  CICDIntegration,
+  createCICDIntegration,
+  detectCICDEnvironment,
+} from './core/cicd-integration.js';
+export type {
+  CICDPlatform,
+  ReportFormat,
+  CICDSeverity,
+  CICDEnvironment,
+  SARIFResult,
+  SARIFReport,
+  JUnitTestCase,
+  JUnitTestSuite,
+  DebugReport,
+  PRComment,
+  CICDIntegrationConfig,
+} from './core/cicd-integration.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
