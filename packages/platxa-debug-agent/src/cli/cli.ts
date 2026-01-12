@@ -172,5 +172,17 @@ program
     await patternsCommand(options);
   });
 
+program
+  .command('generate-hooks')
+  .description('Generate Claude Code hooks for debug agent integration')
+  .option('-f, --force', 'Overwrite existing hooks')
+  .option('-t, --target <path>', 'Target directory for hooks (default: .claude/hooks/)')
+  .option('--hooks <types...>', 'Hooks to generate (pre-commit, post-error, pre-tool-use, post-tool-use)')
+  .option('-v, --verbose', 'Verbose output')
+  .action(async (options: Record<string, unknown>) => {
+    const { generateHooksCommand } = await import('./commands/generate-hooks.js');
+    await generateHooksCommand(options);
+  });
+
 // Parse and execute
 program.parse();
