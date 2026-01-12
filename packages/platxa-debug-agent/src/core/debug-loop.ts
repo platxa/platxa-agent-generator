@@ -207,6 +207,33 @@ export interface SelfDebugConfig {
   earlyTerminationThreshold: number;
 }
 
+/**
+ * Self-debugging iteration result
+ *
+ * Tracks the progress and measurements for a single iteration
+ * of the self-debugging loop.
+ */
+export interface SelfDebugIteration {
+  /** Iteration number (1-based) */
+  iteration: number;
+  /** Hypothesis being tested in this iteration */
+  hypothesis: string;
+  /** Fix attempt code or description */
+  fixAttempt: string;
+  /** Improvement delta from previous iteration (0-1 range, negative if regression) */
+  improvementDelta: number;
+  /** Explanation generated (if enableExplanation is true) */
+  explanation?: string;
+  /** Whether this iteration's fix was successful */
+  success: boolean;
+  /** Error message if fix failed */
+  errorMessage?: string;
+  /** Duration of this iteration in milliseconds */
+  durationMs: number;
+  /** Timestamp when iteration started */
+  timestamp: Date;
+}
+
 // =============================================================================
 // Logging Injection Templates
 // =============================================================================
