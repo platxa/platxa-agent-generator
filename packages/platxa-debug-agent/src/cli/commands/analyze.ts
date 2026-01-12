@@ -5,7 +5,9 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { LanguageDetector } from '../../core/language-detector.js';
 import { createErrorParser } from '../../core/error-parser.js';
+import { getSharedConfigLoader } from '../config-loader.js';
 import type { Language } from '../../core/types.js';
+import type { CLIFlags } from '../config-loader.js';
 
 export interface AnalyzeOptions {
   language?: string;
@@ -20,6 +22,19 @@ export async function analyzeCommand(
   options: Record<string, unknown>
 ): Promise<void> {
   const opts = options as AnalyzeOptions;
+
+  // Load config with CLI flags merged
+  const configLoader = getSharedConfigLoader();
+  const cliFlags: CLIFlags = {};
+  if (opts.language) cliFlags.language = opts.language;
+  if (opts.output) cliFlags.output = opts.output;
+  if (opts.verbose !== undefined) cliFlags.verbose = opts.verbose;
+  if (opts.color !== undefined) cliFlags.color = opts.color;
+  const config = configLoader.load(cliFlags);
+
+  // Use config values as defaults when CLI flags not provided
+  const outputFormat = opts.output ?? config.output.format;
+  const verbose = opts.verbose ?? config.output.verbose;
 
   let errorText: string;
 
@@ -52,8 +67,8 @@ export async function analyzeCommand(
   const parser = createErrorParser();
   const errors = parser.parse(errorText, { language: detection.language });
 
-  // Output results
-  const output = opts.output ?? 'text';
+  // Output results - use CLI flag, then config, then default
+  const output = outputFormat;
 
   if (errors.length === 0) {
     console.log('No errors detected in the input.');
@@ -89,7 +104,7 @@ export async function analyzeCommand(
     if (normalized.location) {
       console.log(`Location: ${normalized.location.file}:${normalized.location.line}`);
     }
-    if (opts.verbose && normalized.stackTrace && normalized.stackTrace.length > 0) {
+    if (verbose && normalized.stackTrace && normalized.stackTrace.length > 0) {
       console.log(`\nStack Trace:`);
       for (const frame of normalized.stackTrace) {
         console.log(`  ${frame.functionName ?? '<anonymous>'} at ${frame.location.file}:${frame.location.line}`);
