@@ -1,0 +1,271 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://platxa.com/schemas/debug-pattern.json",
+  "title": "Bug Detection Pattern",
+  "description": "Schema for defining bug detection rules in the Platxa Debug Agent",
+  "type": "object",
+  "required": ["id", "language", "message", "severity"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the pattern",
+      "pattern": "^[a-z][a-z0-9-]*[a-z0-9]$",
+      "minLength": 3,
+      "maxLength": 64,
+      "examples": ["null-pointer-access", "undefined-variable", "type-mismatch"]
+    },
+    "language": {
+      "type": "string",
+      "description": "Programming language this pattern applies to",
+      "enum": ["python", "javascript", "typescript", "css", "html", "go", "rust", "java", "any"],
+      "examples": ["javascript", "python"]
+    },
+    "ast_pattern": {
+      "type": "object",
+      "description": "AST pattern matching specification",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "AST node type to match",
+          "examples": ["MemberExpression", "CallExpression", "Identifier"]
+        },
+        "selector": {
+          "type": "string",
+          "description": "CSS-like selector for AST nodes",
+          "examples": ["MemberExpression[object.name='undefined']", "CallExpression > Identifier"]
+        },
+        "properties": {
+          "type": "object",
+          "description": "Properties the AST node must have",
+          "additionalProperties": true
+        },
+        "context": {
+          "type": "object",
+          "description": "Required context around the matched node",
+          "properties": {
+            "parent_type": {
+              "type": "string",
+              "description": "Required parent node type"
+            },
+            "in_function": {
+              "type": "boolean",
+              "description": "Must be inside a function"
+            },
+            "in_loop": {
+              "type": "boolean",
+              "description": "Must be inside a loop"
+            },
+            "in_try_block": {
+              "type": "boolean",
+              "description": "Must be inside a try block"
+            }
+          }
+        }
+      }
+    },
+    "message": {
+      "type": "string",
+      "description": "Human-readable description of the bug",
+      "minLength": 10,
+      "maxLength": 500,
+      "examples": ["Accessing property of potentially null or undefined value"]
+    },
+    "fix_template": {
+      "type": "object",
+      "description": "Template for generating fix suggestions",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Type of fix to apply",
+          "enum": ["replace", "insert_before", "insert_after", "wrap", "delete", "refactor"]
+        },
+        "template": {
+          "type": "string",
+          "description": "Code template with placeholders (use {{variable}} syntax)",
+          "examples": ["{{expr}}?.{{property}}", "if ({{expr}} != null) { {{original}} }"]
+        },
+        "placeholders": {
+          "type": "object",
+          "description": "Description of template placeholders",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "description": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string",
+                "enum": ["matched_node", "parent", "context", "user_input"]
+              }
+            }
+          }
+        },
+        "imports": {
+          "type": "array",
+          "description": "Imports required for the fix",
+          "items": {
+            "type": "string"
+          }
+        },
+        "confidence": {
+          "type": "number",
+          "description": "Confidence score for this fix (0-1)",
+          "minimum": 0,
+          "maximum": 1,
+          "default": 0.8
+        }
+      }
+    },
+    "severity": {
+      "type": "string",
+      "description": "Severity level of the bug",
+      "enum": ["error", "warning", "info", "hint"],
+      "examples": ["error", "warning"]
+    },
+    "category": {
+      "type": "string",
+      "description": "Category of the bug pattern",
+      "enum": [
+        "null-safety",
+        "type-safety",
+        "error-handling",
+        "resource-management",
+        "security",
+        "performance",
+        "style",
+        "logic",
+        "async",
+        "memory"
+      ],
+      "examples": ["null-safety", "type-safety"]
+    },
+    "tags": {
+      "type": "array",
+      "description": "Tags for filtering and searching patterns",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 32
+      },
+      "uniqueItems": true,
+      "examples": [["null", "undefined", "optional-chaining"]]
+    },
+    "related_patterns": {
+      "type": "array",
+      "description": "IDs of related patterns",
+      "items": {
+        "type": "string"
+      }
+    },
+    "documentation": {
+      "type": "object",
+      "description": "Extended documentation for the pattern",
+      "properties": {
+        "description": {
+          "type": "string",
+          "description": "Detailed explanation of the bug"
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Why this pattern is important"
+        },
+        "examples": {
+          "type": "array",
+          "description": "Example code snippets",
+          "items": {
+            "type": "object",
+            "properties": {
+              "bad": {
+                "type": "string",
+                "description": "Code that triggers the pattern"
+              },
+              "good": {
+                "type": "string",
+                "description": "Corrected code"
+              },
+              "explanation": {
+                "type": "string",
+                "description": "Why the good version is better"
+              }
+            },
+            "required": ["bad", "good"]
+          }
+        },
+        "references": {
+          "type": "array",
+          "description": "External references (URLs, documentation)",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        }
+      }
+    },
+    "conditions": {
+      "type": "object",
+      "description": "Conditions for when this pattern applies",
+      "properties": {
+        "min_language_version": {
+          "type": "string",
+          "description": "Minimum language version required"
+        },
+        "frameworks": {
+          "type": "array",
+          "description": "Frameworks this pattern applies to",
+          "items": {
+            "type": "string"
+          }
+        },
+        "file_patterns": {
+          "type": "array",
+          "description": "File glob patterns to match",
+          "items": {
+            "type": "string"
+          }
+        },
+        "exclude_patterns": {
+          "type": "array",
+          "description": "File glob patterns to exclude",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Pattern metadata",
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Pattern version",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$"
+        },
+        "author": {
+          "type": "string",
+          "description": "Pattern author"
+        },
+        "created": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Creation timestamp"
+        },
+        "updated": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last update timestamp"
+        },
+        "deprecated": {
+          "type": "boolean",
+          "description": "Whether this pattern is deprecated",
+          "default": false
+        },
+        "replaced_by": {
+          "type": "string",
+          "description": "ID of pattern that replaces this one (if deprecated)"
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}
