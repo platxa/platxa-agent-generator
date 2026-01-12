@@ -289,6 +289,17 @@ export type {
   MCPBrowserIntegrationConfig,
 } from './core/mcp-browser-integration.js';
 
+// Context Manager
+export { ContextManager, createContextManager } from './core/context-manager.js';
+export type {
+  ContextItemType,
+  ContextItem,
+  ClearTriggerReason,
+  ClearTrigger,
+  ContextStats,
+  ContextManagerConfig,
+} from './core/context-manager.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
