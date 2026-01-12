@@ -316,6 +316,18 @@ export type {
   AnalysisCacheConfig,
 } from './core/analysis-cache.js';
 
+// Parallel Analyzer
+export { ParallelAnalyzer, createParallelAnalyzer } from './core/parallel-analyzer.js';
+export type {
+  TaskStatus,
+  TaskPriority,
+  AnalysisTask,
+  BatchAnalysisRequest,
+  BatchAnalysisResult,
+  ProgressCallback,
+  ParallelAnalyzerConfig,
+} from './core/parallel-analyzer.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
