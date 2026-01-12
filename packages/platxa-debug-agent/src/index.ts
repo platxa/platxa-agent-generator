@@ -211,6 +211,20 @@ export type {
   FixPresenterConfig,
 } from './core/fix-presenter.js';
 
+// CLAUDE.md Template Generator
+export { ClaudeMdTemplate, createClaudeMdTemplate } from './core/claude-md-template.js';
+export type {
+  DebugToolConfig,
+  LanguageDebugConfig,
+  ProjectDebugConfig,
+  ErrorPatternConfig,
+  KnownIssueConfig,
+  DebugPreferences,
+  TemplateSection,
+  GeneratedTemplate,
+  ClaudeMdTemplateConfig,
+} from './core/claude-md-template.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
