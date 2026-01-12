@@ -430,9 +430,10 @@ export function validateTailwindClasses(
 }
 
 /**
- * Tailwind CSS class validator with config support
+ * Simple Tailwind CSS class validator (no config file loading)
+ * @deprecated Use TailwindValidator for full config support
  */
-export class TailwindValidator {
+export class SimpleTailwindValidator {
   private readonly customUtilities: Set<string>;
 
   constructor(customUtilities: string[] = []) {
@@ -4446,4 +4447,558 @@ export function createSCSSModule(): CSSModule {
 
 export function createTailwindModule(): CSSModule {
   return new CSSModule('tailwind');
+}
+
+// =============================================================================
+// Tailwind Validator
+// =============================================================================
+
+/**
+ * Configuration for TailwindValidator
+ */
+export interface TailwindValidatorConfig {
+  /** Path to tailwind.config.js (default: './tailwind.config.js') */
+  configPath?: string;
+  /** Custom class patterns to allow (regex patterns) */
+  customPatterns?: RegExp[];
+  /** Additional valid classes (for plugins, custom utilities) */
+  additionalClasses?: string[];
+  /** Whether to allow arbitrary values like bg-[#fff] */
+  allowArbitraryValues?: boolean;
+  /** Whether to allow arbitrary properties like [mask-type:alpha] */
+  allowArbitraryProperties?: boolean;
+}
+
+/**
+ * Result of batch class validation
+ */
+export interface TailwindBatchValidationResult {
+  /** Whether all classes are valid */
+  valid: boolean;
+  /** List of invalid classes */
+  invalidClasses: InvalidClass[];
+  /** List of valid classes */
+  validClasses: string[];
+  /** Suggestions for invalid classes */
+  suggestions: Map<string, string[]>;
+  /** Config that was used for validation */
+  configLoaded: boolean;
+}
+
+/**
+ * Information about an invalid class
+ */
+export interface InvalidClass {
+  /** The invalid class name */
+  className: string;
+  /** Reason why it's invalid */
+  reason: string;
+  /** Position in the input (if applicable) */
+  position?: number;
+  /** Suggested alternatives */
+  suggestions?: string[];
+}
+
+/**
+ * Parsed Tailwind configuration
+ */
+interface ParsedTailwindConfig {
+  /** Theme extensions */
+  theme: {
+    extend?: Record<string, Record<string, string>>;
+    colors?: Record<string, string | Record<string, string>>;
+    spacing?: Record<string, string>;
+    screens?: Record<string, string>;
+  };
+  /** Safelist entries */
+  safelist?: (string | { pattern: RegExp })[];
+  /** Plugin-added utilities */
+  plugins?: string[];
+  /** Prefix for classes */
+  prefix?: string;
+  /** Important modifier */
+  important?: boolean | string;
+}
+
+// Core Tailwind utility patterns (v3.x)
+const TAILWIND_CORE_PATTERNS: RegExp[] = [
+  // Layout
+  /^(container|box-(border|content)|block|inline(-block|-flex|-grid|-table)?|flex|grid|hidden|table(-caption|-cell|-column|-column-group|-footer-group|-header-group|-row|-row-group)?|flow-root|contents|list-item)$/,
+  /^(float-(left|right|none)|clear-(left|right|both|none))$/,
+  /^(isolate|isolation-auto)$/,
+  /^(object-(contain|cover|fill|none|scale-down)|object-(bottom|center|left|left-bottom|left-top|right|right-bottom|right-top|top))$/,
+  /^(overflow(-[xy])?-(auto|hidden|clip|visible|scroll))$/,
+  /^(overscroll(-[xy])?-(auto|contain|none))$/,
+  /^(static|fixed|absolute|relative|sticky)$/,
+  /^(inset(-[xy])?|top|right|bottom|left)-/,
+  /^(visible|invisible|collapse)$/,
+  /^z-/,
+
+  // Flexbox & Grid
+  /^(flex-(row|row-reverse|col|col-reverse|wrap|wrap-reverse|nowrap|1|auto|initial|none)|flex-grow(-0)?|flex-shrink(-0)?)$/,
+  /^(grow|grow-0|shrink|shrink-0)$/,
+  /^(order-(first|last|none|\d+))$/,
+  /^(grid-cols-|grid-rows-|col-(auto|span-|start-|end-)|row-(auto|span-|start-|end-))/,
+  /^(gap(-[xy])?-|auto-cols-|auto-rows-)/,
+  /^(justify-(normal|start|end|center|between|around|evenly|stretch)|justify-items-(start|end|center|stretch)|justify-self-(auto|start|end|center|stretch))$/,
+  /^(content-(normal|center|start|end|between|around|evenly|baseline|stretch))$/,
+  /^(items-(start|end|center|baseline|stretch)|self-(auto|start|end|center|stretch|baseline))$/,
+  /^(place-(content|items|self)-)/,
+
+  // Spacing
+  /^[mp][trblxy]?-(\d+(\.\d+)?|px|auto|\[\d+[a-z]+\])$/,
+  /^-[mp][trblxy]?-\d+(\.\d+)?$/,
+  /^space-[xy]-(reverse|\d+(\.\d+)?)$/,
+
+  // Sizing
+  /^[wh]-(auto|full|screen|svw|svh|lvw|lvh|dvw|dvh|min|max|fit|\d+(\.\d+)?|px|\d+\/\d+|\[\d+[a-z]+\])$/,
+  /^(min|max)-[wh]-/,
+  /^size-/,
+
+  // Typography
+  /^(font-(sans|serif|mono)|font-(thin|extralight|light|normal|medium|semibold|bold|extrabold|black|\d+))$/,
+  /^(text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl|8xl|9xl)|text-(left|center|right|justify|start|end))$/,
+  /^(text-(ellipsis|clip)|truncate)$/,
+  /^text-(transparent|current|inherit|black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-\d+)?(\/\d+)?$/,
+  /^(italic|not-italic|underline|overline|line-through|no-underline)$/,
+  /^(uppercase|lowercase|capitalize|normal-case)$/,
+  /^(leading-(none|tight|snug|normal|relaxed|loose|\d+))$/,
+  /^(tracking-(tighter|tight|normal|wide|wider|widest))$/,
+  /^(antialiased|subpixel-antialiased)$/,
+  /^(decoration-(auto|from-font|solid|double|dotted|dashed|wavy)|decoration-(transparent|current|inherit|black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-\d+)?(\/\d+)?|decoration-\d+|underline-offset-(auto|\d+))$/,
+  /^(indent-|align-(baseline|top|middle|bottom|text-top|text-bottom|sub|super)|whitespace-(normal|nowrap|pre|pre-line|pre-wrap|break-spaces)|break-(normal|words|all|keep)|hyphens-(none|manual|auto))$/,
+  /^(list-(inside|outside|none|disc|decimal)|list-image-none)$/,
+  /^(placeholder-|caret-)/,
+
+  // Backgrounds
+  /^bg-(inherit|current|transparent|black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-\d+)?(\/\d+)?$/,
+  /^bg-(fixed|local|scroll|clip-(border|padding|content|text)|origin-(border|padding|content))$/,
+  /^bg-(bottom|center|left|left-bottom|left-top|right|right-bottom|right-top|top)$/,
+  /^bg-(repeat|no-repeat|repeat-x|repeat-y|repeat-round|repeat-space)$/,
+  /^bg-(auto|cover|contain)$/,
+  /^bg-none$/,
+  /^(from|via|to)-(inherit|current|transparent|black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-\d+)?(\/\d+)?$/,
+  /^bg-gradient-to-(t|tr|r|br|b|bl|l|tl)$/,
+
+  // Borders
+  /^(border|border-[trblxy]|border-(solid|dashed|dotted|double|hidden|none))$/,
+  /^border(-[trblxy])?-(\d+|transparent|current|inherit|black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-\d+)?(\/\d+)?$/,
+  /^(rounded|rounded-(t|r|b|l|tl|tr|br|bl|s|e|ss|se|es|ee))(-none|-sm|-md|-lg|-xl|-2xl|-3xl|-full)?$/,
+  /^(divide-[xy](-\d+|-reverse)?|divide-(solid|dashed|dotted|double|none)|divide-(transparent|current|inherit|black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-\d+)?(\/\d+)?)$/,
+  /^(outline|outline-(none|dashed|dotted|double)|outline-\d+|outline-offset-\d+|outline-(transparent|current|inherit|black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-\d+)?(\/\d+)?)$/,
+  /^(ring|ring-\d+|ring-inset|ring-(transparent|current|inherit|black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-\d+)?(\/\d+)?|ring-offset-\d+|ring-offset-(transparent|current|inherit|black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-\d+)?(\/\d+)?)$/,
+
+  // Effects
+  /^(shadow|shadow-(sm|md|lg|xl|2xl|inner|none)|shadow-(transparent|current|inherit|black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-\d+)?(\/\d+)?)$/,
+  /^(opacity-\d+)$/,
+  /^(mix-blend-|bg-blend-)(normal|multiply|screen|overlay|darken|lighten|color-dodge|color-burn|hard-light|soft-light|difference|exclusion|hue|saturation|color|luminosity)$/,
+
+  // Filters
+  /^(blur|blur-(none|sm|md|lg|xl|2xl|3xl))$/,
+  /^(brightness|contrast|grayscale|hue-rotate|invert|saturate|sepia)-/,
+  /^(drop-shadow|drop-shadow-(sm|md|lg|xl|2xl|none))$/,
+  /^(backdrop-(blur|brightness|contrast|grayscale|hue-rotate|invert|opacity|saturate|sepia)-|backdrop-filter|backdrop-filter-none)$/,
+
+  // Tables
+  /^(border-(collapse|separate)|border-spacing(-[xy])?-\d+)$/,
+  /^(table-auto|table-fixed|caption-(top|bottom))$/,
+
+  // Transitions & Animation
+  /^(transition|transition-(none|all|colors|opacity|shadow|transform))$/,
+  /^(duration-\d+|ease-(linear|in|out|in-out)|delay-\d+)$/,
+  /^(animate-(none|spin|ping|pulse|bounce))$/,
+
+  // Transforms
+  /^(scale(-[xy])?-\d+|rotate-\d+|-rotate-\d+|translate-[xy]-|skew-[xy]-|-skew-[xy]-)$/,
+  /^(origin-(center|top|top-right|right|bottom-right|bottom|bottom-left|left|top-left))$/,
+  /^(transform|transform-cpu|transform-gpu|transform-none)$/,
+
+  // Interactivity
+  /^(accent-|appearance-none|cursor-(auto|default|pointer|wait|text|move|help|not-allowed|none|context-menu|progress|cell|crosshair|vertical-text|alias|copy|no-drop|grab|grabbing|all-scroll|col-resize|row-resize|n-resize|e-resize|s-resize|w-resize|ne-resize|nw-resize|se-resize|sw-resize|ew-resize|ns-resize|nesw-resize|nwse-resize|zoom-in|zoom-out))$/,
+  /^(pointer-events-(none|auto)|resize|resize-(none|y|x)|scroll-(auto|smooth)|scroll-m[trblxy]?-|scroll-p[trblxy]?-)$/,
+  /^(snap-(start|end|center|align-none)|snap-(normal|always)|snap-(none|x|y|both|mandatory|proximity))$/,
+  /^(touch-(auto|none|pan-x|pan-left|pan-right|pan-y|pan-up|pan-down|pinch-zoom|manipulation))$/,
+  /^(select-(none|text|all|auto)|will-change-(auto|scroll|contents|transform))$/,
+
+  // SVG
+  /^(fill-|stroke-)(inherit|current|transparent|black|white|slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-\d+)?(\/\d+)?$/,
+  /^(fill-none|stroke-\d+)$/,
+
+  // Accessibility
+  /^(sr-only|not-sr-only)$/,
+  /^(forced-color-adjust-(auto|none))$/,
+
+  // Arbitrary values
+  /^\[.+\]$/,
+
+  // Variants/Modifiers (prefixes)
+  /^(hover|focus|focus-within|focus-visible|active|visited|target|first|last|only|odd|even|first-of-type|last-of-type|only-of-type|empty|disabled|enabled|checked|indeterminate|default|required|valid|invalid|in-range|out-of-range|placeholder-shown|autofill|read-only|open|before|after|first-letter|first-line|marker|selection|file|backdrop|placeholder|sm|md|lg|xl|2xl|dark|rtl|ltr|motion-safe|motion-reduce|contrast-more|contrast-less|portrait|landscape|print|supports-\[.+\]|aria-\[.+\]|data-\[.+\]|group-hover|group-focus|peer-hover|peer-focus|has-\[.+\]):/,
+];
+
+/**
+ * Common Tailwind class suggestions for typos
+ */
+const CLASS_SUGGESTIONS: Record<string, string[]> = {
+  'flex-column': ['flex-col'],
+  'flex-row-rev': ['flex-row-reverse'],
+  'flex-col-rev': ['flex-col-reverse'],
+  'justify-left': ['justify-start'],
+  'justify-right': ['justify-end'],
+  'align-center': ['items-center'],
+  'align-left': ['items-start'],
+  'align-right': ['items-end'],
+  'colour': ['color'],
+  'margin-': ['m-'],
+  'padding-': ['p-'],
+  'width-': ['w-'],
+  'height-': ['h-'],
+  'font-size-': ['text-'],
+  'font-weight-': ['font-'],
+  'display-flex': ['flex'],
+  'display-grid': ['grid'],
+  'display-block': ['block'],
+  'display-none': ['hidden'],
+  'text-colour': ['text-'],
+  'bg-colour': ['bg-'],
+};
+
+/**
+ * Tailwind CSS class validator
+ *
+ * Validates Tailwind CSS classes against the project's tailwind.config.js
+ * and core Tailwind utilities.
+ */
+export class TailwindValidator {
+  private readonly config: Required<TailwindValidatorConfig>;
+  private parsedConfig: ParsedTailwindConfig | null = null;
+  private configLoaded = false;
+  private safelistPatterns: RegExp[] = [];
+  private customClassSet: Set<string> = new Set();
+
+  constructor(config: TailwindValidatorConfig = {}) {
+    this.config = {
+      configPath: config.configPath ?? './tailwind.config.js',
+      customPatterns: config.customPatterns ?? [],
+      additionalClasses: config.additionalClasses ?? [],
+      allowArbitraryValues: config.allowArbitraryValues ?? true,
+      allowArbitraryProperties: config.allowArbitraryProperties ?? true,
+    };
+
+    // Add additional classes to custom set
+    for (const cls of this.config.additionalClasses) {
+      this.customClassSet.add(cls);
+    }
+  }
+
+  /**
+   * Load and parse tailwind.config.js
+   */
+  async loadConfig(): Promise<boolean> {
+    try {
+      const configPath = isAbsolute(this.config.configPath)
+        ? this.config.configPath
+        : join(process.cwd(), this.config.configPath);
+
+      if (!existsSync(configPath)) {
+        this.configLoaded = false;
+        return false;
+      }
+
+      const content = await readFile(configPath, 'utf-8');
+      this.parsedConfig = this.parseConfigContent(content);
+      this.configLoaded = true;
+
+      // Build safelist patterns from config
+      if (this.parsedConfig.safelist) {
+        for (const entry of this.parsedConfig.safelist) {
+          if (typeof entry === 'string') {
+            this.customClassSet.add(entry);
+          } else if (entry.pattern) {
+            this.safelistPatterns.push(entry.pattern);
+          }
+        }
+      }
+
+      // Add theme extension classes
+      if (this.parsedConfig.theme?.extend) {
+        this.addThemeExtensions(this.parsedConfig.theme.extend);
+      }
+
+      return true;
+    } catch {
+      this.configLoaded = false;
+      return false;
+    }
+  }
+
+  /**
+   * Parse tailwind.config.js content
+   */
+  private parseConfigContent(content: string): ParsedTailwindConfig {
+    const config: ParsedTailwindConfig = {
+      theme: {},
+    };
+
+    // Extract theme.extend
+    const themeExtendMatch = content.match(/theme\s*:\s*\{[\s\S]*?extend\s*:\s*(\{[\s\S]*?\})\s*[,}]/);
+    if (themeExtendMatch) {
+      try {
+        // Simple extraction of color/spacing keys
+        const colorsMatch = themeExtendMatch[1]?.match(/colors\s*:\s*(\{[^}]+\})/);
+        if (colorsMatch) {
+          config.theme.extend = config.theme.extend || {};
+          config.theme.extend.colors = this.parseSimpleObject(colorsMatch[1] ?? '{}');
+        }
+
+        const spacingMatch = themeExtendMatch[1]?.match(/spacing\s*:\s*(\{[^}]+\})/);
+        if (spacingMatch) {
+          config.theme.extend = config.theme.extend || {};
+          config.theme.extend.spacing = this.parseSimpleObject(spacingMatch[1] ?? '{}');
+        }
+      } catch {
+        // Ignore parsing errors
+      }
+    }
+
+    // Extract safelist
+    const safelistMatch = content.match(/safelist\s*:\s*\[([\s\S]*?)\]/);
+    if (safelistMatch && safelistMatch[1]) {
+      config.safelist = [];
+      const entries = safelistMatch[1].match(/['"]([^'"]+)['"]/g);
+      if (entries) {
+        for (const entry of entries) {
+          const cls = entry.replace(/['"]/g, '');
+          config.safelist.push(cls);
+        }
+      }
+    }
+
+    // Extract prefix
+    const prefixMatch = content.match(/prefix\s*:\s*['"]([^'"]+)['"]/);
+    if (prefixMatch && prefixMatch[1]) {
+      config.prefix = prefixMatch[1];
+    }
+
+    // Extract important
+    const importantMatch = content.match(/important\s*:\s*(true|false|['"][^'"]+['"])/);
+    if (importantMatch && importantMatch[1]) {
+      if (importantMatch[1] === 'true') {
+        config.important = true;
+      } else if (importantMatch[1] === 'false') {
+        config.important = false;
+      } else {
+        config.important = importantMatch[1].replace(/['"]/g, '');
+      }
+    }
+
+    return config;
+  }
+
+  /**
+   * Parse a simple object from config string
+   */
+  private parseSimpleObject(objStr: string): Record<string, string> {
+    const result: Record<string, string> = {};
+    const matches = objStr.matchAll(/['"]?(\w+)['"]?\s*:\s*['"]([^'"]+)['"]/g);
+    for (const match of matches) {
+      const key = match[1];
+      const value = match[2];
+      if (key && value) {
+        result[key] = value;
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Add theme extensions to custom class set
+   */
+  private addThemeExtensions(extend: Record<string, Record<string, string>>): void {
+    // Add custom colors
+    if (extend.colors) {
+      for (const colorName of Object.keys(extend.colors)) {
+        // Add color utilities
+        for (const prefix of ['text', 'bg', 'border', 'ring', 'from', 'via', 'to', 'fill', 'stroke']) {
+          this.customClassSet.add(`${prefix}-${colorName}`);
+        }
+      }
+    }
+
+    // Add custom spacing
+    if (extend.spacing) {
+      for (const spacingKey of Object.keys(extend.spacing)) {
+        for (const prefix of ['m', 'mt', 'mr', 'mb', 'ml', 'mx', 'my', 'p', 'pt', 'pr', 'pb', 'pl', 'px', 'py', 'w', 'h', 'gap', 'space-x', 'space-y']) {
+          this.customClassSet.add(`${prefix}-${spacingKey}`);
+        }
+      }
+    }
+  }
+
+  /**
+   * Validate a list of Tailwind classes
+   */
+  validate(classes: string | string[]): TailwindBatchValidationResult {
+    const classList = typeof classes === 'string'
+      ? classes.split(/\s+/).filter(c => c.length > 0)
+      : classes;
+
+    const result: TailwindBatchValidationResult = {
+      valid: true,
+      invalidClasses: [],
+      validClasses: [],
+      suggestions: new Map(),
+      configLoaded: this.configLoaded,
+    };
+
+    for (let i = 0; i < classList.length; i++) {
+      const className = classList[i];
+      if (!className) continue;
+
+      const validation = this.validateClass(className);
+
+      if (validation.valid) {
+        result.validClasses.push(className);
+      } else {
+        result.valid = false;
+        const invalidClass: InvalidClass = {
+          className,
+          reason: validation.reason,
+          position: i,
+        };
+        if (validation.suggestions && validation.suggestions.length > 0) {
+          invalidClass.suggestions = validation.suggestions;
+          result.suggestions.set(className, validation.suggestions);
+        }
+        result.invalidClasses.push(invalidClass);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Validate a single class
+   */
+  private validateClass(className: string): { valid: boolean; reason: string; suggestions?: string[] } {
+    // Remove variant prefixes for validation
+    const baseClass = this.extractBaseClass(className);
+
+    // Check custom classes first (highest priority)
+    if (this.customClassSet.has(baseClass) || this.customClassSet.has(className)) {
+      return { valid: true, reason: '' };
+    }
+
+    // Check safelist patterns
+    for (const pattern of this.safelistPatterns) {
+      if (pattern.test(baseClass) || pattern.test(className)) {
+        return { valid: true, reason: '' };
+      }
+    }
+
+    // Check custom patterns from config
+    for (const pattern of this.config.customPatterns) {
+      if (pattern.test(baseClass) || pattern.test(className)) {
+        return { valid: true, reason: '' };
+      }
+    }
+
+    // Check arbitrary values
+    if (this.config.allowArbitraryValues && /\[.+\]/.test(baseClass)) {
+      return { valid: true, reason: '' };
+    }
+
+    // Check arbitrary properties
+    if (this.config.allowArbitraryProperties && /^\[.+:.+\]$/.test(baseClass)) {
+      return { valid: true, reason: '' };
+    }
+
+    // Check core Tailwind patterns
+    for (const pattern of TAILWIND_CORE_PATTERNS) {
+      if (pattern.test(className)) {
+        return { valid: true, reason: '' };
+      }
+    }
+
+    // Class not found - generate suggestions
+    const suggestions = this.getSuggestions(baseClass);
+
+    return {
+      valid: false,
+      reason: `Unknown Tailwind class: ${className}`,
+      suggestions,
+    };
+  }
+
+  /**
+   * Extract base class (remove variant prefixes)
+   */
+  private extractBaseClass(className: string): string {
+    // Handle variant prefixes like hover:, focus:, sm:, etc.
+    const parts = className.split(':');
+    return parts[parts.length - 1] ?? className;
+  }
+
+  /**
+   * Get suggestions for an invalid class
+   */
+  private getSuggestions(className: string): string[] {
+    const suggestions: string[] = [];
+
+    // Check for common typos
+    for (const [typo, fixes] of Object.entries(CLASS_SUGGESTIONS)) {
+      if (className.includes(typo)) {
+        suggestions.push(...fixes.map(fix => className.replace(typo, fix)));
+      }
+    }
+
+    // Check for similar classes in custom set
+    for (const customClass of this.customClassSet) {
+      if (this.isSimilar(className, customClass)) {
+        suggestions.push(customClass);
+      }
+    }
+
+    // Limit suggestions
+    return suggestions.slice(0, 5);
+  }
+
+  /**
+   * Check if two class names are similar (for typo detection)
+   */
+  private isSimilar(a: string, b: string): boolean {
+    if (Math.abs(a.length - b.length) > 2) return false;
+
+    let differences = 0;
+    const maxLen = Math.max(a.length, b.length);
+
+    for (let i = 0; i < maxLen; i++) {
+      if (a[i] !== b[i]) differences++;
+      if (differences > 2) return false;
+    }
+
+    return differences <= 2;
+  }
+
+  /**
+   * Add classes to the safelist
+   */
+  addToSafelist(classes: string[]): void {
+    for (const cls of classes) {
+      this.customClassSet.add(cls);
+    }
+  }
+
+  /**
+   * Add patterns to the safelist
+   */
+  addPatternToSafelist(patterns: RegExp[]): void {
+    this.safelistPatterns.push(...patterns);
+  }
+}
+
+/**
+ * Create a new TailwindValidator instance
+ */
+export function createTailwindValidator(config?: TailwindValidatorConfig): TailwindValidator {
+  return new TailwindValidator(config);
 }

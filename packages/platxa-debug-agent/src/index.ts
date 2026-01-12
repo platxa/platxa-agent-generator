@@ -589,6 +589,14 @@ export {
   FrameworkConflictDetector,
   createFrameworkConflictDetector,
   detectFrameworkConflicts,
+  // Tailwind Validator
+  TailwindValidator,
+  SimpleTailwindValidator,
+  createTailwindValidator,
+  // Content Path Analyzer
+  ContentPathAnalyzer,
+  // Dynamic Class Detector
+  DynamicClassDetector,
 } from './modules/css-module.js';
 export type {
   // Cascade Layer types
@@ -613,6 +621,20 @@ export type {
   FrameworkConflict,
   FrameworkConflictResult,
   FrameworkConflictDetectorConfig,
+  // Tailwind Validator types
+  TailwindValidatorConfig,
+  TailwindBatchValidationResult,
+  InvalidClass,
+  // Content Path Analyzer types
+  ContentPathResult,
+  ContentAnalysisResult,
+  UnreachableFile,
+  ContentIssue,
+  // Dynamic Class Detector types
+  DynamicClassType,
+  DynamicClassPattern,
+  DynamicClassScanResult,
+  SafelistEntry,
 } from './modules/css-module.js';
 export {
   HTMLModule,
@@ -630,3 +652,42 @@ export type {
   HTMLValidationResult,
   HTMLValidatorConfig,
 } from './modules/html-module.js';
+
+// Patterns Module
+export {
+  loadPatterns,
+  loadPatternById,
+  validatePattern,
+  validatePatternFile,
+  createPatternCollection,
+  getAvailableCategories,
+  getAvailableSeverities,
+  getSupportedLanguages,
+  PatternMatcher,
+  createPatternMatcher,
+  matchPatterns,
+  type LoadPatternsOptions,
+  type LoadPatternsResult,
+  type PatternMatcherConfig,
+  type MatchContext,
+  type ExtendedPatternMatch,
+  type MatchResult,
+} from './patterns/index.js';
+export type {
+  BugPattern,
+  PatternCollection,
+  PatternMatch,
+  PatternValidationResult,
+  PatternSeverity,
+  PatternCategory,
+  FixType as PatternFixType,
+  PlaceholderSource,
+  ASTPattern,
+  ASTContext,
+  FixTemplate as PatternFixTemplate,
+  PlaceholderDefinition,
+  PatternExample,
+  PatternDocumentation,
+  PatternConditions,
+  PatternMetadata,
+} from './patterns/index.js';
