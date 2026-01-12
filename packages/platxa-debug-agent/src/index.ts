@@ -246,6 +246,18 @@ export type {
   SubagentExecutor,
 } from './core/subagent-spawner.js';
 
+// Log Pipe
+export { LogPipe, createLogPipe } from './core/log-pipe.js';
+export type {
+  LogSourceType,
+  LogEntry,
+  LogPattern,
+  ParsedLogError,
+  LogBuffer,
+  LogStreamHandler,
+  LogPipeConfig,
+} from './core/log-pipe.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
