@@ -572,20 +572,167 @@ export class DebugLoop {
    * Feature #4: Generates an explanation of the code to help identify mistakes.
    * Based on Self-Debug research showing explanation improves fix quality.
    *
+   * The rubber duck debugging technique involves explaining code line by line
+   * to identify logical errors, missing checks, and incorrect assumptions.
+   *
    * @param code - The code to explain
    * @param error - The error context
    * @returns Explanation string identifying potential issues
    */
   explainCode(code: string, error: NormalizedError): string {
-    // Placeholder implementation - will be enhanced in Feature #4
     const lines = code.split('\n');
     const errorLine = error.location?.line ?? 1;
-    const relevantLines = lines.slice(
-      Math.max(0, errorLine - 3),
-      Math.min(lines.length, errorLine + 2)
-    );
+    const errorColumn = error.location?.column ?? 1;
 
-    return `Analyzing code around line ${errorLine}:\n${relevantLines.join('\n')}\n\nError: ${error.message}`;
+    // Extract context around the error
+    const contextStart = Math.max(0, errorLine - 5);
+    const contextEnd = Math.min(lines.length, errorLine + 4);
+    const contextLines = lines.slice(contextStart, contextEnd);
+
+    const explanationParts: string[] = [];
+
+    // 1. Describe the error
+    explanationParts.push('=== RUBBER DUCK DEBUGGING ANALYSIS ===\n');
+    explanationParts.push(`Error Type: ${error.type ?? 'Unknown'}`);
+    explanationParts.push(`Error Message: ${error.message}`);
+    explanationParts.push(`Location: Line ${errorLine}, Column ${errorColumn}\n`);
+
+    // 2. Analyze the code context
+    explanationParts.push('=== CODE CONTEXT ===');
+    contextLines.forEach((line, idx) => {
+      const lineNum = contextStart + idx + 1;
+      const marker = lineNum === errorLine ? ' >>> ' : '     ';
+      explanationParts.push(`${marker}${lineNum}: ${line}`);
+    });
+    explanationParts.push('');
+
+    // 3. Identify potential issues based on error type
+    explanationParts.push('=== POTENTIAL ISSUES ===');
+    const issues = this.identifyPotentialIssues(code, error, lines, errorLine);
+    issues.forEach((issue, idx) => {
+      explanationParts.push(`${idx + 1}. ${issue}`);
+    });
+
+    // 4. Suggest investigation steps
+    explanationParts.push('\n=== INVESTIGATION STEPS ===');
+    const steps = this.suggestInvestigationSteps(error, lines, errorLine);
+    steps.forEach((step, idx) => {
+      explanationParts.push(`${idx + 1}. ${step}`);
+    });
+
+    return explanationParts.join('\n');
+  }
+
+  /**
+   * Identify potential issues based on error type and code analysis
+   */
+  private identifyPotentialIssues(
+    _code: string,
+    error: NormalizedError,
+    lines: string[],
+    errorLine: number
+  ): string[] {
+    const issues: string[] = [];
+    const errorLineContent = lines[errorLine - 1] ?? '';
+    const errorType = error.type?.toLowerCase() ?? '';
+    const errorMessage = error.message.toLowerCase();
+
+    // Analyze based on error type
+    if (errorType.includes('reference') || errorMessage.includes('not defined')) {
+      issues.push('Variable or function may be used before declaration');
+      issues.push('Check for typos in variable/function names');
+      issues.push('Verify import statements are correct');
+    }
+
+    if (errorType.includes('type') || errorMessage.includes('type')) {
+      issues.push('Type mismatch between expected and actual values');
+      issues.push('Check for null/undefined values being used as objects');
+      issues.push('Verify function return types match usage');
+    }
+
+    if (errorType.includes('syntax') || errorMessage.includes('syntax')) {
+      issues.push('Missing or mismatched brackets, parentheses, or braces');
+      issues.push('Missing semicolons or commas');
+      issues.push('Invalid operator usage');
+    }
+
+    if (errorType.includes('null') || errorMessage.includes('null') || errorMessage.includes('undefined')) {
+      issues.push('Attempting to access property of null/undefined');
+      issues.push('Missing null check before property access');
+      issues.push('Async operation may not have completed');
+    }
+
+    if (errorType.includes('index') || errorMessage.includes('range') || errorMessage.includes('bounds')) {
+      issues.push('Array index out of bounds');
+      issues.push('Off-by-one error in loop or indexing');
+      issues.push('Empty array being accessed');
+    }
+
+    // Analyze the error line content
+    if (errorLineContent.includes('await') && !errorLineContent.includes('async')) {
+      issues.push('await used but enclosing function may not be async');
+    }
+
+    if (errorLineContent.includes('.') && !errorLineContent.includes('?.')) {
+      issues.push('Property access without optional chaining - may fail on null/undefined');
+    }
+
+    if (errorLineContent.match(/\[\s*\d+\s*\]/)) {
+      issues.push('Hard-coded array index - verify array has sufficient elements');
+    }
+
+    // Default issues if none identified
+    if (issues.length === 0) {
+      issues.push('Review the logic flow leading to this line');
+      issues.push('Check variable values at runtime');
+      issues.push('Verify assumptions about input data');
+    }
+
+    return issues;
+  }
+
+  /**
+   * Suggest investigation steps based on error context
+   */
+  private suggestInvestigationSteps(
+    error: NormalizedError,
+    lines: string[],
+    errorLine: number
+  ): string[] {
+    const steps: string[] = [];
+    const errorLineContent = lines[errorLine - 1] ?? '';
+
+    // Always suggest checking variable values
+    steps.push('Add console.log/print statements before this line to inspect variable values');
+
+    // Suggest checking the call stack
+    if (error.stackTrace) {
+      steps.push('Review the stack trace to understand the call path');
+    }
+
+    // Analyze what's on the error line
+    const variableMatches = errorLineContent.match(/\b[a-zA-Z_][a-zA-Z0-9_]*\b/g);
+    if (variableMatches && variableMatches.length > 0) {
+      const uniqueVars = [...new Set(variableMatches)].filter(
+        (v) => !['if', 'else', 'for', 'while', 'return', 'const', 'let', 'var', 'function', 'class', 'true', 'false', 'null', 'undefined'].includes(v)
+      );
+      if (uniqueVars.length > 0) {
+        steps.push(`Inspect these variables: ${uniqueVars.slice(0, 5).join(', ')}`);
+      }
+    }
+
+    // Suggest checking preceding lines
+    steps.push('Check lines immediately before for variable assignments or mutations');
+
+    // Suggest checking related code
+    if (error.location?.file) {
+      steps.push(`Search for related usages in ${error.location.file}`);
+    }
+
+    // Suggest running in debugger
+    steps.push('Set a breakpoint at this line and step through execution');
+
+    return steps;
   }
 
   /**
