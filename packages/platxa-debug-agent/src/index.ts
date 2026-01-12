@@ -714,6 +714,42 @@ export type {
   MultiModalRCAConfig,
 } from './core/multi-modal-rca.js';
 
+// False Positive Filter (Features #37-41: Static Analysis Alert Triage)
+export {
+  FalsePositiveFilter,
+  createFalsePositiveFilter,
+  classifyAlert,
+} from './core/false-positive-filter.js';
+export type {
+  // Alert Context types (Feature #37)
+  AlertContext,
+  StaticAnalysisAlert,
+  AlertSeverity,
+  AlertCategory,
+  AnalysisTool,
+  SurroundingCode,
+  CodeLine,
+  FunctionInfo,
+  ClassInfo,
+  DataFlowPath,
+  DataFlowNode,
+  DataFlowNodeType,
+  ProjectContext,
+  ProjectType,
+  SuppressionRule,
+  // Classification types (Feature #38-40)
+  ClassificationResult,
+  ClassificationEvidence,
+  EvidenceType as FPEvidenceType,
+  SuggestedAction,
+  RiskAssessment,
+  // Filter Config (Feature #41)
+  FalsePositiveFilterConfig,
+  SafePattern,
+  BatchFilterResult,
+  FilterStats,
+} from './core/false-positive-filter.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
