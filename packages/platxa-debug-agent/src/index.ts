@@ -667,6 +667,53 @@ export type {
   MutationResult,
 } from './core/mutation-targeter.js';
 
+// Multi-Modal RCA (Features #32-36: Multi-Modal Root Cause Analysis)
+export {
+  MultiModalRCA,
+  createMultiModalRCA,
+  analyzeIncident,
+  constructCausalGraph,
+} from './core/multi-modal-rca.js';
+export type {
+  // RCA Input types (Feature #32)
+  RCAInput,
+  TimeSeries,
+  TimeSeriesPoint,
+  MetricType,
+  ExecutionTraceData,
+  TraceSpan,
+  SpanLog,
+  SpanStatus,
+  LogEntry as RCALogEntry,
+  LogLevel as RCALogLevel,
+  DomainConstraints,
+  CausalRelationship,
+  ServiceDependency,
+  DependencyType,
+  TemporalConstraint,
+  ConstraintRule,
+  IncidentDescription,
+  IncidentSeverity,
+  TimeWindow,
+  // Causal Graph types (Feature #33)
+  CausalGraph,
+  CausalNode as RCACausalNode,
+  CausalNodeType as RCACausalNodeType,
+  NodeEvidence,
+  EvidenceType as RCAEvidenceType,
+  CausalEdge as RCACausalEdge,
+  CausalEdgeType as RCACausalEdgeType,
+  EdgeEvidence,
+  GraphMetadata,
+  // Root Cause types (Features #34-35)
+  RootCause,
+  RootCauseEvidence,
+  Remediation,
+  HypothesisTestResult,
+  // Config
+  MultiModalRCAConfig,
+} from './core/multi-modal-rca.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
