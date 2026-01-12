@@ -341,6 +341,229 @@ export class CFGExtractor {
   }
 
   /**
+   * Extract basic blocks from code
+   *
+   * Feature #8: Decomposes code into basic blocks for fine-grained debugging.
+   * Each basic block represents a sequence of statements with single entry/exit.
+   *
+   * @param code - Source code to analyze
+   * @returns Array of basic blocks
+   */
+  extractBasicBlocks(code: string): BasicBlock[] {
+    // First extract the CFG
+    const cfg = this.extract(code);
+
+    // Convert CFG nodes to BasicBlocks
+    const blocks: BasicBlock[] = [];
+    let blockIdCounter = 0;
+
+    // Build successor/predecessor maps from edges
+    const successorsMap = new Map<string, string[]>();
+    const predecessorsMap = new Map<string, string[]>();
+
+    for (const edge of cfg.edges) {
+      if (!successorsMap.has(edge.from)) {
+        successorsMap.set(edge.from, []);
+      }
+      successorsMap.get(edge.from)!.push(edge.to);
+
+      if (!predecessorsMap.has(edge.to)) {
+        predecessorsMap.set(edge.to, []);
+      }
+      predecessorsMap.get(edge.to)!.push(edge.from);
+    }
+
+    // Convert each CFG node to a BasicBlock
+    for (const cfgNode of cfg.nodes) {
+      const blockType = this.cfgNodeTypeToBasicBlockType(cfgNode.type);
+      const startLine = cfgNode.location?.startLine ?? 1;
+      const endLine = cfgNode.location?.endLine ?? startLine;
+
+      // Extract statements from the code for this block
+      const statements: BasicBlockStatement[] = [];
+      if (cfgNode.code && cfgNode.code !== 'ENTRY' && cfgNode.code !== 'EXIT') {
+        const stmt = this.parseBasicBlockStatement(
+          cfgNode.code,
+          startLine,
+          cfgNode.location?.startColumn ?? 1
+        );
+        statements.push(stmt);
+      }
+
+      // Create BasicBlock with Maps for variables
+      const block: BasicBlock = {
+        id: `bb_${blockIdCounter++}`,
+        statements,
+        entryVariables: new Map<string, unknown>(),
+        exitVariables: new Map<string, unknown>(),
+        type: blockType,
+        startLine,
+        endLine,
+        predecessors: predecessorsMap.get(cfgNode.id) ?? [],
+        successors: successorsMap.get(cfgNode.id) ?? [],
+      };
+
+      // Add condition for conditional blocks
+      if ((cfgNode.type === 'condition' || cfgNode.type === 'loop') && cfgNode.code) {
+        block.condition = cfgNode.code;
+      }
+
+      // Initialize exit variables from statements
+      for (const stmt of statements) {
+        for (const write of stmt.writes) {
+          block.exitVariables.set(write, undefined);
+        }
+      }
+
+      blocks.push(block);
+    }
+
+    // Remap predecessor/successor IDs to new block IDs
+    const cfgIdToBlockId = new Map<string, string>();
+    for (let i = 0; i < cfg.nodes.length; i++) {
+      const cfgNode = cfg.nodes[i];
+      const block = blocks[i];
+      if (cfgNode && block) {
+        cfgIdToBlockId.set(cfgNode.id, block.id);
+      }
+    }
+
+    for (const block of blocks) {
+      block.predecessors = block.predecessors
+        .map((id) => cfgIdToBlockId.get(id) ?? id)
+        .filter((id) => id !== block.id);
+      block.successors = block.successors
+        .map((id) => cfgIdToBlockId.get(id) ?? id)
+        .filter((id) => id !== block.id);
+    }
+
+    return blocks;
+  }
+
+  /**
+   * Convert CFG node type to BasicBlock type
+   */
+  private cfgNodeTypeToBasicBlockType(nodeType: CFGNodeType): BasicBlockType {
+    switch (nodeType) {
+      case 'entry':
+        return 'entry';
+      case 'exit':
+        return 'exit';
+      case 'condition':
+      case 'switch':
+        return 'branch';
+      case 'loop':
+        return 'loop_header';
+      case 'try':
+        return 'try';
+      case 'catch':
+        return 'catch';
+      case 'finally':
+        return 'finally';
+      case 'throw':
+        return 'throw';
+      default:
+        return 'sequential';
+    }
+  }
+
+  /**
+   * Parse a code snippet into a BasicBlockStatement
+   */
+  private parseBasicBlockStatement(
+    code: string,
+    line: number,
+    column: number
+  ): BasicBlockStatement {
+    const reads: string[] = [];
+    const writes: string[] = [];
+    const calls: string[] = [];
+
+    // Detect assignment (left side is a write)
+    const assignmentMatch = code.match(/^(?:const|let|var)?\s*(\w+)\s*=/);
+    if (assignmentMatch?.[1]) {
+      writes.push(assignmentMatch[1]);
+    }
+
+    // Detect function calls
+    const callMatches = code.matchAll(/(\w+)\s*\(/g);
+    for (const match of callMatches) {
+      if (match[1] && !this.isKeyword(match[1])) {
+        calls.push(match[1]);
+      }
+    }
+
+    // Detect variable reads (identifiers not in writes or calls)
+    const identifiers = code.match(/\b[a-zA-Z_]\w*\b/g) ?? [];
+    for (const id of identifiers) {
+      if (!writes.includes(id) && !calls.includes(id) && !this.isKeyword(id)) {
+        reads.push(id);
+      }
+    }
+
+    return {
+      line,
+      column,
+      code,
+      type: this.detectStatementType(code),
+      reads: [...new Set(reads)],
+      writes,
+      calls,
+    };
+  }
+
+  /**
+   * Detect statement type from code
+   */
+  private detectStatementType(code: string): BasicBlockStatementType {
+    const trimmed = code.trim();
+
+    if (trimmed.match(/^(?:const|let|var)\s/)) {
+      return 'declaration';
+    }
+    if (trimmed.match(/^\w+\s*=/)) {
+      return 'assignment';
+    }
+    if (trimmed.startsWith('return')) {
+      return 'return';
+    }
+    if (trimmed.startsWith('break')) {
+      return 'break';
+    }
+    if (trimmed.startsWith('continue')) {
+      return 'continue';
+    }
+    if (trimmed.startsWith('throw')) {
+      return 'throw';
+    }
+    if (trimmed.startsWith('import')) {
+      return 'import';
+    }
+    if (trimmed.startsWith('export')) {
+      return 'export';
+    }
+    if (trimmed.match(/^\w+\s*\(/)) {
+      return 'call';
+    }
+
+    return 'expression';
+  }
+
+  /**
+   * Check if word is a JavaScript keyword
+   */
+  private isKeyword(word: string): boolean {
+    const keywords = new Set([
+      'const', 'let', 'var', 'function', 'class', 'if', 'else', 'for', 'while',
+      'do', 'switch', 'case', 'default', 'break', 'continue', 'return', 'throw',
+      'try', 'catch', 'finally', 'new', 'this', 'super', 'import', 'export',
+      'from', 'as', 'async', 'await', 'yield', 'true', 'false', 'null', 'undefined',
+      'typeof', 'instanceof', 'in', 'of', 'void', 'delete',
+    ]);
+    return keywords.has(word);
+  }
+
+  /**
    * Extract CFG for a specific function
    */
   extractFunction(code: string, functionName: string): ControlFlowGraph | null {
