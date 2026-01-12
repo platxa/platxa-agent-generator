@@ -270,6 +270,7 @@ export type {
   DebugLoopHandlers,
   DebugLoopResult,
   DebugLoopConfig,
+  SelfDebugConfig,
 } from './core/debug-loop.js';
 
 // MCP Browser Integration

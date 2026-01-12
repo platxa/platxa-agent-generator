@@ -191,6 +191,22 @@ export interface DebugLoopConfig {
   verbose: boolean;
 }
 
+/**
+ * Self-debugging loop configuration
+ *
+ * Based on Self-Debug (ICLR 2024), CodeAct, and RECODE (2025) research.
+ * Configures iterative self-debugging with rubber duck explanation
+ * and diminishing returns detection.
+ */
+export interface SelfDebugConfig {
+  /** Maximum iterations before stopping (research shows diminishing returns after 5) */
+  maxIterations: number;
+  /** Enable rubber duck debugging mode (explain code to identify mistakes) */
+  enableExplanation: boolean;
+  /** Stop if improvement falls below this threshold (0-1 range) */
+  earlyTerminationThreshold: number;
+}
+
 // =============================================================================
 // Logging Injection Templates
 // =============================================================================
