@@ -413,6 +413,206 @@ export class DebugLoop {
   }
 
   /**
+   * Run self-debugging loop with iteration tracking
+   *
+   * Implements the Self-Debug pattern from research (ICLR 2024).
+   * Returns detailed iteration results for analysis and improvement tracking.
+   *
+   * @param code - The code to debug
+   * @param error - The error to fix
+   * @param config - Self-debug configuration (defaults to research-recommended values)
+   * @returns Array of iteration results with improvement deltas
+   */
+  async iterate(
+    code: string,
+    error: NormalizedError,
+    config: Partial<SelfDebugConfig> = {}
+  ): Promise<SelfDebugIteration[]> {
+    const selfDebugConfig: SelfDebugConfig = {
+      maxIterations: config.maxIterations ?? 5, // Research shows diminishing returns after 5
+      enableExplanation: config.enableExplanation ?? true,
+      earlyTerminationThreshold: config.earlyTerminationThreshold ?? 0.05,
+    };
+
+    const iterations: SelfDebugIteration[] = [];
+    let currentCode = code;
+    let previousScore = 0;
+    let iterationNum = 0;
+
+    while (iterationNum < selfDebugConfig.maxIterations) {
+      iterationNum++;
+      const startTime = Date.now();
+
+      // Generate explanation if enabled (rubber duck debugging)
+      let explanation: string | undefined;
+      if (selfDebugConfig.enableExplanation) {
+        explanation = this.explainCode(currentCode, error);
+      }
+
+      // Generate hypothesis for this iteration
+      const hypothesis = this.generateIterationHypothesis(currentCode, error, explanation);
+
+      // Attempt to generate a fix
+      const fixAttempt = this.generateIterationFix(currentCode, error, hypothesis);
+
+      // Evaluate the fix
+      const evaluationResult = this.evaluateIterationFix(fixAttempt, error);
+      const currentScore = evaluationResult.score;
+      const improvementDelta = currentScore - previousScore;
+
+      const iteration: SelfDebugIteration = {
+        iteration: iterationNum,
+        hypothesis,
+        fixAttempt,
+        improvementDelta,
+        success: evaluationResult.success,
+        durationMs: Date.now() - startTime,
+        timestamp: new Date(),
+      };
+
+      if (explanation) {
+        iteration.explanation = explanation;
+      }
+
+      if (!evaluationResult.success && evaluationResult.errorMessage) {
+        iteration.errorMessage = evaluationResult.errorMessage;
+      }
+
+      iterations.push(iteration);
+
+      // Check for early termination due to diminishing returns
+      if (this.detectDiminishingReturns(iterations, selfDebugConfig.earlyTerminationThreshold)) {
+        this.handlers.onMessage(
+          `Early termination: improvement delta (${improvementDelta.toFixed(3)}) below threshold`,
+          'info'
+        );
+        break;
+      }
+
+      // Check for success
+      if (evaluationResult.success) {
+        this.handlers.onMessage(
+          `Fix successful after ${iterationNum} iteration(s)`,
+          'success'
+        );
+        break;
+      }
+
+      // Update for next iteration
+      previousScore = currentScore;
+      if (evaluationResult.updatedCode) {
+        currentCode = evaluationResult.updatedCode;
+      }
+    }
+
+    return iterations;
+  }
+
+  /**
+   * Generate hypothesis for a self-debug iteration
+   */
+  private generateIterationHypothesis(
+    _code: string,
+    error: NormalizedError,
+    explanation?: string
+  ): string {
+    // Build hypothesis from error and explanation
+    const parts: string[] = [];
+    parts.push(`Error type: ${error.type ?? 'unknown'}`);
+    parts.push(`Message: ${error.message}`);
+
+    if (error.location) {
+      parts.push(`Location: ${error.location.file}:${error.location.line}`);
+    }
+
+    if (explanation) {
+      parts.push(`Analysis: ${explanation}`);
+    }
+
+    return parts.join('. ');
+  }
+
+  /**
+   * Generate fix attempt for a self-debug iteration
+   */
+  private generateIterationFix(
+    code: string,
+    _error: NormalizedError,
+    _hypothesis: string
+  ): string {
+    // In a full implementation, this would use LLM to generate fix
+    // For now, return the original code as placeholder
+    return code;
+  }
+
+  /**
+   * Evaluate a fix attempt
+   */
+  private evaluateIterationFix(
+    _fixAttempt: string,
+    _error: NormalizedError
+  ): {
+    success: boolean;
+    score: number;
+    errorMessage?: string;
+    updatedCode?: string;
+  } {
+    // In a full implementation, this would run tests and evaluate
+    // For now, return placeholder evaluation
+    return {
+      success: false,
+      score: 0,
+      errorMessage: 'Evaluation not implemented - placeholder',
+    };
+  }
+
+  /**
+   * Explain code to identify potential issues (rubber duck debugging)
+   *
+   * Feature #4: Generates an explanation of the code to help identify mistakes.
+   * Based on Self-Debug research showing explanation improves fix quality.
+   *
+   * @param code - The code to explain
+   * @param error - The error context
+   * @returns Explanation string identifying potential issues
+   */
+  explainCode(code: string, error: NormalizedError): string {
+    // Placeholder implementation - will be enhanced in Feature #4
+    const lines = code.split('\n');
+    const errorLine = error.location?.line ?? 1;
+    const relevantLines = lines.slice(
+      Math.max(0, errorLine - 3),
+      Math.min(lines.length, errorLine + 2)
+    );
+
+    return `Analyzing code around line ${errorLine}:\n${relevantLines.join('\n')}\n\nError: ${error.message}`;
+  }
+
+  /**
+   * Detect diminishing returns in iteration improvements
+   *
+   * Feature #5: Analyzes iteration history to detect when improvements
+   * fall below threshold, indicating further iterations are unlikely to help.
+   *
+   * @param iterations - History of iterations
+   * @param threshold - Minimum improvement threshold (0-1)
+   * @returns true if diminishing returns detected
+   */
+  detectDiminishingReturns(
+    iterations: SelfDebugIteration[],
+    threshold: number
+  ): boolean {
+    // Placeholder implementation - will be enhanced in Feature #5
+    if (iterations.length < 2) {
+      return false;
+    }
+
+    // Check last two iterations for improvement below threshold
+    const recent = iterations.slice(-2);
+    return recent.every((iter) => Math.abs(iter.improvementDelta) < threshold);
+  }
+
+  /**
    * Run a single debug iteration
    */
   private async runIteration(
