@@ -300,6 +300,22 @@ export type {
   ContextManagerConfig,
 } from './core/context-manager.js';
 
+// Analysis Cache
+export {
+  AnalysisCache,
+  createAnalysisCache,
+  getSharedCache,
+  resetSharedCache,
+} from './core/analysis-cache.js';
+export type {
+  CacheEntryType,
+  CacheEntryMetadata,
+  CacheEntry,
+  CacheStats,
+  EvictionPolicy,
+  AnalysisCacheConfig,
+} from './core/analysis-cache.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
