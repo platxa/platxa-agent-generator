@@ -390,6 +390,27 @@ export type {
   VSCodeIntegrationConfig,
 } from './core/vscode-integration.js';
 
+// Metrics Dashboard
+export {
+  MetricsDashboard,
+  createMetricsDashboard,
+  getSharedDashboard,
+  resetSharedDashboard,
+} from './core/metrics-dashboard.js';
+export type {
+  MetricsPeriod,
+  MetricCategory,
+  SessionOutcome,
+  SessionMetrics,
+  ErrorPatternMetrics,
+  FixEffectivenessMetrics,
+  PerformanceMetrics,
+  LanguageMetrics,
+  DashboardMetrics,
+  ExportFormat,
+  MetricsDashboardConfig,
+} from './core/metrics-dashboard.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
