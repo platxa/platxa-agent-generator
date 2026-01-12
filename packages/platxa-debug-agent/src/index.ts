@@ -453,3 +453,19 @@ export type {
   CSSRule,
   SpecificityConflict,
 } from './modules/css-module.js';
+export {
+  HTMLModule,
+  createHTMLModule,
+  HTMLValidator,
+  createHTMLValidator,
+  validateHTML,
+  RAW_TEXT_ELEMENTS,
+} from './modules/html-module.js';
+export type {
+  ElementCategory,
+  ElementDefinition,
+  ParsedElement,
+  HTMLValidationError,
+  HTMLValidationResult,
+  HTMLValidatorConfig,
+} from './modules/html-module.js';
