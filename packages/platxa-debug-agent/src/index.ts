@@ -328,6 +328,21 @@ export type {
   ParallelAnalyzerConfig,
 } from './core/parallel-analyzer.js';
 
+// Incremental Analyzer
+export {
+  IncrementalAnalyzer,
+  createIncrementalAnalyzer,
+} from './core/incremental-analyzer.js';
+export type {
+  FileChangeType,
+  FileState,
+  FileChange,
+  ChangeSet,
+  IncrementalAnalysisResult,
+  DependencyResolver,
+  IncrementalAnalyzerConfig,
+} from './core/incremental-analyzer.js';
+
 // Language Modules
 export { PythonModule, createPythonModule } from './modules/python-module.js';
 export {
