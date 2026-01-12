@@ -441,6 +441,243 @@ export class CFGExtractor {
   }
 
   /**
+   * Trace execution through basic blocks
+   *
+   * Feature #10: Simulates execution through blocks with variable tracking.
+   * Takes BasicBlock[] and inputs, returns ExecutionTrace.
+   *
+   * @param blocks - Basic blocks to trace through
+   * @param inputs - Initial variable values
+   * @returns Execution trace with block sequence and variable snapshots
+   */
+  traceExecution(
+    blocks: BasicBlock[],
+    inputs: Map<string, unknown> = new Map()
+  ): ExecutionTrace {
+    const startTime = Date.now();
+    const blockSequence: string[] = [];
+    const variableSnapshots: VariableSnapshot[] = [];
+    const variables = new Map<string, unknown>(inputs);
+
+    // Build block map for quick lookup
+    const blockMap = new Map<string, BasicBlock>();
+    for (const block of blocks) {
+      blockMap.set(block.id, block);
+    }
+
+    // Find entry block
+    const entryBlock = blocks.find((b) => b.type === 'entry');
+    if (!entryBlock) {
+      return {
+        blockSequence: [],
+        variableSnapshots: [],
+        executionTime: Date.now() - startTime,
+        completed: false,
+        error: {
+          message: 'No entry block found',
+          type: 'CFGError',
+          blockId: '',
+          statementIndex: 0,
+        },
+      };
+    }
+
+    // Simulate execution
+    let currentBlockId: string | undefined = entryBlock.id;
+    let maxIterations = 1000; // Prevent infinite loops
+
+    while (currentBlockId && maxIterations > 0) {
+      maxIterations--;
+      const currentBlock = blockMap.get(currentBlockId);
+
+      if (!currentBlock) {
+        break;
+      }
+
+      blockSequence.push(currentBlockId);
+
+      // Copy current variables to entry
+      currentBlock.entryVariables = new Map(variables);
+
+      // Execute statements and track variable changes
+      for (let i = 0; i < currentBlock.statements.length; i++) {
+        const statement = currentBlock.statements[i];
+        if (!statement) continue;
+
+        // Take snapshot before statement execution
+        variableSnapshots.push({
+          blockId: currentBlockId,
+          statementIndex: i,
+          variables: new Map(variables),
+          timestamp: Date.now(),
+        });
+
+        // Simulate statement execution
+        for (const write of statement.writes) {
+          // Set placeholder value indicating computed from reads
+          const readSource = statement.reads.length > 0
+            ? `<computed from: ${statement.reads.join(', ')}>`
+            : '<assigned>';
+          variables.set(write, readSource);
+        }
+      }
+
+      // Copy final variables to exit
+      currentBlock.exitVariables = new Map(variables);
+
+      // Check for exit block
+      if (currentBlock.type === 'exit') {
+        break;
+      }
+
+      // Move to next block (take first successor for sequential flow)
+      currentBlockId = currentBlock.successors[0];
+    }
+
+    return {
+      blockSequence,
+      variableSnapshots,
+      executionTime: Date.now() - startTime,
+      completed: maxIterations > 0,
+    };
+  }
+
+  /**
+   * Correlate an error to its originating block
+   *
+   * Feature #11: Maps error to the block where it originated.
+   * Takes Error and ExecutionTrace, returns BasicBlock or null.
+   *
+   * @param error - Error with location information
+   * @param trace - Execution trace
+   * @param blocks - All basic blocks
+   * @returns Originating block or null if not found
+   */
+  correlateErrorToBlock(
+    error: { line: number; message: string },
+    trace: ExecutionTrace,
+    blocks: BasicBlock[]
+  ): BasicBlock | null {
+    // First, try to find block by line number
+    for (const block of blocks) {
+      if (error.line >= block.startLine && error.line <= block.endLine) {
+        return block;
+      }
+    }
+
+    // If not found by line, check the last executed block in trace
+    if (trace.blockSequence.length > 0) {
+      const lastBlockId = trace.blockSequence[trace.blockSequence.length - 1];
+      if (lastBlockId) {
+        const lastBlock = blocks.find((b) => b.id === lastBlockId);
+        if (lastBlock) {
+          return lastBlock;
+        }
+      }
+    }
+
+    // Check for error in trace
+    if (trace.error) {
+      const errorBlock = blocks.find((b) => b.id === trace.error?.blockId);
+      if (errorBlock) {
+        return errorBlock;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Generate variable state diff for a block
+   *
+   * Feature #12: Shows variable changes within a block.
+   * Compares entry and exit variables to identify changes.
+   *
+   * @param block - Block to analyze
+   * @returns Variable state diff showing added, modified, and removed variables
+   */
+  generateVariableStateDiff(block: BasicBlock): VariableStateDiff {
+    const added = new Map<string, unknown>();
+    const modified = new Map<string, { before: unknown; after: unknown }>();
+    const removed = new Map<string, unknown>();
+
+    const entryKeys = new Set(block.entryVariables.keys());
+    const exitKeys = new Set(block.exitVariables.keys());
+
+    // Find added variables (in exit but not in entry)
+    for (const key of exitKeys) {
+      if (!entryKeys.has(key)) {
+        added.set(key, block.exitVariables.get(key));
+      }
+    }
+
+    // Find removed variables (in entry but not in exit)
+    for (const key of entryKeys) {
+      if (!exitKeys.has(key)) {
+        removed.set(key, block.entryVariables.get(key));
+      }
+    }
+
+    // Find modified variables (in both but with different values)
+    for (const key of entryKeys) {
+      if (exitKeys.has(key)) {
+        const before = block.entryVariables.get(key);
+        const after = block.exitVariables.get(key);
+        if (before !== after) {
+          modified.set(key, { before, after });
+        }
+      }
+    }
+
+    return {
+      blockId: block.id,
+      added,
+      modified,
+      removed,
+    };
+  }
+
+  /**
+   * Format variable state diff as human-readable string
+   *
+   * Feature #12: Visualization helper for variable changes.
+   *
+   * @param diff - Variable state diff to format
+   * @returns Formatted string showing variable changes
+   */
+  formatVariableStateDiff(diff: VariableStateDiff): string {
+    const lines: string[] = [];
+    lines.push(`=== Variable State Diff for ${diff.blockId} ===`);
+
+    if (diff.added.size > 0) {
+      lines.push('\n+ Added:');
+      for (const [key, value] of diff.added) {
+        lines.push(`  + ${key} = ${JSON.stringify(value)}`);
+      }
+    }
+
+    if (diff.modified.size > 0) {
+      lines.push('\n~ Modified:');
+      for (const [key, { before, after }] of diff.modified) {
+        lines.push(`  ~ ${key}: ${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+      }
+    }
+
+    if (diff.removed.size > 0) {
+      lines.push('\n- Removed:');
+      for (const [key, value] of diff.removed) {
+        lines.push(`  - ${key} = ${JSON.stringify(value)}`);
+      }
+    }
+
+    if (diff.added.size === 0 && diff.modified.size === 0 && diff.removed.size === 0) {
+      lines.push('\n(No variable changes)');
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
    * Convert CFG node type to BasicBlock type
    */
   private cfgNodeTypeToBasicBlockType(nodeType: CFGNodeType): BasicBlockType {
