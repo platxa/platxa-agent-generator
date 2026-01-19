@@ -169,8 +169,8 @@ const uiGeneratorReasoningEngine: ReasoningEngine = {
   async reason(
     task: string,
     observations: Observation[],
-    context: Record<string, unknown>,
-    availableActions: ActionDefinition[]
+    _context: Record<string, unknown>,
+    _availableActions: ActionDefinition[]
   ): Promise<ReasoningResult> {
     const completedActions = new Set(observations.map((o) => o.actionName))
     const lastObservation = observations[observations.length - 1]

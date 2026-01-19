@@ -9,7 +9,7 @@
  * - Timeout behavior
  */
 
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import {
   ReActAgent,
   createAgent,
@@ -47,7 +47,6 @@ const createMockAction = (
 
 const successAction = createMockAction("success_action", true)
 const failAction = createMockAction("fail_action", false)
-const slowAction = createMockAction("slow_action", true, 100)
 
 // ============================================================================
 // Core Agent Tests
