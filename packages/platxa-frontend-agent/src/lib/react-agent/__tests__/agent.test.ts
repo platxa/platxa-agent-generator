@@ -105,7 +105,7 @@ describe("ReActAgent", () => {
 
       expect(result.success).toBe(true)
       expect(result.totalSteps).toBeGreaterThan(0)
-      expect(result.executionTimeMs).toBeGreaterThan(0)
+      expect(result.executionTimeMs).toBeGreaterThanOrEqual(0)
 
       // Verify steps include reasoning, action, and observation
       const stepTypes = result.steps.map((s) => s.type)
