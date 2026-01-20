@@ -20,8 +20,8 @@
  */
 
 import { createAction } from "../../agent"
+import type { Coordinator } from "../index"
 import {
-  Coordinator,
   createCoordinator,
   createSubAgent,
   CommonCapabilities,

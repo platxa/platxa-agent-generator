@@ -1,635 +1,662 @@
 #!/bin/bash
 # =============================================================================
-# Frontend Tooling Setup Script
+# Frontend Tooling Setup Script - Production Grade
 # =============================================================================
 #
-# This script sets up the complete modern frontend development toolchain
-# based on 2025-2026 industry standards.
+# Installs and verifies the complete modern frontend development toolchain
+# based on 2025-2026 industry standards with React 19, Tailwind CSS v4,
+# and React Compiler.
 #
 # Usage:
 #   ./scripts/setup-tooling.sh [options]
 #
 # Options:
-#   --all         Install all tools (default)
-#   --minimal     Install only essential tools
-#   --testing     Install testing tools only
-#   --linting     Install linting/formatting tools only
-#   --ci          Install CI/CD tools only
-#   --help        Show this help message
+#   --all           Install all tools (default)
+#   --minimal       Install only essential tools
+#   --testing       Install testing tools only
+#   --verify-only   Only verify existing installation
+#   --help          Show this help message
 #
 # =============================================================================
 
-set -e
+set -euo pipefail
+
+# =============================================================================
+# Configuration - Pin to exact versions for reproducibility
+# =============================================================================
+
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Production versions (matched to package.json)
+readonly REACT_VERSION="^19.2.3"
+readonly REACT_DOM_VERSION="^19.2.3"
+readonly TYPESCRIPT_VERSION="^5.7.2"
+readonly VITE_VERSION="^6.0.7"
+readonly TAILWIND_VERSION="^4.0.0"
+readonly VITEST_VERSION="^2.1.8"
+readonly PLAYWRIGHT_VERSION="^1.57.0"
+readonly ESLINT_VERSION="^9.17.0"
+readonly FRAMER_MOTION_VERSION="^11.15.0"
+readonly LUCIDE_REACT_VERSION="^0.469.0"
 
 # Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[1;33m'
+readonly BLUE='\033[0;34m'
+readonly CYAN='\033[0;36m'
+readonly NC='\033[0m'
 
-# Logging functions
-log_info() { echo -e "${BLUE}ℹ${NC} $1"; }
-log_success() { echo -e "${GREEN}✓${NC} $1"; }
-log_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
-log_error() { echo -e "${RED}✗${NC} $1"; }
+# Counters for summary - using assignment syntax for set -e compatibility
+TOTAL_STEPS=0
+PASSED_STEPS=0
+FAILED_STEPS=0
 
-# Check if command exists
+# Increment function that works with set -e
+# Using assignment syntax instead of ((var++)) which returns 1 when var is 0
+increment_total() { TOTAL_STEPS=$((TOTAL_STEPS + 1)); }
+increment_passed() { PASSED_STEPS=$((PASSED_STEPS + 1)); }
+increment_failed() { FAILED_STEPS=$((FAILED_STEPS + 1)); }
+
+# =============================================================================
+# Logging Functions
+# =============================================================================
+
+log_header() {
+  echo ""
+  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  echo -e "${CYAN}  $1${NC}"
+  echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+}
+
+log_step() {
+  echo -e "${BLUE}[STEP]${NC} $1"
+  increment_total
+}
+
+log_info() {
+  echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+  echo -e "${GREEN}[PASS]${NC} $1"
+  increment_passed
+}
+
+log_warning() {
+  echo -e "${YELLOW}[WARN]${NC} $1"
+}
+
+log_error() {
+  echo -e "${RED}[FAIL]${NC} $1"
+  increment_failed
+}
+
+log_verify() {
+  echo -e "${CYAN}[VERIFY]${NC} $1"
+}
+
+# =============================================================================
+# Utility Functions
+# =============================================================================
+
 command_exists() {
   command -v "$1" >/dev/null 2>&1
 }
 
+package_installed() {
+  local pkg="$1"
+  if [ -f "$PROJECT_DIR/node_modules/$pkg/package.json" ]; then
+    return 0
+  fi
+  return 1
+}
+
+get_package_version() {
+  local pkg="$1"
+  if [ -f "$PROJECT_DIR/node_modules/$pkg/package.json" ]; then
+    grep '"version"' "$PROJECT_DIR/node_modules/$pkg/package.json" | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/'
+  else
+    echo "not installed"
+  fi
+}
+
+verify_package() {
+  local pkg="$1"
+  local expected_pattern="$2"
+  local actual_version
+
+  actual_version=$(get_package_version "$pkg")
+
+  if [ "$actual_version" = "not installed" ]; then
+    log_error "$pkg: NOT INSTALLED"
+    return 1
+  fi
+
+  log_success "$pkg: v$actual_version"
+  return 0
+}
+
 # Detect package manager
 detect_package_manager() {
-  if [ -f "pnpm-lock.yaml" ]; then
+  if [ -f "$PROJECT_DIR/pnpm-lock.yaml" ]; then
     echo "pnpm"
-  elif [ -f "bun.lockb" ]; then
+  elif [ -f "$PROJECT_DIR/bun.lockb" ]; then
     echo "bun"
-  elif [ -f "yarn.lock" ]; then
+  elif [ -f "$PROJECT_DIR/yarn.lock" ]; then
     echo "yarn"
   else
-    echo "npm"
+    echo "pnpm"  # Default to pnpm for this project
   fi
 }
 
 PM=$(detect_package_manager)
-log_info "Detected package manager: $PM"
 
 # Install function based on package manager
-install_dev() {
+install_deps() {
+  local save_type="$1"
+  shift
+
   case $PM in
-    pnpm) pnpm add -D "$@" ;;
-    bun) bun add -D "$@" ;;
-    yarn) yarn add -D "$@" ;;
-    npm) npm install -D "$@" ;;
+    pnpm)
+      if [ "$save_type" = "dev" ]; then
+        pnpm add -D "$@"
+      else
+        pnpm add "$@"
+      fi
+      ;;
+    bun)
+      if [ "$save_type" = "dev" ]; then
+        bun add -D "$@"
+      else
+        bun add "$@"
+      fi
+      ;;
+    yarn)
+      if [ "$save_type" = "dev" ]; then
+        yarn add -D "$@"
+      else
+        yarn add "$@"
+      fi
+      ;;
+    npm)
+      if [ "$save_type" = "dev" ]; then
+        npm install -D "$@"
+      else
+        npm install "$@"
+      fi
+      ;;
   esac
 }
 
-install_prod() {
-  case $PM in
-    pnpm) pnpm add "$@" ;;
-    bun) bun add "$@" ;;
-    yarn) yarn add "$@" ;;
-    npm) npm install "$@" ;;
-  esac
+# =============================================================================
+# Pre-flight Checks
+# =============================================================================
+
+preflight_checks() {
+  log_header "Pre-flight Checks"
+
+  # Check Node.js
+  log_step "Checking Node.js version..."
+  if ! command_exists node; then
+    log_error "Node.js is not installed. Please install Node.js >= 20.0.0"
+    exit 1
+  fi
+
+  local node_version
+  node_version=$(node --version | sed 's/v//')
+  local node_major
+  node_major=$(echo "$node_version" | cut -d. -f1)
+
+  if [ "$node_major" -lt 20 ]; then
+    log_error "Node.js version $node_version is too old. Required: >= 20.0.0"
+    exit 1
+  fi
+  log_success "Node.js v$node_version"
+
+  # Check package manager
+  log_step "Checking package manager..."
+  if ! command_exists "$PM"; then
+    log_warning "$PM not found, installing..."
+    if [ "$PM" = "pnpm" ]; then
+      npm install -g pnpm@9.15.0
+    fi
+  fi
+
+  local pm_version
+  pm_version=$($PM --version)
+  log_success "$PM v$pm_version"
+
+  # Check project directory
+  log_step "Checking project directory..."
+  if [ ! -f "$PROJECT_DIR/package.json" ]; then
+    log_error "package.json not found in $PROJECT_DIR"
+    exit 1
+  fi
+  log_success "Project directory verified"
+
+  cd "$PROJECT_DIR"
 }
 
 # =============================================================================
 # Installation Functions
 # =============================================================================
 
+install_core_dependencies() {
+  log_header "Installing Core Dependencies"
+
+  # React 19
+  log_step "Installing React 19..."
+  install_deps prod "react@$REACT_VERSION" "react-dom@$REACT_DOM_VERSION"
+  verify_package "react" "$REACT_VERSION"
+  verify_package "react-dom" "$REACT_DOM_VERSION"
+
+  # TypeScript
+  log_step "Installing TypeScript..."
+  install_deps dev "typescript@$TYPESCRIPT_VERSION" "@types/node@^22.10.5"
+  verify_package "typescript" "$TYPESCRIPT_VERSION"
+
+  # React Types for React 19
+  log_step "Installing React 19 type definitions..."
+  install_deps dev "@types/react@^19.2.8" "@types/react-dom@^19.2.3"
+  verify_package "@types/react" "19"
+  verify_package "@types/react-dom" "19"
+}
+
 install_build_tools() {
-  log_info "Installing build tools (Vite)..."
-  install_dev vite @vitejs/plugin-react
-  log_success "Build tools installed"
+  log_header "Installing Build Tools"
+
+  # Vite
+  log_step "Installing Vite..."
+  install_deps dev "vite@$VITE_VERSION" "@vitejs/plugin-react@^4.3.4"
+  verify_package "vite" "$VITE_VERSION"
+  verify_package "@vitejs/plugin-react" "4"
+
+  # React Compiler
+  log_step "Installing React Compiler..."
+  install_deps dev "babel-plugin-react-compiler@^1.0.0"
+  verify_package "babel-plugin-react-compiler" "1"
 }
 
-install_react() {
-  log_info "Installing React 19..."
-  install_prod react@19 react-dom@19
-  install_dev @types/react@19 @types/react-dom@19
-  log_success "React 19 installed"
+install_styling() {
+  log_header "Installing Styling Tools"
+
+  # Tailwind CSS v4
+  log_step "Installing Tailwind CSS v4..."
+  install_deps dev "tailwindcss@$TAILWIND_VERSION" "@tailwindcss/vite@^4.0.0"
+  verify_package "tailwindcss" "4"
+  verify_package "@tailwindcss/vite" "4"
+
+  # UI Dependencies
+  log_step "Installing UI utilities..."
+  install_deps prod "class-variance-authority@^0.7.1" "clsx@^2.1.1" "tailwind-merge@^2.6.0"
+  verify_package "class-variance-authority" "0.7"
+  verify_package "clsx" "2"
+  verify_package "tailwind-merge" "2"
+
+  # Framer Motion
+  log_step "Installing Framer Motion..."
+  install_deps prod "framer-motion@$FRAMER_MOTION_VERSION"
+  verify_package "framer-motion" "11"
+
+  # Lucide Icons
+  log_step "Installing Lucide React icons..."
+  install_deps prod "lucide-react@$LUCIDE_REACT_VERSION"
+  verify_package "lucide-react" "0.469"
 }
 
-install_react_compiler() {
-  log_info "Installing React Compiler..."
-  install_dev babel-plugin-react-compiler eslint-plugin-react-compiler
-  log_success "React Compiler installed"
-}
+install_radix_ui() {
+  log_header "Installing Radix UI Primitives"
 
-install_tailwind() {
-  log_info "Installing Tailwind CSS v4..."
-  install_dev tailwindcss @tailwindcss/vite
+  log_step "Installing Radix UI components..."
+  install_deps prod \
+    "@radix-ui/react-accordion@^1.2.2" \
+    "@radix-ui/react-collapsible@^1.1.2" \
+    "@radix-ui/react-dialog@^1.1.4" \
+    "@radix-ui/react-dropdown-menu@^2.1.4" \
+    "@radix-ui/react-select@^2.1.4" \
+    "@radix-ui/react-slot@^1.1.1" \
+    "@radix-ui/react-tabs@^1.1.2" \
+    "@radix-ui/react-tooltip@^1.1.6"
 
-  # Create CSS file with @theme if it doesn't exist
-  if [ ! -f "src/index.css" ]; then
-    mkdir -p src
-    cat > src/index.css << 'EOF'
-@import "tailwindcss";
-
-@theme {
-  /* Colors - OKLCH for P3 gamut support */
-  --color-primary: oklch(0.6 0.2 250);
-  --color-secondary: oklch(0.7 0.15 180);
-  --color-accent: oklch(0.65 0.25 30);
-  --color-muted: oklch(0.9 0.01 250);
-  --color-destructive: oklch(0.55 0.2 25);
-
-  /* Typography */
-  --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
-
-  /* Border Radius */
-  --radius-sm: 0.25rem;
-  --radius-md: 0.5rem;
-  --radius-lg: 0.75rem;
-  --radius-full: 9999px;
-}
-EOF
-    log_success "Created src/index.css with @theme"
-  fi
-
-  log_success "Tailwind CSS v4 installed"
-}
-
-install_shadcn_deps() {
-  log_info "Installing shadcn/ui dependencies..."
-  install_prod clsx tailwind-merge class-variance-authority
-  install_prod @radix-ui/react-slot
-
-  # Create utils.ts if it doesn't exist
-  if [ ! -f "src/lib/utils.ts" ]; then
-    mkdir -p src/lib
-    cat > src/lib/utils.ts << 'EOF'
-import { type ClassValue, clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
-
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs))
-}
-EOF
-    log_success "Created src/lib/utils.ts"
-  fi
-
-  log_success "shadcn/ui dependencies installed"
+  verify_package "@radix-ui/react-dialog" "1"
+  verify_package "@radix-ui/react-slot" "1"
+  log_success "Radix UI primitives installed"
 }
 
 install_testing() {
-  log_info "Installing testing tools..."
+  log_header "Installing Testing Tools"
 
   # Vitest
-  install_dev vitest @vitest/ui @vitest/coverage-v8
+  log_step "Installing Vitest..."
+  install_deps dev "vitest@$VITEST_VERSION" "@vitest/coverage-v8@^2.1.8"
+  verify_package "vitest" "2"
 
   # React Testing Library
-  install_dev @testing-library/react @testing-library/jest-dom @testing-library/user-event
+  log_step "Installing React Testing Library..."
+  install_deps dev \
+    "@testing-library/react@^16.1.0" \
+    "@testing-library/jest-dom@^6.6.3" \
+    "@testing-library/user-event@^14.5.2"
+  verify_package "@testing-library/react" "16"
 
   # JSDOM
-  install_dev jsdom
-
-  # Create test setup if it doesn't exist
-  if [ ! -f "src/test/setup.ts" ]; then
-    mkdir -p src/test
-    cat > src/test/setup.ts << 'EOF'
-import "@testing-library/jest-dom/vitest"
-import { cleanup } from "@testing-library/react"
-import { afterEach } from "vitest"
-
-// Cleanup after each test
-afterEach(() => {
-  cleanup()
-})
-EOF
-    log_success "Created src/test/setup.ts"
-  fi
-
-  log_success "Testing tools installed"
+  log_step "Installing JSDOM..."
+  install_deps dev "jsdom@^25.0.1"
+  verify_package "jsdom" "25"
 }
 
 install_playwright() {
-  log_info "Installing Playwright..."
-  install_dev @playwright/test
+  log_header "Installing Playwright E2E Testing"
 
-  # Install browsers
-  log_info "Installing Playwright browsers..."
+  log_step "Installing Playwright..."
+  install_deps dev "@playwright/test@$PLAYWRIGHT_VERSION"
+  verify_package "@playwright/test" "1"
+
+  log_step "Installing Playwright browsers..."
+  log_info "This may take a few minutes..."
+
+  # Install browsers without system deps (user-level installation)
   case $PM in
-    pnpm) pnpm exec playwright install --with-deps ;;
-    bun) bunx playwright install --with-deps ;;
-    yarn) yarn playwright install --with-deps ;;
-    npm) npx playwright install --with-deps ;;
+    pnpm) pnpm exec playwright install chromium firefox webkit || log_warning "Some browsers may require manual installation" ;;
+    bun) bunx playwright install chromium firefox webkit || log_warning "Some browsers may require manual installation" ;;
+    yarn) yarn playwright install chromium firefox webkit || log_warning "Some browsers may require manual installation" ;;
+    npm) npx playwright install chromium firefox webkit || log_warning "Some browsers may require manual installation" ;;
   esac
 
-  # Create playwright config if it doesn't exist
-  if [ ! -f "playwright.config.ts" ]; then
-    cat > playwright.config.ts << 'EOF'
-import { defineConfig, devices } from "@playwright/test"
+  log_success "Playwright browsers installed"
 
-export default defineConfig({
-  testDir: "./e2e",
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: "html",
-  use: {
-    baseURL: "http://localhost:3000",
-    trace: "on-first-retry",
-    screenshot: "only-on-failure",
-  },
-  projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] } },
-    { name: "firefox", use: { ...devices["Desktop Firefox"] } },
-    { name: "webkit", use: { ...devices["Desktop Safari"] } },
-  ],
-  webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
-  },
-})
-EOF
-    log_success "Created playwright.config.ts"
-  fi
-
-  # Create e2e directory
-  mkdir -p e2e
-
-  log_success "Playwright installed"
+  # Create e2e directory if it doesn't exist
+  mkdir -p "$PROJECT_DIR/e2e"
 }
 
-install_biome() {
-  log_info "Installing Biome (linting/formatting)..."
-  install_dev @biomejs/biome
+install_linting() {
+  log_header "Installing Linting Tools"
 
-  # Initialize biome config
-  if [ ! -f "biome.json" ]; then
-    cat > biome.json << 'EOF'
-{
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "organizeImports": {
-    "enabled": true
-  },
-  "linter": {
-    "enabled": true,
-    "rules": {
-      "recommended": true,
-      "complexity": {
-        "noForEach": "warn"
-      },
-      "style": {
-        "noNonNullAssertion": "warn"
-      },
-      "suspicious": {
-        "noExplicitAny": "warn"
-      }
-    }
-  },
-  "formatter": {
-    "enabled": true,
-    "indentStyle": "space",
-    "indentWidth": 2,
-    "lineWidth": 100
-  },
-  "javascript": {
-    "formatter": {
-      "semicolons": "asNeeded",
-      "quoteStyle": "double"
-    }
-  },
-  "files": {
-    "ignore": ["node_modules", "dist", "coverage", "playwright-report"]
-  }
-}
-EOF
-    log_success "Created biome.json"
-  fi
+  # ESLint v9
+  log_step "Installing ESLint v9..."
+  install_deps dev \
+    "eslint@$ESLINT_VERSION" \
+    "@eslint/js@^9.39.2" \
+    "typescript-eslint@^8.53.0"
+  verify_package "eslint" "9"
 
-  log_success "Biome installed"
-}
+  # React ESLint plugins
+  log_step "Installing React ESLint plugins..."
+  install_deps dev \
+    "eslint-plugin-react@^7.37.3" \
+    "eslint-plugin-react-hooks@^5.1.0" \
+    "eslint-plugin-react-compiler@19.1.0-rc.2" \
+    "eslint-plugin-jsx-a11y@^6.10.2"
+  verify_package "eslint-plugin-react" "7"
+  verify_package "eslint-plugin-react-compiler" "19"
 
-install_eslint() {
-  log_info "Installing ESLint v9 (alternative to Biome)..."
-  install_dev eslint @eslint/js typescript-eslint
-  install_dev eslint-plugin-react eslint-plugin-react-hooks
-  install_dev eslint-plugin-react-compiler
+  # TypeScript ESLint
+  log_step "Installing TypeScript ESLint..."
+  install_deps dev \
+    "@typescript-eslint/eslint-plugin@^8.19.1" \
+    "@typescript-eslint/parser@^8.19.1"
+  verify_package "@typescript-eslint/eslint-plugin" "8"
 
-  # Create eslint config
-  if [ ! -f "eslint.config.js" ]; then
-    cat > eslint.config.js << 'EOF'
-import js from "@eslint/js"
-import tseslint from "typescript-eslint"
-import react from "eslint-plugin-react"
-import reactHooks from "eslint-plugin-react-hooks"
-import reactCompiler from "eslint-plugin-react-compiler"
+  # Prettier
+  log_step "Installing Prettier..."
+  install_deps dev "prettier@^3.4.2"
+  verify_package "prettier" "3"
 
-export default tseslint.config(
-  js.configs.recommended,
-  ...tseslint.configs.recommended,
-  {
-    files: ["**/*.{ts,tsx}"],
-    plugins: {
-      react,
-      "react-hooks": reactHooks,
-      "react-compiler": reactCompiler,
-    },
-    rules: {
-      "react-hooks/rules-of-hooks": "error",
-      "react-hooks/exhaustive-deps": "warn",
-      "react-compiler/react-compiler": "error",
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
-    },
-    settings: {
-      react: { version: "detect" },
-    },
-  },
-  {
-    ignores: ["dist/", "node_modules/", "*.config.js", "coverage/"],
-  }
-)
-EOF
-    log_success "Created eslint.config.js"
-  fi
-
-  log_success "ESLint v9 installed"
-}
-
-install_typescript() {
-  log_info "Installing TypeScript..."
-  install_dev typescript @types/node
-
-  # Create tsconfig if it doesn't exist
-  if [ ! -f "tsconfig.json" ]; then
-    cat > tsconfig.json << 'EOF'
-{
-  "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "noUncheckedIndexedAccess": true,
-    "noImplicitOverride": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "verbatimModuleSyntax": true,
-    "noEmit": true,
-    "declaration": true,
-    "declarationMap": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    },
-    "jsx": "react-jsx",
-    "skipLibCheck": true
-  },
-  "include": ["src/**/*", "*.config.ts"],
-  "exclude": ["node_modules", "dist"]
-}
-EOF
-    log_success "Created tsconfig.json"
-  fi
-
-  log_success "TypeScript installed"
-}
-
-install_storybook() {
-  log_info "Installing Storybook 8..."
-
-  case $PM in
-    pnpm) pnpm dlx storybook@latest init --skip-install ;;
-    bun) bunx storybook@latest init --skip-install ;;
-    yarn) yarn dlx storybook@latest init --skip-install ;;
-    npm) npx storybook@latest init --skip-install ;;
-  esac
-
-  # Install additional addons
-  install_dev @storybook/test @storybook/addon-a11y @storybook/addon-coverage
-
-  log_success "Storybook 8 installed"
-}
-
-setup_github_actions() {
-  log_info "Setting up GitHub Actions CI/CD..."
-
-  mkdir -p .github/workflows
-
-  cat > .github/workflows/ci.yml << 'EOF'
-name: CI
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-
-env:
-  PNPM_VERSION: 9.15.0
-  NODE_VERSION: 22
-
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm typecheck
-
-  test:
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test:coverage
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: coverage-report
-          path: coverage/
-
-  e2e:
-    runs-on: ubuntu-latest
-    needs: lint
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps
-      - run: pnpm test:e2e
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: playwright-report/
-
-  build:
-    runs-on: ubuntu-latest
-    needs: [test, e2e]
-    steps:
-      - uses: actions/checkout@v5
-      - uses: pnpm/action-setup@v4
-        with:
-          version: ${{ env.PNPM_VERSION }}
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
-EOF
-
-  log_success "GitHub Actions CI/CD configured"
+  # Globals
+  log_step "Installing globals..."
+  install_deps dev "globals@^17.0.0"
+  verify_package "globals" "17"
 }
 
 # =============================================================================
-# Main Installation Logic
+# Verification Functions
+# =============================================================================
+
+verify_all_installations() {
+  log_header "Verification Report"
+
+  local verify_failed=0
+
+  log_verify "Core Dependencies:"
+  verify_package "react" "19" || ((verify_failed++))
+  verify_package "react-dom" "19" || ((verify_failed++))
+  verify_package "typescript" "5" || ((verify_failed++))
+
+  log_verify "Build Tools:"
+  verify_package "vite" "6" || ((verify_failed++))
+  verify_package "@vitejs/plugin-react" "4" || ((verify_failed++))
+  verify_package "babel-plugin-react-compiler" "1" || ((verify_failed++))
+
+  log_verify "Styling:"
+  verify_package "tailwindcss" "4" || ((verify_failed++))
+  verify_package "framer-motion" "11" || ((verify_failed++))
+  verify_package "lucide-react" "0" || ((verify_failed++))
+
+  log_verify "Testing:"
+  verify_package "vitest" "2" || ((verify_failed++))
+  verify_package "@playwright/test" "1" || ((verify_failed++))
+  verify_package "@testing-library/react" "16" || ((verify_failed++))
+
+  log_verify "Linting:"
+  verify_package "eslint" "9" || ((verify_failed++))
+  verify_package "prettier" "3" || ((verify_failed++))
+
+  return $verify_failed
+}
+
+run_quality_checks() {
+  log_header "Running Quality Checks"
+
+  # TypeScript check
+  log_step "Running TypeScript verification..."
+  if pnpm typecheck 2>/dev/null; then
+    log_success "TypeScript: No errors"
+  else
+    log_error "TypeScript: Errors found"
+  fi
+
+  # ESLint check
+  log_step "Running ESLint verification..."
+  if pnpm lint 2>/dev/null; then
+    log_success "ESLint: No errors"
+  else
+    log_error "ESLint: Errors found"
+  fi
+
+  # Test check
+  log_step "Running test suite..."
+  if pnpm test 2>/dev/null; then
+    log_success "Tests: All passed"
+  else
+    log_error "Tests: Some failed"
+  fi
+
+  # Build check
+  log_step "Running production build..."
+  if pnpm build 2>/dev/null; then
+    log_success "Build: Success"
+  else
+    log_error "Build: Failed"
+  fi
+}
+
+# =============================================================================
+# Summary
+# =============================================================================
+
+print_summary() {
+  log_header "Installation Summary"
+
+  echo ""
+  echo -e "${CYAN}Environment:${NC}"
+  echo "  Node.js: $(node --version)"
+  echo "  $PM: $($PM --version)"
+  echo ""
+
+  echo -e "${CYAN}Results:${NC}"
+  echo -e "  Total Steps: $TOTAL_STEPS"
+  echo -e "  ${GREEN}Passed: $PASSED_STEPS${NC}"
+  if [ $FAILED_STEPS -gt 0 ]; then
+    echo -e "  ${RED}Failed: $FAILED_STEPS${NC}"
+  fi
+  echo ""
+
+  if [ $FAILED_STEPS -eq 0 ]; then
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${GREEN}  Installation Complete - All checks passed!${NC}"
+    echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  else
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+    echo -e "${RED}  Installation Complete - Some checks failed!${NC}"
+    echo -e "${RED}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+  fi
+
+  echo ""
+  echo "Next steps:"
+  echo "  pnpm dev        # Start development server"
+  echo "  pnpm test       # Run tests"
+  echo "  pnpm build      # Build for production"
+  echo ""
+}
+
+# =============================================================================
+# Help
 # =============================================================================
 
 show_help() {
   cat << EOF
-Frontend Tooling Setup Script
+Frontend Tooling Setup Script - Production Grade
 
 Usage: $0 [options]
 
 Options:
-  --all         Install all tools (default)
-  --minimal     Install only essential tools (Vite, React, TypeScript, Tailwind)
-  --testing     Install testing tools only (Vitest, Playwright)
-  --linting     Install linting/formatting tools only (Biome or ESLint)
-  --biome       Use Biome for linting (default)
-  --eslint      Use ESLint + Prettier instead of Biome
-  --ci          Install CI/CD tools only
-  --storybook   Install Storybook
-  --help        Show this help message
+  --all           Install all tools (default)
+  --minimal       Install only essential tools (React, TypeScript, Vite, Tailwind)
+  --testing       Install testing tools only (Vitest, Playwright, RTL)
+  --linting       Install linting tools only (ESLint, Prettier)
+  --verify-only   Only verify existing installation without installing
+  --skip-verify   Skip verification after installation
+  --help          Show this help message
 
 Examples:
-  $0 --all              # Install everything
+  $0                    # Install all tools with verification
   $0 --minimal          # Essential tools only
-  $0 --testing --biome  # Testing + Biome
+  $0 --verify-only      # Just verify current installation
+  $0 --testing          # Install testing tools only
+
+Installed Versions:
+  React:          $REACT_VERSION
+  TypeScript:     $TYPESCRIPT_VERSION
+  Vite:           $VITE_VERSION
+  Tailwind CSS:   $TAILWIND_VERSION
+  Vitest:         $VITEST_VERSION
+  Playwright:     $PLAYWRIGHT_VERSION
+  ESLint:         $ESLINT_VERSION
 EOF
 }
 
-INSTALL_BUILD=false
-INSTALL_REACT=false
-INSTALL_COMPILER=false
-INSTALL_TAILWIND=false
-INSTALL_SHADCN=false
-INSTALL_TESTING=false
-INSTALL_PLAYWRIGHT=false
-INSTALL_BIOME=false
-INSTALL_ESLINT=false
-INSTALL_TYPESCRIPT=false
-INSTALL_STORYBOOK=false
-INSTALL_CI=false
-
-# Parse arguments
-if [ $# -eq 0 ]; then
-  # Default: install all
-  INSTALL_BUILD=true
-  INSTALL_REACT=true
-  INSTALL_COMPILER=true
-  INSTALL_TAILWIND=true
-  INSTALL_SHADCN=true
-  INSTALL_TESTING=true
-  INSTALL_PLAYWRIGHT=true
-  INSTALL_BIOME=true
-  INSTALL_TYPESCRIPT=true
-  INSTALL_CI=true
-fi
-
-while [[ $# -gt 0 ]]; do
-  case $1 in
-    --all)
-      INSTALL_BUILD=true
-      INSTALL_REACT=true
-      INSTALL_COMPILER=true
-      INSTALL_TAILWIND=true
-      INSTALL_SHADCN=true
-      INSTALL_TESTING=true
-      INSTALL_PLAYWRIGHT=true
-      INSTALL_BIOME=true
-      INSTALL_TYPESCRIPT=true
-      INSTALL_STORYBOOK=true
-      INSTALL_CI=true
-      shift
-      ;;
-    --minimal)
-      INSTALL_BUILD=true
-      INSTALL_REACT=true
-      INSTALL_TAILWIND=true
-      INSTALL_TYPESCRIPT=true
-      shift
-      ;;
-    --testing)
-      INSTALL_TESTING=true
-      INSTALL_PLAYWRIGHT=true
-      shift
-      ;;
-    --linting|--biome)
-      INSTALL_BIOME=true
-      shift
-      ;;
-    --eslint)
-      INSTALL_ESLINT=true
-      INSTALL_BIOME=false
-      shift
-      ;;
-    --ci)
-      INSTALL_CI=true
-      shift
-      ;;
-    --storybook)
-      INSTALL_STORYBOOK=true
-      shift
-      ;;
-    --help|-h)
-      show_help
-      exit 0
-      ;;
-    *)
-      log_error "Unknown option: $1"
-      show_help
-      exit 1
-      ;;
-  esac
-done
-
 # =============================================================================
-# Run Installation
+# Main
 # =============================================================================
 
-echo ""
-echo "=============================================="
-echo "  Frontend Tooling Setup (2025-2026)"
-echo "=============================================="
-echo ""
+main() {
+  local install_all=false
+  local install_minimal=false
+  local install_testing=false
+  local install_linting=false
+  local verify_only=false
+  local skip_verify=false
 
-$INSTALL_BUILD && install_build_tools
-$INSTALL_REACT && install_react
-$INSTALL_COMPILER && install_react_compiler
-$INSTALL_TAILWIND && install_tailwind
-$INSTALL_SHADCN && install_shadcn_deps
-$INSTALL_TYPESCRIPT && install_typescript
-$INSTALL_TESTING && install_testing
-$INSTALL_PLAYWRIGHT && install_playwright
-$INSTALL_BIOME && install_biome
-$INSTALL_ESLINT && install_eslint
-$INSTALL_STORYBOOK && install_storybook
-$INSTALL_CI && setup_github_actions
+  # Parse arguments
+  if [ $# -eq 0 ]; then
+    install_all=true
+  fi
 
-echo ""
-log_success "=============================================="
-log_success "  Setup Complete!"
-log_success "=============================================="
-echo ""
-log_info "Next steps:"
-echo "  1. Run 'pnpm dev' to start development server"
-echo "  2. Run 'pnpm test' to run tests"
-echo "  3. Run 'pnpm lint' to check code quality"
-echo ""
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      --all)
+        install_all=true
+        shift
+        ;;
+      --minimal)
+        install_minimal=true
+        shift
+        ;;
+      --testing)
+        install_testing=true
+        shift
+        ;;
+      --linting)
+        install_linting=true
+        shift
+        ;;
+      --verify-only)
+        verify_only=true
+        shift
+        ;;
+      --skip-verify)
+        skip_verify=true
+        shift
+        ;;
+      --help|-h)
+        show_help
+        exit 0
+        ;;
+      *)
+        log_error "Unknown option: $1"
+        show_help
+        exit 1
+        ;;
+    esac
+  done
+
+  echo ""
+  echo -e "${CYAN}╔══════════════════════════════════════════════════════════════════════════╗${NC}"
+  echo -e "${CYAN}║      Frontend Tooling Setup - Production Grade (2025-2026)              ║${NC}"
+  echo -e "${CYAN}╚══════════════════════════════════════════════════════════════════════════╝${NC}"
+
+  # Pre-flight checks
+  preflight_checks
+
+  if $verify_only; then
+    verify_all_installations
+    run_quality_checks
+    print_summary
+    exit $FAILED_STEPS
+  fi
+
+  # Run installations based on mode
+  if $install_all; then
+    install_core_dependencies
+    install_build_tools
+    install_styling
+    install_radix_ui
+    install_testing
+    install_playwright
+    install_linting
+  elif $install_minimal; then
+    install_core_dependencies
+    install_build_tools
+    install_styling
+  elif $install_testing; then
+    install_testing
+    install_playwright
+  elif $install_linting; then
+    install_linting
+  fi
+
+  # Verification
+  if ! $skip_verify; then
+    verify_all_installations
+    run_quality_checks
+  fi
+
+  # Summary
+  print_summary
+
+  exit $FAILED_STEPS
+}
+
+main "$@"

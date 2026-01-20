@@ -616,7 +616,7 @@ describe("Theme Generation", () => {
     it("should reject theme without colors", () => {
       const invalid = {
         name: "test",
-        light: {} as any,
+        light: {} as unknown as ThemeConfig["light"],
       }
       const result = validateTheme(invalid)
 

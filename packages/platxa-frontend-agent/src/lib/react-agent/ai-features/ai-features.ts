@@ -719,7 +719,7 @@ const AUTOFIX_RULES: Record<AutoFixRule, (code: string) => { code: string; appli
 
   "format-code": (code) => {
     // Basic formatting - fix double newlines, trailing spaces
-    let newCode = code
+    const newCode = code
       .replace(/\n{3,}/g, "\n\n")
       .replace(/[ \t]+$/gm, "")
       .replace(/\n+$/, "\n")

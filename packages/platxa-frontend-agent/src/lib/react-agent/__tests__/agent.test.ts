@@ -17,6 +17,7 @@ import {
   type ActionDefinition,
   type AgentEvent,
   type ReasoningEngine,
+  type Observation,
 } from "../index"
 
 // ============================================================================
@@ -166,7 +167,7 @@ describe("ReActAgent", () => {
 
       // Should have observation with failure
       const observations = result.steps.filter((s) => s.type === "observation")
-      expect(observations.some((o) => !(o.content as any).result.success)).toBe(true)
+      expect(observations.some((o) => !(o.content as Observation).result.success)).toBe(true)
     })
 
     it("should include context in agent state", async () => {

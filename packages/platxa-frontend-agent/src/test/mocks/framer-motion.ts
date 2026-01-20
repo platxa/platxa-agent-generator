@@ -9,6 +9,10 @@
  */
 
 import * as React from "react"
+import type { JSX, ComponentPropsWithRef } from "react"
+
+// Supported HTML element types for motion components
+type MotionElement = keyof JSX.IntrinsicElements
 
 // Filter out framer-motion specific props
 const filterMotionProps = (props: Record<string, unknown>) => {
@@ -59,11 +63,16 @@ const filterMotionProps = (props: Record<string, unknown>) => {
 }
 
 // Create mock motion component factory
-const createMotionComponent = (element: keyof JSX.IntrinsicElements) => {
-  return React.forwardRef<unknown, Record<string, unknown>>((props, ref) => {
-    const filteredProps = filterMotionProps(props)
-    return React.createElement(element, { ...filteredProps, ref })
+const createMotionComponent = <T extends MotionElement>(element: T) => {
+  const Component = React.forwardRef<
+    Element,
+    ComponentPropsWithRef<T> & Record<string, unknown>
+  >((props, ref) => {
+    const filteredProps = filterMotionProps(props as Record<string, unknown>)
+    return React.createElement(element as string, { ...filteredProps, ref })
   })
+  Component.displayName = `motion.${String(element)}`
+  return Component
 }
 
 // Mock motion object with all HTML elements
