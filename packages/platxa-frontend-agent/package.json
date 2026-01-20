@@ -34,8 +34,15 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:visual": "playwright test --update-snapshots",
     "validate": "npm run typecheck && npm run lint && npm run test",
     "validate:agents": "bash scripts/validate-agents.sh",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "setup:tooling": "bash scripts/setup-tooling.sh",
+    "uninstall:tooling": "bash scripts/uninstall-tooling.sh",
     "prepublishOnly": "npm run validate && npm run build"
   },
   "dependencies": {
@@ -86,6 +93,7 @@
     "react-dom": "^18.0.0"
   },
   "engines": {
-    "node": ">=18.0.0"
-  }
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
 }
