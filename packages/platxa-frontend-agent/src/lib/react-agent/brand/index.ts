@@ -50,6 +50,22 @@ export {
 
 export type { ConfigValidationResult } from "./config"
 
+// Brand Loader (Opt-In)
+export {
+  loadBrandKit,
+  resolveBrand,
+  getBrandLoadingState,
+  getCurrentBrandKit,
+  isBrandLoaded,
+  isBrandLoading,
+  clearBrandCache,
+  removeBrandFromCache,
+  isBrandCached,
+  getBrandCacheSize,
+} from "./loader"
+
+export type { BrandLoadResult, BrandLoaderOptions } from "./loader"
+
 // Types
 export type {
   // Preset types

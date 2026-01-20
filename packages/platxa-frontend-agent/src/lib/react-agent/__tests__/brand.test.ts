@@ -3,9 +3,10 @@
  *
  * Tests for the opt-in brand kit system.
  * Verifies Feature #1: Default Theme Preservation
+ * Verifies Feature #2: Opt-In Brand Loading
  */
 
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, beforeEach } from "vitest"
 import {
   defineFrontendConfig,
   resolveConfig,
@@ -19,6 +20,15 @@ import {
   getEffectivePreset,
   BUILTIN_PRESETS,
   DEFAULT_CONFIG,
+  // Feature #2 exports
+  resolveBrand,
+  getBrandLoadingState,
+  getCurrentBrandKit,
+  isBrandLoaded,
+  isBrandLoading,
+  clearBrandCache,
+  isBrandCached,
+  getBrandCacheSize,
 } from "../brand"
 import type { FrontendConfig, BuiltInPreset } from "../brand"
 
@@ -340,5 +350,195 @@ describe("Constants", () => {
   it("DEFAULT_CONFIG uses default preset", () => {
     expect(DEFAULT_CONFIG.theme?.preset).toBe("default")
     expect(DEFAULT_CONFIG.brand).toBeUndefined()
+  })
+})
+
+// =============================================================================
+// FEATURE #2: OPT-IN BRAND LOADING
+// =============================================================================
+
+describe("Feature #2: Opt-In Brand Loading", () => {
+  beforeEach(() => {
+    // Clear cache before each test
+    clearBrandCache()
+  })
+
+  describe("Brand is NOT loaded unless brand.package is specified", () => {
+    it("no brand loading for default config", async () => {
+      const config = resolveConfig()
+      const result = await resolveBrand(config)
+
+      expect(result.status).toBe("loaded")
+      expect(result.brandKit).toBeNull()
+      expect(result.tokens).toBeDefined()
+      expect(result.themeConfig.name).toBe("default")
+    })
+
+    it("no brand loading for built-in preset config", async () => {
+      const config = resolveConfig({ theme: { preset: "blue" } })
+      const result = await resolveBrand(config)
+
+      expect(result.status).toBe("loaded")
+      expect(result.brandKit).toBeNull()
+      expect(result.themeConfig.name).toBe("blue")
+    })
+
+    it("no brand loading when only theme is specified", async () => {
+      const config = resolveConfig({
+        theme: {
+          preset: "green",
+          custom: { primaryHue: 180 },
+        },
+      })
+      const result = await resolveBrand(config)
+
+      expect(result.status).toBe("loaded")
+      expect(result.brandKit).toBeNull()
+    })
+  })
+
+  describe("No network requests or imports by default", () => {
+    it("getBrandLoadingState is idle initially", () => {
+      expect(getBrandLoadingState()).toBe("idle")
+    })
+
+    it("getCurrentBrandKit is null initially", () => {
+      expect(getCurrentBrandKit()).toBeNull()
+    })
+
+    it("isBrandLoaded is false initially", () => {
+      expect(isBrandLoaded()).toBe(false)
+    })
+
+    it("isBrandLoading is false initially", () => {
+      expect(isBrandLoading()).toBe(false)
+    })
+
+    it("cache is empty initially", () => {
+      expect(getBrandCacheSize()).toBe(0)
+    })
+  })
+
+  describe("Clear configuration syntax for opting in", () => {
+    it("brand.package enables brand mode", () => {
+      const config = resolveConfig({
+        brand: { package: "@test/brand-kit" },
+      })
+
+      expect(config.mode).toBe("brand")
+      expect(config.brandPackage).toBe("@test/brand-kit")
+    })
+
+    it("brand.package with overrides stores overrides", () => {
+      const overrides = {
+        colors: { primary: "hsl(200 100% 50%)" } as never,
+      }
+      const config = resolveConfig({
+        brand: {
+          package: "@test/brand-kit",
+          overrides,
+        },
+      })
+
+      expect(config.mode).toBe("brand")
+      expect(config.brandOverrides).toBeDefined()
+    })
+
+    it("local path syntax is supported", () => {
+      const config = resolveConfig({
+        brand: { package: "./my-brand" },
+      })
+
+      expect(config.mode).toBe("brand")
+      expect(config.brandPackage).toBe("./my-brand")
+    })
+
+    it("scoped npm package syntax is supported", () => {
+      const config = resolveConfig({
+        brand: { package: "@platxa/brand-kit" },
+      })
+
+      expect(config.mode).toBe("brand")
+      expect(config.brandPackage).toBe("@platxa/brand-kit")
+    })
+  })
+
+  describe("Brand loading state management", () => {
+    it("clearBrandCache resets all state", () => {
+      clearBrandCache()
+
+      expect(getBrandLoadingState()).toBe("idle")
+      expect(getCurrentBrandKit()).toBeNull()
+      expect(isBrandLoaded()).toBe(false)
+      expect(getBrandCacheSize()).toBe(0)
+    })
+
+    it("isBrandCached returns false for uncached packages", () => {
+      expect(isBrandCached("@nonexistent/package")).toBe(false)
+    })
+  })
+
+  describe("Graceful error handling", () => {
+    it("returns error status for invalid package", async () => {
+      const config = resolveConfig({
+        brand: { package: "@nonexistent/brand-kit-12345" },
+      })
+
+      // This will fail to load but should not throw
+      const result = await resolveBrand(config, { throwOnError: false })
+
+      expect(result.status).toBe("error")
+      expect(result.error).toBeDefined()
+      // Should fall back to default theme
+      expect(result.themeConfig.name).toBe("default")
+    })
+  })
+})
+
+// =============================================================================
+// INTEGRATION TESTS
+// =============================================================================
+
+describe("Brand System Integration", () => {
+  beforeEach(() => {
+    clearBrandCache()
+  })
+
+  it("full workflow: default config → resolve → no brand loading", async () => {
+    // Step 1: No config (zero-config)
+    const config = resolveConfig()
+    expect(config.mode).toBe("builtin")
+
+    // Step 2: Resolve brand
+    const result = await resolveBrand(config)
+    expect(result.status).toBe("loaded")
+    expect(result.brandKit).toBeNull()
+
+    // Step 3: State remains idle (no brand loading occurred)
+    expect(getBrandLoadingState()).toBe("idle")
+  })
+
+  it("full workflow: preset config → resolve → no brand loading", async () => {
+    // Step 1: Preset config
+    const config = resolveConfig({ theme: { preset: "violet" } })
+    expect(config.mode).toBe("builtin")
+
+    // Step 2: Resolve brand
+    const result = await resolveBrand(config)
+    expect(result.status).toBe("loaded")
+    expect(result.themeConfig.name).toBe("violet")
+
+    // Step 3: No brand kit loaded
+    expect(result.brandKit).toBeNull()
+    expect(isBrandLoaded()).toBe(false)
+  })
+
+  it("validation works with brand config", () => {
+    const result = validateConfig({
+      brand: { package: "@test/brand" },
+    })
+
+    // Valid config (no errors about brand.package)
+    expect(result.errors).toHaveLength(0)
   })
 })
