@@ -51,6 +51,28 @@ export {
 
 export type { ConfigValidationResult } from "./config"
 
+// Config File Loader (Feature #7)
+export {
+  loadConfigFile,
+  findAndLoadConfig,
+  validateLoadedConfig,
+  isSupportedExtension,
+  getConfigExtension,
+  isConfigFileName,
+  getConfigFilePaths,
+  getConfigFormatDescription,
+  isConfigLoadingSupported,
+  CONFIG_FILE_NAME,
+  CONFIG_FILE_NAMES,
+  SUPPORTED_EXTENSIONS,
+} from "./config-loader"
+
+export type {
+  ConfigFileExtension,
+  ConfigFileResult,
+  ConfigLoaderOptions,
+} from "./config-loader"
+
 // Brand Loader (Opt-In)
 export {
   loadBrandKit,

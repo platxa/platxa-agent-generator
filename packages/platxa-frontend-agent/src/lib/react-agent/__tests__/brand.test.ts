@@ -48,6 +48,16 @@ import {
   clearBrandCache,
   isBrandCached,
   getBrandCacheSize,
+  // Feature #7: Config File Support
+  isSupportedExtension,
+  getConfigExtension,
+  isConfigFileName,
+  getConfigFilePaths,
+  getConfigFormatDescription,
+  validateLoadedConfig,
+  CONFIG_FILE_NAME,
+  CONFIG_FILE_NAMES,
+  SUPPORTED_EXTENSIONS,
 } from "../brand"
 import type { FrontendConfig, BuiltInPreset, BrandKitExport } from "../brand"
 
@@ -1374,6 +1384,188 @@ describe("Feature #6: Backward Compatibility", () => {
       const fromBuiltIn = getBuiltInTheme("violet")
 
       expect(fromPreset).toEqual(fromBuiltIn)
+    })
+  })
+})
+
+// =============================================================================
+// FEATURE #7: CONFIG FILE SUPPORT
+// =============================================================================
+
+describe("Feature #7: Config File Support", () => {
+  describe("Supported file extensions", () => {
+    it("supports .ts extension", () => {
+      expect(isSupportedExtension(".ts")).toBe(true)
+    })
+
+    it("supports .js extension", () => {
+      expect(isSupportedExtension(".js")).toBe(true)
+    })
+
+    it("supports .mjs extension", () => {
+      expect(isSupportedExtension(".mjs")).toBe(true)
+    })
+
+    it("supports .json extension", () => {
+      expect(isSupportedExtension(".json")).toBe(true)
+    })
+
+    it("rejects unsupported extensions", () => {
+      expect(isSupportedExtension(".yaml")).toBe(false)
+      expect(isSupportedExtension(".toml")).toBe(false)
+      expect(isSupportedExtension(".xml")).toBe(false)
+    })
+  })
+
+  describe("SUPPORTED_EXTENSIONS constant", () => {
+    it("includes all four supported extensions", () => {
+      expect(SUPPORTED_EXTENSIONS).toContain(".ts")
+      expect(SUPPORTED_EXTENSIONS).toContain(".js")
+      expect(SUPPORTED_EXTENSIONS).toContain(".mjs")
+      expect(SUPPORTED_EXTENSIONS).toContain(".json")
+      expect(SUPPORTED_EXTENSIONS.length).toBe(4)
+    })
+
+    it("is frozen (immutable)", () => {
+      expect(Object.isFrozen(SUPPORTED_EXTENSIONS)).toBe(true)
+    })
+
+    it("prioritizes TypeScript over JavaScript", () => {
+      const tsIndex = SUPPORTED_EXTENSIONS.indexOf(".ts")
+      const jsIndex = SUPPORTED_EXTENSIONS.indexOf(".js")
+      expect(tsIndex).toBeLessThan(jsIndex)
+    })
+  })
+
+  describe("CONFIG_FILE_NAME constant", () => {
+    it("has correct base name", () => {
+      expect(CONFIG_FILE_NAME).toBe("frontend.config")
+    })
+  })
+
+  describe("CONFIG_FILE_NAMES constant", () => {
+    it("includes all config file names", () => {
+      expect(CONFIG_FILE_NAMES).toContain("frontend.config.ts")
+      expect(CONFIG_FILE_NAMES).toContain("frontend.config.js")
+      expect(CONFIG_FILE_NAMES).toContain("frontend.config.mjs")
+      expect(CONFIG_FILE_NAMES).toContain("frontend.config.json")
+    })
+
+    it("is frozen (immutable)", () => {
+      expect(Object.isFrozen(CONFIG_FILE_NAMES)).toBe(true)
+    })
+  })
+
+  describe("getConfigExtension", () => {
+    it("extracts .ts extension", () => {
+      expect(getConfigExtension("frontend.config.ts")).toBe(".ts")
+      expect(getConfigExtension("/path/to/frontend.config.ts")).toBe(".ts")
+    })
+
+    it("extracts .js extension", () => {
+      expect(getConfigExtension("frontend.config.js")).toBe(".js")
+    })
+
+    it("extracts .mjs extension", () => {
+      expect(getConfigExtension("frontend.config.mjs")).toBe(".mjs")
+    })
+
+    it("extracts .json extension", () => {
+      expect(getConfigExtension("frontend.config.json")).toBe(".json")
+    })
+
+    it("returns null for unsupported extensions", () => {
+      expect(getConfigExtension("config.yaml")).toBeNull()
+      expect(getConfigExtension("config.toml")).toBeNull()
+    })
+  })
+
+  describe("isConfigFileName", () => {
+    it("recognizes valid config file names", () => {
+      expect(isConfigFileName("frontend.config.ts")).toBe(true)
+      expect(isConfigFileName("frontend.config.js")).toBe(true)
+      expect(isConfigFileName("frontend.config.mjs")).toBe(true)
+      expect(isConfigFileName("frontend.config.json")).toBe(true)
+    })
+
+    it("rejects invalid file names", () => {
+      expect(isConfigFileName("config.ts")).toBe(false)
+      expect(isConfigFileName("frontend.ts")).toBe(false)
+      expect(isConfigFileName("frontend.config.yaml")).toBe(false)
+    })
+  })
+
+  describe("getConfigFilePaths", () => {
+    it("returns all possible paths for a directory", () => {
+      const paths = getConfigFilePaths("/project")
+
+      expect(paths).toContain("/project/frontend.config.ts")
+      expect(paths).toContain("/project/frontend.config.js")
+      expect(paths).toContain("/project/frontend.config.mjs")
+      expect(paths).toContain("/project/frontend.config.json")
+      expect(paths.length).toBe(4)
+    })
+  })
+
+  describe("getConfigFormatDescription", () => {
+    it("returns TypeScript for .ts", () => {
+      expect(getConfigFormatDescription(".ts")).toBe("TypeScript")
+    })
+
+    it("returns JavaScript (CommonJS) for .js", () => {
+      expect(getConfigFormatDescription(".js")).toBe("JavaScript (CommonJS)")
+    })
+
+    it("returns JavaScript (ESM) for .mjs", () => {
+      expect(getConfigFormatDescription(".mjs")).toBe("JavaScript (ESM)")
+    })
+
+    it("returns JSON for .json", () => {
+      expect(getConfigFormatDescription(".json")).toBe("JSON")
+    })
+  })
+
+  describe("validateLoadedConfig", () => {
+    it("validates valid config objects", () => {
+      const result = validateLoadedConfig({ theme: { preset: "blue" } })
+      expect(result.valid).toBe(true)
+      expect(result.config).toBeDefined()
+    })
+
+    it("validates empty config as valid", () => {
+      const result = validateLoadedConfig({})
+      expect(result.valid).toBe(true)
+    })
+
+    it("validates config with brand option", () => {
+      const result = validateLoadedConfig({
+        brand: { package: "@test/brand" },
+      })
+      expect(result.valid).toBe(true)
+    })
+
+    it("rejects null", () => {
+      const result = validateLoadedConfig(null)
+      expect(result.valid).toBe(false)
+      expect(result.error).toContain("object")
+    })
+
+    it("rejects non-objects", () => {
+      expect(validateLoadedConfig("string").valid).toBe(false)
+      expect(validateLoadedConfig(123).valid).toBe(false)
+      expect(validateLoadedConfig([]).valid).toBe(false)
+    })
+
+    it("rejects invalid theme value", () => {
+      const result = validateLoadedConfig({ theme: "invalid" })
+      expect(result.valid).toBe(false)
+      expect(result.error).toContain("theme")
+    })
+
+    it("rejects invalid brand value", () => {
+      const result = validateLoadedConfig({ brand: "invalid" })
+      expect(result.valid).toBe(false)
+      expect(result.error).toContain("brand")
     })
   })
 })
