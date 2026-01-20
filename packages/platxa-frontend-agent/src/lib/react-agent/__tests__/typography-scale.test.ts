@@ -36,6 +36,13 @@ import {
   TYPOGRAPHY_PRESETS,
   // Factory
   createTypographySystem,
+  // Line height (Feature #20)
+  calculateOptimalLineHeight,
+  generateScaleLineHeights,
+  // Line length (Feature #21)
+  calculateLineLength,
+  calculateOptimalContainerWidth,
+  validateLineLengths,
 } from "../typography-scale"
 
 // =============================================================================
@@ -649,5 +656,225 @@ describe("Integration", () => {
     // All sizes should use clamp
     expect(semantic.h1.fontSize).toContain("clamp(")
     expect(semantic.body.fontSize).toContain("clamp(")
+  })
+})
+
+// =============================================================================
+// Line Height Calculator Tests (Feature #20)
+// =============================================================================
+
+describe("Line Height Calculator", () => {
+  describe("calculateOptimalLineHeight", () => {
+    it("should return default values in auto mode", () => {
+      const result = calculateOptimalLineHeight(16)
+      expect(result.value).toBe(1.5)
+      expect(result.px).toBe(24)
+      expect(result.isAccessible).toBe(true)
+    })
+
+    it("should use tighter line height for large text", () => {
+      const result48 = calculateOptimalLineHeight(48)
+      const result16 = calculateOptimalLineHeight(16)
+
+      expect(result48.value).toBeLessThan(result16.value)
+      expect(result48.value).toBe(1.1)
+    })
+
+    it("should interpolate in ratio mode", () => {
+      const config = { mode: "ratio" as const, minRatio: 1.125, maxRatio: 1.5, thresholdPx: 48 }
+
+      // At 16px or below, should use maxRatio
+      const small = calculateOptimalLineHeight(16, config)
+      expect(small.value).toBe(1.5)
+
+      // At threshold, should use minRatio
+      const large = calculateOptimalLineHeight(48, config)
+      expect(large.value).toBe(1.125)
+
+      // At midpoint (32px), should be halfway between
+      const mid = calculateOptimalLineHeight(32, config)
+      // (32-16)/(48-16) = 16/32 = 0.5, so value = 1.5 - 0.5*(1.5-1.125) = 1.5 - 0.1875 = 1.3125
+      expect(mid.value).toBeCloseTo(1.312, 2)
+    })
+
+    it("should use fixed value in fixed mode", () => {
+      const result = calculateOptimalLineHeight(24, { mode: "fixed", fixedValue: 1.8 })
+      expect(result.value).toBe(1.8)
+    })
+
+    it("should flag accessibility issues for body text", () => {
+      // Body text (≤18px) with tight line height
+      const result = calculateOptimalLineHeight(16, { mode: "fixed", fixedValue: 1.2 })
+      expect(result.isAccessible).toBe(false)
+      expect(result.recommendation).toContain("≥1.5")
+    })
+
+    it("should allow tight line height for headings", () => {
+      // Headings (>18px) can have tighter line height
+      const result = calculateOptimalLineHeight(36, { mode: "fixed", fixedValue: 1.15 })
+      expect(result.isAccessible).toBe(true)
+    })
+
+    it("should calculate correct pixel value", () => {
+      const result = calculateOptimalLineHeight(20, { mode: "fixed", fixedValue: 1.5 })
+      expect(result.px).toBe(30) // 20 * 1.5
+    })
+  })
+
+  describe("generateScaleLineHeights", () => {
+    it("should generate line heights for entire scale", () => {
+      const scale = generateScale({ baseSizePx: 16 })
+      const lineHeights = generateScaleLineHeights(scale)
+
+      expect(lineHeights.size).toBe(scale.steps.length)
+
+      // Larger sizes should have tighter line heights
+      const baseHeight = lineHeights.get("base")!
+      const xlHeight = lineHeights.get("xl")!
+
+      expect(xlHeight.value).toBeLessThanOrEqual(baseHeight.value)
+    })
+
+    it("should use provided config", () => {
+      const scale = generateScale({ baseSizePx: 16 })
+      const lineHeights = generateScaleLineHeights(scale, { mode: "fixed", fixedValue: 1.6 })
+
+      // All should have fixed value
+      for (const [, result] of lineHeights) {
+        expect(result.value).toBe(1.6)
+      }
+    })
+  })
+})
+
+// =============================================================================
+// Line Length Validator Tests (Feature #21)
+// =============================================================================
+
+describe("Line Length Validator", () => {
+  describe("calculateLineLength", () => {
+    it("should calculate characters per line", () => {
+      // At 16px with 0.5 char width ratio: 600px / (16 * 0.5) = 75 chars
+      const result = calculateLineLength(600, 16)
+      expect(result.characters).toBe(75)
+    })
+
+    it("should identify optimal line length", () => {
+      // 66 chars is ideal, 45-75 is optimal
+      const result = calculateLineLength(528, 16) // 528 / 8 = 66 chars
+      expect(result.characters).toBe(66)
+      expect(result.isOptimal).toBe(true)
+      expect(result.isAcceptable).toBe(true)
+      expect(result.deviationFromIdeal).toBe(0)
+    })
+
+    it("should flag too-short lines", () => {
+      // 30 chars is too short
+      const result = calculateLineLength(240, 16) // 240 / 8 = 30 chars
+      expect(result.characters).toBe(30)
+      expect(result.isOptimal).toBe(false)
+      expect(result.isAcceptable).toBe(false)
+      expect(result.recommendation).toContain("too short")
+    })
+
+    it("should flag too-long lines", () => {
+      // 100 chars is too long
+      const result = calculateLineLength(800, 16) // 800 / 8 = 100 chars
+      expect(result.characters).toBe(100)
+      expect(result.isOptimal).toBe(false)
+      expect(result.isAcceptable).toBe(false)
+      expect(result.recommendation).toContain("too long")
+    })
+
+    it("should suggest optimal width", () => {
+      const result = calculateLineLength(240, 16) // Too short
+      expect(result.suggestedWidthPx).toBeDefined()
+      // Suggested width for 66 chars: 66 * 8 = 528
+      expect(result.suggestedWidthPx).toBe(528)
+    })
+
+    it("should use custom char width ratio", () => {
+      // Monospace fonts have ~0.6 ratio
+      const result = calculateLineLength(600, 16, { avgCharWidthRatio: 0.6 })
+      // 600 / (16 * 0.6) = 600 / 9.6 ≈ 63 chars
+      expect(result.characters).toBe(63)
+    })
+
+    it("should use custom range config", () => {
+      const config = {
+        minChars: 50,
+        maxChars: 70,
+        optimalMin: 55,
+        optimalMax: 65,
+        idealChars: 60,
+      }
+      // 60 chars with custom config
+      const result = calculateLineLength(480, 16, config)
+      expect(result.characters).toBe(60)
+      expect(result.isOptimal).toBe(true)
+      expect(result.deviationFromIdeal).toBe(0)
+    })
+  })
+
+  describe("calculateOptimalContainerWidth", () => {
+    it("should calculate width for target characters", () => {
+      // 66 chars at 16px with 0.5 ratio: 66 * 16 * 0.5 = 528px
+      const width = calculateOptimalContainerWidth(16, 66)
+      expect(width).toBe(528)
+    })
+
+    it("should use custom char width ratio", () => {
+      // 66 chars at 16px with 0.6 ratio: 66 * 16 * 0.6 = 633.6 ≈ 634px
+      const width = calculateOptimalContainerWidth(16, 66, 0.6)
+      expect(width).toBe(634)
+    })
+
+    it("should scale with font size", () => {
+      const width16 = calculateOptimalContainerWidth(16, 66)
+      const width18 = calculateOptimalContainerWidth(18, 66)
+
+      expect(width18).toBeGreaterThan(width16)
+      // 18/16 = 1.125, so width18 ≈ width16 * 1.125
+      expect(width18 / width16).toBeCloseTo(1.125, 2)
+    })
+  })
+
+  describe("validateLineLengths", () => {
+    it("should validate at multiple font sizes", () => {
+      const results = validateLineLengths(600, [14, 16, 18, 20])
+      expect(results.size).toBe(4)
+
+      // Larger fonts = fewer characters per line
+      const chars14 = results.get(14)!.characters
+      const chars20 = results.get(20)!.characters
+      expect(chars14).toBeGreaterThan(chars20)
+    })
+
+    it("should use provided config", () => {
+      const config = { idealChars: 50 }
+      const results = validateLineLengths(400, [16], config)
+
+      // At 16px, 400px = 50 chars, which matches ideal
+      const result = results.get(16)!
+      expect(result.deviationFromIdeal).toBe(0)
+    })
+  })
+
+  describe("Root cause: character width varies by font", () => {
+    it("should allow different ratios for different font types", () => {
+      const containerWidth = 600
+      const fontSize = 16
+
+      // Sans-serif (~0.45-0.5)
+      const sans = calculateLineLength(containerWidth, fontSize, { avgCharWidthRatio: 0.48 })
+      // Serif (~0.48-0.52)
+      const serif = calculateLineLength(containerWidth, fontSize, { avgCharWidthRatio: 0.50 })
+      // Monospace (~0.6)
+      const mono = calculateLineLength(containerWidth, fontSize, { avgCharWidthRatio: 0.60 })
+
+      // Same container, different char counts due to font metrics
+      expect(sans.characters).toBeGreaterThan(serif.characters)
+      expect(serif.characters).toBeGreaterThan(mono.characters)
+    })
   })
 })

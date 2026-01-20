@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "updated_at": "2026-01-20T14:37:35.568074",
+  "plans": [
+    {
+      "id": "plan-feature-14",
+      "title": "Implementation: Implement test Generator agent that converts plans to Playwr...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-20T14:37:35.567722",
+      "constitution_check": true
+    }
+  ]
+}

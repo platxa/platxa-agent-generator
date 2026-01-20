@@ -41,6 +41,9 @@ import {
   generateTriadicPalette,
   generateSplitComplementaryPalette,
   generateTetradicPalette,
+  // Monochromatic (Feature #23)
+  generateMonochromaticPalette,
+  generateElegantGrayscale,
   // Accessibility
   calculateContrastRatio,
   checkContrast,
@@ -878,5 +881,184 @@ describe("Integration", () => {
 
     const backToHex = oklchToHex(oklch!)
     expect(backToHex.toLowerCase()).toBe(original.toLowerCase())
+  })
+})
+
+// =============================================================================
+// Monochromatic Palette Tests (Feature #23)
+// =============================================================================
+
+describe("Monochromatic Palette Generator", () => {
+  describe("generateMonochromaticPalette", () => {
+    it("should generate palette from hex color", () => {
+      const palette = generateMonochromaticPalette("#3b82f6", "blue")
+
+      expect(palette.name).toBe("blue")
+      expect(palette.base).toBeDefined()
+      expect(palette.variations.length).toBeGreaterThan(0)
+      expect(palette.shades).toBeDefined()
+    })
+
+    it("should generate semantic color variations", () => {
+      const palette = generateMonochromaticPalette("#3b82f6", "primary")
+
+      // Check semantic names exist
+      expect(palette.semantic.lightest).toBeDefined()
+      expect(palette.semantic.lighter).toBeDefined()
+      expect(palette.semantic.light).toBeDefined()
+      expect(palette.semantic.base).toBeDefined()
+      expect(palette.semantic.dark).toBeDefined()
+      expect(palette.semantic.darker).toBeDefined()
+      expect(palette.semantic.darkest).toBeDefined()
+    })
+
+    it("should maintain same hue across all variations", () => {
+      const palette = generateMonochromaticPalette("#ef4444", "red")
+
+      // All variations should have similar hue (within tolerance for rounding)
+      const baseHue = palette.base.h
+      for (const variation of palette.variations) {
+        expect(variation.h).toBeCloseTo(baseHue, 1)
+      }
+    })
+
+    it("should order variations from light to dark", () => {
+      const palette = generateMonochromaticPalette("#8b5cf6", "violet")
+
+      // Lightness should generally decrease through variations
+      for (let i = 1; i < palette.variations.length; i++) {
+        expect(palette.variations[i].l).toBeLessThanOrEqual(palette.variations[i - 1].l + 0.01)
+      }
+    })
+
+    it("should reduce chroma for light variations", () => {
+      const palette = generateMonochromaticPalette("#22c55e", "green", {
+        lightChromaReduction: 0.5,
+      })
+
+      // Lightest should have reduced chroma
+      const lightest = palette.semantic.lightest
+      const base = palette.semantic.base
+
+      expect(lightest.c).toBeLessThan(base.c)
+    })
+
+    it("should generate CSS variables", () => {
+      const palette = generateMonochromaticPalette("#f59e0b", "amber")
+
+      expect(palette.css).toContain("--amber-lightest:")
+      expect(palette.css).toContain("--amber-base:")
+      expect(palette.css).toContain("--amber-darkest:")
+      expect(palette.css).toContain("--amber-500:")
+    })
+
+    it("should include neutrals when requested", () => {
+      const palette = generateMonochromaticPalette("#06b6d4", "cyan", {
+        includeNeutrals: true,
+      })
+
+      expect(palette.neutrals).toBeDefined()
+      expect(palette.neutrals!.length).toBeGreaterThan(0)
+      expect(palette.css).toContain("--cyan-neutral")
+
+      // Neutrals should have very low chroma
+      for (const neutral of palette.neutrals!) {
+        expect(neutral.c).toBeLessThan(0.05)
+      }
+    })
+
+    it("should respect custom lightness range", () => {
+      const palette = generateMonochromaticPalette("#ec4899", "pink", {
+        maxLightness: 0.9,
+        minLightness: 0.2,
+      })
+
+      // Lightest should not exceed maxLightness
+      expect(palette.semantic.lightest.l).toBeLessThanOrEqual(0.91)
+      // Darkest should not go below minLightness
+      expect(palette.semantic.darkest.l).toBeGreaterThanOrEqual(0.19)
+    })
+
+    it("should generate full Tailwind shade scale", () => {
+      const palette = generateMonochromaticPalette("#6366f1", "indigo")
+
+      // Check all Tailwind shades exist
+      expect(palette.shades[50]).toBeDefined()
+      expect(palette.shades[100]).toBeDefined()
+      expect(palette.shades[500]).toBeDefined()
+      expect(palette.shades[900]).toBeDefined()
+      expect(palette.shades[950]).toBeDefined()
+    })
+  })
+
+  describe("generateElegantGrayscale", () => {
+    it("should generate neutral grayscale by default", () => {
+      const gray = generateElegantGrayscale()
+
+      expect(gray.name).toBe("gray")
+      expect(gray.base.c).toBeLessThan(0.05) // Very low chroma
+    })
+
+    it("should generate warm grayscale", () => {
+      const warmGray = generateElegantGrayscale({ name: "warm-gray", warmth: 0.5 })
+
+      expect(warmGray.name).toBe("warm-gray")
+      // Warm hue should be in orange/yellow range (30-60)
+      expect(warmGray.base.h).toBeGreaterThanOrEqual(30)
+      expect(warmGray.base.h).toBeLessThanOrEqual(60)
+    })
+
+    it("should generate cool grayscale", () => {
+      const coolGray = generateElegantGrayscale({ name: "cool-gray", warmth: -0.5 })
+
+      expect(coolGray.name).toBe("cool-gray")
+      // Cool hue should be in blue range (210-240)
+      expect(coolGray.base.h).toBeGreaterThanOrEqual(210)
+      expect(coolGray.base.h).toBeLessThanOrEqual(240)
+    })
+
+    it("should use custom chroma for subtle tinting", () => {
+      const tinted = generateElegantGrayscale({ chroma: 0.02 })
+
+      // Should have subtle chroma
+      expect(tinted.base.c).toBeCloseTo(0.02, 2)
+    })
+
+    it("should generate full shade scale", () => {
+      const gray = generateElegantGrayscale()
+
+      expect(gray.shades[50]).toBeDefined()
+      expect(gray.shades[950]).toBeDefined()
+
+      // Should span full lightness range
+      expect(gray.shades[50].l).toBeGreaterThan(0.9)
+      expect(gray.shades[950].l).toBeLessThan(0.2)
+    })
+  })
+
+  describe("Root cause: monochromatic elegance from lightness control", () => {
+    it("should maintain visual cohesion through consistent hue", () => {
+      const palette = generateMonochromaticPalette("#2563eb", "royal-blue")
+
+      // All shades should share same hue
+      const shadeHues = Object.values(palette.shades).map((s) => s.h)
+      const avgHue = shadeHues.reduce((a, b) => a + b, 0) / shadeHues.length
+
+      for (const hue of shadeHues) {
+        expect(Math.abs(hue - avgHue)).toBeLessThan(1)
+      }
+    })
+
+    it("should create usable contrast pairs", () => {
+      const palette = generateMonochromaticPalette("#059669", "emerald")
+
+      // Light bg with dark text should have good contrast
+      const contrastRatio = calculateContrastRatio(
+        palette.semantic.darkest,
+        palette.semantic.lightest
+      )
+
+      expect(contrastRatio).toBeGreaterThan(4.5) // WCAG AA
+    })
   })
 })

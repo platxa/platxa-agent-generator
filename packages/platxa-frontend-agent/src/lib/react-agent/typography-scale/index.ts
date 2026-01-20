@@ -27,6 +27,13 @@ export type {
   FontStacks,
   TypographyValidation,
   TypographyPreset,
+  // Line height types (Feature #20)
+  LineHeightMode,
+  LineHeightConfig,
+  LineHeightResult,
+  // Line length types (Feature #21)
+  LineLengthResult,
+  LineLengthConfig,
 } from "./types"
 
 // Constants
@@ -77,3 +84,16 @@ export {
 
 // Factory
 export { createTypographySystem } from "./typography-scale"
+
+// Line height calculator (Feature #20)
+export {
+  calculateOptimalLineHeight,
+  generateScaleLineHeights,
+} from "./typography-scale"
+
+// Line length validator (Feature #21)
+export {
+  calculateLineLength,
+  calculateOptimalContainerWidth,
+  validateLineLengths,
+} from "./typography-scale"

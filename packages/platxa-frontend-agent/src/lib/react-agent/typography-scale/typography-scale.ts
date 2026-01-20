@@ -146,6 +146,267 @@ export function calculateLineHeight(sizePx: number): number {
   return 1.5
 }
 
+// =============================================================================
+// Line Height Calculator (Feature #20)
+// =============================================================================
+
+/**
+ * Line height calculation mode
+ */
+export type LineHeightMode = "auto" | "ratio" | "fixed"
+
+/**
+ * Line height configuration
+ */
+export interface LineHeightConfig {
+  /** Calculation mode */
+  mode: LineHeightMode
+  /** Min ratio for ratio mode (default 1.125) */
+  minRatio?: number
+  /** Max ratio for ratio mode (default 1.2 for body, 1.1 for headings) */
+  maxRatio?: number
+  /** Fixed value for fixed mode */
+  fixedValue?: number
+  /** Font size threshold in px where ratio transitions from max to min */
+  thresholdPx?: number
+}
+
+/**
+ * Line height calculation result
+ */
+export interface LineHeightResult {
+  /** Calculated line height value (unitless ratio) */
+  value: number
+  /** Line height in pixels (for reference) */
+  px: number
+  /** Whether value is within accessibility guidelines (≥1.5 for body text) */
+  isAccessible: boolean
+  /** Recommendation if not accessible */
+  recommendation?: string
+}
+
+/**
+ * Calculate optimal line height based on font size and mode
+ *
+ * For body text (≤18px): Uses maxRatio (1.5-1.6 recommended for readability)
+ * For headings (>18px): Scales from maxRatio to minRatio as size increases
+ *
+ * The 1.125-1.2x range is optimal for headings/display text.
+ * Body text should use 1.4-1.6x for readability.
+ */
+export function calculateOptimalLineHeight(
+  fontSizePx: number,
+  config: Partial<LineHeightConfig> = {}
+): LineHeightResult {
+  const {
+    mode = "auto",
+    minRatio = 1.125,
+    maxRatio = 1.5,
+    fixedValue = 1.5,
+    thresholdPx = 48,
+  } = config
+
+  let value: number
+
+  switch (mode) {
+    case "fixed":
+      value = fixedValue
+      break
+
+    case "ratio":
+      // Linear interpolation between maxRatio (small text) and minRatio (large text)
+      // Root cause consideration: Use actual font size to interpolate, not just breakpoints
+      if (fontSizePx <= 16) {
+        value = maxRatio
+      } else if (fontSizePx >= thresholdPx) {
+        value = minRatio
+      } else {
+        // Interpolate between 16px and threshold
+        const t = (fontSizePx - 16) / (thresholdPx - 16)
+        value = maxRatio - t * (maxRatio - minRatio)
+      }
+      break
+
+    case "auto":
+    default:
+      // Use existing breakpoint-based calculation
+      value = calculateLineHeight(fontSizePx)
+      break
+  }
+
+  const px = fontSizePx * value
+  // WCAG recommends 1.5 for body text (≤18px or ≤14px bold)
+  const isBodyText = fontSizePx <= 18
+  const isAccessible = isBodyText ? value >= 1.5 : value >= 1.1
+
+  let recommendation: string | undefined
+  if (!isAccessible) {
+    if (isBodyText) {
+      recommendation = `Body text at ${fontSizePx}px should have line-height ≥1.5 for readability (current: ${value.toFixed(3)})`
+    } else {
+      recommendation = `Heading at ${fontSizePx}px should have line-height ≥1.1 (current: ${value.toFixed(3)})`
+    }
+  }
+
+  return {
+    value: Math.round(value * 1000) / 1000, // 3 decimal precision
+    px: Math.round(px * 100) / 100,
+    isAccessible,
+    recommendation,
+  }
+}
+
+/**
+ * Generate line heights for a typography scale
+ */
+export function generateScaleLineHeights(
+  scale: TypographyScale,
+  config: Partial<LineHeightConfig> = {}
+): Map<string, LineHeightResult> {
+  const results = new Map<string, LineHeightResult>()
+
+  for (const step of scale.steps) {
+    results.set(step.name, calculateOptimalLineHeight(step.sizePx, config))
+  }
+
+  return results
+}
+
+// =============================================================================
+// Line Length Validator (Feature #21)
+// =============================================================================
+
+/**
+ * Line length validation result
+ */
+export interface LineLengthResult {
+  /** Calculated character count per line */
+  characters: number
+  /** Whether within optimal range (45-75, ideal 66) */
+  isOptimal: boolean
+  /** Whether within acceptable range (40-80) */
+  isAcceptable: boolean
+  /** Deviation from ideal (66 characters) */
+  deviationFromIdeal: number
+  /** Specific recommendation */
+  recommendation?: string
+  /** Suggested container width in px for optimal line length */
+  suggestedWidthPx?: number
+}
+
+/**
+ * Line length configuration
+ */
+export interface LineLengthConfig {
+  /** Minimum acceptable characters per line (default 40) */
+  minChars?: number
+  /** Maximum acceptable characters per line (default 80) */
+  maxChars?: number
+  /** Optimal minimum (default 45) */
+  optimalMin?: number
+  /** Optimal maximum (default 75) */
+  optimalMax?: number
+  /** Ideal character count (default 66) */
+  idealChars?: number
+  /** Average character width as fraction of font size (default 0.5 for proportional fonts) */
+  avgCharWidthRatio?: number
+}
+
+/**
+ * Calculate approximate characters per line for given container and font
+ *
+ * Formula: characters ≈ containerWidth / (fontSize * avgCharWidthRatio)
+ *
+ * Root cause: Use actual character width ratio based on font metrics,
+ * not arbitrary fixed values. Default 0.5 is average for proportional fonts.
+ */
+export function calculateLineLength(
+  containerWidthPx: number,
+  fontSizePx: number,
+  config: Partial<LineLengthConfig> = {}
+): LineLengthResult {
+  const {
+    minChars = 40,
+    maxChars = 80,
+    optimalMin = 45,
+    optimalMax = 75,
+    idealChars = 66,
+    avgCharWidthRatio = 0.5,
+  } = config
+
+  // Character width approximation
+  // Root cause: avgCharWidthRatio varies by font
+  // - Monospace: ~0.6
+  // - Sans-serif (like Inter): ~0.45-0.5
+  // - Serif (like Georgia): ~0.48-0.52
+  const avgCharWidth = fontSizePx * avgCharWidthRatio
+  const characters = Math.round(containerWidthPx / avgCharWidth)
+
+  const isOptimal = characters >= optimalMin && characters <= optimalMax
+  const isAcceptable = characters >= minChars && characters <= maxChars
+  const deviationFromIdeal = characters - idealChars
+
+  let recommendation: string | undefined
+  let suggestedWidthPx: number | undefined
+
+  if (!isAcceptable) {
+    const idealWidth = idealChars * avgCharWidth
+    suggestedWidthPx = Math.round(idealWidth)
+
+    if (characters < minChars) {
+      recommendation = `Line length (~${characters} chars) is too short. Consider widening container to ~${suggestedWidthPx}px for ${idealChars} chars.`
+    } else {
+      recommendation = `Line length (~${characters} chars) is too long. Consider narrowing container to ~${suggestedWidthPx}px for ${idealChars} chars.`
+    }
+  } else if (!isOptimal) {
+    const idealWidth = idealChars * avgCharWidth
+    suggestedWidthPx = Math.round(idealWidth)
+
+    if (characters < optimalMin) {
+      recommendation = `Line length (~${characters} chars) is acceptable but short. Optimal is ${optimalMin}-${optimalMax} chars.`
+    } else {
+      recommendation = `Line length (~${characters} chars) is acceptable but long. Optimal is ${optimalMin}-${optimalMax} chars.`
+    }
+  }
+
+  return {
+    characters,
+    isOptimal,
+    isAcceptable,
+    deviationFromIdeal,
+    recommendation,
+    suggestedWidthPx,
+  }
+}
+
+/**
+ * Calculate optimal container width for given font size and target characters
+ */
+export function calculateOptimalContainerWidth(
+  fontSizePx: number,
+  targetChars: number = 66,
+  avgCharWidthRatio: number = 0.5
+): number {
+  return Math.round(fontSizePx * avgCharWidthRatio * targetChars)
+}
+
+/**
+ * Validate line length for a container width at multiple font sizes
+ */
+export function validateLineLengths(
+  containerWidthPx: number,
+  fontSizes: number[],
+  config: Partial<LineLengthConfig> = {}
+): Map<number, LineLengthResult> {
+  const results = new Map<number, LineLengthResult>()
+
+  for (const fontSize of fontSizes) {
+    results.set(fontSize, calculateLineLength(containerWidthPx, fontSize, config))
+  }
+
+  return results
+}
+
 /**
  * Calculate letter spacing for a given font size
  * Larger text benefits from tighter tracking

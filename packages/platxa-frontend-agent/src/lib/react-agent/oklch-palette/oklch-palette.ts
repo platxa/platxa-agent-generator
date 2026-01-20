@@ -875,6 +875,240 @@ export function generateTetradicPalette(
 }
 
 // =============================================================================
+// Monochromatic Palette (Feature #23)
+// =============================================================================
+
+/**
+ * Monochromatic palette configuration
+ */
+export interface MonochromaticConfig {
+  /** Number of light variations (default 3) */
+  lightVariations?: number
+  /** Number of dark variations (default 3) */
+  darkVariations?: number
+  /** Maximum lightness for light variations (default 0.95) */
+  maxLightness?: number
+  /** Minimum lightness for dark variations (default 0.15) */
+  minLightness?: number
+  /** Chroma reduction for light tones (0-1, default 0.3) */
+  lightChromaReduction?: number
+  /** Chroma boost for mid tones (0-1, default 0.1) */
+  midChromaBoost?: number
+  /** Include neutral variations (desaturated) */
+  includeNeutrals?: boolean
+  /** Neutral chroma level (default 0.02) */
+  neutralChroma?: number
+}
+
+/**
+ * Monochromatic palette result with semantic naming
+ */
+export interface MonochromaticPalette {
+  /** Palette name */
+  name: string
+  /** Base color */
+  base: OklchColor
+  /** Semantic color variations */
+  semantic: {
+    /** Lightest variation */
+    lightest: OklchColor
+    /** Light variation */
+    lighter: OklchColor
+    /** Slightly light */
+    light: OklchColor
+    /** Base color */
+    base: OklchColor
+    /** Slightly dark */
+    dark: OklchColor
+    /** Dark variation */
+    darker: OklchColor
+    /** Darkest variation */
+    darkest: OklchColor
+  }
+  /** All variations from light to dark */
+  variations: OklchColor[]
+  /** Neutral (desaturated) variations if enabled */
+  neutrals?: OklchColor[]
+  /** Full shade scale */
+  shades: TailwindShadeScale
+  /** CSS custom properties */
+  css: string
+}
+
+/**
+ * Generate monochromatic palette for elegant themes
+ *
+ * Creates sophisticated color variations using only lightness and chroma
+ * adjustments while keeping the hue constant. Perfect for minimalist,
+ * professional, and elegant designs.
+ *
+ * Root cause consideration: Unlike hue-based harmonies, monochromatic
+ * palettes derive their elegance from carefully controlled lightness
+ * distribution and subtle chroma variations that maintain visual cohesion.
+ */
+export function generateMonochromaticPalette(
+  color: string | OklchColor,
+  name: string,
+  config: MonochromaticConfig = {}
+): MonochromaticPalette {
+  const {
+    lightVariations = 3,
+    darkVariations = 3,
+    maxLightness = 0.95,
+    minLightness = 0.15,
+    lightChromaReduction = 0.3,
+    midChromaBoost = 0.1,
+    includeNeutrals = false,
+    neutralChroma = 0.02,
+  } = config
+
+  // Parse base color
+  const baseColor = typeof color === "string" ? parseColor(color).oklch : color
+
+  // Generate variations
+  const variations: OklchColor[] = []
+
+  // Light variations (from base to lightest)
+  const lightStep = (maxLightness - baseColor.l) / (lightVariations + 1)
+  for (let i = lightVariations; i >= 1; i--) {
+    const lightness = baseColor.l + lightStep * i
+    // Reduce chroma as lightness increases (prevents washed-out colors)
+    const chromaFactor = 1 - lightChromaReduction * (lightness - baseColor.l) / (maxLightness - baseColor.l)
+    variations.push({
+      l: lightness,
+      c: baseColor.c * chromaFactor,
+      h: baseColor.h,
+    })
+  }
+
+  // Base color (with optional mid-tone chroma boost)
+  const boostedBase: OklchColor = {
+    l: baseColor.l,
+    c: Math.min(baseColor.c * (1 + midChromaBoost), getMaxChroma(baseColor.h, baseColor.l)),
+    h: baseColor.h,
+  }
+  variations.push(boostedBase)
+
+  // Dark variations (from base to darkest)
+  const darkStep = (baseColor.l - minLightness) / (darkVariations + 1)
+  for (let i = 1; i <= darkVariations; i++) {
+    const lightness = baseColor.l - darkStep * i
+    // Maintain or slightly increase chroma for dark tones
+    variations.push({
+      l: lightness,
+      c: baseColor.c,
+      h: baseColor.h,
+    })
+  }
+
+  // Generate neutrals if requested
+  let neutrals: OklchColor[] | undefined
+  if (includeNeutrals) {
+    neutrals = variations.map((v) => ({
+      l: v.l,
+      c: neutralChroma,
+      h: v.h,
+    }))
+  }
+
+  // Generate semantic mapping
+  const totalVariations = variations.length
+  const semantic = {
+    lightest: variations[0],
+    lighter: variations[Math.floor(totalVariations * 0.15)] || variations[0],
+    light: variations[Math.floor(totalVariations * 0.3)] || variations[1],
+    base: boostedBase,
+    dark: variations[Math.floor(totalVariations * 0.7)] || variations[totalVariations - 2],
+    darker: variations[Math.floor(totalVariations * 0.85)] || variations[totalVariations - 1],
+    darkest: variations[totalVariations - 1],
+  }
+
+  // Generate Tailwind shade scale
+  const shades = generateShadeScale(baseColor, {
+    count: 11,
+    lightnessRange: [maxLightness, minLightness],
+    chromaCurve: "ease",
+    hueShift: 0,
+  })
+
+  // Generate CSS
+  const cssLines = [
+    `/* ${name} Monochromatic Palette */`,
+    `--${name}-lightest: ${formatTailwindOklch(semantic.lightest)};`,
+    `--${name}-lighter: ${formatTailwindOklch(semantic.lighter)};`,
+    `--${name}-light: ${formatTailwindOklch(semantic.light)};`,
+    `--${name}-base: ${formatTailwindOklch(semantic.base)};`,
+    `--${name}-dark: ${formatTailwindOklch(semantic.dark)};`,
+    `--${name}-darker: ${formatTailwindOklch(semantic.darker)};`,
+    `--${name}-darkest: ${formatTailwindOklch(semantic.darkest)};`,
+    "",
+    `/* ${name} Shade Scale */`,
+    ...TAILWIND_SHADES.map((shade) => `--${name}-${shade}: ${formatTailwindOklch(shades[shade])};`),
+  ]
+
+  if (neutrals) {
+    cssLines.push("", `/* ${name} Neutral Variations */`)
+    cssLines.push(`--${name}-neutral-light: ${formatTailwindOklch(neutrals[0])};`)
+    cssLines.push(`--${name}-neutral: ${formatTailwindOklch(neutrals[Math.floor(neutrals.length / 2)])};`)
+    cssLines.push(`--${name}-neutral-dark: ${formatTailwindOklch(neutrals[neutrals.length - 1])};`)
+  }
+
+  return {
+    name,
+    base: baseColor,
+    semantic,
+    variations,
+    neutrals,
+    shades,
+    css: cssLines.join("\n"),
+  }
+}
+
+/**
+ * Generate elegant grayscale palette
+ *
+ * Creates a sophisticated neutral palette optimized for elegant themes.
+ * Uses subtle warm or cool tints for visual interest while maintaining neutrality.
+ */
+export function generateElegantGrayscale(
+  options: {
+    name?: string
+    /** Warm (positive) or cool (negative) tint, -1 to 1 */
+    warmth?: number
+    /** Subtle chroma for "alive" grays (default 0.01) */
+    chroma?: number
+  } = {}
+): MonochromaticPalette {
+  const { name = "gray", warmth = 0, chroma = 0.01 } = options
+
+  // Determine hue based on warmth
+  // Warm = orangey (30-60°), Cool = bluey (210-240°)
+  let hue: number
+  if (warmth > 0) {
+    hue = 30 + warmth * 30 // 30-60° for warm
+  } else if (warmth < 0) {
+    hue = 210 - warmth * 30 // 210-240° for cool
+  } else {
+    hue = 0 // Pure neutral
+  }
+
+  // Create base gray at middle lightness
+  const baseGray: OklchColor = {
+    l: 0.5,
+    c: chroma,
+    h: hue,
+  }
+
+  return generateMonochromaticPalette(baseGray, name, {
+    maxLightness: 0.98,
+    minLightness: 0.1,
+    lightChromaReduction: 0, // Keep consistent subtle chroma
+    midChromaBoost: 0,
+    includeNeutrals: false,
+  })
+}
+
+// =============================================================================
 // Accessibility
 // =============================================================================
 

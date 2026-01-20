@@ -314,3 +314,82 @@ export interface TypographyPreset {
   /** Font stacks */
   fonts: Partial<FontStacks>
 }
+
+// =============================================================================
+// Line Height Types (Feature #20)
+// =============================================================================
+
+/**
+ * Line height calculation mode
+ */
+export type LineHeightMode = "auto" | "ratio" | "fixed"
+
+/**
+ * Line height configuration
+ */
+export interface LineHeightConfig {
+  /** Calculation mode */
+  mode: LineHeightMode
+  /** Min ratio for ratio mode (default 1.125) */
+  minRatio?: number
+  /** Max ratio for ratio mode (default 1.2 for body, 1.1 for headings) */
+  maxRatio?: number
+  /** Fixed value for fixed mode */
+  fixedValue?: number
+  /** Font size threshold in px where ratio transitions from max to min */
+  thresholdPx?: number
+}
+
+/**
+ * Line height calculation result
+ */
+export interface LineHeightResult {
+  /** Calculated line height value (unitless ratio) */
+  value: number
+  /** Line height in pixels (for reference) */
+  px: number
+  /** Whether value is within accessibility guidelines (≥1.5 for body text) */
+  isAccessible: boolean
+  /** Recommendation if not accessible */
+  recommendation?: string
+}
+
+// =============================================================================
+// Line Length Types (Feature #21)
+// =============================================================================
+
+/**
+ * Line length validation result
+ */
+export interface LineLengthResult {
+  /** Calculated character count per line */
+  characters: number
+  /** Whether within optimal range (45-75, ideal 66) */
+  isOptimal: boolean
+  /** Whether within acceptable range (40-80) */
+  isAcceptable: boolean
+  /** Deviation from ideal (66 characters) */
+  deviationFromIdeal: number
+  /** Specific recommendation */
+  recommendation?: string
+  /** Suggested container width in px for optimal line length */
+  suggestedWidthPx?: number
+}
+
+/**
+ * Line length configuration
+ */
+export interface LineLengthConfig {
+  /** Minimum acceptable characters per line (default 40) */
+  minChars?: number
+  /** Maximum acceptable characters per line (default 80) */
+  maxChars?: number
+  /** Optimal minimum (default 45) */
+  optimalMin?: number
+  /** Optimal maximum (default 75) */
+  optimalMax?: number
+  /** Ideal character count (default 66) */
+  idealChars?: number
+  /** Average character width as fraction of font size (default 0.5 for proportional fonts) */
+  avgCharWidthRatio?: number
+}

@@ -78,6 +78,17 @@ export {
   generateTetradicPalette,
 } from "./oklch-palette"
 
+// Monochromatic palette (Feature #23)
+export type {
+  MonochromaticConfig,
+  MonochromaticPalette,
+} from "./oklch-palette"
+
+export {
+  generateMonochromaticPalette,
+  generateElegantGrayscale,
+} from "./oklch-palette"
+
 // Accessibility
 export {
   calculateContrastRatio,
