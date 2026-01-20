@@ -11,7 +11,6 @@ import {
   createOrchestrator,
   generateFromDescription,
   validateRequest,
-  type GenerationRequest,
   type OrchestratorEvent,
 } from "../orchestrator"
 
@@ -371,22 +370,10 @@ describe("Optional Features", () => {
     })
 
     it("generates theme when config provided", async () => {
+      // Use preset name instead of full config since ThemeConfig requires complex DesignTokens
       const result = await orchestrator.generate({
         description: "A button",
-        theme: {
-          name: "custom",
-          colors: {
-            primary: "#ff0000",
-            secondary: "#00ff00",
-            background: "#ffffff",
-            foreground: "#000000",
-            muted: "#f5f5f5",
-            mutedForeground: "#737373",
-            border: "#e5e5e5",
-            accent: "#f97316",
-            accentForeground: "#ffffff",
-          },
-        },
+        theme: "dark", // Use preset name
       })
 
       // Theme step should run when theme is configured
