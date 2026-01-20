@@ -97,8 +97,8 @@ export function generateStory(
   const {
     includeDocs = true,
     includeActions = true,
-    includeControls = true,
-    typescript = true,
+    includeControls: _includeControls = true,
+    typescript: _typescript = true,
     suffix = ".stories.tsx",
   } = options
 

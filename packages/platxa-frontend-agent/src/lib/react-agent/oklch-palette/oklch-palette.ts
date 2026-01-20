@@ -962,8 +962,12 @@ export function generateMonochromaticPalette(
     neutralChroma = 0.02,
   } = config
 
-  // Parse base color
-  const baseColor = typeof color === "string" ? parseColor(color).oklch : color
+  // Parse base color - throw early if invalid to avoid null propagation
+  const parsedColor = typeof color === "string" ? parseColor(color).oklch : color
+  if (!parsedColor) {
+    throw new Error(`Invalid color: unable to parse "${color}"`)
+  }
+  const baseColor = parsedColor
 
   // Generate variations
   const variations: OklchColor[] = []

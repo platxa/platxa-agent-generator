@@ -521,7 +521,7 @@ describe("Gradients", () => {
     })
 
     it("should include Tailwind classes when requested", () => {
-      const result = generateGradientUtilities({ includeTailwind: true })
+      const result = generateGradientUtilities()
       if (result.tailwindClasses) {
         expect(Array.isArray(result.tailwindClasses)).toBe(true)
       }

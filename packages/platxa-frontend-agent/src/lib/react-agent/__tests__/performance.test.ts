@@ -12,10 +12,8 @@ import {
   analyzeINP,
   // Bundle
   DEFAULT_PACKAGE_SIZES,
-  DEFAULT_BUNDLE_CONFIG,
   analyzeBundleSize,
   // Lazy loading
-  DEFAULT_LAZY_CONFIG,
   LAZY_PATTERNS,
   analyzeLazyLoading,
   // React Compiler

@@ -980,7 +980,7 @@ function detectLayoutType(description: string): MockupAnalysis["layout"]["type"]
   return "single-column"
 }
 
-function generateCritiqueSummary(score: number, critical: number, major: number, minor: number): string {
+function generateCritiqueSummary(score: number, _critical: number, _major: number, _minor: number): string {
   if (score >= 9) return "Excellent design quality with minimal issues"
   if (score >= 7) return "Good design quality with room for improvement"
   if (score >= 5) return "Moderate design quality - several issues should be addressed"

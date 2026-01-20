@@ -7,7 +7,6 @@
 
 import type {
   SpacingUnit,
-  SpacingOutputUnit,
   SpacingValue,
   SpacingScale,
   SemanticSpacingTokens,

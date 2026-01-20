@@ -11,7 +11,6 @@ import type {
   ContainerDefinition,
   ContainerQueryRule,
   ContainerQueryConfig,
-  HasPattern,
   HasSelectorRule,
   GradientDirection,
   GradientStop,

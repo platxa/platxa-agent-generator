@@ -12,7 +12,6 @@ import type {
   QualityScoreBreakdown,
   QualityReport,
   QualityScoringConfig,
-  TokenType,
   TokenUsage,
   ConsistencyResult,
   DesignSystemRules,
@@ -21,7 +20,6 @@ import type {
   TypeScriptValidation,
   PropDoc,
   ComponentDoc,
-  DocFormat,
   DocGenerationOptions,
 } from "./types"
 
@@ -341,8 +339,7 @@ function runDesignChecks(code: string): QualityCheck[] {
 function runPerformanceChecks(code: string): QualityCheck[] {
   const checks: QualityCheck[] = []
 
-  // Check for memo usage
-  const hasMemo = /React\.memo|useMemo|useCallback/.test(code)
+  // Memo check - React Compiler handles this automatically in React 19+
   checks.push(createCheck(
     "perf-memoization",
     "performance",
@@ -626,7 +623,7 @@ function findRawSpacing(code: string): TokenUsage[] {
  */
 export function checkDesignConsistency(
   code: string,
-  rules: DesignSystemRules = DEFAULT_DESIGN_RULES
+  _rules: DesignSystemRules = DEFAULT_DESIGN_RULES
 ): ConsistencyResult {
   const colorIssues = findRawColors(code)
   const spacingIssues = findRawSpacing(code)
@@ -812,7 +809,7 @@ export function generateComponentDoc(
   code: string,
   options: DocGenerationOptions = {}
 ): ComponentDoc {
-  const format = options.format || "markdown"
+  // Note: options.format reserved for future multi-format support (markdown, json, html)
 
   // Extract component name - prioritize actual React components over utility functions
   // 1. Check for forwardRef component (most reliable for React components)

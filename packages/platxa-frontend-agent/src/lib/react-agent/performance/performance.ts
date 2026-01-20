@@ -6,12 +6,10 @@
  */
 
 import type {
-  InteractionType,
   INPSeverity,
   INPIssue,
   INPAnalysis,
   INPConfig,
-  ImportType,
   DetectedImport,
   BundleAnalysis,
   PackageSizeMap,
@@ -252,18 +250,6 @@ export const DEFAULT_BUNDLE_CONFIG: BundleAnalyzerConfig = {
  */
 function parseImports(code: string): DetectedImport[] {
   const imports: DetectedImport[] = []
-
-  // Match various import patterns
-  const importPatterns = [
-    // Named imports: import { a, b } from 'module'
-    /import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g,
-    // Default imports: import Name from 'module'
-    /import\s+(\w+)\s+from\s*['"]([^'"]+)['"]/g,
-    // Namespace imports: import * as Name from 'module'
-    /import\s*\*\s*as\s+(\w+)\s+from\s*['"]([^'"]+)['"]/g,
-    // Side effect imports: import 'module'
-    /import\s*['"]([^'"]+)['"]/g,
-  ]
 
   // Named imports
   const namedPattern = /import\s*\{([^}]+)\}\s*from\s*['"]([^'"]+)['"]/g
