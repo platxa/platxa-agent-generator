@@ -1,0 +1,344 @@
+/**
+ * Brand System Tests
+ *
+ * Tests for the opt-in brand kit system.
+ * Verifies Feature #1: Default Theme Preservation
+ */
+
+import { describe, it, expect } from "vitest"
+import {
+  defineFrontendConfig,
+  resolveConfig,
+  validateConfig,
+  getBuiltInTheme,
+  getBuiltInPresetNames,
+  getAllPresetNames,
+  isBuiltInPreset,
+  usesBrandKit,
+  usesBuiltInTheme,
+  getEffectivePreset,
+  BUILTIN_PRESETS,
+  DEFAULT_CONFIG,
+} from "../brand"
+import type { FrontendConfig, BuiltInPreset } from "../brand"
+
+// =============================================================================
+// FEATURE #1: DEFAULT THEME PRESERVATION
+// =============================================================================
+
+describe("Feature #1: Default Theme Preservation", () => {
+  describe("Zero-Config Default", () => {
+    it("resolves to default theme when no config provided", () => {
+      const resolved = resolveConfig()
+
+      expect(resolved.mode).toBe("builtin")
+      expect(resolved.preset).toBe("default")
+      expect(resolved.themeConfig).toBeDefined()
+      expect(resolved.themeConfig.name).toBe("default")
+    })
+
+    it("resolves to default theme when empty config provided", () => {
+      const resolved = resolveConfig({})
+
+      expect(resolved.mode).toBe("builtin")
+      expect(resolved.preset).toBe("default")
+    })
+
+    it("resolves to default theme when undefined config provided", () => {
+      const resolved = resolveConfig(undefined)
+
+      expect(resolved.mode).toBe("builtin")
+      expect(resolved.preset).toBe("default")
+    })
+  })
+
+  describe("Built-in Presets Work Without Configuration", () => {
+    it("has four built-in presets available", () => {
+      const presets = getBuiltInPresetNames()
+
+      expect(presets).toContain("default")
+      expect(presets).toContain("blue")
+      expect(presets).toContain("green")
+      expect(presets).toContain("violet")
+      expect(presets.length).toBe(4)
+    })
+
+    it.each(["default", "blue", "green", "violet"] as BuiltInPreset[])(
+      "preset %s works without any configuration",
+      (preset) => {
+        const resolved = resolveConfig({
+          theme: { preset },
+        })
+
+        expect(resolved.mode).toBe("builtin")
+        expect(resolved.preset).toBe(preset)
+        expect(resolved.themeConfig).toBeDefined()
+        expect(resolved.themeConfig.name).toBe(preset)
+        expect(resolved.themeConfig.light).toBeDefined()
+        expect(resolved.themeConfig.dark).toBeDefined()
+      }
+    )
+
+    it("each built-in preset has complete theme config", () => {
+      const presets = getBuiltInPresetNames()
+
+      for (const preset of presets) {
+        const theme = getBuiltInTheme(preset)
+
+        expect(theme.name).toBe(preset)
+        expect(theme.light).toBeDefined()
+        expect(theme.dark).toBeDefined()
+        expect(theme.defaultMode).toBeDefined()
+        expect(theme.darkModeClass).toBe("dark")
+      }
+    })
+  })
+
+  describe("No External Dependencies Required", () => {
+    it("default config does not specify brand package", () => {
+      expect(DEFAULT_CONFIG.brand).toBeUndefined()
+    })
+
+    it("usesBuiltInTheme returns true for default config", () => {
+      expect(usesBuiltInTheme()).toBe(true)
+      expect(usesBuiltInTheme({})).toBe(true)
+      expect(usesBuiltInTheme({ theme: { preset: "blue" } })).toBe(true)
+    })
+
+    it("usesBrandKit returns false for default config", () => {
+      expect(usesBrandKit()).toBe(false)
+      expect(usesBrandKit({})).toBe(false)
+      expect(usesBrandKit({ theme: { preset: "blue" } })).toBe(false)
+    })
+
+    it("resolved config mode is builtin for default", () => {
+      const resolved = resolveConfig()
+      expect(resolved.mode).toBe("builtin")
+      expect(resolved.brandPackage).toBeUndefined()
+    })
+  })
+
+  describe("Backward Compatibility", () => {
+    it("existing theme preset selection continues to work", () => {
+      const blueConfig: FrontendConfig = {
+        theme: { preset: "blue" },
+      }
+      const resolved = resolveConfig(blueConfig)
+
+      expect(resolved.mode).toBe("builtin")
+      expect(resolved.preset).toBe("blue")
+    })
+
+    it("unknown preset falls back to default", () => {
+      const config: FrontendConfig = {
+        theme: { preset: "unknown" as BuiltInPreset },
+      }
+      const resolved = resolveConfig(config)
+
+      // Should still resolve (gracefully degrade)
+      expect(resolved.mode).toBe("builtin")
+      expect(resolved.themeConfig).toBeDefined()
+    })
+
+    it("purple is alias for violet", () => {
+      const theme = getBuiltInTheme("purple" as BuiltInPreset)
+      expect(theme.name).toBe("violet")
+    })
+  })
+})
+
+// =============================================================================
+// CONFIGURATION HELPER
+// =============================================================================
+
+describe("defineFrontendConfig", () => {
+  it("returns the same config object (type helper)", () => {
+    const config: FrontendConfig = {
+      theme: { preset: "blue" },
+    }
+    const result = defineFrontendConfig(config)
+
+    expect(result).toEqual(config)
+  })
+
+  it("provides type safety for configuration", () => {
+    // This test verifies the helper works at runtime
+    const config = defineFrontendConfig({
+      theme: {
+        preset: "green",
+        custom: {
+          primaryHue: 180,
+          saturation: "high",
+        },
+      },
+    })
+
+    expect(config.theme?.preset).toBe("green")
+    expect(config.theme?.custom?.primaryHue).toBe(180)
+  })
+})
+
+// =============================================================================
+// CONFIGURATION VALIDATION
+// =============================================================================
+
+describe("validateConfig", () => {
+  it("validates correct config as valid", () => {
+    const result = validateConfig({
+      theme: { preset: "blue" },
+    })
+
+    expect(result.valid).toBe(true)
+    expect(result.errors).toHaveLength(0)
+  })
+
+  it("rejects invalid preset name", () => {
+    const result = validateConfig({
+      theme: { preset: "invalid" as BuiltInPreset },
+    })
+
+    expect(result.valid).toBe(false)
+    expect(result.errors.length).toBeGreaterThan(0)
+    expect(result.errors[0]).toContain("Invalid theme preset")
+  })
+
+  it("validates custom theme primaryHue range", () => {
+    const invalidHue = validateConfig({
+      theme: {
+        custom: { primaryHue: 400 },
+      },
+    })
+
+    expect(invalidHue.valid).toBe(false)
+    expect(invalidHue.errors[0]).toContain("primaryHue")
+  })
+
+  it("validates custom theme saturation values", () => {
+    const invalid = validateConfig({
+      theme: {
+        custom: {
+          primaryHue: 180,
+          saturation: "invalid" as "low" | "medium" | "high",
+        },
+      },
+    })
+
+    expect(invalid.valid).toBe(false)
+    expect(invalid.errors[0]).toContain("saturation")
+  })
+
+  it("warns when both theme and brand specified", () => {
+    const result = validateConfig({
+      theme: { preset: "blue" },
+      brand: { package: "@test/brand" },
+    })
+
+    expect(result.warnings.length).toBeGreaterThan(0)
+    expect(result.warnings[0]).toContain("Both theme and brand.package")
+  })
+})
+
+// =============================================================================
+// UTILITY FUNCTIONS
+// =============================================================================
+
+describe("Utility Functions", () => {
+  describe("isBuiltInPreset", () => {
+    it("returns true for built-in presets", () => {
+      expect(isBuiltInPreset("default")).toBe(true)
+      expect(isBuiltInPreset("blue")).toBe(true)
+      expect(isBuiltInPreset("green")).toBe(true)
+      expect(isBuiltInPreset("violet")).toBe(true)
+    })
+
+    it("returns false for non-built-in names", () => {
+      expect(isBuiltInPreset("custom")).toBe(false)
+      expect(isBuiltInPreset("brand")).toBe(false)
+      expect(isBuiltInPreset("")).toBe(false)
+    })
+  })
+
+  describe("getEffectivePreset", () => {
+    it("returns default when no config", () => {
+      expect(getEffectivePreset()).toBe("default")
+      expect(getEffectivePreset({})).toBe("default")
+    })
+
+    it("returns specified preset", () => {
+      expect(getEffectivePreset({ theme: { preset: "blue" } })).toBe("blue")
+      expect(getEffectivePreset({ theme: { preset: "green" } })).toBe("green")
+    })
+  })
+
+  describe("getAllPresetNames", () => {
+    it("returns array of preset names", () => {
+      const names = getAllPresetNames()
+
+      expect(Array.isArray(names)).toBe(true)
+      expect(names.length).toBeGreaterThan(0)
+      expect(names).toContain("default")
+    })
+  })
+})
+
+// =============================================================================
+// OPT-IN BRAND LOADING (Preview for Feature #2)
+// =============================================================================
+
+describe("Opt-In Brand Loading (Foundation)", () => {
+  it("detects brand mode when package specified", () => {
+    const config: FrontendConfig = {
+      brand: { package: "@platxa/brand-kit" },
+    }
+    const resolved = resolveConfig(config)
+
+    expect(resolved.mode).toBe("brand")
+    expect(resolved.brandPackage).toBe("@platxa/brand-kit")
+  })
+
+  it("usesBrandKit returns true when package specified", () => {
+    expect(usesBrandKit({ brand: { package: "@test/brand" } })).toBe(true)
+  })
+
+  it("stores brand overrides in resolved config", () => {
+    const config: FrontendConfig = {
+      brand: {
+        package: "@test/brand",
+        overrides: {
+          colors: {
+            primary: "hsl(200 100% 50%)",
+          } as never,
+        },
+      },
+    }
+    const resolved = resolveConfig(config)
+
+    expect(resolved.brandOverrides).toBeDefined()
+  })
+
+  it("falls back to default theme until brand loads", () => {
+    const config: FrontendConfig = {
+      brand: { package: "@test/brand" },
+    }
+    const resolved = resolveConfig(config)
+
+    // Until brand actually loads, use default theme
+    expect(resolved.themeConfig.name).toBe("default")
+  })
+})
+
+// =============================================================================
+// CONSTANTS
+// =============================================================================
+
+describe("Constants", () => {
+  it("BUILTIN_PRESETS is frozen array", () => {
+    expect(Object.isFrozen(BUILTIN_PRESETS)).toBe(true)
+    expect(BUILTIN_PRESETS).toEqual(["default", "blue", "green", "violet"])
+  })
+
+  it("DEFAULT_CONFIG uses default preset", () => {
+    expect(DEFAULT_CONFIG.theme?.preset).toBe("default")
+    expect(DEFAULT_CONFIG.brand).toBeUndefined()
+  })
+})
