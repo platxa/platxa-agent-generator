@@ -15,6 +15,7 @@
 
 import type {
   BrandKitExport,
+  BrandKitValidationResult,
   ConfigLoadingState,
   ResolvedConfig,
 } from "./types"
@@ -336,43 +337,188 @@ function createThemeFromBrand(brandKit: BrandKitExport): ThemeConfig {
 // =============================================================================
 
 /**
- * Validate brand kit export structure
+ * Validate brand kit export structure (internal - returns first error)
  * Returns error message if invalid, undefined if valid
  */
 function validateBrandKitExport(brandKit: unknown): string | undefined {
+  const result = validateBrandKit(brandKit)
+  return result.errors[0]
+}
+
+/**
+ * Comprehensive brand kit validation
+ *
+ * Validates a brand kit object against the BrandKitExport interface.
+ * Use this for detailed validation feedback during development.
+ *
+ * @param brandKit - Object to validate
+ * @returns Detailed validation result
+ *
+ * @example
+ * ```typescript
+ * import { validateBrandKit } from "@platxa/frontend-agent"
+ *
+ * const result = validateBrandKit(myBrandKit)
+ * if (!result.valid) {
+ *   console.error("Validation errors:", result.errors)
+ *   console.warn("Missing required:", result.missingRequired)
+ * }
+ * ```
+ */
+export function validateBrandKit(brandKit: unknown): BrandKitValidationResult {
+  const errors: string[] = []
+  const warnings: string[] = []
+  const missingRequired: string[] = []
+  const missingOptional: string[] = []
+
+  // Check base type
   if (!brandKit || typeof brandKit !== "object") {
-    return "Brand kit must be an object"
+    errors.push("Brand kit must be an object")
+    return { valid: false, errors, warnings, missingRequired, missingOptional }
   }
 
   const kit = brandKit as Record<string, unknown>
 
-  // Required: meta
+  // ==========================================================================
+  // REQUIRED: meta
+  // ==========================================================================
   if (!kit.meta || typeof kit.meta !== "object") {
-    return "Brand kit must export 'meta' object with name and version"
+    errors.push("Brand kit must export 'meta' object")
+    missingRequired.push("meta")
+  } else {
+    const meta = kit.meta as Record<string, unknown>
+
+    if (typeof meta.name !== "string" || !meta.name) {
+      errors.push("meta.name is required and must be a non-empty string")
+      missingRequired.push("meta.name")
+    }
+
+    if (typeof meta.version !== "string" || !meta.version) {
+      errors.push("meta.version is required and must be a non-empty string")
+      missingRequired.push("meta.version")
+    } else if (!/^\d+\.\d+\.\d+/.test(meta.version as string)) {
+      warnings.push("meta.version should follow semver format (e.g., '1.0.0')")
+    }
+
+    if (meta.description === undefined) {
+      missingOptional.push("meta.description")
+    }
+    if (meta.author === undefined) {
+      missingOptional.push("meta.author")
+    }
   }
 
-  const meta = kit.meta as Record<string, unknown>
-  if (typeof meta.name !== "string" || !meta.name) {
-    return "Brand kit meta.name is required"
-  }
-  if (typeof meta.version !== "string" || !meta.version) {
-    return "Brand kit meta.version is required"
+  // ==========================================================================
+  // REQUIRED: primitives
+  // ==========================================================================
+  if (!kit.primitives || typeof kit.primitives !== "object") {
+    errors.push("Brand kit must export 'primitives' object with color scales")
+    missingRequired.push("primitives")
+  } else {
+    const primitives = kit.primitives as Record<string, unknown>
+
+    for (const scale of ["primary", "accent", "neutral"] as const) {
+      if (!primitives[scale] || typeof primitives[scale] !== "object") {
+        errors.push(`primitives.${scale} is required (12-step color scale)`)
+        missingRequired.push(`primitives.${scale}`)
+      } else {
+        const colorScale = primitives[scale] as Record<string | number, unknown>
+        const steps = Object.keys(colorScale).map(Number).filter(n => !isNaN(n))
+        if (steps.length < 12) {
+          warnings.push(
+            `primitives.${scale} has ${steps.length} steps (recommended: 12)`
+          )
+        }
+      }
+    }
   }
 
-  // Required: semantics
+  // ==========================================================================
+  // REQUIRED: semantics
+  // ==========================================================================
   if (!kit.semantics || typeof kit.semantics !== "object") {
-    return "Brand kit must export 'semantics' object with light and dark colors"
+    errors.push("Brand kit must export 'semantics' object with light/dark colors")
+    missingRequired.push("semantics")
+  } else {
+    const semantics = kit.semantics as Record<string, unknown>
+
+    if (!semantics.light || typeof semantics.light !== "object") {
+      errors.push("semantics.light is required")
+      missingRequired.push("semantics.light")
+    } else {
+      validateSemanticColors(semantics.light as Record<string, unknown>, "light", warnings)
+    }
+
+    if (!semantics.dark || typeof semantics.dark !== "object") {
+      errors.push("semantics.dark is required")
+      missingRequired.push("semantics.dark")
+    } else {
+      validateSemanticColors(semantics.dark as Record<string, unknown>, "dark", warnings)
+    }
   }
 
-  const semantics = kit.semantics as Record<string, unknown>
-  if (!semantics.light || typeof semantics.light !== "object") {
-    return "Brand kit semantics.light is required"
+  // ==========================================================================
+  // OPTIONAL fields
+  // ==========================================================================
+  if (kit.typography === undefined) {
+    missingOptional.push("typography")
   }
-  if (!semantics.dark || typeof semantics.dark !== "object") {
-    return "Brand kit semantics.dark is required"
+  if (kit.spacing === undefined) {
+    missingOptional.push("spacing")
+  }
+  if (kit.radius === undefined) {
+    missingOptional.push("radius")
+  }
+  if (kit.shadow === undefined) {
+    missingOptional.push("shadow")
+  }
+  if (kit.tailwindPreset === undefined) {
+    missingOptional.push("tailwindPreset")
+  }
+  if (kit.css === undefined) {
+    missingOptional.push("css")
   }
 
-  return undefined
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+    missingRequired,
+    missingOptional,
+  }
+}
+
+/**
+ * Validate semantic colors have expected keys
+ */
+function validateSemanticColors(
+  colors: Record<string, unknown>,
+  mode: "light" | "dark",
+  warnings: string[]
+): void {
+  const expectedKeys = [
+    "background",
+    "foreground",
+    "primary",
+    "primaryForeground",
+    "secondary",
+    "secondaryForeground",
+    "muted",
+    "mutedForeground",
+    "accent",
+    "accentForeground",
+    "destructive",
+    "destructiveForeground",
+    "border",
+    "input",
+    "ring",
+  ]
+
+  for (const key of expectedKeys) {
+    if (colors[key] === undefined) {
+      warnings.push(`semantics.${mode}.${key} is recommended for full compatibility`)
+    }
+  }
 }
 
 // =============================================================================

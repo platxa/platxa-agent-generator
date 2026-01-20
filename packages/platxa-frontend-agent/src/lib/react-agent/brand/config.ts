@@ -26,6 +26,7 @@ import type {
   ResolvedConfig,
   ThemePresetName,
   BuiltInPreset,
+  BrandKitExport,
 } from "./types"
 
 // =============================================================================
@@ -85,6 +86,39 @@ export const DEFAULT_CONFIG: FrontendConfig = {
  */
 export function defineFrontendConfig(config: FrontendConfig): FrontendConfig {
   return config
+}
+
+/**
+ * Type-safe brand kit definition helper with IntelliSense support
+ *
+ * Use this when creating brand kit packages to get full TypeScript
+ * support and validation of the brand kit structure.
+ *
+ * @example
+ * ```typescript
+ * // my-brand/index.ts
+ * import { defineBrandKit } from "@platxa/frontend-agent"
+ *
+ * export default defineBrandKit({
+ *   meta: {
+ *     name: "my-brand",
+ *     version: "1.0.0",
+ *     description: "My company brand kit"
+ *   },
+ *   primitives: {
+ *     primary: { 1: "hsl(206 100% 99%)", ... },
+ *     accent: { ... },
+ *     neutral: { ... }
+ *   },
+ *   semantics: {
+ *     light: { background: "...", foreground: "...", ... },
+ *     dark: { background: "...", foreground: "...", ... }
+ *   }
+ * })
+ * ```
+ */
+export function defineBrandKit(brandKit: BrandKitExport): BrandKitExport {
+  return brandKit
 }
 
 // =============================================================================

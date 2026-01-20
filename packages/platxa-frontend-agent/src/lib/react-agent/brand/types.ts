@@ -47,40 +47,133 @@ export type ThemePresetName =
 // =============================================================================
 // BRAND KIT INTERFACE
 // =============================================================================
+// This section defines the standard interface that ALL brand kits must implement.
+// Brand kit authors should use `BrandKitExport` as the primary interface.
+//
+// REQUIRED FIELDS (must be present):
+//   - meta: { name, version }
+//   - primitives: { primary, accent, neutral }
+//   - semantics: { light, dark }
+//
+// OPTIONAL FIELDS (have sensible defaults):
+//   - meta.description, meta.author
+//   - typography, spacing, radius, shadow
+//   - tailwindPreset, css
+// =============================================================================
 
 /**
- * Brand kit metadata
+ * Brand kit metadata (REQUIRED)
+ *
+ * Every brand kit must provide metadata identifying itself.
+ *
+ * @example
+ * ```typescript
+ * const meta: BrandKitMeta = {
+ *   name: "my-brand",
+ *   version: "1.0.0",
+ *   description: "My company brand kit",
+ *   author: "Design Team"
+ * }
+ * ```
  */
 export interface BrandKitMeta {
-  /** Brand kit name */
+  /**
+   * Brand kit name (REQUIRED)
+   * Used for identification and caching
+   */
   name: string
-  /** Version (semver) */
+
+  /**
+   * Version following semver (REQUIRED)
+   * @example "1.0.0", "2.1.3-beta"
+   */
   version: string
-  /** Optional description */
+
+  /**
+   * Human-readable description (optional)
+   */
   description?: string
-  /** Optional author */
+
+  /**
+   * Author or team name (optional)
+   */
   author?: string
 }
 
 /**
- * Brand kit color primitives (12-step scale)
+ * Brand kit color primitives (REQUIRED)
+ *
+ * 12-step color scales following Radix UI conventions.
+ * Steps 1-12 go from lightest to darkest.
+ *
+ * @example
+ * ```typescript
+ * const primitives: BrandColorPrimitives = {
+ *   primary: {
+ *     1: "hsl(206 100% 99%)",
+ *     2: "hsl(206 100% 98%)",
+ *     // ... steps 3-11
+ *     12: "hsl(206 100% 10%)"
+ *   },
+ *   accent: { ... },
+ *   neutral: { ... }
+ * }
+ * ```
  */
 export interface BrandColorPrimitives {
-  /** Primary color scale (12 steps) */
+  /**
+   * Primary brand color scale (REQUIRED)
+   * 12 steps from lightest (1) to darkest (12)
+   */
   primary: Record<number, string>
-  /** Accent color scale (12 steps) */
+
+  /**
+   * Accent/secondary color scale (REQUIRED)
+   * 12 steps for CTAs, highlights, and interactive elements
+   */
   accent: Record<number, string>
-  /** Neutral color scale (12 steps) */
+
+  /**
+   * Neutral gray scale (REQUIRED)
+   * 12 steps for text, backgrounds, and borders
+   */
   neutral: Record<number, string>
 }
 
 /**
- * Brand kit semantic colors for light/dark modes
+ * Brand kit semantic colors (REQUIRED)
+ *
+ * Maps primitive colors to semantic meanings for both light and dark modes.
+ * These are the colors actually used by components.
+ *
+ * @example
+ * ```typescript
+ * const semantics: BrandSemanticColors = {
+ *   light: {
+ *     background: "hsl(0 0% 100%)",
+ *     foreground: "hsl(206 100% 10%)",
+ *     primary: "hsl(206 100% 50%)",
+ *     // ... other semantic colors
+ *   },
+ *   dark: {
+ *     background: "hsl(206 100% 5%)",
+ *     foreground: "hsl(0 0% 98%)",
+ *     // ... other semantic colors
+ *   }
+ * }
+ * ```
  */
 export interface BrandSemanticColors {
-  /** Light mode semantic colors */
+  /**
+   * Light mode semantic colors (REQUIRED)
+   * Used when system/user prefers light mode
+   */
   light: SemanticColors
-  /** Dark mode semantic colors */
+
+  /**
+   * Dark mode semantic colors (REQUIRED)
+   * Used when system/user prefers dark mode
+   */
   dark: SemanticColors
 }
 
@@ -117,29 +210,108 @@ export type BrandRadius = Record<string, string>
 export type BrandShadow = Record<string, string>
 
 /**
- * Complete brand kit export interface
- * All brand kits must implement this interface
+ * Complete Brand Kit Export Interface
+ *
+ * This is the PRIMARY interface that ALL brand kits must implement.
+ * Brand kit authors should use this as the return type of their default export.
+ *
+ * ## Required Fields
+ * - `meta` - Package metadata (name, version)
+ * - `primitives` - 12-step color scales (primary, accent, neutral)
+ * - `semantics` - Light/dark mode semantic colors
+ *
+ * ## Optional Fields (use platform defaults if omitted)
+ * - `typography` - Font families, sizes, weights
+ * - `spacing` - Spacing scale
+ * - `radius` - Border radius scale
+ * - `shadow` - Shadow scale
+ * - `tailwindPreset` - Pre-built Tailwind v4 preset
+ * - `css` - Paths to pre-built CSS files
+ *
+ * @example
+ * ```typescript
+ * // my-brand/index.ts
+ * import type { BrandKitExport } from "@platxa/frontend-agent"
+ *
+ * const brandKit: BrandKitExport = {
+ *   meta: {
+ *     name: "my-brand",
+ *     version: "1.0.0"
+ *   },
+ *   primitives: {
+ *     primary: { 1: "...", 2: "...", ... },
+ *     accent: { ... },
+ *     neutral: { ... }
+ *   },
+ *   semantics: {
+ *     light: { background: "...", foreground: "...", ... },
+ *     dark: { background: "...", foreground: "...", ... }
+ *   },
+ *   // Optional: override defaults
+ *   typography: { ... },
+ *   spacing: { ... }
+ * }
+ *
+ * export default brandKit
+ * ```
  */
 export interface BrandKitExport {
-  /** Brand metadata (required) */
+  /**
+   * Brand metadata (REQUIRED)
+   * Must include name and version
+   */
   meta: BrandKitMeta
-  /** Color primitives (required) */
+
+  /**
+   * Color primitives (REQUIRED)
+   * 12-step scales for primary, accent, and neutral colors
+   */
   primitives: BrandColorPrimitives
-  /** Semantic colors (required) */
+
+  /**
+   * Semantic colors (REQUIRED)
+   * Light and dark mode color mappings
+   */
   semantics: BrandSemanticColors
-  /** Typography (optional) */
+
+  /**
+   * Typography configuration (optional)
+   * Falls back to platform defaults if not provided
+   */
   typography?: BrandTypography
-  /** Spacing scale (optional) */
+
+  /**
+   * Spacing scale (optional)
+   * Falls back to platform defaults if not provided
+   */
   spacing?: BrandSpacing
-  /** Border radius (optional) */
+
+  /**
+   * Border radius scale (optional)
+   * Falls back to platform defaults if not provided
+   */
   radius?: BrandRadius
-  /** Shadows (optional) */
+
+  /**
+   * Shadow scale (optional)
+   * Falls back to platform defaults if not provided
+   */
   shadow?: BrandShadow
-  /** Optional Tailwind v4 preset */
+
+  /**
+   * Pre-built Tailwind v4 preset (optional)
+   * For advanced integration with Tailwind CSS
+   */
   tailwindPreset?: Record<string, unknown>
-  /** Optional pre-built CSS paths */
+
+  /**
+   * Paths to pre-built CSS files (optional)
+   * Useful for CDN or static file serving
+   */
   css?: {
+    /** Path to CSS custom properties file */
     tokens?: string
+    /** Path to theme CSS file */
     themes?: string
   }
 }
@@ -242,10 +414,48 @@ export interface ConfigState {
 }
 
 // =============================================================================
-// HELPER TYPE
+// HELPER TYPES
 // =============================================================================
 
 /**
  * Type-safe configuration helper return type
  */
 export type DefineFrontendConfigReturn = FrontendConfig
+
+/**
+ * Type-safe brand kit definition helper
+ *
+ * Use this to define brand kits with full TypeScript IntelliSense support.
+ *
+ * @example
+ * ```typescript
+ * import { defineBrandKit } from "@platxa/frontend-agent"
+ *
+ * export default defineBrandKit({
+ *   meta: { name: "my-brand", version: "1.0.0" },
+ *   primitives: { ... },
+ *   semantics: { ... }
+ * })
+ * ```
+ */
+export type DefineBrandKitReturn = BrandKitExport
+
+// =============================================================================
+// VALIDATION TYPES
+// =============================================================================
+
+/**
+ * Brand kit validation result
+ */
+export interface BrandKitValidationResult {
+  /** Whether the brand kit is valid */
+  valid: boolean
+  /** Validation errors (critical issues) */
+  errors: string[]
+  /** Validation warnings (non-critical issues) */
+  warnings: string[]
+  /** Missing required fields */
+  missingRequired: string[]
+  /** Missing optional fields (informational) */
+  missingOptional: string[]
+}

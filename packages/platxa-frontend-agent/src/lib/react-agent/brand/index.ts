@@ -35,6 +35,7 @@
 // Configuration
 export {
   defineFrontendConfig,
+  defineBrandKit,
   resolveConfig,
   validateConfig,
   getBuiltInTheme,
@@ -54,6 +55,7 @@ export type { ConfigValidationResult } from "./config"
 export {
   loadBrandKit,
   resolveBrand,
+  validateBrandKit,
   getBrandLoadingState,
   getCurrentBrandKit,
   isBrandLoaded,
@@ -71,7 +73,7 @@ export type {
   // Preset types
   BuiltInPreset,
   ThemePresetName,
-  // Brand kit interface
+  // Brand kit interface (for brand kit authors)
   BrandKitMeta,
   BrandKitExport,
   BrandColorPrimitives,
@@ -87,5 +89,9 @@ export type {
   ResolvedConfig,
   ConfigLoadingState,
   ConfigState,
+  // Helper types
   DefineFrontendConfigReturn,
+  DefineBrandKitReturn,
+  // Validation types
+  BrandKitValidationResult,
 } from "./types"

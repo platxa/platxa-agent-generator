@@ -2,385 +2,449 @@
   "integrator_stats": {
     "todo_sync": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.022638007067143917
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.019802013412117958
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          0.022638007067143917,
+          0.01630798215046525
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          0.019802013412117958,
+          0.010372023098170757
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.006849993951618671,
-          0.0056559802033007145
+          0.0056559802033007145,
+          0.006160000339150429,
+          0.007113034371286631
         ]
       }
     },
     "prompt_engineering": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.013122044038027525
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.40957500459626317
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          0.013122044038027525,
+          0.024103035684674978
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          0.40957500459626317,
+          0.2509389887563884
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.6185009842738509,
-          0.13787002535536885
+          0.13787002535536885,
+          0.5580729921348393,
+          0.12341799447312951
         ]
       }
     },
     "clarification": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.012770004104822874
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          1.1542579741217196
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          0.012770004104822874,
+          0.03241299418732524
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          1.1542579741217196,
+          0.8763750083744526
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.027707021217793226,
-          0.03821298014372587
+          0.03821298014372587,
+          0.03420497523620725,
+          0.05176797276362777
         ]
       }
     },
     "specification": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.023823988158255816
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.1468840055167675
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          0.023823988158255816,
+          0.01834897557273507
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          0.1468840055167675,
+          0.10851997649297118
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.02983701415359974,
-          0.021232001017779112
+          0.021232001017779112,
+          0.018246006220579147,
+          0.02330297138541937
         ]
       }
     },
     "context_engineering": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          236.8068280047737
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          12708.91337498324
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          236.8068280047737,
+          163.08908601058647
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          12708.91337498324,
+          11910.3522990481
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.04456000169739127,
-          0.05271803820505738
+          0.05271803820505738,
+          0.04663702566176653,
+          0.04996999632567167
         ]
       }
     },
     "planning": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.00896799610927701
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.8708430104888976
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          0.00896799610927701,
+          0.015996978618204594
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          0.8708430104888976,
+          1.1858119978569448
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.25629298761487007,
-          0.23890601005405188
+          0.23890601005405188,
+          0.22947601974010468,
+          0.216011016163975
         ]
       }
     },
     "consistency": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.07219502003863454
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.02946401946246624
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          0.07219502003863454,
+          0.06297195795923471
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          0.02946401946246624,
+          0.05633104592561722
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.0223729875870049,
-          0.01848896499723196
+          0.01848896499723196,
+          0.018806022126227617,
+          0.019319995772093534
         ]
       }
     },
     "parallelization": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.023985980078577995
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.018324994016438723
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          0.023985980078577995,
+          0.02748199040070176
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          0.018324994016438723,
+          0.03528298111632466
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.02267298987135291,
-          0.023433007299900055
+          0.023433007299900055,
+          0.02843700349330902,
+          0.02283096546307206
         ]
       }
     },
     "language_agents": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          3.103038005065173
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.02064695581793785
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          3.103038005065173,
+          2.4733080063015223
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          0.02064695581793785,
+          0.025476037990301847
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           2.565820002928376,
-          2.4710160214453936
+          2.4710160214453936,
+          2.2703720023855567,
+          2.194375032559037
         ]
       }
     },
     "lsp": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          7.590955996420234
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          23.361837957054377
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          7.590955996420234,
+          5.597346986178309
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          23.361837957054377,
+          20.047467027325183
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.03046501660719514,
-          0.037721008993685246
+          0.037721008993685246,
+          0.047985988203436136,
+          0.04525796975940466
         ]
       }
     },
     "semantic_search": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.019297993276268244
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          5714.741715986747
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          0.019297993276268244,
+          0.018836988601833582
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          5714.741715986747,
+          7724.900486005936
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.02365099499002099,
-          0.022506981622427702
+          0.022506981622427702,
+          0.03039097646251321,
+          0.027082976885139942
         ]
       }
     },
     "duplicate_detection": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.019814004190266132
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.024442037101835012
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          0.019814004190266132,
+          0.019228027667850256
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          0.024442037101835012,
+          0.01615204382687807
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.013421988114714622,
-          0.007358030416071415
+          0.007358030416071415,
+          0.014173972886055708,
+          0.01670198980718851
         ]
       }
     },
     "quality_gates": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.19413599511608481
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.2454770146869123
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          0.19413599511608481,
+          0.13743899762630463
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          0.2454770146869123,
+          0.21543999901041389
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.015088997315615416,
-          0.013865006621927023
+          0.013865006621927023,
+          0.033742981031537056,
+          0.016608042642474174
         ]
       }
     },
     "debugging": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.019835017155855894
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.9775079670362175
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          0.019835017155855894,
+          0.026229012291878462
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          0.9775079670362175,
+          1.1577029945328832
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.020242005120962858,
-          0.024458044208586216
+          0.024458044208586216,
+          0.027405039872974157,
+          0.027535948902368546
         ]
       }
     },
     "memory": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          27.078767016064376
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          7.609207998029888
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          27.078767016064376,
+          15.126462967600673
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          7.609207998029888,
+          5.613377026747912
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.017332960851490498,
-          0.022134045138955116
+          0.022134045138955116,
+          0.02453097840771079,
+          0.02032797783613205
         ]
       }
     },
     "long_term_memory": {
       "on_feature_complete": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          15.13415900990367
-        ]
-      },
-      "on_feature_start": {
-        "success": 1,
-        "failure": 0,
-        "latencies": [
-          0.01195794902741909
-        ]
-      },
-      "get_feature_context": {
         "success": 2,
         "failure": 0,
         "latencies": [
+          15.13415900990367,
+          10.572783998213708
+        ]
+      },
+      "on_feature_start": {
+        "success": 2,
+        "failure": 0,
+        "latencies": [
+          0.01195794902741909,
+          0.011633033864200115
+        ]
+      },
+      "get_feature_context": {
+        "success": 4,
+        "failure": 0,
+        "latencies": [
           0.006852962542325258,
-          0.006872985977679491
+          0.006872985977679491,
+          0.01233397051692009,
+          0.015932018868625164
         ]
       }
     }
@@ -437,6 +501,122 @@
       }
     },
     "14": {
+      "todo_sync": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "prompt_engineering": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "clarification": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "specification": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "context_engineering": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "planning": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "consistency": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "parallelization": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "language_agents": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "lsp": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "semantic_search": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "duplicate_detection": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "quality_gates": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "debugging": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "memory": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "long_term_memory": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      }
+    },
+    "2": {
+      "todo_sync": {
+        "on_feature_complete": 1
+      },
+      "prompt_engineering": {
+        "on_feature_complete": 1
+      },
+      "clarification": {
+        "on_feature_complete": 1
+      },
+      "specification": {
+        "on_feature_complete": 1
+      },
+      "context_engineering": {
+        "on_feature_complete": 1
+      },
+      "planning": {
+        "on_feature_complete": 1
+      },
+      "consistency": {
+        "on_feature_complete": 1
+      },
+      "parallelization": {
+        "on_feature_complete": 1
+      },
+      "language_agents": {
+        "on_feature_complete": 1
+      },
+      "lsp": {
+        "on_feature_complete": 1
+      },
+      "semantic_search": {
+        "on_feature_complete": 1
+      },
+      "duplicate_detection": {
+        "on_feature_complete": 1
+      },
+      "quality_gates": {
+        "on_feature_complete": 1
+      },
+      "debugging": {
+        "on_feature_complete": 1
+      },
+      "memory": {
+        "on_feature_complete": 1
+      },
+      "long_term_memory": {
+        "on_feature_complete": 1
+      }
+    },
+    "3": {
       "todo_sync": {
         "on_feature_start": 1,
         "get_feature_context": 2

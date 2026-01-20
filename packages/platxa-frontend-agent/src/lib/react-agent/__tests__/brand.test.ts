@@ -9,8 +9,10 @@
 import { describe, it, expect, beforeEach } from "vitest"
 import {
   defineFrontendConfig,
+  defineBrandKit,
   resolveConfig,
   validateConfig,
+  validateBrandKit,
   getBuiltInTheme,
   getBuiltInPresetNames,
   getAllPresetNames,
@@ -30,7 +32,7 @@ import {
   isBrandCached,
   getBrandCacheSize,
 } from "../brand"
-import type { FrontendConfig, BuiltInPreset } from "../brand"
+import type { FrontendConfig, BuiltInPreset, BrandKitExport } from "../brand"
 
 // =============================================================================
 // FEATURE #1: DEFAULT THEME PRESERVATION
@@ -540,5 +542,268 @@ describe("Brand System Integration", () => {
 
     // Valid config (no errors about brand.package)
     expect(result.errors).toHaveLength(0)
+  })
+})
+
+// =============================================================================
+// FEATURE #3: BRAND KIT INTERFACE
+// =============================================================================
+
+describe("Feature #3: Brand Kit Interface", () => {
+  // Valid brand kit for testing
+  const validBrandKit: BrandKitExport = {
+    meta: {
+      name: "test-brand",
+      version: "1.0.0",
+      description: "Test brand kit",
+      author: "Test Author",
+    },
+    primitives: {
+      primary: { 1: "#f0f9ff", 2: "#e0f2fe", 3: "#bae6fd", 4: "#7dd3fc", 5: "#38bdf8", 6: "#0ea5e9", 7: "#0284c7", 8: "#0369a1", 9: "#075985", 10: "#0c4a6e", 11: "#082f49", 12: "#051c2c" },
+      accent: { 1: "#fdf4ff", 2: "#fae8ff", 3: "#f5d0fe", 4: "#f0abfc", 5: "#e879f9", 6: "#d946ef", 7: "#c026d3", 8: "#a21caf", 9: "#86198f", 10: "#701a75", 11: "#4a044e", 12: "#2e0230" },
+      neutral: { 1: "#fafafa", 2: "#f5f5f5", 3: "#e5e5e5", 4: "#d4d4d4", 5: "#a3a3a3", 6: "#737373", 7: "#525252", 8: "#404040", 9: "#262626", 10: "#171717", 11: "#0a0a0a", 12: "#050505" },
+    },
+    semantics: {
+      light: {
+        background: "hsl(0 0% 100%)",
+        foreground: "hsl(222 47% 11%)",
+        primary: "hsl(206 100% 50%)",
+        primaryForeground: "hsl(0 0% 100%)",
+        secondary: "hsl(210 40% 96%)",
+        secondaryForeground: "hsl(222 47% 11%)",
+        muted: "hsl(210 40% 96%)",
+        mutedForeground: "hsl(215 16% 47%)",
+        accent: "hsl(210 40% 96%)",
+        accentForeground: "hsl(222 47% 11%)",
+        destructive: "hsl(0 84% 60%)",
+        destructiveForeground: "hsl(0 0% 100%)",
+        border: "hsl(214 32% 91%)",
+        input: "hsl(214 32% 91%)",
+        ring: "hsl(206 100% 50%)",
+        card: "hsl(0 0% 100%)",
+        cardForeground: "hsl(222 47% 11%)",
+        popover: "hsl(0 0% 100%)",
+        popoverForeground: "hsl(222 47% 11%)",
+      },
+      dark: {
+        background: "hsl(222 47% 11%)",
+        foreground: "hsl(210 40% 98%)",
+        primary: "hsl(206 100% 50%)",
+        primaryForeground: "hsl(0 0% 100%)",
+        secondary: "hsl(217 33% 17%)",
+        secondaryForeground: "hsl(210 40% 98%)",
+        muted: "hsl(217 33% 17%)",
+        mutedForeground: "hsl(215 20% 65%)",
+        accent: "hsl(217 33% 17%)",
+        accentForeground: "hsl(210 40% 98%)",
+        destructive: "hsl(0 63% 31%)",
+        destructiveForeground: "hsl(210 40% 98%)",
+        border: "hsl(217 33% 17%)",
+        input: "hsl(217 33% 17%)",
+        ring: "hsl(224 76% 48%)",
+        card: "hsl(222 47% 11%)",
+        cardForeground: "hsl(210 40% 98%)",
+        popover: "hsl(222 47% 11%)",
+        popoverForeground: "hsl(210 40% 98%)",
+      },
+    },
+  }
+
+  describe("defineBrandKit helper", () => {
+    it("returns the same brand kit object (type helper)", () => {
+      const result = defineBrandKit(validBrandKit)
+      expect(result).toEqual(validBrandKit)
+    })
+
+    it("provides type safety for brand kit authors", () => {
+      const brandKit = defineBrandKit({
+        meta: { name: "my-brand", version: "2.0.0" },
+        primitives: validBrandKit.primitives,
+        semantics: validBrandKit.semantics,
+      })
+
+      expect(brandKit.meta.name).toBe("my-brand")
+      expect(brandKit.meta.version).toBe("2.0.0")
+    })
+  })
+
+  describe("validateBrandKit comprehensive validation", () => {
+    it("validates a complete valid brand kit", () => {
+      const result = validateBrandKit(validBrandKit)
+
+      expect(result.valid).toBe(true)
+      expect(result.errors).toHaveLength(0)
+      expect(result.missingRequired).toHaveLength(0)
+    })
+
+    it("returns errors for null input", () => {
+      const result = validateBrandKit(null)
+
+      expect(result.valid).toBe(false)
+      expect(result.errors).toContain("Brand kit must be an object")
+    })
+
+    it("returns errors for missing meta", () => {
+      const result = validateBrandKit({
+        primitives: validBrandKit.primitives,
+        semantics: validBrandKit.semantics,
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.missingRequired).toContain("meta")
+    })
+
+    it("returns errors for missing meta.name", () => {
+      const result = validateBrandKit({
+        meta: { version: "1.0.0" },
+        primitives: validBrandKit.primitives,
+        semantics: validBrandKit.semantics,
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.missingRequired).toContain("meta.name")
+    })
+
+    it("returns errors for missing meta.version", () => {
+      const result = validateBrandKit({
+        meta: { name: "test" },
+        primitives: validBrandKit.primitives,
+        semantics: validBrandKit.semantics,
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.missingRequired).toContain("meta.version")
+    })
+
+    it("returns errors for missing primitives", () => {
+      const result = validateBrandKit({
+        meta: validBrandKit.meta,
+        semantics: validBrandKit.semantics,
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.missingRequired).toContain("primitives")
+    })
+
+    it("returns errors for missing primitive color scales", () => {
+      const result = validateBrandKit({
+        meta: validBrandKit.meta,
+        primitives: { primary: validBrandKit.primitives.primary },
+        semantics: validBrandKit.semantics,
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.missingRequired).toContain("primitives.accent")
+      expect(result.missingRequired).toContain("primitives.neutral")
+    })
+
+    it("returns errors for missing semantics", () => {
+      const result = validateBrandKit({
+        meta: validBrandKit.meta,
+        primitives: validBrandKit.primitives,
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.missingRequired).toContain("semantics")
+    })
+
+    it("returns errors for missing semantics.light", () => {
+      const result = validateBrandKit({
+        meta: validBrandKit.meta,
+        primitives: validBrandKit.primitives,
+        semantics: { dark: validBrandKit.semantics.dark },
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.missingRequired).toContain("semantics.light")
+    })
+
+    it("returns errors for missing semantics.dark", () => {
+      const result = validateBrandKit({
+        meta: validBrandKit.meta,
+        primitives: validBrandKit.primitives,
+        semantics: { light: validBrandKit.semantics.light },
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.missingRequired).toContain("semantics.dark")
+    })
+
+    it("warns about non-semver version format", () => {
+      const result = validateBrandKit({
+        meta: { name: "test", version: "latest" },
+        primitives: validBrandKit.primitives,
+        semantics: validBrandKit.semantics,
+      })
+
+      expect(result.warnings.some(w => w.includes("semver"))).toBe(true)
+    })
+
+    it("tracks missing optional fields", () => {
+      const result = validateBrandKit(validBrandKit)
+
+      expect(result.missingOptional).toContain("typography")
+      expect(result.missingOptional).toContain("spacing")
+      expect(result.missingOptional).toContain("radius")
+      expect(result.missingOptional).toContain("shadow")
+    })
+
+    it("does not report optional fields when provided", () => {
+      const fullBrandKit = {
+        ...validBrandKit,
+        typography: { fontFamily: { sans: "Inter" } },
+        spacing: { 1: "0.25rem" },
+        radius: { sm: "0.25rem" },
+        shadow: { sm: "0 1px 2px rgba(0,0,0,0.05)" },
+      }
+
+      const result = validateBrandKit(fullBrandKit)
+
+      expect(result.valid).toBe(true)
+      expect(result.missingOptional).not.toContain("typography")
+      expect(result.missingOptional).not.toContain("spacing")
+      expect(result.missingOptional).not.toContain("radius")
+      expect(result.missingOptional).not.toContain("shadow")
+    })
+  })
+
+  describe("BrandKitExport interface compliance", () => {
+    it("requires meta.name and meta.version", () => {
+      // TypeScript would catch this at compile time, test runtime validation
+      const result = validateBrandKit({
+        meta: {},
+        primitives: validBrandKit.primitives,
+        semantics: validBrandKit.semantics,
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.missingRequired).toContain("meta.name")
+      expect(result.missingRequired).toContain("meta.version")
+    })
+
+    it("requires all three primitive color scales", () => {
+      const result = validateBrandKit({
+        meta: validBrandKit.meta,
+        primitives: {},
+        semantics: validBrandKit.semantics,
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.missingRequired).toContain("primitives.primary")
+      expect(result.missingRequired).toContain("primitives.accent")
+      expect(result.missingRequired).toContain("primitives.neutral")
+    })
+
+    it("requires both light and dark semantic colors", () => {
+      const result = validateBrandKit({
+        meta: validBrandKit.meta,
+        primitives: validBrandKit.primitives,
+        semantics: {},
+      })
+
+      expect(result.valid).toBe(false)
+      expect(result.missingRequired).toContain("semantics.light")
+      expect(result.missingRequired).toContain("semantics.dark")
+    })
   })
 })

@@ -104,8 +104,10 @@ export type {
 // Configuration helpers
 export {
   defineFrontendConfig,
+  defineBrandKit,
   resolveConfig,
   validateConfig,
+  validateBrandKit,
   getBuiltInTheme,
   getBuiltInPresetNames,
   getAllPresetNames,
@@ -119,8 +121,10 @@ export {
 
 // Brand types
 export type {
+  // Preset types
   BuiltInPreset,
   ThemePresetName,
+  // Brand kit interface (for brand kit authors)
   BrandKitMeta,
   BrandKitExport,
   BrandColorPrimitives,
@@ -129,6 +133,7 @@ export type {
   BrandSpacing,
   BrandRadius,
   BrandShadow,
+  // Configuration types
   FrontendConfig,
   ThemeOptions,
   BrandOptions,
@@ -136,4 +141,9 @@ export type {
   ConfigLoadingState,
   ConfigState,
   ConfigValidationResult,
+  // Helper types
+  DefineFrontendConfigReturn,
+  DefineBrandKitReturn,
+  // Validation types
+  BrandKitValidationResult,
 } from "./lib/react-agent/brand"
