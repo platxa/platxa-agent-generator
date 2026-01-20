@@ -7,6 +7,19 @@
  */
 
 import { describe, it, expect, beforeEach } from "vitest"
+// Feature #6: Backward Compatibility - Import existing theme API
+import {
+  defaultTheme,
+  blueTheme,
+  greenTheme,
+  violetTheme,
+  getThemePreset,
+  getThemePresetNames,
+  generateTheme,
+  generateThemeFromPreset,
+  createTheme,
+  defaultTokens,
+} from "../theme"
 import {
   defineFrontendConfig,
   defineBrandKit,
@@ -1170,6 +1183,197 @@ describe("Feature #5: Token Normalization", () => {
       for (const key of requiredColorKeys) {
         expect(tokens.colors[key as keyof typeof tokens.colors]).toBeDefined()
       }
+    })
+  })
+})
+
+// =============================================================================
+// FEATURE #6: BACKWARD COMPATIBILITY
+// =============================================================================
+
+describe("Feature #6: Backward Compatibility", () => {
+  describe("Existing theme API works without modification", () => {
+    it("defaultTheme is exported and has correct structure", () => {
+      expect(defaultTheme).toBeDefined()
+      expect(defaultTheme.name).toBe("default")
+      expect(defaultTheme.light).toBeDefined()
+      expect(defaultTheme.dark).toBeDefined()
+    })
+
+    it("blueTheme is exported and works", () => {
+      expect(blueTheme).toBeDefined()
+      expect(blueTheme.name).toBe("blue")
+      expect(blueTheme.light).toBeDefined()
+    })
+
+    it("greenTheme is exported and works", () => {
+      expect(greenTheme).toBeDefined()
+      expect(greenTheme.name).toBe("green")
+    })
+
+    it("violetTheme is exported and works", () => {
+      expect(violetTheme).toBeDefined()
+      expect(violetTheme.name).toBe("violet")
+    })
+
+    it("getThemePreset returns themes by name", () => {
+      expect(getThemePreset("default")).toEqual(defaultTheme)
+      expect(getThemePreset("blue")).toEqual(blueTheme)
+      expect(getThemePreset("green")).toEqual(greenTheme)
+      expect(getThemePreset("violet")).toEqual(violetTheme)
+    })
+
+    it("getThemePresetNames returns all preset names", () => {
+      const names = getThemePresetNames()
+      expect(names).toContain("default")
+      expect(names).toContain("blue")
+      expect(names).toContain("green")
+      expect(names).toContain("violet")
+    })
+
+    it("defaultTokens is exported and has all required fields", () => {
+      expect(defaultTokens).toBeDefined()
+      expect(defaultTokens.colors).toBeDefined()
+      expect(defaultTokens.spacing).toBeDefined()
+      expect(defaultTokens.typography).toBeDefined()
+      expect(defaultTokens.fontWeight).toBeDefined()
+      expect(defaultTokens.radius).toBeDefined()
+      expect(defaultTokens.shadow).toBeDefined()
+    })
+  })
+
+  describe("Theme generation functions work unchanged", () => {
+    it("generateThemeFromPreset works with existing presets", () => {
+      const generated = generateThemeFromPreset("blue")
+      expect(generated).toBeDefined()
+      expect(generated.css).toBeDefined()
+      expect(generated.tailwindTheme).toBeDefined()
+    })
+
+    it("createTheme works with custom options", () => {
+      const custom = createTheme("custom-test", {
+        primaryHue: 200,
+        saturation: "medium",
+      })
+      expect(custom).toBeDefined()
+      expect(custom.name).toBe("custom-test")
+      expect(custom.light).toBeDefined()
+    })
+
+    it("generateTheme works with ThemeConfig", () => {
+      const generated = generateTheme(defaultTheme)
+      expect(generated).toBeDefined()
+      expect(generated.css).toBeDefined()
+    })
+  })
+
+  describe("No required configuration for existing projects", () => {
+    it("resolveConfig works with no arguments (zero-config)", () => {
+      const config = resolveConfig()
+      expect(config.mode).toBe("builtin")
+      expect(config.preset).toBe("default")
+      expect(config.themeConfig).toBeDefined()
+    })
+
+    it("resolveConfig works with empty object", () => {
+      const config = resolveConfig({})
+      expect(config.mode).toBe("builtin")
+      expect(config.preset).toBe("default")
+    })
+
+    it("existing preset selection continues to work", () => {
+      const blueConfig = resolveConfig({ theme: { preset: "blue" } })
+      expect(blueConfig.mode).toBe("builtin")
+      expect(blueConfig.preset).toBe("blue")
+      expect(blueConfig.themeConfig.name).toBe("blue")
+
+      const greenConfig = resolveConfig({ theme: { preset: "green" } })
+      expect(greenConfig.preset).toBe("green")
+      expect(greenConfig.themeConfig.name).toBe("green")
+    })
+
+    it("theme customization works without brand configuration", () => {
+      const customConfig = resolveConfig({
+        theme: {
+          preset: "blue",
+          custom: {
+            primaryHue: 220,
+            saturation: "high",
+          },
+        },
+      })
+
+      expect(customConfig.mode).toBe("builtin")
+      expect(customConfig.custom).toBeDefined()
+      expect(customConfig.custom?.primaryHue).toBe(220)
+    })
+  })
+
+  describe("No breaking changes to existing API", () => {
+    it("all BUILTIN_PRESETS are available", () => {
+      expect(BUILTIN_PRESETS).toContain("default")
+      expect(BUILTIN_PRESETS).toContain("blue")
+      expect(BUILTIN_PRESETS).toContain("green")
+      expect(BUILTIN_PRESETS).toContain("violet")
+      expect(BUILTIN_PRESETS.length).toBe(4)
+    })
+
+    it("DEFAULT_CONFIG has expected structure", () => {
+      expect(DEFAULT_CONFIG.theme?.preset).toBe("default")
+      expect(DEFAULT_CONFIG.brand).toBeUndefined()
+    })
+
+    it("usesBuiltInTheme returns true for existing usage patterns", () => {
+      // No config
+      expect(usesBuiltInTheme()).toBe(true)
+      // Empty config
+      expect(usesBuiltInTheme({})).toBe(true)
+      // Preset only
+      expect(usesBuiltInTheme({ theme: { preset: "blue" } })).toBe(true)
+      // Custom theme
+      expect(usesBuiltInTheme({ theme: { custom: { primaryHue: 200 } } })).toBe(true)
+    })
+
+    it("usesBrandKit returns false for existing usage patterns", () => {
+      expect(usesBrandKit()).toBe(false)
+      expect(usesBrandKit({})).toBe(false)
+      expect(usesBrandKit({ theme: { preset: "blue" } })).toBe(false)
+    })
+
+    it("getEffectivePreset returns correct preset for existing patterns", () => {
+      expect(getEffectivePreset()).toBe("default")
+      expect(getEffectivePreset({})).toBe("default")
+      expect(getEffectivePreset({ theme: { preset: "violet" } })).toBe("violet")
+    })
+  })
+
+  describe("Theme presets continue to work identically", () => {
+    it("default preset returns same theme as before", () => {
+      const fromPreset = getThemePreset("default")
+      const fromBuiltIn = getBuiltInTheme("default")
+
+      expect(fromPreset).toEqual(fromBuiltIn)
+    })
+
+    it("blue preset returns same theme as before", () => {
+      const fromPreset = getThemePreset("blue")
+      const fromBuiltIn = getBuiltInTheme("blue")
+
+      expect(fromPreset).toEqual(fromBuiltIn)
+    })
+
+    it("green preset returns same theme as before", () => {
+      const fromPreset = getThemePreset("green")
+      const fromBuiltIn = getBuiltInTheme("green")
+
+      expect(fromPreset).toEqual(fromBuiltIn)
+    })
+
+    it("violet preset returns same theme as before", () => {
+      const fromPreset = getThemePreset("violet")
+      const fromBuiltIn = getBuiltInTheme("violet")
+
+      expect(fromPreset).toEqual(fromBuiltIn)
     })
   })
 })
