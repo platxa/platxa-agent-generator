@@ -56,6 +56,7 @@ export {
   loadBrandKit,
   resolveBrand,
   validateBrandKit,
+  isValidBrandPackageName,
   getBrandLoadingState,
   getCurrentBrandKit,
   isBrandLoaded,

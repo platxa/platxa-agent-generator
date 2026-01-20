@@ -205,25 +205,79 @@ export async function loadBrandKit(
   }
 }
 
+// =============================================================================
+// DYNAMIC IMPORT SYSTEM (Feature #4)
+// =============================================================================
+// Key Design Decisions:
+// 1. Uses dynamic import() for lazy loading - brand kit code is NOT in main bundle
+// 2. @vite-ignore comment prevents Vite from analyzing/bundling the import path
+// 3. Bundler creates separate chunks for each dynamically imported brand kit
+// 4. Supports both npm packages (@scope/name) and local paths (./my-brand)
+// =============================================================================
+
 /**
  * Dynamic import wrapper for brand kits
  *
  * This is the ONLY place where brand kit code is imported.
- * It uses dynamic import() to ensure the brand kit is not
- * bundled with the main application code.
+ * Uses dynamic import() to ensure brand kits are:
+ * - NOT included in the main application bundle
+ * - Loaded lazily at runtime only when needed
+ * - Split into separate chunks by the bundler
+ *
+ * @param packageName - NPM package name or local path
+ * @returns Promise resolving to the brand kit export
+ *
+ * @example
+ * ```typescript
+ * // NPM package - creates separate chunk
+ * const brandKit = await dynamicImportBrand("@company/brand-kit")
+ *
+ * // Local path - creates separate chunk
+ * const localBrand = await dynamicImportBrand("./brands/my-brand")
+ * ```
+ *
+ * @internal This function is internal. Use loadBrandKit() instead.
  */
 async function dynamicImportBrand(packageName: string): Promise<BrandKitExport> {
-  // Handle local paths vs npm packages
-  const importPath = packageName.startsWith(".")
-    ? packageName
-    : packageName
+  // The @vite-ignore comment is CRITICAL:
+  // - Prevents Vite from statically analyzing the import path
+  // - Ensures the import is resolved at RUNTIME, not build time
+  // - Results in brand kit code NOT being in the main bundle
+  //
+  // Without @vite-ignore, Vite would try to resolve the path at build time
+  // and either fail (for npm packages) or bundle the code (for local paths)
+  const module = await import(/* @vite-ignore */ packageName)
 
-  // Dynamic import - this is lazy loaded at runtime
-  // The brand kit code is NOT included in the main bundle
-  const module = await import(/* @vite-ignore */ importPath)
-
-  // Brand kits should export default or named 'brandKit'
+  // Brand kits can export in multiple ways:
+  // 1. export default brandKit (preferred)
+  // 2. export { brandKit }
+  // 3. module.exports = brandKit (CommonJS)
   return module.default || module.brandKit || module
+}
+
+/**
+ * Check if a package name is a valid import specifier
+ *
+ * @param packageName - The package name to validate
+ * @returns true if valid for dynamic import
+ */
+export function isValidBrandPackageName(packageName: string): boolean {
+  if (!packageName || typeof packageName !== "string") {
+    return false
+  }
+
+  // Local paths
+  if (packageName.startsWith("./") || packageName.startsWith("../")) {
+    return true
+  }
+
+  // Scoped npm packages (@scope/name)
+  if (packageName.startsWith("@")) {
+    return /^@[\w-]+\/[\w-]+/.test(packageName)
+  }
+
+  // Regular npm packages
+  return /^[\w-]+/.test(packageName)
 }
 
 // =============================================================================

@@ -1,7 +1,15 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-20T18:58:50.392608",
+  "updated_at": "2026-01-20T19:03:49.657691",
   "plans": [
+    {
+      "id": "plan-feature-4",
+      "title": "Implementation: [Dynamic Import System] Lazy loading of brand kits using dyn...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-20T19:03:49.657178",
+      "constitution_check": true
+    },
     {
       "id": "plan-feature-3",
       "title": "Implementation: [Brand Kit Interface] Standard interface (BrandKitExport) th...",

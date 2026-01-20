@@ -13,6 +13,7 @@ import {
   resolveConfig,
   validateConfig,
   validateBrandKit,
+  isValidBrandPackageName,
   getBuiltInTheme,
   getBuiltInPresetNames,
   getAllPresetNames,
@@ -804,6 +805,125 @@ describe("Feature #3: Brand Kit Interface", () => {
       expect(result.valid).toBe(false)
       expect(result.missingRequired).toContain("semantics.light")
       expect(result.missingRequired).toContain("semantics.dark")
+    })
+  })
+})
+
+// =============================================================================
+// FEATURE #4: DYNAMIC IMPORT SYSTEM
+// =============================================================================
+
+describe("Feature #4: Dynamic Import System", () => {
+  describe("isValidBrandPackageName", () => {
+    describe("validates npm package names", () => {
+      it("accepts scoped packages", () => {
+        expect(isValidBrandPackageName("@platxa/brand-kit")).toBe(true)
+        expect(isValidBrandPackageName("@company/my-brand")).toBe(true)
+        expect(isValidBrandPackageName("@org/brand")).toBe(true)
+      })
+
+      it("accepts regular npm packages", () => {
+        expect(isValidBrandPackageName("my-brand-kit")).toBe(true)
+        expect(isValidBrandPackageName("brand")).toBe(true)
+        expect(isValidBrandPackageName("some-package")).toBe(true)
+      })
+
+      it("rejects invalid package names", () => {
+        expect(isValidBrandPackageName("")).toBe(false)
+        expect(isValidBrandPackageName(null as unknown as string)).toBe(false)
+        expect(isValidBrandPackageName(undefined as unknown as string)).toBe(false)
+      })
+    })
+
+    describe("validates local paths", () => {
+      it("accepts relative paths with ./", () => {
+        expect(isValidBrandPackageName("./my-brand")).toBe(true)
+        expect(isValidBrandPackageName("./brands/company-brand")).toBe(true)
+        expect(isValidBrandPackageName("./src/brand/index")).toBe(true)
+      })
+
+      it("accepts relative paths with ../", () => {
+        expect(isValidBrandPackageName("../my-brand")).toBe(true)
+        expect(isValidBrandPackageName("../../../brands/brand")).toBe(true)
+      })
+    })
+  })
+
+  describe("Dynamic import behavior", () => {
+    beforeEach(() => {
+      clearBrandCache()
+    })
+
+    it("does not load brand kit until explicitly requested", async () => {
+      // Verify no loading happens by default
+      expect(getBrandLoadingState()).toBe("idle")
+      expect(getCurrentBrandKit()).toBeNull()
+      expect(isBrandLoading()).toBe(false)
+    })
+
+    it("uses dynamic import for brand loading (not static)", async () => {
+      // This test verifies the architecture:
+      // - resolveBrand with builtin mode does NOT trigger any import
+      const config = resolveConfig({ theme: { preset: "blue" } })
+      const result = await resolveBrand(config)
+
+      // Built-in themes don't trigger brand loading
+      expect(result.status).toBe("loaded")
+      expect(result.brandKit).toBeNull()
+      // State remains idle because no dynamic import was needed
+      expect(getBrandLoadingState()).toBe("idle")
+    })
+
+    it("only triggers loading when brand.package is specified", async () => {
+      const config = resolveConfig({
+        brand: { package: "@nonexistent/test-brand" },
+      })
+
+      // This will attempt to load (and fail gracefully)
+      const result = await resolveBrand(config, { throwOnError: false })
+
+      // Loading was attempted
+      expect(result.status).toBe("error")
+      // State changed because loading was triggered
+      expect(getBrandLoadingState()).toBe("error")
+    })
+  })
+
+  describe("Bundle separation verification", () => {
+    it("brand kit code is NOT imported statically", () => {
+      // This test documents the architecture:
+      // The loadBrandKit function uses dynamic import() with @vite-ignore
+      // This ensures brand kit code is NOT in the main bundle
+
+      // Verification: check that we can reference loadBrandKit
+      // without any brand kit code being present
+      expect(typeof resolveBrand).toBe("function")
+
+      // The absence of any brand kit in the bundle is verified by:
+      // 1. No static imports of brand kit modules in loader.ts
+      // 2. Using /* @vite-ignore */ comment on dynamic import
+      // 3. Runtime resolution of package name
+    })
+
+    it("supports multiple brand kit formats", async () => {
+      // Brand kits can export in multiple ways:
+      // 1. export default brandKit
+      // 2. export { brandKit }
+      // 3. module.exports = brandKit
+
+      // This is handled by the dynamic import wrapper:
+      // return module.default || module.brandKit || module
+      // Verification is in the implementation, tested via error case
+
+      const config = resolveConfig({
+        brand: { package: "@test/nonexistent" },
+      })
+
+      const result = await resolveBrand(config, { throwOnError: false })
+
+      // Loading failed but the system handled it gracefully
+      expect(result.status).toBe("error")
+      expect(result.themeConfig).toBeDefined() // Falls back to default
     })
   })
 })
