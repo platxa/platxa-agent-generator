@@ -108,6 +108,11 @@ export {
   resolveConfig,
   validateConfig,
   validateBrandKit,
+  // Token Normalization
+  normalizeBrandTokens,
+  mergeDesignTokens,
+  // Utilities
+  isValidBrandPackageName,
   getBuiltInTheme,
   getBuiltInPresetNames,
   getAllPresetNames,

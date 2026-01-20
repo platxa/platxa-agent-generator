@@ -19,7 +19,7 @@ import type {
   ConfigLoadingState,
   ResolvedConfig,
 } from "./types"
-import type { DesignTokens, ThemeConfig } from "../theme/types"
+import type { DesignTokens, SemanticColors, ThemeConfig } from "../theme/types"
 import { defaultTheme, defaultTokens } from "../theme/tokens"
 
 // =============================================================================
@@ -333,43 +333,283 @@ export async function resolveBrand(
 }
 
 // =============================================================================
-// TOKEN NORMALIZATION
+// TOKEN NORMALIZATION (Feature #5)
+// =============================================================================
+// Key Design Decisions:
+// 1. Brand kit tokens are converted to internal DesignTokens format
+// 2. Missing optional tokens are filled with platform defaults
+// 3. Consistent token structure regardless of source (brand kit or built-in)
+// 4. Deep merge for nested structures (colors, spacing, etc.)
 // =============================================================================
 
 /**
  * Normalize brand kit tokens to internal DesignTokens format
+ *
+ * This adapter layer converts brand kit tokens to the internal format:
+ * - Extracts semantic colors from brand kit's light/dark semantics
+ * - Maps brand typography to internal typography scale
+ * - Fills missing optional tokens with platform defaults
+ * - Ensures consistent structure for all downstream consumers
+ *
+ * @param brandKit - The brand kit to normalize
+ * @returns Normalized DesignTokens
+ *
+ * @example
+ * ```typescript
+ * import { normalizeBrandTokens } from "@platxa/frontend-agent"
+ *
+ * const tokens = normalizeBrandTokens(brandKit)
+ * // tokens has consistent structure with all fields populated
+ * ```
  */
-function normalizeTokens(brandKit: BrandKitExport): DesignTokens {
+export function normalizeBrandTokens(brandKit: BrandKitExport): DesignTokens {
   return {
-    colors: brandKit.semantics.light,
-    spacing: brandKit.spacing || defaultTokens.spacing,
-    typography: brandKit.typography?.fontSize || defaultTokens.typography,
-    fontWeight: brandKit.typography?.fontWeight || defaultTokens.fontWeight,
-    fontFamily: brandKit.typography?.fontFamily || defaultTokens.fontFamily,
-    radius: brandKit.radius || defaultTokens.radius,
-    shadow: brandKit.shadow || defaultTokens.shadow,
+    // Colors from brand kit semantics (required field)
+    colors: normalizeSemanticColors(brandKit.semantics.light),
+
+    // Spacing: use brand kit's or fall back to defaults
+    spacing: normalizeSpacing(brandKit.spacing),
+
+    // Typography: extract fontSize from brand kit's typography
+    typography: normalizeTypography(brandKit.typography?.fontSize),
+
+    // Font weights: extract from brand kit's typography
+    fontWeight: normalizeFontWeight(brandKit.typography?.fontWeight),
+
+    // Font families: extract from brand kit's typography
+    fontFamily: normalizeFontFamily(brandKit.typography?.fontFamily),
+
+    // Border radius: use brand kit's or fall back to defaults
+    radius: normalizeRadius(brandKit.radius),
+
+    // Shadows: use brand kit's or fall back to defaults
+    shadow: normalizeShadow(brandKit.shadow),
+
+    // Animation durations: always use platform defaults
+    // (brand kits typically don't customize these)
     duration: defaultTokens.duration,
+
+    // Easing functions: always use platform defaults
     easing: defaultTokens.easing,
+
+    // Breakpoints: always use platform defaults
+    // (responsive design should be consistent)
     breakpoints: defaultTokens.breakpoints,
+
+    // Z-index: always use platform defaults
+    // (stacking context should be consistent)
     zIndex: defaultTokens.zIndex,
   }
 }
 
+// Internal alias for backward compatibility
+function normalizeTokens(brandKit: BrandKitExport): DesignTokens {
+  return normalizeBrandTokens(brandKit)
+}
+
 /**
- * Merge tokens with overrides
+ * Normalize semantic colors, filling missing values with defaults
+ *
+ * Accepts SemanticColors from brand kit and ensures all required
+ * color tokens are present, using platform defaults for any missing values.
  */
-function mergeTokens(
+function normalizeSemanticColors(colors: SemanticColors): SemanticColors {
+  const defaults = defaultTokens.colors
+
+  return {
+    primary: colors.primary || defaults.primary,
+    primaryForeground: colors.primaryForeground || defaults.primaryForeground,
+    secondary: colors.secondary || defaults.secondary,
+    secondaryForeground: colors.secondaryForeground || defaults.secondaryForeground,
+    muted: colors.muted || defaults.muted,
+    mutedForeground: colors.mutedForeground || defaults.mutedForeground,
+    accent: colors.accent || defaults.accent,
+    accentForeground: colors.accentForeground || defaults.accentForeground,
+    destructive: colors.destructive || defaults.destructive,
+    destructiveForeground: colors.destructiveForeground || defaults.destructiveForeground,
+    background: colors.background || defaults.background,
+    foreground: colors.foreground || defaults.foreground,
+    card: colors.card || defaults.card,
+    cardForeground: colors.cardForeground || defaults.cardForeground,
+    popover: colors.popover || defaults.popover,
+    popoverForeground: colors.popoverForeground || defaults.popoverForeground,
+    border: colors.border || defaults.border,
+    input: colors.input || defaults.input,
+    ring: colors.ring || defaults.ring,
+  }
+}
+
+/**
+ * Normalize spacing scale
+ */
+function normalizeSpacing(
+  spacing?: Record<string | number, string>
+): DesignTokens["spacing"] {
+  if (!spacing) {
+    return defaultTokens.spacing
+  }
+
+  return {
+    ...defaultTokens.spacing,
+    ...spacing,
+  }
+}
+
+/**
+ * Normalize typography scale
+ */
+function normalizeTypography(
+  typography?: Record<string, { fontSize: string; lineHeight: string }>
+): DesignTokens["typography"] {
+  if (!typography) {
+    return defaultTokens.typography
+  }
+
+  return {
+    ...defaultTokens.typography,
+    ...typography,
+  }
+}
+
+/**
+ * Normalize font weight scale
+ */
+function normalizeFontWeight(
+  fontWeight?: Record<string, number>
+): DesignTokens["fontWeight"] {
+  if (!fontWeight) {
+    return defaultTokens.fontWeight
+  }
+
+  return {
+    ...defaultTokens.fontWeight,
+    ...fontWeight,
+  }
+}
+
+/**
+ * Normalize font family
+ */
+function normalizeFontFamily(
+  fontFamily?: { sans?: string; serif?: string; mono?: string }
+): DesignTokens["fontFamily"] {
+  if (!fontFamily) {
+    return defaultTokens.fontFamily
+  }
+
+  return {
+    ...defaultTokens.fontFamily,
+    ...fontFamily,
+  }
+}
+
+/**
+ * Normalize border radius scale
+ */
+function normalizeRadius(
+  radius?: Record<string, string>
+): DesignTokens["radius"] {
+  if (!radius) {
+    return defaultTokens.radius
+  }
+
+  return {
+    ...defaultTokens.radius,
+    ...radius,
+  }
+}
+
+/**
+ * Normalize shadow scale
+ */
+function normalizeShadow(
+  shadow?: Record<string, string>
+): DesignTokens["shadow"] {
+  if (!shadow) {
+    return defaultTokens.shadow
+  }
+
+  return {
+    ...defaultTokens.shadow,
+    ...shadow,
+  }
+}
+
+/**
+ * Merge base tokens with overrides
+ *
+ * Performs a deep merge of token structures, allowing partial
+ * overrides of specific token categories.
+ *
+ * @param base - Base tokens
+ * @param overrides - Partial overrides to apply
+ * @returns Merged tokens
+ *
+ * @example
+ * ```typescript
+ * const customized = mergeDesignTokens(baseTokens, {
+ *   colors: { primary: "hsl(220 100% 50%)" }
+ * })
+ * ```
+ */
+export function mergeDesignTokens(
   base: DesignTokens,
   overrides: Partial<DesignTokens>
 ): DesignTokens {
   return {
-    ...base,
-    ...overrides,
     colors: {
       ...base.colors,
       ...(overrides.colors || {}),
     },
+    spacing: {
+      ...base.spacing,
+      ...(overrides.spacing || {}),
+    },
+    typography: {
+      ...base.typography,
+      ...(overrides.typography || {}),
+    },
+    fontWeight: {
+      ...base.fontWeight,
+      ...(overrides.fontWeight || {}),
+    },
+    fontFamily: {
+      ...base.fontFamily,
+      ...(overrides.fontFamily || {}),
+    },
+    radius: {
+      ...base.radius,
+      ...(overrides.radius || {}),
+    },
+    shadow: {
+      ...base.shadow,
+      ...(overrides.shadow || {}),
+    },
+    duration: {
+      ...base.duration,
+      ...(overrides.duration || {}),
+    },
+    easing: {
+      ...base.easing,
+      ...(overrides.easing || {}),
+    },
+    breakpoints: {
+      ...base.breakpoints,
+      ...(overrides.breakpoints || {}),
+    },
+    zIndex: {
+      ...base.zIndex,
+      ...(overrides.zIndex || {}),
+    },
   }
+}
+
+// Internal alias for backward compatibility
+function mergeTokens(
+  base: DesignTokens,
+  overrides: Partial<DesignTokens>
+): DesignTokens {
+  return mergeDesignTokens(base, overrides)
 }
 
 /**

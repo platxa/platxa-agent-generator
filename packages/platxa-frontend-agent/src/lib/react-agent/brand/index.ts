@@ -57,6 +57,10 @@ export {
   resolveBrand,
   validateBrandKit,
   isValidBrandPackageName,
+  // Token Normalization (Feature #5)
+  normalizeBrandTokens,
+  mergeDesignTokens,
+  // State Management
   getBrandLoadingState,
   getCurrentBrandKit,
   isBrandLoaded,

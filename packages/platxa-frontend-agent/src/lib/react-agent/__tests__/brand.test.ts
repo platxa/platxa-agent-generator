@@ -14,6 +14,9 @@ import {
   validateConfig,
   validateBrandKit,
   isValidBrandPackageName,
+  // Feature #5: Token Normalization
+  normalizeBrandTokens,
+  mergeDesignTokens,
   getBuiltInTheme,
   getBuiltInPresetNames,
   getAllPresetNames,
@@ -924,6 +927,249 @@ describe("Feature #4: Dynamic Import System", () => {
       // Loading failed but the system handled it gracefully
       expect(result.status).toBe("error")
       expect(result.themeConfig).toBeDefined() // Falls back to default
+    })
+  })
+})
+
+// =============================================================================
+// FEATURE #5: TOKEN NORMALIZATION
+// =============================================================================
+
+describe("Feature #5: Token Normalization", () => {
+  // Use the same valid brand kit from Feature #3 tests
+  const validBrandKit: BrandKitExport = {
+    meta: {
+      name: "test-brand",
+      version: "1.0.0",
+    },
+    primitives: {
+      primary: { 1: "#f0f9ff", 2: "#e0f2fe", 3: "#bae6fd", 4: "#7dd3fc", 5: "#38bdf8", 6: "#0ea5e9", 7: "#0284c7", 8: "#0369a1", 9: "#075985", 10: "#0c4a6e", 11: "#082f49", 12: "#051c2c" },
+      accent: { 1: "#fdf4ff", 2: "#fae8ff", 3: "#f5d0fe", 4: "#f0abfc", 5: "#e879f9", 6: "#d946ef", 7: "#c026d3", 8: "#a21caf", 9: "#86198f", 10: "#701a75", 11: "#4a044e", 12: "#2e0230" },
+      neutral: { 1: "#fafafa", 2: "#f5f5f5", 3: "#e5e5e5", 4: "#d4d4d4", 5: "#a3a3a3", 6: "#737373", 7: "#525252", 8: "#404040", 9: "#262626", 10: "#171717", 11: "#0a0a0a", 12: "#050505" },
+    },
+    semantics: {
+      light: {
+        background: "hsl(0 0% 100%)",
+        foreground: "hsl(222 47% 11%)",
+        primary: "hsl(206 100% 50%)",
+        primaryForeground: "hsl(0 0% 100%)",
+        secondary: "hsl(210 40% 96%)",
+        secondaryForeground: "hsl(222 47% 11%)",
+        muted: "hsl(210 40% 96%)",
+        mutedForeground: "hsl(215 16% 47%)",
+        accent: "hsl(210 40% 96%)",
+        accentForeground: "hsl(222 47% 11%)",
+        destructive: "hsl(0 84% 60%)",
+        destructiveForeground: "hsl(0 0% 100%)",
+        border: "hsl(214 32% 91%)",
+        input: "hsl(214 32% 91%)",
+        ring: "hsl(206 100% 50%)",
+        card: "hsl(0 0% 100%)",
+        cardForeground: "hsl(222 47% 11%)",
+        popover: "hsl(0 0% 100%)",
+        popoverForeground: "hsl(222 47% 11%)",
+      },
+      dark: {
+        background: "hsl(222 47% 11%)",
+        foreground: "hsl(210 40% 98%)",
+        primary: "hsl(206 100% 50%)",
+        primaryForeground: "hsl(0 0% 100%)",
+        secondary: "hsl(217 33% 17%)",
+        secondaryForeground: "hsl(210 40% 98%)",
+        muted: "hsl(217 33% 17%)",
+        mutedForeground: "hsl(215 20% 65%)",
+        accent: "hsl(217 33% 17%)",
+        accentForeground: "hsl(210 40% 98%)",
+        destructive: "hsl(0 63% 31%)",
+        destructiveForeground: "hsl(210 40% 98%)",
+        border: "hsl(217 33% 17%)",
+        input: "hsl(217 33% 17%)",
+        ring: "hsl(224 76% 48%)",
+        card: "hsl(222 47% 11%)",
+        cardForeground: "hsl(210 40% 98%)",
+        popover: "hsl(222 47% 11%)",
+        popoverForeground: "hsl(210 40% 98%)",
+      },
+    },
+  }
+
+  describe("normalizeBrandTokens", () => {
+    it("converts brand kit to DesignTokens format", () => {
+      const tokens = normalizeBrandTokens(validBrandKit)
+
+      // Verify structure
+      expect(tokens.colors).toBeDefined()
+      expect(tokens.spacing).toBeDefined()
+      expect(tokens.typography).toBeDefined()
+      expect(tokens.fontWeight).toBeDefined()
+      expect(tokens.radius).toBeDefined()
+      expect(tokens.shadow).toBeDefined()
+    })
+
+    it("extracts semantic colors from brand kit", () => {
+      const tokens = normalizeBrandTokens(validBrandKit)
+
+      expect(tokens.colors.primary).toBe("hsl(206 100% 50%)")
+      expect(tokens.colors.background).toBe("hsl(0 0% 100%)")
+      expect(tokens.colors.foreground).toBe("hsl(222 47% 11%)")
+    })
+
+    it("fills missing optional tokens with defaults", () => {
+      // Brand kit without optional fields
+      const minimalBrandKit: BrandKitExport = {
+        meta: { name: "minimal", version: "1.0.0" },
+        primitives: validBrandKit.primitives,
+        semantics: validBrandKit.semantics,
+        // No typography, spacing, radius, shadow
+      }
+
+      const tokens = normalizeBrandTokens(minimalBrandKit)
+
+      // All fields should be defined with defaults
+      expect(tokens.spacing).toBeDefined()
+      expect(Object.keys(tokens.spacing).length).toBeGreaterThan(0)
+      expect(tokens.typography).toBeDefined()
+      expect(tokens.fontWeight).toBeDefined()
+      expect(tokens.radius).toBeDefined()
+      expect(tokens.shadow).toBeDefined()
+      expect(tokens.duration).toBeDefined()
+      expect(tokens.easing).toBeDefined()
+      expect(tokens.breakpoints).toBeDefined()
+      expect(tokens.zIndex).toBeDefined()
+    })
+
+    it("uses brand kit values when provided", () => {
+      const brandKitWithTypography: BrandKitExport = {
+        ...validBrandKit,
+        typography: {
+          fontFamily: {
+            sans: "Inter, system-ui, sans-serif",
+            mono: "JetBrains Mono, monospace",
+          },
+          fontSize: {
+            xs: { fontSize: "0.75rem", lineHeight: "1rem" },
+            base: { fontSize: "1rem", lineHeight: "1.5rem" },
+          },
+        },
+        spacing: {
+          1: "0.25rem",
+          2: "0.5rem",
+          4: "1rem",
+        },
+      }
+
+      const tokens = normalizeBrandTokens(brandKitWithTypography)
+
+      expect(tokens.fontFamily?.sans).toBe("Inter, system-ui, sans-serif")
+      expect(tokens.spacing[1]).toBe("0.25rem")
+    })
+
+    it("produces consistent structure regardless of source", () => {
+      const minimalTokens = normalizeBrandTokens({
+        meta: { name: "minimal", version: "1.0.0" },
+        primitives: validBrandKit.primitives,
+        semantics: validBrandKit.semantics,
+      })
+
+      const fullTokens = normalizeBrandTokens({
+        ...validBrandKit,
+        typography: { fontFamily: { sans: "Arial" } },
+        spacing: { 1: "4px" },
+        radius: { sm: "2px" },
+        shadow: { sm: "0 1px 2px black" },
+      })
+
+      // Both should have the same structure
+      const minimalKeys = Object.keys(minimalTokens).sort()
+      const fullKeys = Object.keys(fullTokens).sort()
+
+      expect(minimalKeys).toEqual(fullKeys)
+    })
+  })
+
+  describe("mergeDesignTokens", () => {
+    it("merges tokens with overrides", () => {
+      const base = normalizeBrandTokens(validBrandKit)
+      const merged = mergeDesignTokens(base, {
+        colors: {
+          ...base.colors,
+          primary: "hsl(280 100% 50%)",
+        },
+      })
+
+      expect(merged.colors.primary).toBe("hsl(280 100% 50%)")
+      // Other colors unchanged
+      expect(merged.colors.background).toBe(base.colors.background)
+    })
+
+    it("performs deep merge for nested structures", () => {
+      const base = normalizeBrandTokens(validBrandKit)
+      const merged = mergeDesignTokens(base, {
+        spacing: { 1: "0.3rem" },
+        radius: { lg: "1rem" },
+      })
+
+      // Override applied
+      expect(merged.spacing[1]).toBe("0.3rem")
+      expect(merged.radius.lg).toBe("1rem")
+
+      // Other values preserved
+      expect(merged.spacing[2]).toBe(base.spacing[2])
+    })
+
+    it("preserves base tokens when no overrides provided", () => {
+      const base = normalizeBrandTokens(validBrandKit)
+      const merged = mergeDesignTokens(base, {})
+
+      expect(merged.colors).toEqual(base.colors)
+      expect(merged.spacing).toEqual(base.spacing)
+    })
+  })
+
+  describe("Consistent token structure", () => {
+    it("built-in themes have same structure as normalized brand tokens", async () => {
+      // Get tokens from built-in theme
+      const builtInConfig = resolveConfig({ theme: { preset: "blue" } })
+      const builtInResult = await resolveBrand(builtInConfig)
+
+      // Get tokens from brand kit normalization
+      const brandTokens = normalizeBrandTokens(validBrandKit)
+
+      // Should have same top-level keys
+      const builtInKeys = Object.keys(builtInResult.tokens!).sort()
+      const brandKeys = Object.keys(brandTokens).sort()
+
+      expect(builtInKeys).toEqual(brandKeys)
+    })
+
+    it("all semantic color keys are present after normalization", () => {
+      const tokens = normalizeBrandTokens(validBrandKit)
+
+      const requiredColorKeys = [
+        "primary",
+        "primaryForeground",
+        "secondary",
+        "secondaryForeground",
+        "muted",
+        "mutedForeground",
+        "accent",
+        "accentForeground",
+        "destructive",
+        "destructiveForeground",
+        "background",
+        "foreground",
+        "card",
+        "cardForeground",
+        "popover",
+        "popoverForeground",
+        "border",
+        "input",
+        "ring",
+      ]
+
+      for (const key of requiredColorKeys) {
+        expect(tokens.colors[key as keyof typeof tokens.colors]).toBeDefined()
+      }
     })
   })
 })
