@@ -551,6 +551,17 @@ export {
   generateCracoConfig,
   generateReactAppRewiredConfig,
   formatWebpackPluginReport,
+  // Remix Integration (Feature #135)
+  createRemixBrandKitLoader,
+  createRemixBrandKitAction,
+  createRemixBrandCookie,
+  generateRemixMeta,
+  generateRemixLinks,
+  createRemixStreamingStyles,
+  createRemixCssResourceRoute,
+  createRemixBrandKitRoot,
+  generateRemixBrandKitRoute,
+  formatRemixIntegrationReport,
 } from "./theme-worker"
 
 export type {
@@ -868,6 +879,14 @@ export type {
   // Webpack Plugin (Feature #134)
   WebpackBrandKitPluginOptions,
   WebpackBrandKitCompilationResult,
+  // Remix Integration (Feature #135)
+  RemixBrandKitLoaderData,
+  RemixBrandKitActionData,
+  RemixBrandKitOptions,
+  RemixMetaDescriptor,
+  RemixLinkDescriptor,
+  RemixLoaderContext,
+  RemixActionContext,
 } from "./theme-worker"
 
 // Token presets

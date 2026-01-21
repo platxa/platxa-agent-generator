@@ -31093,3 +31093,454 @@ export function formatWebpackPluginReport(
 
   return lines.join("\n")
 }
+
+// =============================================================================
+// REMIX INTEGRATION (Feature #135)
+// =============================================================================
+
+/**
+ * Remix loader data for brand kit
+ */
+export interface RemixBrandKitLoaderData {
+  /** Current brand ID */
+  brandId: string
+  /** Brand name */
+  brandName: string
+  /** Generated CSS */
+  css: string
+  /** CSS variables map */
+  variables: Record<string, string>
+  /** Dark mode CSS */
+  darkModeCss?: string
+  /** Theme mode */
+  mode: ThemeMode
+  /** Timestamp */
+  timestamp: number
+}
+
+/**
+ * Remix action data for brand switching
+ */
+export interface RemixBrandKitActionData {
+  /** Whether action succeeded */
+  success: boolean
+  /** New brand ID */
+  brandId?: string
+  /** Error message if failed */
+  error?: string
+  /** Redirect URL */
+  redirectTo?: string
+}
+
+/**
+ * Remix integration options
+ */
+export interface RemixBrandKitOptions {
+  /** Available brands */
+  brands: Record<string, ThemeConfig>
+  /** Default brand ID */
+  defaultBrand: string
+  /** Cookie name for brand preference */
+  cookieName?: string
+  /** Cookie max age in seconds */
+  cookieMaxAge?: number
+  /** Enable streaming */
+  streaming?: boolean
+  /** Include dark mode CSS */
+  includeDarkMode?: boolean
+  /** CSS route path */
+  cssRoute?: string
+  /** Generate critical CSS only */
+  criticalOnly?: boolean
+}
+
+/**
+ * Remix meta function return type
+ */
+export interface RemixMetaDescriptor {
+  title?: string
+  name?: string
+  property?: string
+  content?: string
+  charSet?: string
+  httpEquiv?: string
+  [key: string]: string | undefined
+}
+
+/**
+ * Remix links function return type
+ */
+export interface RemixLinkDescriptor {
+  rel: string
+  href?: string
+  as?: string
+  type?: string
+  crossOrigin?: "anonymous" | "use-credentials"
+  media?: string
+  integrity?: string
+  [key: string]: string | undefined
+}
+
+/**
+ * Remix loader context
+ */
+export interface RemixLoaderContext {
+  request: Request
+  params: Record<string, string | undefined>
+}
+
+/**
+ * Remix action context
+ */
+export interface RemixActionContext {
+  request: Request
+  params: Record<string, string | undefined>
+}
+
+/**
+ * Creates a Remix loader for brand kit
+ */
+export function createRemixBrandKitLoader(
+  options: RemixBrandKitOptions
+): (context: RemixLoaderContext) => Promise<RemixBrandKitLoaderData> {
+  const cookieName = options.cookieName ?? "platxa-brand"
+
+  return async (context: RemixLoaderContext): Promise<RemixBrandKitLoaderData> => {
+    // Get brand from cookie or use default
+    const cookieHeader = context.request.headers.get("Cookie") ?? ""
+    const brandId = parseCookieValue(cookieHeader, cookieName) ?? options.defaultBrand
+
+    // Get brand config
+    const brandConfig = options.brands[brandId] ?? options.brands[options.defaultBrand]
+    if (!brandConfig) {
+      throw new Error(`Brand not found: ${brandId}`)
+    }
+
+    // Generate theme
+    const generated = generateTheme(brandConfig)
+
+    // Get mode from cookie or system preference
+    const modeFromCookie = parseCookieValue(cookieHeader, `${cookieName}-mode`)
+    const mode: ThemeMode = (modeFromCookie as ThemeMode) ?? "system"
+
+    return {
+      brandId,
+      brandName: brandConfig.name,
+      css: generated.css,
+      variables: generated.cssVariables,
+      darkModeCss: options.includeDarkMode !== false ? generated.darkModeCss : undefined,
+      mode,
+      timestamp: Date.now(),
+    }
+  }
+}
+
+/**
+ * Creates a Remix action for brand switching
+ */
+export function createRemixBrandKitAction(
+  options: RemixBrandKitOptions
+): (context: RemixActionContext) => Promise<RemixBrandKitActionData> {
+  return async (context: RemixActionContext): Promise<RemixBrandKitActionData> => {
+    const formData = await context.request.formData()
+    const intent = formData.get("intent")
+
+    if (intent === "setBrand") {
+      const brandId = formData.get("brandId")
+
+      if (typeof brandId !== "string") {
+        return { success: false, error: "Brand ID is required" }
+      }
+
+      if (!options.brands[brandId]) {
+        return { success: false, error: `Brand not found: ${brandId}` }
+      }
+
+      // Return data with cookie header info
+      return {
+        success: true,
+        brandId,
+        redirectTo: formData.get("redirectTo")?.toString(),
+      }
+    }
+
+    if (intent === "setMode") {
+      const mode = formData.get("mode")
+
+      if (mode !== "light" && mode !== "dark" && mode !== "system") {
+        return { success: false, error: "Invalid mode" }
+      }
+
+      return { success: true }
+    }
+
+    return { success: false, error: "Unknown intent" }
+  }
+}
+
+/**
+ * Parses a cookie value from cookie header string
+ */
+function parseCookieValue(cookieHeader: string, name: string): string | null {
+  const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`))
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+/**
+ * Creates a Set-Cookie header for brand preference
+ */
+export function createRemixBrandCookie(
+  brandId: string,
+  options: { cookieName?: string; maxAge?: number; path?: string; sameSite?: string } = {}
+): string {
+  const name = options.cookieName ?? "platxa-brand"
+  const maxAge = options.maxAge ?? 365 * 24 * 60 * 60
+  const path = options.path ?? "/"
+  const sameSite = options.sameSite ?? "Lax"
+
+  return `${name}=${encodeURIComponent(brandId)}; Max-Age=${maxAge}; Path=${path}; SameSite=${sameSite}`
+}
+
+/**
+ * Generates Remix meta descriptors for brand kit
+ */
+export function generateRemixMeta(
+  loaderData: RemixBrandKitLoaderData
+): RemixMetaDescriptor[] {
+  return [
+    { name: "theme-color", content: loaderData.variables["--primary"] ?? "#000000" },
+    { name: "color-scheme", content: loaderData.mode === "dark" ? "dark" : "light" },
+    { property: "og:theme", content: loaderData.brandName },
+  ]
+}
+
+/**
+ * Generates Remix links descriptors for brand kit CSS
+ */
+export function generateRemixLinks(
+  options: { cssRoute?: string; preload?: boolean } = {}
+): RemixLinkDescriptor[] {
+  const cssRoute = options.cssRoute ?? "/brand-kit.css"
+  const links: RemixLinkDescriptor[] = []
+
+  if (options.preload) {
+    links.push({
+      rel: "preload",
+      href: cssRoute,
+      as: "style",
+    })
+  }
+
+  links.push({
+    rel: "stylesheet",
+    href: cssRoute,
+  })
+
+  return links
+}
+
+/**
+ * Creates a streaming-compatible style injection for Remix
+ */
+export function createRemixStreamingStyles(
+  loaderData: RemixBrandKitLoaderData
+): string {
+  const { css, darkModeCss, mode } = loaderData
+
+  // Create inline style that can be streamed
+  let styles = `<style id="platxa-brand-kit">${css}</style>`
+
+  if (darkModeCss) {
+    styles += `<style id="platxa-brand-kit-dark">${darkModeCss}</style>`
+  }
+
+  // Add mode initialization script
+  styles += `
+<script>
+(function() {
+  var mode = ${JSON.stringify(mode)};
+  if (mode === 'system') {
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', prefersDark);
+  } else {
+    document.documentElement.classList.toggle('dark', mode === 'dark');
+  }
+})();
+</script>`
+
+  return styles
+}
+
+/**
+ * Creates a resource route handler for serving brand kit CSS
+ */
+export function createRemixCssResourceRoute(
+  options: RemixBrandKitOptions
+): (context: RemixLoaderContext) => Promise<Response> {
+  return async (context: RemixLoaderContext): Promise<Response> => {
+    const loader = createRemixBrandKitLoader(options)
+    const data = await loader(context)
+
+    let css = data.css
+    if (data.darkModeCss) {
+      css += "\n" + data.darkModeCss
+    }
+
+    return new Response(css, {
+      headers: {
+        "Content-Type": "text/css; charset=utf-8",
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "X-Brand-Id": data.brandId,
+      },
+    })
+  }
+}
+
+/**
+ * Creates Remix root component helpers
+ */
+export function createRemixBrandKitRoot(options: RemixBrandKitOptions): {
+  loader: (context: RemixLoaderContext) => Promise<RemixBrandKitLoaderData>
+  action: (context: RemixActionContext) => Promise<RemixBrandKitActionData>
+  meta: (data: { data: RemixBrandKitLoaderData }) => RemixMetaDescriptor[]
+  links: () => RemixLinkDescriptor[]
+  CriticalStyles: (props: { loaderData: RemixBrandKitLoaderData }) => string
+} {
+  return {
+    loader: createRemixBrandKitLoader(options),
+    action: createRemixBrandKitAction(options),
+    meta: ({ data }) => generateRemixMeta(data),
+    links: () => generateRemixLinks({ cssRoute: options.cssRoute }),
+    CriticalStyles: ({ loaderData }) => createRemixStreamingStyles(loaderData),
+  }
+}
+
+/**
+ * Generates a complete Remix route file for brand kit
+ */
+export function generateRemixBrandKitRoute(options: RemixBrandKitOptions): string {
+  const brandsJson = JSON.stringify(
+    Object.fromEntries(
+      Object.entries(options.brands).map(([id, config]) => [id, config.name])
+    ),
+    null,
+    2
+  )
+
+  return `
+import { json, type LoaderFunctionArgs, type ActionFunctionArgs } from "@remix-run/node";
+import { useLoaderData, useFetcher } from "@remix-run/react";
+import {
+  createRemixBrandKitLoader,
+  createRemixBrandKitAction,
+  createRemixBrandCookie,
+  type RemixBrandKitOptions,
+} from "@platxa/frontend-agent/theme";
+
+// Brand configurations would be imported from your brand kit files
+const brandKitOptions: RemixBrandKitOptions = {
+  brands: {}, // Import your brand configs here
+  defaultBrand: "${options.defaultBrand}",
+  cookieName: "${options.cookieName ?? "platxa-brand"}",
+  includeDarkMode: ${options.includeDarkMode !== false},
+};
+
+const brandKitLoader = createRemixBrandKitLoader(brandKitOptions);
+const brandKitAction = createRemixBrandKitAction(brandKitOptions);
+
+export async function loader({ request, params }: LoaderFunctionArgs) {
+  const data = await brandKitLoader({ request, params });
+  return json(data);
+}
+
+export async function action({ request, params }: ActionFunctionArgs) {
+  const result = await brandKitAction({ request, params });
+
+  if (result.success && result.brandId) {
+    return json(result, {
+      headers: {
+        "Set-Cookie": createRemixBrandCookie(result.brandId),
+      },
+    });
+  }
+
+  return json(result);
+}
+
+// Available brands for UI
+export const availableBrands = ${brandsJson};
+
+// Brand switcher component
+export function BrandSwitcher() {
+  const fetcher = useFetcher();
+  const { brandId } = useLoaderData<typeof loader>();
+
+  return (
+    <fetcher.Form method="post">
+      <input type="hidden" name="intent" value="setBrand" />
+      <select
+        name="brandId"
+        defaultValue={brandId}
+        onChange={(e) => fetcher.submit(e.target.form)}
+      >
+        {Object.entries(availableBrands).map(([id, name]) => (
+          <option key={id} value={id}>{name}</option>
+        ))}
+      </select>
+    </fetcher.Form>
+  );
+}
+`.trim()
+}
+
+/**
+ * Formats Remix integration configuration as a report
+ */
+export function formatRemixIntegrationReport(options: RemixBrandKitOptions): string {
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Remix Brand Kit Integration Report")
+  lines.push(divider)
+  lines.push("")
+
+  // Configuration
+  lines.push("Configuration")
+  lines.push("─".repeat(50))
+  lines.push(`  Default Brand:   ${options.defaultBrand}`)
+  lines.push(`  Cookie Name:     ${options.cookieName ?? "platxa-brand"}`)
+  lines.push(`  Streaming:       ${options.streaming !== false ? "Yes" : "No"}`)
+  lines.push(`  Dark Mode:       ${options.includeDarkMode !== false ? "Yes" : "No"}`)
+  lines.push(`  CSS Route:       ${options.cssRoute ?? "/brand-kit.css"}`)
+  lines.push("")
+
+  // Available brands
+  lines.push("Available Brands")
+  lines.push("─".repeat(50))
+
+  const brandIds = Object.keys(options.brands)
+  if (brandIds.length === 0) {
+    lines.push("  (no brands configured)")
+  } else {
+    brandIds.forEach((id) => {
+      const brand = options.brands[id]
+      const isDefault = id === options.defaultBrand ? " [DEFAULT]" : ""
+      lines.push(`  ${id}: ${brand.name}${isDefault}`)
+    })
+  }
+
+  lines.push("")
+
+  // Generated files
+  lines.push("Generated Files")
+  lines.push("─".repeat(50))
+  lines.push("  app/routes/brand-kit.tsx    (loader + action)")
+  lines.push("  app/routes/brand-kit[.]css.tsx (CSS resource)")
+  lines.push("  app/components/BrandSwitcher.tsx")
+
+  lines.push("")
+  lines.push(divider)
+
+  return lines.join("\n")
+}
