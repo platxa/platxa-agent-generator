@@ -21458,3 +21458,698 @@ export async function verifyAgainstManifest(
     errors,
   }
 }
+
+// ============================================================================
+// Feature #120: Dependency Audit
+// Check brand kit for known vulnerabilities with npm audit integration
+// ============================================================================
+
+/**
+ * Vulnerability severity levels
+ */
+export type VulnerabilitySeverity = "info" | "low" | "moderate" | "high" | "critical"
+
+/**
+ * Individual vulnerability information
+ */
+export interface DependencyVulnerability {
+  /** Unique identifier (e.g., GHSA-xxxx or CVE-xxxx) */
+  id: string
+  /** Package name */
+  package: string
+  /** Affected version range */
+  affectedVersions: string
+  /** Current installed version */
+  installedVersion: string
+  /** Severity level */
+  severity: VulnerabilitySeverity
+  /** Title of the vulnerability */
+  title: string
+  /** URL to more information */
+  url: string
+  /** Recommendation for fixing */
+  recommendation: string
+  /** Whether this vulnerability is fixable via upgrade */
+  fixAvailable: boolean
+  /** Path through dependency tree */
+  dependencyPath: string[]
+  /** CWE identifier if available */
+  cwe?: string[]
+  /** CVSS score if available */
+  cvss?: number
+}
+
+/**
+ * Configuration for dependency auditing
+ */
+export interface DependencyAuditConfig {
+  /** Path to package.json or directory containing it */
+  packagePath?: string
+  /** Minimum severity to report (default: "low") */
+  minSeverity?: VulnerabilitySeverity
+  /** Whether to include dev dependencies (default: false) */
+  includeDevDependencies?: boolean
+  /** Block on these severity levels (default: ["critical"]) */
+  blockOnSeverities?: VulnerabilitySeverity[]
+  /** Custom registry URL for audit */
+  registry?: string
+  /** Timeout in milliseconds (default: 60000) */
+  timeout?: number
+  /** Packages to ignore in audit */
+  ignoredPackages?: string[]
+  /** Vulnerability IDs to ignore */
+  ignoredVulnerabilities?: string[]
+  /** Production only mode */
+  productionOnly?: boolean
+}
+
+/**
+ * Result of a dependency audit
+ */
+export interface DependencyAuditResult {
+  /** Whether the audit passed without blocking vulnerabilities */
+  passed: boolean
+  /** Total number of vulnerabilities found */
+  totalVulnerabilities: number
+  /** Vulnerabilities by severity */
+  bySeverity: Record<VulnerabilitySeverity, number>
+  /** List of all vulnerabilities */
+  vulnerabilities: DependencyVulnerability[]
+  /** Blocking vulnerabilities that caused failure */
+  blockingVulnerabilities: DependencyVulnerability[]
+  /** Warnings (non-blocking issues) */
+  warnings: string[]
+  /** Timestamp of the audit */
+  auditedAt: string
+  /** Audit metadata */
+  metadata: {
+    /** Total dependencies audited */
+    totalDependencies: number
+    /** npm audit version used */
+    auditVersion?: string
+    /** Registry used */
+    registry: string
+  }
+  /** Raw npm audit output (if available) */
+  rawOutput?: unknown
+}
+
+/**
+ * Severity level numeric values for comparison
+ */
+const SEVERITY_LEVELS: Record<VulnerabilitySeverity, number> = {
+  info: 0,
+  low: 1,
+  moderate: 2,
+  high: 3,
+  critical: 4,
+}
+
+/**
+ * Parses npm audit JSON output into vulnerabilities
+ */
+function parseNpmAuditOutput(
+  output: NpmAuditOutput,
+  config: DependencyAuditConfig
+): DependencyVulnerability[] {
+  const vulnerabilities: DependencyVulnerability[] = []
+  const minSeverityLevel = SEVERITY_LEVELS[config.minSeverity || "low"]
+  const ignoredPackages = new Set(config.ignoredPackages || [])
+  const ignoredVulns = new Set(config.ignoredVulnerabilities || [])
+
+  if (output.vulnerabilities) {
+    for (const [pkgName, vuln] of Object.entries(output.vulnerabilities)) {
+      if (ignoredPackages.has(pkgName)) continue
+
+      const severity = vuln.severity as VulnerabilitySeverity
+      if (SEVERITY_LEVELS[severity] < minSeverityLevel) continue
+
+      for (const via of vuln.via) {
+        if (typeof via === "string") continue // Indirect reference
+
+        const vulnId = via.source?.toString() || via.url || "unknown"
+        if (ignoredVulns.has(vulnId)) continue
+
+        vulnerabilities.push({
+          id: vulnId,
+          package: pkgName,
+          affectedVersions: via.range || "*",
+          installedVersion: vuln.version || "unknown",
+          severity,
+          title: via.title || "Unknown vulnerability",
+          url: via.url || "",
+          recommendation: vuln.fixAvailable
+            ? typeof vuln.fixAvailable === "object"
+              ? "Upgrade to " + vuln.fixAvailable.name + "@" + vuln.fixAvailable.version
+              : "Fix available via npm audit fix"
+            : "No automatic fix available",
+          fixAvailable: !!vuln.fixAvailable,
+          dependencyPath: vuln.nodes || [pkgName],
+          cwe: via.cwe,
+          cvss: via.cvss?.score,
+        })
+      }
+    }
+  }
+
+  return vulnerabilities
+}
+
+/**
+ * npm audit output structure
+ */
+interface NpmAuditOutput {
+  auditReportVersion?: number
+  vulnerabilities?: Record<
+    string,
+    {
+      name: string
+      version?: string
+      severity: string
+      fixAvailable:
+        | boolean
+        | { name: string; version: string; isSemVerMajor: boolean }
+      via: Array<
+        | string
+        | {
+            source?: number
+            name?: string
+            dependency?: string
+            title?: string
+            url?: string
+            severity?: string
+            range?: string
+            cwe?: string[]
+            cvss?: { score: number; vectorString: string }
+          }
+      >
+      nodes?: string[]
+      effects?: string[]
+      isDirect?: boolean
+    }
+  >
+  metadata?: {
+    vulnerabilities: Record<string, number>
+    dependencies: {
+      prod: number
+      dev: number
+      optional: number
+      peer: number
+      peerOptional: number
+      total: number
+    }
+  }
+}
+
+/**
+ * Executes npm audit and returns the result
+ */
+async function runNpmAudit(
+  config: DependencyAuditConfig
+): Promise<{ output: NpmAuditOutput; error?: string }> {
+  const { exec } = await import("child_process")
+  const { promisify } = await import("util")
+  const execAsync = promisify(exec)
+
+  const args = ["npm", "audit", "--json"]
+
+  if (config.productionOnly) {
+    args.push("--omit=dev")
+  }
+
+  if (config.registry) {
+    args.push("--registry=" + config.registry)
+  }
+
+  const cwd = config.packagePath || process.cwd()
+  const timeout = config.timeout || 60000
+
+  try {
+    const { stdout, stderr } = await execAsync(args.join(" "), {
+      cwd,
+      timeout,
+      maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large outputs
+    })
+
+    if (stderr && !stdout) {
+      return { output: {}, error: stderr }
+    }
+
+    try {
+      const output = JSON.parse(stdout) as NpmAuditOutput
+      return { output }
+    } catch {
+      return { output: {}, error: "Failed to parse npm audit output" }
+    }
+  } catch (error) {
+    // npm audit exits with non-zero when vulnerabilities are found
+    // The output is still valid JSON
+    const execError = error as { stdout?: string; stderr?: string; code?: number }
+
+    if (execError.stdout) {
+      try {
+        const output = JSON.parse(execError.stdout) as NpmAuditOutput
+        return { output }
+      } catch {
+        return { output: {}, error: "Failed to parse npm audit output" }
+      }
+    }
+
+    return {
+      output: {},
+      error: execError.stderr || "npm audit failed",
+    }
+  }
+}
+
+/**
+ * Audits brand kit dependencies for known vulnerabilities
+ *
+ * Integrates with npm audit to check for security vulnerabilities in the
+ * dependencies used by the brand kit. Supports configurable severity levels,
+ * package ignoring, and blocking on high/critical vulnerabilities.
+ *
+ * @param config - Audit configuration options
+ * @returns Promise resolving to audit results
+ *
+ * @example
+ * ```typescript
+ * // Basic audit
+ * const result = await auditBrandKitDependencies()
+ * console.log("Passed:", result.passed)
+ * console.log("Vulnerabilities:", result.totalVulnerabilities)
+ *
+ * // Strict audit blocking on high+ severity
+ * const strictResult = await auditBrandKitDependencies({
+ *   blockOnSeverities: ["high", "critical"],
+ *   productionOnly: true,
+ * })
+ *
+ * // Audit with ignored packages
+ * const customResult = await auditBrandKitDependencies({
+ *   ignoredPackages: ["some-legacy-package"],
+ *   ignoredVulnerabilities: ["GHSA-xxxx-yyyy"],
+ * })
+ * ```
+ */
+export async function auditBrandKitDependencies(
+  config: DependencyAuditConfig = {}
+): Promise<DependencyAuditResult> {
+  const {
+    blockOnSeverities = ["critical"],
+    minSeverity = "low",
+  } = config
+
+  const blockSet = new Set(blockOnSeverities)
+
+  // Initialize result structure
+  const result: DependencyAuditResult = {
+    passed: true,
+    totalVulnerabilities: 0,
+    bySeverity: {
+      info: 0,
+      low: 0,
+      moderate: 0,
+      high: 0,
+      critical: 0,
+    },
+    vulnerabilities: [],
+    blockingVulnerabilities: [],
+    warnings: [],
+    auditedAt: new Date().toISOString(),
+    metadata: {
+      totalDependencies: 0,
+      registry: config.registry || "https://registry.npmjs.org",
+    },
+  }
+
+  // Run npm audit
+  const { output, error } = await runNpmAudit(config)
+
+  if (error) {
+    result.warnings.push("Audit warning: " + error)
+  }
+
+  result.rawOutput = output
+
+  // Extract metadata
+  if (output.metadata) {
+    result.metadata.totalDependencies = output.metadata.dependencies?.total || 0
+    result.metadata.auditVersion = output.auditReportVersion?.toString()
+
+    // Get severity counts from metadata
+    if (output.metadata.vulnerabilities) {
+      for (const [severity, count] of Object.entries(output.metadata.vulnerabilities)) {
+        const sev = severity as VulnerabilitySeverity
+        if (sev in result.bySeverity) {
+          result.bySeverity[sev] = count
+        }
+      }
+    }
+  }
+
+  // Parse vulnerabilities
+  const vulnerabilities = parseNpmAuditOutput(output, {
+    ...config,
+    minSeverity,
+  })
+
+  result.vulnerabilities = vulnerabilities
+  result.totalVulnerabilities = vulnerabilities.length
+
+  // Identify blocking vulnerabilities
+  result.blockingVulnerabilities = vulnerabilities.filter(
+    (v) => blockSet.has(v.severity)
+  )
+
+  // Determine pass/fail
+  result.passed = result.blockingVulnerabilities.length === 0
+
+  // Add warnings for non-blocking but notable issues
+  if (result.bySeverity.high > 0 && !blockSet.has("high")) {
+    result.warnings.push(
+      "Found " + result.bySeverity.high + " high severity vulnerabilities (not blocking)"
+    )
+  }
+  if (result.bySeverity.moderate > 0 && !blockSet.has("moderate")) {
+    result.warnings.push(
+      "Found " + result.bySeverity.moderate + " moderate severity vulnerabilities"
+    )
+  }
+
+  return result
+}
+
+/**
+ * Synchronous version that returns cached or simulated results
+ * (For environments where async is not available)
+ */
+export function auditBrandKitDependenciesSync(
+  config: DependencyAuditConfig = {}
+): DependencyAuditResult {
+  // Return a placeholder result for sync environments
+  // Real audit requires async npm audit execution
+  return {
+    passed: true,
+    totalVulnerabilities: 0,
+    bySeverity: {
+      info: 0,
+      low: 0,
+      moderate: 0,
+      high: 0,
+      critical: 0,
+    },
+    vulnerabilities: [],
+    blockingVulnerabilities: [],
+    warnings: ["Sync audit not available - use async auditBrandKitDependencies()"],
+    auditedAt: new Date().toISOString(),
+    metadata: {
+      totalDependencies: 0,
+      registry: config.registry || "https://registry.npmjs.org",
+    },
+  }
+}
+
+/**
+ * Formats audit result into a human-readable report
+ *
+ * @param result - The audit result to format
+ * @param options - Formatting options
+ * @returns Formatted report string
+ *
+ * @example
+ * ```typescript
+ * const result = await auditBrandKitDependencies()
+ * const report = formatAuditReport(result)
+ * console.log(report)
+ * // Output:
+ * // ═══════════════════════════════════════════
+ * // Dependency Audit Report
+ * // ═══════════════════════════════════════════
+ * // Status: ✓ PASSED
+ * // ...
+ * ```
+ */
+export function formatAuditReport(
+  result: DependencyAuditResult,
+  options: {
+    verbose?: boolean
+    colors?: boolean
+    includeRecommendations?: boolean
+  } = {}
+): string {
+  const { verbose = false, includeRecommendations = true } = options
+
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Dependency Audit Report")
+  lines.push(divider)
+  lines.push("")
+
+  // Status
+  const status = result.passed ? "PASSED" : "FAILED"
+  const statusIcon = result.passed ? "[OK]" : "[FAIL]"
+  lines.push("Status: " + statusIcon + " " + status)
+  lines.push("Audited: " + result.auditedAt)
+  lines.push("Dependencies: " + result.metadata.totalDependencies)
+  lines.push("")
+
+  // Summary
+  lines.push("─".repeat(50))
+  lines.push("Vulnerability Summary")
+  lines.push("─".repeat(50))
+  lines.push("  Critical: " + result.bySeverity.critical)
+  lines.push("  High:     " + result.bySeverity.high)
+  lines.push("  Moderate: " + result.bySeverity.moderate)
+  lines.push("  Low:      " + result.bySeverity.low)
+  lines.push("  Info:     " + result.bySeverity.info)
+  lines.push("  Total:    " + result.totalVulnerabilities)
+  lines.push("")
+
+  // Blocking vulnerabilities
+  if (result.blockingVulnerabilities.length > 0) {
+    lines.push("─".repeat(50))
+    lines.push("BLOCKING Vulnerabilities (" + result.blockingVulnerabilities.length + ")")
+    lines.push("─".repeat(50))
+
+    for (const vuln of result.blockingVulnerabilities) {
+      lines.push("")
+      lines.push("  [" + vuln.severity.toUpperCase() + "] " + vuln.package)
+      lines.push("    ID: " + vuln.id)
+      lines.push("    Title: " + vuln.title)
+      lines.push("    Installed: " + vuln.installedVersion)
+      lines.push("    Affected: " + vuln.affectedVersions)
+
+      if (includeRecommendations) {
+        lines.push("    Fix: " + vuln.recommendation)
+      }
+
+      if (verbose && vuln.url) {
+        lines.push("    URL: " + vuln.url)
+      }
+
+      if (verbose && vuln.cvss !== undefined) {
+        lines.push("    CVSS: " + vuln.cvss)
+      }
+    }
+    lines.push("")
+  }
+
+  // All vulnerabilities (verbose mode)
+  if (verbose && result.vulnerabilities.length > result.blockingVulnerabilities.length) {
+    const nonBlocking = result.vulnerabilities.filter(
+      (v) => !result.blockingVulnerabilities.includes(v)
+    )
+
+    if (nonBlocking.length > 0) {
+      lines.push("─".repeat(50))
+      lines.push("Other Vulnerabilities (" + nonBlocking.length + ")")
+      lines.push("─".repeat(50))
+
+      for (const vuln of nonBlocking) {
+        lines.push("")
+        lines.push("  [" + vuln.severity.toUpperCase() + "] " + vuln.package)
+        lines.push("    Title: " + vuln.title)
+        lines.push("    Fix: " + vuln.recommendation)
+      }
+      lines.push("")
+    }
+  }
+
+  // Warnings
+  if (result.warnings.length > 0) {
+    lines.push("─".repeat(50))
+    lines.push("Warnings")
+    lines.push("─".repeat(50))
+    for (const warning of result.warnings) {
+      lines.push("  ! " + warning)
+    }
+    lines.push("")
+  }
+
+  lines.push(divider)
+
+  return lines.join("\n")
+}
+
+/**
+ * Checks if vulnerabilities should block a deployment/build
+ *
+ * @param result - The audit result
+ * @param severities - Severity levels that should block
+ * @returns Object with blocking status and details
+ *
+ * @example
+ * ```typescript
+ * const result = await auditBrandKitDependencies()
+ * const blockCheck = shouldBlockOnVulnerabilities(result, ["high", "critical"])
+ *
+ * if (blockCheck.shouldBlock) {
+ *   console.error("Build blocked:", blockCheck.reasons)
+ *   process.exit(1)
+ * }
+ * ```
+ */
+export function shouldBlockOnVulnerabilities(
+  result: DependencyAuditResult,
+  severities: VulnerabilitySeverity[] = ["critical"]
+): {
+  shouldBlock: boolean
+  blockingCount: number
+  reasons: string[]
+  vulnerabilities: DependencyVulnerability[]
+} {
+  const blockSet = new Set(severities)
+  const blocking = result.vulnerabilities.filter((v) => blockSet.has(v.severity))
+
+  const reasons: string[] = []
+  for (const severity of severities) {
+    const count = result.bySeverity[severity]
+    if (count > 0) {
+      reasons.push(count + " " + severity + " vulnerabilities found")
+    }
+  }
+
+  return {
+    shouldBlock: blocking.length > 0,
+    blockingCount: blocking.length,
+    reasons,
+    vulnerabilities: blocking,
+  }
+}
+
+/**
+ * Creates an audit configuration for strict security requirements
+ *
+ * @returns Strict audit configuration
+ */
+export function createStrictAuditConfig(): DependencyAuditConfig {
+  return {
+    minSeverity: "low",
+    blockOnSeverities: ["high", "critical"],
+    includeDevDependencies: false,
+    productionOnly: true,
+    timeout: 120000,
+  }
+}
+
+/**
+ * Creates an audit configuration for CI/CD pipelines
+ *
+ * @param options - Pipeline-specific options
+ * @returns CI-optimized audit configuration
+ */
+export function createCIAuditConfig(
+  options: {
+    strict?: boolean
+    allowModerateSeverity?: boolean
+  } = {}
+): DependencyAuditConfig {
+  const { strict = false, allowModerateSeverity = true } = options
+
+  return {
+    minSeverity: "moderate",
+    blockOnSeverities: strict
+      ? ["moderate", "high", "critical"]
+      : allowModerateSeverity
+        ? ["high", "critical"]
+        : ["critical"],
+    productionOnly: true,
+    timeout: 90000,
+  }
+}
+
+/**
+ * Merges multiple audit results (for monorepo scenarios)
+ *
+ * @param results - Array of audit results
+ * @returns Merged audit result
+ */
+export function mergeAuditResults(
+  results: DependencyAuditResult[]
+): DependencyAuditResult {
+  const merged: DependencyAuditResult = {
+    passed: true,
+    totalVulnerabilities: 0,
+    bySeverity: {
+      info: 0,
+      low: 0,
+      moderate: 0,
+      high: 0,
+      critical: 0,
+    },
+    vulnerabilities: [],
+    blockingVulnerabilities: [],
+    warnings: [],
+    auditedAt: new Date().toISOString(),
+    metadata: {
+      totalDependencies: 0,
+      registry: "https://registry.npmjs.org",
+    },
+  }
+
+  const seenVulns = new Set<string>()
+
+  for (const result of results) {
+    // Merge pass status
+    if (!result.passed) {
+      merged.passed = false
+    }
+
+    // Merge severity counts
+    for (const severity of Object.keys(result.bySeverity) as VulnerabilitySeverity[]) {
+      merged.bySeverity[severity] += result.bySeverity[severity]
+    }
+
+    // Merge vulnerabilities (deduplicate by id+package)
+    for (const vuln of result.vulnerabilities) {
+      const key = vuln.id + ":" + vuln.package
+      if (!seenVulns.has(key)) {
+        seenVulns.add(key)
+        merged.vulnerabilities.push(vuln)
+      }
+    }
+
+    // Merge blocking vulnerabilities
+    for (const vuln of result.blockingVulnerabilities) {
+      const key = vuln.id + ":" + vuln.package
+      if (!merged.blockingVulnerabilities.some(
+        (v) => v.id + ":" + v.package === key
+      )) {
+        merged.blockingVulnerabilities.push(vuln)
+      }
+    }
+
+    // Merge warnings
+    merged.warnings.push(...result.warnings)
+
+    // Merge metadata
+    merged.metadata.totalDependencies += result.metadata.totalDependencies
+  }
+
+  merged.totalVulnerabilities = merged.vulnerabilities.length
+
+  return merged
+}

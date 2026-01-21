@@ -389,6 +389,14 @@ export {
   compareConfigs,
   generateIntegrityManifest,
   verifyAgainstManifest,
+  // Dependency Audit (Feature #120)
+  auditBrandKitDependencies,
+  auditBrandKitDependenciesSync,
+  formatAuditReport,
+  shouldBlockOnVulnerabilities,
+  createStrictAuditConfig,
+  createCIAuditConfig,
+  mergeAuditResults,
 } from "./theme-worker"
 
 export type {
@@ -596,6 +604,11 @@ export type {
   BrandKitWithIntegrity,
   IntegrityVerificationResult,
   IntegrityOptions,
+  // Dependency Audit (Feature #120)
+  VulnerabilitySeverity,
+  DependencyVulnerability,
+  DependencyAuditConfig,
+  DependencyAuditResult,
 } from "./theme-worker"
 
 // Token presets
