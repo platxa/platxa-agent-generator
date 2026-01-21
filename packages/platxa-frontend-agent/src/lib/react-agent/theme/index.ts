@@ -197,6 +197,17 @@ export {
   generateTailwindV4Css,
   generateTailwindConfig,
   generateTailwindUtilities,
+  // Monorepo Support (Feature #96)
+  detectPackageManager,
+  parseWorkspaceProtocol,
+  createWorkspaceVersion,
+  resolveMonorepoPath,
+  generateMonorepoDependencies,
+  generateTsConfigPaths,
+  generateMonorepoConfig,
+  generateBrandKitImport,
+  validateMonorepoSetup,
+  createBrandKitPackage,
 } from "./theme-worker"
 
 export type {
@@ -266,6 +277,12 @@ export type {
   TailwindPluginOptions,
   TailwindThemeDirective,
   TailwindPluginOutput,
+  // Monorepo Support (Feature #96)
+  PackageManager,
+  WorkspaceConfig,
+  BrandKitReference,
+  MonorepoBrandConfig,
+  MonorepoResolveOptions,
 } from "./theme-worker"
 
 // Token presets
