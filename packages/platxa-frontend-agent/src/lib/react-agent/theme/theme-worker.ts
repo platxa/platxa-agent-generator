@@ -15432,3 +15432,501 @@ export function generatePreloadScript(
 })();
 `.trim()
 }
+
+// ============================================================================
+// Feature #112: Bundle Analysis
+// ============================================================================
+
+/**
+ * Configuration for bundle analysis
+ */
+export interface BundleAnalysisConfig {
+  /** Brand kit config to analyze */
+  config: ThemeConfig
+  /** Include dark mode in size calculation */
+  includeDarkMode?: boolean
+  /** Include component tokens in analysis */
+  includeComponentTokens?: boolean
+  /** Compare against default theme */
+  compareWithDefault?: boolean
+  /** Show detailed breakdown by category */
+  detailedBreakdown?: boolean
+  /** Size thresholds for warnings */
+  thresholds?: {
+    /** Warning threshold in bytes */
+    warning?: number
+    /** Error threshold in bytes */
+    error?: number
+  }
+}
+
+/**
+ * Information about a chunk/module in the bundle
+ */
+export interface ChunkInfo {
+  /** Chunk name/identifier */
+  name: string
+  /** Size in bytes */
+  size: number
+  /** Gzipped size in bytes (estimated) */
+  gzipSize: number
+  /** Brotli size in bytes (estimated) */
+  brotliSize: number
+  /** Percentage of total bundle */
+  percentage: number
+}
+
+/**
+ * Optimization suggestion
+ */
+export interface OptimizationSuggestion {
+  /** Suggestion type */
+  type: "remove" | "reduce" | "split" | "lazy" | "treeshake"
+  /** Priority level */
+  priority: "high" | "medium" | "low"
+  /** Human-readable description */
+  description: string
+  /** Estimated savings in bytes */
+  estimatedSavings: number
+  /** Code example or action to take */
+  action?: string
+}
+
+/**
+ * Result of bundle analysis
+ */
+export interface BundleAnalysisResult {
+  /** Brand kit name */
+  name: string
+  /** Total size in bytes */
+  totalSize: number
+  /** Estimated gzipped size */
+  gzipSize: number
+  /** Estimated brotli size */
+  brotliSize: number
+  /** Size breakdown by category */
+  breakdown: {
+    /** Colors (light + dark) */
+    colors: ChunkInfo
+    /** Typography tokens */
+    typography: ChunkInfo
+    /** Spacing tokens */
+    spacing: ChunkInfo
+    /** Other tokens (radius, shadow, etc.) */
+    other: ChunkInfo
+    /** Component tokens (if included) */
+    componentTokens?: ChunkInfo
+  }
+  /** Comparison with default theme */
+  comparison?: {
+    /** Default theme size */
+    defaultSize: number
+    /** Size difference */
+    difference: number
+    /** Percentage difference */
+    percentageDiff: number
+    /** Whether brand kit is larger */
+    isLarger: boolean
+  }
+  /** Optimization suggestions */
+  suggestions: OptimizationSuggestion[]
+  /** Severity level based on thresholds */
+  severity: "ok" | "warning" | "error"
+  /** Human-readable summary */
+  summary: string
+}
+
+/**
+ * Estimates gzip size from byte count
+ *
+ * JSON/CSS typically compresses to ~30-40% of original size
+ */
+function estimateGzipSizeFromBytes(size: number): number {
+  return Math.round(size * 0.35)
+}
+
+/**
+ * Estimates brotli size from byte count
+ *
+ * Brotli typically achieves ~25-30% of original size
+ */
+function estimateBrotliSizeFromBytes(size: number): number {
+  return Math.round(size * 0.28)
+}
+
+/**
+ * Calculates the JSON size of an object
+ */
+function getJsonSize(obj: unknown): number {
+  return new TextEncoder().encode(JSON.stringify(obj)).length
+}
+
+/**
+ * Analyzes brand kit bundle size and provides detailed breakdown
+ *
+ * @param options - Analysis configuration
+ * @returns Detailed analysis result
+ *
+ * @example
+ * ```typescript
+ * const result = analyzeBrandKitBundle({
+ *   config: myBrandKit,
+ *   includeDarkMode: true,
+ *   compareWithDefault: true,
+ *   thresholds: { warning: 10000, error: 50000 }
+ * })
+ *
+ * console.log(result.summary)
+ * // "Brand kit 'my-brand' is 12.5KB (4.4KB gzip). 25% larger than default."
+ *
+ * result.suggestions.forEach(s => {
+ *   console.log(`[${s.priority}] ${s.description}`)
+ * })
+ * ```
+ */
+export function analyzeBrandKitBundle(options: BundleAnalysisConfig): BundleAnalysisResult {
+  const {
+    config,
+    includeDarkMode = true,
+    includeComponentTokens = false,
+    compareWithDefault = true,
+    thresholds = { warning: 15000, error: 50000 },
+  } = options
+
+  const lightTokens = config.light
+  const darkTokens = config.dark
+
+  // Calculate sizes for each category
+  const colorsSize = getJsonSize(lightTokens.colors ?? {}) +
+    (includeDarkMode && darkTokens ? getJsonSize(darkTokens) : 0)
+
+  const typographySize = getJsonSize(lightTokens.typography ?? {}) +
+    getJsonSize(lightTokens.fontWeight ?? {})
+
+  const spacingSize = getJsonSize(lightTokens.spacing ?? {})
+
+  const otherSize = getJsonSize(lightTokens.radius ?? {}) +
+    getJsonSize(lightTokens.shadow ?? {}) +
+    getJsonSize(lightTokens.duration ?? {}) +
+    getJsonSize(lightTokens.easing ?? {}) +
+    getJsonSize(lightTokens.breakpoints ?? {}) +
+    getJsonSize(lightTokens.zIndex ?? {})
+
+  // Calculate component tokens if requested
+  let componentTokensSize = 0
+  if (includeComponentTokens) {
+    const tokens = generateComponentTokens(config)
+    componentTokensSize = getJsonSize(tokens)
+  }
+
+  const totalSize = colorsSize + typographySize + spacingSize + otherSize + componentTokensSize
+
+  // Build breakdown
+  const breakdown: BundleAnalysisResult["breakdown"] = {
+    colors: {
+      name: "colors",
+      size: colorsSize,
+      gzipSize: estimateGzipSizeFromBytes(colorsSize),
+      brotliSize: estimateBrotliSizeFromBytes(colorsSize),
+      percentage: Math.round((colorsSize / totalSize) * 100),
+    },
+    typography: {
+      name: "typography",
+      size: typographySize,
+      gzipSize: estimateGzipSizeFromBytes(typographySize),
+      brotliSize: estimateBrotliSizeFromBytes(typographySize),
+      percentage: Math.round((typographySize / totalSize) * 100),
+    },
+    spacing: {
+      name: "spacing",
+      size: spacingSize,
+      gzipSize: estimateGzipSizeFromBytes(spacingSize),
+      brotliSize: estimateBrotliSizeFromBytes(spacingSize),
+      percentage: Math.round((spacingSize / totalSize) * 100),
+    },
+    other: {
+      name: "other",
+      size: otherSize,
+      gzipSize: estimateGzipSizeFromBytes(otherSize),
+      brotliSize: estimateBrotliSizeFromBytes(otherSize),
+      percentage: Math.round((otherSize / totalSize) * 100),
+    },
+  }
+
+  if (includeComponentTokens) {
+    breakdown.componentTokens = {
+      name: "componentTokens",
+      size: componentTokensSize,
+      gzipSize: estimateGzipSizeFromBytes(componentTokensSize),
+      brotliSize: estimateBrotliSizeFromBytes(componentTokensSize),
+      percentage: Math.round((componentTokensSize / totalSize) * 100),
+    }
+  }
+
+  // Compare with default theme
+  let comparison: BundleAnalysisResult["comparison"]
+  if (compareWithDefault) {
+    const defaultSize = getJsonSize(defaultTokens)
+    const difference = totalSize - defaultSize
+    comparison = {
+      defaultSize,
+      difference,
+      percentageDiff: Math.round((difference / defaultSize) * 100),
+      isLarger: difference > 0,
+    }
+  }
+
+  // Generate optimization suggestions
+  const suggestions = generateBundleOptimizations(config, breakdown, totalSize)
+
+  // Determine severity
+  let severity: "ok" | "warning" | "error" = "ok"
+  if (totalSize >= (thresholds.error ?? 50000)) {
+    severity = "error"
+  } else if (totalSize >= (thresholds.warning ?? 15000)) {
+    severity = "warning"
+  }
+
+  // Build summary
+  const sizeKB = (totalSize / 1024).toFixed(1)
+  const gzipKB = (estimateGzipSizeFromBytes(totalSize) / 1024).toFixed(1)
+  let summary = `Brand kit '${config.name}' is ${sizeKB}KB (${gzipKB}KB gzip).`
+
+  if (comparison) {
+    const comparisonText = comparison.isLarger
+      ? `${Math.abs(comparison.percentageDiff)}% larger than default`
+      : `${Math.abs(comparison.percentageDiff)}% smaller than default`
+    summary += ` ${comparisonText}.`
+  }
+
+  if (severity !== "ok") {
+    summary += ` [${severity.toUpperCase()}]`
+  }
+
+  return {
+    name: config.name,
+    totalSize,
+    gzipSize: estimateGzipSizeFromBytes(totalSize),
+    brotliSize: estimateBrotliSizeFromBytes(totalSize),
+    breakdown,
+    comparison,
+    suggestions,
+    severity,
+    summary,
+  }
+}
+
+/**
+ * Generates optimization suggestions based on analysis
+ */
+function generateBundleOptimizations(
+  config: ThemeConfig,
+  breakdown: BundleAnalysisResult["breakdown"],
+  totalSize: number
+): OptimizationSuggestion[] {
+  const suggestions: OptimizationSuggestion[] = []
+
+  // Check if colors are the dominant category
+  if (breakdown.colors.percentage > 50) {
+    suggestions.push({
+      type: "reduce",
+      priority: "high",
+      description: "Colors make up over 50% of bundle. Consider reducing color palette complexity.",
+      estimatedSavings: Math.round(breakdown.colors.size * 0.3),
+      action: "Use fewer color variants or consolidate similar shades.",
+    })
+  }
+
+  // Check for unused dark mode
+  if (config.dark && Object.keys(config.dark).length > 10) {
+    suggestions.push({
+      type: "treeshake",
+      priority: "medium",
+      description: "Dark mode has many overrides. Only override colors that actually change.",
+      estimatedSavings: Math.round(breakdown.colors.size * 0.2),
+      action: "Remove dark mode overrides for colors that don't need to change.",
+    })
+  }
+
+  // Large typography scale
+  if (breakdown.typography.percentage > 25) {
+    suggestions.push({
+      type: "reduce",
+      priority: "medium",
+      description: "Typography tokens are large. Consider using CSS custom properties directly.",
+      estimatedSavings: Math.round(breakdown.typography.size * 0.4),
+      action: "Use Tailwind's default typography scale instead of custom tokens.",
+    })
+  }
+
+  // Suggest lazy loading for large bundles
+  if (totalSize > 20000) {
+    suggestions.push({
+      type: "lazy",
+      priority: "high",
+      description: "Bundle is large. Consider lazy loading the brand kit.",
+      estimatedSavings: 0,
+      action: "Use dynamic import: const brandKit = await import('./brand-kit')",
+    })
+  }
+
+  // Suggest splitting for very large bundles
+  if (totalSize > 40000) {
+    suggestions.push({
+      type: "split",
+      priority: "high",
+      description: "Bundle is very large. Consider splitting into base and extended tokens.",
+      estimatedSavings: Math.round(totalSize * 0.4),
+      action: "Split into core tokens (colors, typography) and extended tokens (component tokens).",
+    })
+  }
+
+  // Check component tokens
+  if (breakdown.componentTokens && breakdown.componentTokens.percentage > 30) {
+    suggestions.push({
+      type: "treeshake",
+      priority: "medium",
+      description: "Component tokens are large. Import only the components you use.",
+      estimatedSavings: Math.round(breakdown.componentTokens.size * 0.5),
+      action: "Use selective imports: import { buttonTokens } from './tokens/button'",
+    })
+  }
+
+  // Sort by estimated savings (descending)
+  suggestions.sort((a, b) => b.estimatedSavings - a.estimatedSavings)
+
+  return suggestions
+}
+
+/**
+ * Compares brand kit size with default theme
+ *
+ * @param config - Brand kit to compare
+ * @returns Comparison result
+ *
+ * @example
+ * ```typescript
+ * const comparison = compareBrandKitWithDefault(myBrandKit)
+ * if (comparison.isLarger) {
+ *   console.warn(`Brand kit is ${comparison.percentageDiff}% larger than default`)
+ * }
+ * ```
+ */
+export function compareBrandKitWithDefault(config: ThemeConfig): {
+  brandKitSize: number
+  defaultSize: number
+  difference: number
+  percentageDiff: number
+  isLarger: boolean
+} {
+  const brandKitSize = getJsonSize(config)
+  const defaultSize = getJsonSize(defaultTokens)
+  const difference = brandKitSize - defaultSize
+
+  return {
+    brandKitSize,
+    defaultSize,
+    difference,
+    percentageDiff: Math.round((difference / defaultSize) * 100),
+    isLarger: difference > 0,
+  }
+}
+
+/**
+ * Formats bundle analysis as human-readable report
+ *
+ * @param result - Analysis result to format
+ * @returns Formatted report string
+ *
+ * @example
+ * ```typescript
+ * const result = analyzeBrandKitBundle({ config: myBrand })
+ * console.log(formatBundleAnalysisReport(result))
+ * ```
+ */
+export function formatBundleAnalysisReport(result: BundleAnalysisResult): string {
+  const lines: string[] = []
+
+  // Header
+  lines.push("=" .repeat(60))
+  lines.push(`Brand Kit Bundle Analysis: ${result.name}`)
+  lines.push("=" .repeat(60))
+  lines.push("")
+
+  // Summary
+  lines.push("## Summary")
+  lines.push(result.summary)
+  lines.push("")
+
+  // Size overview
+  lines.push("## Size Overview")
+  lines.push(`  Total:  ${formatBytes(result.totalSize)} (raw)`)
+  lines.push(`  Gzip:   ${formatBytes(result.gzipSize)} (estimated)`)
+  lines.push(`  Brotli: ${formatBytes(result.brotliSize)} (estimated)`)
+  lines.push("")
+
+  // Breakdown
+  lines.push("## Size Breakdown")
+  const { breakdown } = result
+  lines.push(`  Colors:     ${formatBytes(breakdown.colors.size).padEnd(10)} (${breakdown.colors.percentage}%)`)
+  lines.push(`  Typography: ${formatBytes(breakdown.typography.size).padEnd(10)} (${breakdown.typography.percentage}%)`)
+  lines.push(`  Spacing:    ${formatBytes(breakdown.spacing.size).padEnd(10)} (${breakdown.spacing.percentage}%)`)
+  lines.push(`  Other:      ${formatBytes(breakdown.other.size).padEnd(10)} (${breakdown.other.percentage}%)`)
+  if (breakdown.componentTokens) {
+    lines.push(`  Components: ${formatBytes(breakdown.componentTokens.size).padEnd(10)} (${breakdown.componentTokens.percentage}%)`)
+  }
+  lines.push("")
+
+  // Comparison
+  if (result.comparison) {
+    lines.push("## Comparison with Default Theme")
+    lines.push(`  Default theme: ${formatBytes(result.comparison.defaultSize)}`)
+    lines.push(`  This brand:    ${formatBytes(result.totalSize)}`)
+    const diffSign = result.comparison.isLarger ? "+" : ""
+    lines.push(`  Difference:    ${diffSign}${formatBytes(result.comparison.difference)} (${diffSign}${result.comparison.percentageDiff}%)`)
+    lines.push("")
+  }
+
+  // Suggestions
+  if (result.suggestions.length > 0) {
+    lines.push("## Optimization Suggestions")
+    for (const suggestion of result.suggestions) {
+      const priorityIcon = suggestion.priority === "high" ? "🔴" : suggestion.priority === "medium" ? "🟡" : "🟢"
+      lines.push(`  ${priorityIcon} [${suggestion.priority.toUpperCase()}] ${suggestion.description}`)
+      if (suggestion.estimatedSavings > 0) {
+        lines.push(`     Estimated savings: ${formatBytes(suggestion.estimatedSavings)}`)
+      }
+      if (suggestion.action) {
+        lines.push(`     Action: ${suggestion.action}`)
+      }
+      lines.push("")
+    }
+  }
+
+  // Status
+  const statusIcon = result.severity === "ok" ? "✅" : result.severity === "warning" ? "⚠️" : "❌"
+  lines.push(`Status: ${statusIcon} ${result.severity.toUpperCase()}`)
+
+  return lines.join("\n")
+}
+
+/**
+ * Gets a quick size summary for build output
+ *
+ * @param config - Brand kit config
+ * @returns Short summary string suitable for build logs
+ *
+ * @example
+ * ```typescript
+ * // In build script
+ * console.log(`[brand-kit] ${getBuildSizeSummary(brandConfig)}`)
+ * // Output: "[brand-kit] my-brand: 12.5KB (4.4KB gzip) - OK"
+ * ```
+ */
+export function getBuildSizeSummary(config: ThemeConfig): string {
+  const result = analyzeBrandKitBundle({ config, compareWithDefault: false })
+  const sizeKB = (result.totalSize / 1024).toFixed(1)
+  const gzipKB = (result.gzipSize / 1024).toFixed(1)
+  const status = result.severity === "ok" ? "OK" : result.severity.toUpperCase()
+  return `${config.name}: ${sizeKB}KB (${gzipKB}KB gzip) - ${status}`
+}

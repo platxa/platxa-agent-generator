@@ -343,6 +343,11 @@ export {
   waitForPreload,
   resetPreloadState,
   generatePreloadScript,
+  // Bundle Analysis (Feature #112)
+  analyzeBrandKitBundle,
+  compareBrandKitWithDefault,
+  formatBundleAnalysisReport,
+  getBuildSizeSummary,
 } from "./theme-worker"
 
 export type {
@@ -500,6 +505,11 @@ export type {
   // Preloading (Feature #111)
   PreloadConfig,
   PreloadResult,
+  // Bundle Analysis (Feature #112)
+  BundleAnalysisConfig,
+  BundleAnalysisResult,
+  ChunkInfo,
+  OptimizationSuggestion,
 } from "./theme-worker"
 
 // Token presets
