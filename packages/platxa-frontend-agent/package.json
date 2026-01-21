@@ -38,10 +38,16 @@
       "types": "./dist/cli/init.d.ts",
       "import": "./dist/cli/init.mjs",
       "require": "./dist/cli/init.cjs"
+    },
+    "./cli/validate": {
+      "types": "./dist/cli/validate.d.ts",
+      "import": "./dist/cli/validate.mjs",
+      "require": "./dist/cli/validate.cjs"
     }
   },
   "bin": {
-    "platxa-init": "./dist/cli/init.mjs"
+    "platxa-init": "./dist/cli/init.mjs",
+    "platxa-validate": "./dist/cli/validate.mjs"
   },
   "files": [
     "dist",

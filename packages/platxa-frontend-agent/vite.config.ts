@@ -44,6 +44,7 @@ export default defineConfig({
       entry: {
         index: path.resolve(__dirname, "src/index.ts"),
         "cli/init": path.resolve(__dirname, "src/cli/init.ts"),
+        "cli/validate": path.resolve(__dirname, "src/cli/validate.ts"),
       },
       name: "PlatxaFrontendAgent",
       formats: ["es", "cjs"],
