@@ -26611,3 +26611,742 @@ export function createBrandMerger(
   return (brands, overrides = {}) =>
     mergeBrands(brands, { ...defaultConfig, ...overrides })
 }
+
+// ============================================================================
+// Feature #128: Plugin System
+// ============================================================================
+
+/**
+ * Hook types for plugin lifecycle
+ */
+export type PluginHook =
+  | "beforeTransform" // Before any transformation
+  | "afterTransform" // After transformation complete
+  | "beforeColorTransform" // Before color processing
+  | "afterColorTransform" // After color processing
+  | "beforeSpacingTransform" // Before spacing processing
+  | "afterSpacingTransform" // After spacing processing
+  | "beforeTypographyTransform" // Before typography processing
+  | "afterTypographyTransform" // After typography processing
+  | "beforeValidation" // Before validation
+  | "afterValidation" // After validation
+  | "beforeGeneration" // Before CSS generation
+  | "afterGeneration" // After CSS generation
+  | "onError" // When an error occurs
+
+/**
+ * Plugin priority levels
+ */
+export type PluginPriority = "first" | "early" | "normal" | "late" | "last"
+
+/**
+ * Plugin execution context
+ */
+export interface PluginContext {
+  /** Current brand configuration */
+  config: ThemeConfig
+  /** Partial transformed result */
+  result?: Partial<GeneratedTheme>
+  /** Plugin metadata */
+  meta: {
+    pluginName: string
+    hook: PluginHook
+    executionOrder: number
+  }
+  /** Shared data between plugins */
+  shared: Record<string, unknown>
+  /** Accumulated warnings */
+  warnings: string[]
+  /** Accumulated errors */
+  errors: Error[]
+  /** Whether to abort the chain */
+  abort: boolean
+  /** Abort reason if any */
+  abortReason?: string
+}
+
+/**
+ * Plugin transform function signature
+ */
+export type PluginTransform = (
+  context: PluginContext
+) => PluginContext | Promise<PluginContext>
+
+/**
+ * Plugin hook handler
+ */
+export interface PluginHookHandler {
+  /** The hook to attach to */
+  hook: PluginHook
+  /** Handler function */
+  handler: PluginTransform
+  /** Execution priority */
+  priority?: PluginPriority
+}
+
+/**
+ * Brand kit plugin interface
+ */
+export interface BrandKitPlugin {
+  /** Unique plugin name */
+  name: string
+  /** Plugin version */
+  version: string
+  /** Plugin description */
+  description?: string
+  /** Plugin author */
+  author?: string
+  /** Hook handlers */
+  hooks: PluginHookHandler[]
+  /** Plugin initialization */
+  init?: () => void | Promise<void>
+  /** Plugin cleanup */
+  destroy?: () => void | Promise<void>
+  /** Plugin configuration schema */
+  configSchema?: Record<string, unknown>
+  /** Plugin-specific configuration */
+  config?: Record<string, unknown>
+}
+
+/**
+ * Plugin registration options
+ */
+export interface PluginRegistrationOptions {
+  /** Override existing plugin with same name */
+  override?: boolean
+  /** Disable the plugin by default */
+  disabled?: boolean
+  /** Plugin-specific configuration */
+  config?: Record<string, unknown>
+}
+
+/**
+ * Plugin execution result
+ */
+export interface PluginExecutionResult {
+  /** Whether execution succeeded */
+  success: boolean
+  /** Final context after all plugins */
+  context: PluginContext
+  /** Execution statistics */
+  stats: {
+    totalPlugins: number
+    executedPlugins: number
+    skippedPlugins: number
+    totalTime: number
+    perPlugin: Array<{
+      name: string
+      hook: PluginHook
+      time: number
+      success: boolean
+    }>
+  }
+  /** Warnings from all plugins */
+  warnings: string[]
+  /** Errors from all plugins */
+  errors: Error[]
+}
+
+/**
+ * Plugin chain configuration
+ */
+export interface PluginChainConfig {
+  /** Continue on plugin error */
+  continueOnError?: boolean
+  /** Timeout per plugin in ms */
+  pluginTimeout?: number
+  /** Total chain timeout in ms */
+  chainTimeout?: number
+  /** Enable debug logging */
+  debug?: boolean
+  /** Hooks to execute (default: all) */
+  hooks?: PluginHook[]
+}
+
+/**
+ * Priority values for sorting
+ */
+const PLUGIN_PRIORITY_VALUES: Record<PluginPriority, number> = {
+  first: 0,
+  early: 25,
+  normal: 50,
+  late: 75,
+  last: 100,
+}
+
+/**
+ * Plugin registry state
+ */
+interface PluginRegistryState {
+  plugins: Map<string, BrandKitPlugin>
+  disabled: Set<string>
+  configs: Map<string, Record<string, unknown>>
+  initialized: Set<string>
+}
+
+/**
+ * Global plugin registry
+ */
+const pluginRegistry: PluginRegistryState = {
+  plugins: new Map(),
+  disabled: new Set(),
+  configs: new Map(),
+  initialized: new Set(),
+}
+
+/**
+ * Registers a plugin in the global registry
+ */
+export function registerPlugin(
+  plugin: BrandKitPlugin,
+  options: PluginRegistrationOptions = {}
+): void {
+  const { override = false, disabled = false, config } = options
+
+  if (pluginRegistry.plugins.has(plugin.name) && !override) {
+    throw new Error(
+      `Plugin "${plugin.name}" is already registered. Use override: true to replace.`
+    )
+  }
+
+  pluginRegistry.plugins.set(plugin.name, plugin)
+
+  if (disabled) {
+    pluginRegistry.disabled.add(plugin.name)
+  }
+
+  if (config) {
+    pluginRegistry.configs.set(plugin.name, config)
+  }
+}
+
+/**
+ * Unregisters a plugin from the global registry
+ */
+export function unregisterPlugin(name: string): boolean {
+  const plugin = pluginRegistry.plugins.get(name)
+
+  if (!plugin) {
+    return false
+  }
+
+  // Call destroy if initialized
+  if (pluginRegistry.initialized.has(name) && plugin.destroy) {
+    plugin.destroy()
+  }
+
+  pluginRegistry.plugins.delete(name)
+  pluginRegistry.disabled.delete(name)
+  pluginRegistry.configs.delete(name)
+  pluginRegistry.initialized.delete(name)
+
+  return true
+}
+
+/**
+ * Gets a registered plugin by name
+ */
+export function getPlugin(name: string): BrandKitPlugin | undefined {
+  return pluginRegistry.plugins.get(name)
+}
+
+/**
+ * Lists all registered plugins
+ */
+export function listPlugins(): Array<{
+  name: string
+  version: string
+  description?: string
+  enabled: boolean
+  initialized: boolean
+}> {
+  return Array.from(pluginRegistry.plugins.values()).map((plugin) => ({
+    name: plugin.name,
+    version: plugin.version,
+    description: plugin.description,
+    enabled: !pluginRegistry.disabled.has(plugin.name),
+    initialized: pluginRegistry.initialized.has(plugin.name),
+  }))
+}
+
+/**
+ * Enables a disabled plugin
+ */
+export function enablePlugin(name: string): boolean {
+  if (!pluginRegistry.plugins.has(name)) {
+    return false
+  }
+  pluginRegistry.disabled.delete(name)
+  return true
+}
+
+/**
+ * Disables a plugin
+ */
+export function disablePlugin(name: string): boolean {
+  if (!pluginRegistry.plugins.has(name)) {
+    return false
+  }
+  pluginRegistry.disabled.add(name)
+  return true
+}
+
+/**
+ * Configures a plugin
+ */
+export function configurePlugin(
+  name: string,
+  config: Record<string, unknown>
+): boolean {
+  if (!pluginRegistry.plugins.has(name)) {
+    return false
+  }
+  pluginRegistry.configs.set(name, {
+    ...pluginRegistry.configs.get(name),
+    ...config,
+  })
+  return true
+}
+
+/**
+ * Clears the plugin registry
+ */
+export function clearPluginRegistry(): void {
+  // Call destroy on all initialized plugins
+  for (const name of pluginRegistry.initialized) {
+    const plugin = pluginRegistry.plugins.get(name)
+    if (plugin?.destroy) {
+      plugin.destroy()
+    }
+  }
+
+  pluginRegistry.plugins.clear()
+  pluginRegistry.disabled.clear()
+  pluginRegistry.configs.clear()
+  pluginRegistry.initialized.clear()
+}
+
+/**
+ * Creates an initial plugin context
+ */
+function createPluginContext(
+  config: ThemeConfig,
+  hook: PluginHook,
+  pluginName: string,
+  order: number
+): PluginContext {
+  return {
+    config,
+    meta: {
+      pluginName,
+      hook,
+      executionOrder: order,
+    },
+    shared: {},
+    warnings: [],
+    errors: [],
+    abort: false,
+  }
+}
+
+/**
+ * Gets handlers for a specific hook sorted by priority
+ */
+function getHookHandlers(
+  hook: PluginHook
+): Array<{ plugin: BrandKitPlugin; handler: PluginHookHandler }> {
+  const handlers: Array<{ plugin: BrandKitPlugin; handler: PluginHookHandler }> =
+    []
+
+  for (const plugin of pluginRegistry.plugins.values()) {
+    if (pluginRegistry.disabled.has(plugin.name)) {
+      continue
+    }
+
+    for (const h of plugin.hooks) {
+      if (h.hook === hook) {
+        handlers.push({ plugin, handler: h })
+      }
+    }
+  }
+
+  // Sort by priority
+  handlers.sort((a, b) => {
+    const priorityA = PLUGIN_PRIORITY_VALUES[a.handler.priority ?? "normal"]
+    const priorityB = PLUGIN_PRIORITY_VALUES[b.handler.priority ?? "normal"]
+    return priorityA - priorityB
+  })
+
+  return handlers
+}
+
+/**
+ * Executes the plugin chain for a specific hook
+ */
+export async function executePluginHook(
+  hook: PluginHook,
+  config: ThemeConfig,
+  chainConfig: PluginChainConfig = {}
+): Promise<PluginExecutionResult> {
+  const {
+    continueOnError = false,
+    pluginTimeout = 5000,
+    chainTimeout = 30000,
+    debug = false,
+  } = chainConfig
+
+  const startTime = Date.now()
+  const handlers = getHookHandlers(hook)
+  const perPluginStats: PluginExecutionResult["stats"]["perPlugin"] = []
+  const allWarnings: string[] = []
+  const allErrors: Error[] = []
+
+  let context = createPluginContext(config, hook, "", 0)
+  let executedCount = 0
+  let skippedCount = 0
+
+  for (let i = 0; i < handlers.length; i++) {
+    // Check chain timeout
+    if (Date.now() - startTime > chainTimeout) {
+      allErrors.push(new Error(`Plugin chain timeout exceeded (${chainTimeout}ms)`))
+      break
+    }
+
+    const { plugin, handler } = handlers[i]
+    const pluginStart = Date.now()
+
+    // Initialize plugin if needed
+    if (!pluginRegistry.initialized.has(plugin.name) && plugin.init) {
+      try {
+        await Promise.race([
+          plugin.init(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Init timeout")), pluginTimeout)
+          ),
+        ])
+        pluginRegistry.initialized.add(plugin.name)
+      } catch (error) {
+        allErrors.push(
+          new Error(`Plugin ${plugin.name} init failed: ${error}`)
+        )
+        if (!continueOnError) {
+          break
+        }
+        skippedCount++
+        continue
+      }
+    }
+
+    // Update context metadata
+    context.meta = {
+      pluginName: plugin.name,
+      hook,
+      executionOrder: i,
+    }
+
+    // Merge plugin config
+    const pluginConfig = pluginRegistry.configs.get(plugin.name)
+    if (pluginConfig) {
+      context.shared[`${plugin.name}:config`] = pluginConfig
+    }
+
+    if (debug) {
+      console.log(`[Plugin] Executing ${plugin.name} for hook ${hook}`)
+    }
+
+    try {
+      // Execute with timeout
+      const result = await Promise.race([
+        Promise.resolve(handler.handler(context)),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error(`Plugin timeout (${pluginTimeout}ms)`)),
+            pluginTimeout
+          )
+        ),
+      ])
+
+      context = result
+      executedCount++
+
+      perPluginStats.push({
+        name: plugin.name,
+        hook,
+        time: Date.now() - pluginStart,
+        success: true,
+      })
+
+      // Collect warnings and errors
+      allWarnings.push(...context.warnings)
+      allErrors.push(...context.errors)
+
+      // Clear context warnings/errors for next plugin
+      context.warnings = []
+      context.errors = []
+
+      // Check for abort
+      if (context.abort) {
+        if (debug) {
+          console.log(
+            `[Plugin] Chain aborted by ${plugin.name}: ${context.abortReason}`
+          )
+        }
+        break
+      }
+    } catch (error) {
+      const pluginError =
+        error instanceof Error
+          ? error
+          : new Error(`Plugin ${plugin.name} failed: ${error}`)
+
+      allErrors.push(pluginError)
+
+      perPluginStats.push({
+        name: plugin.name,
+        hook,
+        time: Date.now() - pluginStart,
+        success: false,
+      })
+
+      if (!continueOnError) {
+        break
+      }
+      skippedCount++
+    }
+  }
+
+  return {
+    success: allErrors.length === 0,
+    context,
+    stats: {
+      totalPlugins: handlers.length,
+      executedPlugins: executedCount,
+      skippedPlugins: skippedCount,
+      totalTime: Date.now() - startTime,
+      perPlugin: perPluginStats,
+    },
+    warnings: allWarnings,
+    errors: allErrors,
+  }
+}
+
+/**
+ * Transforms a brand kit through the plugin chain
+ */
+export async function transformWithPlugins(
+  config: ThemeConfig,
+  chainConfig: PluginChainConfig = {}
+): Promise<{
+  config: ThemeConfig
+  generated?: GeneratedTheme
+  result: PluginExecutionResult
+}> {
+  const hooks: PluginHook[] = chainConfig.hooks ?? [
+    "beforeTransform",
+    "beforeColorTransform",
+    "afterColorTransform",
+    "beforeSpacingTransform",
+    "afterSpacingTransform",
+    "beforeTypographyTransform",
+    "afterTypographyTransform",
+    "beforeValidation",
+    "afterValidation",
+    "beforeGeneration",
+    "afterGeneration",
+    "afterTransform",
+  ]
+
+  let currentConfig = config
+  let lastResult: PluginExecutionResult | undefined
+  const allWarnings: string[] = []
+  const allErrors: Error[] = []
+  const allStats: PluginExecutionResult["stats"]["perPlugin"] = []
+
+  for (const hook of hooks) {
+    const result = await executePluginHook(hook, currentConfig, chainConfig)
+
+    allWarnings.push(...result.warnings)
+    allErrors.push(...result.errors)
+    allStats.push(...result.stats.perPlugin)
+
+    currentConfig = result.context.config
+    lastResult = result
+
+    if (result.context.abort) {
+      break
+    }
+  }
+
+  return {
+    config: currentConfig,
+    generated: lastResult?.context.result as GeneratedTheme | undefined,
+    result: {
+      success: allErrors.length === 0,
+      context: lastResult?.context ?? createPluginContext(config, "afterTransform", "", 0),
+      stats: {
+        totalPlugins: allStats.length,
+        executedPlugins: allStats.filter((s) => s.success).length,
+        skippedPlugins: allStats.filter((s) => !s.success).length,
+        totalTime: allStats.reduce((sum, s) => sum + s.time, 0),
+        perPlugin: allStats,
+      },
+      warnings: allWarnings,
+      errors: allErrors,
+    },
+  }
+}
+
+/**
+ * Creates a simple plugin from transform functions
+ */
+export function createPlugin(
+  name: string,
+  version: string,
+  hooks: Array<{
+    hook: PluginHook
+    transform: (config: ThemeConfig) => ThemeConfig
+    priority?: PluginPriority
+  }>,
+  options?: {
+    description?: string
+    author?: string
+  }
+): BrandKitPlugin {
+  return {
+    name,
+    version,
+    description: options?.description,
+    author: options?.author,
+    hooks: hooks.map((h) => ({
+      hook: h.hook,
+      priority: h.priority,
+      handler: (context) => ({
+        ...context,
+        config: h.transform(context.config),
+      }),
+    })),
+  }
+}
+
+/**
+ * Creates a color transform plugin
+ */
+export function createColorTransformPlugin(
+  name: string,
+  transform: (colors: SemanticColors) => SemanticColors,
+  priority?: PluginPriority
+): BrandKitPlugin {
+  return {
+    name,
+    version: "1.0.0",
+    hooks: [
+      {
+        hook: "beforeColorTransform",
+        priority,
+        handler: (context) => ({
+          ...context,
+          config: {
+            ...context.config,
+            light: {
+              ...context.config.light,
+              colors: transform(context.config.light.colors),
+            },
+          },
+        }),
+      },
+    ],
+  }
+}
+
+/**
+ * Creates a validation plugin
+ */
+export function createValidationPlugin(
+  name: string,
+  validate: (config: ThemeConfig) => { valid: boolean; errors: string[] },
+  options?: { abortOnFailure?: boolean }
+): BrandKitPlugin {
+  return {
+    name,
+    version: "1.0.0",
+    hooks: [
+      {
+        hook: "beforeValidation",
+        handler: (context) => {
+          const result = validate(context.config)
+
+          if (!result.valid) {
+            context.warnings.push(...result.errors)
+
+            if (options?.abortOnFailure) {
+              context.abort = true
+              context.abortReason = `Validation failed: ${result.errors.join(", ")}`
+            }
+          }
+
+          return context
+        },
+      },
+    ],
+  }
+}
+
+/**
+ * Formats a plugin execution result as a report
+ */
+export function formatPluginExecutionReport(
+  result: PluginExecutionResult
+): string {
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Plugin Execution Report")
+  lines.push(divider)
+  lines.push("")
+
+  // Summary
+  lines.push("Summary")
+  lines.push("─".repeat(50))
+  lines.push(`  Success:    ${result.success ? "Yes" : "No"}`)
+  lines.push(`  Total Time: ${result.stats.totalTime}ms`)
+  lines.push(`  Plugins:    ${result.stats.executedPlugins}/${result.stats.totalPlugins} executed`)
+  lines.push(`  Skipped:    ${result.stats.skippedPlugins}`)
+  lines.push("")
+
+  // Per-plugin stats
+  if (result.stats.perPlugin.length > 0) {
+    lines.push("Plugin Execution")
+    lines.push("─".repeat(50))
+
+    for (const stat of result.stats.perPlugin) {
+      const status = stat.success ? "[OK]" : "[FAIL]"
+      lines.push(`  ${status} ${stat.name} (${stat.hook}): ${stat.time}ms`)
+    }
+    lines.push("")
+  }
+
+  // Warnings
+  if (result.warnings.length > 0) {
+    lines.push("Warnings")
+    lines.push("─".repeat(50))
+    for (const warning of result.warnings) {
+      lines.push(`  - ${warning}`)
+    }
+    lines.push("")
+  }
+
+  // Errors
+  if (result.errors.length > 0) {
+    lines.push("Errors")
+    lines.push("─".repeat(50))
+    for (const error of result.errors) {
+      lines.push(`  - ${error.message}`)
+    }
+    lines.push("")
+  }
+
+  lines.push(divider)
+
+  return lines.join("\n")
+}

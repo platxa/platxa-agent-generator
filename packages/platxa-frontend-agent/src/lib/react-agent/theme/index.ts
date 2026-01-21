@@ -454,6 +454,21 @@ export {
   mergeBrands,
   formatMergeReport,
   createBrandMerger,
+  // Plugin System (Feature #128)
+  registerPlugin,
+  unregisterPlugin,
+  getPlugin,
+  listPlugins,
+  enablePlugin,
+  disablePlugin,
+  configurePlugin,
+  clearPluginRegistry,
+  executePluginHook,
+  transformWithPlugins,
+  createPlugin,
+  createColorTransformPlugin,
+  createValidationPlugin,
+  formatPluginExecutionReport,
 } from "./theme-worker"
 
 export type {
@@ -713,6 +728,16 @@ export type {
   TokenSource,
   MergeBrandsResult,
   BrandInput,
+  // Plugin System (Feature #128)
+  PluginHook,
+  PluginPriority,
+  PluginContext,
+  PluginTransform,
+  PluginHookHandler,
+  BrandKitPlugin,
+  PluginRegistrationOptions,
+  PluginExecutionResult,
+  PluginChainConfig,
 } from "./theme-worker"
 
 // Token presets
