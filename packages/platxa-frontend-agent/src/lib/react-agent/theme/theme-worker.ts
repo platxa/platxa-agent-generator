@@ -23430,3 +23430,640 @@ export function formatCspReport(csp: CspResult): string {
 
   return lines.join("\n")
 }
+
+// ============================================================================
+// Feature #123: Audit Logging
+// Log brand kit loading events for debugging with configurable log levels
+// ============================================================================
+
+/**
+ * Log levels for audit logging
+ */
+export type AuditLogLevel = "debug" | "info" | "warn" | "error" | "silent"
+
+/**
+ * Audit event types
+ */
+export type AuditEventType =
+  | "load_start"
+  | "load_success"
+  | "load_error"
+  | "load_cached"
+  | "validation_start"
+  | "validation_success"
+  | "validation_error"
+  | "theme_change"
+  | "theme_apply"
+  | "config_update"
+  | "inheritance_resolve"
+  | "cache_hit"
+  | "cache_miss"
+  | "cache_invalidate"
+  | "preload_start"
+  | "preload_complete"
+  | "integrity_check"
+  | "csp_generate"
+  | "custom"
+
+/**
+ * Audit log entry
+ */
+export interface AuditLogEntry {
+  /** Unique entry ID */
+  id: string
+  /** Event type */
+  event: AuditEventType
+  /** Log level */
+  level: AuditLogLevel
+  /** Timestamp */
+  timestamp: string
+  /** Brand kit name (if applicable) */
+  brandName?: string
+  /** Human-readable message */
+  message: string
+  /** Duration in milliseconds (for timed operations) */
+  duration?: number
+  /** Additional context data */
+  context?: Record<string, unknown>
+  /** Error details (if applicable) */
+  error?: {
+    name: string
+    message: string
+    stack?: string
+  }
+  /** Source of the event */
+  source?: string
+}
+
+/**
+ * Audit logger configuration
+ */
+export interface AuditLoggerConfig {
+  /** Minimum log level to record (default: "info") */
+  level: AuditLogLevel
+  /** Enable console output (default: true in dev, false in prod) */
+  consoleOutput?: boolean
+  /** Maximum entries to keep in memory (default: 1000) */
+  maxEntries?: number
+  /** Custom log handler */
+  handler?: (entry: AuditLogEntry) => void
+  /** Include stack traces for errors (default: true) */
+  includeStackTraces?: boolean
+  /** Format for timestamps (default: ISO) */
+  timestampFormat?: "iso" | "unix" | "locale"
+  /** Enable structured JSON logging */
+  jsonOutput?: boolean
+  /** Filter events by type */
+  eventFilter?: AuditEventType[]
+  /** Filter events by brand name */
+  brandFilter?: string[]
+}
+
+/**
+ * Audit logger state
+ */
+interface AuditLoggerState {
+  config: AuditLoggerConfig
+  entries: AuditLogEntry[]
+  entryCounter: number
+  startTimes: Map<string, number>
+  isEnabled: boolean
+}
+
+/**
+ * Log level numeric values for comparison
+ */
+const LOG_LEVEL_VALUES: Record<AuditLogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+  silent: 4,
+}
+
+/**
+ * Default logger configuration
+ */
+const DEFAULT_LOGGER_CONFIG: AuditLoggerConfig = {
+  level: "info",
+  consoleOutput: typeof process !== "undefined" && process.env?.NODE_ENV !== "production",
+  maxEntries: 1000,
+  includeStackTraces: true,
+  timestampFormat: "iso",
+  jsonOutput: false,
+}
+
+/**
+ * Global audit logger state
+ */
+let auditLoggerState: AuditLoggerState = {
+  config: { ...DEFAULT_LOGGER_CONFIG },
+  entries: [],
+  entryCounter: 0,
+  startTimes: new Map(),
+  isEnabled: true,
+}
+
+/**
+ * Generates a unique entry ID
+ */
+function generateEntryId(): string {
+  auditLoggerState.entryCounter++
+  return "audit-" + auditLoggerState.entryCounter + "-" + Date.now().toString(36)
+}
+
+/**
+ * Formats timestamp based on configuration
+ */
+function formatTimestamp(config: AuditLoggerConfig): string {
+  const now = new Date()
+  switch (config.timestampFormat) {
+    case "unix":
+      return now.getTime().toString()
+    case "locale":
+      return now.toLocaleString()
+    case "iso":
+    default:
+      return now.toISOString()
+  }
+}
+
+/**
+ * Checks if a log level should be recorded
+ */
+function shouldLog(entryLevel: AuditLogLevel, configLevel: AuditLogLevel): boolean {
+  return LOG_LEVEL_VALUES[entryLevel] >= LOG_LEVEL_VALUES[configLevel]
+}
+
+/**
+ * Formats a log entry for console output
+ */
+function formatConsoleEntry(entry: AuditLogEntry, json: boolean): string {
+  if (json) {
+    return JSON.stringify(entry)
+  }
+
+  const parts: string[] = [
+    "[" + entry.timestamp + "]",
+    "[" + entry.level.toUpperCase() + "]",
+    "[" + entry.event + "]",
+  ]
+
+  if (entry.brandName) {
+    parts.push("[" + entry.brandName + "]")
+  }
+
+  parts.push(entry.message)
+
+  if (entry.duration !== undefined) {
+    parts.push("(" + entry.duration + "ms)")
+  }
+
+  return parts.join(" ")
+}
+
+/**
+ * Outputs entry to console
+ */
+function outputToConsole(entry: AuditLogEntry, config: AuditLoggerConfig): void {
+  if (!config.consoleOutput) return
+
+  const formatted = formatConsoleEntry(entry, config.jsonOutput || false)
+
+  switch (entry.level) {
+    case "debug":
+      console.debug(formatted)
+      break
+    case "info":
+      console.info(formatted)
+      break
+    case "warn":
+      console.warn(formatted)
+      break
+    case "error":
+      console.error(formatted)
+      if (entry.error?.stack && config.includeStackTraces) {
+        console.error(entry.error.stack)
+      }
+      break
+  }
+}
+
+/**
+ * Configures the audit logger
+ *
+ * @param config - Logger configuration
+ *
+ * @example
+ * ```typescript
+ * // Set to debug mode with JSON output
+ * configureAuditLogger({
+ *   level: "debug",
+ *   jsonOutput: true,
+ *   consoleOutput: true,
+ * })
+ *
+ * // Production configuration
+ * configureAuditLogger({
+ *   level: "warn",
+ *   consoleOutput: false,
+ *   handler: (entry) => sendToLoggingService(entry),
+ * })
+ * ```
+ */
+export function configureAuditLogger(config: Partial<AuditLoggerConfig>): void {
+  auditLoggerState.config = {
+    ...auditLoggerState.config,
+    ...config,
+  }
+}
+
+/**
+ * Enables or disables the audit logger
+ *
+ * @param enabled - Whether logging is enabled
+ */
+export function setAuditLoggerEnabled(enabled: boolean): void {
+  auditLoggerState.isEnabled = enabled
+}
+
+/**
+ * Gets the current logger configuration
+ */
+export function getAuditLoggerConfig(): AuditLoggerConfig {
+  return { ...auditLoggerState.config }
+}
+
+/**
+ * Logs an audit event
+ *
+ * @param event - Event type
+ * @param level - Log level
+ * @param message - Human-readable message
+ * @param options - Additional options
+ *
+ * @example
+ * ```typescript
+ * // Log a load event
+ * logAuditEvent("load_start", "info", "Loading brand kit", {
+ *   brandName: "my-brand",
+ *   context: { source: "url", url: "https://..." },
+ * })
+ *
+ * // Log an error
+ * logAuditEvent("load_error", "error", "Failed to load brand kit", {
+ *   brandName: "my-brand",
+ *   error: new Error("Network error"),
+ * })
+ * ```
+ */
+export function logAuditEvent(
+  event: AuditEventType,
+  level: AuditLogLevel,
+  message: string,
+  options: {
+    brandName?: string
+    context?: Record<string, unknown>
+    error?: Error
+    duration?: number
+    source?: string
+  } = {}
+): AuditLogEntry | null {
+  if (!auditLoggerState.isEnabled) return null
+
+  const { config } = auditLoggerState
+
+  // Check log level
+  if (!shouldLog(level, config.level)) return null
+
+  // Check event filter
+  if (config.eventFilter && !config.eventFilter.includes(event)) return null
+
+  // Check brand filter
+  if (config.brandFilter && options.brandName && !config.brandFilter.includes(options.brandName)) {
+    return null
+  }
+
+  const entry: AuditLogEntry = {
+    id: generateEntryId(),
+    event,
+    level,
+    timestamp: formatTimestamp(config),
+    message,
+    brandName: options.brandName,
+    context: options.context,
+    duration: options.duration,
+    source: options.source,
+  }
+
+  if (options.error) {
+    entry.error = {
+      name: options.error.name,
+      message: options.error.message,
+      stack: config.includeStackTraces ? options.error.stack : undefined,
+    }
+  }
+
+  // Store entry
+  auditLoggerState.entries.push(entry)
+
+  // Trim entries if exceeding max
+  if (config.maxEntries && auditLoggerState.entries.length > config.maxEntries) {
+    auditLoggerState.entries = auditLoggerState.entries.slice(-config.maxEntries)
+  }
+
+  // Output to console
+  outputToConsole(entry, config)
+
+  // Call custom handler
+  if (config.handler) {
+    try {
+      config.handler(entry)
+    } catch {
+      // Ignore handler errors to prevent logging loops
+    }
+  }
+
+  return entry
+}
+
+/**
+ * Starts timing an operation
+ *
+ * @param operationId - Unique identifier for the operation
+ * @returns The operation ID for use with endTiming
+ */
+export function startAuditTiming(operationId: string): string {
+  auditLoggerState.startTimes.set(operationId, performance.now())
+  return operationId
+}
+
+/**
+ * Ends timing and logs the operation
+ *
+ * @param operationId - Operation ID from startAuditTiming
+ * @param event - Event type to log
+ * @param message - Message for the log entry
+ * @param options - Additional options
+ * @returns Duration in milliseconds
+ */
+export function endAuditTiming(
+  operationId: string,
+  event: AuditEventType,
+  message: string,
+  options: {
+    level?: AuditLogLevel
+    brandName?: string
+    context?: Record<string, unknown>
+    error?: Error
+  } = {}
+): number {
+  const startTime = auditLoggerState.startTimes.get(operationId)
+  const duration = startTime ? Math.round(performance.now() - startTime) : 0
+
+  auditLoggerState.startTimes.delete(operationId)
+
+  logAuditEvent(event, options.level || "info", message, {
+    ...options,
+    duration,
+  })
+
+  return duration
+}
+
+/**
+ * Gets all audit log entries
+ *
+ * @param filter - Optional filter criteria
+ * @returns Array of log entries
+ */
+export function getAuditLogs(
+  filter?: {
+    level?: AuditLogLevel
+    event?: AuditEventType | AuditEventType[]
+    brandName?: string
+    since?: Date | string
+    limit?: number
+  }
+): AuditLogEntry[] {
+  let entries = [...auditLoggerState.entries]
+
+  if (filter) {
+    if (filter.level) {
+      const minLevel = LOG_LEVEL_VALUES[filter.level]
+      entries = entries.filter((e) => LOG_LEVEL_VALUES[e.level] >= minLevel)
+    }
+
+    if (filter.event) {
+      const events = Array.isArray(filter.event) ? filter.event : [filter.event]
+      entries = entries.filter((e) => events.includes(e.event))
+    }
+
+    if (filter.brandName) {
+      entries = entries.filter((e) => e.brandName === filter.brandName)
+    }
+
+    if (filter.since) {
+      const sinceTime = new Date(filter.since).getTime()
+      entries = entries.filter((e) => new Date(e.timestamp).getTime() >= sinceTime)
+    }
+
+    if (filter.limit) {
+      entries = entries.slice(-filter.limit)
+    }
+  }
+
+  return entries
+}
+
+/**
+ * Clears all audit log entries
+ */
+export function clearAuditLogs(): void {
+  auditLoggerState.entries = []
+  auditLoggerState.startTimes.clear()
+}
+
+/**
+ * Resets the audit logger to default configuration
+ */
+export function resetAuditLogger(): void {
+  auditLoggerState = {
+    config: { ...DEFAULT_LOGGER_CONFIG },
+    entries: [],
+    entryCounter: 0,
+    startTimes: new Map(),
+    isEnabled: true,
+  }
+}
+
+/**
+ * Creates a scoped logger for a specific brand
+ *
+ * @param brandName - Brand name for all log entries
+ * @returns Scoped logging functions
+ *
+ * @example
+ * ```typescript
+ * const logger = createBrandLogger("my-brand")
+ *
+ * logger.debug("Starting load")
+ * logger.info("Loaded successfully")
+ * logger.warn("Using fallback colors")
+ * logger.error("Validation failed", new Error("Invalid config"))
+ * ```
+ */
+export function createBrandLogger(brandName: string): {
+  debug: (message: string, context?: Record<string, unknown>) => void
+  info: (message: string, context?: Record<string, unknown>) => void
+  warn: (message: string, context?: Record<string, unknown>) => void
+  error: (message: string, error?: Error, context?: Record<string, unknown>) => void
+  time: (operationId: string) => string
+  timeEnd: (operationId: string, message: string, event?: AuditEventType) => number
+} {
+  return {
+    debug: (message, context) =>
+      logAuditEvent("custom", "debug", message, { brandName, context }),
+    info: (message, context) =>
+      logAuditEvent("custom", "info", message, { brandName, context }),
+    warn: (message, context) =>
+      logAuditEvent("custom", "warn", message, { brandName, context }),
+    error: (message, error, context) =>
+      logAuditEvent("custom", "error", message, { brandName, error, context }),
+    time: (operationId) => startAuditTiming(brandName + ":" + operationId),
+    timeEnd: (operationId, message, event = "custom") =>
+      endAuditTiming(brandName + ":" + operationId, event, message, { brandName }),
+  }
+}
+
+/**
+ * Formats audit logs into a human-readable report
+ *
+ * @param entries - Log entries to format
+ * @param options - Formatting options
+ * @returns Formatted report string
+ */
+export function formatAuditLogReport(
+  entries?: AuditLogEntry[],
+  options: {
+    groupByBrand?: boolean
+    groupByEvent?: boolean
+    includeContext?: boolean
+  } = {}
+): string {
+  const { groupByBrand = false, groupByEvent = false, includeContext = false } = options
+  const logsToFormat = entries || auditLoggerState.entries
+
+  const lines: string[] = []
+  const divider = "═".repeat(60)
+
+  lines.push(divider)
+  lines.push("Audit Log Report")
+  lines.push(divider)
+  lines.push("")
+  lines.push("Total Entries: " + logsToFormat.length)
+  lines.push("Generated: " + new Date().toISOString())
+  lines.push("")
+
+  // Summary by level
+  const byLevel: Record<AuditLogLevel, number> = {
+    debug: 0,
+    info: 0,
+    warn: 0,
+    error: 0,
+    silent: 0,
+  }
+  for (const entry of logsToFormat) {
+    byLevel[entry.level]++
+  }
+
+  lines.push("─".repeat(60))
+  lines.push("Summary by Level")
+  lines.push("─".repeat(60))
+  lines.push("  Debug:  " + byLevel.debug)
+  lines.push("  Info:   " + byLevel.info)
+  lines.push("  Warn:   " + byLevel.warn)
+  lines.push("  Error:  " + byLevel.error)
+  lines.push("")
+
+  if (groupByBrand) {
+    const byBrand = new Map<string, AuditLogEntry[]>()
+    for (const entry of logsToFormat) {
+      const brand = entry.brandName || "(no brand)"
+      const existing = byBrand.get(brand) || []
+      existing.push(entry)
+      byBrand.set(brand, existing)
+    }
+
+    lines.push("─".repeat(60))
+    lines.push("By Brand")
+    lines.push("─".repeat(60))
+    for (const [brand, brandEntries] of byBrand) {
+      lines.push("")
+      lines.push("  " + brand + " (" + brandEntries.length + " entries)")
+      for (const entry of brandEntries.slice(-5)) {
+        lines.push("    [" + entry.level + "] " + entry.message)
+      }
+    }
+    lines.push("")
+  } else if (groupByEvent) {
+    const byEvent = new Map<AuditEventType, AuditLogEntry[]>()
+    for (const entry of logsToFormat) {
+      const existing = byEvent.get(entry.event) || []
+      existing.push(entry)
+      byEvent.set(entry.event, existing)
+    }
+
+    lines.push("─".repeat(60))
+    lines.push("By Event Type")
+    lines.push("─".repeat(60))
+    for (const [event, eventEntries] of byEvent) {
+      lines.push("  " + event + ": " + eventEntries.length)
+    }
+    lines.push("")
+  } else {
+    // Chronological list
+    lines.push("─".repeat(60))
+    lines.push("Recent Entries (last 20)")
+    lines.push("─".repeat(60))
+
+    for (const entry of logsToFormat.slice(-20)) {
+      lines.push("")
+      lines.push("  [" + entry.timestamp + "] [" + entry.level.toUpperCase() + "]")
+      lines.push("  Event: " + entry.event)
+      if (entry.brandName) {
+        lines.push("  Brand: " + entry.brandName)
+      }
+      lines.push("  Message: " + entry.message)
+      if (entry.duration !== undefined) {
+        lines.push("  Duration: " + entry.duration + "ms")
+      }
+      if (entry.error) {
+        lines.push("  Error: " + entry.error.name + ": " + entry.error.message)
+      }
+      if (includeContext && entry.context) {
+        lines.push("  Context: " + JSON.stringify(entry.context))
+      }
+    }
+    lines.push("")
+  }
+
+  lines.push(divider)
+
+  return lines.join("\n")
+}
+
+/**
+ * Exports audit logs to JSON
+ *
+ * @param entries - Entries to export (defaults to all)
+ * @returns JSON string
+ */
+export function exportAuditLogsJson(entries?: AuditLogEntry[]): string {
+  const logsToExport = entries || auditLoggerState.entries
+  return JSON.stringify({
+    exportedAt: new Date().toISOString(),
+    totalEntries: logsToExport.length,
+    entries: logsToExport,
+  }, null, 2)
+}

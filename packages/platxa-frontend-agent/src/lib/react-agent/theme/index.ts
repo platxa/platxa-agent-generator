@@ -410,6 +410,19 @@ export {
   generateNextCspConfig,
   validateCsp,
   formatCspReport,
+  // Audit Logging (Feature #123)
+  configureAuditLogger,
+  setAuditLoggerEnabled,
+  getAuditLoggerConfig,
+  logAuditEvent,
+  startAuditTiming,
+  endAuditTiming,
+  getAuditLogs,
+  clearAuditLogs,
+  resetAuditLogger,
+  createBrandLogger,
+  formatAuditLogReport,
+  exportAuditLogsJson,
 } from "./theme-worker"
 
 export type {
@@ -633,6 +646,11 @@ export type {
   CspSource,
   CspConfig,
   CspResult,
+  // Audit Logging (Feature #123)
+  AuditLogLevel,
+  AuditEventType,
+  AuditLogEntry,
+  AuditLoggerConfig,
 } from "./theme-worker"
 
 // Token presets
