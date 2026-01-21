@@ -1574,6 +1574,275 @@ export function getMappingRule(
   return config[mode][token]
 }
 
+// =============================================================================
+// COMPONENT TOKEN GENERATION (Feature #72)
+// =============================================================================
+
+/**
+ * Button component tokens
+ */
+export interface ButtonTokens {
+  /** Default button background */
+  background: string
+  /** Default button text color */
+  foreground: string
+  /** Hover state background */
+  hoverBackground: string
+  /** Active/pressed state background */
+  activeBackground: string
+  /** Disabled state background */
+  disabledBackground: string
+  /** Disabled state text color */
+  disabledForeground: string
+  /** Border color */
+  border: string
+  /** Focus ring color */
+  ring: string
+  /** Border radius */
+  radius: string
+}
+
+/**
+ * Card component tokens
+ */
+export interface CardTokens {
+  /** Card background */
+  background: string
+  /** Card text color */
+  foreground: string
+  /** Card border color */
+  border: string
+  /** Card shadow */
+  shadow: string
+  /** Header background (slightly different) */
+  headerBackground: string
+  /** Footer background */
+  footerBackground: string
+  /** Border radius */
+  radius: string
+}
+
+/**
+ * Input component tokens
+ */
+export interface InputTokens {
+  /** Input background */
+  background: string
+  /** Input text color */
+  foreground: string
+  /** Placeholder text color */
+  placeholder: string
+  /** Border color */
+  border: string
+  /** Focus border color */
+  focusBorder: string
+  /** Focus ring color */
+  ring: string
+  /** Error state border */
+  errorBorder: string
+  /** Disabled background */
+  disabledBackground: string
+  /** Border radius */
+  radius: string
+}
+
+/**
+ * All component tokens
+ */
+export interface ComponentTokens {
+  button: ButtonTokens
+  card: CardTokens
+  input: InputTokens
+}
+
+/**
+ * Generate button component tokens from semantic colors (Feature #72)
+ *
+ * @param colors - Semantic colors
+ * @param radius - Border radius value
+ * @returns Button tokens
+ *
+ * @example
+ * ```typescript
+ * const buttonTokens = generateButtonTokens(semanticColors)
+ * // Use in CSS: var(--button-background)
+ * ```
+ */
+export function generateButtonTokens(
+  colors: SemanticColors,
+  radius: string = "0.5rem"
+): ButtonTokens {
+  return {
+    background: String(colors.primary),
+    foreground: String(colors.primaryForeground),
+    hoverBackground: String(colors.primary) + " / 0.9",
+    activeBackground: String(colors.primary) + " / 0.8",
+    disabledBackground: String(colors.muted),
+    disabledForeground: String(colors.mutedForeground),
+    border: "transparent",
+    ring: String(colors.ring),
+    radius,
+  }
+}
+
+/**
+ * Generate card component tokens from semantic colors (Feature #72)
+ *
+ * @param colors - Semantic colors
+ * @param radius - Border radius value
+ * @returns Card tokens
+ */
+export function generateCardTokens(
+  colors: SemanticColors,
+  radius: string = "0.75rem"
+): CardTokens {
+  return {
+    background: String(colors.card),
+    foreground: String(colors.cardForeground),
+    border: String(colors.border),
+    shadow: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+    headerBackground: String(colors.muted),
+    footerBackground: String(colors.muted),
+    radius,
+  }
+}
+
+/**
+ * Generate input component tokens from semantic colors (Feature #72)
+ *
+ * @param colors - Semantic colors
+ * @param radius - Border radius value
+ * @returns Input tokens
+ */
+export function generateInputTokens(
+  colors: SemanticColors,
+  radius: string = "0.375rem"
+): InputTokens {
+  return {
+    background: String(colors.background),
+    foreground: String(colors.foreground),
+    placeholder: String(colors.mutedForeground),
+    border: String(colors.input),
+    focusBorder: String(colors.ring),
+    ring: String(colors.ring),
+    errorBorder: String(colors.destructive),
+    disabledBackground: String(colors.muted),
+    radius,
+  }
+}
+
+/**
+ * Generate all component tokens from semantic colors (Feature #72)
+ *
+ * Creates tokens for buttons, cards, and inputs that can be used
+ * as CSS variables or in component styling.
+ *
+ * @param colors - Semantic colors (light or dark mode)
+ * @param options - Optional radius customization
+ * @returns Complete component tokens
+ *
+ * @example Basic usage
+ * ```typescript
+ * const tokens = generateComponentTokens(brandKit.semantics.light)
+ *
+ * // Access specific component tokens
+ * console.log(tokens.button.background) // Primary color
+ * console.log(tokens.card.shadow) // Box shadow
+ * console.log(tokens.input.placeholder) // Muted foreground
+ * ```
+ *
+ * @example Generate CSS variables
+ * ```typescript
+ * const tokens = generateComponentTokens(colors)
+ * const css = `
+ *   --button-bg: ${tokens.button.background};
+ *   --button-fg: ${tokens.button.foreground};
+ *   --card-bg: ${tokens.card.background};
+ *   --input-border: ${tokens.input.border};
+ * `
+ * ```
+ */
+export function generateComponentTokens(
+  colors: SemanticColors,
+  options: {
+    buttonRadius?: string
+    cardRadius?: string
+    inputRadius?: string
+  } = {}
+): ComponentTokens {
+  const {
+    buttonRadius = "0.5rem",
+    cardRadius = "0.75rem",
+    inputRadius = "0.375rem",
+  } = options
+
+  return {
+    button: generateButtonTokens(colors, buttonRadius),
+    card: generateCardTokens(colors, cardRadius),
+    input: generateInputTokens(colors, inputRadius),
+  }
+}
+
+/**
+ * Generate component tokens CSS variables (Feature #72)
+ *
+ * Creates CSS variable declarations for all component tokens.
+ *
+ * @param tokens - Component tokens
+ * @param prefix - CSS variable prefix (default: "")
+ * @returns CSS string with variable declarations
+ *
+ * @example
+ * ```typescript
+ * const tokens = generateComponentTokens(colors)
+ * const css = generateComponentTokensCss(tokens, "cmp")
+ * // Result:
+ * // --cmp-button-bg: ...;
+ * // --cmp-button-fg: ...;
+ * // etc.
+ * ```
+ */
+export function generateComponentTokensCss(
+  tokens: ComponentTokens,
+  prefix: string = ""
+): string {
+  const p = prefix ? `${prefix}-` : ""
+  const lines: string[] = []
+
+  // Button tokens
+  lines.push(`--${p}button-bg: ${tokens.button.background};`)
+  lines.push(`--${p}button-fg: ${tokens.button.foreground};`)
+  lines.push(`--${p}button-hover-bg: ${tokens.button.hoverBackground};`)
+  lines.push(`--${p}button-active-bg: ${tokens.button.activeBackground};`)
+  lines.push(`--${p}button-disabled-bg: ${tokens.button.disabledBackground};`)
+  lines.push(`--${p}button-disabled-fg: ${tokens.button.disabledForeground};`)
+  lines.push(`--${p}button-border: ${tokens.button.border};`)
+  lines.push(`--${p}button-ring: ${tokens.button.ring};`)
+  lines.push(`--${p}button-radius: ${tokens.button.radius};`)
+
+  // Card tokens
+  lines.push(`--${p}card-bg: ${tokens.card.background};`)
+  lines.push(`--${p}card-fg: ${tokens.card.foreground};`)
+  lines.push(`--${p}card-border: ${tokens.card.border};`)
+  lines.push(`--${p}card-shadow: ${tokens.card.shadow};`)
+  lines.push(`--${p}card-header-bg: ${tokens.card.headerBackground};`)
+  lines.push(`--${p}card-footer-bg: ${tokens.card.footerBackground};`)
+  lines.push(`--${p}card-radius: ${tokens.card.radius};`)
+
+  // Input tokens
+  lines.push(`--${p}input-bg: ${tokens.input.background};`)
+  lines.push(`--${p}input-fg: ${tokens.input.foreground};`)
+  lines.push(`--${p}input-placeholder: ${tokens.input.placeholder};`)
+  lines.push(`--${p}input-border: ${tokens.input.border};`)
+  lines.push(`--${p}input-focus-border: ${tokens.input.focusBorder};`)
+  lines.push(`--${p}input-ring: ${tokens.input.ring};`)
+  lines.push(`--${p}input-error-border: ${tokens.input.errorBorder};`)
+  lines.push(`--${p}input-disabled-bg: ${tokens.input.disabledBackground};`)
+  lines.push(`--${p}input-radius: ${tokens.input.radius};`)
+
+  return lines.join("\n")
+}
+
 /**
  * Normalize spacing scale
  */

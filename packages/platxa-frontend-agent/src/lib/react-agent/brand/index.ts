@@ -117,6 +117,12 @@ export {
   mapPrimitivesToSemantics,
   createMappingConfig,
   getMappingRule,
+  // Component Token Generation (Feature #72)
+  generateButtonTokens,
+  generateCardTokens,
+  generateInputTokens,
+  generateComponentTokens,
+  generateComponentTokensCss,
   // State Management
   getBrandLoadingState,
   getCurrentBrandKit,
@@ -183,6 +189,11 @@ export type {
   // Semantic Token Mapping (Feature #71)
   SemanticTokenMappingRule,
   SemanticTokenMappingConfig,
+  // Component Token Generation (Feature #72)
+  ButtonTokens,
+  CardTokens,
+  InputTokens,
+  ComponentTokens,
 } from "./loader"
 
 // Types
