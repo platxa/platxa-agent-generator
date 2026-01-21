@@ -1,32 +1,32 @@
 {
-  "session_id": "2c5130e0a0ed",
+  "session_id": "cf33a850a227",
   "stack": {
     "session": {
-      "id": "2c5130e0a0ed-177",
-      "text": "[Theme Integration Features] Feature #114: [Theme Preview Generator] Generate preview images of theme colors Verification: Color palette image generated; Component preview generated; Light/dark comparison Criteria: Manual verification required",
+      "id": "cf33a850a227-179",
+      "text": "[Theme Integration Features] Feature #115: [CSS-in-JS Integration] Support for styled-components/Emotion token injection Verification: ThemeProvider export available; Theme object compatible format; TypeScript types provided Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768999065.4303215,
-      "updated_at": 1768999065.4303215,
+      "created_at": 1768999551.0610607,
+      "updated_at": 1768999551.0610607,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 114,
+        "feature_id": 115,
         "category": "Theme Integration Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "2c5130e0a0ed-178",
-      "text": "Implement: [Theme Preview Generator] Generate preview images of theme colors Verification: Color palette image generated; Component preview generated; Light/dark comparison",
+      "id": "cf33a850a227-180",
+      "text": "Implement: [CSS-in-JS Integration] Support for styled-components/Emotion token injection Verification: ThemeProvider export available; Theme object compatible format; TypeScript types provided",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768999065.4361577,
-      "updated_at": 1768999065.436158,
+      "created_at": 1768999551.0671396,
+      "updated_at": 1768999551.0671399,
       "completed_at": null,
-      "parent_id": "2c5130e0a0ed-177",
+      "parent_id": "cf33a850a227-179",
       "metadata": {},
       "keywords": []
     },
@@ -2613,9 +2613,38 @@
       "parent_id": "2c5130e0a0ed-177",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "cf33a850a227-179",
+      "text": "[Theme Integration Features] Feature #115: [CSS-in-JS Integration] Support for styled-components/Emotion token injection Verification: ThemeProvider export available; Theme object compatible format; TypeScript types provided Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768999551.0610607,
+      "updated_at": 1768999551.0610607,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 115,
+        "category": "Theme Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "cf33a850a227-180",
+      "text": "Implement: [CSS-in-JS Integration] Support for styled-components/Emotion token injection Verification: ThemeProvider export available; Theme object compatible format; TypeScript types provided",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768999551.0671396,
+      "updated_at": 1768999551.0671399,
+      "completed_at": null,
+      "parent_id": "cf33a850a227-179",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 178,
+  "intent_counter": 180,
   "created_at": 1768900061.32227,
-  "updated_at": 1768999065.4361622
+  "updated_at": 1768999551.067146
 }

@@ -358,6 +358,13 @@ export {
   generateComponentPreviewSvg,
   generateLightDarkComparisonSvg,
   generateThemePreview,
+  // CSS-in-JS Integration (Feature #115)
+  generateCssInJsTheme,
+  generateStyledComponentsTheme,
+  generateEmotionTheme,
+  generateStitchesConfig,
+  generateVanillaExtractTheme,
+  createCssInJsThemePackage,
 } from "./theme-worker"
 
 export type {
@@ -532,6 +539,12 @@ export type {
   // Theme Preview Generator (Feature #114)
   ThemePreviewConfig,
   ThemePreviewResult,
+  // CSS-in-JS Integration (Feature #115)
+  CssInJsLibrary,
+  CssInJsTheme,
+  CssInJsDualTheme,
+  CssInJsThemeConfig,
+  CssInJsThemeResult,
 } from "./theme-worker"
 
 // Token presets

@@ -17000,3 +17000,1209 @@ function convertColorToString(value: ColorValue): string {
   }
   return "#888888"
 }
+
+// =============================================================================
+// Feature #115: CSS-in-JS Integration
+// =============================================================================
+
+/**
+ * CSS-in-JS library types
+ */
+export type CssInJsLibrary = "styled-components" | "emotion" | "stitches" | "vanilla-extract"
+
+/**
+ * Theme structure for styled-components/Emotion
+ * Provides a flat, easy-to-access structure for CSS-in-JS libraries
+ */
+export interface CssInJsTheme {
+  colors: {
+    primary: string
+    primaryForeground: string
+    secondary: string
+    secondaryForeground: string
+    muted: string
+    mutedForeground: string
+    accent: string
+    accentForeground: string
+    destructive: string
+    destructiveForeground: string
+    background: string
+    foreground: string
+    card: string
+    cardForeground: string
+    popover: string
+    popoverForeground: string
+    border: string
+    input: string
+    ring: string
+  }
+  spacing: Record<string, string>
+  typography: {
+    fontSizes: Record<string, string>
+    lineHeights: Record<string, string>
+  }
+  fontWeights: Record<string, number>
+  fontFamily: {
+    sans: string
+    serif: string
+    mono: string
+  }
+  radii: Record<string, string>
+  shadows: Record<string, string>
+  breakpoints: Record<string, string>
+  zIndices: Record<string, number | string>
+}
+
+/**
+ * Dark mode aware theme structure
+ */
+export interface CssInJsDualTheme {
+  light: CssInJsTheme
+  dark: CssInJsTheme
+}
+
+/**
+ * Configuration for CSS-in-JS theme generation
+ */
+export interface CssInJsThemeConfig {
+  /** Target library */
+  library: CssInJsLibrary
+  /** Include TypeScript types in output */
+  includeTypes?: boolean
+  /** Use CSS variables as values (for runtime switching) */
+  useCssVariables?: boolean
+  /** Prefix for CSS variables */
+  cssVariablePrefix?: string
+  /** Include dark mode theme */
+  includeDarkMode?: boolean
+}
+
+/**
+ * Result of CSS-in-JS theme generation
+ */
+export interface CssInJsThemeResult {
+  /** The theme object */
+  theme: CssInJsTheme | CssInJsDualTheme
+  /** TypeScript type definitions */
+  typeDefinitions?: string
+  /** ThemeProvider wrapper code */
+  providerCode?: string
+  /** Usage example code */
+  usageExample: string
+  /** Library-specific notes */
+  notes: string[]
+}
+
+/**
+ * Converts SemanticColors to flat color record
+ */
+function semanticColorsToRecord(colors: SemanticColors): CssInJsTheme["colors"] {
+  return {
+    primary: convertColorToString(colors.primary),
+    primaryForeground: convertColorToString(colors.primaryForeground),
+    secondary: convertColorToString(colors.secondary),
+    secondaryForeground: convertColorToString(colors.secondaryForeground),
+    muted: convertColorToString(colors.muted),
+    mutedForeground: convertColorToString(colors.mutedForeground),
+    accent: convertColorToString(colors.accent),
+    accentForeground: convertColorToString(colors.accentForeground),
+    destructive: convertColorToString(colors.destructive),
+    destructiveForeground: convertColorToString(colors.destructiveForeground),
+    background: convertColorToString(colors.background),
+    foreground: convertColorToString(colors.foreground),
+    card: convertColorToString(colors.card),
+    cardForeground: convertColorToString(colors.cardForeground),
+    popover: convertColorToString(colors.popover),
+    popoverForeground: convertColorToString(colors.popoverForeground),
+    border: convertColorToString(colors.border),
+    input: convertColorToString(colors.input),
+    ring: convertColorToString(colors.ring),
+  }
+}
+
+/**
+ * Converts partial SemanticColors to flat color record with fallbacks
+ */
+function partialSemanticColorsToRecord(
+  colors: Partial<SemanticColors> | undefined,
+  fallback: CssInJsTheme["colors"]
+): CssInJsTheme["colors"] {
+  if (!colors) return fallback
+
+  const colorKeys: (keyof SemanticColors)[] = [
+    "primary",
+    "primaryForeground",
+    "secondary",
+    "secondaryForeground",
+    "muted",
+    "mutedForeground",
+    "accent",
+    "accentForeground",
+    "destructive",
+    "destructiveForeground",
+    "background",
+    "foreground",
+    "card",
+    "cardForeground",
+    "popover",
+    "popoverForeground",
+    "border",
+    "input",
+    "ring",
+  ]
+
+  const result: Record<string, string> = {}
+  for (const key of colorKeys) {
+    const value = colors[key]
+    result[key] = value ? convertColorToString(value) : fallback[key]
+  }
+
+  return result as CssInJsTheme["colors"]
+}
+
+/**
+ * Generates CSS variable references for theme values
+ */
+function generateCssVariableColors(prefix: string): CssInJsTheme["colors"] {
+  const p = prefix ? `${prefix}-` : ""
+  return {
+    primary: `var(--${p}primary)`,
+    primaryForeground: `var(--${p}primary-foreground)`,
+    secondary: `var(--${p}secondary)`,
+    secondaryForeground: `var(--${p}secondary-foreground)`,
+    muted: `var(--${p}muted)`,
+    mutedForeground: `var(--${p}muted-foreground)`,
+    accent: `var(--${p}accent)`,
+    accentForeground: `var(--${p}accent-foreground)`,
+    destructive: `var(--${p}destructive)`,
+    destructiveForeground: `var(--${p}destructive-foreground)`,
+    background: `var(--${p}background)`,
+    foreground: `var(--${p}foreground)`,
+    card: `var(--${p}card)`,
+    cardForeground: `var(--${p}card-foreground)`,
+    popover: `var(--${p}popover)`,
+    popoverForeground: `var(--${p}popover-foreground)`,
+    border: `var(--${p}border)`,
+    input: `var(--${p}input)`,
+    ring: `var(--${p}ring)`,
+  }
+}
+
+/**
+ * Converts DesignTokens to CssInJsTheme
+ */
+function designTokensToCssInJsTheme(
+  tokens: DesignTokens,
+  options: { useCssVariables?: boolean; cssVariablePrefix?: string } = {}
+): CssInJsTheme {
+  const { useCssVariables = false, cssVariablePrefix = "" } = options
+
+  // Colors
+  const colors = useCssVariables
+    ? generateCssVariableColors(cssVariablePrefix)
+    : semanticColorsToRecord(tokens.colors)
+
+  // Spacing
+  const spacing: Record<string, string> = {}
+  for (const [key, value] of Object.entries(tokens.spacing)) {
+    if (value !== undefined) {
+      spacing[key] = value
+    }
+  }
+
+  // Typography
+  const fontSizes: Record<string, string> = {}
+  const lineHeights: Record<string, string> = {}
+  for (const [key, value] of Object.entries(tokens.typography)) {
+    if (value !== undefined) {
+      fontSizes[key] = value.fontSize
+      lineHeights[key] = value.lineHeight
+    }
+  }
+
+  // Font weights
+  const fontWeights: Record<string, number> = {}
+  for (const [key, value] of Object.entries(tokens.fontWeight)) {
+    if (value !== undefined) {
+      fontWeights[key] = value
+    }
+  }
+
+  // Font family
+  const fontFamily = {
+    sans: tokens.fontFamily?.sans ?? "system-ui, sans-serif",
+    serif: tokens.fontFamily?.serif ?? "Georgia, serif",
+    mono: tokens.fontFamily?.mono ?? "monospace",
+  }
+
+  // Radii
+  const radii: Record<string, string> = {}
+  for (const [key, value] of Object.entries(tokens.radius)) {
+    if (value !== undefined) {
+      radii[key] = value
+    }
+  }
+
+  // Shadows
+  const shadows: Record<string, string> = {}
+  for (const [key, value] of Object.entries(tokens.shadow)) {
+    if (value !== undefined) {
+      shadows[key] = value
+    }
+  }
+
+  // Breakpoints
+  const breakpoints: Record<string, string> = {}
+  if (tokens.breakpoints) {
+    for (const [key, value] of Object.entries(tokens.breakpoints)) {
+      if (value !== undefined) {
+        breakpoints[key] = value
+      }
+    }
+  }
+
+  // Z-indices
+  const zIndices: Record<string, number | string> = {}
+  if (tokens.zIndex) {
+    for (const [key, value] of Object.entries(tokens.zIndex)) {
+      if (value !== undefined) {
+        zIndices[key] = value
+      }
+    }
+  }
+
+  return {
+    colors,
+    spacing,
+    typography: { fontSizes, lineHeights },
+    fontWeights,
+    fontFamily,
+    radii,
+    shadows,
+    breakpoints,
+    zIndices,
+  }
+}
+
+/**
+ * Generates TypeScript type definitions for the theme
+ */
+function generateThemeTypeDefinitions(library: CssInJsLibrary): string {
+  const baseType = `
+export interface Theme {
+  colors: {
+    primary: string
+    primaryForeground: string
+    secondary: string
+    secondaryForeground: string
+    muted: string
+    mutedForeground: string
+    accent: string
+    accentForeground: string
+    destructive: string
+    destructiveForeground: string
+    background: string
+    foreground: string
+    card: string
+    cardForeground: string
+    popover: string
+    popoverForeground: string
+    border: string
+    input: string
+    ring: string
+  }
+  spacing: Record<string, string>
+  typography: {
+    fontSizes: Record<string, string>
+    lineHeights: Record<string, string>
+  }
+  fontWeights: Record<string, number>
+  fontFamily: {
+    sans: string
+    serif: string
+    mono: string
+  }
+  radii: Record<string, string>
+  shadows: Record<string, string>
+  breakpoints: Record<string, string>
+  zIndices: Record<string, number | string>
+}
+`
+
+  switch (library) {
+    case "styled-components":
+      return `${baseType}
+// Extend DefaultTheme for styled-components
+import 'styled-components'
+
+declare module 'styled-components' {
+  export interface DefaultTheme extends Theme {}
+}
+`
+    case "emotion":
+      return `${baseType}
+// Extend Theme for @emotion/react
+import '@emotion/react'
+
+declare module '@emotion/react' {
+  export interface Theme extends Theme {}
+}
+`
+    case "stitches":
+      return `${baseType}
+// Stitches uses createStitches config, types are inferred
+export type { Theme }
+`
+    case "vanilla-extract":
+      return `${baseType}
+// For vanilla-extract, use createTheme
+export type { Theme }
+`
+    default:
+      return baseType
+  }
+}
+
+/**
+ * Generates ThemeProvider wrapper code for the specified library
+ */
+function generateThemeProviderCode(library: CssInJsLibrary, includeDarkMode: boolean): string {
+  switch (library) {
+    case "styled-components":
+      return includeDarkMode
+        ? `
+import { ThemeProvider as SCThemeProvider } from 'styled-components'
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { lightTheme, darkTheme } from './theme'
+
+type ThemeMode = 'light' | 'dark' | 'system'
+
+interface ThemeContextValue {
+  mode: ThemeMode
+  setMode: (mode: ThemeMode) => void
+  resolvedMode: 'light' | 'dark'
+}
+
+const ThemeContext = createContext<ThemeContextValue | null>(null)
+
+export function useThemeMode() {
+  const context = useContext(ThemeContext)
+  if (!context) {
+    throw new Error('useThemeMode must be used within ThemeProvider')
+  }
+  return context
+}
+
+interface ThemeProviderProps {
+  children: ReactNode
+  defaultMode?: ThemeMode
+}
+
+export function ThemeProvider({ children, defaultMode = 'system' }: ThemeProviderProps) {
+  const [mode, setMode] = useState<ThemeMode>(defaultMode)
+  const [resolvedMode, setResolvedMode] = useState<'light' | 'dark'>('light')
+
+  useEffect(() => {
+    if (mode === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      setResolvedMode(mediaQuery.matches ? 'dark' : 'light')
+
+      const handler = (e: MediaQueryListEvent) => {
+        setResolvedMode(e.matches ? 'dark' : 'light')
+      }
+
+      mediaQuery.addEventListener('change', handler)
+      return () => mediaQuery.removeEventListener('change', handler)
+    } else {
+      setResolvedMode(mode)
+    }
+  }, [mode])
+
+  const theme = resolvedMode === 'dark' ? darkTheme : lightTheme
+
+  return (
+    <ThemeContext.Provider value={{ mode, setMode, resolvedMode }}>
+      <SCThemeProvider theme={theme}>
+        {children}
+      </SCThemeProvider>
+    </ThemeContext.Provider>
+  )
+}
+`
+        : `
+import { ThemeProvider as SCThemeProvider } from 'styled-components'
+import { ReactNode } from 'react'
+import { theme } from './theme'
+
+interface ThemeProviderProps {
+  children: ReactNode
+}
+
+export function ThemeProvider({ children }: ThemeProviderProps) {
+  return (
+    <SCThemeProvider theme={theme}>
+      {children}
+    </SCThemeProvider>
+  )
+}
+`
+
+    case "emotion":
+      return includeDarkMode
+        ? `
+import { ThemeProvider as EmotionThemeProvider } from '@emotion/react'
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { lightTheme, darkTheme } from './theme'
+
+type ThemeMode = 'light' | 'dark' | 'system'
+
+interface ThemeContextValue {
+  mode: ThemeMode
+  setMode: (mode: ThemeMode) => void
+  resolvedMode: 'light' | 'dark'
+}
+
+const ThemeContext = createContext<ThemeContextValue | null>(null)
+
+export function useThemeMode() {
+  const context = useContext(ThemeContext)
+  if (!context) {
+    throw new Error('useThemeMode must be used within ThemeProvider')
+  }
+  return context
+}
+
+interface ThemeProviderProps {
+  children: ReactNode
+  defaultMode?: ThemeMode
+}
+
+export function ThemeProvider({ children, defaultMode = 'system' }: ThemeProviderProps) {
+  const [mode, setMode] = useState<ThemeMode>(defaultMode)
+  const [resolvedMode, setResolvedMode] = useState<'light' | 'dark'>('light')
+
+  useEffect(() => {
+    if (mode === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+      setResolvedMode(mediaQuery.matches ? 'dark' : 'light')
+
+      const handler = (e: MediaQueryListEvent) => {
+        setResolvedMode(e.matches ? 'dark' : 'light')
+      }
+
+      mediaQuery.addEventListener('change', handler)
+      return () => mediaQuery.removeEventListener('change', handler)
+    } else {
+      setResolvedMode(mode)
+    }
+  }, [mode])
+
+  const theme = resolvedMode === 'dark' ? darkTheme : lightTheme
+
+  return (
+    <ThemeContext.Provider value={{ mode, setMode, resolvedMode }}>
+      <EmotionThemeProvider theme={theme}>
+        {children}
+      </EmotionThemeProvider>
+    </ThemeContext.Provider>
+  )
+}
+`
+        : `
+import { ThemeProvider as EmotionThemeProvider } from '@emotion/react'
+import { ReactNode } from 'react'
+import { theme } from './theme'
+
+interface ThemeProviderProps {
+  children: ReactNode
+}
+
+export function ThemeProvider({ children }: ThemeProviderProps) {
+  return (
+    <EmotionThemeProvider theme={theme}>
+      {children}
+    </EmotionThemeProvider>
+  )
+}
+`
+
+    case "stitches":
+      return `
+// Stitches uses createTheme instead of ThemeProvider
+import { createStitches, createTheme } from '@stitches/react'
+import { theme } from './theme'
+
+const { styled, css, globalCss, keyframes, getCssText } = createStitches({
+  theme: theme,
+})
+
+// Create dark theme variant
+export const darkTheme = createTheme('dark', {
+  colors: theme.colors, // Override with dark colors
+})
+
+export { styled, css, globalCss, keyframes, getCssText }
+`
+
+    case "vanilla-extract":
+      return `
+// vanilla-extract uses createTheme at build time
+import { createTheme, createThemeContract } from '@vanilla-extract/css'
+import { theme } from './theme'
+
+// Create a theme contract for type-safe themes
+export const themeContract = createThemeContract({
+  colors: {
+    primary: null,
+    primaryForeground: null,
+    secondary: null,
+    secondaryForeground: null,
+    background: null,
+    foreground: null,
+    // ... add other colors
+  },
+  spacing: {},
+  radii: {},
+})
+
+// Create light theme
+export const lightThemeClass = createTheme(themeContract, theme)
+
+// Create dark theme (override colors)
+export const darkThemeClass = createTheme(themeContract, {
+  colors: theme.colors, // Override with dark colors
+  spacing: theme.spacing,
+  radii: theme.radii,
+})
+`
+
+    default:
+      return ""
+  }
+}
+
+/**
+ * Generates usage example code for the specified library
+ */
+function generateUsageExample(library: CssInJsLibrary): string {
+  switch (library) {
+    case "styled-components":
+      return `
+// Usage with styled-components
+import styled from 'styled-components'
+
+const Button = styled.button\`
+  background-color: \${({ theme }) => theme.colors.primary};
+  color: \${({ theme }) => theme.colors.primaryForeground};
+  padding: \${({ theme }) => theme.spacing['2']} \${({ theme }) => theme.spacing['4']};
+  border-radius: \${({ theme }) => theme.radii.md};
+  font-size: \${({ theme }) => theme.typography.fontSizes.sm};
+  font-weight: \${({ theme }) => theme.fontWeights.medium};
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 0.9;
+  }
+
+  &:focus {
+    box-shadow: 0 0 0 2px \${({ theme }) => theme.colors.ring};
+  }
+\`
+
+// In your app
+import { ThemeProvider } from './ThemeProvider'
+
+function App() {
+  return (
+    <ThemeProvider>
+      <Button>Click me</Button>
+    </ThemeProvider>
+  )
+}
+`
+
+    case "emotion":
+      return `
+// Usage with @emotion/react
+import styled from '@emotion/styled'
+import { css, useTheme } from '@emotion/react'
+
+const Button = styled.button\`
+  background-color: \${({ theme }) => theme.colors.primary};
+  color: \${({ theme }) => theme.colors.primaryForeground};
+  padding: \${({ theme }) => theme.spacing['2']} \${({ theme }) => theme.spacing['4']};
+  border-radius: \${({ theme }) => theme.radii.md};
+  font-size: \${({ theme }) => theme.typography.fontSizes.sm};
+  font-weight: \${({ theme }) => theme.fontWeights.medium};
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 0.9;
+  }
+\`
+
+// Using css prop
+function Card({ children }) {
+  const theme = useTheme()
+  return (
+    <div
+      css={css\`
+        background: \${theme.colors.card};
+        color: \${theme.colors.cardForeground};
+        border-radius: \${theme.radii.lg};
+        padding: \${theme.spacing['4']};
+      \`}
+    >
+      {children}
+    </div>
+  )
+}
+
+// In your app
+import { ThemeProvider } from './ThemeProvider'
+
+function App() {
+  return (
+    <ThemeProvider>
+      <Button>Click me</Button>
+      <Card>Content</Card>
+    </ThemeProvider>
+  )
+}
+`
+
+    case "stitches":
+      return `
+// Usage with Stitches
+import { styled, darkTheme } from './stitches.config'
+
+const Button = styled('button', {
+  backgroundColor: '$primary',
+  color: '$primaryForeground',
+  padding: '$2 $4',
+  borderRadius: '$md',
+  fontSize: '$sm',
+  fontWeight: '$medium',
+  border: 'none',
+  cursor: 'pointer',
+  transition: 'opacity 0.2s',
+
+  '&:hover': {
+    opacity: 0.9,
+  },
+})
+
+// In your app (toggle dark mode by adding class to body)
+function App() {
+  const [isDark, setIsDark] = useState(false)
+
+  return (
+    <div className={isDark ? darkTheme : undefined}>
+      <Button onClick={() => setIsDark(!isDark)}>
+        Toggle Theme
+      </Button>
+    </div>
+  )
+}
+`
+
+    case "vanilla-extract":
+      return `
+// Usage with vanilla-extract
+import { style } from '@vanilla-extract/css'
+import { themeContract, lightThemeClass, darkThemeClass } from './theme.css'
+
+// Define styles in .css.ts files
+export const button = style({
+  backgroundColor: themeContract.colors.primary,
+  color: themeContract.colors.primaryForeground,
+  padding: \`\${themeContract.spacing['2']} \${themeContract.spacing['4']}\`,
+  borderRadius: themeContract.radii.md,
+  border: 'none',
+  cursor: 'pointer',
+})
+
+// In your app (toggle dark mode by adding class to html/body)
+function App() {
+  const [isDark, setIsDark] = useState(false)
+
+  return (
+    <html className={isDark ? darkThemeClass : lightThemeClass}>
+      <body>
+        <button className={button} onClick={() => setIsDark(!isDark)}>
+          Toggle Theme
+        </button>
+      </body>
+    </html>
+  )
+}
+`
+
+    default:
+      return ""
+  }
+}
+
+/**
+ * Gets library-specific notes and recommendations
+ */
+function getLibraryNotes(library: CssInJsLibrary, useCssVariables: boolean): string[] {
+  const notes: string[] = []
+
+  switch (library) {
+    case "styled-components":
+      notes.push("Install: npm install styled-components")
+      notes.push("For TypeScript: npm install -D @types/styled-components")
+      notes.push("Use the ThemeProvider at the root of your app")
+      if (useCssVariables) {
+        notes.push(
+          "CSS variables mode allows runtime theme switching without re-renders"
+        )
+      }
+      break
+
+    case "emotion":
+      notes.push("Install: npm install @emotion/react @emotion/styled")
+      notes.push("Add jsxImportSource: '@emotion/react' to tsconfig for css prop")
+      notes.push("Use the ThemeProvider at the root of your app")
+      if (useCssVariables) {
+        notes.push(
+          "CSS variables mode allows runtime theme switching without re-renders"
+        )
+      }
+      break
+
+    case "stitches":
+      notes.push("Install: npm install @stitches/react")
+      notes.push("Stitches generates atomic CSS classes for optimal performance")
+      notes.push("Use createTheme for dark mode instead of ThemeProvider")
+      notes.push("Apply theme class to html or body element")
+      break
+
+    case "vanilla-extract":
+      notes.push("Install: npm install @vanilla-extract/css")
+      notes.push("Requires build-time CSS extraction (Vite, Next.js, etc.)")
+      notes.push("Styles are defined in .css.ts files")
+      notes.push("Zero runtime - all CSS is extracted at build time")
+      notes.push("Apply theme class to html or body element")
+      break
+  }
+
+  return notes
+}
+
+/**
+ * Generates a CSS-in-JS compatible theme from a ThemeConfig
+ *
+ * @param config - The theme configuration
+ * @param options - CSS-in-JS generation options
+ * @returns CSS-in-JS theme result with theme object, types, and provider code
+ *
+ * @example
+ * ```typescript
+ * const result = generateCssInJsTheme(myBrand, {
+ *   library: "styled-components",
+ *   includeTypes: true,
+ *   includeDarkMode: true,
+ * })
+ *
+ * // result.theme - The theme object to use with ThemeProvider
+ * // result.typeDefinitions - TypeScript declarations
+ * // result.providerCode - Ready-to-use ThemeProvider component
+ * // result.usageExample - Example code for using the theme
+ * ```
+ */
+export function generateCssInJsTheme(
+  config: ThemeConfig,
+  options: CssInJsThemeConfig
+): CssInJsThemeResult {
+  const {
+    library,
+    includeTypes = false,
+    useCssVariables = false,
+    cssVariablePrefix = "",
+    includeDarkMode = false,
+  } = options
+
+  // Generate light theme
+  const lightTheme = designTokensToCssInJsTheme(config.light, {
+    useCssVariables,
+    cssVariablePrefix,
+  })
+
+  let theme: CssInJsTheme | CssInJsDualTheme
+
+  if (includeDarkMode && config.dark) {
+    // Generate dark theme with overridden colors
+    const darkColors = partialSemanticColorsToRecord(config.dark, lightTheme.colors)
+    const darkTheme: CssInJsTheme = {
+      ...lightTheme,
+      colors: useCssVariables
+        ? generateCssVariableColors(cssVariablePrefix)
+        : darkColors,
+    }
+    theme = { light: lightTheme, dark: darkTheme }
+  } else {
+    theme = lightTheme
+  }
+
+  const result: CssInJsThemeResult = {
+    theme,
+    usageExample: generateUsageExample(library),
+    notes: getLibraryNotes(library, useCssVariables),
+  }
+
+  if (includeTypes) {
+    result.typeDefinitions = generateThemeTypeDefinitions(library)
+  }
+
+  result.providerCode = generateThemeProviderCode(library, includeDarkMode)
+
+  return result
+}
+
+/**
+ * Generates a theme object specifically for styled-components
+ *
+ * @param config - The theme configuration
+ * @param options - Additional options
+ * @returns Styled-components compatible theme
+ */
+export function generateStyledComponentsTheme(
+  config: ThemeConfig,
+  options: {
+    includeDarkMode?: boolean
+    useCssVariables?: boolean
+    cssVariablePrefix?: string
+  } = {}
+): CssInJsThemeResult {
+  return generateCssInJsTheme(config, {
+    library: "styled-components",
+    includeTypes: true,
+    ...options,
+  })
+}
+
+/**
+ * Generates a theme object specifically for Emotion
+ *
+ * @param config - The theme configuration
+ * @param options - Additional options
+ * @returns Emotion compatible theme
+ */
+export function generateEmotionTheme(
+  config: ThemeConfig,
+  options: {
+    includeDarkMode?: boolean
+    useCssVariables?: boolean
+    cssVariablePrefix?: string
+  } = {}
+): CssInJsThemeResult {
+  return generateCssInJsTheme(config, {
+    library: "emotion",
+    includeTypes: true,
+    ...options,
+  })
+}
+
+/**
+ * Generates a Stitches configuration from a ThemeConfig
+ *
+ * @param config - The theme configuration
+ * @returns Stitches-compatible createStitches configuration
+ */
+export function generateStitchesConfig(config: ThemeConfig): {
+  theme: CssInJsTheme
+  createStitchesCode: string
+  notes: string[]
+} {
+  const theme = designTokensToCssInJsTheme(config.light)
+
+  const createStitchesCode = `
+import { createStitches } from '@stitches/react'
+
+export const {
+  styled,
+  css,
+  globalCss,
+  keyframes,
+  getCssText,
+  theme: lightTheme,
+  createTheme,
+  config,
+} = createStitches({
+  theme: {
+    colors: ${JSON.stringify(theme.colors, null, 2)},
+    space: ${JSON.stringify(theme.spacing, null, 2)},
+    fontSizes: ${JSON.stringify(theme.typography.fontSizes, null, 2)},
+    lineHeights: ${JSON.stringify(theme.typography.lineHeights, null, 2)},
+    fontWeights: ${JSON.stringify(theme.fontWeights, null, 2)},
+    fonts: ${JSON.stringify(theme.fontFamily, null, 2)},
+    radii: ${JSON.stringify(theme.radii, null, 2)},
+    shadows: ${JSON.stringify(theme.shadows, null, 2)},
+    zIndices: ${JSON.stringify(theme.zIndices, null, 2)},
+  },
+  media: {
+    sm: '(min-width: ${theme.breakpoints.sm || "640px"})',
+    md: '(min-width: ${theme.breakpoints.md || "768px"})',
+    lg: '(min-width: ${theme.breakpoints.lg || "1024px"})',
+    xl: '(min-width: ${theme.breakpoints.xl || "1280px"})',
+    '2xl': '(min-width: ${theme.breakpoints["2xl"] || "1536px"})',
+  },
+})
+`
+
+  return {
+    theme,
+    createStitchesCode,
+    notes: getLibraryNotes("stitches", false),
+  }
+}
+
+/**
+ * Generates a vanilla-extract theme contract and themes
+ *
+ * @param config - The theme configuration
+ * @returns vanilla-extract compatible theme files content
+ */
+export function generateVanillaExtractTheme(config: ThemeConfig): {
+  contractCode: string
+  lightThemeCode: string
+  darkThemeCode: string
+  notes: string[]
+} {
+  const lightTheme = designTokensToCssInJsTheme(config.light)
+  const darkColors = config.dark
+    ? partialSemanticColorsToRecord(config.dark, lightTheme.colors)
+    : lightTheme.colors
+
+  const contractCode = `
+// theme.contract.css.ts
+import { createThemeContract } from '@vanilla-extract/css'
+
+export const vars = createThemeContract({
+  colors: {
+    primary: null,
+    primaryForeground: null,
+    secondary: null,
+    secondaryForeground: null,
+    muted: null,
+    mutedForeground: null,
+    accent: null,
+    accentForeground: null,
+    destructive: null,
+    destructiveForeground: null,
+    background: null,
+    foreground: null,
+    card: null,
+    cardForeground: null,
+    popover: null,
+    popoverForeground: null,
+    border: null,
+    input: null,
+    ring: null,
+  },
+  spacing: ${JSON.stringify(
+    Object.fromEntries(
+      Object.keys(lightTheme.spacing).map((k) => [k, null])
+    ),
+    null,
+    2
+  )},
+  radii: ${JSON.stringify(
+    Object.fromEntries(Object.keys(lightTheme.radii).map((k) => [k, null])),
+    null,
+    2
+  )},
+  shadows: ${JSON.stringify(
+    Object.fromEntries(Object.keys(lightTheme.shadows).map((k) => [k, null])),
+    null,
+    2
+  )},
+})
+`
+
+  const lightThemeCode = `
+// theme.light.css.ts
+import { createTheme } from '@vanilla-extract/css'
+import { vars } from './theme.contract.css'
+
+export const lightTheme = createTheme(vars, {
+  colors: ${JSON.stringify(lightTheme.colors, null, 2)},
+  spacing: ${JSON.stringify(lightTheme.spacing, null, 2)},
+  radii: ${JSON.stringify(lightTheme.radii, null, 2)},
+  shadows: ${JSON.stringify(lightTheme.shadows, null, 2)},
+})
+`
+
+  const darkThemeCode = `
+// theme.dark.css.ts
+import { createTheme } from '@vanilla-extract/css'
+import { vars } from './theme.contract.css'
+
+export const darkTheme = createTheme(vars, {
+  colors: ${JSON.stringify(darkColors, null, 2)},
+  spacing: ${JSON.stringify(lightTheme.spacing, null, 2)},
+  radii: ${JSON.stringify(lightTheme.radii, null, 2)},
+  shadows: ${JSON.stringify(lightTheme.shadows, null, 2)},
+})
+`
+
+  return {
+    contractCode,
+    lightThemeCode,
+    darkThemeCode,
+    notes: getLibraryNotes("vanilla-extract", false),
+  }
+}
+
+/**
+ * Creates a complete CSS-in-JS theme package with all files
+ *
+ * @param config - The theme configuration
+ * @param library - Target CSS-in-JS library
+ * @returns Object with file paths and contents
+ */
+export function createCssInJsThemePackage(
+  config: ThemeConfig,
+  library: CssInJsLibrary
+): Record<string, string> {
+  const files: Record<string, string> = {}
+  const themeName = config.name || "theme"
+
+  switch (library) {
+    case "styled-components":
+    case "emotion": {
+      const result = generateCssInJsTheme(config, {
+        library,
+        includeTypes: true,
+        includeDarkMode: !!config.dark,
+      })
+
+      const isDualTheme = "light" in result.theme && "dark" in result.theme
+
+      if (isDualTheme) {
+        const dualTheme = result.theme as CssInJsDualTheme
+        files[`${themeName}.ts`] = `
+// Generated theme for ${library}
+export const lightTheme = ${JSON.stringify(dualTheme.light, null, 2)} as const
+
+export const darkTheme = ${JSON.stringify(dualTheme.dark, null, 2)} as const
+
+export type Theme = typeof lightTheme
+`
+      } else {
+        files[`${themeName}.ts`] = `
+// Generated theme for ${library}
+export const theme = ${JSON.stringify(result.theme, null, 2)} as const
+
+export type Theme = typeof theme
+`
+      }
+
+      if (result.typeDefinitions) {
+        files[`${themeName}.d.ts`] = result.typeDefinitions
+      }
+
+      if (result.providerCode) {
+        files["ThemeProvider.tsx"] = result.providerCode
+      }
+
+      files["README.md"] = `# ${themeName} Theme
+
+## Installation
+
+\`\`\`bash
+npm install ${library}${library === "emotion" ? " @emotion/styled" : ""}
+\`\`\`
+
+## Usage
+
+${result.usageExample}
+
+## Notes
+
+${result.notes.map((n) => `- ${n}`).join("\n")}
+`
+      break
+    }
+
+    case "stitches": {
+      const { theme, createStitchesCode, notes } = generateStitchesConfig(config)
+
+      files["stitches.config.ts"] = createStitchesCode
+
+      if (config.dark) {
+        const darkColors = partialSemanticColorsToRecord(
+          config.dark,
+          theme.colors
+        )
+        files["stitches.config.ts"] += `
+
+// Dark theme
+export const darkTheme = createTheme('dark', {
+  colors: ${JSON.stringify(darkColors, null, 2)},
+})
+`
+      }
+
+      files["README.md"] = `# ${themeName} Stitches Theme
+
+## Installation
+
+\`\`\`bash
+npm install @stitches/react
+\`\`\`
+
+## Usage
+
+${generateUsageExample("stitches")}
+
+## Notes
+
+${notes.map((n) => `- ${n}`).join("\n")}
+`
+      break
+    }
+
+    case "vanilla-extract": {
+      const { contractCode, lightThemeCode, darkThemeCode, notes } =
+        generateVanillaExtractTheme(config)
+
+      files["theme.contract.css.ts"] = contractCode
+      files["theme.light.css.ts"] = lightThemeCode
+
+      if (config.dark) {
+        files["theme.dark.css.ts"] = darkThemeCode
+      }
+
+      files["README.md"] = `# ${themeName} vanilla-extract Theme
+
+## Installation
+
+\`\`\`bash
+npm install @vanilla-extract/css
+\`\`\`
+
+## Setup
+
+Add vanilla-extract to your build tool (Vite, Next.js, webpack, etc.)
+
+## Usage
+
+${generateUsageExample("vanilla-extract")}
+
+## Notes
+
+${notes.map((n) => `- ${n}`).join("\n")}
+`
+      break
+    }
+  }
+
+  return files
+}
