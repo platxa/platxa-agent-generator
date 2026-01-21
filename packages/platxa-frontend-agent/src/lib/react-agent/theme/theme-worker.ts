@@ -5545,3 +5545,391 @@ export function analyzeSizeTrend(history: SizeHistoryEntry[]): {
     entries: history.length,
   }
 }
+
+// =============================================================================
+// EXTEND BRAND HELPER (Feature #91)
+// =============================================================================
+
+/**
+ * Options for extending a brand kit
+ */
+export interface ExtendBrandOptions {
+  /** Whether to deep merge arrays (default: false, replaces arrays) */
+  mergeArrays?: boolean
+  /** Whether to remove undefined values from override */
+  removeUndefined?: boolean
+  /** Custom merge function for specific keys */
+  customMerge?: Record<string, (base: unknown, override: unknown) => unknown>
+}
+
+/**
+ * Deep merge utility type for type-safe merging
+ */
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P]
+}
+
+/**
+ * Checks if a value is a plain object
+ */
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+/**
+ * Deep merges two objects recursively
+ *
+ * This is an internal recursive helper that works with unknown types.
+ * It handles nested objects, arrays, and primitives correctly.
+ *
+ * @param base - Base object
+ * @param override - Override object
+ * @param options - Merge options
+ * @returns Merged object
+ */
+function deepMergeInternal(
+  base: unknown,
+  override: unknown,
+  options: ExtendBrandOptions
+): unknown {
+  const { mergeArrays = false, removeUndefined = true, customMerge = {} } = options
+
+  // If override is not an object or is null, return it directly
+  if (!isPlainObject(override)) {
+    return override
+  }
+
+  // If base is not an object, return override
+  if (!isPlainObject(base)) {
+    return { ...override }
+  }
+
+  const baseObj = base as Record<string, unknown>
+  const overrideObj = override as Record<string, unknown>
+  const result: Record<string, unknown> = { ...baseObj }
+
+  for (const key of Object.keys(overrideObj)) {
+    const baseValue = baseObj[key]
+    const overrideValue = overrideObj[key]
+
+    // Skip undefined if removeUndefined is true
+    if (removeUndefined && overrideValue === undefined) {
+      continue
+    }
+
+    // Use custom merge function if provided
+    if (customMerge[key]) {
+      result[key] = customMerge[key](baseValue, overrideValue)
+      continue
+    }
+
+    // Handle arrays
+    if (Array.isArray(overrideValue)) {
+      if (mergeArrays && Array.isArray(baseValue)) {
+        result[key] = [...baseValue, ...overrideValue]
+      } else {
+        result[key] = [...overrideValue]
+      }
+      continue
+    }
+
+    // Handle nested objects recursively
+    if (isPlainObject(overrideValue) && isPlainObject(baseValue)) {
+      result[key] = deepMergeInternal(baseValue, overrideValue, options)
+      continue
+    }
+
+    // Direct assignment for primitives
+    result[key] = overrideValue
+  }
+
+  return result
+}
+
+/**
+ * Type-safe deep merge for brand configurations
+ *
+ * Uses the internal recursive merge and casts the result to the expected type.
+ * This approach separates the runtime merge logic from TypeScript's type system,
+ * which is the correct pattern for deep merge operations.
+ *
+ * @param base - Base object (must be a ThemeConfig or compatible type)
+ * @param override - Partial override object
+ * @param options - Merge options
+ * @returns Merged object with the same type as base
+ */
+function deepMerge<T extends ThemeConfig>(
+  base: T,
+  override: DeepPartial<T>,
+  options: ExtendBrandOptions = {}
+): T {
+  return deepMergeInternal(base, override, options) as T
+}
+
+/**
+ * Type-safe deep merge for design tokens
+ *
+ * @param base - Base tokens
+ * @param override - Partial override tokens
+ * @param options - Merge options
+ * @returns Merged tokens
+ */
+function deepMergeTokens(
+  base: DesignTokens,
+  override: DeepPartial<DesignTokens>,
+  options: ExtendBrandOptions = {}
+): DesignTokens {
+  return deepMergeInternal(base, override, options) as DesignTokens
+}
+
+/**
+ * Extends an existing brand kit with overrides
+ *
+ * Performs a deep merge of the base brand kit with the provided
+ * overrides, preserving unmodified tokens and ensuring type safety.
+ *
+ * @param base - Base brand kit to extend
+ * @param overrides - Partial overrides to apply
+ * @param options - Merge options
+ * @returns Extended brand kit
+ *
+ * @example
+ * ```typescript
+ * import { extendBrand, defaultTheme } from "@platxa/frontend-agent"
+ *
+ * // Extend the default theme with custom colors
+ * const myBrand = extendBrand(defaultTheme, {
+ *   name: "my-brand",
+ *   light: {
+ *     colors: {
+ *       primary: "hsl(262, 80%, 50%)",
+ *       secondary: "hsl(200, 70%, 50%)",
+ *     },
+ *   },
+ * })
+ *
+ * // Original spacing, typography, etc. are preserved
+ * console.log(myBrand.light.spacing) // Same as defaultTheme
+ * console.log(myBrand.light.colors.primary) // "hsl(262, 80%, 50%)"
+ * ```
+ */
+export function extendBrand<T extends ThemeConfig>(
+  base: T,
+  overrides: DeepPartial<T>,
+  options: ExtendBrandOptions = {}
+): T {
+  return deepMerge(base, overrides, options)
+}
+
+/**
+ * Extends design tokens with overrides
+ *
+ * @param base - Base tokens
+ * @param overrides - Partial overrides
+ * @returns Extended tokens
+ *
+ * @example
+ * ```typescript
+ * const customTokens = extendTokens(defaultTokens, {
+ *   colors: {
+ *     primary: "purple",
+ *   },
+ *   spacing: {
+ *     lg: "2rem",
+ *   },
+ * })
+ * ```
+ */
+export function extendTokens(
+  base: DesignTokens,
+  overrides: DeepPartial<DesignTokens>
+): DesignTokens {
+  return deepMergeTokens(base, overrides)
+}
+
+/**
+ * Extends semantic colors with overrides
+ *
+ * @param base - Base colors
+ * @param overrides - Partial color overrides
+ * @returns Extended colors
+ */
+export function extendColors(
+  base: SemanticColors,
+  overrides: Partial<SemanticColors>
+): SemanticColors {
+  return { ...base, ...overrides }
+}
+
+/**
+ * Creates a brand variant by extending a base
+ *
+ * Useful for creating theme variants (e.g., high-contrast,
+ * colorblind-friendly) from a base theme.
+ *
+ * @param base - Base brand kit
+ * @param variantName - Name for the variant
+ * @param overrides - Variant-specific overrides
+ * @returns New brand variant
+ *
+ * @example
+ * ```typescript
+ * const highContrastTheme = createBrandVariant(
+ *   defaultTheme,
+ *   "high-contrast",
+ *   {
+ *     light: {
+ *       colors: {
+ *         background: "hsl(0, 0%, 100%)",
+ *         foreground: "hsl(0, 0%, 0%)",
+ *       },
+ *     },
+ *   }
+ * )
+ * ```
+ */
+export function createBrandVariant<T extends ThemeConfig>(
+  base: T,
+  variantName: string,
+  overrides: DeepPartial<Omit<T, "name">>
+): T {
+  return extendBrand(base, {
+    name: `${base.name}-${variantName}`,
+    ...overrides,
+  } as DeepPartial<T>)
+}
+
+/**
+ * Composes multiple brand overrides into a single config
+ *
+ * Applies overrides in order, with later overrides taking precedence.
+ *
+ * @param base - Base brand kit
+ * @param overrides - Array of override objects
+ * @returns Composed brand kit
+ *
+ * @example
+ * ```typescript
+ * const composed = composeBrandOverrides(defaultTheme, [
+ *   colorOverrides,
+ *   spacingOverrides,
+ *   typographyOverrides,
+ * ])
+ * ```
+ */
+export function composeBrandOverrides<T extends ThemeConfig>(
+  base: T,
+  overrides: Array<DeepPartial<T>>
+): T {
+  let result = base
+  for (const override of overrides) {
+    result = extendBrand(result, override)
+  }
+  return result
+}
+
+/**
+ * Picks specific token categories from a brand kit
+ *
+ * @param brand - Brand kit
+ * @param categories - Categories to pick
+ * @returns Partial brand with only selected categories
+ *
+ * @example
+ * ```typescript
+ * const colorsOnly = pickBrandCategories(myBrand, ["colors"])
+ * ```
+ */
+export function pickBrandCategories<T extends ThemeConfig>(
+  brand: T,
+  categories: Array<keyof DesignTokens>
+): DeepPartial<T> {
+  const result: Record<string, unknown> = {
+    name: brand.name,
+  }
+
+  if (brand.light) {
+    const lightPick: Record<string, unknown> = {}
+    for (const cat of categories) {
+      const value = brand.light[cat]
+      if (value !== undefined) {
+        lightPick[cat as string] = value
+      }
+    }
+    result.light = lightPick
+  }
+
+  return result as DeepPartial<T>
+}
+
+/**
+ * Omits specific token categories from a brand kit
+ *
+ * @param brand - Brand kit
+ * @param categories - Categories to omit
+ * @returns Brand with selected categories removed
+ */
+export function omitBrandCategories<T extends ThemeConfig>(
+  brand: T,
+  categories: Array<keyof DesignTokens>
+): T {
+  const result = { ...brand }
+
+  if (result.light) {
+    const lightCopy = { ...result.light }
+    for (const cat of categories) {
+      delete lightCopy[cat]
+    }
+    result.light = lightCopy as DesignTokens
+  }
+
+  return result
+}
+
+/**
+ * Validates that an extended brand kit is complete
+ *
+ * @param brand - Brand kit to validate
+ * @returns Validation result
+ */
+export function validateExtendedBrand(brand: ThemeConfig): {
+  valid: boolean
+  missing: string[]
+  warnings: string[]
+} {
+  const missing: string[] = []
+  const warnings: string[] = []
+
+  // Check required fields
+  if (!brand.name) {
+    missing.push("name")
+  }
+
+  if (!brand.light) {
+    missing.push("light")
+  } else {
+    // Check required token categories
+    const requiredCategories: Array<keyof DesignTokens> = [
+      "colors",
+      "spacing",
+      "typography",
+    ]
+
+    for (const cat of requiredCategories) {
+      if (!brand.light[cat]) {
+        missing.push(`light.${cat}`)
+      }
+    }
+
+    // Check for empty colors
+    if (brand.light.colors && Object.keys(brand.light.colors).length === 0) {
+      warnings.push("light.colors is empty")
+    }
+  }
+
+  return {
+    valid: missing.length === 0,
+    missing,
+    warnings,
+  }
+}

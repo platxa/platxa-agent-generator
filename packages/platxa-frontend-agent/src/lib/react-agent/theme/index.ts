@@ -158,6 +158,15 @@ export {
   formatBundleSizeReport,
   createSizeHistoryEntry,
   analyzeSizeTrend,
+  // Extend Brand Helper (Feature #91)
+  extendBrand,
+  extendTokens,
+  extendColors,
+  createBrandVariant,
+  composeBrandOverrides,
+  pickBrandCategories,
+  omitBrandCategories,
+  validateExtendedBrand,
 } from "./theme-worker"
 
 export type {
@@ -207,6 +216,9 @@ export type {
   SizeDelta,
   BundleSizeReport,
   BundleSizeConfig,
+  // Extend Brand Helper (Feature #91)
+  ExtendBrandOptions,
+  DeepPartial,
 } from "./theme-worker"
 
 // Token presets

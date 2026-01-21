@@ -1,32 +1,32 @@
 {
-  "session_id": "121b62b9eae8",
+  "session_id": "32ffa829c874",
   "stack": {
     "session": {
-      "id": "121b62b9eae8-129",
-      "text": "[Performance Features] Feature #90: [Bundle Size Reporting] Report brand kit impact on bundle size Verification: Size delta shown; Per-module breakdown; Historical comparison Criteria: Manual verification required",
+      "id": "32ffa829c874-131",
+      "text": "[Extensibility Features] Feature #91: [extendBrand Helper] Helper to extend existing brand kit with overrides Verification: Deep merge of tokens; Type-safe overrides; Preserves unmodified tokens Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768992478.4821553,
-      "updated_at": 1768992478.4821556,
+      "created_at": 1768992653.0755074,
+      "updated_at": 1768992653.0755076,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 90,
-        "category": "Performance Features"
+        "feature_id": 91,
+        "category": "Extensibility Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "121b62b9eae8-130",
-      "text": "Implement: [Bundle Size Reporting] Report brand kit impact on bundle size Verification: Size delta shown; Per-module breakdown; Historical comparison",
+      "id": "32ffa829c874-132",
+      "text": "Implement: [extendBrand Helper] Helper to extend existing brand kit with overrides Verification: Deep merge of tokens; Type-safe overrides; Preserves unmodified tokens",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768992478.5223608,
-      "updated_at": 1768992478.522361,
+      "created_at": 1768992653.3156817,
+      "updated_at": 1768992653.315682,
       "completed_at": null,
-      "parent_id": "121b62b9eae8-129",
+      "parent_id": "32ffa829c874-131",
       "metadata": {},
       "keywords": []
     },
@@ -1917,9 +1917,38 @@
       "parent_id": "121b62b9eae8-129",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "32ffa829c874-131",
+      "text": "[Extensibility Features] Feature #91: [extendBrand Helper] Helper to extend existing brand kit with overrides Verification: Deep merge of tokens; Type-safe overrides; Preserves unmodified tokens Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992653.0755074,
+      "updated_at": 1768992653.0755076,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 91,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "32ffa829c874-132",
+      "text": "Implement: [extendBrand Helper] Helper to extend existing brand kit with overrides Verification: Deep merge of tokens; Type-safe overrides; Preserves unmodified tokens",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992653.3156817,
+      "updated_at": 1768992653.315682,
+      "completed_at": null,
+      "parent_id": "32ffa829c874-131",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 130,
+  "intent_counter": 132,
   "created_at": 1768900061.32227,
-  "updated_at": 1768992478.5223668
+  "updated_at": 1768992653.3156881
 }
