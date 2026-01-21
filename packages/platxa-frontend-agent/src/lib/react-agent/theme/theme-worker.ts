@@ -30581,3 +30581,515 @@ export function formatBrandEventsReport(): string {
 
   return lines.join("\n")
 }
+
+// =============================================================================
+// WEBPACK PLUGIN (Feature #134)
+// =============================================================================
+
+/**
+ * Webpack plugin options
+ */
+export interface WebpackBrandKitPluginOptions {
+  /** Brand kit configuration or path to config file */
+  config: ThemeConfig | string
+  /** Output CSS file name */
+  outputFile?: string
+  /** Include dark mode CSS */
+  includeDarkMode?: boolean
+  /** Generate CSS variables */
+  generateVariables?: boolean
+  /** CSS variable prefix */
+  variablePrefix?: string
+  /** Inject CSS into HTML */
+  injectCss?: boolean
+  /** Enable hot module replacement */
+  hmr?: boolean
+  /** Virtual module ID for imports */
+  virtualModuleId?: string
+  /** Transform options */
+  transform?: {
+    minify?: boolean
+    autoprefixer?: boolean
+    sourcemap?: boolean
+  }
+  /** Watch brand kit file for changes */
+  watch?: boolean
+  /** Callback on brand kit compilation */
+  onCompile?: (css: string, config: ThemeConfig) => void
+}
+
+/**
+ * Webpack plugin compilation result
+ */
+export interface WebpackBrandKitCompilationResult {
+  /** Generated CSS content */
+  css: string
+  /** CSS variables map */
+  variables: Record<string, string>
+  /** Dark mode CSS if enabled */
+  darkModeCss?: string
+  /** Source map if enabled */
+  sourceMap?: string
+  /** Compilation time in ms */
+  compilationTime: number
+}
+
+/**
+ * Webpack compiler interface (simplified for type safety)
+ */
+interface WebpackCompiler {
+  hooks: {
+    compilation: {
+      tap: (name: string, callback: (compilation: WebpackCompilation) => void) => void
+    }
+    emit: {
+      tapAsync: (
+        name: string,
+        callback: (compilation: WebpackCompilation, done: () => void) => void
+      ) => void
+    }
+    watchRun: {
+      tapAsync: (
+        name: string,
+        callback: (compiler: WebpackCompiler, done: () => void) => void
+      ) => void
+    }
+    afterEmit: {
+      tap: (name: string, callback: (compilation: WebpackCompilation) => void) => void
+    }
+    thisCompilation: {
+      tap: (name: string, callback: (compilation: WebpackCompilation) => void) => void
+    }
+  }
+  options: {
+    mode?: "development" | "production" | "none"
+    context?: string
+  }
+  context: string
+}
+
+/**
+ * Webpack compilation interface (simplified)
+ */
+interface WebpackCompilation {
+  assets: Record<string, WebpackSource>
+  emitAsset: (name: string, source: WebpackSource) => void
+  updateAsset: (name: string, source: WebpackSource) => void
+  getAsset: (name: string) => { source: WebpackSource } | undefined
+  hooks: {
+    processAssets: {
+      tap: (
+        options: { name: string; stage: number },
+        callback: (assets: Record<string, WebpackSource>) => void
+      ) => void
+    }
+  }
+  fileDependencies: Set<string>
+  contextDependencies: Set<string>
+}
+
+/**
+ * Webpack source interface
+ */
+interface WebpackSource {
+  source: () => string | Buffer
+  size: () => number
+}
+
+/**
+ * Creates a Webpack source from string
+ */
+function createWebpackSource(content: string): WebpackSource {
+  return {
+    source: () => content,
+    size: () => Buffer.byteLength(content, "utf8"),
+  }
+}
+
+/**
+ * Compiles brand kit for Webpack
+ */
+export function compileBrandKitForWebpack(
+  config: ThemeConfig,
+  options: Partial<WebpackBrandKitPluginOptions> = {}
+): WebpackBrandKitCompilationResult {
+  const startTime = performance.now()
+
+  const generated = generateTheme(config)
+
+  let css = generated.css
+  let darkModeCss = options.includeDarkMode !== false ? generated.darkModeCss : undefined
+
+  // Minify if requested
+  if (options.transform?.minify) {
+    css = minifyCss(css)
+    if (darkModeCss) {
+      darkModeCss = minifyCss(darkModeCss)
+    }
+  }
+
+  // Combine CSS
+  let finalCss = css
+  if (darkModeCss) {
+    finalCss += "\n" + darkModeCss
+  }
+
+  return {
+    css: finalCss,
+    variables: generated.cssVariables,
+    darkModeCss,
+    compilationTime: performance.now() - startTime,
+  }
+}
+
+/**
+ * Generates virtual module content for brand kit
+ */
+export function generateWebpackVirtualModule(
+  config: ThemeConfig,
+  options: Partial<WebpackBrandKitPluginOptions> = {}
+): string {
+  const result = compileBrandKitForWebpack(config, options)
+
+  return `
+// Auto-generated brand kit module
+export const brandKitCss = ${JSON.stringify(result.css)};
+export const brandKitVariables = ${JSON.stringify(result.variables)};
+export const brandKitConfig = ${JSON.stringify(config)};
+
+// Inject CSS if in browser
+if (typeof document !== 'undefined') {
+  const styleId = 'platxa-brand-kit-styles';
+  let styleEl = document.getElementById(styleId);
+  if (!styleEl) {
+    styleEl = document.createElement('style');
+    styleEl.id = styleId;
+    document.head.appendChild(styleEl);
+  }
+  styleEl.textContent = brandKitCss;
+}
+
+export default {
+  css: brandKitCss,
+  variables: brandKitVariables,
+  config: brandKitConfig,
+};
+`.trim()
+}
+
+/**
+ * Resolves a theme preset name to a ThemeConfig
+ * Uses createTheme to generate themes for common preset names
+ */
+function resolveThemePresetInternal(presetName: string): ThemeConfig | null {
+  const presetHues: Record<string, number> = {
+    default: 220,
+    slate: 215,
+    zinc: 240,
+    neutral: 0,
+    stone: 30,
+    red: 0,
+    orange: 25,
+    amber: 45,
+    yellow: 55,
+    lime: 85,
+    green: 145,
+    emerald: 160,
+    teal: 175,
+    cyan: 190,
+    sky: 200,
+    blue: 220,
+    indigo: 240,
+    violet: 260,
+    purple: 280,
+    fuchsia: 300,
+    pink: 330,
+    rose: 350,
+  }
+
+  const hue = presetHues[presetName.toLowerCase()]
+  if (hue === undefined) return null
+
+  return createTheme(presetName, {
+    primaryHue: hue,
+    saturation: presetName === "neutral" || presetName === "stone" ? "low" : "medium",
+    useOklch: true,
+  })
+}
+
+/**
+ * Creates a Webpack 5 plugin for brand kit
+ */
+export function createWebpackBrandKitPlugin(
+  options: WebpackBrandKitPluginOptions
+): {
+  apply: (compiler: WebpackCompiler) => void
+} {
+  const PLUGIN_NAME = "PlatxaBrandKitPlugin"
+
+  let brandKitConfig: ThemeConfig
+  let compiledCss: string = ""
+  let compilationResult: WebpackBrandKitCompilationResult | null = null
+
+  // Resolve config
+  const resolveConfig = (): ThemeConfig => {
+    if (typeof options.config === "string") {
+      // Try to resolve as preset name
+      const preset = resolveThemePresetInternal(options.config)
+      if (preset) return preset
+      throw new Error(`Brand kit config not found: ${options.config}`)
+    }
+    return options.config
+  }
+
+  const compile = (): void => {
+    brandKitConfig = resolveConfig()
+    compilationResult = compileBrandKitForWebpack(brandKitConfig, options)
+    compiledCss = compilationResult.css
+    options.onCompile?.(compiledCss, brandKitConfig)
+  }
+
+  return {
+    apply(compiler: WebpackCompiler) {
+      // Initial compilation
+      compile()
+
+      const outputFile = options.outputFile ?? "brand-kit.css"
+
+      // Handle virtual module resolution (for CRA compatibility)
+      compiler.hooks.thisCompilation.tap(PLUGIN_NAME, (compilation) => {
+        // Emit CSS asset
+        compilation.hooks.processAssets.tap(
+          {
+            name: PLUGIN_NAME,
+            stage: 100, // PROCESS_ASSETS_STAGE_ADDITIONAL
+          },
+          () => {
+            if (compiledCss) {
+              const existingAsset = compilation.getAsset(outputFile)
+              if (existingAsset) {
+                compilation.updateAsset(outputFile, createWebpackSource(compiledCss))
+              } else {
+                compilation.emitAsset(outputFile, createWebpackSource(compiledCss))
+              }
+            }
+          }
+        )
+      })
+
+      // Watch mode support
+      if (options.watch !== false) {
+        compiler.hooks.watchRun.tapAsync(PLUGIN_NAME, (_compiler, done) => {
+          compile()
+          done()
+        })
+      }
+
+      // HMR support
+      if (options.hmr !== false && compiler.options.mode === "development") {
+        compiler.hooks.afterEmit.tap(PLUGIN_NAME, () => {
+          // In real implementation, would trigger HMR update
+        })
+      }
+    },
+  }
+}
+
+/**
+ * Webpack loader for brand kit files
+ */
+export function createWebpackBrandKitLoader(): {
+  loader: string
+  options: Record<string, unknown>
+} {
+  return {
+    loader: "platxa-brand-kit-loader",
+    options: {
+      // Loader options
+    },
+  }
+}
+
+/**
+ * Generates Webpack configuration for brand kit
+ */
+export function generateWebpackBrandKitConfig(
+  options: WebpackBrandKitPluginOptions
+): {
+  plugins: Array<{ apply: (compiler: WebpackCompiler) => void }>
+  module: {
+    rules: Array<{
+      test: RegExp
+      use: Array<{ loader: string; options?: Record<string, unknown> }>
+    }>
+  }
+  resolve: {
+    alias: Record<string, string>
+  }
+} {
+  const plugin = createWebpackBrandKitPlugin(options)
+  const virtualModuleId = options.virtualModuleId ?? "virtual:platxa-brand-kit"
+
+  return {
+    plugins: [plugin],
+    module: {
+      rules: [
+        {
+          test: /\.brand\.json$/,
+          use: [
+            {
+              loader: "json-loader",
+            },
+          ],
+        },
+      ],
+    },
+    resolve: {
+      alias: {
+        [virtualModuleId]: `data:text/javascript,${encodeURIComponent(
+          generateWebpackVirtualModule(
+            typeof options.config === "string"
+              ? (resolveThemePresetInternal(options.config) ?? createTheme("default", { primaryHue: 220 }))
+              : options.config,
+            options
+          )
+        )}`,
+      },
+    },
+  }
+}
+
+/**
+ * Create React App (CRA) compatible configuration
+ */
+export function createCRABrandKitConfig(
+  options: WebpackBrandKitPluginOptions
+): {
+  webpack: (config: Record<string, unknown>) => Record<string, unknown>
+  devServer: (configFn: () => Record<string, unknown>) => () => Record<string, unknown>
+} {
+  return {
+    webpack: (config: Record<string, unknown>) => {
+      const webpackConfig = generateWebpackBrandKitConfig(options)
+
+      // Merge plugins
+      const existingPlugins = (config.plugins as unknown[]) ?? []
+      config.plugins = [...existingPlugins, ...webpackConfig.plugins]
+
+      // Merge resolve alias
+      const resolve = (config.resolve as Record<string, unknown>) ?? {}
+      const existingAlias = (resolve.alias as Record<string, string>) ?? {}
+      resolve.alias = { ...existingAlias, ...webpackConfig.resolve.alias }
+      config.resolve = resolve
+
+      return config
+    },
+    devServer: (configFn: () => Record<string, unknown>) => {
+      return () => {
+        const config = configFn()
+        // Add any dev server modifications here
+        return config
+      }
+    },
+  }
+}
+
+/**
+ * Generates a CRACO config for brand kit
+ */
+export function generateCracoConfig(
+  options: WebpackBrandKitPluginOptions
+): Record<string, unknown> {
+  const craConfig = createCRABrandKitConfig(options)
+
+  return {
+    webpack: {
+      configure: craConfig.webpack,
+    },
+    devServer: craConfig.devServer,
+  }
+}
+
+/**
+ * Generates react-app-rewired config
+ */
+export function generateReactAppRewiredConfig(
+  options: WebpackBrandKitPluginOptions
+): string {
+  const configJson = JSON.stringify(
+    typeof options.config === "string" ? options.config : options.config.name,
+    null,
+    2
+  )
+
+  return `
+const { createCRABrandKitConfig } = require('@platxa/frontend-agent/theme');
+
+const brandKitConfig = ${configJson};
+
+module.exports = function override(config, env) {
+  const { webpack } = createCRABrandKitConfig({
+    config: brandKitConfig,
+    includeDarkMode: true,
+    hmr: env === 'development',
+  });
+
+  return webpack(config);
+};
+`.trim()
+}
+
+/**
+ * Formats Webpack plugin configuration as a report
+ */
+export function formatWebpackPluginReport(
+  options: WebpackBrandKitPluginOptions
+): string {
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Webpack Brand Kit Plugin Report")
+  lines.push(divider)
+  lines.push("")
+
+  // Configuration
+  lines.push("Configuration")
+  lines.push("─".repeat(50))
+  lines.push(
+    `  Config:         ${typeof options.config === "string" ? options.config : options.config.name}`
+  )
+  lines.push(`  Output File:    ${options.outputFile ?? "brand-kit.css"}`)
+  lines.push(`  Dark Mode:      ${options.includeDarkMode !== false ? "Yes" : "No"}`)
+  lines.push(`  HMR:            ${options.hmr !== false ? "Yes" : "No"}`)
+  lines.push(`  Watch:          ${options.watch !== false ? "Yes" : "No"}`)
+  lines.push("")
+
+  // Transform options
+  lines.push("Transform Options")
+  lines.push("─".repeat(50))
+  lines.push(`  Minify:         ${options.transform?.minify ? "Yes" : "No"}`)
+  lines.push(`  Autoprefixer:   ${options.transform?.autoprefixer ? "Yes" : "No"}`)
+  lines.push(`  Source Map:     ${options.transform?.sourcemap ? "Yes" : "No"}`)
+  lines.push("")
+
+  // Compilation
+  const config =
+    typeof options.config === "string"
+      ? resolveThemePresetInternal(options.config)
+      : options.config
+
+  if (config) {
+    const result = compileBrandKitForWebpack(config, options)
+    lines.push("Compilation Result")
+    lines.push("─".repeat(50))
+    lines.push(`  CSS Size:       ${formatBytes(Buffer.byteLength(result.css, "utf8"))}`)
+    lines.push(`  Variables:      ${Object.keys(result.variables).length}`)
+    lines.push(`  Compile Time:   ${result.compilationTime.toFixed(2)}ms`)
+  }
+
+  lines.push("")
+  lines.push(divider)
+
+  return lines.join("\n")
+}

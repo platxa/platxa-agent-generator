@@ -541,6 +541,16 @@ export {
   createBrandEventScope,
   useBrandEvents,
   formatBrandEventsReport,
+  // Webpack Plugin (Feature #134)
+  compileBrandKitForWebpack,
+  generateWebpackVirtualModule,
+  createWebpackBrandKitPlugin,
+  createWebpackBrandKitLoader,
+  generateWebpackBrandKitConfig,
+  createCRABrandKitConfig,
+  generateCracoConfig,
+  generateReactAppRewiredConfig,
+  formatWebpackPluginReport,
 } from "./theme-worker"
 
 export type {
@@ -855,6 +865,9 @@ export type {
   BrandErrorCode,
   BrandEventListener,
   BrandEventListenerOptions,
+  // Webpack Plugin (Feature #134)
+  WebpackBrandKitPluginOptions,
+  WebpackBrandKitCompilationResult,
 } from "./theme-worker"
 
 // Token presets
