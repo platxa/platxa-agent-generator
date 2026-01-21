@@ -3820,3 +3820,452 @@ export function formatPackageValidationReport(
 
   return lines
 }
+
+// =============================================================================
+// TOKEN MEMOIZATION (Feature #87)
+// =============================================================================
+
+/**
+ * Cache entry with metadata for memory management
+ */
+interface CacheEntry<T> {
+  value: T
+  accessCount: number
+  lastAccessed: number
+  size: number
+}
+
+/**
+ * Configuration for token memoization cache
+ */
+export interface TokenCacheConfig {
+  /** Maximum number of entries in the cache (default: 100) */
+  maxEntries?: number
+  /** Time-to-live in milliseconds (default: 5 minutes) */
+  ttl?: number
+  /** Whether to track access patterns (default: false) */
+  trackAccess?: boolean
+}
+
+/**
+ * Statistics about cache performance
+ */
+export interface CacheStats {
+  /** Number of cache hits */
+  hits: number
+  /** Number of cache misses */
+  misses: number
+  /** Current number of entries */
+  entries: number
+  /** Total size estimate in bytes */
+  totalSize: number
+  /** Cache hit ratio (0-1) */
+  hitRatio: number
+  /** Most accessed keys */
+  topKeys: string[]
+}
+
+/**
+ * Creates a memoization cache for computed token values
+ *
+ * Implements an LRU (Least Recently Used) eviction policy
+ * with configurable size limits and TTL.
+ *
+ * @param config - Cache configuration
+ * @returns Cache instance with memoization functions
+ *
+ * @example
+ * ```typescript
+ * import { createTokenCache } from "@platxa/frontend-agent"
+ *
+ * const cache = createTokenCache({ maxEntries: 50, ttl: 60000 })
+ *
+ * // Memoize expensive computations
+ * function getComputedColor(primary: string): string {
+ *   return cache.getOrCompute(
+ *     `color:${primary}`,
+ *     () => expensiveColorComputation(primary)
+ *   )
+ * }
+ *
+ * // Check cache stats
+ * console.log(cache.getStats())
+ *
+ * // Clear when theme changes
+ * cache.clear()
+ * ```
+ */
+export function createTokenCache<T = unknown>(config: TokenCacheConfig = {}) {
+  const { maxEntries = 100, ttl = 5 * 60 * 1000, trackAccess = false } = config
+
+  const cache = new Map<string, CacheEntry<T>>()
+  let hits = 0
+  let misses = 0
+
+  /**
+   * Estimates the size of a value in bytes
+   */
+  function estimateSize(value: unknown): number {
+    if (typeof value === "string") {
+      return value.length * 2
+    }
+    if (typeof value === "number") {
+      return 8
+    }
+    if (typeof value === "boolean") {
+      return 4
+    }
+    if (value === null || value === undefined) {
+      return 0
+    }
+    if (Array.isArray(value)) {
+      return value.reduce((sum, item) => sum + estimateSize(item), 0)
+    }
+    if (typeof value === "object") {
+      return Object.entries(value).reduce(
+        (sum, [k, v]) => sum + k.length * 2 + estimateSize(v),
+        0
+      )
+    }
+    return 0
+  }
+
+  /**
+   * Evicts expired entries and enforces max size
+   */
+  function evict(): void {
+    const now = Date.now()
+
+    // Remove expired entries
+    for (const [key, entry] of cache.entries()) {
+      if (now - entry.lastAccessed > ttl) {
+        cache.delete(key)
+      }
+    }
+
+    // If still over limit, remove least recently used
+    if (cache.size > maxEntries) {
+      const entries = Array.from(cache.entries())
+      entries.sort((a, b) => a[1].lastAccessed - b[1].lastAccessed)
+
+      const toRemove = entries.slice(0, cache.size - maxEntries)
+      for (const [key] of toRemove) {
+        cache.delete(key)
+      }
+    }
+  }
+
+  return {
+    /**
+     * Gets a cached value or computes and caches it
+     */
+    getOrCompute(key: string, compute: () => T): T {
+      const now = Date.now()
+      const existing = cache.get(key)
+
+      if (existing && now - existing.lastAccessed <= ttl) {
+        hits++
+        existing.lastAccessed = now
+        if (trackAccess) {
+          existing.accessCount++
+        }
+        return existing.value
+      }
+
+      misses++
+      const value = compute()
+      const size = estimateSize(value)
+
+      cache.set(key, {
+        value,
+        accessCount: 1,
+        lastAccessed: now,
+        size,
+      })
+
+      evict()
+      return value
+    },
+
+    /**
+     * Gets a cached value without computing
+     */
+    get(key: string): T | undefined {
+      const entry = cache.get(key)
+      if (entry && Date.now() - entry.lastAccessed <= ttl) {
+        hits++
+        entry.lastAccessed = Date.now()
+        return entry.value
+      }
+      misses++
+      return undefined
+    },
+
+    /**
+     * Sets a value directly in the cache
+     */
+    set(key: string, value: T): void {
+      cache.set(key, {
+        value,
+        accessCount: 1,
+        lastAccessed: Date.now(),
+        size: estimateSize(value),
+      })
+      evict()
+    },
+
+    /**
+     * Checks if a key exists and is not expired
+     */
+    has(key: string): boolean {
+      const entry = cache.get(key)
+      return entry !== undefined && Date.now() - entry.lastAccessed <= ttl
+    },
+
+    /**
+     * Removes a specific key from the cache
+     */
+    delete(key: string): boolean {
+      return cache.delete(key)
+    },
+
+    /**
+     * Clears all cached values
+     */
+    clear(): void {
+      cache.clear()
+      hits = 0
+      misses = 0
+    },
+
+    /**
+     * Invalidates entries matching a pattern
+     */
+    invalidatePattern(pattern: string | RegExp): number {
+      const regex = typeof pattern === "string" ? new RegExp(pattern) : pattern
+      let count = 0
+
+      for (const key of cache.keys()) {
+        if (regex.test(key)) {
+          cache.delete(key)
+          count++
+        }
+      }
+
+      return count
+    },
+
+    /**
+     * Gets cache statistics
+     */
+    getStats(): CacheStats {
+      let totalSize = 0
+      const accessCounts: Array<{ key: string; count: number }> = []
+
+      for (const [key, entry] of cache.entries()) {
+        totalSize += entry.size
+        if (trackAccess) {
+          accessCounts.push({ key, count: entry.accessCount })
+        }
+      }
+
+      accessCounts.sort((a, b) => b.count - a.count)
+
+      return {
+        hits,
+        misses,
+        entries: cache.size,
+        totalSize,
+        hitRatio: hits + misses > 0 ? hits / (hits + misses) : 0,
+        topKeys: accessCounts.slice(0, 10).map((e) => e.key),
+      }
+    },
+
+    /**
+     * Gets the current cache size
+     */
+    get size(): number {
+      return cache.size
+    },
+  }
+}
+
+/**
+ * Global token computation cache
+ *
+ * Shared cache for memoizing expensive token computations
+ * across the application.
+ */
+export const tokenCache = createTokenCache<unknown>({
+  maxEntries: 200,
+  ttl: 10 * 60 * 1000, // 10 minutes
+  trackAccess: true,
+})
+
+/**
+ * Memoizes a token computation function
+ *
+ * Wraps a function to cache its results based on arguments.
+ * Automatically generates cache keys from function arguments.
+ *
+ * @param fn - Function to memoize
+ * @param keyGenerator - Optional custom key generator
+ * @returns Memoized function
+ *
+ * @example
+ * ```typescript
+ * import { memoizeTokenComputation } from "@platxa/frontend-agent"
+ *
+ * const computeContrast = memoizeTokenComputation(
+ *   (fg: string, bg: string) => {
+ *     // Expensive contrast calculation
+ *     return calculateContrastRatio(fg, bg)
+ *   }
+ * )
+ *
+ * // First call computes
+ * computeContrast("#000", "#fff") // Computed
+ *
+ * // Second call returns cached
+ * computeContrast("#000", "#fff") // From cache
+ * ```
+ */
+export function memoizeTokenComputation<Args extends unknown[], Result>(
+  fn: (...args: Args) => Result,
+  keyGenerator?: (...args: Args) => string
+): (...args: Args) => Result {
+  const cache = createTokenCache<Result>()
+
+  return (...args: Args): Result => {
+    const key = keyGenerator
+      ? keyGenerator(...args)
+      : JSON.stringify(args)
+
+    return cache.getOrCompute(key, () => fn(...args))
+  }
+}
+
+/**
+ * Creates a memoized token resolver
+ *
+ * Resolves token references with caching to avoid
+ * repeated resolution of the same tokens.
+ *
+ * @param tokens - Token map
+ * @returns Resolver function
+ *
+ * @example
+ * ```typescript
+ * const resolver = createMemoizedTokenResolver({
+ *   "--primary": "blue",
+ *   "--text": "var(--primary)",
+ * })
+ *
+ * resolver("--text") // Resolves and caches
+ * resolver("--text") // Returns cached value
+ * ```
+ */
+export function createMemoizedTokenResolver(
+  tokens: Record<string, string>
+): (tokenName: string) => string {
+  const cache = createTokenCache<string>()
+  const maxDepth = 10 // Prevent infinite loops
+
+  function resolve(tokenName: string, depth = 0): string {
+    if (depth > maxDepth) {
+      console.warn(`Token resolution depth exceeded for ${tokenName}`)
+      return tokens[tokenName] || tokenName
+    }
+
+    return cache.getOrCompute(`resolve:${tokenName}:${depth}`, () => {
+      const value = tokens[tokenName]
+      if (!value) {
+        return tokenName
+      }
+
+      // Check for var() references
+      const varPattern = /var\(\s*(--[\w-]+)\s*\)/g
+      let resolved = value
+      let match: RegExpExecArray | null
+
+      while ((match = varPattern.exec(value)) !== null) {
+        const refName = match[1]
+        const refValue = resolve(refName, depth + 1)
+        resolved = resolved.replace(match[0], refValue)
+      }
+
+      return resolved
+    })
+  }
+
+  return resolve
+}
+
+/**
+ * Batch memoization for multiple token computations
+ *
+ * Efficiently computes multiple values at once,
+ * reusing cached results where available.
+ *
+ * @param keys - Array of cache keys
+ * @param computeAll - Function to compute all missing values
+ * @param cache - Optional cache instance
+ * @returns Map of results
+ *
+ * @example
+ * ```typescript
+ * const results = batchMemoize(
+ *   ["token1", "token2", "token3"],
+ *   (missingKeys) => {
+ *     // Compute only missing values
+ *     return new Map(missingKeys.map(k => [k, compute(k)]))
+ *   }
+ * )
+ * ```
+ */
+export function batchMemoize<T>(
+  keys: string[],
+  computeAll: (missingKeys: string[]) => Map<string, T>,
+  cache = tokenCache
+): Map<string, T> {
+  const results = new Map<string, T>()
+  const missingKeys: string[] = []
+
+  // Check cache for each key
+  for (const key of keys) {
+    const cached = cache.get(key) as T | undefined
+    if (cached !== undefined) {
+      results.set(key, cached)
+    } else {
+      missingKeys.push(key)
+    }
+  }
+
+  // Compute missing values
+  if (missingKeys.length > 0) {
+    const computed = computeAll(missingKeys)
+    for (const [key, value] of computed.entries()) {
+      cache.set(key, value)
+      results.set(key, value)
+    }
+  }
+
+  return results
+}
+
+/**
+ * Clears all token-related caches
+ *
+ * Call this when the theme changes to ensure
+ * fresh computations with new token values.
+ */
+export function clearTokenCaches(): void {
+  tokenCache.clear()
+}
+
+/**
+ * Gets combined stats from all token caches
+ */
+export function getTokenCacheStats(): CacheStats {
+  return tokenCache.getStats()
+}

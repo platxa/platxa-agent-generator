@@ -122,6 +122,14 @@ export {
   createSelectiveSubscription,
   createMemoizedContextValue,
   createRenderTracker,
+  // Token Memoization (Feature #87)
+  createTokenCache,
+  tokenCache,
+  memoizeTokenComputation,
+  createMemoizedTokenResolver,
+  batchMemoize,
+  clearTokenCaches,
+  getTokenCacheStats,
 } from "./theme-worker"
 
 export type {
@@ -154,6 +162,9 @@ export type {
   // Minimal Re-renders (Feature #86)
   ThemeSelector,
   RenderTrackingConfig,
+  // Token Memoization (Feature #87)
+  TokenCacheConfig,
+  CacheStats,
 } from "./theme-worker"
 
 // Token presets
