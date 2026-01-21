@@ -152,6 +152,12 @@ export {
   generateCriticalCss,
   getStaticTokens,
   validateStaticBuild,
+  // Bundle Size Reporting (Feature #90)
+  analyzeBundleSize,
+  compareBundleSizes,
+  formatBundleSizeReport,
+  createSizeHistoryEntry,
+  analyzeSizeTrend,
 } from "./theme-worker"
 
 export type {
@@ -195,6 +201,12 @@ export type {
   SSGConfig,
   SSGBuildResult,
   StaticTokenExport,
+  // Bundle Size Reporting (Feature #90)
+  ModuleSizeInfo,
+  SizeHistoryEntry,
+  SizeDelta,
+  BundleSizeReport,
+  BundleSizeConfig,
 } from "./theme-worker"
 
 // Token presets

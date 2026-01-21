@@ -5114,3 +5114,434 @@ export function validateStaticBuild(result: SSGBuildResult): {
     warnings,
   }
 }
+
+// =============================================================================
+// BUNDLE SIZE REPORTING (Feature #90)
+// =============================================================================
+
+/**
+ * Size information for a single module/component
+ */
+export interface ModuleSizeInfo {
+  /** Module name or path */
+  name: string
+  /** Raw size in bytes */
+  rawSize: number
+  /** Gzipped size estimate in bytes */
+  gzipSize: number
+  /** Percentage of total */
+  percentage: number
+  /** Human-readable raw size */
+  rawFormatted: string
+  /** Human-readable gzip size */
+  gzipFormatted: string
+}
+
+/**
+ * Historical size record for comparison
+ */
+export interface SizeHistoryEntry {
+  /** Timestamp of the measurement */
+  timestamp: string
+  /** Total size at this point */
+  totalSize: number
+  /** Version or commit hash */
+  version?: string
+  /** Per-module sizes */
+  modules?: Record<string, number>
+}
+
+/**
+ * Size delta information
+ */
+export interface SizeDelta {
+  /** Previous size in bytes */
+  previous: number
+  /** Current size in bytes */
+  current: number
+  /** Absolute difference in bytes */
+  difference: number
+  /** Percentage change */
+  percentageChange: number
+  /** Whether size increased */
+  increased: boolean
+  /** Human-readable description */
+  description: string
+}
+
+/**
+ * Complete bundle size report
+ */
+export interface BundleSizeReport {
+  /** Total size of all modules */
+  totalSize: number
+  /** Estimated gzip total */
+  totalGzipSize: number
+  /** Human-readable total */
+  totalFormatted: string
+  /** Human-readable gzip total */
+  totalGzipFormatted: string
+  /** Per-module breakdown */
+  modules: ModuleSizeInfo[]
+  /** Size delta from previous (if provided) */
+  delta?: SizeDelta
+  /** Timestamp of this report */
+  timestamp: string
+  /** Warnings if any thresholds exceeded */
+  warnings: string[]
+  /** Summary statistics */
+  summary: {
+    largestModule: string
+    largestSize: number
+    moduleCount: number
+    averageSize: number
+  }
+}
+
+/**
+ * Configuration for bundle size analysis
+ */
+export interface BundleSizeConfig {
+  /** Warning threshold in bytes (default: 50KB) */
+  warningThreshold?: number
+  /** Error threshold in bytes (default: 100KB) */
+  errorThreshold?: number
+  /** Previous size for delta calculation */
+  previousSize?: number
+  /** Previous history for trend analysis */
+  history?: SizeHistoryEntry[]
+  /** Whether to estimate gzip sizes */
+  estimateGzip?: boolean
+}
+
+/**
+ * Estimates gzip size (rough approximation)
+ *
+ * Uses a simple compression ratio estimate based on content type.
+ * For accurate gzip sizes, use actual compression.
+ */
+function estimateGzipSize(content: string): number {
+  // JSON and CSS typically compress to ~30-40% of original
+  const compressionRatio = 0.35
+  return Math.round(new TextEncoder().encode(content).length * compressionRatio)
+}
+
+/**
+ * Analyzes bundle size for a brand kit
+ *
+ * Calculates the total size impact of a brand kit including
+ * per-module breakdown and optional historical comparison.
+ *
+ * @param brandKit - Brand kit to analyze
+ * @param config - Analysis configuration
+ * @returns Bundle size report
+ *
+ * @example
+ * ```typescript
+ * import { analyzeBundleSize } from "@platxa/frontend-agent"
+ *
+ * const report = analyzeBundleSize(myBrandKit, {
+ *   warningThreshold: 30 * 1024,
+ *   previousSize: lastBuildSize,
+ * })
+ *
+ * console.log(`Total: ${report.totalFormatted}`)
+ * if (report.delta?.increased) {
+ *   console.warn(`Size increased by ${report.delta.description}`)
+ * }
+ * ```
+ */
+export function analyzeBundleSize(
+  brandKit: Record<string, unknown>,
+  config: BundleSizeConfig = {}
+): BundleSizeReport {
+  const {
+    warningThreshold = 50 * 1024,
+    errorThreshold = 100 * 1024,
+    previousSize,
+    estimateGzip = true,
+  } = config
+
+  const modules: ModuleSizeInfo[] = []
+  let totalSize = 0
+  let totalGzipSize = 0
+  const warnings: string[] = []
+
+  // Analyze each top-level module
+  for (const [name, value] of Object.entries(brandKit)) {
+    const content = JSON.stringify(value)
+    const rawSize = new TextEncoder().encode(content).length
+    const gzipSize = estimateGzip ? estimateGzipSize(content) : 0
+
+    totalSize += rawSize
+    totalGzipSize += gzipSize
+
+    modules.push({
+      name,
+      rawSize,
+      gzipSize,
+      percentage: 0, // Calculated after total is known
+      rawFormatted: formatBytes(rawSize),
+      gzipFormatted: formatBytes(gzipSize),
+    })
+  }
+
+  // Calculate percentages
+  for (const mod of modules) {
+    mod.percentage = totalSize > 0 ? Math.round((mod.rawSize / totalSize) * 100) : 0
+  }
+
+  // Sort by size descending
+  modules.sort((a, b) => b.rawSize - a.rawSize)
+
+  // Check thresholds
+  if (totalSize >= errorThreshold) {
+    warnings.push(`Bundle size (${formatBytes(totalSize)}) exceeds error threshold (${formatBytes(errorThreshold)})`)
+  } else if (totalSize >= warningThreshold) {
+    warnings.push(`Bundle size (${formatBytes(totalSize)}) exceeds warning threshold (${formatBytes(warningThreshold)})`)
+  }
+
+  // Check for large modules
+  for (const mod of modules) {
+    if (mod.rawSize > 20 * 1024) {
+      warnings.push(`Module "${mod.name}" is large (${mod.rawFormatted})`)
+    }
+  }
+
+  // Calculate delta if previous size provided
+  let delta: SizeDelta | undefined
+  if (previousSize !== undefined) {
+    const difference = totalSize - previousSize
+    const percentageChange = previousSize > 0
+      ? Math.round((difference / previousSize) * 100)
+      : 0
+
+    delta = {
+      previous: previousSize,
+      current: totalSize,
+      difference: Math.abs(difference),
+      percentageChange: Math.abs(percentageChange),
+      increased: difference > 0,
+      description: `${difference > 0 ? "+" : "-"}${formatBytes(Math.abs(difference))} (${difference > 0 ? "+" : "-"}${Math.abs(percentageChange)}%)`,
+    }
+
+    if (difference > 5 * 1024) {
+      warnings.push(`Size increased by ${formatBytes(difference)} since last build`)
+    }
+  }
+
+  // Summary statistics
+  const summary = {
+    largestModule: modules[0]?.name || "",
+    largestSize: modules[0]?.rawSize || 0,
+    moduleCount: modules.length,
+    averageSize: modules.length > 0 ? Math.round(totalSize / modules.length) : 0,
+  }
+
+  return {
+    totalSize,
+    totalGzipSize,
+    totalFormatted: formatBytes(totalSize),
+    totalGzipFormatted: formatBytes(totalGzipSize),
+    modules,
+    delta,
+    timestamp: new Date().toISOString(),
+    warnings,
+    summary,
+  }
+}
+
+/**
+ * Compares two bundle size reports
+ *
+ * @param current - Current report
+ * @param previous - Previous report
+ * @returns Comparison with deltas
+ */
+export function compareBundleSizes(
+  current: BundleSizeReport,
+  previous: BundleSizeReport
+): {
+  totalDelta: SizeDelta
+  moduleDeltas: Array<{ name: string; delta: SizeDelta }>
+  newModules: string[]
+  removedModules: string[]
+} {
+  const totalDelta: SizeDelta = {
+    previous: previous.totalSize,
+    current: current.totalSize,
+    difference: Math.abs(current.totalSize - previous.totalSize),
+    percentageChange: previous.totalSize > 0
+      ? Math.abs(Math.round(((current.totalSize - previous.totalSize) / previous.totalSize) * 100))
+      : 0,
+    increased: current.totalSize > previous.totalSize,
+    description: "",
+  }
+  totalDelta.description = `${totalDelta.increased ? "+" : "-"}${formatBytes(totalDelta.difference)}`
+
+  // Build module maps
+  const prevModules = new Map(previous.modules.map(m => [m.name, m]))
+  const currModules = new Map(current.modules.map(m => [m.name, m]))
+
+  // Find deltas, new, and removed modules
+  const moduleDeltas: Array<{ name: string; delta: SizeDelta }> = []
+  const newModules: string[] = []
+  const removedModules: string[] = []
+
+  for (const [name, curr] of currModules) {
+    const prev = prevModules.get(name)
+    if (prev) {
+      const diff = curr.rawSize - prev.rawSize
+      moduleDeltas.push({
+        name,
+        delta: {
+          previous: prev.rawSize,
+          current: curr.rawSize,
+          difference: Math.abs(diff),
+          percentageChange: prev.rawSize > 0 ? Math.abs(Math.round((diff / prev.rawSize) * 100)) : 0,
+          increased: diff > 0,
+          description: `${diff > 0 ? "+" : "-"}${formatBytes(Math.abs(diff))}`,
+        },
+      })
+    } else {
+      newModules.push(name)
+    }
+  }
+
+  for (const name of prevModules.keys()) {
+    if (!currModules.has(name)) {
+      removedModules.push(name)
+    }
+  }
+
+  return {
+    totalDelta,
+    moduleDeltas: moduleDeltas.filter(d => d.delta.difference > 0),
+    newModules,
+    removedModules,
+  }
+}
+
+/**
+ * Formats bundle size report for CLI output
+ *
+ * @param report - Report to format
+ * @returns Array of formatted lines
+ */
+export function formatBundleSizeReport(report: BundleSizeReport): string[] {
+  const lines: string[] = []
+
+  // Header
+  lines.push("╔══════════════════════════════════════════════════════════════╗")
+  lines.push("║                    BUNDLE SIZE REPORT                        ║")
+  lines.push("╠══════════════════════════════════════════════════════════════╣")
+
+  // Total sizes
+  lines.push(`║  Total Size:      ${report.totalFormatted.padStart(12)}                          ║`)
+  lines.push(`║  Gzip Estimate:   ${report.totalGzipFormatted.padStart(12)}                          ║`)
+
+  // Delta if available
+  if (report.delta) {
+    const deltaIcon = report.delta.increased ? "▲" : "▼"
+    const deltaColor = report.delta.increased ? "!" : "✓"
+    lines.push(`║  Change:          ${deltaIcon} ${report.delta.description.padStart(10)}  ${deltaColor}                        ║`)
+  }
+
+  lines.push("╠══════════════════════════════════════════════════════════════╣")
+  lines.push("║  Module Breakdown:                                           ║")
+  lines.push("╟──────────────────────────────────────────────────────────────╢")
+
+  // Module breakdown (top 10)
+  for (const mod of report.modules.slice(0, 10)) {
+    const bar = "█".repeat(Math.ceil(mod.percentage / 5)) + "░".repeat(20 - Math.ceil(mod.percentage / 5))
+    const name = mod.name.padEnd(15).slice(0, 15)
+    lines.push(`║  ${name} ${bar} ${mod.rawFormatted.padStart(8)} (${mod.percentage}%) ║`)
+  }
+
+  if (report.modules.length > 10) {
+    lines.push(`║  ... and ${report.modules.length - 10} more modules                                   ║`)
+  }
+
+  // Warnings
+  if (report.warnings.length > 0) {
+    lines.push("╠══════════════════════════════════════════════════════════════╣")
+    lines.push("║  ⚠ Warnings:                                                 ║")
+    for (const warning of report.warnings) {
+      const truncated = warning.slice(0, 58).padEnd(58)
+      lines.push(`║    ${truncated}  ║`)
+    }
+  }
+
+  lines.push("╚══════════════════════════════════════════════════════════════╝")
+
+  return lines
+}
+
+/**
+ * Creates a size history entry from current report
+ *
+ * @param report - Current report
+ * @param version - Version identifier
+ * @returns History entry
+ */
+export function createSizeHistoryEntry(
+  report: BundleSizeReport,
+  version?: string
+): SizeHistoryEntry {
+  const modules: Record<string, number> = {}
+  for (const mod of report.modules) {
+    modules[mod.name] = mod.rawSize
+  }
+
+  return {
+    timestamp: report.timestamp,
+    totalSize: report.totalSize,
+    version,
+    modules,
+  }
+}
+
+/**
+ * Analyzes size trend from history
+ *
+ * @param history - Array of history entries
+ * @returns Trend analysis
+ */
+export function analyzeSizeTrend(history: SizeHistoryEntry[]): {
+  trend: "increasing" | "decreasing" | "stable"
+  averageChange: number
+  totalChange: number
+  entries: number
+} {
+  if (history.length < 2) {
+    return { trend: "stable", averageChange: 0, totalChange: 0, entries: history.length }
+  }
+
+  // Sort by timestamp
+  const sorted = [...history].sort((a, b) =>
+    new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  )
+
+  // Calculate changes
+  const changes: number[] = []
+  for (let i = 1; i < sorted.length; i++) {
+    changes.push(sorted[i].totalSize - sorted[i - 1].totalSize)
+  }
+
+  const totalChange = sorted[sorted.length - 1].totalSize - sorted[0].totalSize
+  const averageChange = Math.round(changes.reduce((a, b) => a + b, 0) / changes.length)
+
+  let trend: "increasing" | "decreasing" | "stable" = "stable"
+  if (averageChange > 1024) {
+    trend = "increasing"
+  } else if (averageChange < -1024) {
+    trend = "decreasing"
+  }
+
+  return {
+    trend,
+    averageChange,
+    totalChange,
+    entries: history.length,
+  }
+}

@@ -1,32 +1,32 @@
 {
-  "session_id": "6016bd69d21d",
+  "session_id": "121b62b9eae8",
   "stack": {
     "session": {
-      "id": "6016bd69d21d-127",
-      "text": "[Performance Features] Feature #89: [Static Generation] Support for static site generation (SSG) Verification: Tokens available at build; Static CSS generated; No client JS required Criteria: Manual verification required",
+      "id": "121b62b9eae8-129",
+      "text": "[Performance Features] Feature #90: [Bundle Size Reporting] Report brand kit impact on bundle size Verification: Size delta shown; Per-module breakdown; Historical comparison Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768992293.226872,
-      "updated_at": 1768992293.226872,
+      "created_at": 1768992478.4821553,
+      "updated_at": 1768992478.4821556,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 89,
+        "feature_id": 90,
         "category": "Performance Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "6016bd69d21d-128",
-      "text": "Implement: [Static Generation] Support for static site generation (SSG) Verification: Tokens available at build; Static CSS generated; No client JS required",
+      "id": "121b62b9eae8-130",
+      "text": "Implement: [Bundle Size Reporting] Report brand kit impact on bundle size Verification: Size delta shown; Per-module breakdown; Historical comparison",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768992293.2341387,
-      "updated_at": 1768992293.234139,
+      "created_at": 1768992478.5223608,
+      "updated_at": 1768992478.522361,
       "completed_at": null,
-      "parent_id": "6016bd69d21d-127",
+      "parent_id": "121b62b9eae8-129",
       "metadata": {},
       "keywords": []
     },
@@ -1888,9 +1888,38 @@
       "parent_id": "6016bd69d21d-127",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "121b62b9eae8-129",
+      "text": "[Performance Features] Feature #90: [Bundle Size Reporting] Report brand kit impact on bundle size Verification: Size delta shown; Per-module breakdown; Historical comparison Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992478.4821553,
+      "updated_at": 1768992478.4821556,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 90,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "121b62b9eae8-130",
+      "text": "Implement: [Bundle Size Reporting] Report brand kit impact on bundle size Verification: Size delta shown; Per-module breakdown; Historical comparison",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992478.5223608,
+      "updated_at": 1768992478.522361,
+      "completed_at": null,
+      "parent_id": "121b62b9eae8-129",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 128,
+  "intent_counter": 130,
   "created_at": 1768900061.32227,
-  "updated_at": 1768992293.2341464
+  "updated_at": 1768992478.5223668
 }
