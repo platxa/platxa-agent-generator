@@ -10599,3 +10599,428 @@ export function suggestBrandFixes(
 
   return fixes
 }
+
+// =============================================================================
+// Feature #103: Brand Hot Reloading
+// =============================================================================
+
+/**
+ * Hot reload event types
+ */
+export type HotReloadEvent =
+  | "config-change"
+  | "colors-update"
+  | "typography-update"
+  | "spacing-update"
+  | "full-reload"
+
+/**
+ * Hot reload callback
+ */
+export type HotReloadCallback = (
+  event: HotReloadEvent,
+  config: ThemeConfig
+) => void
+
+/**
+ * Hot reload options
+ */
+export interface HotReloadOptions {
+  /** Enable hot reloading (default: true in dev) */
+  enabled?: boolean
+  /** Debounce delay in ms (default: 100) */
+  debounceMs?: number
+  /** Log changes to console (default: true in dev) */
+  logChanges?: boolean
+  /** Apply changes immediately without batching (default: false) */
+  immediate?: boolean
+}
+
+/**
+ * Hot reload state
+ */
+interface HotReloadState {
+  enabled: boolean
+  config: ThemeConfig | null
+  listeners: Set<HotReloadCallback>
+  debounceTimer: ReturnType<typeof setTimeout> | null
+  options: HotReloadOptions
+}
+
+// Global hot reload state
+const hotReloadState: HotReloadState = {
+  enabled: false,
+  config: null,
+  listeners: new Set(),
+  debounceTimer: null,
+  options: {
+    enabled: true,
+    debounceMs: 100,
+    logChanges: true,
+    immediate: false,
+  },
+}
+
+/**
+ * Initializes brand hot reloading for development
+ *
+ * Sets up the hot reload system to watch for brand config changes
+ * and update CSS variables without a full page refresh.
+ *
+ * @param config - Initial theme configuration
+ * @param options - Hot reload options
+ * @returns Cleanup function
+ *
+ * @example
+ * ```typescript
+ * // In your app's entry point (dev only)
+ * if (import.meta.hot) {
+ *   const cleanup = initBrandHotReload(myBrand, {
+ *     logChanges: true,
+ *     debounceMs: 50,
+ *   })
+ *
+ *   import.meta.hot.dispose(cleanup)
+ * }
+ * ```
+ */
+export function initBrandHotReload(
+  config: ThemeConfig,
+  options: HotReloadOptions = {}
+): () => void {
+  // Only enable in browser environment
+  if (typeof window === "undefined") {
+    return () => {}
+  }
+
+  hotReloadState.enabled = options.enabled ?? true
+  hotReloadState.config = config
+  hotReloadState.options = { ...hotReloadState.options, ...options }
+
+  // Apply initial config
+  applyBrandToDOM(config)
+
+  if (hotReloadState.options.logChanges) {
+    console.log("[Brand HMR] Initialized with config:", config.name)
+  }
+
+  // Return cleanup function
+  return () => {
+    hotReloadState.enabled = false
+    hotReloadState.config = null
+    hotReloadState.listeners.clear()
+    if (hotReloadState.debounceTimer) {
+      clearTimeout(hotReloadState.debounceTimer)
+    }
+  }
+}
+
+/**
+ * Updates the brand configuration with hot reload
+ *
+ * Detects what changed and applies minimal updates to the DOM.
+ *
+ * @param newConfig - New theme configuration
+ *
+ * @example
+ * ```typescript
+ * // When brand config file changes
+ * import.meta.hot.accept("./brand.ts", (newModule) => {
+ *   updateBrandConfig(newModule.brand)
+ * })
+ * ```
+ */
+export function updateBrandConfig(newConfig: ThemeConfig): void {
+  if (!hotReloadState.enabled || typeof window === "undefined") {
+    return
+  }
+
+  const oldConfig = hotReloadState.config
+
+  // Determine what changed
+  const event = detectChangeType(oldConfig, newConfig)
+
+  // Debounce updates
+  if (hotReloadState.debounceTimer) {
+    clearTimeout(hotReloadState.debounceTimer)
+  }
+
+  const applyUpdate = () => {
+    hotReloadState.config = newConfig
+
+    // Apply changes to DOM
+    applyBrandToDOM(newConfig, event)
+
+    // Notify listeners
+    for (const listener of hotReloadState.listeners) {
+      try {
+        listener(event, newConfig)
+      } catch (err) {
+        console.error("[Brand HMR] Listener error:", err)
+      }
+    }
+
+    if (hotReloadState.options.logChanges) {
+      console.log(`[Brand HMR] ${event}:`, newConfig.name)
+    }
+  }
+
+  if (hotReloadState.options.immediate) {
+    applyUpdate()
+  } else {
+    hotReloadState.debounceTimer = setTimeout(
+      applyUpdate,
+      hotReloadState.options.debounceMs
+    )
+  }
+}
+
+/**
+ * Subscribes to brand hot reload events
+ *
+ * @param callback - Function called when brand changes
+ * @returns Unsubscribe function
+ *
+ * @example
+ * ```typescript
+ * const unsubscribe = subscribeToBrandChanges((event, config) => {
+ *   console.log("Brand changed:", event)
+ *   // Re-render components that depend on brand
+ * })
+ *
+ * // Later: unsubscribe()
+ * ```
+ */
+export function subscribeToBrandChanges(
+  callback: HotReloadCallback
+): () => void {
+  hotReloadState.listeners.add(callback)
+  return () => hotReloadState.listeners.delete(callback)
+}
+
+/**
+ * Detects what type of change occurred between configs
+ */
+function detectChangeType(
+  oldConfig: ThemeConfig | null,
+  newConfig: ThemeConfig
+): HotReloadEvent {
+  if (!oldConfig) {
+    return "full-reload"
+  }
+
+  // Check colors
+  const oldColors = JSON.stringify(oldConfig.light.colors)
+  const newColors = JSON.stringify(newConfig.light.colors)
+  if (oldColors !== newColors) {
+    return "colors-update"
+  }
+
+  // Check typography
+  const oldTypo = JSON.stringify(oldConfig.light.typography)
+  const newTypo = JSON.stringify(newConfig.light.typography)
+  if (oldTypo !== newTypo) {
+    return "typography-update"
+  }
+
+  // Check spacing
+  const oldSpacing = JSON.stringify(oldConfig.light.spacing)
+  const newSpacing = JSON.stringify(newConfig.light.spacing)
+  if (oldSpacing !== newSpacing) {
+    return "spacing-update"
+  }
+
+  // Default to config change
+  return "config-change"
+}
+
+/**
+ * Applies brand configuration to the DOM via CSS variables
+ */
+function applyBrandToDOM(
+  config: ThemeConfig,
+  event: HotReloadEvent = "full-reload"
+): void {
+  if (typeof document === "undefined") return
+
+  const root = document.documentElement
+
+  // Apply colors
+  if (event === "colors-update" || event === "full-reload") {
+    const colors = config.light.colors
+    for (const [key, value] of Object.entries(colors)) {
+      const cssVar = `--color-${toKebabCase(key)}`
+      const colorStr =
+        typeof value === "string" ? value : oklchToString(value as OklchColor)
+      root.style.setProperty(cssVar, colorStr)
+    }
+  }
+
+  // Apply typography
+  if (event === "typography-update" || event === "full-reload") {
+    const typography = config.light.typography
+    for (const [key, value] of Object.entries(typography)) {
+      if (value && typeof value === "object" && "fontSize" in value) {
+        const typedValue = value as { fontSize: string; lineHeight: string }
+        root.style.setProperty(`--font-size-${key}`, typedValue.fontSize)
+        root.style.setProperty(`--line-height-${key}`, typedValue.lineHeight)
+      }
+    }
+  }
+
+  // Apply spacing
+  if (event === "spacing-update" || event === "full-reload") {
+    const spacing = config.light.spacing
+    for (const [key, value] of Object.entries(spacing)) {
+      if (typeof value === "string") {
+        root.style.setProperty(`--spacing-${key}`, value)
+      }
+    }
+  }
+
+  // Apply radius
+  if (event === "full-reload") {
+    const radius = config.light.radius
+    for (const [key, value] of Object.entries(radius)) {
+      if (typeof value === "string") {
+        const cssKey = key === "default" ? "radius" : `radius-${key}`
+        root.style.setProperty(`--${cssKey}`, value)
+      }
+    }
+  }
+
+  // Apply font families
+  if (event === "full-reload" && config.light.fontFamily) {
+    const { sans, serif, mono } = config.light.fontFamily
+    if (sans) root.style.setProperty("--font-sans", sans)
+    if (serif) root.style.setProperty("--font-serif", serif)
+    if (mono) root.style.setProperty("--font-mono", mono)
+  }
+}
+
+/**
+ * Result of brand hot reload subscription
+ */
+export interface BrandHotReloadResult {
+  /** Current brand configuration */
+  config: ThemeConfig | null
+  /** Unsubscribe from hot reload events */
+  unsubscribe: () => void
+}
+
+/**
+ * Subscribes to brand hot reload and returns current config
+ *
+ * For non-React usage, call unsubscribe when done to prevent memory leaks.
+ * For React, use this in useEffect with cleanup.
+ *
+ * @param callback - Optional callback for custom handling
+ * @returns Object with current config and unsubscribe function
+ *
+ * @example
+ * ```typescript
+ * // Non-React usage
+ * const { config, unsubscribe } = useBrandHotReload((event, config) => {
+ *   console.log("Brand updated:", event)
+ * })
+ *
+ * // Later: cleanup
+ * unsubscribe()
+ *
+ * // React usage
+ * useEffect(() => {
+ *   const { config, unsubscribe } = useBrandHotReload((event, config) => {
+ *     setLocalConfig(config)
+ *   })
+ *   return unsubscribe
+ * }, [])
+ * ```
+ */
+export function useBrandHotReload(
+  callback?: HotReloadCallback
+): BrandHotReloadResult {
+  // For non-browser environments, return no-op
+  if (typeof window === "undefined") {
+    return {
+      config: hotReloadState.config,
+      unsubscribe: () => {},
+    }
+  }
+
+  // Subscribe to changes if callback provided
+  const unsubscribe = callback
+    ? subscribeToBrandChanges(callback)
+    : () => {}
+
+  return {
+    config: hotReloadState.config,
+    unsubscribe,
+  }
+}
+
+/**
+ * Gets the current hot reload state
+ *
+ * @returns Current hot reload configuration and status
+ */
+export function getHotReloadState(): {
+  enabled: boolean
+  config: ThemeConfig | null
+  listenerCount: number
+} {
+  return {
+    enabled: hotReloadState.enabled,
+    config: hotReloadState.config,
+    listenerCount: hotReloadState.listeners.size,
+  }
+}
+
+/**
+ * Forces a full brand reload
+ *
+ * Use when you need to ensure all CSS variables are refreshed.
+ */
+export function forceFullBrandReload(): void {
+  if (hotReloadState.config) {
+    applyBrandToDOM(hotReloadState.config, "full-reload")
+
+    for (const listener of hotReloadState.listeners) {
+      try {
+        listener("full-reload", hotReloadState.config)
+      } catch (err) {
+        console.error("[Brand HMR] Listener error:", err)
+      }
+    }
+
+    if (hotReloadState.options.logChanges) {
+      console.log("[Brand HMR] Forced full reload")
+    }
+  }
+}
+
+/**
+ * Creates Vite HMR integration for brand config
+ *
+ * Returns the HMR accept handler for Vite.
+ *
+ * @param getConfig - Function that returns the brand config
+ * @returns Vite HMR accept callback
+ *
+ * @example
+ * ```typescript
+ * // brand.ts
+ * export const brand = createTheme("my-brand", { ... })
+ *
+ * if (import.meta.hot) {
+ *   import.meta.hot.accept(createViteHMRHandler(() => brand))
+ * }
+ * ```
+ */
+export function createViteHMRHandler(
+  getConfig: () => ThemeConfig
+): () => void {
+  return () => {
+    const newConfig = getConfig()
+    updateBrandConfig(newConfig)
+  }
+}

@@ -243,6 +243,14 @@ export {
   validateBrandCompliance,
   formatBrandValidationReport,
   suggestBrandFixes,
+  // Brand Hot Reloading (Feature #103)
+  initBrandHotReload,
+  updateBrandConfig,
+  subscribeToBrandChanges,
+  useBrandHotReload,
+  getHotReloadState,
+  forceFullBrandReload,
+  createViteHMRHandler,
 } from "./theme-worker"
 
 export type {
@@ -346,6 +354,11 @@ export type {
   BrandViolation,
   BrandValidationResult,
   ComponentStyles,
+  // Brand Hot Reloading (Feature #103)
+  HotReloadEvent,
+  HotReloadCallback,
+  HotReloadOptions,
+  BrandHotReloadResult,
 } from "./theme-worker"
 
 // Token presets
