@@ -7201,3 +7201,538 @@ export function generateNextRouteConfig(): {
     revalidate: false,
   }
 }
+
+// =============================================================================
+// Feature #95: Tailwind Plugin
+// =============================================================================
+
+/**
+ * Tailwind plugin configuration options
+ */
+export interface TailwindPluginOptions {
+  /**
+   * Prefix for generated utilities
+   * @default "brand"
+   */
+  prefix?: string
+
+  /**
+   * Whether to generate color utilities
+   * @default true
+   */
+  colors?: boolean
+
+  /**
+   * Whether to generate spacing utilities
+   * @default true
+   */
+  spacing?: boolean
+
+  /**
+   * Whether to generate typography utilities
+   * @default true
+   */
+  typography?: boolean
+
+  /**
+   * Whether to generate dark mode variants
+   * @default true
+   */
+  darkMode?: boolean
+
+  /**
+   * CSS layer to place styles in
+   * @default "theme"
+   */
+  layer?: string
+}
+
+/**
+ * Tailwind v4 @theme directive content
+ */
+export interface TailwindThemeDirective {
+  /** The @theme block content */
+  content: string
+  /** Colors section */
+  colors: Record<string, string>
+  /** Spacing section */
+  spacing: Record<string, string>
+  /** Font families */
+  fontFamily: Record<string, string>
+  /** Font sizes */
+  fontSize: Record<string, string>
+  /** Border radius */
+  borderRadius: Record<string, string>
+  /** Box shadows */
+  boxShadow: Record<string, string>
+}
+
+/**
+ * Generated Tailwind plugin structure
+ */
+export interface TailwindPluginOutput {
+  /** Plugin function code */
+  pluginCode: string
+  /** @theme directive content for CSS */
+  themeDirective: string
+  /** Tailwind config extension */
+  configExtension: Record<string, unknown>
+  /** CSS file content */
+  cssContent: string
+}
+
+/**
+ * Generates Tailwind v4 @theme directive content from brand tokens
+ *
+ * Creates a complete @theme block that can be included in your CSS
+ * to define custom design tokens.
+ *
+ * @param config - Theme configuration
+ * @returns Theme directive structure
+ *
+ * @example
+ * ```css
+ * /* In your main CSS file *\/
+ * @import "tailwindcss";
+ *
+ * @theme {
+ *   --color-primary: oklch(0.7 0.15 250);
+ *   --color-secondary: oklch(0.6 0.1 200);
+ *   /* ... more tokens *\/
+ * }
+ * ```
+ */
+export function generateTailwindThemeDirective(
+  config: ThemeConfig
+): TailwindThemeDirective {
+  const colors: Record<string, string> = {}
+  const spacing: Record<string, string> = {}
+  const fontFamily: Record<string, string> = {}
+  const fontSize: Record<string, string> = {}
+  const borderRadius: Record<string, string> = {}
+  const boxShadow: Record<string, string> = {}
+
+  // Extract colors
+  for (const [key, value] of Object.entries(config.light.colors)) {
+    const colorStr = typeof value === "string" ? value : getColorString(value)
+    colors[toKebabCase(key)] = colorStr
+  }
+
+  // Extract spacing
+  for (const [key, value] of Object.entries(config.light.spacing)) {
+    spacing[key.toString()] = value
+  }
+
+  // Extract font families (separate from typography scale)
+  if (config.light.fontFamily) {
+    if (config.light.fontFamily.sans) {
+      fontFamily.sans = config.light.fontFamily.sans
+    }
+    if (config.light.fontFamily.serif) {
+      fontFamily.serif = config.light.fontFamily.serif
+    }
+    if (config.light.fontFamily.mono) {
+      fontFamily.mono = config.light.fontFamily.mono
+    }
+  }
+
+  // Extract typography scale (font sizes with line heights)
+  if (config.light.typography) {
+    const typographyEntries = Object.entries(config.light.typography)
+    for (const [key, value] of typographyEntries) {
+      // TypographyScale entries have { fontSize, lineHeight } structure
+      if (value && typeof value === "object" && "fontSize" in value) {
+        fontSize[key] = value.fontSize
+      }
+    }
+  }
+
+  // Extract radius
+  if (config.light.radius) {
+    for (const [key, value] of Object.entries(config.light.radius)) {
+      borderRadius[key] = value
+    }
+  }
+
+  // Extract shadows
+  if (config.light.shadow) {
+    for (const [key, value] of Object.entries(config.light.shadow)) {
+      boxShadow[key] = value
+    }
+  }
+
+  // Generate @theme content
+  const lines: string[] = ["@theme {"]
+
+  // Colors
+  for (const [key, value] of Object.entries(colors)) {
+    lines.push(`  --color-${key}: ${value};`)
+  }
+
+  // Spacing
+  for (const [key, value] of Object.entries(spacing)) {
+    lines.push(`  --spacing-${key}: ${value};`)
+  }
+
+  // Font families
+  for (const [key, value] of Object.entries(fontFamily)) {
+    lines.push(`  --font-family-${key}: ${value};`)
+  }
+
+  // Font sizes
+  for (const [key, value] of Object.entries(fontSize)) {
+    lines.push(`  --font-size-${key}: ${value};`)
+  }
+
+  // Border radius
+  for (const [key, value] of Object.entries(borderRadius)) {
+    lines.push(`  --radius-${key}: ${value};`)
+  }
+
+  // Box shadows
+  for (const [key, value] of Object.entries(boxShadow)) {
+    lines.push(`  --shadow-${key}: ${value};`)
+  }
+
+  lines.push("}")
+
+  return {
+    content: lines.join("\n"),
+    colors,
+    spacing,
+    fontFamily,
+    fontSize,
+    borderRadius,
+    boxShadow,
+  }
+}
+
+/**
+ * Generates a Tailwind v4 plugin for brand tokens
+ *
+ * Creates a plugin that registers brand colors, spacing, and other
+ * tokens as Tailwind utilities.
+ *
+ * @param config - Theme configuration
+ * @param options - Plugin options
+ * @returns Plugin output with code and configuration
+ *
+ * @example
+ * ```typescript
+ * const plugin = generateTailwindPlugin(myTheme)
+ *
+ * // Write to tailwind.plugin.js
+ * fs.writeFileSync("tailwind.plugin.js", plugin.pluginCode)
+ *
+ * // Use in tailwind.config.js
+ * module.exports = {
+ *   plugins: [require("./tailwind.plugin.js")],
+ * }
+ * ```
+ */
+export function generateTailwindPlugin(
+  config: ThemeConfig,
+  options: TailwindPluginOptions = {}
+): TailwindPluginOutput {
+  const {
+    prefix = "brand",
+    colors = true,
+    spacing = true,
+    typography = true,
+    darkMode = true,
+    layer = "theme",
+  } = options
+
+  const themeDirective = generateTailwindThemeDirective(config)
+  const configExtension: Record<string, unknown> = {}
+
+  // Build color extension
+  if (colors) {
+    const colorConfig: Record<string, string> = {}
+    for (const key of Object.keys(themeDirective.colors)) {
+      colorConfig[key] = `var(--color-${key})`
+    }
+    configExtension.colors = { [prefix]: colorConfig }
+  }
+
+  // Build spacing extension
+  if (spacing) {
+    const spacingConfig: Record<string, string> = {}
+    for (const key of Object.keys(themeDirective.spacing)) {
+      spacingConfig[key] = `var(--spacing-${key})`
+    }
+    configExtension.spacing = spacingConfig
+  }
+
+  // Build typography extension
+  if (typography) {
+    configExtension.fontFamily = {}
+    for (const [key, _] of Object.entries(themeDirective.fontFamily)) {
+      (configExtension.fontFamily as Record<string, string>)[key] =
+        `var(--font-family-${key})`
+    }
+  }
+
+  // Generate plugin code
+  const pluginCode = `/**
+ * Tailwind Plugin for ${config.name} brand tokens
+ * Generated by @platxa/frontend-agent
+ */
+const plugin = require("tailwindcss/plugin")
+
+module.exports = plugin(
+  function ({ addBase, addUtilities, theme }) {
+    // Add base CSS variables
+    addBase({
+      ":root": {
+${Object.entries(themeDirective.colors)
+  .map(([key, value]) => `        "--color-${key}": "${value}",`)
+  .join("\n")}
+${Object.entries(themeDirective.spacing)
+  .map(([key, value]) => `        "--spacing-${key}": "${value}",`)
+  .join("\n")}
+${Object.entries(themeDirective.fontFamily)
+  .map(([key, value]) => `        "--font-family-${key}": "${value}",`)
+  .join("\n")}
+${Object.entries(themeDirective.borderRadius)
+  .map(([key, value]) => `        "--radius-${key}": "${value}",`)
+  .join("\n")}
+      },
+${
+  darkMode && config.dark
+    ? `      ".dark, [data-theme='dark']": {
+${Object.entries(config.dark)
+  .map(([key, value]) => {
+    const colorStr = typeof value === "string" ? value : getColorString(value)
+    return `        "--color-${toKebabCase(key)}": "${colorStr}",`
+  })
+  .join("\n")}
+      },`
+    : ""
+}
+    })
+
+    // Add custom utilities
+    addUtilities({
+      ".${prefix}-text": {
+        color: "var(--color-foreground)",
+      },
+      ".${prefix}-bg": {
+        backgroundColor: "var(--color-background)",
+      },
+      ".${prefix}-primary": {
+        color: "var(--color-primary)",
+      },
+      ".${prefix}-secondary": {
+        color: "var(--color-secondary)",
+      },
+    })
+  },
+  {
+    theme: {
+      extend: ${JSON.stringify(configExtension, null, 8).replace(/\n/g, "\n      ")},
+    },
+  }
+)
+`
+
+  // Generate CSS content with @theme
+  const cssContent = `/**
+ * Brand tokens CSS for ${config.name}
+ * Generated by @platxa/frontend-agent
+ *
+ * Usage:
+ * @import "tailwindcss";
+ * @import "./brand-tokens.css";
+ */
+
+@layer ${layer} {
+  :root {
+${Object.entries(themeDirective.colors)
+  .map(([key, value]) => `    --color-${key}: ${value};`)
+  .join("\n")}
+${Object.entries(themeDirective.spacing)
+  .map(([key, value]) => `    --spacing-${key}: ${value};`)
+  .join("\n")}
+${Object.entries(themeDirective.fontFamily)
+  .map(([key, value]) => `    --font-family-${key}: ${value};`)
+  .join("\n")}
+${Object.entries(themeDirective.fontSize)
+  .map(([key, value]) => `    --font-size-${key}: ${value};`)
+  .join("\n")}
+${Object.entries(themeDirective.borderRadius)
+  .map(([key, value]) => `    --radius-${key}: ${value};`)
+  .join("\n")}
+${Object.entries(themeDirective.boxShadow)
+  .map(([key, value]) => `    --shadow-${key}: ${value};`)
+  .join("\n")}
+  }
+
+${
+  darkMode && config.dark
+    ? `  .dark,
+  [data-theme="dark"] {
+${Object.entries(config.dark)
+  .map(([key, value]) => {
+    const colorStr = typeof value === "string" ? value : getColorString(value)
+    return `    --color-${toKebabCase(key)}: ${colorStr};`
+  })
+  .join("\n")}
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+${Object.entries(config.dark)
+  .map(([key, value]) => {
+    const colorStr = typeof value === "string" ? value : getColorString(value)
+    return `      --color-${toKebabCase(key)}: ${colorStr};`
+  })
+  .join("\n")}
+    }
+  }`
+    : ""
+}
+}
+`
+
+  return {
+    pluginCode,
+    themeDirective: themeDirective.content,
+    configExtension,
+    cssContent,
+  }
+}
+
+/**
+ * Generates Tailwind v4 CSS-first configuration
+ *
+ * For Tailwind v4, configuration is done primarily in CSS using @theme.
+ * This generates the complete CSS file with all brand tokens.
+ *
+ * @param config - Theme configuration
+ * @param options - Plugin options
+ * @returns CSS content for Tailwind v4
+ *
+ * @example
+ * ```typescript
+ * const css = generateTailwindV4Css(myTheme)
+ * // Write to app.css and import in your project
+ * ```
+ */
+export function generateTailwindV4Css(
+  config: ThemeConfig,
+  options: TailwindPluginOptions = {}
+): string {
+  const { darkMode = true } = options
+  const directive = generateTailwindThemeDirective(config)
+
+  let css = `@import "tailwindcss";
+
+${directive.content}
+`
+
+  // Add dark mode overrides
+  if (darkMode && config.dark) {
+    css += `
+@theme dark {
+${Object.entries(config.dark)
+  .map(([key, value]) => {
+    const colorStr = typeof value === "string" ? value : getColorString(value)
+    return `  --color-${toKebabCase(key)}: ${colorStr};`
+  })
+  .join("\n")}
+}
+`
+  }
+
+  return css
+}
+
+/**
+ * Generates Tailwind config object for JavaScript configuration
+ *
+ * For projects that prefer JavaScript/TypeScript configuration over
+ * CSS-first approach.
+ *
+ * @param config - Theme configuration
+ * @returns Tailwind config object
+ *
+ * @example
+ * ```typescript
+ * // tailwind.config.ts
+ * import { generateTailwindConfig } from "@platxa/frontend-agent"
+ * import { myTheme } from "./theme"
+ *
+ * export default {
+ *   ...generateTailwindConfig(myTheme),
+ *   content: ["./src/**\/*.{ts,tsx}"],
+ * }
+ * ```
+ */
+export function generateTailwindConfig(
+  config: ThemeConfig
+): Record<string, unknown> {
+  const directive = generateTailwindThemeDirective(config)
+
+  return {
+    theme: {
+      extend: {
+        colors: Object.fromEntries(
+          Object.entries(directive.colors).map(([key, value]) => [key, value])
+        ),
+        spacing: directive.spacing,
+        fontFamily: Object.fromEntries(
+          Object.entries(directive.fontFamily).map(([key, value]) => [
+            key,
+            [value],
+          ])
+        ),
+        fontSize: directive.fontSize,
+        borderRadius: directive.borderRadius,
+        boxShadow: directive.boxShadow,
+      },
+    },
+  }
+}
+
+/**
+ * Generates custom Tailwind utilities from brand tokens
+ *
+ * Creates utility classes like `bg-brand-primary`, `text-brand-secondary`, etc.
+ *
+ * @param config - Theme configuration
+ * @param prefix - Utility prefix
+ * @returns Utility CSS classes
+ */
+export function generateTailwindUtilities(
+  config: ThemeConfig,
+  prefix: string = "brand"
+): string {
+  const lines: string[] = ["/* Brand Utilities */"]
+
+  // Background utilities
+  for (const [key] of Object.entries(config.light.colors)) {
+    const kebabKey = toKebabCase(key)
+    lines.push(`.bg-${prefix}-${kebabKey} { background-color: var(--color-${kebabKey}); }`)
+  }
+
+  // Text utilities
+  for (const [key] of Object.entries(config.light.colors)) {
+    const kebabKey = toKebabCase(key)
+    lines.push(`.text-${prefix}-${kebabKey} { color: var(--color-${kebabKey}); }`)
+  }
+
+  // Border utilities
+  for (const [key] of Object.entries(config.light.colors)) {
+    const kebabKey = toKebabCase(key)
+    lines.push(`.border-${prefix}-${kebabKey} { border-color: var(--color-${kebabKey}); }`)
+  }
+
+  // Ring utilities
+  for (const [key] of Object.entries(config.light.colors)) {
+    const kebabKey = toKebabCase(key)
+    lines.push(`.ring-${prefix}-${kebabKey} { --tw-ring-color: var(--color-${kebabKey}); }`)
+  }
+
+  return lines.join("\n")
+}

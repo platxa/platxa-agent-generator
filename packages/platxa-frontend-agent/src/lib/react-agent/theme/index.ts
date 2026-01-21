@@ -191,6 +191,12 @@ export {
   generateNextViewport,
   generateNextThemeProvider,
   generateNextRouteConfig,
+  // Tailwind Plugin (Feature #95)
+  generateTailwindThemeDirective,
+  generateTailwindPlugin,
+  generateTailwindV4Css,
+  generateTailwindConfig,
+  generateTailwindUtilities,
 } from "./theme-worker"
 
 export type {
@@ -256,6 +262,10 @@ export type {
   NextThemeMetadata,
   NextIntegrationOptions,
   NextLayoutConfig,
+  // Tailwind Plugin (Feature #95)
+  TailwindPluginOptions,
+  TailwindThemeDirective,
+  TailwindPluginOutput,
 } from "./theme-worker"
 
 // Token presets
