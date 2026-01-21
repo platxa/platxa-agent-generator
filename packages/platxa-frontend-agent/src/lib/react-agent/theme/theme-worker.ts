@@ -13360,3 +13360,539 @@ export function presetToFramerMotion(preset: AnimationPreset): Record<string, un
       return { type: "tween" }
   }
 }
+
+// ============================================================================
+// Feature #108: URL Loading
+// ============================================================================
+
+/**
+ * Configuration for loading brand kit from URL
+ */
+export interface UrlLoadingConfig {
+  /** URL to load brand kit from (must be HTTPS in production) */
+  url: string
+  /** Request timeout in milliseconds (default: 10000) */
+  timeout?: number
+  /** Whether to cache the loaded brand kit (default: true) */
+  cache?: boolean
+  /** Cache TTL in milliseconds (default: 300000 = 5 minutes) */
+  cacheTtl?: number
+  /** Custom headers to include in the request */
+  headers?: Record<string, string>
+  /** Credentials mode for CORS (default: "same-origin") */
+  credentials?: RequestCredentials
+  /** Whether to validate the response (default: true) */
+  validate?: boolean
+  /** Retry configuration */
+  retry?: {
+    /** Number of retries (default: 3) */
+    attempts?: number
+    /** Delay between retries in ms (default: 1000) */
+    delay?: number
+    /** Whether to use exponential backoff (default: true) */
+    exponentialBackoff?: boolean
+  }
+}
+
+/**
+ * Result of loading a brand kit from URL
+ */
+export interface UrlLoadingResult {
+  /** Whether the load was successful */
+  success: boolean
+  /** The loaded theme config (if successful) */
+  config: ThemeConfig | null
+  /** Error message (if failed) */
+  error?: string
+  /** HTTP status code */
+  statusCode?: number
+  /** Whether the result was served from cache */
+  fromCache: boolean
+  /** Time taken to load in milliseconds */
+  loadTime: number
+  /** URL that was loaded */
+  url: string
+  /** Cache expiry time (if cached) */
+  cacheExpiry?: number
+}
+
+/**
+ * Cache entry for remote brand kits
+ */
+interface BrandKitCacheEntry {
+  config: ThemeConfig
+  url: string
+  timestamp: number
+  expiresAt: number
+  etag?: string
+  lastModified?: string
+}
+
+/** Cache for remote brand kits */
+const brandKitUrlCache = new Map<string, BrandKitCacheEntry>()
+
+/** Default URL loading configuration */
+const DEFAULT_URL_LOADING_CONFIG: Required<Omit<UrlLoadingConfig, "url" | "headers">> & {
+  headers: Record<string, string>
+} = {
+  timeout: 10000,
+  cache: true,
+  cacheTtl: 300000, // 5 minutes
+  headers: {},
+  credentials: "same-origin",
+  validate: true,
+  retry: {
+    attempts: 3,
+    delay: 1000,
+    exponentialBackoff: true,
+  },
+}
+
+/**
+ * Validates that a URL is safe to load
+ *
+ * @param url - URL to validate
+ * @returns Validation result
+ */
+export function validateBrandKitUrl(url: string): { valid: boolean; error?: string } {
+  try {
+    const parsed = new URL(url)
+
+    // Only allow HTTP(S) protocols
+    if (!["http:", "https:"].includes(parsed.protocol)) {
+      return { valid: false, error: `Invalid protocol: ${parsed.protocol}. Only HTTP(S) allowed.` }
+    }
+
+    // Warn about non-HTTPS in production-like environments
+    if (parsed.protocol === "http:" && typeof window !== "undefined" && window.location.protocol === "https:") {
+      return { valid: false, error: "Cannot load HTTP URL from HTTPS page due to mixed content policy." }
+    }
+
+    return { valid: true }
+  } catch {
+    return { valid: false, error: "Invalid URL format" }
+  }
+}
+
+/**
+ * Gets a cached brand kit if available and not expired
+ *
+ * @param url - URL to check cache for
+ * @returns Cached entry or undefined
+ */
+export function getCachedBrandKit(url: string): BrandKitCacheEntry | undefined {
+  const entry = brandKitUrlCache.get(url)
+
+  if (!entry) {
+    return undefined
+  }
+
+  // Check if expired
+  if (Date.now() > entry.expiresAt) {
+    brandKitUrlCache.delete(url)
+    return undefined
+  }
+
+  return entry
+}
+
+/**
+ * Caches a brand kit
+ *
+ * @param url - URL the brand kit was loaded from
+ * @param config - The theme config to cache
+ * @param ttl - Cache TTL in milliseconds
+ * @param etag - Optional ETag header value
+ * @param lastModified - Optional Last-Modified header value
+ */
+export function cacheBrandKit(
+  url: string,
+  config: ThemeConfig,
+  ttl: number,
+  etag?: string,
+  lastModified?: string
+): void {
+  const now = Date.now()
+  brandKitUrlCache.set(url, {
+    config,
+    url,
+    timestamp: now,
+    expiresAt: now + ttl,
+    etag,
+    lastModified,
+  })
+}
+
+/**
+ * Clears the brand kit URL cache
+ *
+ * @param url - Optional specific URL to clear, or all if not provided
+ */
+export function clearBrandKitUrlCache(url?: string): void {
+  if (url) {
+    brandKitUrlCache.delete(url)
+  } else {
+    brandKitUrlCache.clear()
+  }
+}
+
+/**
+ * Gets cache statistics
+ *
+ * @returns Cache statistics
+ */
+export function getBrandKitUrlCacheStats(): {
+  size: number
+  entries: Array<{ url: string; expiresIn: number }>
+} {
+  const now = Date.now()
+  const entries = Array.from(brandKitUrlCache.entries()).map(([url, entry]) => ({
+    url,
+    expiresIn: Math.max(0, entry.expiresAt - now),
+  }))
+
+  return {
+    size: brandKitUrlCache.size,
+    entries,
+  }
+}
+
+/**
+ * Performs a fetch with timeout
+ */
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+  timeout: number
+): Promise<Response> {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeout)
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    })
+    return response
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
+/**
+ * Loads a brand kit from a remote URL
+ *
+ * Supports HTTPS URLs with proper CORS handling and caching.
+ *
+ * @param config - URL loading configuration
+ * @returns Loading result with theme config or error
+ *
+ * @example
+ * ```typescript
+ * const result = await loadBrandKitFromUrl({
+ *   url: "https://cdn.example.com/brand-kit.json",
+ *   cache: true,
+ *   cacheTtl: 600000, // 10 minutes
+ * })
+ *
+ * if (result.success) {
+ *   console.log("Loaded brand:", result.config?.name)
+ *   console.log("From cache:", result.fromCache)
+ * } else {
+ *   console.error("Failed to load:", result.error)
+ * }
+ * ```
+ */
+export async function loadBrandKitFromUrl(
+  config: UrlLoadingConfig
+): Promise<UrlLoadingResult> {
+  const startTime = Date.now()
+  const {
+    url,
+    timeout = DEFAULT_URL_LOADING_CONFIG.timeout,
+    cache = DEFAULT_URL_LOADING_CONFIG.cache,
+    cacheTtl = DEFAULT_URL_LOADING_CONFIG.cacheTtl,
+    headers = DEFAULT_URL_LOADING_CONFIG.headers,
+    credentials = DEFAULT_URL_LOADING_CONFIG.credentials,
+    validate = DEFAULT_URL_LOADING_CONFIG.validate,
+    retry = DEFAULT_URL_LOADING_CONFIG.retry,
+  } = config
+
+  // Validate URL
+  const urlValidation = validateBrandKitUrl(url)
+  if (!urlValidation.valid) {
+    return {
+      success: false,
+      config: null,
+      error: urlValidation.error,
+      fromCache: false,
+      loadTime: Date.now() - startTime,
+      url,
+    }
+  }
+
+  // Check cache first
+  if (cache) {
+    const cached = getCachedBrandKit(url)
+    if (cached) {
+      return {
+        success: true,
+        config: cached.config,
+        fromCache: true,
+        loadTime: Date.now() - startTime,
+        url,
+        cacheExpiry: cached.expiresAt,
+      }
+    }
+  }
+
+  // Prepare request headers
+  const requestHeaders: Record<string, string> = {
+    Accept: "application/json",
+    ...headers,
+  }
+
+  // Add conditional headers if we have cached data
+  const existingCache = brandKitUrlCache.get(url)
+  if (existingCache?.etag) {
+    requestHeaders["If-None-Match"] = existingCache.etag
+  }
+  if (existingCache?.lastModified) {
+    requestHeaders["If-Modified-Since"] = existingCache.lastModified
+  }
+
+  // Retry configuration with concrete defaults
+  const maxAttempts = retry?.attempts ?? 3
+  const baseDelay = retry?.delay ?? 1000
+  const useExponentialBackoff = retry?.exponentialBackoff ?? true
+
+  let lastError: string | undefined
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const response = await fetchWithTimeout(
+        url,
+        {
+          method: "GET",
+          headers: requestHeaders,
+          credentials,
+          mode: "cors",
+        },
+        timeout
+      )
+
+      // Handle 304 Not Modified
+      if (response.status === 304 && existingCache) {
+        // Refresh cache expiry
+        existingCache.expiresAt = Date.now() + cacheTtl
+        return {
+          success: true,
+          config: existingCache.config,
+          statusCode: 304,
+          fromCache: true,
+          loadTime: Date.now() - startTime,
+          url,
+          cacheExpiry: existingCache.expiresAt,
+        }
+      }
+
+      if (!response.ok) {
+        lastError = `HTTP ${response.status}: ${response.statusText}`
+
+        // Don't retry for client errors (4xx)
+        if (response.status >= 400 && response.status < 500) {
+          return {
+            success: false,
+            config: null,
+            error: lastError,
+            statusCode: response.status,
+            fromCache: false,
+            loadTime: Date.now() - startTime,
+            url,
+          }
+        }
+
+        // Retry for server errors
+        if (attempt < maxAttempts) {
+          const delay = useExponentialBackoff
+            ? baseDelay * Math.pow(2, attempt - 1)
+            : baseDelay
+          await new Promise((resolve) => setTimeout(resolve, delay))
+          continue
+        }
+
+        return {
+          success: false,
+          config: null,
+          error: lastError,
+          statusCode: response.status,
+          fromCache: false,
+          loadTime: Date.now() - startTime,
+          url,
+        }
+      }
+
+      // Parse response
+      const data = await response.json()
+
+      // Validate response structure
+      if (validate) {
+        if (!data || typeof data !== "object") {
+          return {
+            success: false,
+            config: null,
+            error: "Invalid response: expected JSON object",
+            statusCode: response.status,
+            fromCache: false,
+            loadTime: Date.now() - startTime,
+            url,
+          }
+        }
+
+        // Basic ThemeConfig validation
+        if (!data.name || !data.light) {
+          return {
+            success: false,
+            config: null,
+            error: "Invalid brand kit: missing required fields (name, light)",
+            statusCode: response.status,
+            fromCache: false,
+            loadTime: Date.now() - startTime,
+            url,
+          }
+        }
+      }
+
+      const themeConfig = data as ThemeConfig
+
+      // Cache the result
+      if (cache) {
+        const etag = response.headers.get("ETag") ?? undefined
+        const lastModified = response.headers.get("Last-Modified") ?? undefined
+        cacheBrandKit(url, themeConfig, cacheTtl, etag, lastModified)
+      }
+
+      return {
+        success: true,
+        config: themeConfig,
+        statusCode: response.status,
+        fromCache: false,
+        loadTime: Date.now() - startTime,
+        url,
+        cacheExpiry: cache ? Date.now() + cacheTtl : undefined,
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.name === "AbortError") {
+          lastError = `Request timeout after ${timeout}ms`
+        } else {
+          lastError = error.message
+        }
+      } else {
+        lastError = "Unknown error occurred"
+      }
+
+      // Retry on network errors
+      if (attempt < maxAttempts) {
+        const delay = useExponentialBackoff
+          ? baseDelay * Math.pow(2, attempt - 1)
+          : baseDelay
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        continue
+      }
+    }
+  }
+
+  return {
+    success: false,
+    config: null,
+    error: lastError ?? "Failed to load brand kit",
+    fromCache: false,
+    loadTime: Date.now() - startTime,
+    url,
+  }
+}
+
+/**
+ * Preloads multiple brand kits from URLs
+ *
+ * @param urls - Array of URLs to preload
+ * @param options - Common loading options
+ * @returns Map of URL to loading result
+ *
+ * @example
+ * ```typescript
+ * const results = await preloadBrandKits([
+ *   "https://cdn.example.com/light-theme.json",
+ *   "https://cdn.example.com/dark-theme.json",
+ * ])
+ *
+ * for (const [url, result] of results) {
+ *   console.log(url, result.success ? "loaded" : result.error)
+ * }
+ * ```
+ */
+export async function preloadBrandKits(
+  urls: string[],
+  options: Omit<UrlLoadingConfig, "url"> = {}
+): Promise<Map<string, UrlLoadingResult>> {
+  const results = new Map<string, UrlLoadingResult>()
+
+  const promises = urls.map(async (url) => {
+    const result = await loadBrandKitFromUrl({ ...options, url })
+    results.set(url, result)
+  })
+
+  await Promise.all(promises)
+  return results
+}
+
+/**
+ * Creates a URL loader function compatible with config inheritance
+ *
+ * @param baseOptions - Default options for all loads
+ * @returns ConfigLoader function
+ *
+ * @example
+ * ```typescript
+ * const loader = createUrlConfigLoader({
+ *   timeout: 5000,
+ *   cache: true,
+ * })
+ *
+ * const result = await resolveConfigInheritance(config, { loader })
+ * ```
+ */
+export function createUrlConfigLoader(
+  baseOptions: Omit<UrlLoadingConfig, "url"> = {}
+): ConfigLoader {
+  return async (path: string): Promise<ThemeConfig> => {
+    const result = await loadBrandKitFromUrl({ ...baseOptions, url: path })
+
+    if (!result.success || !result.config) {
+      throw new Error(result.error ?? "Failed to load brand kit")
+    }
+
+    return result.config
+  }
+}
+
+/**
+ * Refreshes a cached brand kit
+ *
+ * Forces a reload from the URL, bypassing cache.
+ *
+ * @param url - URL to refresh
+ * @param options - Loading options
+ * @returns Loading result
+ */
+export async function refreshBrandKit(
+  url: string,
+  options: Omit<UrlLoadingConfig, "url" | "cache"> = {}
+): Promise<UrlLoadingResult> {
+  // Clear existing cache entry
+  clearBrandKitUrlCache(url)
+
+  // Reload with caching enabled
+  return loadBrandKitFromUrl({ ...options, url, cache: true })
+}

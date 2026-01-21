@@ -307,6 +307,16 @@ export {
   springToFramerMotion,
   tweenToFramerMotion,
   presetToFramerMotion,
+  // URL Loading (Feature #108)
+  validateBrandKitUrl,
+  getCachedBrandKit,
+  cacheBrandKit,
+  clearBrandKitUrlCache,
+  getBrandKitUrlCacheStats,
+  loadBrandKitFromUrl,
+  preloadBrandKits,
+  createUrlConfigLoader,
+  refreshBrandKit,
 } from "./theme-worker"
 
 export type {
@@ -446,6 +456,9 @@ export type {
   DurationPresets,
   EasingPresets,
   AnimationPresets,
+  // URL Loading (Feature #108)
+  UrlLoadingConfig,
+  UrlLoadingResult,
 } from "./theme-worker"
 
 // Token presets

@@ -1,7 +1,15 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-21T17:32:31.456277",
+  "updated_at": "2026-01-21T17:35:40.676883",
   "plans": [
+    {
+      "id": "plan-feature-108",
+      "title": "Implementation: [URL Loading] Load brand kit from remote URL (enterprise/CDN...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:35:40.676335",
+      "constitution_check": true
+    },
     {
       "id": "plan-feature-98",
       "title": "Implementation: [Best Practices Guide] Recommended patterns and anti-pattern...",
