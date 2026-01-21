@@ -12649,3 +12649,714 @@ export function extractComponentTokensFromElement(
 
   return tokens
 }
+
+// ============================================================================
+// Feature #107: Animation Presets
+// ============================================================================
+
+/**
+ * Spring animation configuration for Framer Motion
+ */
+export interface SpringConfig {
+  /** Spring stiffness (default: 100) */
+  stiffness?: number
+  /** Damping coefficient (default: 10) */
+  damping?: number
+  /** Mass of the object (default: 1) */
+  mass?: number
+  /** Velocity at start (default: 0) */
+  velocity?: number
+  /** Rest delta threshold (default: 0.01) */
+  restDelta?: number
+  /** Rest speed threshold (default: 0.01) */
+  restSpeed?: number
+}
+
+/**
+ * Tween animation configuration
+ */
+export interface TweenConfig {
+  /** Duration in seconds */
+  duration?: number
+  /** Easing function name or cubic-bezier */
+  ease?: string | number[]
+  /** Delay before animation starts */
+  delay?: number
+  /** Number of times to repeat (-1 for infinite) */
+  repeat?: number
+  /** Whether to reverse on repeat */
+  repeatType?: "loop" | "reverse" | "mirror"
+  /** Delay between repeats */
+  repeatDelay?: number
+}
+
+/**
+ * Inertia animation configuration (for drag/scroll)
+ */
+export interface InertiaConfig {
+  /** Deceleration rate (default: 0.95) */
+  power?: number
+  /** Time constant for decay */
+  timeConstant?: number
+  /** Minimum value constraint */
+  min?: number
+  /** Maximum value constraint */
+  max?: number
+  /** Elasticity when hitting constraints */
+  bounceStiffness?: number
+  /** Damping when bouncing */
+  bounceDamping?: number
+}
+
+/**
+ * Keyframe animation configuration
+ */
+export interface KeyframeConfig {
+  /** Array of keyframe values */
+  values: (string | number)[]
+  /** Times for each keyframe (0-1) */
+  times?: number[]
+  /** Easing between keyframes */
+  ease?: string | string[]
+  /** Total duration */
+  duration?: number
+}
+
+/**
+ * Named animation preset
+ */
+export interface AnimationPreset {
+  /** Preset name */
+  name: string
+  /** Preset description */
+  description?: string
+  /** Animation type */
+  type: "spring" | "tween" | "inertia" | "keyframes"
+  /** Spring configuration (when type is spring) */
+  spring?: SpringConfig
+  /** Tween configuration (when type is tween) */
+  tween?: TweenConfig
+  /** Inertia configuration (when type is inertia) */
+  inertia?: InertiaConfig
+  /** Keyframes configuration (when type is keyframes) */
+  keyframes?: KeyframeConfig
+}
+
+/**
+ * Duration presets in seconds
+ */
+export interface DurationPresets {
+  /** Instant (0ms) */
+  instant?: number
+  /** Extra fast (50ms) */
+  fastest?: number
+  /** Fast (100ms) */
+  fast?: number
+  /** Normal (200ms) */
+  normal?: number
+  /** Slow (300ms) */
+  slow?: number
+  /** Slower (500ms) */
+  slower?: number
+  /** Slowest (1000ms) */
+  slowest?: number
+  /** Custom durations */
+  [key: string]: number | undefined
+}
+
+/**
+ * Easing presets
+ */
+export interface EasingPresets {
+  /** Linear (no easing) */
+  linear?: string
+  /** Ease in (start slow) */
+  easeIn?: string
+  /** Ease out (end slow) */
+  easeOut?: string
+  /** Ease in-out (slow at both ends) */
+  easeInOut?: string
+  /** Bounce effect */
+  bounce?: string
+  /** Elastic effect */
+  elastic?: string
+  /** Custom easings */
+  [key: string]: string | undefined
+}
+
+/**
+ * Complete animation presets collection
+ */
+export interface AnimationPresets {
+  /** Named spring configurations */
+  springs?: {
+    /** Default spring (balanced) */
+    default?: SpringConfig
+    /** Gentle spring (slower, less bounce) */
+    gentle?: SpringConfig
+    /** Wobbly spring (more bounce) */
+    wobbly?: SpringConfig
+    /** Stiff spring (quick, minimal bounce) */
+    stiff?: SpringConfig
+    /** Molasses spring (very slow) */
+    molasses?: SpringConfig
+    /** Custom springs */
+    [key: string]: SpringConfig | undefined
+  }
+  /** Duration presets */
+  durations?: DurationPresets
+  /** Easing presets */
+  easings?: EasingPresets
+  /** Named animation presets */
+  presets?: {
+    /** Fade in animation */
+    fadeIn?: AnimationPreset
+    /** Fade out animation */
+    fadeOut?: AnimationPreset
+    /** Slide in from left */
+    slideInLeft?: AnimationPreset
+    /** Slide in from right */
+    slideInRight?: AnimationPreset
+    /** Slide in from top */
+    slideInTop?: AnimationPreset
+    /** Slide in from bottom */
+    slideInBottom?: AnimationPreset
+    /** Scale up animation */
+    scaleUp?: AnimationPreset
+    /** Scale down animation */
+    scaleDown?: AnimationPreset
+    /** Bounce animation */
+    bounce?: AnimationPreset
+    /** Shake animation */
+    shake?: AnimationPreset
+    /** Pulse animation */
+    pulse?: AnimationPreset
+    /** Custom presets */
+    [key: string]: AnimationPreset | undefined
+  }
+  /** Hover state animations */
+  hover?: {
+    /** Scale on hover */
+    scale?: AnimationPreset
+    /** Lift (scale + shadow) */
+    lift?: AnimationPreset
+    /** Glow effect */
+    glow?: AnimationPreset
+    /** Custom hover presets */
+    [key: string]: AnimationPreset | undefined
+  }
+  /** Tap/press state animations */
+  tap?: {
+    /** Scale down on tap */
+    scale?: AnimationPreset
+    /** Push effect */
+    push?: AnimationPreset
+    /** Custom tap presets */
+    [key: string]: AnimationPreset | undefined
+  }
+  /** Page transition animations */
+  pageTransitions?: {
+    /** Fade transition */
+    fade?: AnimationPreset
+    /** Slide transition */
+    slide?: AnimationPreset
+    /** Scale transition */
+    scale?: AnimationPreset
+    /** Custom page transitions */
+    [key: string]: AnimationPreset | undefined
+  }
+}
+
+/**
+ * Default spring configurations
+ */
+export const DEFAULT_SPRINGS: Required<AnimationPresets["springs"]> = {
+  default: { stiffness: 100, damping: 10, mass: 1 },
+  gentle: { stiffness: 120, damping: 14, mass: 1 },
+  wobbly: { stiffness: 180, damping: 12, mass: 1 },
+  stiff: { stiffness: 400, damping: 30, mass: 1 },
+  molasses: { stiffness: 60, damping: 20, mass: 1 },
+}
+
+/**
+ * Default duration presets (in seconds)
+ */
+export const DEFAULT_DURATIONS: Required<DurationPresets> = {
+  instant: 0,
+  fastest: 0.05,
+  fast: 0.1,
+  normal: 0.2,
+  slow: 0.3,
+  slower: 0.5,
+  slowest: 1,
+}
+
+/**
+ * Default easing presets
+ */
+export const DEFAULT_EASINGS: Required<EasingPresets> = {
+  linear: "linear",
+  easeIn: "cubic-bezier(0.4, 0, 1, 1)",
+  easeOut: "cubic-bezier(0, 0, 0.2, 1)",
+  easeInOut: "cubic-bezier(0.4, 0, 0.2, 1)",
+  bounce: "cubic-bezier(0.68, -0.55, 0.265, 1.55)",
+  elastic: "cubic-bezier(0.68, -0.6, 0.32, 1.6)",
+}
+
+/**
+ * Default animation presets
+ */
+export const DEFAULT_ANIMATION_PRESETS: AnimationPresets = {
+  springs: DEFAULT_SPRINGS,
+  durations: DEFAULT_DURATIONS,
+  easings: DEFAULT_EASINGS,
+  presets: {
+    fadeIn: {
+      name: "fadeIn",
+      description: "Fade in from transparent",
+      type: "tween",
+      tween: { duration: 0.2, ease: "easeOut" },
+    },
+    fadeOut: {
+      name: "fadeOut",
+      description: "Fade out to transparent",
+      type: "tween",
+      tween: { duration: 0.15, ease: "easeIn" },
+    },
+    slideInLeft: {
+      name: "slideInLeft",
+      description: "Slide in from the left",
+      type: "spring",
+      spring: { stiffness: 300, damping: 30 },
+    },
+    slideInRight: {
+      name: "slideInRight",
+      description: "Slide in from the right",
+      type: "spring",
+      spring: { stiffness: 300, damping: 30 },
+    },
+    slideInTop: {
+      name: "slideInTop",
+      description: "Slide in from the top",
+      type: "spring",
+      spring: { stiffness: 300, damping: 30 },
+    },
+    slideInBottom: {
+      name: "slideInBottom",
+      description: "Slide in from the bottom",
+      type: "spring",
+      spring: { stiffness: 300, damping: 30 },
+    },
+    scaleUp: {
+      name: "scaleUp",
+      description: "Scale up from small",
+      type: "spring",
+      spring: { stiffness: 400, damping: 25 },
+    },
+    scaleDown: {
+      name: "scaleDown",
+      description: "Scale down from large",
+      type: "spring",
+      spring: { stiffness: 400, damping: 25 },
+    },
+    bounce: {
+      name: "bounce",
+      description: "Bouncy animation",
+      type: "spring",
+      spring: { stiffness: 600, damping: 15 },
+    },
+    shake: {
+      name: "shake",
+      description: "Shake animation for errors",
+      type: "keyframes",
+      keyframes: {
+        values: [0, -10, 10, -10, 10, -5, 5, 0],
+        duration: 0.5,
+      },
+    },
+    pulse: {
+      name: "pulse",
+      description: "Pulse animation for attention",
+      type: "keyframes",
+      keyframes: {
+        values: [1, 1.05, 1],
+        times: [0, 0.5, 1],
+        duration: 0.6,
+      },
+    },
+  },
+  hover: {
+    scale: {
+      name: "hoverScale",
+      description: "Scale up on hover",
+      type: "spring",
+      spring: { stiffness: 400, damping: 17 },
+    },
+    lift: {
+      name: "hoverLift",
+      description: "Lift with scale and shadow",
+      type: "spring",
+      spring: { stiffness: 300, damping: 20 },
+    },
+    glow: {
+      name: "hoverGlow",
+      description: "Glow effect on hover",
+      type: "tween",
+      tween: { duration: 0.2, ease: "easeOut" },
+    },
+  },
+  tap: {
+    scale: {
+      name: "tapScale",
+      description: "Scale down on tap",
+      type: "spring",
+      spring: { stiffness: 400, damping: 17 },
+    },
+    push: {
+      name: "tapPush",
+      description: "Push down effect",
+      type: "spring",
+      spring: { stiffness: 500, damping: 20 },
+    },
+  },
+  pageTransitions: {
+    fade: {
+      name: "pageFade",
+      description: "Fade page transition",
+      type: "tween",
+      tween: { duration: 0.3, ease: "easeInOut" },
+    },
+    slide: {
+      name: "pageSlide",
+      description: "Slide page transition",
+      type: "spring",
+      spring: { stiffness: 300, damping: 30 },
+    },
+    scale: {
+      name: "pageScale",
+      description: "Scale page transition",
+      type: "spring",
+      spring: { stiffness: 400, damping: 30 },
+    },
+  },
+}
+
+/**
+ * Creates a spring configuration
+ *
+ * @param options - Spring options
+ * @returns Spring configuration
+ *
+ * @example
+ * ```typescript
+ * const mySpring = createSpringConfig({ stiffness: 200, damping: 20 })
+ * ```
+ */
+export function createSpringConfig(options: SpringConfig = {}): SpringConfig {
+  return {
+    stiffness: options.stiffness ?? 100,
+    damping: options.damping ?? 10,
+    mass: options.mass ?? 1,
+    velocity: options.velocity,
+    restDelta: options.restDelta,
+    restSpeed: options.restSpeed,
+  }
+}
+
+/**
+ * Creates a tween configuration
+ *
+ * @param options - Tween options
+ * @returns Tween configuration
+ */
+export function createTweenConfig(options: TweenConfig = {}): TweenConfig {
+  return {
+    duration: options.duration ?? 0.2,
+    ease: options.ease ?? "easeOut",
+    delay: options.delay,
+    repeat: options.repeat,
+    repeatType: options.repeatType,
+    repeatDelay: options.repeatDelay,
+  }
+}
+
+/**
+ * Creates an animation preset
+ *
+ * @param name - Preset name
+ * @param type - Animation type
+ * @param config - Type-specific configuration
+ * @returns Animation preset
+ *
+ * @example
+ * ```typescript
+ * const customFade = createAnimationPreset("customFade", "tween", {
+ *   duration: 0.5,
+ *   ease: "easeInOut"
+ * })
+ * ```
+ */
+export function createAnimationPreset(
+  name: string,
+  type: AnimationPreset["type"],
+  config: SpringConfig | TweenConfig | InertiaConfig | KeyframeConfig,
+  description?: string
+): AnimationPreset {
+  const preset: AnimationPreset = { name, type, description }
+
+  switch (type) {
+    case "spring":
+      preset.spring = config as SpringConfig
+      break
+    case "tween":
+      preset.tween = config as TweenConfig
+      break
+    case "inertia":
+      preset.inertia = config as InertiaConfig
+      break
+    case "keyframes":
+      preset.keyframes = config as KeyframeConfig
+      break
+  }
+
+  return preset
+}
+
+/**
+ * Gets animation presets from theme config
+ *
+ * Returns animation presets from the theme, falling back to defaults.
+ *
+ * @param theme - Theme configuration
+ * @returns Animation presets
+ */
+export function getAnimationPresets(theme: ThemeConfig): AnimationPresets {
+  // Check if theme has animation presets defined
+  const themePresets = (theme as ThemeConfig & { animations?: AnimationPresets }).animations
+
+  if (!themePresets) {
+    return DEFAULT_ANIMATION_PRESETS
+  }
+
+  // Merge with defaults
+  return {
+    springs: { ...DEFAULT_SPRINGS, ...themePresets.springs },
+    durations: { ...DEFAULT_DURATIONS, ...themePresets.durations },
+    easings: { ...DEFAULT_EASINGS, ...themePresets.easings },
+    presets: { ...DEFAULT_ANIMATION_PRESETS.presets, ...themePresets.presets },
+    hover: { ...DEFAULT_ANIMATION_PRESETS.hover, ...themePresets.hover },
+    tap: { ...DEFAULT_ANIMATION_PRESETS.tap, ...themePresets.tap },
+    pageTransitions: { ...DEFAULT_ANIMATION_PRESETS.pageTransitions, ...themePresets.pageTransitions },
+  }
+}
+
+/**
+ * Gets a specific spring preset
+ *
+ * @param presets - Animation presets
+ * @param name - Spring name
+ * @returns Spring config or undefined
+ */
+export function getSpringPreset(
+  presets: AnimationPresets,
+  name: string
+): SpringConfig | undefined {
+  return presets.springs?.[name]
+}
+
+/**
+ * Gets a specific animation preset
+ *
+ * @param presets - Animation presets
+ * @param category - Preset category
+ * @param name - Preset name
+ * @returns Animation preset or undefined
+ */
+export function getAnimationPreset(
+  presets: AnimationPresets,
+  category: "presets" | "hover" | "tap" | "pageTransitions",
+  name: string
+): AnimationPreset | undefined {
+  return presets[category]?.[name]
+}
+
+/**
+ * Gets duration value in seconds
+ *
+ * @param presets - Animation presets
+ * @param name - Duration name
+ * @returns Duration in seconds or undefined
+ */
+export function getDuration(
+  presets: AnimationPresets,
+  name: string
+): number | undefined {
+  return presets.durations?.[name]
+}
+
+/**
+ * Gets easing value
+ *
+ * @param presets - Animation presets
+ * @param name - Easing name
+ * @returns Easing string or undefined
+ */
+export function getEasing(
+  presets: AnimationPresets,
+  name: string
+): string | undefined {
+  return presets.easings?.[name]
+}
+
+/**
+ * Generates CSS custom properties for animation presets
+ *
+ * @param presets - Animation presets
+ * @returns CSS string with animation variables
+ *
+ * @example
+ * ```typescript
+ * const css = generateAnimationPresetsCss(presets)
+ * // :root {
+ * //   --duration-fast: 0.1s;
+ * //   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+ * //   --spring-default-stiffness: 100;
+ * // }
+ * ```
+ */
+export function generateAnimationPresetsCss(presets: AnimationPresets): string {
+  const lines: string[] = []
+
+  // Durations
+  if (presets.durations) {
+    for (const [name, value] of Object.entries(presets.durations)) {
+      if (value !== undefined) {
+        lines.push(`  --duration-${name}: ${value}s;`)
+      }
+    }
+  }
+
+  // Easings
+  if (presets.easings) {
+    for (const [name, value] of Object.entries(presets.easings)) {
+      if (value !== undefined) {
+        const cssName = name.replace(/([A-Z])/g, "-$1").toLowerCase()
+        lines.push(`  --ease-${cssName}: ${value};`)
+      }
+    }
+  }
+
+  // Spring configs (as individual properties for use in JS)
+  if (presets.springs) {
+    for (const [name, config] of Object.entries(presets.springs)) {
+      if (config) {
+        if (config.stiffness !== undefined) {
+          lines.push(`  --spring-${name}-stiffness: ${config.stiffness};`)
+        }
+        if (config.damping !== undefined) {
+          lines.push(`  --spring-${name}-damping: ${config.damping};`)
+        }
+        if (config.mass !== undefined) {
+          lines.push(`  --spring-${name}-mass: ${config.mass};`)
+        }
+      }
+    }
+  }
+
+  return `:root {\n${lines.join("\n")}\n}`
+}
+
+/**
+ * Creates a complete animation presets collection
+ *
+ * @param overrides - Partial presets to merge with defaults
+ * @returns Complete animation presets
+ *
+ * @example
+ * ```typescript
+ * const myPresets = createAnimationPresets({
+ *   springs: {
+ *     custom: { stiffness: 200, damping: 15 }
+ *   },
+ *   durations: {
+ *     custom: 0.25
+ *   }
+ * })
+ * ```
+ */
+export function createAnimationPresets(
+  overrides: Partial<AnimationPresets> = {}
+): AnimationPresets {
+  return {
+    springs: { ...DEFAULT_SPRINGS, ...overrides.springs },
+    durations: { ...DEFAULT_DURATIONS, ...overrides.durations },
+    easings: { ...DEFAULT_EASINGS, ...overrides.easings },
+    presets: { ...DEFAULT_ANIMATION_PRESETS.presets, ...overrides.presets },
+    hover: { ...DEFAULT_ANIMATION_PRESETS.hover, ...overrides.hover },
+    tap: { ...DEFAULT_ANIMATION_PRESETS.tap, ...overrides.tap },
+    pageTransitions: { ...DEFAULT_ANIMATION_PRESETS.pageTransitions, ...overrides.pageTransitions },
+  }
+}
+
+/**
+ * Converts spring config to Framer Motion transition object
+ *
+ * @param spring - Spring configuration
+ * @returns Framer Motion transition object
+ *
+ * @example
+ * ```typescript
+ * const transition = springToFramerMotion({ stiffness: 200, damping: 20 })
+ * // { type: "spring", stiffness: 200, damping: 20 }
+ * ```
+ */
+export function springToFramerMotion(spring: SpringConfig): Record<string, unknown> {
+  return {
+    type: "spring",
+    stiffness: spring.stiffness,
+    damping: spring.damping,
+    mass: spring.mass,
+    velocity: spring.velocity,
+    restDelta: spring.restDelta,
+    restSpeed: spring.restSpeed,
+  }
+}
+
+/**
+ * Converts tween config to Framer Motion transition object
+ *
+ * @param tween - Tween configuration
+ * @returns Framer Motion transition object
+ */
+export function tweenToFramerMotion(tween: TweenConfig): Record<string, unknown> {
+  return {
+    type: "tween",
+    duration: tween.duration,
+    ease: tween.ease,
+    delay: tween.delay,
+    repeat: tween.repeat,
+    repeatType: tween.repeatType,
+    repeatDelay: tween.repeatDelay,
+  }
+}
+
+/**
+ * Converts animation preset to Framer Motion transition
+ *
+ * @param preset - Animation preset
+ * @returns Framer Motion transition object
+ */
+export function presetToFramerMotion(preset: AnimationPreset): Record<string, unknown> {
+  switch (preset.type) {
+    case "spring":
+      return preset.spring ? springToFramerMotion(preset.spring) : { type: "spring" }
+    case "tween":
+      return preset.tween ? tweenToFramerMotion(preset.tween) : { type: "tween" }
+    case "inertia":
+      return { type: "inertia", ...preset.inertia }
+    case "keyframes":
+      return { type: "keyframes", ...preset.keyframes }
+    default:
+      return { type: "tween" }
+  }
+}

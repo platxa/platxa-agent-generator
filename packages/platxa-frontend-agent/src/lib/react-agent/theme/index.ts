@@ -289,6 +289,24 @@ export {
   generateAllComponentTokensCss,
   mergeComponentTokens,
   extractComponentTokensFromElement,
+  // Animation Presets (Feature #107)
+  DEFAULT_SPRINGS,
+  DEFAULT_DURATIONS,
+  DEFAULT_EASINGS,
+  DEFAULT_ANIMATION_PRESETS,
+  createSpringConfig,
+  createTweenConfig,
+  createAnimationPreset,
+  getAnimationPresets,
+  getSpringPreset,
+  getAnimationPreset,
+  getDuration,
+  getEasing,
+  generateAnimationPresetsCss,
+  createAnimationPresets,
+  springToFramerMotion,
+  tweenToFramerMotion,
+  presetToFramerMotion,
 } from "./theme-worker"
 
 export type {
@@ -419,6 +437,15 @@ export type {
   CustomComponentTokens,
   ComponentTokens,
   GenerateComponentTokensOptions,
+  // Animation Presets (Feature #107)
+  SpringConfig,
+  TweenConfig,
+  InertiaConfig,
+  KeyframeConfig,
+  AnimationPreset,
+  DurationPresets,
+  EasingPresets,
+  AnimationPresets,
 } from "./theme-worker"
 
 // Token presets

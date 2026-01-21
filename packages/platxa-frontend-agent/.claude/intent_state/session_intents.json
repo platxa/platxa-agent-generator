@@ -1,32 +1,32 @@
 {
-  "session_id": "6fefa9d2a5db",
+  "session_id": "08f03fe8e6dd",
   "stack": {
     "session": {
-      "id": "6fefa9d2a5db-161",
-      "text": "[Brand Kit Interface Features] Feature #106: [Component Tokens] Brand kit can export component-specific tokens (button, card, input) Verification: Component tokens optional; Button, card, input tokens supported; Custom component tokens allowed Criteria: Manual verification required",
+      "id": "08f03fe8e6dd-163",
+      "text": "[Brand Kit Interface Features] Feature #107: [Animation Presets] Brand kit can export brand-specific animation presets Verification: Animation presets optional; Spring configs supported; Duration/easing presets supported Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768996308.8939838,
-      "updated_at": 1768996308.8939838,
+      "created_at": 1768996957.6344633,
+      "updated_at": 1768996957.6344633,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 106,
+        "feature_id": 107,
         "category": "Brand Kit Interface Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "6fefa9d2a5db-162",
-      "text": "Implement: [Component Tokens] Brand kit can export component-specific tokens (button, card, input) Verification: Component tokens optional; Button, card, input tokens supported; Custom component tokens allowed",
+      "id": "08f03fe8e6dd-164",
+      "text": "Implement: [Animation Presets] Brand kit can export brand-specific animation presets Verification: Animation presets optional; Spring configs supported; Duration/easing presets supported",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768996308.9000218,
-      "updated_at": 1768996308.900022,
+      "created_at": 1768996957.640846,
+      "updated_at": 1768996957.6408463,
       "completed_at": null,
-      "parent_id": "6fefa9d2a5db-161",
+      "parent_id": "08f03fe8e6dd-163",
       "metadata": {},
       "keywords": []
     },
@@ -2381,9 +2381,38 @@
       "parent_id": "6fefa9d2a5db-161",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "08f03fe8e6dd-163",
+      "text": "[Brand Kit Interface Features] Feature #107: [Animation Presets] Brand kit can export brand-specific animation presets Verification: Animation presets optional; Spring configs supported; Duration/easing presets supported Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768996957.6344633,
+      "updated_at": 1768996957.6344633,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 107,
+        "category": "Brand Kit Interface Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "08f03fe8e6dd-164",
+      "text": "Implement: [Animation Presets] Brand kit can export brand-specific animation presets Verification: Animation presets optional; Spring configs supported; Duration/easing presets supported",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768996957.640846,
+      "updated_at": 1768996957.6408463,
+      "completed_at": null,
+      "parent_id": "08f03fe8e6dd-163",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 162,
+  "intent_counter": 164,
   "created_at": 1768900061.32227,
-  "updated_at": 1768996308.9000297
+  "updated_at": 1768996957.6408532
 }
