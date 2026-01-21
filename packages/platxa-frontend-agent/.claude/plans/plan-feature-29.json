@@ -1,12 +1,12 @@
 {
-  "id": "plan-feature-14",
-  "title": "Implementation: [Color Primitives] Brand kit must export 12-step color scale...",
+  "id": "plan-feature-29",
+  "title": "Implementation: [OKLCH Color Support] Support OKLCH color space in brand tok...",
   "context": {
-    "spec_id": "feature-14",
-    "feature_id": "14",
+    "spec_id": "feature-29",
+    "feature_id": "29",
     "dependencies": [],
     "metadata": {
-      "category": "Brand Kit Interface Features",
+      "category": "Theme Integration Features",
       "verification_criteria": {
         "type": "manual",
         "criteria": "Manual verification required",
@@ -16,7 +16,7 @@
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-21T11:39:40.619186"
+    "created_at": "2026-01-21T12:00:17.720796"
   },
   "phases": [
     "research",
@@ -26,9 +26,9 @@
   ],
   "tasks": [
     {
-      "id": "task-14-1",
+      "id": "task-29-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: [Color Primitives] Brand kit must export 12-step color scales (primary, accent, neutral) Verification: 12-step scale for primary color; 12-step scale for accent color; 12-step scale for neutral color",
+      "description": "Review feature requirements: [OKLCH Color Support] Support OKLCH color space in brand tokens Verification: OKLCH values parsed correctly; OKLCH output generated; Fallback for older browsers",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -38,7 +38,7 @@
       "completed_at": null
     },
     {
-      "id": "task-14-2",
+      "id": "task-29-2",
       "title": "Review Existing Code",
       "description": "Search for related code patterns and potential duplicates",
       "step_type": "setup",
@@ -50,9 +50,9 @@
       "completed_at": null
     },
     {
-      "id": "task-14-3",
+      "id": "task-29-3",
       "title": "Implement Feature",
-      "description": "Implement: [Color Primitives] Brand kit must export 12-step color scales (primary, accent, neutral) Verification: 12-step scale for primary color; 12-step scale for accent color; 12-step scale for neutral color",
+      "description": "Implement: [OKLCH Color Support] Support OKLCH color space in brand tokens Verification: OKLCH values parsed correctly; OKLCH output generated; Fallback for older browsers",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -62,7 +62,7 @@
       "completed_at": null
     },
     {
-      "id": "task-14-4",
+      "id": "task-29-4",
       "title": "Add Tests",
       "description": "Write unit tests for new functionality",
       "step_type": "test",
@@ -74,7 +74,7 @@
       "completed_at": null
     },
     {
-      "id": "task-14-5",
+      "id": "task-29-5",
       "title": "Verify Acceptance Criteria",
       "description": "Verify: {'type': 'manual', 'criteria': 'Manual verification required', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
@@ -95,6 +95,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-21T11:39:40.619231",
+  "created_at": "2026-01-21T12:00:17.720867",
   "lsp_impact": {}
 }

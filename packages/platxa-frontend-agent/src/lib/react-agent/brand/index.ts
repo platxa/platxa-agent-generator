@@ -91,9 +91,13 @@ export {
   removeBrandFromCache,
   isBrandCached,
   getBrandCacheSize,
+  // React Hook (Feature #33)
+  useBrand,
+  subscribeToBrandChanges,
+  getBrandStateSnapshot,
 } from "./loader"
 
-export type { BrandLoadResult, BrandLoaderOptions } from "./loader"
+export type { BrandLoadResult, BrandLoaderOptions, UseBrandState } from "./loader"
 
 // Types
 export type {

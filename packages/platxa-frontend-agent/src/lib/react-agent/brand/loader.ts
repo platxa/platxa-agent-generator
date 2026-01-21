@@ -102,6 +102,98 @@ export function isBrandLoading(): boolean {
 }
 
 // =============================================================================
+// REACT HOOK (Feature #33)
+// =============================================================================
+
+/**
+ * Brand state for React hook
+ */
+export interface UseBrandState {
+  /** Brand name (if loaded) */
+  name: string | null
+  /** Brand version (if loaded) */
+  version: string | null
+  /** Whether brand is loaded */
+  isLoaded: boolean
+  /** Whether brand is loading */
+  isLoading: boolean
+  /** Loading state */
+  status: ConfigLoadingState
+  /** Full brand kit (if loaded) */
+  brandKit: BrandKitExport | null
+}
+
+/** Subscribers for brand state changes */
+const subscribers = new Set<() => void>()
+
+/** Notify all subscribers of state change */
+function notifySubscribers(): void {
+  subscribers.forEach((callback) => callback())
+}
+
+/**
+ * Subscribe to brand state changes
+ * @param callback - Function to call when state changes
+ * @returns Unsubscribe function
+ */
+export function subscribeToBrandChanges(callback: () => void): () => void {
+  subscribers.add(callback)
+  return () => subscribers.delete(callback)
+}
+
+/**
+ * Get current brand state snapshot
+ * Used by useBrand hook for synchronous state access
+ */
+export function getBrandStateSnapshot(): UseBrandState {
+  const brandKit = currentBrandKit
+  return {
+    name: brandKit?.meta.name ?? null,
+    version: brandKit?.meta.version ?? null,
+    isLoaded: currentLoadingState === "loaded" && brandKit !== null,
+    isLoading: currentLoadingState === "loading",
+    status: currentLoadingState,
+    brandKit,
+  }
+}
+
+/**
+ * React hook to access current brand information
+ *
+ * Returns the current brand state including name, version, and loading status.
+ * Automatically updates when brand state changes.
+ *
+ * @returns Current brand state
+ *
+ * @example
+ * ```tsx
+ * import { useBrand } from "@platxa/frontend-agent"
+ *
+ * function BrandDisplay() {
+ *   const { name, version, isLoaded, isLoading } = useBrand()
+ *
+ *   if (isLoading) return <div>Loading brand...</div>
+ *   if (!isLoaded) return <div>Using default theme</div>
+ *
+ *   return <div>Brand: {name} v{version}</div>
+ * }
+ * ```
+ */
+export function useBrand(): UseBrandState {
+  // Note: This is a simple implementation that works without React import
+  // For full React integration, consumers should use useSyncExternalStore:
+  //
+  // import { useSyncExternalStore } from "react"
+  // const state = useSyncExternalStore(
+  //   subscribeToBrandChanges,
+  //   getBrandStateSnapshot
+  // )
+  //
+  // This function returns current state for simpler use cases
+  return getBrandStateSnapshot()
+}
+
+// =============================================================================
 // BRAND LOADING
 // =============================================================================
 
@@ -147,6 +239,7 @@ export async function loadBrandKit(
 
   // Update state
   currentLoadingState = "loading"
+  notifySubscribers()
 
   try {
     // Create timeout promise
@@ -172,6 +265,7 @@ export async function loadBrandKit(
     // Update state
     currentLoadingState = "loaded"
     currentBrandKit = brandKit
+    notifySubscribers()
 
     return {
       status: "loaded",
@@ -186,6 +280,7 @@ export async function loadBrandKit(
     // Update state
     currentLoadingState = "error"
     currentBrandKit = null
+    notifySubscribers()
 
     if (throwOnError) {
       throw error

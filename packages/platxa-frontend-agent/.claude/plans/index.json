@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-20T19:14:04.928836",
+  "updated_at": "2026-01-21T12:03:03.061742",
   "plans": [
     {
       "id": "plan-feature-6",
@@ -8,6 +8,22 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-20T19:11:27.149470",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-11",
+      "title": "Implementation: [Custom Theme Options] theme.custom field for creating theme...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:30:21.948259",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-17",
+      "title": "Implementation: [Dark Theme Colors] Brand kit must export dark mode semantic...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:44:51.978403",
       "constitution_check": true
     },
     {
@@ -19,6 +35,78 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-20",
+      "title": "Implementation: [Radius Scale] Brand kit must export border radius scale Ver...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:48:08.088325",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-28",
+      "title": "Implementation: [Theme Switching Script] Generate JavaScript for theme switc...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:53:18.207994",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-22",
+      "title": "Implementation: [NPM Package Loading] Load brand kit from NPM package name (...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:49:28.695955",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-16",
+      "title": "Implementation: [Light Theme Colors] Brand kit must export light mode semant...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:43:35.944094",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-27",
+      "title": "Implementation: [Dark Mode CSS Generation] Generate dark mode CSS overrides ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:52:49.374358",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-24",
+      "title": "Implementation: [Error Recovery] Graceful error handling when brand kit fail...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:51:00.213236",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-30",
+      "title": "Implementation: [HSL Color Support] Support HSL color format (backward compa...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:01:10.394798",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-19",
+      "title": "Implementation: [Spacing Scale] Brand kit must export spacing scale (8px gri...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:47:02.006696",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-8",
+      "title": "Implementation: [defineFrontendConfig Helper] Type-safe configuration helper...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-20T19:19:11.910687",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-3",
       "title": "Implementation: [Brand Kit Interface] Standard interface (BrandKitExport) th...",
       "progress": 0.0,
@@ -27,11 +115,43 @@
       "constitution_check": true
     },
     {
-      "id": "plan-feature-14",
-      "title": "Implementation: Implement test Generator agent that converts plans to Playwr...",
+      "id": "plan-feature-13",
+      "title": "Implementation: [Meta Information] Brand kit must export meta with name, ver...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-20T14:37:35.567722",
+      "created_at": "2026-01-21T11:38:33.977184",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-18",
+      "title": "Implementation: [Typography Scale] Brand kit must export typography (font fa...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:45:46.387011",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-14",
+      "title": "Implementation: [Color Primitives] Brand kit must export 12-step color scale...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:39:40.619231",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-9",
+      "title": "Implementation: [Brand Package Specification] brand.package field to specify...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-20T19:21:12.983278",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-31",
+      "title": "Implementation: [TypeScript Types] Full TypeScript support with exported typ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:01:48.702516",
       "constitution_check": true
     },
     {
@@ -43,11 +163,91 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-23",
+      "title": "Implementation: [Build-Time Resolution] Resolve brand kit at build time (Vit...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:50:06.780479",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-32",
+      "title": "Implementation: [IntelliSense Support] Config file IntelliSense in VSCode/ed...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:02:27.266915",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-12",
+      "title": "Implementation: [Zero-Config Default] Works out-of-box with no config file (...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:33:05.131920",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-33",
+      "title": "Implementation: [useBrand Hook] React hook to access current brand informati...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:03:03.061178",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-26",
+      "title": "Implementation: [Tailwind @theme Generation] Generate Tailwind v4 @theme dir...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:52:14.389541",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-5",
       "title": "Implementation: [Token Normalization] Adapter layer that normalizes brand ki...",
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-20T19:06:37.455649",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-10",
+      "title": "Implementation: [Theme Preset Selection] theme.preset field to select built-...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-20T19:23:48.822346",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-21",
+      "title": "Implementation: [Shadow Scale] Brand kit must export shadow/elevation scale ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:48:47.334307",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-25",
+      "title": "Implementation: [CSS Variable Generation] Generate CSS custom properties fro...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:51:36.683339",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-29",
+      "title": "Implementation: [OKLCH Color Support] Support OKLCH color space in brand tok...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:00:17.720867",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-15",
+      "title": "Implementation: [Semantic Colors] Brand kit must export semantic color mappi...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:40:43.803113",
       "constitution_check": true
     }
   ]
