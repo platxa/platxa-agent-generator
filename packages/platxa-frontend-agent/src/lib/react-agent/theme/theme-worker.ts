@@ -9411,3 +9411,664 @@ export function formatTroubleshootingMarkdown(): string {
 
   return lines.join("\n")
 }
+
+// =============================================================================
+// Feature #100: AI Color Suggestions
+// =============================================================================
+
+/**
+ * Color suggestion use case
+ */
+export type ColorUseCase =
+  | "background"
+  | "text"
+  | "button"
+  | "link"
+  | "border"
+  | "accent"
+  | "error"
+  | "success"
+  | "warning"
+
+/**
+ * Color suggestion result
+ */
+export interface ColorSuggestion {
+  /** Suggested color value in OKLCH */
+  color: string
+  /** Semantic name if applicable */
+  semanticName?: keyof SemanticColors
+  /** Confidence score (0-1) */
+  confidence: number
+  /** Reason for suggestion */
+  reason: string
+  /** Contrast ratio with paired color */
+  contrastRatio?: number
+  /** WCAG compliance level */
+  wcagLevel?: "AA" | "AAA" | "fail"
+}
+
+/**
+ * Options for color suggestion
+ */
+export interface ColorSuggestionOptions {
+  /** Use case for the color */
+  useCase: ColorUseCase
+  /** Existing palette to match */
+  palette?: ThemeConfig
+  /** Background color for contrast calculations */
+  backgroundColor?: string
+  /** Minimum contrast ratio required */
+  minContrast?: number
+  /** Prefer semantic colors from palette */
+  preferSemantic?: boolean
+  /** Number of suggestions to return */
+  limit?: number
+}
+
+/**
+ * Palette analysis result
+ */
+export interface PaletteAnalysis {
+  /** Dominant hue range */
+  dominantHue: { min: number; max: number; center: number }
+  /** Average chroma */
+  averageChroma: number
+  /** Lightness range */
+  lightnessRange: { min: number; max: number }
+  /** Color temperature (warm/cool/neutral) */
+  temperature: "warm" | "cool" | "neutral"
+  /** Detected color harmony */
+  harmony: "monochromatic" | "analogous" | "complementary" | "triadic" | "mixed"
+}
+
+/**
+ * Gets relative luminance from a color string
+ *
+ * Helper that parses a color string and returns its relative luminance.
+ * Used for determining light/dark backgrounds and contrast calculations.
+ *
+ * @param colorString - Color in any supported format (hex, rgb, hsl, oklch)
+ * @returns Relative luminance (0-1) or 0 if parsing fails
+ */
+function getLuminanceFromColorString(colorString: string): number {
+  const rgb = parseColorToRgb(colorString)
+  if (!rgb) return 0
+  return getRelativeLuminance(rgb)
+}
+
+/**
+ * Analyzes a theme palette to extract characteristics
+ *
+ * @param config - Theme configuration to analyze
+ * @returns Palette analysis with dominant colors and harmony
+ *
+ * @example
+ * ```typescript
+ * const analysis = analyzePalette(myTheme)
+ * console.log(analysis.temperature) // "cool"
+ * console.log(analysis.harmony) // "analogous"
+ * ```
+ */
+export function analyzePalette(config: ThemeConfig): PaletteAnalysis {
+  const colors = config.light.colors
+  const oklchColors: OklchColor[] = []
+
+  // Convert all colors to OKLCH for analysis
+  for (const value of Object.values(colors)) {
+    const colorStr = typeof value === "string" ? value : ""
+    if (colorStr.startsWith("oklch")) {
+      const parsed = parseOklch(colorStr)
+      if (parsed) {
+        oklchColors.push(parsed)
+      }
+    } else if (colorStr.startsWith("#")) {
+      const rgb = parseHex(colorStr)
+      if (rgb) {
+        const oklch = rgbToOklch(rgb)
+        oklchColors.push(oklch)
+      }
+    } else if (colorStr.startsWith("hsl")) {
+      const hsl = parseHsl(colorStr)
+      if (hsl) {
+        const oklch = hslToOklch(hsl)
+        oklchColors.push(oklch)
+      }
+    }
+  }
+
+  if (oklchColors.length === 0) {
+    return {
+      dominantHue: { min: 0, max: 360, center: 180 },
+      averageChroma: 0.1,
+      lightnessRange: { min: 0.2, max: 0.8 },
+      temperature: "neutral",
+      harmony: "mixed",
+    }
+  }
+
+  // Calculate hue statistics
+  const hues = oklchColors.map((c) => c.h).filter((h) => !isNaN(h))
+  const minHue = Math.min(...hues)
+  const maxHue = Math.max(...hues)
+  const centerHue = hues.reduce((a, b) => a + b, 0) / hues.length
+
+  // Calculate average chroma
+  const chromas = oklchColors.map((c) => c.c)
+  const averageChroma = chromas.reduce((a, b) => a + b, 0) / chromas.length
+
+  // Calculate lightness range
+  const lightnesses = oklchColors.map((c) => c.l)
+  const minL = Math.min(...lightnesses)
+  const maxL = Math.max(...lightnesses)
+
+  // Determine temperature
+  let temperature: "warm" | "cool" | "neutral"
+  if (centerHue >= 0 && centerHue < 60) {
+    temperature = "warm" // reds, oranges
+  } else if (centerHue >= 60 && centerHue < 150) {
+    temperature = "warm" // yellows, yellow-greens
+  } else if (centerHue >= 150 && centerHue < 270) {
+    temperature = "cool" // greens, cyans, blues
+  } else if (centerHue >= 270 && centerHue < 330) {
+    temperature = "cool" // purples
+  } else {
+    temperature = "warm" // magentas, reds
+  }
+
+  // If low chroma, consider neutral
+  if (averageChroma < 0.05) {
+    temperature = "neutral"
+  }
+
+  // Determine harmony based on hue spread
+  const hueSpread = maxHue - minHue
+  let harmony: PaletteAnalysis["harmony"]
+  if (hueSpread < 30) {
+    harmony = "monochromatic"
+  } else if (hueSpread < 60) {
+    harmony = "analogous"
+  } else if (hueSpread > 150 && hueSpread < 210) {
+    harmony = "complementary"
+  } else if (hueSpread > 100 && hueSpread < 140) {
+    harmony = "triadic"
+  } else {
+    harmony = "mixed"
+  }
+
+  return {
+    dominantHue: { min: minHue, max: maxHue, center: centerHue },
+    averageChroma,
+    lightnessRange: { min: minL, max: maxL },
+    temperature,
+    harmony,
+  }
+}
+
+/**
+ * Suggests colors that match a brand palette
+ *
+ * Uses the existing palette's characteristics to suggest colors
+ * that harmonize while meeting contrast requirements.
+ *
+ * @param options - Suggestion options
+ * @returns Array of color suggestions sorted by confidence
+ *
+ * @example
+ * ```typescript
+ * const suggestions = suggestColors({
+ *   useCase: "button",
+ *   palette: myTheme,
+ *   backgroundColor: "oklch(0.98 0 0)",
+ *   minContrast: 4.5,
+ *   preferSemantic: true,
+ * })
+ *
+ * console.log(suggestions[0])
+ * // { color: "oklch(0.5 0.15 250)", semanticName: "primary", confidence: 0.95, ... }
+ * ```
+ */
+export function suggestColors(options: ColorSuggestionOptions): ColorSuggestion[] {
+  const {
+    useCase,
+    palette,
+    backgroundColor = "oklch(0.98 0 0)", // Default light background
+    minContrast = 4.5,
+    preferSemantic = true,
+    limit = 5,
+  } = options
+
+  const suggestions: ColorSuggestion[] = []
+
+  // If palette provided, try semantic colors first
+  if (palette && preferSemantic) {
+    const semanticSuggestions = suggestSemanticColor(useCase, palette, backgroundColor, minContrast)
+    suggestions.push(...semanticSuggestions)
+  }
+
+  // Analyze palette for harmony-based suggestions
+  const analysis = palette ? analyzePalette(palette) : null
+
+  // Generate harmony-based suggestions
+  const harmonySuggestions = generateHarmonyColors(
+    analysis,
+    useCase,
+    backgroundColor,
+    minContrast
+  )
+  suggestions.push(...harmonySuggestions)
+
+  // Sort by confidence and limit
+  suggestions.sort((a, b) => b.confidence - a.confidence)
+  return suggestions.slice(0, limit)
+}
+
+/**
+ * Suggests semantic colors from palette for a use case
+ */
+function suggestSemanticColor(
+  useCase: ColorUseCase,
+  palette: ThemeConfig,
+  backgroundColor: string,
+  minContrast: number
+): ColorSuggestion[] {
+  const suggestions: ColorSuggestion[] = []
+  const colors = palette.light.colors
+
+  // Map use cases to semantic colors
+  const useCaseMapping: Record<ColorUseCase, Array<keyof SemanticColors>> = {
+    background: ["background", "card", "muted"],
+    text: ["foreground", "cardForeground", "mutedForeground"],
+    button: ["primary", "secondary", "accent"],
+    link: ["primary", "accent"],
+    border: ["border", "input", "muted"],
+    accent: ["accent", "primary", "secondary"],
+    error: ["destructive"],
+    success: ["primary"], // Often green, but primary is safe fallback
+    warning: ["accent"], // Often yellow/orange
+  }
+
+  const semanticOptions = useCaseMapping[useCase] || ["primary"]
+
+  for (const semanticName of semanticOptions) {
+    const colorValue = colors[semanticName]
+    if (!colorValue) continue
+
+    const colorStr = typeof colorValue === "string" ? colorValue : oklchToString(colorValue as OklchColor)
+
+    // Calculate contrast - calculateContrastRatio takes two color strings
+    const contrast = calculateContrastRatio(colorStr, backgroundColor)
+
+    const meetsContrast = contrast >= minContrast
+    let wcagLevel: "AA" | "AAA" | "fail" = "fail"
+    if (contrast >= 7) wcagLevel = "AAA"
+    else if (contrast >= 4.5) wcagLevel = "AA"
+
+    suggestions.push({
+      color: colorStr,
+      semanticName,
+      confidence: meetsContrast ? 0.9 : 0.5,
+      reason: `Semantic color '${semanticName}' from palette`,
+      contrastRatio: Math.round(contrast * 100) / 100,
+      wcagLevel,
+    })
+  }
+
+  return suggestions
+}
+
+/**
+ * Generates harmony-based color suggestions
+ */
+function generateHarmonyColors(
+  analysis: PaletteAnalysis | null,
+  useCase: ColorUseCase,
+  backgroundColor: string,
+  minContrast: number
+): ColorSuggestion[] {
+  const suggestions: ColorSuggestion[] = []
+
+  // Default parameters if no analysis
+  const centerHue = analysis?.dominantHue.center ?? 220 // Default blue
+  const chroma = analysis?.averageChroma ?? 0.15
+
+  // Determine target lightness based on use case and background
+  const bgLuminance = getLuminanceFromColorString(backgroundColor)
+  const isDarkBg = bgLuminance < 0.5
+
+  let targetLightness: number
+  switch (useCase) {
+    case "background":
+      targetLightness = isDarkBg ? 0.15 : 0.95
+      break
+    case "text":
+      targetLightness = isDarkBg ? 0.9 : 0.2
+      break
+    case "button":
+    case "link":
+    case "accent":
+      targetLightness = isDarkBg ? 0.7 : 0.5
+      break
+    case "border":
+      targetLightness = isDarkBg ? 0.4 : 0.7
+      break
+    case "error":
+      targetLightness = 0.55
+      break
+    case "success":
+      targetLightness = 0.5
+      break
+    case "warning":
+      targetLightness = 0.65
+      break
+    default:
+      targetLightness = 0.5
+  }
+
+  // Generate color at the palette's dominant hue
+  const primaryColor = `oklch(${targetLightness} ${chroma} ${centerHue})`
+  const primaryContrast = calculateContrastRatio(primaryColor, backgroundColor)
+
+  suggestions.push({
+    color: primaryColor,
+    confidence: primaryContrast >= minContrast ? 0.8 : 0.4,
+    reason: `Harmony color at palette's dominant hue (${Math.round(centerHue)}°)`,
+    contrastRatio: Math.round(primaryContrast * 100) / 100,
+    wcagLevel: primaryContrast >= 7 ? "AAA" : primaryContrast >= 4.5 ? "AA" : "fail",
+  })
+
+  // Generate analogous colors (±30°)
+  const analogousHues = [centerHue - 30, centerHue + 30].map((h) => (h + 360) % 360)
+  for (const hue of analogousHues) {
+    const color = `oklch(${targetLightness} ${chroma} ${hue})`
+    const contrast = calculateContrastRatio(color, backgroundColor)
+
+    suggestions.push({
+      color,
+      confidence: contrast >= minContrast ? 0.7 : 0.3,
+      reason: `Analogous color at ${Math.round(hue)}°`,
+      contrastRatio: Math.round(contrast * 100) / 100,
+      wcagLevel: contrast >= 7 ? "AAA" : contrast >= 4.5 ? "AA" : "fail",
+    })
+  }
+
+  // For error/success/warning, suggest standard semantic hues
+  if (useCase === "error") {
+    const errorColor = `oklch(${targetLightness} 0.2 25)` // Red
+    const contrast = calculateContrastRatio(errorColor, backgroundColor)
+    suggestions.push({
+      color: errorColor,
+      confidence: 0.85,
+      reason: "Standard error color (red)",
+      contrastRatio: Math.round(contrast * 100) / 100,
+      wcagLevel: contrast >= 7 ? "AAA" : contrast >= 4.5 ? "AA" : "fail",
+    })
+  }
+
+  if (useCase === "success") {
+    const successColor = `oklch(${targetLightness} 0.18 145)` // Green
+    const contrast = calculateContrastRatio(successColor, backgroundColor)
+    suggestions.push({
+      color: successColor,
+      confidence: 0.85,
+      reason: "Standard success color (green)",
+      contrastRatio: Math.round(contrast * 100) / 100,
+      wcagLevel: contrast >= 7 ? "AAA" : contrast >= 4.5 ? "AA" : "fail",
+    })
+  }
+
+  if (useCase === "warning") {
+    const warningColor = `oklch(${targetLightness} 0.18 85)` // Amber/Yellow
+    const contrast = calculateContrastRatio(warningColor, backgroundColor)
+    suggestions.push({
+      color: warningColor,
+      confidence: 0.85,
+      reason: "Standard warning color (amber)",
+      contrastRatio: Math.round(contrast * 100) / 100,
+      wcagLevel: contrast >= 7 ? "AAA" : contrast >= 4.5 ? "AA" : "fail",
+    })
+  }
+
+  return suggestions
+}
+
+/**
+ * Suggests an accessible color pair (foreground/background)
+ *
+ * Finds a foreground color that meets contrast requirements
+ * against the specified background.
+ *
+ * @param backgroundColor - Background color
+ * @param palette - Optional palette to match
+ * @param targetContrast - Target contrast ratio (default 4.5 for AA)
+ * @returns Suggested foreground color
+ *
+ * @example
+ * ```typescript
+ * const fg = suggestAccessiblePair("oklch(0.25 0.05 250)", myTheme, 4.5)
+ * console.log(fg.color) // "oklch(0.95 0.02 250)"
+ * ```
+ */
+export function suggestAccessiblePair(
+  backgroundColor: string,
+  palette?: ThemeConfig,
+  targetContrast: number = 4.5
+): ColorSuggestion {
+  const bgLuminance = getLuminanceFromColorString(backgroundColor)
+  const isDarkBg = bgLuminance < 0.5
+
+  // Parse background to get hue
+  let bgHue = 0
+  if (backgroundColor.startsWith("oklch")) {
+    const parsed = parseOklch(backgroundColor)
+    if (parsed) bgHue = parsed.h
+  } else if (palette) {
+    // Try to extract hue from palette's primary color for cohesion
+    const primaryColor = palette.light.colors.primary
+    if (typeof primaryColor === "string" && primaryColor.startsWith("oklch")) {
+      const parsed = parseOklch(primaryColor)
+      if (parsed) bgHue = parsed.h
+    }
+  }
+
+  // Calculate required foreground lightness for target contrast
+  // Using simplified contrast formula: (L1 + 0.05) / (L2 + 0.05)
+  let targetLightness: number
+  if (isDarkBg) {
+    // Need light foreground
+    // (fgL + 0.05) / (bgL + 0.05) >= targetContrast
+    // fgL >= targetContrast * (bgL + 0.05) - 0.05
+    const minLuminance = targetContrast * (bgLuminance + 0.05) - 0.05
+    targetLightness = Math.min(0.95, Math.max(0.7, minLuminance + 0.1))
+  } else {
+    // Need dark foreground
+    // (bgL + 0.05) / (fgL + 0.05) >= targetContrast
+    // fgL <= (bgL + 0.05) / targetContrast - 0.05
+    const maxLuminance = (bgLuminance + 0.05) / targetContrast - 0.05
+    targetLightness = Math.max(0.1, Math.min(0.35, maxLuminance - 0.05))
+  }
+
+  // Use low chroma for text (more readable)
+  const chroma = 0.02
+
+  // Use same hue family as background for cohesion
+  const fgColor = `oklch(${targetLightness.toFixed(2)} ${chroma} ${bgHue})`
+
+  const contrast = calculateContrastRatio(fgColor, backgroundColor)
+
+  return {
+    color: fgColor,
+    confidence: contrast >= targetContrast ? 0.95 : 0.6,
+    reason: `Accessible ${isDarkBg ? "light" : "dark"} foreground for contrast`,
+    contrastRatio: Math.round(contrast * 100) / 100,
+    wcagLevel: contrast >= 7 ? "AAA" : contrast >= 4.5 ? "AA" : "fail",
+  }
+}
+
+/**
+ * Gets color recommendations for a complete component
+ *
+ * Returns a set of coordinated colors for a component based on
+ * the palette and accessibility requirements.
+ *
+ * @param componentType - Type of component
+ * @param palette - Theme palette to match
+ * @returns Object with recommended colors for each part
+ *
+ * @example
+ * ```typescript
+ * const colors = getComponentColorRecommendations("button", myTheme)
+ * // {
+ * //   background: { color: "...", ... },
+ * //   text: { color: "...", ... },
+ * //   border: { color: "...", ... },
+ * //   hover: { color: "...", ... }
+ * // }
+ * ```
+ */
+export function getComponentColorRecommendations(
+  componentType: "button" | "card" | "input" | "alert",
+  palette: ThemeConfig
+): Record<string, ColorSuggestion> {
+  const colors = palette.light.colors
+  const result: Record<string, ColorSuggestion> = {}
+
+  switch (componentType) {
+    case "button": {
+      const bgColor = typeof colors.primary === "string"
+        ? colors.primary
+        : oklchToString(colors.primary as OklchColor)
+
+      result.background = {
+        color: bgColor,
+        semanticName: "primary",
+        confidence: 0.95,
+        reason: "Primary color for button background",
+      }
+
+      result.text = suggestAccessiblePair(bgColor, palette, 4.5)
+      result.text.reason = "Accessible text on primary background"
+
+      // Hover state - slightly darker/lighter
+      const bgOklch = parseOklch(bgColor)
+      if (bgOklch) {
+        const hoverL = bgOklch.l > 0.5 ? bgOklch.l - 0.1 : bgOklch.l + 0.1
+        result.hover = {
+          color: `oklch(${hoverL.toFixed(2)} ${bgOklch.c} ${bgOklch.h})`,
+          confidence: 0.9,
+          reason: "Darker/lighter primary for hover state",
+        }
+      }
+
+      // Focus ring
+      const ringColor = typeof colors.ring === "string"
+        ? colors.ring
+        : bgColor
+      result.focusRing = {
+        color: ringColor,
+        semanticName: "ring",
+        confidence: 0.9,
+        reason: "Focus ring color for accessibility",
+      }
+      break
+    }
+
+    case "card": {
+      const cardBg = typeof colors.card === "string"
+        ? colors.card
+        : typeof colors.background === "string"
+          ? colors.background
+          : "oklch(0.98 0 0)"
+
+      result.background = {
+        color: cardBg,
+        semanticName: "card",
+        confidence: 0.95,
+        reason: "Card background color",
+      }
+
+      result.text = suggestAccessiblePair(cardBg, palette, 4.5)
+      result.text.semanticName = "cardForeground"
+
+      const borderColor = typeof colors.border === "string"
+        ? colors.border
+        : "oklch(0.85 0 0)"
+      result.border = {
+        color: borderColor,
+        semanticName: "border",
+        confidence: 0.9,
+        reason: "Subtle border for card definition",
+      }
+      break
+    }
+
+    case "input": {
+      const inputBg = typeof colors.background === "string"
+        ? colors.background
+        : "oklch(0.98 0 0)"
+
+      result.background = {
+        color: inputBg,
+        confidence: 0.9,
+        reason: "Input background",
+      }
+
+      result.text = suggestAccessiblePair(inputBg, palette, 4.5)
+
+      const inputBorder = typeof colors.input === "string"
+        ? colors.input
+        : typeof colors.border === "string"
+          ? colors.border
+          : "oklch(0.8 0 0)"
+      result.border = {
+        color: inputBorder,
+        semanticName: "input",
+        confidence: 0.9,
+        reason: "Input border color",
+      }
+
+      const focusColor = typeof colors.ring === "string"
+        ? colors.ring
+        : typeof colors.primary === "string"
+          ? colors.primary
+          : "oklch(0.6 0.15 250)"
+      result.focus = {
+        color: focusColor,
+        semanticName: "ring",
+        confidence: 0.95,
+        reason: "Focus state border/ring",
+      }
+      break
+    }
+
+    case "alert": {
+      // Default to muted for info alerts
+      const alertBg = typeof colors.muted === "string"
+        ? colors.muted
+        : "oklch(0.95 0.02 250)"
+
+      result.background = {
+        color: alertBg,
+        semanticName: "muted",
+        confidence: 0.85,
+        reason: "Alert background (info variant)",
+      }
+
+      result.text = suggestAccessiblePair(alertBg, palette, 4.5)
+      result.text.semanticName = "mutedForeground"
+
+      // Error variant
+      const errorBg = typeof colors.destructive === "string"
+        ? lighten(colors.destructive as string, 0.4)
+        : "oklch(0.95 0.05 25)"
+      result.errorBackground = {
+        color: errorBg,
+        confidence: 0.9,
+        reason: "Error alert background (lightened destructive)",
+      }
+      break
+    }
+  }
+
+  return result
+}

@@ -234,6 +234,11 @@ export {
   suggestSolution,
   getDebugTechnique,
   formatTroubleshootingMarkdown,
+  // AI Color Suggestions (Feature #100)
+  analyzePalette,
+  suggestColors,
+  suggestAccessiblePair,
+  getComponentColorRecommendations,
 } from "./theme-worker"
 
 export type {
@@ -326,6 +331,11 @@ export type {
   FaqEntry,
   ErrorEntry,
   DebugTechnique,
+  // AI Color Suggestions (Feature #100)
+  ColorUseCase,
+  ColorSuggestion,
+  ColorSuggestionOptions,
+  PaletteAnalysis,
 } from "./theme-worker"
 
 // Token presets
