@@ -1,32 +1,32 @@
 {
-  "session_id": "24cd542e9ef3",
+  "session_id": "d5ebef575cf5",
   "stack": {
     "session": {
-      "id": "24cd542e9ef3-209",
-      "text": "[Build & Integration Features] Feature #135: [Remix Integration] Remix framework integration Verification: Loader support; Action support; Streaming compatible Criteria: Manual verification required",
+      "id": "d5ebef575cf5-211",
+      "text": "[Build & Integration Features] Feature #136: [Astro Integration] Astro framework integration Verification: Astro plugin; Island architecture support; Static build support Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769005502.8258114,
-      "updated_at": 1769005502.8258114,
+      "created_at": 1769005765.1543036,
+      "updated_at": 1769005765.1543038,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 135,
+        "feature_id": 136,
         "category": "Build & Integration Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "24cd542e9ef3-210",
-      "text": "Implement: [Remix Integration] Remix framework integration Verification: Loader support; Action support; Streaming compatible",
+      "id": "d5ebef575cf5-212",
+      "text": "Implement: [Astro Integration] Astro framework integration Verification: Astro plugin; Island architecture support; Static build support",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769005502.832056,
-      "updated_at": 1769005502.8320563,
+      "created_at": 1769005765.1613648,
+      "updated_at": 1769005765.161365,
       "completed_at": null,
-      "parent_id": "24cd542e9ef3-209",
+      "parent_id": "d5ebef575cf5-211",
       "metadata": {},
       "keywords": []
     },
@@ -3077,9 +3077,38 @@
       "parent_id": "24cd542e9ef3-209",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "d5ebef575cf5-211",
+      "text": "[Build & Integration Features] Feature #136: [Astro Integration] Astro framework integration Verification: Astro plugin; Island architecture support; Static build support Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769005765.1543036,
+      "updated_at": 1769005765.1543038,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 136,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "d5ebef575cf5-212",
+      "text": "Implement: [Astro Integration] Astro framework integration Verification: Astro plugin; Island architecture support; Static build support",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769005765.1613648,
+      "updated_at": 1769005765.161365,
+      "completed_at": null,
+      "parent_id": "d5ebef575cf5-211",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 210,
+  "intent_counter": 212,
   "created_at": 1768900061.32227,
-  "updated_at": 1769005502.8320615
+  "updated_at": 1769005765.16137
 }

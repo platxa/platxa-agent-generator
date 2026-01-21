@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-21T19:54:56.415643",
+  "updated_at": "2026-01-21T19:59:18.520764",
   "plans": [
     {
       "id": "plan-feature-108",
@@ -832,6 +832,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-21T19:46:22.908012",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-136",
+      "title": "Implementation: [Astro Integration] Astro framework integration Verification...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T19:59:18.520314",
       "constitution_check": true
     }
   ]

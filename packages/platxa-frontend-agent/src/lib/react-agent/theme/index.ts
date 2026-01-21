@@ -562,6 +562,14 @@ export {
   createRemixBrandKitRoot,
   generateRemixBrandKitRoute,
   formatRemixIntegrationReport,
+  // Astro Integration (Feature #136)
+  createAstroBrandKitIntegration,
+  generateAstroVirtualModule,
+  generateAstroBrandSwitcherIsland,
+  generateAstroStaticCss,
+  generateAstroCssEndpoint,
+  generateAstroLayoutWithBrandKit,
+  formatAstroIntegrationReport,
 } from "./theme-worker"
 
 export type {
@@ -887,6 +895,12 @@ export type {
   RemixLinkDescriptor,
   RemixLoaderContext,
   RemixActionContext,
+  // Astro Integration (Feature #136)
+  AstroBrandKitOptions,
+  AstroConfig,
+  AstroIntegrationLogger,
+  AstroHookParams,
+  AstroIntegration,
 } from "./theme-worker"
 
 // Token presets

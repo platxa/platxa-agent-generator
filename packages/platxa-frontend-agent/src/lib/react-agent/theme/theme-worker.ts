@@ -31544,3 +31544,441 @@ export function formatRemixIntegrationReport(options: RemixBrandKitOptions): str
 
   return lines.join("\n")
 }
+
+// =============================================================================
+// ASTRO INTEGRATION (Feature #136)
+// =============================================================================
+
+/**
+ * Astro integration options
+ */
+export interface AstroBrandKitOptions {
+  /** Brand kit configuration */
+  config: ThemeConfig
+  /** Output CSS file path */
+  outputPath?: string
+  /** Include dark mode CSS */
+  includeDarkMode?: boolean
+  /** Enable HMR in dev mode */
+  hmr?: boolean
+  /** Inject CSS into all pages */
+  injectCss?: boolean
+  /** Generate CSS variables */
+  generateVariables?: boolean
+  /** Virtual module ID */
+  virtualModuleId?: string
+  /** CSS minification */
+  minify?: boolean
+}
+
+/**
+ * Astro hook types
+ */
+export interface AstroConfig {
+  root: URL
+  srcDir: URL
+  publicDir: URL
+  outDir: URL
+  build: {
+    assets: string
+    format: "file" | "directory"
+  }
+  vite: Record<string, unknown>
+}
+
+export interface AstroIntegrationLogger {
+  info: (message: string) => void
+  warn: (message: string) => void
+  error: (message: string) => void
+  debug: (message: string) => void
+}
+
+export interface AstroHookParams {
+  config: AstroConfig
+  command: "dev" | "build" | "preview"
+  isRestart: boolean
+  logger: AstroIntegrationLogger
+  updateConfig: (config: Partial<AstroConfig>) => void
+  addRenderer: (renderer: unknown) => void
+  addWatchFile: (path: string | URL) => void
+  injectScript: (stage: "head-inline" | "before-hydration" | "page" | "page-ssr", content: string) => void
+  injectRoute: (route: { pattern: string; entrypoint: string }) => void
+}
+
+/**
+ * Astro integration return type
+ */
+export interface AstroIntegration {
+  name: string
+  hooks: {
+    "astro:config:setup"?: (params: AstroHookParams) => void | Promise<void>
+    "astro:config:done"?: (params: { config: AstroConfig; logger: AstroIntegrationLogger }) => void
+    "astro:build:start"?: (params: { logger: AstroIntegrationLogger }) => void
+    "astro:build:done"?: (params: { pages: Array<{ pathname: string }>; dir: URL; logger: AstroIntegrationLogger }) => void
+  }
+}
+
+/**
+ * Creates an Astro integration for brand kit
+ */
+export function createAstroBrandKitIntegration(
+  options: AstroBrandKitOptions
+): AstroIntegration {
+  const virtualModuleId = options.virtualModuleId ?? "virtual:platxa-brand-kit"
+  const resolvedVirtualModuleId = "\0" + virtualModuleId
+
+  // Generate theme
+  const generated = generateTheme(options.config)
+  let css = generated.css
+  if (options.includeDarkMode !== false && generated.darkModeCss) {
+    css += "\n" + generated.darkModeCss
+  }
+  if (options.minify) {
+    css = minifyCss(css)
+  }
+
+  return {
+    name: "platxa-brand-kit",
+    hooks: {
+      "astro:config:setup": ({ updateConfig, injectScript, logger }) => {
+        logger.info("Setting up Platxa Brand Kit integration")
+
+        // Inject CSS into head
+        if (options.injectCss !== false) {
+          injectScript("head-inline", `
+            const style = document.createElement('style');
+            style.id = 'platxa-brand-kit';
+            style.textContent = ${JSON.stringify(css)};
+            document.head.appendChild(style);
+          `)
+        }
+
+        // Add theme mode initialization
+        injectScript("head-inline", `
+          (function() {
+            const mode = localStorage.getItem('platxa-theme-mode') || 'system';
+            if (mode === 'system') {
+              const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+              document.documentElement.classList.toggle('dark', prefersDark);
+            } else {
+              document.documentElement.classList.toggle('dark', mode === 'dark');
+            }
+          })();
+        `)
+
+        // Configure Vite for virtual module
+        updateConfig({
+          vite: {
+            plugins: [
+              {
+                name: "platxa-brand-kit-vite",
+                resolveId(id: string) {
+                  if (id === virtualModuleId) {
+                    return resolvedVirtualModuleId
+                  }
+                },
+                load(id: string) {
+                  if (id === resolvedVirtualModuleId) {
+                    return generateAstroVirtualModule(options.config, options)
+                  }
+                },
+              },
+            ],
+          },
+        } as Partial<AstroConfig>)
+
+        logger.info("Platxa Brand Kit integration configured")
+      },
+
+      "astro:build:done": ({ logger }) => {
+        logger.info("Platxa Brand Kit build complete")
+      },
+    },
+  }
+}
+
+/**
+ * Generates virtual module content for Astro
+ */
+export function generateAstroVirtualModule(
+  config: ThemeConfig,
+  options: Partial<AstroBrandKitOptions> = {}
+): string {
+  const generated = generateTheme(config)
+
+  let css = generated.css
+  if (options.includeDarkMode !== false && generated.darkModeCss) {
+    css += "\n" + generated.darkModeCss
+  }
+
+  return `
+// Auto-generated Platxa Brand Kit module for Astro
+export const brandKitCss = ${JSON.stringify(css)};
+export const brandKitVariables = ${JSON.stringify(generated.cssVariables)};
+export const brandKitConfig = ${JSON.stringify(config)};
+export const brandKitName = ${JSON.stringify(config.name)};
+
+// Theme mode utilities
+export function getThemeMode() {
+  if (typeof localStorage === 'undefined') return 'system';
+  return localStorage.getItem('platxa-theme-mode') || 'system';
+}
+
+export function setThemeMode(mode) {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem('platxa-theme-mode', mode);
+  if (mode === 'system') {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.classList.toggle('dark', prefersDark);
+  } else {
+    document.documentElement.classList.toggle('dark', mode === 'dark');
+  }
+}
+
+export default {
+  css: brandKitCss,
+  variables: brandKitVariables,
+  config: brandKitConfig,
+  name: brandKitName,
+  getThemeMode,
+  setThemeMode,
+};
+`.trim()
+}
+
+/**
+ * Creates an Astro island component for brand switching
+ */
+export function generateAstroBrandSwitcherIsland(
+  brands: Record<string, ThemeConfig>
+): string {
+  const brandList = Object.entries(brands).map(([id, config]) => ({
+    id,
+    name: config.name,
+  }))
+
+  return `
+---
+// BrandSwitcher.astro - Island component for brand switching
+// Use with client:load or client:visible for hydration
+
+interface Props {
+  class?: string;
+  defaultBrand?: string;
+}
+
+const { class: className, defaultBrand } = Astro.props;
+const brands = ${JSON.stringify(brandList)};
+---
+
+<brand-switcher class={className} data-default={defaultBrand}>
+  <select class="brand-select">
+    {brands.map(({ id, name }) => (
+      <option value={id}>{name}</option>
+    ))}
+  </select>
+</brand-switcher>
+
+<script>
+  class BrandSwitcher extends HTMLElement {
+    constructor() {
+      super();
+
+      const select = this.querySelector('select');
+      const defaultBrand = this.dataset.default;
+
+      // Set initial value
+      const stored = localStorage.getItem('platxa-brand') || defaultBrand;
+      if (stored && select) {
+        select.value = stored;
+      }
+
+      // Handle change
+      select?.addEventListener('change', (e) => {
+        const brandId = (e.target as HTMLSelectElement).value;
+        localStorage.setItem('platxa-brand', brandId);
+
+        // Dispatch event for other components
+        document.dispatchEvent(new CustomEvent('platxa:brand-change', {
+          detail: { brandId }
+        }));
+
+        // Reload to apply new brand (or use dynamic switching)
+        window.location.reload();
+      });
+    }
+  }
+
+  customElements.define('brand-switcher', BrandSwitcher);
+</script>
+
+<style>
+  .brand-select {
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    border: 1px solid var(--border, #e2e8f0);
+    background: var(--background, #fff);
+    color: var(--foreground, #0f172a);
+    font-size: 0.875rem;
+    cursor: pointer;
+  }
+
+  .brand-select:focus {
+    outline: 2px solid var(--ring, #3b82f6);
+    outline-offset: 2px;
+  }
+</style>
+`.trim()
+}
+
+/**
+ * Generates Astro static CSS file content
+ */
+export function generateAstroStaticCss(
+  config: ThemeConfig,
+  options: { includeDarkMode?: boolean; minify?: boolean } = {}
+): string {
+  const generated = generateTheme(config)
+
+  let css = generated.css
+  if (options.includeDarkMode !== false && generated.darkModeCss) {
+    css += "\n" + generated.darkModeCss
+  }
+  if (options.minify) {
+    css = minifyCss(css)
+  }
+
+  return css
+}
+
+/**
+ * Creates Astro endpoint for dynamic CSS
+ */
+export function generateAstroCssEndpoint(options: AstroBrandKitOptions): string {
+  return `
+// src/pages/brand-kit.css.ts
+import type { APIRoute } from 'astro';
+import { generateTheme, type ThemeConfig } from '@platxa/frontend-agent/theme';
+
+const brandConfig: ThemeConfig = ${JSON.stringify(options.config, null, 2)};
+
+export const GET: APIRoute = async ({ request }) => {
+  const generated = generateTheme(brandConfig);
+
+  let css = generated.css;
+  ${options.includeDarkMode !== false ? "css += '\\n' + (generated.darkModeCss ?? '');" : ""}
+
+  return new Response(css, {
+    headers: {
+      'Content-Type': 'text/css; charset=utf-8',
+      'Cache-Control': 'public, max-age=31536000, immutable',
+    },
+  });
+};
+`.trim()
+}
+
+/**
+ * Generates Astro layout with brand kit
+ */
+export function generateAstroLayoutWithBrandKit(options: AstroBrandKitOptions): string {
+  const virtualModuleId = options.virtualModuleId ?? "virtual:platxa-brand-kit"
+  const brandName = options.config.name
+  const includeDarkMode = options.includeDarkMode !== false
+
+  return `
+---
+// src/layouts/BrandKitLayout.astro
+// Brand Kit: ${brandName}
+import { brandKitCss, brandKitVariables } from '${virtualModuleId}';
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description } = Astro.props;
+const themeColor = brandKitVariables['--primary'] || '#000000';
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content={themeColor} />
+    <meta name="generator" content="Platxa Brand Kit - ${brandName}" />
+    {description && <meta name="description" content={description} />}
+    <title>{title}</title>
+
+    <!-- Inline critical CSS to prevent FOUC -->
+    <style set:html={brandKitCss}></style>
+${includeDarkMode ? `
+    <!-- Theme mode initialization (before content renders) -->
+    <script is:inline>
+      (function() {
+        const mode = localStorage.getItem('platxa-theme-mode') || 'system';
+        if (mode === 'system') {
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          document.documentElement.classList.toggle('dark', prefersDark);
+        } else {
+          document.documentElement.classList.toggle('dark', mode === 'dark');
+        }
+      })();
+    </script>` : ""}
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>
+`.trim()
+}
+
+/**
+ * Formats Astro integration configuration as a report
+ */
+export function formatAstroIntegrationReport(options: AstroBrandKitOptions): string {
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Astro Brand Kit Integration Report")
+  lines.push(divider)
+  lines.push("")
+
+  // Configuration
+  lines.push("Configuration")
+  lines.push("─".repeat(50))
+  lines.push(`  Brand:          ${options.config.name}`)
+  lines.push(`  Output Path:    ${options.outputPath ?? "auto"}`)
+  lines.push(`  Dark Mode:      ${options.includeDarkMode !== false ? "Yes" : "No"}`)
+  lines.push(`  Inject CSS:     ${options.injectCss !== false ? "Yes" : "No"}`)
+  lines.push(`  HMR:            ${options.hmr !== false ? "Yes" : "No"}`)
+  lines.push(`  Minify:         ${options.minify ? "Yes" : "No"}`)
+  lines.push("")
+
+  // Generated assets
+  const generated = generateTheme(options.config)
+  let css = generated.css
+  if (options.includeDarkMode !== false && generated.darkModeCss) {
+    css += generated.darkModeCss
+  }
+
+  lines.push("Generated Assets")
+  lines.push("─".repeat(50))
+  lines.push(`  CSS Size:       ${formatBytes(Buffer.byteLength(css, "utf8"))}`)
+  lines.push(`  Variables:      ${Object.keys(generated.cssVariables).length}`)
+  lines.push("")
+
+  // Generated files
+  lines.push("Generated Files")
+  lines.push("─".repeat(50))
+  lines.push("  src/layouts/BrandKitLayout.astro")
+  lines.push("  src/components/BrandSwitcher.astro")
+  lines.push("  src/pages/brand-kit.css.ts (optional)")
+
+  lines.push("")
+  lines.push(divider)
+
+  return lines.join("\n")
+}
