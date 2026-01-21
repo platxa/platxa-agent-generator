@@ -2218,6 +2218,320 @@ export function useTheme(): UseThemeState {
   return getThemeStateSnapshot()
 }
 
+// =============================================================================
+// MINIMAL RE-RENDERS (Feature #86)
+// =============================================================================
+
+/**
+ * Performs shallow equality comparison between two values
+ *
+ * For objects, compares own enumerable properties at the first level.
+ * For primitives, uses strict equality.
+ *
+ * @param a - First value
+ * @param b - Second value
+ * @returns true if values are shallowly equal
+ *
+ * @example
+ * ```typescript
+ * shallowEqual({ a: 1, b: 2 }, { a: 1, b: 2 }) // true
+ * shallowEqual({ a: 1 }, { a: 2 }) // false
+ * shallowEqual({ a: { nested: 1 } }, { a: { nested: 1 } }) // false (different refs)
+ * ```
+ */
+export function shallowEqual<T>(a: T, b: T): boolean {
+  if (Object.is(a, b)) {
+    return true
+  }
+
+  if (
+    typeof a !== "object" ||
+    a === null ||
+    typeof b !== "object" ||
+    b === null
+  ) {
+    return false
+  }
+
+  const keysA = Object.keys(a)
+  const keysB = Object.keys(b)
+
+  if (keysA.length !== keysB.length) {
+    return false
+  }
+
+  for (const key of keysA) {
+    if (
+      !Object.prototype.hasOwnProperty.call(b, key) ||
+      !Object.is((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])
+    ) {
+      return false
+    }
+  }
+
+  return true
+}
+
+/**
+ * Selector function type for extracting specific values from theme state
+ */
+export type ThemeSelector<T> = (state: UseThemeState) => T
+
+/**
+ * Cache for memoized selector results
+ */
+interface SelectorCache<T> {
+  lastState: UseThemeState | null
+  lastResult: T | undefined
+}
+
+/**
+ * Creates a memoized selector for theme state
+ *
+ * The selector will only recompute when the selected value actually changes,
+ * using shallow equality comparison. This prevents unnecessary re-renders
+ * when other parts of the theme state change.
+ *
+ * @param selector - Function to extract desired value from theme state
+ * @returns Memoized selector function
+ *
+ * @example
+ * ```typescript
+ * // Create a selector for just the theme mode
+ * const selectMode = createThemeSelector((state) => state.mode)
+ *
+ * // In a component, this will only cause re-render when mode changes
+ * const mode = selectMode(getThemeStateSnapshot())
+ * ```
+ */
+export function createThemeSelector<T>(
+  selector: ThemeSelector<T>
+): ThemeSelector<T> {
+  const cache: SelectorCache<T> = {
+    lastState: null,
+    lastResult: undefined,
+  }
+
+  return (state: UseThemeState): T => {
+    // If same state reference, return cached result
+    if (cache.lastState === state) {
+      return cache.lastResult as T
+    }
+
+    const newResult = selector(state)
+
+    // If result is shallowly equal, return the cached result to preserve reference
+    if (cache.lastResult !== undefined && shallowEqual(cache.lastResult, newResult)) {
+      cache.lastState = state
+      return cache.lastResult
+    }
+
+    cache.lastState = state
+    cache.lastResult = newResult
+    return newResult
+  }
+}
+
+/**
+ * Built-in selectors for common theme values
+ *
+ * Using these selectors ensures components only re-render
+ * when the specific value they depend on changes.
+ */
+export const themeSelectors = {
+  /** Select only the theme mode (light/dark/system) */
+  mode: createThemeSelector((state) => state.mode),
+
+  /** Select only the resolved mode (light/dark) */
+  resolvedMode: createThemeSelector((state) => state.resolvedMode),
+
+  /** Select only the design tokens */
+  tokens: createThemeSelector((state) => state.tokens),
+
+  /** Select only colors from tokens */
+  colors: createThemeSelector((state) => state.tokens.colors),
+
+  /** Select only spacing from tokens */
+  spacing: createThemeSelector((state) => state.tokens.spacing),
+
+  /** Select only typography from tokens */
+  typography: createThemeSelector((state) => state.tokens.typography),
+
+  /** Select the setMode function (stable reference) */
+  setMode: createThemeSelector((state) => state.setMode),
+} as const
+
+/**
+ * Gets a snapshot for a specific selector
+ *
+ * Use with useSyncExternalStore for optimal React performance:
+ *
+ * @example
+ * ```tsx
+ * import { useSyncExternalStore } from "react"
+ *
+ * function ThemeModeDisplay() {
+ *   const mode = useSyncExternalStore(
+ *     subscribeToThemeChanges,
+ *     () => getSelectedSnapshot(themeSelectors.mode)
+ *   )
+ *   return <span>{mode}</span>
+ * }
+ * ```
+ */
+export function getSelectedSnapshot<T>(selector: ThemeSelector<T>): T {
+  return selector(getThemeStateSnapshot())
+}
+
+/**
+ * Creates a subscription factory for selective theme updates
+ *
+ * Returns a subscribe function that only notifies when the
+ * selected value changes, preventing unnecessary re-renders.
+ *
+ * @param selector - Selector for the value to watch
+ * @returns Subscribe function compatible with useSyncExternalStore
+ *
+ * @example
+ * ```tsx
+ * const subscribeToMode = createSelectiveSubscription(themeSelectors.mode)
+ *
+ * function ThemeModeDisplay() {
+ *   const mode = useSyncExternalStore(
+ *     subscribeToMode,
+ *     () => themeSelectors.mode(getThemeStateSnapshot())
+ *   )
+ *   // Only re-renders when mode actually changes
+ * }
+ * ```
+ */
+export function createSelectiveSubscription<T>(
+  selector: ThemeSelector<T>
+): (callback: () => void) => () => void {
+  return (callback: () => void) => {
+    let lastValue = selector(getThemeStateSnapshot())
+
+    const wrappedCallback = () => {
+      const newValue = selector(getThemeStateSnapshot())
+      if (!shallowEqual(lastValue, newValue)) {
+        lastValue = newValue
+        callback()
+      }
+    }
+
+    return subscribeToThemeChanges(wrappedCallback)
+  }
+}
+
+/**
+ * Memoized context value creator for theme providers
+ *
+ * Creates a stable context value that only changes when
+ * relevant theme properties change, minimizing consumer re-renders.
+ *
+ * @param state - Current theme state
+ * @param prevValue - Previous context value (for comparison)
+ * @returns Memoized context value
+ *
+ * @example
+ * ```tsx
+ * function ThemeProvider({ children }) {
+ *   const [contextValue, setContextValue] = useState(() =>
+ *     createMemoizedContextValue(getThemeStateSnapshot())
+ *   )
+ *
+ *   useEffect(() => {
+ *     return subscribeToThemeChanges(() => {
+ *       setContextValue(prev =>
+ *         createMemoizedContextValue(getThemeStateSnapshot(), prev)
+ *       )
+ *     })
+ *   }, [])
+ *
+ *   return (
+ *     <ThemeContext.Provider value={contextValue}>
+ *       {children}
+ *     </ThemeContext.Provider>
+ *   )
+ * }
+ * ```
+ */
+export function createMemoizedContextValue(
+  state: UseThemeState,
+  prevValue?: UseThemeState
+): UseThemeState {
+  if (!prevValue) {
+    return state
+  }
+
+  // Check if we can reuse the previous value
+  if (
+    prevValue.mode === state.mode &&
+    prevValue.resolvedMode === state.resolvedMode &&
+    shallowEqual(prevValue.tokens, state.tokens) &&
+    prevValue.config === state.config
+  ) {
+    return prevValue
+  }
+
+  return state
+}
+
+/**
+ * Configuration for render tracking
+ */
+export interface RenderTrackingConfig {
+  /** Whether to log render counts */
+  logRenders?: boolean
+  /** Component name for logging */
+  componentName?: string
+}
+
+/**
+ * Creates a render counter for debugging re-renders
+ *
+ * Useful for verifying that optimizations are working correctly.
+ * Should only be used in development.
+ *
+ * @param config - Tracking configuration
+ * @returns Object with render tracking functions
+ *
+ * @example
+ * ```tsx
+ * const renderTracker = createRenderTracker({ componentName: "ThemeConsumer" })
+ *
+ * function ThemeConsumer() {
+ *   renderTracker.track()
+ *
+ *   const { mode } = useTheme()
+ *   return <div>{mode}</div>
+ * }
+ *
+ * // Later, check render count
+ * console.log(renderTracker.getCount())
+ * renderTracker.reset()
+ * ```
+ */
+export function createRenderTracker(config: RenderTrackingConfig = {}) {
+  let count = 0
+  const { logRenders = false, componentName = "Component" } = config
+
+  return {
+    track(): void {
+      count++
+      if (logRenders) {
+        console.log(`[RenderTracker] ${componentName} rendered (count: ${count})`)
+      }
+    },
+    getCount(): number {
+      return count
+    },
+    reset(): void {
+      count = 0
+    },
+  }
+}
+
 // ============================================================================
 // BUILD-TIME PROCESSING (Feature #43)
 // ============================================================================

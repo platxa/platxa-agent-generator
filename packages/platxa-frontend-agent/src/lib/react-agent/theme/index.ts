@@ -114,6 +114,14 @@ export {
   createSafeImport,
   validateBrandKitPackages,
   formatPackageValidationReport,
+  // Minimal Re-renders (Feature #86)
+  shallowEqual,
+  createThemeSelector,
+  themeSelectors,
+  getSelectedSnapshot,
+  createSelectiveSubscription,
+  createMemoizedContextValue,
+  createRenderTracker,
 } from "./theme-worker"
 
 export type {
@@ -143,6 +151,9 @@ export type {
   PackageAllowlistConfig,
   PackageValidationResult,
   PackageValidationReport,
+  // Minimal Re-renders (Feature #86)
+  ThemeSelector,
+  RenderTrackingConfig,
 } from "./theme-worker"
 
 // Token presets
