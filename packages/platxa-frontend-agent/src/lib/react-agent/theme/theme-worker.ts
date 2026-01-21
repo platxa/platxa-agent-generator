@@ -14368,3 +14368,536 @@ export function getRuntimeResolutionSync(): {
 export function useRuntimeResolution(): RuntimeResolutionState {
   return getRuntimeResolutionState()
 }
+
+// ============================================================================
+// Feature #110: Dependency Resolution
+// ============================================================================
+
+/**
+ * Peer dependency specification
+ */
+export interface PeerDependency {
+  /** Package name */
+  name: string
+  /** Required version (semver range) */
+  version: string
+  /** Whether this dependency is optional */
+  optional?: boolean
+  /** Reason why this dependency is needed */
+  reason?: string
+}
+
+/**
+ * Result of checking a single peer dependency
+ */
+export interface DependencyCheckResult {
+  /** Package name */
+  name: string
+  /** Required version from brand kit */
+  requiredVersion: string
+  /** Whether the package is available */
+  available: boolean
+  /** Installed version if available */
+  installedVersion?: string
+  /** Whether installed version satisfies required version */
+  versionSatisfied: boolean
+  /** Whether this dependency is optional */
+  optional: boolean
+  /** Reason for this dependency */
+  reason?: string
+}
+
+/**
+ * Complete dependency resolution result
+ */
+export interface DependencyResolutionResult {
+  /** All dependencies are satisfied */
+  satisfied: boolean
+  /** List of check results for each dependency */
+  dependencies: DependencyCheckResult[]
+  /** Missing required dependencies */
+  missing: DependencyCheckResult[]
+  /** Dependencies with version mismatches */
+  versionMismatches: DependencyCheckResult[]
+  /** Warnings (optional dependencies not satisfied) */
+  warnings: string[]
+  /** Installation suggestions */
+  installSuggestions: string[]
+}
+
+/**
+ * Brand kit with peer dependencies
+ */
+export interface BrandKitWithDependencies extends ThemeConfig {
+  /** Peer dependencies required by this brand kit */
+  peerDependencies?: PeerDependency[]
+}
+
+/**
+ * Options for dependency validation
+ */
+export interface DependencyValidationOptions {
+  /** Whether to treat missing optional deps as errors */
+  strictOptional?: boolean
+  /** Custom version checker (for testing) */
+  versionChecker?: (name: string) => string | undefined
+  /** Custom package availability checker (for testing) */
+  availabilityChecker?: (name: string) => boolean
+}
+
+/**
+ * Checks if a version string satisfies a semver range
+ *
+ * Simplified semver check supporting:
+ * - Exact: "1.0.0"
+ * - Caret: "^1.0.0" (compatible with 1.x.x)
+ * - Tilde: "~1.0.0" (compatible with 1.0.x)
+ * - Range: ">=1.0.0", ">1.0.0", "<=1.0.0", "<1.0.0"
+ * - Any: "*"
+ *
+ * @param installed - Installed version
+ * @param required - Required version range
+ * @returns Whether installed satisfies required
+ */
+function satisfiesVersion(installed: string, required: string): boolean {
+  // Handle "any" version
+  if (required === "*" || required === "") {
+    return true
+  }
+
+  // Parse version parts
+  const parseVersion = (v: string): [number, number, number] => {
+    const clean = v.replace(/^[^0-9]*/, "") // Remove leading non-numeric chars
+    const parts = clean.split(".").map((p) => parseInt(p, 10) || 0)
+    return [parts[0] || 0, parts[1] || 0, parts[2] || 0]
+  }
+
+  const [iMajor, iMinor, iPatch] = parseVersion(installed)
+  const [rMajor, rMinor, rPatch] = parseVersion(required)
+
+  // Handle caret (^) - compatible with major version
+  if (required.startsWith("^")) {
+    if (rMajor === 0) {
+      // ^0.x.y is more restrictive
+      return iMajor === rMajor && iMinor === rMinor && iPatch >= rPatch
+    }
+    return iMajor === rMajor && (iMinor > rMinor || (iMinor === rMinor && iPatch >= rPatch))
+  }
+
+  // Handle tilde (~) - compatible with minor version
+  if (required.startsWith("~")) {
+    return iMajor === rMajor && iMinor === rMinor && iPatch >= rPatch
+  }
+
+  // Handle range operators
+  if (required.startsWith(">=")) {
+    return (
+      iMajor > rMajor ||
+      (iMajor === rMajor && iMinor > rMinor) ||
+      (iMajor === rMajor && iMinor === rMinor && iPatch >= rPatch)
+    )
+  }
+
+  if (required.startsWith(">") && !required.startsWith(">=")) {
+    return (
+      iMajor > rMajor ||
+      (iMajor === rMajor && iMinor > rMinor) ||
+      (iMajor === rMajor && iMinor === rMinor && iPatch > rPatch)
+    )
+  }
+
+  if (required.startsWith("<=")) {
+    return (
+      iMajor < rMajor ||
+      (iMajor === rMajor && iMinor < rMinor) ||
+      (iMajor === rMajor && iMinor === rMinor && iPatch <= rPatch)
+    )
+  }
+
+  if (required.startsWith("<") && !required.startsWith("<=")) {
+    return (
+      iMajor < rMajor ||
+      (iMajor === rMajor && iMinor < rMinor) ||
+      (iMajor === rMajor && iMinor === rMinor && iPatch < rPatch)
+    )
+  }
+
+  // Exact match
+  return iMajor === rMajor && iMinor === rMinor && iPatch === rPatch
+}
+
+/**
+ * Checks a single peer dependency
+ *
+ * @param dependency - The peer dependency to check
+ * @param options - Validation options
+ * @returns Check result for the dependency
+ *
+ * @example
+ * ```typescript
+ * const result = checkPeerDependency({
+ *   name: "react",
+ *   version: "^18.0.0",
+ *   reason: "Required for hooks"
+ * })
+ *
+ * if (!result.versionSatisfied) {
+ *   console.warn(`React ${result.requiredVersion} required, found ${result.installedVersion}`)
+ * }
+ * ```
+ */
+export function checkPeerDependency(
+  dependency: PeerDependency,
+  options?: DependencyValidationOptions
+): DependencyCheckResult {
+  const { versionChecker, availabilityChecker } = options ?? {}
+
+  // Check availability
+  const available = availabilityChecker
+    ? availabilityChecker(dependency.name)
+    : isPackageAvailable(dependency.name)
+
+  // Get installed version
+  const installedVersion = available
+    ? versionChecker
+      ? versionChecker(dependency.name)
+      : getPackageVersion(dependency.name)
+    : undefined
+
+  // Check version satisfaction
+  const versionSatisfied = available && installedVersion
+    ? satisfiesVersion(installedVersion, dependency.version)
+    : false
+
+  return {
+    name: dependency.name,
+    requiredVersion: dependency.version,
+    available,
+    installedVersion,
+    versionSatisfied,
+    optional: dependency.optional ?? false,
+    reason: dependency.reason,
+  }
+}
+
+/**
+ * Expected global package structure (when loaded via script tags)
+ */
+interface GlobalPackageInfo {
+  version?: string
+}
+
+/**
+ * Map of package names to their expected global variable names
+ */
+const PACKAGE_GLOBAL_MAP: ReadonlyMap<string, string> = new Map([
+  ["react", "React"],
+  ["react-dom", "ReactDOM"],
+  ["framer-motion", "Motion"],
+])
+
+/**
+ * Type guard to check if a global variable exists on window
+ *
+ * @param globalName - Name of the global variable to check
+ * @returns Whether the global exists and is an object
+ */
+function hasGlobalPackage(globalName: string): boolean {
+  if (typeof window === "undefined") {
+    return false
+  }
+  // Use Object.prototype.hasOwnProperty for safe property check
+  return Object.prototype.hasOwnProperty.call(window, globalName)
+}
+
+/**
+ * Safely gets a global package from window
+ *
+ * @param globalName - Name of the global variable
+ * @returns The global package or undefined
+ */
+function getGlobalPackage(globalName: string): GlobalPackageInfo | undefined {
+  if (typeof window === "undefined" || !hasGlobalPackage(globalName)) {
+    return undefined
+  }
+  // Access via Reflect.get which is type-safe for dynamic property access
+  const value = Reflect.get(window, globalName)
+  // Validate it's an object with optional version property
+  if (value !== null && typeof value === "object") {
+    return value as GlobalPackageInfo
+  }
+  return undefined
+}
+
+/**
+ * Checks if a package is available (browser-safe)
+ *
+ * In browser environments, checks for global availability.
+ * In Node environments, attempts require.resolve.
+ *
+ * @param name - Package name
+ * @returns Whether package is available
+ */
+function isPackageAvailable(name: string): boolean {
+  // Browser environment - check common globals
+  if (isBrowser()) {
+    const globalName = PACKAGE_GLOBAL_MAP.get(name)
+    if (globalName) {
+      return hasGlobalPackage(globalName)
+    }
+    return false
+  }
+
+  // Node environment - try require.resolve (if available)
+  if (typeof require !== "undefined" && typeof require.resolve === "function") {
+    try {
+      require.resolve(name)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  return false
+}
+
+/**
+ * Gets package version (browser-safe)
+ *
+ * @param name - Package name
+ * @returns Package version or undefined
+ */
+function getPackageVersion(name: string): string | undefined {
+  // Browser environment - check version from global
+  if (isBrowser()) {
+    const globalName = PACKAGE_GLOBAL_MAP.get(name)
+    if (globalName) {
+      const pkg = getGlobalPackage(globalName)
+      return pkg?.version
+    }
+    return undefined
+  }
+
+  // Node environment - try to read version from package
+  if (typeof require !== "undefined") {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const pkg = require(`${name}/package.json`) as GlobalPackageInfo
+      return pkg?.version
+    } catch {
+      return undefined
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Resolves all dependencies of a brand kit
+ *
+ * Checks all peer dependencies and provides detailed results
+ * including missing deps, version mismatches, and install suggestions.
+ *
+ * @param brandKit - Brand kit with peer dependencies
+ * @param options - Validation options
+ * @returns Complete resolution result
+ *
+ * @example
+ * ```typescript
+ * const brandKit: BrandKitWithDependencies = {
+ *   name: "my-brand",
+ *   peerDependencies: [
+ *     { name: "react", version: "^18.0.0" },
+ *     { name: "@radix-ui/react-dialog", version: "^1.0.0", optional: true },
+ *   ],
+ *   // ... other config
+ * }
+ *
+ * const result = resolveBrandKitDependencies(brandKit)
+ *
+ * if (!result.satisfied) {
+ *   console.error("Missing dependencies:")
+ *   result.missing.forEach(dep => {
+ *     console.error(`  - ${dep.name}@${dep.requiredVersion}`)
+ *   })
+ *   console.log("\nInstall with:")
+ *   console.log(result.installSuggestions.join(" && "))
+ * }
+ * ```
+ */
+export function resolveBrandKitDependencies(
+  brandKit: BrandKitWithDependencies,
+  options?: DependencyValidationOptions
+): DependencyResolutionResult {
+  const dependencies = brandKit.peerDependencies ?? []
+  const results: DependencyCheckResult[] = []
+  const missing: DependencyCheckResult[] = []
+  const versionMismatches: DependencyCheckResult[] = []
+  const warnings: string[] = []
+  const installSuggestions: string[] = []
+
+  // Check each dependency
+  for (const dep of dependencies) {
+    const result = checkPeerDependency(dep, options)
+    results.push(result)
+
+    if (!result.available) {
+      if (result.optional) {
+        warnings.push(
+          `Optional dependency '${result.name}' not found. ` +
+            (result.reason ? `Reason: ${result.reason}` : "Some features may be unavailable.")
+        )
+      } else {
+        missing.push(result)
+        installSuggestions.push(`npm install ${result.name}@${result.requiredVersion}`)
+      }
+    } else if (!result.versionSatisfied) {
+      if (result.optional) {
+        warnings.push(
+          `Optional dependency '${result.name}' version mismatch: ` +
+            `required ${result.requiredVersion}, found ${result.installedVersion}`
+        )
+      } else {
+        versionMismatches.push(result)
+        installSuggestions.push(`npm install ${result.name}@${result.requiredVersion}`)
+      }
+    }
+  }
+
+  const satisfied = missing.length === 0 && versionMismatches.length === 0
+
+  return {
+    satisfied,
+    dependencies: results,
+    missing,
+    versionMismatches,
+    warnings,
+    installSuggestions,
+  }
+}
+
+/**
+ * Validates brand kit dependencies (simple boolean check)
+ *
+ * @param brandKit - Brand kit to validate
+ * @param options - Validation options
+ * @returns Whether all required dependencies are satisfied
+ *
+ * @example
+ * ```typescript
+ * if (!validateBrandKitDependencies(brandKit)) {
+ *   throw new Error("Brand kit has unsatisfied dependencies")
+ * }
+ * ```
+ */
+export function validateBrandKitDependencies(
+  brandKit: BrandKitWithDependencies,
+  options?: DependencyValidationOptions
+): boolean {
+  const { strictOptional = false } = options ?? {}
+  const result = resolveBrandKitDependencies(brandKit, options)
+
+  if (strictOptional) {
+    // Also fail on missing optional deps
+    return result.satisfied && result.warnings.length === 0
+  }
+
+  return result.satisfied
+}
+
+/**
+ * Generates installation command for missing dependencies
+ *
+ * @param result - Dependency resolution result
+ * @param packageManager - Package manager to use
+ * @returns Installation command string
+ *
+ * @example
+ * ```typescript
+ * const result = resolveBrandKitDependencies(brandKit)
+ * if (!result.satisfied) {
+ *   console.log("Run this command to fix:")
+ *   console.log(generateInstallCommand(result, "pnpm"))
+ * }
+ * ```
+ */
+export function generateInstallCommand(
+  result: DependencyResolutionResult,
+  packageManager: "npm" | "yarn" | "pnpm" = "npm"
+): string {
+  const packages = [
+    ...result.missing.map((d) => `${d.name}@${d.requiredVersion}`),
+    ...result.versionMismatches.map((d) => `${d.name}@${d.requiredVersion}`),
+  ]
+
+  if (packages.length === 0) {
+    return ""
+  }
+
+  switch (packageManager) {
+    case "yarn":
+      return `yarn add ${packages.join(" ")}`
+    case "pnpm":
+      return `pnpm add ${packages.join(" ")}`
+    default:
+      return `npm install ${packages.join(" ")}`
+  }
+}
+
+/**
+ * Formats dependency check result as human-readable report
+ *
+ * @param result - Resolution result to format
+ * @returns Formatted report string
+ *
+ * @example
+ * ```typescript
+ * const result = resolveBrandKitDependencies(brandKit)
+ * console.log(formatDependencyReport(result))
+ * ```
+ */
+export function formatDependencyReport(result: DependencyResolutionResult): string {
+  const lines: string[] = ["Brand Kit Dependency Report", "=" .repeat(30), ""]
+
+  // Summary
+  lines.push(`Status: ${result.satisfied ? "✓ All dependencies satisfied" : "✗ Dependencies not satisfied"}`)
+  lines.push("")
+
+  // Dependencies table
+  lines.push("Dependencies:")
+  for (const dep of result.dependencies) {
+    const status = dep.versionSatisfied
+      ? "✓"
+      : dep.available
+        ? "⚠"
+        : "✗"
+    const optional = dep.optional ? " (optional)" : ""
+    const version = dep.available
+      ? `${dep.installedVersion} → ${dep.requiredVersion}`
+      : `missing (need ${dep.requiredVersion})`
+    lines.push(`  ${status} ${dep.name}${optional}: ${version}`)
+    if (dep.reason) {
+      lines.push(`      Reason: ${dep.reason}`)
+    }
+  }
+
+  // Warnings
+  if (result.warnings.length > 0) {
+    lines.push("")
+    lines.push("Warnings:")
+    for (const warning of result.warnings) {
+      lines.push(`  ⚠ ${warning}`)
+    }
+  }
+
+  // Installation suggestions
+  if (result.installSuggestions.length > 0) {
+    lines.push("")
+    lines.push("Fix with:")
+    lines.push(`  ${generateInstallCommand(result, "npm")}`)
+    lines.push("  or")
+    lines.push(`  ${generateInstallCommand(result, "pnpm")}`)
+  }
+
+  return lines.join("\n")
+}

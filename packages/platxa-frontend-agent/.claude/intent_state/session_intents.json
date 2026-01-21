@@ -1,32 +1,32 @@
 {
-  "session_id": "51f3d1e0b53b",
+  "session_id": "c0377ac761a2",
   "stack": {
     "session": {
-      "id": "51f3d1e0b53b-167",
-      "text": "[Loading & Resolution Features] Feature #109: [Runtime Resolution] Optionally resolve brand kit at runtime for dynamic scenarios Verification: Optional runtime loading; Loading state exposed; Error handling for failed loads Criteria: Manual verification required",
+      "id": "c0377ac761a2-169",
+      "text": "[Loading & Resolution Features] Feature #110: [Dependency Resolution] Automatically resolve brand kit peer dependencies Verification: Peer deps checked at load time; Warning for missing peers; Suggestions for installation Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768997620.7768078,
-      "updated_at": 1768997620.776808,
+      "created_at": 1768997853.601951,
+      "updated_at": 1768997853.6019511,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 109,
+        "feature_id": 110,
         "category": "Loading & Resolution Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "51f3d1e0b53b-168",
-      "text": "Implement: [Runtime Resolution] Optionally resolve brand kit at runtime for dynamic scenarios Verification: Optional runtime loading; Loading state exposed; Error handling for failed loads",
+      "id": "c0377ac761a2-170",
+      "text": "Implement: [Dependency Resolution] Automatically resolve brand kit peer dependencies Verification: Peer deps checked at load time; Warning for missing peers; Suggestions for installation",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768997620.782585,
-      "updated_at": 1768997620.7825851,
+      "created_at": 1768997853.6079714,
+      "updated_at": 1768997853.6079717,
       "completed_at": null,
-      "parent_id": "51f3d1e0b53b-167",
+      "parent_id": "c0377ac761a2-169",
       "metadata": {},
       "keywords": []
     },
@@ -2468,9 +2468,38 @@
       "parent_id": "51f3d1e0b53b-167",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "c0377ac761a2-169",
+      "text": "[Loading & Resolution Features] Feature #110: [Dependency Resolution] Automatically resolve brand kit peer dependencies Verification: Peer deps checked at load time; Warning for missing peers; Suggestions for installation Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768997853.601951,
+      "updated_at": 1768997853.6019511,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 110,
+        "category": "Loading & Resolution Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c0377ac761a2-170",
+      "text": "Implement: [Dependency Resolution] Automatically resolve brand kit peer dependencies Verification: Peer deps checked at load time; Warning for missing peers; Suggestions for installation",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768997853.6079714,
+      "updated_at": 1768997853.6079717,
+      "completed_at": null,
+      "parent_id": "c0377ac761a2-169",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 168,
+  "intent_counter": 170,
   "created_at": 1768900061.32227,
-  "updated_at": 1768997620.7825918
+  "updated_at": 1768997853.6079772
 }

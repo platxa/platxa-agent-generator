@@ -329,6 +329,12 @@ export {
   setRuntimeStaticConfig,
   getRuntimeResolutionSync,
   useRuntimeResolution,
+  // Dependency Resolution (Feature #110)
+  checkPeerDependency,
+  resolveBrandKitDependencies,
+  validateBrandKitDependencies,
+  generateInstallCommand,
+  formatDependencyReport,
 } from "./theme-worker"
 
 export type {
@@ -477,6 +483,12 @@ export type {
   RuntimeLoadingError,
   RuntimeResolutionState,
   RuntimeResolverConfig,
+  // Dependency Resolution (Feature #110)
+  PeerDependency,
+  DependencyCheckResult,
+  DependencyResolutionResult,
+  BrandKitWithDependencies,
+  DependencyValidationOptions,
 } from "./theme-worker"
 
 // Token presets
