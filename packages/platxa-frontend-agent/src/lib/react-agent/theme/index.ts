@@ -378,6 +378,17 @@ export {
   generatePlaygroundExport,
   generatePlayground,
   createSimplePlayground,
+  // Package Integrity Check (Feature #119)
+  generateIntegrityHash,
+  generateIntegrityHashSync,
+  verifyIntegrity,
+  verifyIntegritySync,
+  createBrandKitWithIntegrity,
+  loadVerifiedBrandKit,
+  parseIntegrityHash,
+  compareConfigs,
+  generateIntegrityManifest,
+  verifyAgainstManifest,
 } from "./theme-worker"
 
 export type {
@@ -579,6 +590,12 @@ export type {
   PlaygroundExportFormat,
   PlaygroundExportResult,
   PlaygroundResult,
+  // Package Integrity Check (Feature #119)
+  IntegrityHashAlgorithm,
+  IntegrityHash,
+  BrandKitWithIntegrity,
+  IntegrityVerificationResult,
+  IntegrityOptions,
 } from "./theme-worker"
 
 // Token presets

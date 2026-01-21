@@ -20960,3 +20960,501 @@ export function createSimplePlayground(
     previewComponents: DEFAULT_PREVIEW_COMPONENTS,
   })
 }
+
+// =============================================================================
+// Feature #119: Package Integrity Check
+// =============================================================================
+
+/**
+ * Hash algorithm type for integrity checking
+ */
+export type IntegrityHashAlgorithm = "sha256" | "sha384" | "sha512"
+
+/**
+ * Integrity hash format (matches Subresource Integrity format)
+ */
+export interface IntegrityHash {
+  /** Hash algorithm used */
+  algorithm: IntegrityHashAlgorithm
+  /** Base64-encoded hash value */
+  hash: string
+  /** Full SRI string (algorithm-hash) */
+  sri: string
+}
+
+/**
+ * Brand kit with integrity information
+ */
+export interface BrandKitWithIntegrity {
+  /** The brand kit configuration */
+  config: ThemeConfig
+  /** Integrity hash of the configuration */
+  integrity: IntegrityHash
+  /** Timestamp when hash was generated */
+  generatedAt: string
+  /** Version identifier */
+  version?: string
+}
+
+/**
+ * Integrity verification result
+ */
+export interface IntegrityVerificationResult {
+  /** Whether the verification passed */
+  valid: boolean
+  /** Expected hash */
+  expected: IntegrityHash
+  /** Actual computed hash */
+  actual: IntegrityHash
+  /** Error message if verification failed */
+  error?: string
+  /** Details about what changed (if invalid) */
+  diff?: string[]
+}
+
+/**
+ * Options for integrity operations
+ */
+export interface IntegrityOptions {
+  /** Hash algorithm to use */
+  algorithm?: IntegrityHashAlgorithm
+  /** Fields to include in hash calculation */
+  includeFields?: (keyof ThemeConfig)[]
+  /** Fields to exclude from hash calculation */
+  excludeFields?: (keyof ThemeConfig)[]
+  /** Whether to include metadata (name, defaultMode, etc.) */
+  includeMetadata?: boolean
+}
+
+/**
+ * Default fields included in integrity hash
+ */
+const DEFAULT_INTEGRITY_FIELDS: (keyof ThemeConfig)[] = [
+  "name",
+  "light",
+  "dark",
+  "defaultMode",
+]
+
+/**
+ * Computes a SHA-256 hash of a string (browser-compatible)
+ * Falls back to a simple hash for non-browser environments
+ */
+async function computeSha256(data: string): Promise<string> {
+  // Check for Web Crypto API (browser and Node 15+)
+  if (typeof crypto !== "undefined" && crypto.subtle) {
+    const encoder = new TextEncoder()
+    const dataBuffer = encoder.encode(data)
+    const hashBuffer = await crypto.subtle.digest("SHA-256", dataBuffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
+  }
+
+  // Fallback: simple hash for environments without Web Crypto
+  // This is a simplified djb2 hash - for production, use a proper crypto library
+  let hash = 5381
+  for (let i = 0; i < data.length; i++) {
+    hash = (hash * 33) ^ data.charCodeAt(i)
+  }
+  return Math.abs(hash).toString(16).padStart(16, "0")
+}
+
+/**
+ * Computes a SHA-384 hash of a string
+ */
+async function computeSha384(data: string): Promise<string> {
+  if (typeof crypto !== "undefined" && crypto.subtle) {
+    const encoder = new TextEncoder()
+    const dataBuffer = encoder.encode(data)
+    const hashBuffer = await crypto.subtle.digest("SHA-384", dataBuffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
+  }
+  // Fallback to SHA-256 equivalent
+  return computeSha256(data + "-384")
+}
+
+/**
+ * Computes a SHA-512 hash of a string
+ */
+async function computeSha512(data: string): Promise<string> {
+  if (typeof crypto !== "undefined" && crypto.subtle) {
+    const encoder = new TextEncoder()
+    const dataBuffer = encoder.encode(data)
+    const hashBuffer = await crypto.subtle.digest("SHA-512", dataBuffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
+  }
+  // Fallback to SHA-256 equivalent
+  return computeSha256(data + "-512")
+}
+
+/**
+ * Computes a hash using the specified algorithm
+ */
+async function computeHash(
+  data: string,
+  algorithm: IntegrityHashAlgorithm
+): Promise<string> {
+  switch (algorithm) {
+    case "sha256":
+      return computeSha256(data)
+    case "sha384":
+      return computeSha384(data)
+    case "sha512":
+      return computeSha512(data)
+    default:
+      return computeSha256(data)
+  }
+}
+
+/**
+ * Converts a hex string to base64
+ */
+function hexToBase64(hex: string): string {
+  const bytes = hex.match(/.{1,2}/g)
+  if (!bytes) return ""
+  const byteArray = new Uint8Array(bytes.map((byte) => parseInt(byte, 16)))
+  // Browser-compatible base64 encoding
+  if (typeof btoa !== "undefined") {
+    return btoa(String.fromCharCode(...byteArray))
+  }
+  // Node.js fallback
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(byteArray).toString("base64")
+  }
+  // Simple fallback
+  return hex
+}
+
+/**
+ * Normalizes a ThemeConfig for consistent hashing
+ * Removes undefined values and sorts keys
+ */
+function normalizeConfig(
+  config: ThemeConfig,
+  options: IntegrityOptions = {}
+): string {
+  const fields = options.includeFields || DEFAULT_INTEGRITY_FIELDS
+  const excludeFields = options.excludeFields || []
+
+  const normalized: Record<string, unknown> = {}
+
+  for (const field of fields) {
+    if (!excludeFields.includes(field) && config[field] !== undefined) {
+      normalized[field] = config[field]
+    }
+  }
+
+  // Sort keys recursively for consistent ordering
+  return JSON.stringify(normalized, Object.keys(normalized).sort())
+}
+
+/**
+ * Generates an integrity hash for a brand kit configuration
+ *
+ * @param config - The theme configuration to hash
+ * @param options - Hashing options
+ * @returns Promise resolving to integrity hash
+ *
+ * @example
+ * ```typescript
+ * const integrity = await generateIntegrityHash(myTheme)
+ * console.log(integrity.sri) // "sha256-abc123..."
+ * ```
+ */
+export async function generateIntegrityHash(
+  config: ThemeConfig,
+  options: IntegrityOptions = {}
+): Promise<IntegrityHash> {
+  const algorithm = options.algorithm || "sha256"
+  const normalized = normalizeConfig(config, options)
+  const hexHash = await computeHash(normalized, algorithm)
+  const base64Hash = hexToBase64(hexHash)
+
+  return {
+    algorithm,
+    hash: base64Hash,
+    sri: algorithm + "-" + base64Hash,
+  }
+}
+
+/**
+ * Generates an integrity hash synchronously (using fallback hash)
+ * For environments where async is not available
+ */
+export function generateIntegrityHashSync(
+  config: ThemeConfig,
+  options: IntegrityOptions = {}
+): IntegrityHash {
+  const algorithm = options.algorithm || "sha256"
+  const normalized = normalizeConfig(config, options)
+
+  // Simple synchronous hash (djb2)
+  let hash = 5381
+  for (let i = 0; i < normalized.length; i++) {
+    hash = (hash * 33) ^ normalized.charCodeAt(i)
+  }
+  const hexHash = Math.abs(hash).toString(16).padStart(16, "0")
+  const base64Hash = hexToBase64(hexHash)
+
+  return {
+    algorithm,
+    hash: base64Hash,
+    sri: algorithm + "-" + base64Hash,
+  }
+}
+
+/**
+ * Verifies the integrity of a brand kit configuration
+ *
+ * @param config - The configuration to verify
+ * @param expectedHash - The expected integrity hash
+ * @param options - Verification options
+ * @returns Promise resolving to verification result
+ *
+ * @example
+ * ```typescript
+ * const result = await verifyIntegrity(loadedConfig, storedIntegrity)
+ * if (!result.valid) {
+ *   throw new Error("Brand kit integrity check failed: " + result.error)
+ * }
+ * ```
+ */
+export async function verifyIntegrity(
+  config: ThemeConfig,
+  expectedHash: IntegrityHash,
+  options: IntegrityOptions = {}
+): Promise<IntegrityVerificationResult> {
+  const actualHash = await generateIntegrityHash(config, {
+    ...options,
+    algorithm: expectedHash.algorithm,
+  })
+
+  const valid = actualHash.hash === expectedHash.hash
+
+  const result: IntegrityVerificationResult = {
+    valid,
+    expected: expectedHash,
+    actual: actualHash,
+  }
+
+  if (!valid) {
+    result.error = "Integrity hash mismatch"
+    result.diff = [
+      "Expected: " + expectedHash.sri,
+      "Actual: " + actualHash.sri,
+    ]
+  }
+
+  return result
+}
+
+/**
+ * Verifies integrity synchronously
+ */
+export function verifyIntegritySync(
+  config: ThemeConfig,
+  expectedHash: IntegrityHash,
+  options: IntegrityOptions = {}
+): IntegrityVerificationResult {
+  const actualHash = generateIntegrityHashSync(config, {
+    ...options,
+    algorithm: expectedHash.algorithm,
+  })
+
+  const valid = actualHash.hash === expectedHash.hash
+
+  const result: IntegrityVerificationResult = {
+    valid,
+    expected: expectedHash,
+    actual: actualHash,
+  }
+
+  if (!valid) {
+    result.error = "Integrity hash mismatch"
+    result.diff = [
+      "Expected: " + expectedHash.sri,
+      "Actual: " + actualHash.sri,
+    ]
+  }
+
+  return result
+}
+
+/**
+ * Creates a brand kit package with integrity hash embedded
+ *
+ * @param config - The theme configuration
+ * @param options - Options including version
+ * @returns Promise resolving to brand kit with integrity
+ */
+export async function createBrandKitWithIntegrity(
+  config: ThemeConfig,
+  options: IntegrityOptions & { version?: string } = {}
+): Promise<BrandKitWithIntegrity> {
+  const integrity = await generateIntegrityHash(config, options)
+
+  return {
+    config,
+    integrity,
+    generatedAt: new Date().toISOString(),
+    version: options.version,
+  }
+}
+
+/**
+ * Loads and verifies a brand kit with integrity checking
+ *
+ * @param brandKit - The brand kit with integrity information
+ * @param options - Verification options
+ * @returns Promise resolving to verified config or throwing on failure
+ * @throws Error if integrity verification fails
+ */
+export async function loadVerifiedBrandKit(
+  brandKit: BrandKitWithIntegrity,
+  options: IntegrityOptions & { throwOnFailure?: boolean } = {}
+): Promise<{ config: ThemeConfig; verification: IntegrityVerificationResult }> {
+  const verification = await verifyIntegrity(
+    brandKit.config,
+    brandKit.integrity,
+    options
+  )
+
+  if (!verification.valid && options.throwOnFailure !== false) {
+    throw new Error(
+      "Brand kit integrity verification failed: " +
+        (verification.error || "Hash mismatch")
+    )
+  }
+
+  return { config: brandKit.config, verification }
+}
+
+/**
+ * Parses an SRI string into an IntegrityHash object
+ */
+export function parseIntegrityHash(sri: string): IntegrityHash | null {
+  const match = sri.match(/^(sha256|sha384|sha512)-(.+)$/)
+  if (!match) return null
+
+  return {
+    algorithm: match[1] as IntegrityHashAlgorithm,
+    hash: match[2],
+    sri,
+  }
+}
+
+/**
+ * Compares two configurations and returns differences
+ */
+export function compareConfigs(
+  config1: ThemeConfig,
+  config2: ThemeConfig
+): string[] {
+  const diff: string[] = []
+
+  const str1 = JSON.stringify(config1, null, 2)
+  const str2 = JSON.stringify(config2, null, 2)
+
+  if (str1 === str2) return []
+
+  // Type-safe comparison of ThemeConfig properties
+  const themeConfigKeys: (keyof ThemeConfig)[] = [
+    "name",
+    "light",
+    "dark",
+    "defaultMode",
+    "darkModeClass",
+    "useColorScheme",
+    "extends",
+  ]
+
+  for (const key of themeConfigKeys) {
+    const val1 = config1[key]
+    const val2 = config2[key]
+    const str1Val = JSON.stringify(val1)
+    const str2Val = JSON.stringify(val2)
+
+    if (val1 === undefined && val2 !== undefined) {
+      diff.push("Added: " + key)
+    } else if (val1 !== undefined && val2 === undefined) {
+      diff.push("Removed: " + key)
+    } else if (str1Val !== str2Val) {
+      diff.push("Changed: " + key)
+    }
+  }
+
+  return diff
+}
+
+/**
+ * Generates a manifest with integrity hashes for multiple brand kits
+ */
+export async function generateIntegrityManifest(
+  brandKits: Array<{ name: string; config: ThemeConfig }>,
+  options: IntegrityOptions = {}
+): Promise<{
+  version: string
+  generatedAt: string
+  algorithm: IntegrityHashAlgorithm
+  hashes: Record<string, string>
+}> {
+  const algorithm = options.algorithm || "sha256"
+  const hashes: Record<string, string> = {}
+
+  for (const { name, config } of brandKits) {
+    const integrity = await generateIntegrityHash(config, { ...options, algorithm })
+    hashes[name] = integrity.sri
+  }
+
+  return {
+    version: "1.0",
+    generatedAt: new Date().toISOString(),
+    algorithm,
+    hashes,
+  }
+}
+
+/**
+ * Verifies all brand kits against a manifest
+ */
+export async function verifyAgainstManifest(
+  brandKits: Array<{ name: string; config: ThemeConfig }>,
+  manifest: { hashes: Record<string, string> },
+  options: IntegrityOptions = {}
+): Promise<{
+  valid: boolean
+  results: Record<string, IntegrityVerificationResult>
+  errors: string[]
+}> {
+  const results: Record<string, IntegrityVerificationResult> = {}
+  const errors: string[] = []
+
+  for (const { name, config } of brandKits) {
+    const expectedSri = manifest.hashes[name]
+    if (!expectedSri) {
+      errors.push("Missing manifest entry for: " + name)
+      continue
+    }
+
+    const expectedHash = parseIntegrityHash(expectedSri)
+    if (!expectedHash) {
+      errors.push("Invalid SRI format for: " + name)
+      continue
+    }
+
+    const result = await verifyIntegrity(config, expectedHash, options)
+    results[name] = result
+
+    if (!result.valid) {
+      errors.push("Integrity check failed for: " + name)
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    results,
+    errors,
+  }
+}
