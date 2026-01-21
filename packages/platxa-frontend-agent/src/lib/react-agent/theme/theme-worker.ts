@@ -13,6 +13,8 @@ import type {
   GeneratedTheme,
   OklchColor,
   HslColor,
+  RgbColor,
+  ColorFormat,
   ColorGenerationOptions,
   PaletteGenerationOptions,
   ThemeMode,
@@ -83,6 +85,437 @@ export function oklchToString(color: OklchColor): string {
     return `oklch(${color.l} ${color.c} ${color.h} / ${color.alpha})`
   }
   return `oklch(${color.l} ${color.c} ${color.h})`
+}
+
+// =============================================================================
+// COLOR FORMAT CONVERSION (Feature #70)
+// =============================================================================
+
+/**
+ * Parse RGB color string
+ *
+ * Supports formats: rgb(r, g, b), rgb(r g b), rgba(r, g, b, a)
+ *
+ * @param rgb - RGB color string
+ * @returns Parsed RgbColor or null if invalid
+ */
+export function parseRgb(rgb: string): RgbColor | null {
+  // Try rgb(r, g, b) or rgb(r g b) format
+  const match = rgb.match(
+    /rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)(?:[,\s/]+(\d*\.?\d+))?\)/
+  )
+  if (!match) return null
+  return {
+    r: parseInt(match[1], 10),
+    g: parseInt(match[2], 10),
+    b: parseInt(match[3], 10),
+    alpha: match[4] ? parseFloat(match[4]) : undefined,
+  }
+}
+
+/**
+ * Parse OKLCH color string
+ *
+ * Supports format: oklch(L C H) or oklch(L C H / alpha)
+ *
+ * @param oklch - OKLCH color string
+ * @returns Parsed OklchColor or null if invalid
+ */
+export function parseOklch(oklch: string): OklchColor | null {
+  const match = oklch.match(
+    /oklch\(([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+))?\)/
+  )
+  if (!match) return null
+  return {
+    l: parseFloat(match[1]),
+    c: parseFloat(match[2]),
+    h: parseFloat(match[3]),
+    alpha: match[4] ? parseFloat(match[4]) : undefined,
+  }
+}
+
+/**
+ * Parse hex color string
+ *
+ * Supports formats: #RGB, #RGBA, #RRGGBB, #RRGGBBAA
+ *
+ * @param hex - Hex color string
+ * @returns Parsed RgbColor or null if invalid
+ */
+export function parseHex(hex: string): RgbColor | null {
+  const match = hex.match(/^#([0-9a-f]{3,8})$/i)
+  if (!match) return null
+
+  const value = match[1]
+  let r: number, g: number, b: number, a: number | undefined
+
+  if (value.length === 3 || value.length === 4) {
+    // Short format: #RGB or #RGBA
+    r = parseInt(value[0] + value[0], 16)
+    g = parseInt(value[1] + value[1], 16)
+    b = parseInt(value[2] + value[2], 16)
+    if (value.length === 4) {
+      a = parseInt(value[3] + value[3], 16) / 255
+    }
+  } else if (value.length === 6 || value.length === 8) {
+    // Long format: #RRGGBB or #RRGGBBAA
+    r = parseInt(value.substring(0, 2), 16)
+    g = parseInt(value.substring(2, 4), 16)
+    b = parseInt(value.substring(4, 6), 16)
+    if (value.length === 8) {
+      a = parseInt(value.substring(6, 8), 16) / 255
+    }
+  } else {
+    return null
+  }
+
+  return { r, g, b, alpha: a }
+}
+
+/**
+ * Convert RGB to string
+ */
+export function rgbToString(color: RgbColor): string {
+  if (color.alpha !== undefined && color.alpha < 1) {
+    return `rgb(${color.r} ${color.g} ${color.b} / ${color.alpha})`
+  }
+  return `rgb(${color.r} ${color.g} ${color.b})`
+}
+
+/**
+ * Convert RGB to hex string
+ */
+export function rgbToHex(color: RgbColor): string {
+  const toHex = (n: number) => Math.round(n).toString(16).padStart(2, "0")
+  const hex = `#${toHex(color.r)}${toHex(color.g)}${toHex(color.b)}`
+  if (color.alpha !== undefined && color.alpha < 1) {
+    return hex + toHex(color.alpha * 255)
+  }
+  return hex
+}
+
+/**
+ * Convert RGB to HSL (Feature #70)
+ *
+ * @param rgb - RGB color
+ * @returns HSL color
+ */
+export function rgbToHsl(rgb: RgbColor): HslColor {
+  const r = rgb.r / 255
+  const g = rgb.g / 255
+  const b = rgb.b / 255
+
+  const max = Math.max(r, g, b)
+  const min = Math.min(r, g, b)
+  const l = (max + min) / 2
+  let h = 0
+  let s = 0
+
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+
+    switch (max) {
+      case r:
+        h = ((g - b) / d + (g < b ? 6 : 0)) / 6
+        break
+      case g:
+        h = ((b - r) / d + 2) / 6
+        break
+      case b:
+        h = ((r - g) / d + 4) / 6
+        break
+    }
+  }
+
+  return {
+    h: Math.round(h * 360),
+    s: Math.round(s * 100),
+    l: Math.round(l * 100),
+    alpha: rgb.alpha,
+  }
+}
+
+/**
+ * Convert HSL to RGB (Feature #70)
+ *
+ * @param hsl - HSL color
+ * @returns RGB color
+ */
+export function hslToRgb(hsl: HslColor): RgbColor {
+  const h = hsl.h / 360
+  const s = hsl.s / 100
+  const l = hsl.l / 100
+
+  let r: number, g: number, b: number
+
+  if (s === 0) {
+    r = g = b = l
+  } else {
+    const hue2rgb = (p: number, q: number, t: number) => {
+      if (t < 0) t += 1
+      if (t > 1) t -= 1
+      if (t < 1 / 6) return p + (q - p) * 6 * t
+      if (t < 1 / 2) return q
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6
+      return p
+    }
+
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s
+    const p = 2 * l - q
+    r = hue2rgb(p, q, h + 1 / 3)
+    g = hue2rgb(p, q, h)
+    b = hue2rgb(p, q, h - 1 / 3)
+  }
+
+  return {
+    r: Math.round(r * 255),
+    g: Math.round(g * 255),
+    b: Math.round(b * 255),
+    alpha: hsl.alpha,
+  }
+}
+
+/**
+ * Convert RGB to OKLCH (Feature #70)
+ *
+ * Uses the official OKLCH color space conversion through Lab intermediate.
+ *
+ * @param rgb - RGB color (0-255)
+ * @returns OKLCH color
+ */
+export function rgbToOklch(rgb: RgbColor): OklchColor {
+  // Convert RGB to linear RGB
+  const toLinear = (c: number) => {
+    const s = c / 255
+    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+  }
+
+  const lr = toLinear(rgb.r)
+  const lg = toLinear(rgb.g)
+  const lb = toLinear(rgb.b)
+
+  // Linear RGB to XYZ (D65)
+  const x = 0.4124564 * lr + 0.3575761 * lg + 0.1804375 * lb
+  const y = 0.2126729 * lr + 0.7151522 * lg + 0.0721750 * lb
+  const z = 0.0193339 * lr + 0.1191920 * lg + 0.9503041 * lb
+
+  // XYZ to LMS
+  const l_ = 0.8189330101 * x + 0.3618667424 * y - 0.1288597137 * z
+  const m_ = 0.0329845436 * x + 0.9293118715 * y + 0.0361456387 * z
+  const s_ = 0.0482003018 * x + 0.2643662691 * y + 0.6338517070 * z
+
+  // LMS to Lab (Oklab)
+  const l__ = Math.cbrt(l_)
+  const m__ = Math.cbrt(m_)
+  const s__ = Math.cbrt(s_)
+
+  const L = 0.2104542553 * l__ + 0.7936177850 * m__ - 0.0040720468 * s__
+  const a = 1.9779984951 * l__ - 2.4285922050 * m__ + 0.4505937099 * s__
+  const b_ = 0.0259040371 * l__ + 0.7827717662 * m__ - 0.8086757660 * s__
+
+  // Lab to LCH
+  const C = Math.sqrt(a * a + b_ * b_)
+  let H = Math.atan2(b_, a) * (180 / Math.PI)
+  if (H < 0) H += 360
+
+  return {
+    l: Math.round(L * 1000) / 1000,
+    c: Math.round(C * 1000) / 1000,
+    h: Math.round(H * 10) / 10,
+    alpha: rgb.alpha,
+  }
+}
+
+/**
+ * Convert OKLCH to RGB (Feature #70)
+ *
+ * Includes gamut mapping for out-of-range colors.
+ *
+ * @param oklch - OKLCH color
+ * @returns RGB color (clamped to 0-255)
+ */
+export function oklchToRgb(oklch: OklchColor): RgbColor {
+  const L = oklch.l
+  const C = oklch.c
+  const H = oklch.h * (Math.PI / 180)
+
+  // LCH to Lab
+  const a = C * Math.cos(H)
+  const b_ = C * Math.sin(H)
+
+  // Lab to LMS
+  const l__ = L + 0.3963377774 * a + 0.2158037573 * b_
+  const m__ = L - 0.1055613458 * a - 0.0638541728 * b_
+  const s__ = L - 0.0894841775 * a - 1.2914855480 * b_
+
+  const l_ = l__ * l__ * l__
+  const m_ = m__ * m__ * m__
+  const s_ = s__ * s__ * s__
+
+  // LMS to XYZ
+  const x = 1.2270138511 * l_ - 0.5577999807 * m_ + 0.2812561490 * s_
+  const y = -0.0405801784 * l_ + 1.1122568696 * m_ - 0.0716766787 * s_
+  const z = -0.0763812845 * l_ - 0.4214819784 * m_ + 1.5861632204 * s_
+
+  // XYZ to linear RGB
+  const lr = 3.2404541621 * x - 1.5371385940 * y - 0.4985314095 * z
+  const lg = -0.9692660305 * x + 1.8760108454 * y + 0.0415560175 * z
+  const lb = 0.0556434309 * x - 0.2040259135 * y + 1.0572251882 * z
+
+  // Linear RGB to sRGB with gamma
+  const toSrgb = (c: number) => {
+    const clamped = Math.max(0, Math.min(1, c))
+    return clamped <= 0.0031308
+      ? clamped * 12.92
+      : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055
+  }
+
+  return {
+    r: Math.round(toSrgb(lr) * 255),
+    g: Math.round(toSrgb(lg) * 255),
+    b: Math.round(toSrgb(lb) * 255),
+    alpha: oklch.alpha,
+  }
+}
+
+/**
+ * Convert OKLCH to HSL (Feature #70)
+ *
+ * @param oklch - OKLCH color
+ * @returns HSL color
+ */
+export function oklchToHsl(oklch: OklchColor): HslColor {
+  const rgb = oklchToRgb(oklch)
+  return rgbToHsl(rgb)
+}
+
+/**
+ * Check if a color is within sRGB gamut (Feature #70)
+ *
+ * @param oklch - OKLCH color to check
+ * @returns true if the color is displayable in sRGB
+ */
+export function isInGamut(oklch: OklchColor): boolean {
+  // Check if color would be clamped when converting to RGB
+  const L = oklch.l
+  const C = oklch.c
+  const H = oklch.h * (Math.PI / 180)
+
+  // Recalculate to check for clamping
+  const a = C * Math.cos(H)
+  const b_ = C * Math.sin(H)
+
+  const l__ = L + 0.3963377774 * a + 0.2158037573 * b_
+  const m__ = L - 0.1055613458 * a - 0.0638541728 * b_
+  const s__ = L - 0.0894841775 * a - 1.2914855480 * b_
+
+  const l_ = l__ * l__ * l__
+  const m_ = m__ * m__ * m__
+  const s_ = s__ * s__ * s__
+
+  const x = 1.2270138511 * l_ - 0.5577999807 * m_ + 0.2812561490 * s_
+  const y = -0.0405801784 * l_ + 1.1122568696 * m_ - 0.0716766787 * s_
+  const z = -0.0763812845 * l_ - 0.4214819784 * m_ + 1.5861632204 * s_
+
+  const lr = 3.2404541621 * x - 1.5371385940 * y - 0.4985314095 * z
+  const lg = -0.9692660305 * x + 1.8760108454 * y + 0.0415560175 * z
+  const lb = 0.0556434309 * x - 0.2040259135 * y + 1.0572251882 * z
+
+  const epsilon = 0.0001
+  return (
+    lr >= -epsilon && lr <= 1 + epsilon &&
+    lg >= -epsilon && lg <= 1 + epsilon &&
+    lb >= -epsilon && lb <= 1 + epsilon
+  )
+}
+
+/**
+ * Map an out-of-gamut OKLCH color to the nearest in-gamut color (Feature #70)
+ *
+ * Uses chroma reduction to find the nearest displayable color.
+ *
+ * @param oklch - OKLCH color (potentially out of gamut)
+ * @returns In-gamut OKLCH color
+ */
+export function mapToGamut(oklch: OklchColor): OklchColor {
+  if (isInGamut(oklch)) {
+    return oklch
+  }
+
+  // Binary search for maximum chroma that's in gamut
+  let low = 0
+  let high = oklch.c
+  let result = { ...oklch, c: 0 }
+
+  while (high - low > 0.001) {
+    const mid = (low + high) / 2
+    const test = { ...oklch, c: mid }
+
+    if (isInGamut(test)) {
+      low = mid
+      result = test
+    } else {
+      high = mid
+    }
+  }
+
+  return {
+    ...result,
+    c: Math.round(result.c * 1000) / 1000,
+  }
+}
+
+/**
+ * Unified color conversion (Feature #70)
+ *
+ * Converts any color string to the specified format.
+ *
+ * @param color - Color string (hex, rgb, hsl, or oklch)
+ * @param toFormat - Target format
+ * @returns Color string in target format, or original if parsing fails
+ *
+ * @example
+ * ```typescript
+ * convertColor("#ff0000", "oklch") // "oklch(0.628 0.258 29.2)"
+ * convertColor("hsl(0 100% 50%)", "rgb") // "rgb(255 0 0)"
+ * convertColor("oklch(0.7 0.15 250)", "hex") // "#4d8cd6"
+ * ```
+ */
+export function convertColor(
+  color: string,
+  toFormat: ColorFormat
+): string {
+  // Parse the input color
+  let rgb: RgbColor | null = null
+
+  if (color.startsWith("#")) {
+    rgb = parseHex(color)
+  } else if (color.startsWith("rgb")) {
+    rgb = parseRgb(color)
+  } else if (color.startsWith("hsl")) {
+    const hsl = parseHsl(color)
+    if (hsl) rgb = hslToRgb(hsl)
+  } else if (color.startsWith("oklch")) {
+    const oklch = parseOklch(color)
+    if (oklch) rgb = oklchToRgb(oklch)
+  }
+
+  if (!rgb) return color
+
+  // Convert to target format
+  switch (toFormat) {
+    case "hex":
+      return rgbToHex(rgb)
+    case "rgb":
+      return rgbToString(rgb)
+    case "hsl":
+      return hslToString(rgbToHsl(rgb))
+    case "oklch":
+      return oklchToString(rgbToOklch(rgb))
+    default:
+      return color
+  }
 }
 
 /**
