@@ -91,6 +91,14 @@ export {
   generateStaticStylesheet,
   processThemeForBuild,
   processPresetForBuild,
+  // Size Limit Check (Feature #83)
+  DEFAULT_SIZE_THRESHOLDS,
+  formatBytes,
+  calculateJsonSize,
+  getSizeBreakdown,
+  checkSizeLimit,
+  isUnderSizeLimit,
+  validateBrandKitSize,
 } from "./theme-worker"
 
 export type {
@@ -106,6 +114,12 @@ export type {
   WcagComplianceLevel,
   WcagCheckResult,
   WcagComplianceReport,
+  // Size Limit Check (Feature #83)
+  SizeLimitConfig,
+  SectionSize,
+  SizeBreakdown,
+  SizeSeverity,
+  SizeLimitResult,
 } from "./theme-worker"
 
 // Token presets

@@ -2397,3 +2397,356 @@ export function processPresetForBuild(presetName: string): BuildOutput {
   const config = getThemePreset(presetName)
   return processThemeForBuild(config)
 }
+
+// =============================================================================
+// SIZE LIMIT CHECK (Feature #83)
+// =============================================================================
+
+/**
+ * Default size thresholds in bytes
+ */
+export const DEFAULT_SIZE_THRESHOLDS = {
+  /** Warning threshold (50KB) */
+  warning: 50 * 1024,
+  /** Error threshold (100KB) */
+  error: 100 * 1024,
+  /** Maximum recommended size (200KB) */
+  maximum: 200 * 1024,
+}
+
+/**
+ * Configuration for size limit checks
+ */
+export interface SizeLimitConfig {
+  /** Warning threshold in bytes (default: 50KB) */
+  warningThreshold?: number
+  /** Error threshold in bytes (default: 100KB) */
+  errorThreshold?: number
+  /** Include detailed breakdown */
+  includeBreakdown?: boolean
+}
+
+/**
+ * Size information for a single section
+ */
+export interface SectionSize {
+  /** Section name */
+  name: string
+  /** Size in bytes */
+  bytes: number
+  /** Human-readable size */
+  formatted: string
+  /** Percentage of total */
+  percentage: number
+}
+
+/**
+ * Detailed size breakdown of brand kit
+ */
+export interface SizeBreakdown {
+  /** Total size in bytes */
+  totalBytes: number
+  /** Human-readable total */
+  totalFormatted: string
+  /** Size by section */
+  sections: SectionSize[]
+  /** Largest sections (sorted by size, descending) */
+  largestSections: SectionSize[]
+}
+
+/**
+ * Severity level for size warnings
+ */
+export type SizeSeverity = "ok" | "warning" | "error"
+
+/**
+ * Result of size limit check
+ */
+export interface SizeLimitResult {
+  /** Whether the brand kit passes the check */
+  passed: boolean
+  /** Severity level */
+  severity: SizeSeverity
+  /** Total size in bytes */
+  totalBytes: number
+  /** Human-readable total size */
+  totalFormatted: string
+  /** Warning message if threshold exceeded */
+  message?: string
+  /** Suggestions for reducing size */
+  suggestions?: string[]
+  /** Detailed breakdown (if requested) */
+  breakdown?: SizeBreakdown
+}
+
+/**
+ * Formats bytes into human-readable string
+ *
+ * @param bytes - Size in bytes
+ * @returns Human-readable string (e.g., "45.2 KB")
+ */
+export function formatBytes(bytes: number): string {
+  if (bytes === 0) return "0 B"
+
+  const units = ["B", "KB", "MB", "GB"]
+  const k = 1024
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  const size = bytes / Math.pow(k, i)
+
+  return `${size.toFixed(i > 0 ? 1 : 0)} ${units[i]}`
+}
+
+/**
+ * Calculates the size of an object when serialized to JSON
+ *
+ * @param obj - Object to measure
+ * @returns Size in bytes
+ */
+export function calculateJsonSize(obj: unknown): number {
+  try {
+    return new TextEncoder().encode(JSON.stringify(obj)).length
+  } catch {
+    return 0
+  }
+}
+
+/**
+ * Gets detailed size breakdown of a brand kit
+ *
+ * Analyzes each section of the brand kit and provides
+ * size information including percentages and rankings.
+ *
+ * @param brandKit - Brand kit object to analyze
+ * @returns Detailed size breakdown
+ *
+ * @example
+ * ```typescript
+ * import { getSizeBreakdown } from "@platxa/frontend-agent"
+ *
+ * const breakdown = getSizeBreakdown(myBrandKit)
+ * console.log(`Total: ${breakdown.totalFormatted}`)
+ * breakdown.largestSections.forEach(s => {
+ *   console.log(`${s.name}: ${s.formatted} (${s.percentage}%)`)
+ * })
+ * ```
+ */
+export function getSizeBreakdown(brandKit: Record<string, unknown>): SizeBreakdown {
+  const sections: SectionSize[] = []
+  let totalBytes = 0
+
+  // Calculate size for each top-level key
+  for (const [key, value] of Object.entries(brandKit)) {
+    const bytes = calculateJsonSize(value)
+    totalBytes += bytes
+    sections.push({
+      name: key,
+      bytes,
+      formatted: formatBytes(bytes),
+      percentage: 0, // Will be calculated after total is known
+    })
+  }
+
+  // Calculate percentages
+  for (const section of sections) {
+    section.percentage = totalBytes > 0
+      ? Math.round((section.bytes / totalBytes) * 100)
+      : 0
+  }
+
+  // Sort by size for largest sections
+  const largestSections = [...sections].sort((a, b) => b.bytes - a.bytes)
+
+  return {
+    totalBytes,
+    totalFormatted: formatBytes(totalBytes),
+    sections,
+    largestSections,
+  }
+}
+
+/**
+ * Checks if brand kit size is within acceptable limits
+ *
+ * Validates the total size of a brand kit against configurable
+ * thresholds and provides warnings, suggestions, and optional
+ * detailed breakdown.
+ *
+ * @param brandKit - Brand kit object to check
+ * @param config - Size limit configuration
+ * @returns Size limit check result
+ *
+ * @example
+ * ```typescript
+ * import { checkSizeLimit, DEFAULT_SIZE_THRESHOLDS } from "@platxa/frontend-agent"
+ *
+ * const result = checkSizeLimit(myBrandKit, {
+ *   warningThreshold: 30 * 1024, // 30KB warning
+ *   errorThreshold: 80 * 1024,   // 80KB error
+ *   includeBreakdown: true,
+ * })
+ *
+ * if (!result.passed) {
+ *   console.warn(result.message)
+ *   result.suggestions?.forEach(s => console.log(`- ${s}`))
+ * }
+ * ```
+ */
+export function checkSizeLimit(
+  brandKit: Record<string, unknown>,
+  config: SizeLimitConfig = {}
+): SizeLimitResult {
+  const {
+    warningThreshold = DEFAULT_SIZE_THRESHOLDS.warning,
+    errorThreshold = DEFAULT_SIZE_THRESHOLDS.error,
+    includeBreakdown = false,
+  } = config
+
+  const breakdown = getSizeBreakdown(brandKit)
+  const { totalBytes, totalFormatted, largestSections } = breakdown
+
+  // Determine severity
+  let severity: SizeSeverity = "ok"
+  let passed = true
+  let message: string | undefined
+
+  if (totalBytes >= errorThreshold) {
+    severity = "error"
+    passed = false
+    message = `Brand kit size (${totalFormatted}) exceeds error threshold (${formatBytes(errorThreshold)})`
+  } else if (totalBytes >= warningThreshold) {
+    severity = "warning"
+    passed = true // Warning doesn't fail the check, just warns
+    message = `Brand kit size (${totalFormatted}) exceeds warning threshold (${formatBytes(warningThreshold)})`
+  }
+
+  // Generate suggestions if over warning threshold
+  const suggestions: string[] = []
+  if (totalBytes >= warningThreshold) {
+    // Suggest removing large sections
+    const largeSections = largestSections.filter(s => s.percentage > 20)
+    if (largeSections.length > 0) {
+      suggestions.push(
+        `Consider optimizing large sections: ${largeSections.map(s => `${s.name} (${s.formatted})`).join(", ")}`
+      )
+    }
+
+    // Check for potentially unnecessary data
+    if (brandKit.metadata && calculateJsonSize(brandKit.metadata) > 5000) {
+      suggestions.push("Reduce metadata size by removing redundant information")
+    }
+
+    if (brandKit.palettes && calculateJsonSize(brandKit.palettes) > 10000) {
+      suggestions.push("Consider using fewer color palette variations")
+    }
+
+    if (brandKit.typography && calculateJsonSize(brandKit.typography) > 5000) {
+      suggestions.push("Simplify typography scale if not all sizes are used")
+    }
+
+    // General suggestions
+    if (suggestions.length === 0) {
+      suggestions.push("Review brand kit for unused or redundant data")
+      suggestions.push("Consider splitting into separate theme files if needed")
+    }
+  }
+
+  const result: SizeLimitResult = {
+    passed,
+    severity,
+    totalBytes,
+    totalFormatted,
+  }
+
+  if (message) {
+    result.message = message
+  }
+
+  if (suggestions.length > 0) {
+    result.suggestions = suggestions
+  }
+
+  if (includeBreakdown) {
+    result.breakdown = breakdown
+  }
+
+  return result
+}
+
+/**
+ * Quick check if brand kit is under the warning threshold
+ *
+ * @param brandKit - Brand kit to check
+ * @param threshold - Custom threshold in bytes (default: 50KB)
+ * @returns true if under threshold
+ *
+ * @example
+ * ```typescript
+ * if (!isUnderSizeLimit(brandKit)) {
+ *   console.warn("Brand kit is getting large!")
+ * }
+ * ```
+ */
+export function isUnderSizeLimit(
+  brandKit: Record<string, unknown>,
+  threshold: number = DEFAULT_SIZE_THRESHOLDS.warning
+): boolean {
+  const size = calculateJsonSize(brandKit)
+  return size < threshold
+}
+
+/**
+ * Validates brand kit size and returns formatted report
+ *
+ * Provides a human-readable report of brand kit size
+ * suitable for CLI output or logging.
+ *
+ * @param brandKit - Brand kit to validate
+ * @param config - Size limit configuration
+ * @returns Array of report lines
+ *
+ * @example
+ * ```typescript
+ * const report = validateBrandKitSize(myBrandKit, { includeBreakdown: true })
+ * report.forEach(line => console.log(line))
+ * ```
+ */
+export function validateBrandKitSize(
+  brandKit: Record<string, unknown>,
+  config: SizeLimitConfig = {}
+): string[] {
+  const result = checkSizeLimit(brandKit, { ...config, includeBreakdown: true })
+  const lines: string[] = []
+
+  // Header with status
+  const statusIcon = result.severity === "ok" ? "✓" : result.severity === "warning" ? "⚠" : "✗"
+  lines.push(`${statusIcon} Brand Kit Size: ${result.totalFormatted}`)
+
+  // Message if any
+  if (result.message) {
+    lines.push(`  ${result.message}`)
+  }
+
+  // Breakdown if available
+  if (result.breakdown) {
+    lines.push("")
+    lines.push("  Size Breakdown:")
+    for (const section of result.breakdown.largestSections.slice(0, 5)) {
+      const bar = "█".repeat(Math.ceil(section.percentage / 5)) + "░".repeat(20 - Math.ceil(section.percentage / 5))
+      lines.push(`    ${section.name.padEnd(15)} ${bar} ${section.formatted.padStart(10)} (${section.percentage}%)`)
+    }
+    if (result.breakdown.sections.length > 5) {
+      lines.push(`    ... and ${result.breakdown.sections.length - 5} more sections`)
+    }
+  }
+
+  // Suggestions if any
+  if (result.suggestions && result.suggestions.length > 0) {
+    lines.push("")
+    lines.push("  Suggestions:")
+    for (const suggestion of result.suggestions) {
+      lines.push(`    • ${suggestion}`)
+    }
+  }
+
+  return lines
+}
