@@ -370,6 +370,10 @@ export {
   generateVscodeExtensionManifest,
   generateVscodeExtension,
   createVscodeExtensionPackage,
+  // Storybook Addon (Feature #117)
+  generateStorybookAddon,
+  createStorybookBrandSwitcher,
+  generateStorybookIntegration,
 } from "./theme-worker"
 
 export type {
@@ -559,6 +563,11 @@ export type {
   VscodeValidationDiagnostic,
   VscodeConfigValidation,
   VscodeExtensionResult,
+  // Storybook Addon (Feature #117)
+  StorybookAddonConfig,
+  StorybookGlobalTypes,
+  StorybookDecoratorConfig,
+  StorybookAddonResult,
 } from "./theme-worker"
 
 // Token presets

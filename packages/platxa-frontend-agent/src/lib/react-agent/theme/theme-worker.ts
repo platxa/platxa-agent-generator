@@ -19402,3 +19402,641 @@ export function createVscodeExtensionPackage(
   const result = generateVscodeExtension(themeConfig, extensionConfig)
   return result.sourceFiles
 }
+
+// =============================================================================
+// Feature #117: Storybook Addon Support
+// =============================================================================
+
+/**
+ * Storybook addon configuration
+ */
+export interface StorybookAddonConfig {
+  /** Addon ID */
+  addonId: string
+  /** Addon title shown in toolbar */
+  title: string
+  /** Available brands to switch between */
+  brands: Array<{
+    id: string
+    name: string
+    config: ThemeConfig
+  }>
+  /** Default brand ID */
+  defaultBrandId: string
+  /** Default theme mode */
+  defaultMode: ThemeMode
+  /** Show mode toggle in toolbar */
+  showModeToggle: boolean
+  /** Panel position */
+  panelPosition: "bottom" | "right"
+}
+
+/**
+ * Storybook global types for brand switching
+ */
+export interface StorybookGlobalTypes {
+  brand: {
+    name: string
+    description: string
+    defaultValue: string
+    toolbar: {
+      icon: string
+      items: Array<{ value: string; title: string }>
+      showName: boolean
+    }
+  }
+  themeMode: {
+    name: string
+    description: string
+    defaultValue: string
+    toolbar: {
+      icon: string
+      items: Array<{ value: string; title: string; icon: string }>
+      showName: boolean
+    }
+  }
+}
+
+/**
+ * Storybook decorator configuration
+ */
+export interface StorybookDecoratorConfig {
+  /** CSS to inject */
+  css: string
+  /** Theme script for mode switching */
+  script: string
+  /** Wrapper component code */
+  wrapperCode: string
+}
+
+/**
+ * Storybook addon generation result
+ */
+export interface StorybookAddonResult {
+  /** Global types configuration */
+  globalTypes: StorybookGlobalTypes
+  /** Decorator configuration */
+  decorator: StorybookDecoratorConfig
+  /** Addon source files */
+  sourceFiles: Record<string, string>
+  /** Preview.ts/js configuration */
+  previewConfig: string
+  /** Manager.ts/js configuration */
+  managerConfig: string
+  /** README documentation */
+  readme: string
+}
+
+/**
+ * Generates Storybook global types for brand and mode switching
+ */
+function generateStorybookGlobalTypes(
+  config: StorybookAddonConfig
+): StorybookGlobalTypes {
+  return {
+    brand: {
+      name: "Brand",
+      description: "Switch between brand kits",
+      defaultValue: config.defaultBrandId,
+      toolbar: {
+        icon: "paintbrush",
+        items: config.brands.map((brand) => ({
+          value: brand.id,
+          title: brand.name,
+        })),
+        showName: true,
+      },
+    },
+    themeMode: {
+      name: "Theme Mode",
+      description: "Switch between light and dark mode",
+      defaultValue: config.defaultMode,
+      toolbar: {
+        icon: "circle",
+        items: [
+          { value: "light", title: "Light", icon: "sun" },
+          { value: "dark", title: "Dark", icon: "moon" },
+          { value: "system", title: "System", icon: "browser" },
+        ],
+        showName: true,
+      },
+    },
+  }
+}
+
+/**
+ * Generates CSS for all brands
+ */
+function generateStorybookBrandsCss(
+  brands: StorybookAddonConfig["brands"]
+): string {
+  const cssBlocks: string[] = []
+
+  for (const brand of brands) {
+    // Use generateTheme which properly handles ThemeConfig
+    const generated = generateTheme(brand.config)
+
+    cssBlocks.push("/* Brand: " + brand.id + " - Light */")
+    cssBlocks.push("[data-brand=\"" + brand.id + "\"] {")
+    cssBlocks.push(generated.css)
+    cssBlocks.push("}")
+
+    if (generated.darkModeCss) {
+      cssBlocks.push("/* Brand: " + brand.id + " - Dark */")
+      cssBlocks.push("[data-brand=\"" + brand.id + "\"][data-mode=\"dark\"] {")
+      cssBlocks.push(generated.darkModeCss)
+      cssBlocks.push("}")
+    }
+  }
+
+  return cssBlocks.join("\n")
+}
+
+/**
+ * Generates Storybook decorator code
+ */
+function generateStorybookDecoratorConfig(
+  config: StorybookAddonConfig
+): StorybookDecoratorConfig {
+  const css = generateStorybookBrandsCss(config.brands)
+
+  const script = [
+    "// Theme mode initialization script",
+    "function initThemeMode(mode) {",
+    "  if (mode === 'system') {",
+    "    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;",
+    "    document.documentElement.dataset.mode = isDark ? 'dark' : 'light';",
+    "  } else {",
+    "    document.documentElement.dataset.mode = mode;",
+    "  }",
+    "}",
+  ].join("\n")
+
+  const wrapperCode = [
+    "import React, { useEffect } from 'react';",
+    "import { useGlobals } from '@storybook/preview-api';",
+    "",
+    "export const withBrandTheme = (Story, context) => {",
+    "  const [globals] = useGlobals();",
+    "  const brand = globals.brand || '" + config.defaultBrandId + "';",
+    "  const mode = globals.themeMode || '" + config.defaultMode + "';",
+    "",
+    "  useEffect(() => {",
+    "    document.documentElement.dataset.brand = brand;",
+    "    if (mode === 'system') {",
+    "      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;",
+    "      document.documentElement.dataset.mode = isDark ? 'dark' : 'light';",
+    "      const handler = (e) => {",
+    "        document.documentElement.dataset.mode = e.matches ? 'dark' : 'light';",
+    "      };",
+    "      const mq = window.matchMedia('(prefers-color-scheme: dark)');",
+    "      mq.addEventListener('change', handler);",
+    "      return () => mq.removeEventListener('change', handler);",
+    "    } else {",
+    "      document.documentElement.dataset.mode = mode;",
+    "    }",
+    "  }, [brand, mode]);",
+    "",
+    "  return <Story {...context} />;",
+    "};",
+  ].join("\n")
+
+  return { css, script, wrapperCode }
+}
+
+/**
+ * Builds Storybook preview.ts configuration
+ */
+function buildStorybookPreviewConfig(config: StorybookAddonConfig): string {
+  const globalTypes = generateStorybookGlobalTypes(config)
+
+  const lines: string[] = [
+    "import type { Preview } from '@storybook/react';",
+    "import { withBrandTheme } from './decorators/withBrandTheme';",
+    "import './brand-themes.css';",
+    "",
+    "const preview: Preview = {",
+    "  globalTypes: " + JSON.stringify(globalTypes, null, 2) + ",",
+    "  decorators: [withBrandTheme],",
+    "  parameters: {",
+    "    backgrounds: { disable: true },",
+    "  },",
+    "};",
+    "",
+    "export default preview;",
+  ]
+
+  return lines.join("\n")
+}
+
+/**
+ * Builds Storybook manager.ts configuration for addon panel
+ */
+function buildStorybookManagerConfig(config: StorybookAddonConfig): string {
+  const lines: string[] = [
+    "import { addons, types } from '@storybook/manager-api';",
+    "import { BrandPanel } from './panels/BrandPanel';",
+    "",
+    "const ADDON_ID = '" + config.addonId + "';",
+    "const PANEL_ID = ADDON_ID + '/panel';",
+    "",
+    "addons.register(ADDON_ID, () => {",
+    "  addons.add(PANEL_ID, {",
+    "    type: types.PANEL,",
+    "    title: '" + config.title + "',",
+    "    render: BrandPanel,",
+    "  });",
+    "});",
+  ]
+
+  return lines.join("\n")
+}
+
+/**
+ * Builds BrandPanel component for addon
+ */
+function buildBrandPanelComponent(config: StorybookAddonConfig): string {
+  const lines: string[] = [
+    "import React from 'react';",
+    "import { useGlobals } from '@storybook/manager-api';",
+    "import { AddonPanel, Form } from '@storybook/components';",
+    "",
+    "const brands = " + JSON.stringify(config.brands.map(b => ({ id: b.id, name: b.name })), null, 2) + ";",
+    "",
+    "export const BrandPanel = ({ active }) => {",
+    "  const [globals, updateGlobals] = useGlobals();",
+    "  const currentBrand = globals.brand || '" + config.defaultBrandId + "';",
+    "  const currentMode = globals.themeMode || '" + config.defaultMode + "';",
+    "",
+    "  if (!active) return null;",
+    "",
+    "  return (",
+    "    <AddonPanel active={active}>",
+    "      <div style={{ padding: '16px' }}>",
+    "        <h3 style={{ margin: '0 0 16px 0' }}>Brand Kit</h3>",
+    "        <Form.Field label=\"Brand\">",
+    "          <Form.Select",
+    "            value={currentBrand}",
+    "            onChange={(e) => updateGlobals({ brand: e.target.value })}",
+    "          >",
+    "            {brands.map((brand) => (",
+    "              <option key={brand.id} value={brand.id}>",
+    "                {brand.name}",
+    "              </option>",
+    "            ))}",
+    "          </Form.Select>",
+    "        </Form.Field>",
+    "        <Form.Field label=\"Theme Mode\" style={{ marginTop: '16px' }}>",
+    "          <Form.Select",
+    "            value={currentMode}",
+    "            onChange={(e) => updateGlobals({ themeMode: e.target.value })}",
+    "          >",
+    "            <option value=\"light\">Light</option>",
+    "            <option value=\"dark\">Dark</option>",
+    "            <option value=\"system\">System</option>",
+    "          </Form.Select>",
+    "        </Form.Field>",
+    "        <div style={{ marginTop: '24px', padding: '12px', background: 'var(--background)', borderRadius: '4px' }}>",
+    "          <div style={{ fontSize: '12px', color: 'var(--foreground)', opacity: 0.7 }}>",
+    "            Current: {brands.find(b => b.id === currentBrand)?.name} ({currentMode})",
+    "          </div>",
+    "        </div>",
+    "      </div>",
+    "    </AddonPanel>",
+    "  );",
+    "};",
+  ]
+
+  return lines.join("\n")
+}
+
+/**
+ * Generates a complete Storybook addon for brand switching
+ *
+ * @param config - Storybook addon configuration
+ * @returns Complete addon with all source files
+ *
+ * @example
+ * ```typescript
+ * const result = generateStorybookAddon({
+ *   addonId: "brand-switcher",
+ *   title: "Brand Kit",
+ *   brands: [
+ *     { id: "default", name: "Default", config: defaultTheme },
+ *     { id: "blue", name: "Blue", config: blueTheme },
+ *   ],
+ *   defaultBrandId: "default",
+ *   defaultMode: "light",
+ *   showModeToggle: true,
+ *   panelPosition: "bottom",
+ * })
+ * ```
+ */
+export function generateStorybookAddon(
+  config: StorybookAddonConfig
+): StorybookAddonResult {
+  const globalTypes = generateStorybookGlobalTypes(config)
+  const decorator = generateStorybookDecoratorConfig(config)
+  const previewConfig = buildStorybookPreviewConfig(config)
+  const managerConfig = buildStorybookManagerConfig(config)
+
+  const sourceFiles: Record<string, string> = {}
+
+  // Main addon files
+  sourceFiles["preview.ts"] = previewConfig
+  sourceFiles["manager.ts"] = managerConfig
+
+  // Decorators
+  sourceFiles["decorators/withBrandTheme.tsx"] = decorator.wrapperCode
+
+  // Panels
+  sourceFiles["panels/BrandPanel.tsx"] = buildBrandPanelComponent(config)
+
+  // CSS
+  sourceFiles["brand-themes.css"] = decorator.css
+
+  // Package.json for addon
+  sourceFiles["package.json"] = JSON.stringify(
+    {
+      name: config.addonId,
+      version: "1.0.0",
+      description: "Storybook addon for brand kit switching",
+      main: "dist/manager.js",
+      module: "dist/manager.mjs",
+      types: "dist/manager.d.ts",
+      exports: {
+        ".": {
+          types: "./dist/manager.d.ts",
+          import: "./dist/manager.mjs",
+          require: "./dist/manager.js",
+        },
+        "./preview": {
+          types: "./dist/preview.d.ts",
+          import: "./dist/preview.mjs",
+          require: "./dist/preview.js",
+        },
+        "./manager": {
+          types: "./dist/manager.d.ts",
+          import: "./dist/manager.mjs",
+          require: "./dist/manager.js",
+        },
+      },
+      files: ["dist/**/*", "README.md"],
+      keywords: ["storybook", "addon", "theme", "brand", "design-tokens"],
+      peerDependencies: {
+        "@storybook/blocks": "^8.0.0",
+        "@storybook/components": "^8.0.0",
+        "@storybook/manager-api": "^8.0.0",
+        "@storybook/preview-api": "^8.0.0",
+        "@storybook/theming": "^8.0.0",
+        react: "^18.0.0",
+        "react-dom": "^18.0.0",
+      },
+      devDependencies: {
+        typescript: "^5.0.0",
+        tsup: "^8.0.0",
+      },
+      scripts: {
+        build: "tsup",
+        dev: "tsup --watch",
+      },
+    },
+    null,
+    2
+  )
+
+  // tsup config
+  sourceFiles["tsup.config.ts"] = [
+    "import { defineConfig } from 'tsup';",
+    "",
+    "export default defineConfig({",
+    "  entry: ['./preview.ts', './manager.ts'],",
+    "  format: ['esm', 'cjs'],",
+    "  dts: true,",
+    "  clean: true,",
+    "  external: [",
+    "    '@storybook/blocks',",
+    "    '@storybook/components',",
+    "    '@storybook/manager-api',",
+    "    '@storybook/preview-api',",
+    "    '@storybook/theming',",
+    "    'react',",
+    "    'react-dom',",
+    "  ],",
+    "});",
+  ].join("\n")
+
+  const readme = [
+    "# " + config.title + " Storybook Addon",
+    "",
+    "Switch between brand kits and light/dark modes in Storybook.",
+    "",
+    "## Installation",
+    "",
+    "```bash",
+    "npm install " + config.addonId,
+    "```",
+    "",
+    "## Setup",
+    "",
+    "Add the addon to your `.storybook/main.ts`:",
+    "",
+    "```typescript",
+    "const config = {",
+    "  addons: ['" + config.addonId + "'],",
+    "};",
+    "export default config;",
+    "```",
+    "",
+    "## Features",
+    "",
+    "### Toolbar Controls",
+    "",
+    "- **Brand Selector**: Switch between " + config.brands.length + " brand kits",
+    "- **Mode Toggle**: Switch between light, dark, and system modes",
+    "",
+    "### Available Brands",
+    "",
+    config.brands.map((b) => "- **" + b.name + "** (`" + b.id + "`)").join("\n"),
+    "",
+    "### Panel",
+    "",
+    "Open the \"" + config.title + "\" panel to see detailed brand information",
+    "and make selections.",
+    "",
+    "## Usage in Stories",
+    "",
+    "The decorator automatically applies the selected brand and mode.",
+    "Your components will receive theme tokens via CSS custom properties.",
+    "",
+    "```tsx",
+    "// Button.stories.tsx",
+    "import { Button } from './Button';",
+    "",
+    "export default {",
+    "  title: 'Components/Button',",
+    "  component: Button,",
+    "};",
+    "",
+    "export const Primary = {",
+    "  args: {",
+    "    children: 'Click me',",
+    "    variant: 'primary',",
+    "  },",
+    "};",
+    "```",
+    "",
+    "## Customization",
+    "",
+    "### Adding More Brands",
+    "",
+    "Edit the brands array in your configuration to add more brand kits.",
+    "",
+    "### Custom Panel",
+    "",
+    "The addon panel can be extended with additional controls by modifying",
+    "the `BrandPanel.tsx` component.",
+  ].join("\n")
+
+  sourceFiles["README.md"] = readme
+
+  return {
+    globalTypes,
+    decorator,
+    sourceFiles,
+    previewConfig,
+    managerConfig,
+    readme,
+  }
+}
+
+/**
+ * Creates a simple Storybook brand switcher configuration
+ *
+ * @param brands - Array of brand configs with names
+ * @param options - Additional options
+ * @returns Ready-to-use Storybook addon files
+ */
+export function createStorybookBrandSwitcher(
+  brands: Array<{ id: string; name: string; config: ThemeConfig }>,
+  options: {
+    addonId?: string
+    title?: string
+    defaultBrandId?: string
+    defaultMode?: ThemeMode
+  } = {}
+): Record<string, string> {
+  const config: StorybookAddonConfig = {
+    addonId: options.addonId || "storybook-brand-switcher",
+    title: options.title || "Brand Kit",
+    brands,
+    defaultBrandId: options.defaultBrandId || brands[0]?.id || "default",
+    defaultMode: options.defaultMode || "light",
+    showModeToggle: true,
+    panelPosition: "bottom",
+  }
+
+  const result = generateStorybookAddon(config)
+  return result.sourceFiles
+}
+
+/**
+ * Generates Storybook configuration files for integrating brand themes
+ * into an existing Storybook setup (without creating a full addon)
+ *
+ * @param brands - Array of brand configurations
+ * @param options - Configuration options
+ * @returns Configuration snippets to add to existing Storybook setup
+ */
+export function generateStorybookIntegration(
+  brands: Array<{ id: string; name: string; config: ThemeConfig }>,
+  options: {
+    defaultBrandId?: string
+    defaultMode?: ThemeMode
+  } = {}
+): {
+  previewSnippet: string
+  cssFile: string
+  decoratorFile: string
+  instructions: string
+} {
+  const defaultBrandId = options.defaultBrandId || brands[0]?.id || "default"
+  const defaultMode = options.defaultMode || "light"
+
+  const globalTypes = {
+    brand: {
+      name: "Brand",
+      description: "Switch between brand kits",
+      defaultValue: defaultBrandId,
+      toolbar: {
+        icon: "paintbrush",
+        items: brands.map((b) => ({ value: b.id, title: b.name })),
+        showName: true,
+      },
+    },
+    themeMode: {
+      name: "Theme Mode",
+      description: "Switch between light and dark mode",
+      defaultValue: defaultMode,
+      toolbar: {
+        icon: "circle",
+        items: [
+          { value: "light", title: "Light", icon: "sun" },
+          { value: "dark", title: "Dark", icon: "moon" },
+          { value: "system", title: "System", icon: "browser" },
+        ],
+        showName: true,
+      },
+    },
+  }
+
+  const previewSnippet = [
+    "// Add to .storybook/preview.ts",
+    "import { withBrandTheme } from './withBrandTheme';",
+    "import './brand-themes.css';",
+    "",
+    "export const globalTypes = " + JSON.stringify(globalTypes, null, 2) + ";",
+    "",
+    "export const decorators = [withBrandTheme];",
+  ].join("\n")
+
+  const addonConfig: StorybookAddonConfig = {
+    addonId: "brand-integration",
+    title: "Brand Kit",
+    brands,
+    defaultBrandId,
+    defaultMode,
+    showModeToggle: true,
+    panelPosition: "bottom",
+  }
+
+  const decorator = generateStorybookDecoratorConfig(addonConfig)
+
+  const instructions = [
+    "# Storybook Brand Integration",
+    "",
+    "## Setup Instructions",
+    "",
+    "1. Copy `brand-themes.css` to your `.storybook` directory",
+    "2. Copy `withBrandTheme.tsx` to your `.storybook` directory",
+    "3. Add the configuration from `preview-snippet.ts` to your `.storybook/preview.ts`",
+    "",
+    "## Files",
+    "",
+    "- `brand-themes.css` - CSS variables for all brands and modes",
+    "- `withBrandTheme.tsx` - Decorator that applies brand/mode to stories",
+    "- `preview-snippet.ts` - Configuration to add to preview.ts",
+    "",
+    "## Usage",
+    "",
+    "After setup, use the toolbar controls to switch between brands and modes.",
+    "The decorator will automatically update CSS custom properties.",
+  ].join("\n")
+
+  return {
+    previewSnippet,
+    cssFile: decorator.css,
+    decoratorFile: decorator.wrapperCode,
+    instructions,
+  }
+}
