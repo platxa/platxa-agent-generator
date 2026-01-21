@@ -25896,3 +25896,718 @@ export function formatCriticalCssReport(result: CriticalCssResult): string {
 
   return lines.join("\n")
 }
+
+// ============================================================================
+// Feature #127: mergeBrands Helper
+// ============================================================================
+
+/**
+ * Strategy for merging token values when conflicts occur
+ */
+export type MergeStrategy =
+  | "first" // Keep first occurrence
+  | "last" // Keep last occurrence (override)
+  | "deepMerge" // Recursively merge objects
+  | "concat" // Concatenate arrays
+  | "custom" // Use custom resolver
+
+/**
+ * Priority level for brand kits during merge
+ */
+export type BrandPriority = "low" | "medium" | "high" | "critical"
+
+/**
+ * Conflict resolution mode
+ */
+export type ConflictResolution =
+  | "silent" // Silently resolve using strategy
+  | "warn" // Log warnings but continue
+  | "error" // Throw on first conflict
+  | "collect" // Collect all conflicts for review
+
+/**
+ * Represents a conflict during brand merge
+ */
+export interface MergeConflict {
+  /** Token path (e.g., "colors.primary") */
+  path: string
+  /** Token category */
+  category: "colors" | "typography" | "spacing" | "radius" | "shadow" | "other"
+  /** Values from each brand kit (in order) */
+  values: Array<{
+    brandName: string
+    value: unknown
+    priority: BrandPriority
+  }>
+  /** How the conflict was resolved */
+  resolution: {
+    strategy: MergeStrategy
+    finalValue: unknown
+    selectedBrand: string
+  }
+}
+
+/**
+ * Configuration for brand merge operation
+ */
+export interface MergeBrandsConfig {
+  /** Default merge strategy */
+  strategy?: MergeStrategy
+  /** Conflict resolution mode */
+  conflictResolution?: ConflictResolution
+  /** Custom resolver function for specific paths */
+  customResolver?: (
+    path: string,
+    values: Array<{ brandName: string; value: unknown; priority: BrandPriority }>
+  ) => unknown
+  /** Strategy overrides for specific token categories */
+  categoryStrategies?: Partial<
+    Record<
+      "colors" | "typography" | "spacing" | "radius" | "shadow" | "other",
+      MergeStrategy
+    >
+  >
+  /** Brand priority map (higher priority wins in conflicts) */
+  brandPriorities?: Record<string, BrandPriority>
+  /** Prefix to add to merged brand name */
+  namePrefix?: string
+  /** Suffix to add to merged brand name */
+  nameSuffix?: string
+  /** Custom name for the merged brand */
+  mergedName?: string
+  /** Whether to preserve source brand references */
+  trackSources?: boolean
+  /** Validate merged result */
+  validate?: boolean
+}
+
+/**
+ * Source tracking for merged tokens
+ */
+export interface TokenSource {
+  /** Original brand name */
+  brandName: string
+  /** Original token path */
+  path: string
+  /** Whether this was a conflict resolution */
+  wasConflict: boolean
+}
+
+/**
+ * Result of brand merge operation
+ */
+export interface MergeBrandsResult {
+  /** Merged brand kit */
+  merged: ThemeConfig
+  /** Whether merge completed successfully */
+  success: boolean
+  /** List of conflicts encountered */
+  conflicts: MergeConflict[]
+  /** Conflict statistics */
+  stats: {
+    totalTokens: number
+    conflictCount: number
+    resolvedCount: number
+    brandCount: number
+  }
+  /** Source tracking for tokens (if trackSources enabled) */
+  sources?: Record<string, TokenSource>
+  /** Validation result (if validate enabled) */
+  validation?: {
+    valid: boolean
+    errors: string[]
+    warnings: string[]
+  }
+  /** Warnings encountered */
+  warnings: string[]
+}
+
+/**
+ * Brand input with optional priority
+ */
+export interface BrandInput {
+  /** The brand kit */
+  brand: ThemeConfig
+  /** Override priority for this brand */
+  priority?: BrandPriority
+  /** Custom prefix for tokens from this brand */
+  prefix?: string
+}
+
+/**
+ * Priority values for comparison
+ */
+const PRIORITY_VALUES: Record<BrandPriority, number> = {
+  low: 1,
+  medium: 2,
+  high: 3,
+  critical: 4,
+}
+
+/**
+ * Gets the token category from a path
+ */
+function getTokenCategory(
+  path: string
+): "colors" | "typography" | "spacing" | "radius" | "shadow" | "other" {
+  const parts = path.split(".")
+  const first = parts[0]
+
+  if (first === "colors" || first === "dark") return "colors"
+  if (first === "typography" || first === "fontWeight" || first === "fontFamily")
+    return "typography"
+  if (first === "spacing") return "spacing"
+  if (first === "radius") return "radius"
+  if (first === "shadow") return "shadow"
+
+  return "other"
+}
+
+/**
+ * Flattens an object into path-value pairs
+ */
+function flattenObject(
+  obj: Record<string, unknown>,
+  prefix = ""
+): Array<{ path: string; value: unknown }> {
+  const result: Array<{ path: string; value: unknown }> = []
+
+  for (const [key, value] of Object.entries(obj)) {
+    const path = prefix ? `${prefix}.${key}` : key
+
+    if (
+      value !== null &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      !(value instanceof Date)
+    ) {
+      result.push(...flattenObject(value as Record<string, unknown>, path))
+    } else {
+      result.push({ path, value })
+    }
+  }
+
+  return result
+}
+
+/**
+ * Sets a value at a path in an object
+ */
+function setAtPath(
+  obj: Record<string, unknown>,
+  path: string,
+  value: unknown
+): void {
+  const parts = path.split(".")
+  let current = obj
+
+  for (let i = 0; i < parts.length - 1; i++) {
+    const part = parts[i]
+    if (!(part in current) || typeof current[part] !== "object") {
+      current[part] = {}
+    }
+    current = current[part] as Record<string, unknown>
+  }
+
+  current[parts[parts.length - 1]] = value
+}
+
+/**
+ * Deep merges two objects
+ */
+function deepMergeObjects(
+  target: Record<string, unknown>,
+  source: Record<string, unknown>
+): Record<string, unknown> {
+  const result = { ...target }
+
+  for (const [key, value] of Object.entries(source)) {
+    if (
+      value !== null &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      key in result &&
+      typeof result[key] === "object" &&
+      result[key] !== null &&
+      !Array.isArray(result[key])
+    ) {
+      result[key] = deepMergeObjects(
+        result[key] as Record<string, unknown>,
+        value as Record<string, unknown>
+      )
+    } else {
+      result[key] = value
+    }
+  }
+
+  return result
+}
+
+/**
+ * Merges multiple brand kits into a single unified brand
+ *
+ * @param brands - Array of brand kits or brand inputs with priorities
+ * @param config - Merge configuration
+ * @returns Merge result with unified brand and conflict information
+ *
+ * @example
+ * ```typescript
+ * // Simple merge (last wins)
+ * const result = mergeBrands([brandA, brandB, brandC])
+ *
+ * // With priorities
+ * const result = mergeBrands([
+ *   { brand: baseBrand, priority: "low" },
+ *   { brand: themeBrand, priority: "medium" },
+ *   { brand: overrideBrand, priority: "high" },
+ * ])
+ *
+ * // With custom strategy
+ * const result = mergeBrands([brandA, brandB], {
+ *   strategy: "deepMerge",
+ *   conflictResolution: "warn",
+ *   categoryStrategies: {
+ *     colors: "last",
+ *     typography: "first",
+ *   },
+ * })
+ * ```
+ */
+export function mergeBrands(
+  brands: Array<ThemeConfig | BrandInput>,
+  config: MergeBrandsConfig = {}
+): MergeBrandsResult {
+  const {
+    strategy = "last",
+    conflictResolution = "silent",
+    customResolver,
+    categoryStrategies = {},
+    brandPriorities = {},
+    namePrefix = "",
+    nameSuffix = "",
+    mergedName,
+    trackSources = false,
+    validate = false,
+  } = config
+
+  const conflicts: MergeConflict[] = []
+  const warnings: string[] = []
+  const sources: Record<string, TokenSource> = {}
+
+  // Normalize inputs
+  const normalizedBrands: Array<{
+    brand: ThemeConfig
+    priority: BrandPriority
+    prefix: string
+  }> = brands.map((input) => {
+    if ("brand" in input) {
+      return {
+        brand: input.brand,
+        priority:
+          input.priority ?? brandPriorities[input.brand.name] ?? "medium",
+        prefix: input.prefix ?? "",
+      }
+    }
+    return {
+      brand: input,
+      priority: brandPriorities[input.name] ?? "medium",
+      prefix: "",
+    }
+  })
+
+  if (normalizedBrands.length === 0) {
+    return {
+      merged: {
+        name: mergedName ?? "empty-merged",
+        light: {
+          colors: {} as SemanticColors,
+          spacing: {},
+          typography: {},
+          fontWeight: {},
+          radius: {},
+          shadow: {},
+        },
+      },
+      success: true,
+      conflicts: [],
+      stats: {
+        totalTokens: 0,
+        conflictCount: 0,
+        resolvedCount: 0,
+        brandCount: 0,
+      },
+      warnings: ["No brands provided for merge"],
+    }
+  }
+
+  // Collect all tokens by path
+  const tokensByPath: Map<
+    string,
+    Array<{
+      brandName: string
+      value: unknown
+      priority: BrandPriority
+      index: number
+    }>
+  > = new Map()
+
+  normalizedBrands.forEach(({ brand, priority, prefix }, index) => {
+    // Flatten light tokens
+    const lightTokens = flattenObject(
+      brand.light as unknown as Record<string, unknown>,
+      "light"
+    )
+
+    for (const { path, value } of lightTokens) {
+      const fullPath = prefix ? `${prefix}.${path}` : path
+      const existing = tokensByPath.get(fullPath) ?? []
+      existing.push({ brandName: brand.name, value, priority, index })
+      tokensByPath.set(fullPath, existing)
+    }
+
+    // Flatten dark tokens if present
+    if (brand.dark) {
+      const darkTokens = flattenObject(
+        brand.dark as unknown as Record<string, unknown>,
+        "dark"
+      )
+
+      for (const { path, value } of darkTokens) {
+        const fullPath = prefix ? `${prefix}.${path}` : path
+        const existing = tokensByPath.get(fullPath) ?? []
+        existing.push({ brandName: brand.name, value, priority, index })
+        tokensByPath.set(fullPath, existing)
+      }
+    }
+  })
+
+  // Build merged object
+  const mergedObj: Record<string, unknown> = {}
+  let totalTokens = 0
+  let conflictCount = 0
+  let resolvedCount = 0
+
+  for (const [path, values] of tokensByPath) {
+    totalTokens++
+
+    if (values.length === 1) {
+      // No conflict
+      setAtPath(mergedObj, path, values[0].value)
+
+      if (trackSources) {
+        sources[path] = {
+          brandName: values[0].brandName,
+          path,
+          wasConflict: false,
+        }
+      }
+    } else {
+      // Conflict detected
+      conflictCount++
+
+      const category = getTokenCategory(path)
+      const effectiveStrategy = categoryStrategies[category] ?? strategy
+
+      let finalValue: unknown
+      let selectedBrand: string
+
+      // Resolve conflict based on strategy
+      switch (effectiveStrategy) {
+        case "first": {
+          finalValue = values[0].value
+          selectedBrand = values[0].brandName
+          break
+        }
+        case "last": {
+          const last = values[values.length - 1]
+          finalValue = last.value
+          selectedBrand = last.brandName
+          break
+        }
+        case "deepMerge": {
+          // Sort by priority, then by index
+          const sorted = [...values].sort((a, b) => {
+            const priorityDiff =
+              PRIORITY_VALUES[a.priority] - PRIORITY_VALUES[b.priority]
+            return priorityDiff !== 0 ? priorityDiff : a.index - b.index
+          })
+
+          // Deep merge all values in order
+          let merged: unknown = sorted[0].value
+          for (let i = 1; i < sorted.length; i++) {
+            const current = sorted[i].value
+            if (
+              typeof merged === "object" &&
+              merged !== null &&
+              typeof current === "object" &&
+              current !== null &&
+              !Array.isArray(merged) &&
+              !Array.isArray(current)
+            ) {
+              merged = deepMergeObjects(
+                merged as Record<string, unknown>,
+                current as Record<string, unknown>
+              )
+            } else {
+              merged = current
+            }
+          }
+
+          finalValue = merged
+          selectedBrand = sorted[sorted.length - 1].brandName
+          break
+        }
+        case "concat": {
+          // Concatenate arrays or use last for non-arrays
+          const arrays = values.filter((v) => Array.isArray(v.value))
+          if (arrays.length > 0) {
+            finalValue = arrays.flatMap((v) => v.value as unknown[])
+            selectedBrand = "[concatenated]"
+          } else {
+            const last = values[values.length - 1]
+            finalValue = last.value
+            selectedBrand = last.brandName
+          }
+          break
+        }
+        case "custom": {
+          if (customResolver) {
+            finalValue = customResolver(
+              path,
+              values.map((v) => ({
+                brandName: v.brandName,
+                value: v.value,
+                priority: v.priority,
+              }))
+            )
+            selectedBrand = "[custom]"
+          } else {
+            // Fall back to priority-based selection
+            const sorted = [...values].sort(
+              (a, b) =>
+                PRIORITY_VALUES[b.priority] - PRIORITY_VALUES[a.priority]
+            )
+            finalValue = sorted[0].value
+            selectedBrand = sorted[0].brandName
+            warnings.push(
+              `Custom strategy specified but no resolver provided for path: ${path}`
+            )
+          }
+          break
+        }
+        default: {
+          // Priority-based selection
+          const sorted = [...values].sort(
+            (a, b) =>
+              PRIORITY_VALUES[b.priority] - PRIORITY_VALUES[a.priority]
+          )
+          finalValue = sorted[0].value
+          selectedBrand = sorted[0].brandName
+        }
+      }
+
+      // Record conflict
+      const conflict: MergeConflict = {
+        path,
+        category,
+        values: values.map((v) => ({
+          brandName: v.brandName,
+          value: v.value,
+          priority: v.priority,
+        })),
+        resolution: {
+          strategy: effectiveStrategy,
+          finalValue,
+          selectedBrand,
+        },
+      }
+
+      conflicts.push(conflict)
+      resolvedCount++
+
+      // Handle conflict resolution mode
+      if (conflictResolution === "warn") {
+        warnings.push(
+          `Conflict at ${path}: resolved using ${effectiveStrategy} strategy`
+        )
+      } else if (conflictResolution === "error") {
+        throw new Error(`Merge conflict at path: ${path}`)
+      }
+
+      setAtPath(mergedObj, path, finalValue)
+
+      if (trackSources) {
+        sources[path] = {
+          brandName: selectedBrand,
+          path,
+          wasConflict: true,
+        }
+      }
+    }
+  }
+
+  // Build merged theme config
+  const baseName =
+    mergedName ?? normalizedBrands.map((b) => b.brand.name).join("-")
+  const finalName = `${namePrefix}${baseName}${nameSuffix}`
+
+  // Extract light and dark from merged object
+  const lightObj = (mergedObj.light ?? {}) as DesignTokens
+  const darkObj = (mergedObj.dark ?? undefined) as
+    | Partial<SemanticColors>
+    | undefined
+
+  const merged: ThemeConfig = {
+    name: finalName,
+    light: lightObj,
+    dark: darkObj,
+    defaultMode:
+      normalizedBrands[normalizedBrands.length - 1].brand.defaultMode,
+    darkModeClass:
+      normalizedBrands[normalizedBrands.length - 1].brand.darkModeClass,
+    useColorScheme:
+      normalizedBrands[normalizedBrands.length - 1].brand.useColorScheme,
+  }
+
+  // Validate if requested
+  let validation:
+    | { valid: boolean; errors: string[]; warnings: string[] }
+    | undefined
+
+  if (validate) {
+    const validationResult = validateTheme(merged)
+    validation = {
+      valid: validationResult.valid,
+      errors: validationResult.errors,
+      warnings: [],
+    }
+
+    if (!validationResult.valid) {
+      warnings.push(
+        `Merged brand validation failed: ${validationResult.errors.length} errors`
+      )
+    }
+  }
+
+  return {
+    merged,
+    success: true,
+    conflicts,
+    stats: {
+      totalTokens,
+      conflictCount,
+      resolvedCount,
+      brandCount: normalizedBrands.length,
+    },
+    sources: trackSources ? sources : undefined,
+    validation,
+    warnings,
+  }
+}
+
+/**
+ * Formats a merge result as a human-readable report
+ */
+export function formatMergeReport(result: MergeBrandsResult): string {
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Brand Merge Report")
+  lines.push(divider)
+  lines.push("")
+
+  // Summary
+  lines.push("Summary")
+  lines.push("─".repeat(50))
+  lines.push(`  Merged Brand:   ${result.merged.name}`)
+  lines.push(`  Brands Merged:  ${result.stats.brandCount}`)
+  lines.push(`  Total Tokens:   ${result.stats.totalTokens}`)
+  lines.push(`  Conflicts:      ${result.stats.conflictCount}`)
+  lines.push(`  Resolved:       ${result.stats.resolvedCount}`)
+  lines.push(`  Success:        ${result.success ? "Yes" : "No"}`)
+  lines.push("")
+
+  // Conflicts
+  if (result.conflicts.length > 0) {
+    lines.push("Conflicts")
+    lines.push("─".repeat(50))
+
+    for (const conflict of result.conflicts.slice(0, 10)) {
+      lines.push(`  Path: ${conflict.path}`)
+      lines.push(`  Category: ${conflict.category}`)
+      lines.push(`  Values:`)
+      for (const v of conflict.values) {
+        const valueStr =
+          typeof v.value === "object"
+            ? JSON.stringify(v.value)
+            : String(v.value)
+        lines.push(
+          `    - ${v.brandName} (${v.priority}): ${valueStr.slice(0, 50)}`
+        )
+      }
+      lines.push(`  Resolution: ${conflict.resolution.strategy}`)
+      lines.push(`  Selected: ${conflict.resolution.selectedBrand}`)
+      lines.push("")
+    }
+
+    if (result.conflicts.length > 10) {
+      lines.push(`  ... and ${result.conflicts.length - 10} more conflicts`)
+      lines.push("")
+    }
+  }
+
+  // Warnings
+  if (result.warnings.length > 0) {
+    lines.push("Warnings")
+    lines.push("─".repeat(50))
+    for (const warning of result.warnings) {
+      lines.push(`  - ${warning}`)
+    }
+    lines.push("")
+  }
+
+  // Validation
+  if (result.validation) {
+    lines.push("Validation")
+    lines.push("─".repeat(50))
+    lines.push(`  Valid: ${result.validation.valid ? "Yes" : "No"}`)
+
+    if (result.validation.errors.length > 0) {
+      lines.push(`  Errors:`)
+      for (const error of result.validation.errors) {
+        lines.push(`    - ${error}`)
+      }
+    }
+    lines.push("")
+  }
+
+  lines.push(divider)
+
+  return lines.join("\n")
+}
+
+/**
+ * Creates a brand merger function with preset configuration
+ *
+ * @example
+ * ```typescript
+ * const mergeWithDefaults = createBrandMerger({
+ *   strategy: "deepMerge",
+ *   conflictResolution: "warn",
+ *   trackSources: true,
+ * })
+ *
+ * const result1 = mergeWithDefaults([brandA, brandB])
+ * const result2 = mergeWithDefaults([brandC, brandD])
+ * ```
+ */
+export function createBrandMerger(
+  defaultConfig: MergeBrandsConfig
+): (
+  brands: Array<ThemeConfig | BrandInput>,
+  overrides?: MergeBrandsConfig
+) => MergeBrandsResult {
+  return (brands, overrides = {}) =>
+    mergeBrands(brands, { ...defaultConfig, ...overrides })
+}

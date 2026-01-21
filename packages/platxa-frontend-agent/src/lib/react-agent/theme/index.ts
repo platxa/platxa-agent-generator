@@ -450,6 +450,10 @@ export {
   generateNextCriticalCssConfig,
   splitCssBySelectors,
   formatCriticalCssReport,
+  // mergeBrands Helper (Feature #127)
+  mergeBrands,
+  formatMergeReport,
+  createBrandMerger,
 } from "./theme-worker"
 
 export type {
@@ -700,6 +704,15 @@ export type {
   CriticalCssCategory,
   CriticalCssConfig,
   CriticalCssResult,
+  // mergeBrands Helper (Feature #127)
+  MergeStrategy,
+  BrandPriority,
+  ConflictResolution,
+  MergeConflict,
+  MergeBrandsConfig,
+  TokenSource,
+  MergeBrandsResult,
+  BrandInput,
 } from "./theme-worker"
 
 // Token presets
