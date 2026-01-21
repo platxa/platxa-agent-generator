@@ -906,8 +906,129 @@ function validateSemanticColors(
   for (const key of expectedKeys) {
     if (colors[key] === undefined) {
       warnings.push(`semantics.${mode}.${key} is recommended for full compatibility`)
+    } else if (typeof colors[key] === "string") {
+      // Validate CSS value for injection prevention
+      const validationResult = validateCssValue(colors[key] as string)
+      if (!validationResult.valid) {
+        warnings.push(`semantics.${mode}.${key}: ${validationResult.reason}`)
+      }
     }
   }
+}
+
+// =============================================================================
+// CSS INJECTION PREVENTION (Feature #39)
+// =============================================================================
+
+/**
+ * Dangerous CSS patterns that could lead to XSS
+ * - expression() - IE expression (JS execution)
+ * - javascript: - JS protocol in URLs
+ * - -moz-binding - Firefox XBL binding (deprecated but dangerous)
+ * - behavior: - IE behavior (JS execution)
+ */
+const DANGEROUS_CSS_PATTERNS = [
+  /expression\s*\(/i,
+  /javascript\s*:/i,
+  /-moz-binding\s*:/i,
+  /behavior\s*:/i,
+  /\burl\s*\(\s*["']?\s*javascript:/i,
+  /\burl\s*\(\s*["']?\s*data:\s*text\/html/i,
+]
+
+/**
+ * CSS value validation result
+ */
+interface CssValidationResult {
+  valid: boolean
+  reason?: string
+}
+
+/**
+ * Validate a CSS value for potential injection attacks
+ *
+ * Checks for dangerous patterns that could lead to XSS:
+ * - expression() (IE)
+ * - javascript: protocol
+ * - -moz-binding (Firefox)
+ * - behavior: (IE)
+ * - data: URLs with HTML content
+ *
+ * @param value - CSS value to validate
+ * @returns Validation result
+ */
+export function validateCssValue(value: string): CssValidationResult {
+  if (typeof value !== "string") {
+    return { valid: false, reason: "CSS value must be a string" }
+  }
+
+  // Check for dangerous patterns
+  for (const pattern of DANGEROUS_CSS_PATTERNS) {
+    if (pattern.test(value)) {
+      return {
+        valid: false,
+        reason: `Potentially dangerous CSS pattern detected. ` +
+          `CSS values cannot contain expressions, javascript:, or other executable content.`,
+      }
+    }
+  }
+
+  return { valid: true }
+}
+
+/**
+ * Sanitize a CSS value by removing potentially dangerous content
+ *
+ * This is a more aggressive sanitization that can be used when
+ * you want to allow partial values while removing dangerous parts.
+ *
+ * @param value - CSS value to sanitize
+ * @returns Sanitized CSS value
+ */
+export function sanitizeCssValue(value: string): string {
+  if (typeof value !== "string") {
+    return ""
+  }
+
+  let sanitized = value
+
+  // Remove dangerous patterns
+  for (const pattern of DANGEROUS_CSS_PATTERNS) {
+    sanitized = sanitized.replace(pattern, "")
+  }
+
+  return sanitized.trim()
+}
+
+/**
+ * Validate all CSS values in a brand kit
+ *
+ * @param brandKit - Brand kit to validate
+ * @returns Array of validation warnings
+ */
+export function validateBrandKitCss(brandKit: BrandKitExport): string[] {
+  const warnings: string[] = []
+
+  // Validate semantic colors
+  const validateColors = (colors: Record<string, unknown>, prefix: string) => {
+    for (const [key, value] of Object.entries(colors)) {
+      if (typeof value === "string") {
+        const result = validateCssValue(value)
+        if (!result.valid) {
+          warnings.push(`${prefix}.${key}: ${result.reason}`)
+        }
+      }
+    }
+  }
+
+  if (brandKit.semantics?.light) {
+    validateColors(brandKit.semantics.light as unknown as Record<string, unknown>, "semantics.light")
+  }
+  if (brandKit.semantics?.dark) {
+    validateColors(brandKit.semantics.dark as unknown as Record<string, unknown>, "semantics.dark")
+  }
+
+  return warnings
 }
 
 // =============================================================================

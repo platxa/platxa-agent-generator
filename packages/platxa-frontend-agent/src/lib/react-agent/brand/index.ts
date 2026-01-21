@@ -95,6 +95,10 @@ export {
   useBrand,
   subscribeToBrandChanges,
   getBrandStateSnapshot,
+  // CSS Injection Prevention (Feature #39)
+  validateCssValue,
+  sanitizeCssValue,
+  validateBrandKitCss,
 } from "./loader"
 
 export type { BrandLoadResult, BrandLoaderOptions, UseBrandState } from "./loader"

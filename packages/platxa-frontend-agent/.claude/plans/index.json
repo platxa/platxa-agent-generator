@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-21T12:07:16.838784",
+  "updated_at": "2026-01-21T12:15:07.178251",
   "plans": [
     {
       "id": "plan-feature-6",
@@ -64,6 +64,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-21T11:49:28.695955",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-37",
+      "title": "Implementation: [Required Fields Check] Verify all required fields are prese...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:13:28.987148",
       "constitution_check": true
     },
     {
@@ -155,11 +163,35 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-36",
+      "title": "Implementation: [Schema Validation] Validate brand kit exports against JSON ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:12:42.287959",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-39",
+      "title": "Implementation: [CSS Injection Prevention] Sanitize brand kit CSS to prevent...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:15:07.177850",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-31",
       "title": "Implementation: [TypeScript Types] Full TypeScript support with exported typ...",
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-21T12:01:48.702516",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-38",
+      "title": "Implementation: [Type Validation] Runtime type checking of brand kit exports...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:14:19.999708",
       "constitution_check": true
     },
     {
@@ -248,6 +280,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-21T12:00:17.720867",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-35",
+      "title": "Implementation: [Error Messages] Clear, actionable error messages for miscon...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:11:21.446465",
       "constitution_check": true
     },
     {
