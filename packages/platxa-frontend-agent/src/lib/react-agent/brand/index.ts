@@ -121,6 +121,14 @@ export {
   isCacheVersionValid,
   invalidateCacheIfVersionMismatch,
   getCacheEntryInfo,
+  // Version Checking (Feature #67)
+  FRONTEND_AGENT_VERSION,
+  MIN_BRAND_KIT_VERSION,
+  parseVersion,
+  compareVersions,
+  meetsMinimumVersion,
+  checkVersionCompatibility,
+  validateBrandKitVersion,
   // Tailwind Preset (Feature #63)
   getTailwindPreset,
   hasTailwindPreset,
@@ -154,6 +162,8 @@ export type {
   // Brand Context Provider (Feature #58)
   BrandProviderProps,
   BrandContextValue,
+  // Version Checking (Feature #67)
+  VersionCompatibilityResult,
 } from "./loader"
 
 // Types

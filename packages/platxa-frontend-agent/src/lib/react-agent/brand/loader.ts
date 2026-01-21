@@ -59,6 +59,239 @@ export interface BrandLoaderOptions {
 /** Default loading timeout (10 seconds) */
 const DEFAULT_TIMEOUT = 10000
 
+// =============================================================================
+// VERSION CHECKING (Feature #67)
+// =============================================================================
+
+/**
+ * Current frontend-agent version for compatibility checking
+ *
+ * Brand kits declare which frontend-agent version they're compatible with.
+ * This allows us to warn users when versions may be incompatible.
+ */
+export const FRONTEND_AGENT_VERSION = "1.0.0"
+
+/**
+ * Minimum supported brand kit schema version
+ *
+ * Brand kits with a version below this are considered incompatible
+ * and will produce warnings or errors during loading.
+ */
+export const MIN_BRAND_KIT_VERSION = "1.0.0"
+
+/**
+ * Version compatibility result
+ */
+export interface VersionCompatibilityResult {
+  /** Whether the versions are compatible */
+  compatible: boolean
+  /** The brand kit version */
+  brandKitVersion: string
+  /** The frontend-agent version */
+  frontendAgentVersion: string
+  /** Warning message if versions may have issues */
+  warning?: string
+  /** Error message if versions are incompatible */
+  error?: string
+}
+
+/**
+ * Parse a semver version string into components
+ *
+ * @param version - Version string (e.g., "1.2.3", "1.0.0-beta.1")
+ * @returns Parsed version object or null if invalid
+ */
+export function parseVersion(version: string): {
+  major: number
+  minor: number
+  patch: number
+  prerelease?: string
+} | null {
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/)
+  if (!match) return null
+
+  return {
+    major: parseInt(match[1], 10),
+    minor: parseInt(match[2], 10),
+    patch: parseInt(match[3], 10),
+    prerelease: match[4],
+  }
+}
+
+/**
+ * Compare two semver versions
+ *
+ * @param a - First version
+ * @param b - Second version
+ * @returns -1 if a < b, 0 if a === b, 1 if a > b
+ */
+export function compareVersions(a: string, b: string): -1 | 0 | 1 {
+  const parsedA = parseVersion(a)
+  const parsedB = parseVersion(b)
+
+  // Invalid versions are treated as 0.0.0
+  const vA = parsedA ?? { major: 0, minor: 0, patch: 0 }
+  const vB = parsedB ?? { major: 0, minor: 0, patch: 0 }
+
+  if (vA.major !== vB.major) return vA.major < vB.major ? -1 : 1
+  if (vA.minor !== vB.minor) return vA.minor < vB.minor ? -1 : 1
+  if (vA.patch !== vB.patch) return vA.patch < vB.patch ? -1 : 1
+
+  // Prerelease versions are considered less than release versions
+  if (vA.prerelease && !vB.prerelease) return -1
+  if (!vA.prerelease && vB.prerelease) return 1
+
+  return 0
+}
+
+/**
+ * Check if a version meets a minimum requirement
+ *
+ * @param version - Version to check
+ * @param minVersion - Minimum required version
+ * @returns true if version >= minVersion
+ */
+export function meetsMinimumVersion(version: string, minVersion: string): boolean {
+  return compareVersions(version, minVersion) >= 0
+}
+
+/**
+ * Check brand kit version compatibility with frontend-agent (Feature #67)
+ *
+ * Validates that a brand kit's declared version is compatible with the
+ * current frontend-agent version. This helps prevent runtime issues from
+ * version mismatches.
+ *
+ * @param brandKitVersion - Version from brand kit meta
+ * @param options - Optional configuration
+ * @returns Compatibility result with warnings/errors
+ *
+ * @example Basic usage
+ * ```typescript
+ * const result = checkVersionCompatibility("1.0.0")
+ * if (!result.compatible) {
+ *   console.error(result.error)
+ * } else if (result.warning) {
+ *   console.warn(result.warning)
+ * }
+ * ```
+ *
+ * @example With brand kit meta
+ * ```typescript
+ * const brandKit = await loadBrandKit("@acme/brand-kit")
+ * if (brandKit.brandKit?.meta.version) {
+ *   const compat = checkVersionCompatibility(brandKit.brandKit.meta.version)
+ *   if (!compat.compatible) {
+ *     throw new Error(compat.error)
+ *   }
+ * }
+ * ```
+ */
+export function checkVersionCompatibility(
+  brandKitVersion: string,
+  options: {
+    /** Custom minimum version (default: MIN_BRAND_KIT_VERSION) */
+    minVersion?: string
+    /** Treat warnings as errors */
+    strict?: boolean
+  } = {}
+): VersionCompatibilityResult {
+  const { minVersion = MIN_BRAND_KIT_VERSION, strict = false } = options
+  const frontendAgentVersion = FRONTEND_AGENT_VERSION
+
+  const result: VersionCompatibilityResult = {
+    compatible: true,
+    brandKitVersion,
+    frontendAgentVersion,
+  }
+
+  // Check if version is valid
+  const parsed = parseVersion(brandKitVersion)
+  if (!parsed) {
+    result.compatible = false
+    result.error = `Invalid brand kit version format: "${brandKitVersion}". Expected semver format (e.g., "1.0.0")`
+    return result
+  }
+
+  // Check minimum version requirement
+  if (!meetsMinimumVersion(brandKitVersion, minVersion)) {
+    result.compatible = false
+    result.error = `Brand kit version ${brandKitVersion} is below minimum supported version ${minVersion}. Please upgrade your brand kit.`
+    return result
+  }
+
+  // Check for major version mismatch (warning)
+  const parsedAgent = parseVersion(frontendAgentVersion)
+  if (parsedAgent && parsed.major !== parsedAgent.major) {
+    const message = `Brand kit major version (${parsed.major}) differs from frontend-agent (${parsedAgent.major}). This may cause compatibility issues.`
+    if (strict) {
+      result.compatible = false
+      result.error = message
+    } else {
+      result.warning = message
+    }
+    return result
+  }
+
+  // Check for minor version mismatch (warning for newer brand kit)
+  if (parsedAgent && parsed.minor > parsedAgent.minor) {
+    result.warning = `Brand kit version ${brandKitVersion} is newer than frontend-agent ${frontendAgentVersion}. Some features may not be supported.`
+  }
+
+  return result
+}
+
+/**
+ * Validate brand kit version during loading (Feature #67)
+ *
+ * Called internally during brand kit loading to check version compatibility.
+ * Logs warnings to console and can optionally throw on incompatibility.
+ *
+ * @param brandKit - Loaded brand kit
+ * @param options - Validation options
+ * @returns true if compatible (or no version specified)
+ */
+export function validateBrandKitVersion(
+  brandKit: BrandKitExport,
+  options: {
+    /** Throw error on incompatibility (default: false, just warns) */
+    throwOnIncompatible?: boolean
+    /** Suppress console warnings */
+    silent?: boolean
+  } = {}
+): boolean {
+  const { throwOnIncompatible = false, silent = false } = options
+
+  // Version is optional - if not provided, assume compatible
+  const version = brandKit.meta?.version
+  if (!version) {
+    if (!silent) {
+      console.warn(
+        `[platxa-frontend-agent] Brand kit "${brandKit.meta?.name ?? "unknown"}" does not specify a version. Consider adding a version for compatibility tracking.`
+      )
+    }
+    return true
+  }
+
+  const result = checkVersionCompatibility(version)
+
+  if (!result.compatible) {
+    if (throwOnIncompatible) {
+      throw new Error(`[platxa-frontend-agent] ${result.error}`)
+    }
+    if (!silent) {
+      console.error(`[platxa-frontend-agent] ${result.error}`)
+    }
+    return false
+  }
+
+  if (result.warning && !silent) {
+    console.warn(`[platxa-frontend-agent] ${result.warning}`)
+  }
+
+  return true
+}
+
 /**
  * Cache entry for brand kits (Feature #66)
  *
