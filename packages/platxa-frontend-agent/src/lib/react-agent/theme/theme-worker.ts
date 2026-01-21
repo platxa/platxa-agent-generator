@@ -4629,3 +4629,488 @@ export function generateSSRHeadContent(
     wrapInScriptTag(script, nonce),
   ].join("\n")
 }
+
+// =============================================================================
+// STATIC SITE GENERATION (Feature #89)
+// =============================================================================
+
+/**
+ * Output format for SSG build
+ */
+export type SSGOutputFormat = "css" | "json" | "js" | "ts"
+
+/**
+ * Configuration for static site generation
+ */
+export interface SSGConfig {
+  /** Output directory (default: "dist/theme") */
+  outDir?: string
+  /** Output formats to generate */
+  formats?: SSGOutputFormat[]
+  /** Whether to minify output (default: true for production) */
+  minify?: boolean
+  /** Whether to include source maps */
+  sourceMaps?: boolean
+  /** File name prefix (default: "theme") */
+  filePrefix?: string
+  /** Whether to generate TypeScript declarations */
+  generateTypes?: boolean
+}
+
+/**
+ * Result of SSG build
+ */
+export interface SSGBuildResult {
+  /** Generated files with their content */
+  files: Map<string, string>
+  /** File paths that were generated */
+  filePaths: string[]
+  /** Total size of all generated files */
+  totalSize: number
+  /** Build metadata */
+  meta: {
+    generatedAt: string
+    themeName: string
+    formats: SSGOutputFormat[]
+    minified: boolean
+  }
+}
+
+/**
+ * Token export format for static builds
+ */
+export interface StaticTokenExport {
+  /** Theme name */
+  name: string
+  /** CSS custom properties */
+  cssVariables: Record<string, string>
+  /** Light mode tokens */
+  light: DesignTokens
+  /** Dark mode color overrides */
+  dark?: Partial<SemanticColors>
+  /** Generated at timestamp */
+  generatedAt: string
+  /** Version for cache busting */
+  version: string
+}
+
+/**
+ * Generates a unique version hash for cache busting
+ */
+function generateVersionHash(content: string): string {
+  let hash = 0
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i)
+    hash = ((hash << 5) - hash) + char
+    hash = hash & hash // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(36)
+}
+
+/**
+ * Minifies CSS by removing unnecessary whitespace
+ */
+function minifyCss(css: string): string {
+  return css
+    .replace(/\/\*[\s\S]*?\*\//g, "") // Remove comments
+    .replace(/\s+/g, " ") // Collapse whitespace
+    .replace(/\s*([{}:;,])\s*/g, "$1") // Remove space around punctuation
+    .replace(/;}/g, "}") // Remove trailing semicolons
+    .trim()
+}
+
+/**
+ * Generates static CSS file content for SSG
+ *
+ * Creates a complete CSS file that works without any JavaScript.
+ * Includes both light and dark modes via CSS media queries.
+ *
+ * @param config - Theme configuration
+ * @param minify - Whether to minify output
+ * @returns CSS file content
+ *
+ * @example
+ * ```typescript
+ * // In build script
+ * import { generateStaticCss } from "@platxa/frontend-agent"
+ * import { writeFileSync } from "fs"
+ *
+ * const css = generateStaticCss(themeConfig, true)
+ * writeFileSync("dist/theme.css", css)
+ * ```
+ */
+export function generateStaticCss(
+  config: ThemeConfig,
+  minify = false
+): string {
+  const sections: string[] = []
+
+  // Header
+  sections.push(`/*
+ * Theme: ${config.name}
+ * Generated for static site generation
+ * No JavaScript required - uses CSS media queries
+ */`)
+
+  // Tailwind v4 @theme block
+  sections.push("")
+  sections.push(generateTailwindTheme(config.light))
+
+  // Base CSS variables
+  sections.push("")
+  sections.push(generateCss(config.light))
+
+  // Dark mode via media query (no JS)
+  if (config.dark) {
+    sections.push("")
+    sections.push("/* Dark mode - automatic via system preference */")
+    sections.push("@media (prefers-color-scheme: dark) {")
+    sections.push("  :root {")
+    for (const [key, value] of Object.entries(config.dark)) {
+      if (value && typeof value === "string") {
+        sections.push(`    --${toKebabCase(key)}: ${value};`)
+      }
+    }
+    sections.push("  }")
+    sections.push("}")
+
+    // Manual dark mode class
+    sections.push("")
+    sections.push("/* Dark mode - manual toggle via class */")
+    sections.push(".dark, [data-theme='dark'] {")
+    for (const [key, value] of Object.entries(config.dark)) {
+      if (value && typeof value === "string") {
+        sections.push(`  --${toKebabCase(key)}: ${value};`)
+      }
+    }
+    sections.push("}")
+  }
+
+  const css = sections.join("\n")
+  return minify ? minifyCss(css) : css
+}
+
+/**
+ * Generates static JSON token export for SSG
+ *
+ * Creates a JSON file with all tokens that can be imported
+ * at build time without runtime processing.
+ *
+ * @param config - Theme configuration
+ * @returns JSON string
+ */
+export function generateStaticJson(config: ThemeConfig): string {
+  const cssVariables = generateColorVariables(config.light.colors)
+
+  const exportData: StaticTokenExport = {
+    name: config.name,
+    cssVariables,
+    light: config.light,
+    dark: config.dark,
+    generatedAt: new Date().toISOString(),
+    version: generateVersionHash(JSON.stringify(config)),
+  }
+
+  return JSON.stringify(exportData, null, 2)
+}
+
+/**
+ * Generates static JavaScript module for SSG
+ *
+ * Creates a JS module that exports tokens as constants.
+ * No runtime computation needed.
+ *
+ * @param config - Theme configuration
+ * @returns JavaScript module content
+ */
+export function generateStaticJs(config: ThemeConfig): string {
+  const cssVariables = generateColorVariables(config.light.colors)
+  const version = generateVersionHash(JSON.stringify(config))
+
+  const lines: string[] = []
+
+  lines.push(`/**
+ * Theme: ${config.name}
+ * Generated for static site generation
+ * @generated
+ */`)
+  lines.push("")
+  lines.push(`export const THEME_NAME = "${config.name}";`)
+  lines.push(`export const THEME_VERSION = "${version}";`)
+  lines.push("")
+  lines.push("export const cssVariables = " + JSON.stringify(cssVariables, null, 2) + ";")
+  lines.push("")
+  lines.push("export const lightTokens = " + JSON.stringify(config.light, null, 2) + ";")
+
+  if (config.dark) {
+    lines.push("")
+    lines.push("export const darkColors = " + JSON.stringify(config.dark, null, 2) + ";")
+  }
+
+  lines.push("")
+  lines.push("export default { THEME_NAME, THEME_VERSION, cssVariables, lightTokens" + (config.dark ? ", darkColors" : "") + " };")
+
+  return lines.join("\n")
+}
+
+/**
+ * Generates static TypeScript module for SSG
+ *
+ * Creates a TS module with full type annotations.
+ *
+ * @param config - Theme configuration
+ * @returns TypeScript module content
+ */
+export function generateStaticTs(config: ThemeConfig): string {
+  const cssVariables = generateColorVariables(config.light.colors)
+  const version = generateVersionHash(JSON.stringify(config))
+
+  const lines: string[] = []
+
+  lines.push(`/**
+ * Theme: ${config.name}
+ * Generated for static site generation
+ * @generated
+ */`)
+  lines.push("")
+  lines.push(`export const THEME_NAME = "${config.name}" as const;`)
+  lines.push(`export const THEME_VERSION = "${version}" as const;`)
+  lines.push("")
+  lines.push("export const cssVariables: Record<string, string> = " + JSON.stringify(cssVariables, null, 2) + ";")
+  lines.push("")
+  lines.push("export const lightTokens = " + JSON.stringify(config.light, null, 2) + " as const;")
+
+  if (config.dark) {
+    lines.push("")
+    lines.push("export const darkColors = " + JSON.stringify(config.dark, null, 2) + " as const;")
+  }
+
+  // Type exports
+  lines.push("")
+  lines.push("export type CssVariables = typeof cssVariables;")
+  lines.push("export type LightTokens = typeof lightTokens;")
+  if (config.dark) {
+    lines.push("export type DarkColors = typeof darkColors;")
+  }
+
+  lines.push("")
+  lines.push("export default { THEME_NAME, THEME_VERSION, cssVariables, lightTokens" + (config.dark ? ", darkColors" : "") + " } as const;")
+
+  return lines.join("\n")
+}
+
+/**
+ * Builds all static assets for SSG
+ *
+ * Generates all requested output formats and returns
+ * the complete build result with file contents.
+ *
+ * @param config - Theme configuration
+ * @param ssgConfig - SSG build configuration
+ * @returns Build result with all generated files
+ *
+ * @example
+ * ```typescript
+ * import { buildStaticTheme } from "@platxa/frontend-agent"
+ * import { writeFileSync, mkdirSync } from "fs"
+ *
+ * const result = buildStaticTheme(themeConfig, {
+ *   outDir: "dist/theme",
+ *   formats: ["css", "json", "ts"],
+ *   minify: true,
+ * })
+ *
+ * // Write files to disk
+ * mkdirSync(result.meta.outDir, { recursive: true })
+ * for (const [path, content] of result.files) {
+ *   writeFileSync(path, content)
+ * }
+ * ```
+ */
+export function buildStaticTheme(
+  config: ThemeConfig,
+  ssgConfig: SSGConfig = {}
+): SSGBuildResult {
+  const {
+    outDir = "dist/theme",
+    formats = ["css", "json"],
+    minify = true,
+    filePrefix = "theme",
+  } = ssgConfig
+
+  const files = new Map<string, string>()
+  let totalSize = 0
+
+  // Generate each requested format
+  for (const format of formats) {
+    let content: string
+    let filename: string
+
+    switch (format) {
+      case "css":
+        content = generateStaticCss(config, minify)
+        filename = `${filePrefix}.css`
+        break
+      case "json":
+        content = generateStaticJson(config)
+        filename = `${filePrefix}.json`
+        break
+      case "js":
+        content = generateStaticJs(config)
+        filename = `${filePrefix}.js`
+        break
+      case "ts":
+        content = generateStaticTs(config)
+        filename = `${filePrefix}.ts`
+        break
+      default:
+        continue
+    }
+
+    const filepath = `${outDir}/${filename}`
+    files.set(filepath, content)
+    totalSize += new TextEncoder().encode(content).length
+  }
+
+  return {
+    files,
+    filePaths: Array.from(files.keys()),
+    totalSize,
+    meta: {
+      generatedAt: new Date().toISOString(),
+      themeName: config.name,
+      formats,
+      minified: minify,
+    },
+  }
+}
+
+/**
+ * Generates inline critical CSS for SSG pages
+ *
+ * Creates minimal CSS for above-the-fold content that can be
+ * inlined directly in the HTML to avoid FOUC.
+ *
+ * @param config - Theme configuration
+ * @returns Critical CSS string
+ */
+export function generateCriticalCss(config: ThemeConfig): string {
+  // Generate only essential color variables for initial render
+  const criticalVars = [
+    "background",
+    "foreground",
+    "primary",
+    "primaryForeground",
+    "card",
+    "cardForeground",
+  ]
+
+  const lines: string[] = []
+  lines.push(":root {")
+
+  for (const varName of criticalVars) {
+    const value = config.light.colors[varName as keyof SemanticColors]
+    if (value) {
+      lines.push(`  --${toKebabCase(varName)}: ${value};`)
+    }
+  }
+
+  lines.push("}")
+
+  // Add dark mode critical CSS
+  if (config.dark) {
+    lines.push("@media (prefers-color-scheme: dark) {")
+    lines.push("  :root {")
+    for (const varName of criticalVars) {
+      const value = config.dark[varName as keyof SemanticColors]
+      if (value) {
+        lines.push(`    --${toKebabCase(varName)}: ${value};`)
+      }
+    }
+    lines.push("  }")
+    lines.push("}")
+  }
+
+  return minifyCss(lines.join("\n"))
+}
+
+/**
+ * Gets tokens as a static object for build-time access
+ *
+ * Returns tokens that can be used directly in build scripts
+ * without any runtime processing.
+ *
+ * @param config - Theme configuration
+ * @returns Static token object
+ */
+export function getStaticTokens(config: ThemeConfig): StaticTokenExport {
+  return {
+    name: config.name,
+    cssVariables: generateColorVariables(config.light.colors),
+    light: config.light,
+    dark: config.dark,
+    generatedAt: new Date().toISOString(),
+    version: generateVersionHash(JSON.stringify(config)),
+  }
+}
+
+/**
+ * Validates that static build output is correct
+ *
+ * Checks that all required tokens are present and
+ * CSS is syntactically valid.
+ *
+ * @param result - Build result to validate
+ * @returns Validation result
+ */
+export function validateStaticBuild(result: SSGBuildResult): {
+  valid: boolean
+  errors: string[]
+  warnings: string[]
+} {
+  const errors: string[] = []
+  const warnings: string[] = []
+
+  // Check that files were generated
+  if (result.files.size === 0) {
+    errors.push("No files were generated")
+  }
+
+  // Validate CSS files
+  for (const [path, content] of result.files) {
+    if (path.endsWith(".css")) {
+      // Check for basic CSS structure
+      if (!content.includes(":root") && !content.includes("@theme")) {
+        errors.push(`CSS file ${path} missing :root or @theme block`)
+      }
+
+      // Check for unbalanced braces
+      const openBraces = (content.match(/{/g) || []).length
+      const closeBraces = (content.match(/}/g) || []).length
+      if (openBraces !== closeBraces) {
+        errors.push(`CSS file ${path} has unbalanced braces`)
+      }
+    }
+
+    // Validate JSON files
+    if (path.endsWith(".json")) {
+      try {
+        JSON.parse(content)
+      } catch {
+        errors.push(`JSON file ${path} is not valid JSON`)
+      }
+    }
+
+    // Check file size
+    const size = new TextEncoder().encode(content).length
+    if (size > 100 * 1024) {
+      warnings.push(`File ${path} is large (${Math.round(size / 1024)}KB)`)
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+  }
+}

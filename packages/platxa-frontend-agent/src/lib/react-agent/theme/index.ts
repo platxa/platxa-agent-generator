@@ -143,6 +143,15 @@ export {
   wrapCssInStyleTag,
   wrapInScriptTag,
   generateSSRHeadContent,
+  // Static Site Generation (Feature #89)
+  generateStaticCss,
+  generateStaticJson,
+  generateStaticJs,
+  generateStaticTs,
+  buildStaticTheme,
+  generateCriticalCss,
+  getStaticTokens,
+  validateStaticBuild,
 } from "./theme-worker"
 
 export type {
@@ -181,6 +190,11 @@ export type {
   // SSR Support (Feature #88)
   SSRThemeConfig,
   SSRThemeState,
+  // Static Site Generation (Feature #89)
+  SSGOutputFormat,
+  SSGConfig,
+  SSGBuildResult,
+  StaticTokenExport,
 } from "./theme-worker"
 
 // Token presets

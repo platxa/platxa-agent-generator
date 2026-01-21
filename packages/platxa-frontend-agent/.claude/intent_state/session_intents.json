@@ -1,32 +1,32 @@
 {
-  "session_id": "2770d9bb4b6c",
+  "session_id": "6016bd69d21d",
   "stack": {
     "session": {
-      "id": "2770d9bb4b6c-125",
-      "text": "[Performance Features] Feature #88: [SSR Support] Server-side rendering support without hydration mismatch Verification: No hydration mismatch; Theme mode SSR safe; CSS available on server Criteria: Manual verification required",
+      "id": "6016bd69d21d-127",
+      "text": "[Performance Features] Feature #89: [Static Generation] Support for static site generation (SSG) Verification: Tokens available at build; Static CSS generated; No client JS required Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768992054.9267328,
-      "updated_at": 1768992054.9267328,
+      "created_at": 1768992293.226872,
+      "updated_at": 1768992293.226872,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 88,
+        "feature_id": 89,
         "category": "Performance Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "2770d9bb4b6c-126",
-      "text": "Implement: [SSR Support] Server-side rendering support without hydration mismatch Verification: No hydration mismatch; Theme mode SSR safe; CSS available on server",
+      "id": "6016bd69d21d-128",
+      "text": "Implement: [Static Generation] Support for static site generation (SSG) Verification: Tokens available at build; Static CSS generated; No client JS required",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768992054.9703403,
-      "updated_at": 1768992054.970341,
+      "created_at": 1768992293.2341387,
+      "updated_at": 1768992293.234139,
       "completed_at": null,
-      "parent_id": "2770d9bb4b6c-125",
+      "parent_id": "6016bd69d21d-127",
       "metadata": {},
       "keywords": []
     },
@@ -1859,9 +1859,38 @@
       "parent_id": "2770d9bb4b6c-125",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "6016bd69d21d-127",
+      "text": "[Performance Features] Feature #89: [Static Generation] Support for static site generation (SSG) Verification: Tokens available at build; Static CSS generated; No client JS required Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992293.226872,
+      "updated_at": 1768992293.226872,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 89,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "6016bd69d21d-128",
+      "text": "Implement: [Static Generation] Support for static site generation (SSG) Verification: Tokens available at build; Static CSS generated; No client JS required",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992293.2341387,
+      "updated_at": 1768992293.234139,
+      "completed_at": null,
+      "parent_id": "6016bd69d21d-127",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 126,
+  "intent_counter": 128,
   "created_at": 1768900061.32227,
-  "updated_at": 1768992054.9703453
+  "updated_at": 1768992293.2341464
 }
