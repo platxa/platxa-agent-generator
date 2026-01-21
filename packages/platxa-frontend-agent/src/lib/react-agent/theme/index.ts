@@ -224,6 +224,16 @@ export {
   getRequiredBestPractices,
   validateBestPractices,
   formatBestPracticesMarkdown,
+  // Troubleshooting Guide (Feature #99)
+  FAQS,
+  ERROR_INDEX,
+  DEBUG_TECHNIQUES,
+  searchFaq,
+  getFaqsByCategory,
+  getErrorByCode,
+  suggestSolution,
+  getDebugTechnique,
+  formatTroubleshootingMarkdown,
 } from "./theme-worker"
 
 export type {
@@ -312,6 +322,10 @@ export type {
   AntiPattern,
   PerformanceTip,
   AccessibilityGuideline,
+  // Troubleshooting Guide (Feature #99)
+  FaqEntry,
+  ErrorEntry,
+  DebugTechnique,
 } from "./theme-worker"
 
 // Token presets

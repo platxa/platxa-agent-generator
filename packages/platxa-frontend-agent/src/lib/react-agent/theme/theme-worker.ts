@@ -8982,3 +8982,432 @@ export function formatBestPracticesMarkdown(): string {
 
   return lines.join("\n")
 }
+
+// =============================================================================
+// Feature #99: Troubleshooting Guide
+// =============================================================================
+
+/**
+ * FAQ entry for common questions
+ */
+export interface FaqEntry {
+  id: string
+  question: string
+  answer: string
+  category: "setup" | "usage" | "migration" | "debugging" | "performance"
+  relatedDocs?: string[]
+}
+
+/**
+ * Error entry for error message index
+ */
+export interface ErrorEntry {
+  code: string
+  message: string
+  cause: string
+  solution: string
+  example?: string
+}
+
+/**
+ * Debug technique description
+ */
+export interface DebugTechnique {
+  id: string
+  name: string
+  description: string
+  steps: string[]
+  tools: string[]
+  when: string
+}
+
+/**
+ * FAQ registry - Common questions and answers
+ */
+export const FAQS: FaqEntry[] = [
+  {
+    id: "faq-dark-mode",
+    question: "How do I enable dark mode?",
+    answer:
+      "Set defaultMode to 'dark' in ThemeConfig, or use setThemeMode('dark') at runtime. The theme system respects system preferences when set to 'system'.",
+    category: "usage",
+    relatedDocs: ["useTheme", "setThemeMode"],
+  },
+  {
+    id: "faq-custom-colors",
+    question: "How do I add custom colors?",
+    answer:
+      "Extend the SemanticColors interface and add your colors to light.colors in ThemeConfig. Dark mode overrides go in config.dark.",
+    category: "usage",
+    relatedDocs: ["SemanticColors", "ThemeConfig"],
+  },
+  {
+    id: "faq-oklch",
+    question: "Why use OKLCH instead of HSL?",
+    answer:
+      "OKLCH provides perceptually uniform lightness, meaning colors with the same L value appear equally bright. This makes palette generation more predictable.",
+    category: "usage",
+  },
+  {
+    id: "faq-tailwind-v4",
+    question: "How do I integrate with Tailwind v4?",
+    answer:
+      "Use generateTailwindThemeDirective() to create @theme CSS content, or generateTailwindV4Css() for a complete CSS file with tokens.",
+    category: "setup",
+    relatedDocs: ["generateTailwindThemeDirective", "generateTailwindV4Css"],
+  },
+  {
+    id: "faq-ssr",
+    question: "How do I prevent hydration mismatch with SSR?",
+    answer:
+      "Use generateSSRHeadContent() to inline theme CSS and initialization script. This ensures the theme matches between server and client.",
+    category: "setup",
+    relatedDocs: ["generateSSRHeadContent", "createSSRThemeProviderProps"],
+  },
+  {
+    id: "faq-brand-extension",
+    question: "How do I create a brand variant?",
+    answer:
+      "Use extendBrand() to create a new theme based on an existing one, or set the 'extends' field in ThemeConfig for inheritance.",
+    category: "usage",
+    relatedDocs: ["extendBrand", "createChildBrand"],
+  },
+  {
+    id: "faq-contrast-check",
+    question: "How do I validate color contrast?",
+    answer:
+      "Use validateContrast() for individual color pairs, or generateWcagReport() for a complete accessibility audit of your theme.",
+    category: "debugging",
+    relatedDocs: ["validateContrast", "generateWcagReport"],
+  },
+  {
+    id: "faq-migration",
+    question: "How do I migrate from v1 to v2?",
+    answer:
+      "Run generateMigrationGuide('1.0.0', '2.0.0') to get step-by-step instructions. Use generateMigrationCodemod() to auto-fix common patterns.",
+    category: "migration",
+    relatedDocs: ["generateMigrationGuide", "generateMigrationCodemod"],
+  },
+]
+
+/**
+ * Error index - Common errors and solutions
+ */
+export const ERROR_INDEX: ErrorEntry[] = [
+  {
+    code: "THEME_001",
+    message: "Theme configuration missing required field: colors",
+    cause: "ThemeConfig.light.colors is undefined or empty",
+    solution:
+      "Provide at least primary, background, and foreground colors in light.colors",
+    example:
+      "light: { colors: { primary: 'oklch(...)', background: '...', foreground: '...' } }",
+  },
+  {
+    code: "THEME_002",
+    message: "Invalid color format",
+    cause: "Color string does not match supported formats (hex, rgb, hsl, oklch)",
+    solution:
+      "Use a valid color format: #RGB, #RRGGBB, rgb(), hsl(), or oklch()",
+    example: "oklch(0.7 0.15 250) or #3b82f6",
+  },
+  {
+    code: "THEME_003",
+    message: "Circular inheritance detected",
+    cause: "Brand kit A extends B which extends A (directly or indirectly)",
+    solution:
+      "Review the extends chain and remove the circular reference. Use checkCircularReferences() to identify the cycle.",
+  },
+  {
+    code: "THEME_004",
+    message: "Parent brand kit not found",
+    cause:
+      "ThemeConfig.extends references a string name not in the registry",
+    solution:
+      "Either provide the parent as a ThemeConfig object, or register it with createBrandKitRegistry() first.",
+  },
+  {
+    code: "THEME_005",
+    message: "Contrast ratio below WCAG threshold",
+    cause: "Text color on background does not meet 4.5:1 ratio for AA compliance",
+    solution:
+      "Adjust colors using suggestContrastAdjustment() or manually increase lightness difference.",
+  },
+  {
+    code: "THEME_006",
+    message: "Token reference not found",
+    cause: "A token value references another token that does not exist",
+    solution:
+      "Check token names for typos. Use checkBrandKitCircularReferences() to validate references.",
+  },
+  {
+    code: "THEME_007",
+    message: "SSR hydration mismatch",
+    cause:
+      "Theme state differs between server and client due to missing initialization",
+    solution:
+      "Use generateSSRHeadContent() in your HTML head, or createSSRThemeProviderProps() for the provider.",
+  },
+  {
+    code: "THEME_008",
+    message: "Size limit exceeded",
+    cause: "Generated theme output exceeds configured size threshold",
+    solution:
+      "Review getSizeBreakdown() output and remove unused tokens. Consider splitting into multiple brand kits.",
+  },
+]
+
+/**
+ * Debug techniques registry
+ */
+export const DEBUG_TECHNIQUES: DebugTechnique[] = [
+  {
+    id: "debug-css-vars",
+    name: "Inspect CSS Variables",
+    description: "View computed CSS custom property values in browser DevTools",
+    steps: [
+      "Open browser DevTools (F12)",
+      "Select an element using the theme",
+      "Go to Computed tab",
+      "Filter by '--' to see custom properties",
+      "Check values match expected tokens",
+    ],
+    tools: ["Browser DevTools"],
+    when: "Colors or spacing don't match expected values",
+  },
+  {
+    id: "debug-contrast",
+    name: "Validate Color Contrast",
+    description: "Check if colors meet WCAG accessibility requirements",
+    steps: [
+      "Import { generateWcagReport } from theme module",
+      "Run generateWcagReport(config)",
+      "Review failing checks for each level (A, AA, AAA)",
+      "Use suggestContrastAdjustment() for fixes",
+    ],
+    tools: ["generateWcagReport", "validateContrast"],
+    when: "Accessibility audit fails or text is hard to read",
+  },
+  {
+    id: "debug-inheritance",
+    name: "Debug Brand Inheritance",
+    description: "Trace token resolution through inheritance chain",
+    steps: [
+      "Use resolveBrandInheritance(config) with { validate: true }",
+      "Check returned 'chain' array for inheritance order",
+      "Review 'warnings' for any issues",
+      "Use flattenBrandInheritance() to see final merged tokens",
+    ],
+    tools: ["resolveBrandInheritance", "flattenBrandInheritance"],
+    when: "Inherited tokens not appearing or overrides not working",
+  },
+  {
+    id: "debug-hydration",
+    name: "Fix SSR Hydration Mismatch",
+    description: "Resolve server/client theme state differences",
+    steps: [
+      "Ensure generateSSRHeadContent() is in HTML head",
+      "Verify theme script runs before React hydrates",
+      "Check localStorage/cookie for persisted theme mode",
+      "Use getSSRSafeThemeState() for initial render",
+    ],
+    tools: ["generateSSRHeadContent", "getSSRSafeThemeState"],
+    when: "Console shows hydration mismatch warnings",
+  },
+  {
+    id: "debug-size",
+    name: "Analyze Bundle Size",
+    description: "Identify which parts of theme contribute to bundle size",
+    steps: [
+      "Run getSizeBreakdown(config) to see section sizes",
+      "Check if 'colors' or 'palettes' are unexpectedly large",
+      "Use validateBrandKitSize() with custom thresholds",
+      "Consider extractPartialBrandKit() to reduce size",
+    ],
+    tools: ["getSizeBreakdown", "validateBrandKitSize"],
+    when: "Theme adds too much to JavaScript bundle",
+  },
+  {
+    id: "debug-circular",
+    name: "Find Circular References",
+    description: "Detect and fix circular token dependencies",
+    steps: [
+      "Run checkBrandKitCircularReferences(config)",
+      "Review 'cycles' array in result",
+      "Each cycle shows the path: A -> B -> C -> A",
+      "Break the cycle by using direct values instead of references",
+    ],
+    tools: ["checkBrandKitCircularReferences", "buildDependencyGraph"],
+    when: "Runtime error about maximum call stack or infinite loop",
+  },
+]
+
+/**
+ * Searches FAQs by keyword
+ *
+ * @param query - Search query string
+ * @returns Matching FAQ entries
+ *
+ * @example
+ * ```typescript
+ * const results = searchFaq("dark mode")
+ * // Returns FAQs mentioning dark mode
+ * ```
+ */
+export function searchFaq(query: string): FaqEntry[] {
+  const lowerQuery = query.toLowerCase()
+  return FAQS.filter(
+    (faq) =>
+      faq.question.toLowerCase().includes(lowerQuery) ||
+      faq.answer.toLowerCase().includes(lowerQuery)
+  )
+}
+
+/**
+ * Gets FAQ entries by category
+ *
+ * @param category - FAQ category to filter by
+ * @returns FAQ entries in the category
+ */
+export function getFaqsByCategory(category: FaqEntry["category"]): FaqEntry[] {
+  return FAQS.filter((faq) => faq.category === category)
+}
+
+/**
+ * Looks up an error by code
+ *
+ * @param code - Error code (e.g., "THEME_001")
+ * @returns Error entry or undefined
+ *
+ * @example
+ * ```typescript
+ * const error = getErrorByCode("THEME_003")
+ * console.log(error?.solution)
+ * ```
+ */
+export function getErrorByCode(code: string): ErrorEntry | undefined {
+  return ERROR_INDEX.find((err) => err.code === code)
+}
+
+/**
+ * Suggests a solution based on error message content
+ *
+ * Performs fuzzy matching on error message to find relevant solutions.
+ *
+ * @param errorMessage - Error message text
+ * @returns Matching error entries sorted by relevance
+ *
+ * @example
+ * ```typescript
+ * const suggestions = suggestSolution("circular reference detected")
+ * // Returns THEME_003 and related entries
+ * ```
+ */
+export function suggestSolution(errorMessage: string): ErrorEntry[] {
+  const lowerMessage = errorMessage.toLowerCase()
+  const keywords = [
+    { pattern: /circular|cycle|loop/i, code: "THEME_003" },
+    { pattern: /not found|missing|undefined/i, code: "THEME_001" },
+    { pattern: /color|format|invalid.*color/i, code: "THEME_002" },
+    { pattern: /parent|extend|inherit/i, code: "THEME_004" },
+    { pattern: /contrast|wcag|accessibility/i, code: "THEME_005" },
+    { pattern: /reference|token.*not/i, code: "THEME_006" },
+    { pattern: /hydration|mismatch|ssr/i, code: "THEME_007" },
+    { pattern: /size|limit|exceed/i, code: "THEME_008" },
+  ]
+
+  const matchedCodes = new Set<string>()
+  for (const { pattern, code } of keywords) {
+    if (pattern.test(lowerMessage)) {
+      matchedCodes.add(code)
+    }
+  }
+
+  // Also do direct text matching on error messages
+  for (const entry of ERROR_INDEX) {
+    if (
+      entry.message.toLowerCase().includes(lowerMessage) ||
+      lowerMessage.includes(entry.message.toLowerCase())
+    ) {
+      matchedCodes.add(entry.code)
+    }
+  }
+
+  return ERROR_INDEX.filter((err) => matchedCodes.has(err.code))
+}
+
+/**
+ * Gets debug technique by ID
+ *
+ * @param id - Technique ID
+ * @returns Debug technique or undefined
+ */
+export function getDebugTechnique(id: string): DebugTechnique | undefined {
+  return DEBUG_TECHNIQUES.find((tech) => tech.id === id)
+}
+
+/**
+ * Formats troubleshooting guide as Markdown
+ *
+ * Generates a complete troubleshooting document with FAQs,
+ * error index, and debugging techniques.
+ *
+ * @returns Markdown string
+ *
+ * @example
+ * ```typescript
+ * const markdown = formatTroubleshootingMarkdown()
+ * fs.writeFileSync("TROUBLESHOOTING.md", markdown)
+ * ```
+ */
+export function formatTroubleshootingMarkdown(): string {
+  const lines: string[] = ["# Troubleshooting Guide", ""]
+
+  // FAQ Section
+  lines.push("## Frequently Asked Questions", "")
+  const categories = ["setup", "usage", "migration", "debugging", "performance"] as const
+  for (const category of categories) {
+    const faqs = getFaqsByCategory(category)
+    if (faqs.length > 0) {
+      lines.push(
+        `### ${category.charAt(0).toUpperCase() + category.slice(1)}`,
+        ""
+      )
+      for (const faq of faqs) {
+        lines.push(`**Q: ${faq.question}**`, "")
+        lines.push(`A: ${faq.answer}`, "")
+        if (faq.relatedDocs && faq.relatedDocs.length > 0) {
+          lines.push(`_See also: ${faq.relatedDocs.join(", ")}_`, "")
+        }
+        lines.push("")
+      }
+    }
+  }
+
+  // Error Index Section
+  lines.push("## Error Index", "")
+  for (const err of ERROR_INDEX) {
+    lines.push(`### ${err.code}: ${err.message}`, "")
+    lines.push(`**Cause:** ${err.cause}`, "")
+    lines.push(`**Solution:** ${err.solution}`, "")
+    if (err.example) {
+      lines.push("", "```typescript", err.example, "```", "")
+    }
+    lines.push("")
+  }
+
+  // Debug Techniques Section
+  lines.push("## Debug Techniques", "")
+  for (const tech of DEBUG_TECHNIQUES) {
+    lines.push(`### ${tech.name}`, "")
+    lines.push(tech.description, "")
+    lines.push("", "**When to use:** " + tech.when, "")
+    lines.push("", "**Steps:**", "")
+    for (let i = 0; i < tech.steps.length; i++) {
+      lines.push(`${i + 1}. ${tech.steps[i]}`)
+    }
+    lines.push("", `**Tools:** ${tech.tools.join(", ")}`, "")
+  }
+
+  return lines.join("\n")
+}
