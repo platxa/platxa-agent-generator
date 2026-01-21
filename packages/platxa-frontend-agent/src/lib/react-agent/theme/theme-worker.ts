@@ -15930,3 +15930,536 @@ export function getBuildSizeSummary(config: ThemeConfig): string {
   const status = result.severity === "ok" ? "OK" : result.severity.toUpperCase()
   return `${config.name}: ${sizeKB}KB (${gzipKB}KB gzip) - ${status}`
 }
+
+// ============================================================================
+// Feature #113: 60-30-10 Rule Validation
+// ============================================================================
+
+/**
+ * Color role in the 60-30-10 design system
+ */
+export type ColorRole = "dominant" | "secondary" | "accent"
+
+/**
+ * Color distribution analysis
+ */
+export interface ColorDistribution {
+  /** Dominant colors (background, base) - should be ~60% */
+  dominant: {
+    colors: string[]
+    percentage: number
+    idealPercentage: 60
+  }
+  /** Secondary colors (supporting elements) - should be ~30% */
+  secondary: {
+    colors: string[]
+    percentage: number
+    idealPercentage: 30
+  }
+  /** Accent colors (highlights, CTAs) - should be ~10% */
+  accent: {
+    colors: string[]
+    percentage: number
+    idealPercentage: 10
+  }
+}
+
+/**
+ * Deviation from ideal distribution
+ */
+export interface DistributionDeviation {
+  /** Role that deviates */
+  role: ColorRole
+  /** Current percentage */
+  current: number
+  /** Ideal percentage */
+  ideal: number
+  /** Absolute deviation */
+  deviation: number
+  /** Whether over or under the ideal */
+  direction: "over" | "under"
+}
+
+/**
+ * Suggestion for fixing color distribution
+ */
+export interface DistributionSuggestion {
+  /** Priority of the suggestion */
+  priority: "high" | "medium" | "low"
+  /** Which role to adjust */
+  role: ColorRole
+  /** Action to take */
+  action: "increase" | "decrease" | "add" | "remove"
+  /** Human-readable description */
+  description: string
+  /** Example implementation */
+  example?: string
+}
+
+/**
+ * Result of 60-30-10 rule validation
+ */
+export interface ColorDistributionResult {
+  /** Whether distribution follows the rule (within tolerance) */
+  isValid: boolean
+  /** Actual color distribution */
+  distribution: ColorDistribution
+  /** Deviations from ideal */
+  deviations: DistributionDeviation[]
+  /** Severity level */
+  severity: "ok" | "warning" | "error"
+  /** Improvement suggestions */
+  suggestions: DistributionSuggestion[]
+  /** Overall score (0-100) */
+  score: number
+  /** Human-readable summary */
+  summary: string
+}
+
+/**
+ * Complete color role mapping (all roles required)
+ */
+export interface ColorRoleMapping {
+  /** Dominant color names (backgrounds, large areas) */
+  dominant: string[]
+  /** Secondary color names (supporting elements) */
+  secondary: string[]
+  /** Accent color names (highlights, CTAs) */
+  accent: string[]
+}
+
+/**
+ * Partial color role mapping for user overrides
+ */
+export interface PartialColorRoleMapping {
+  dominant?: string[]
+  secondary?: string[]
+  accent?: string[]
+}
+
+/**
+ * Configuration for 60-30-10 validation
+ */
+export interface ColorDistributionConfig {
+  /** Tolerance for deviation (default: 10%) */
+  tolerance?: number
+  /** Custom color role mapping (partial overrides) */
+  roleMapping?: PartialColorRoleMapping
+}
+
+/**
+ * Default mapping of semantic colors to 60-30-10 roles
+ */
+const DEFAULT_ROLE_MAPPING: ColorRoleMapping = {
+  // Dominant: backgrounds, base surfaces (60%)
+  dominant: [
+    "background",
+    "foreground",
+    "card",
+    "cardForeground",
+    "popover",
+    "popoverForeground",
+    "muted",
+    "mutedForeground",
+  ],
+  // Secondary: supporting elements (30%)
+  secondary: [
+    "secondary",
+    "secondaryForeground",
+    "border",
+    "input",
+    "ring",
+  ],
+  // Accent: highlights, primary actions (10%)
+  accent: [
+    "primary",
+    "primaryForeground",
+    "accent",
+    "accentForeground",
+    "destructive",
+    "destructiveForeground",
+  ],
+}
+
+/**
+ * Merges partial role mapping with defaults to create complete mapping
+ *
+ * @param defaults - Default complete role mapping
+ * @param overrides - Optional partial overrides
+ * @returns Complete role mapping with overrides applied
+ */
+function mergeRoleMapping(
+  defaults: ColorRoleMapping,
+  overrides?: PartialColorRoleMapping
+): ColorRoleMapping {
+  if (!overrides) {
+    return defaults
+  }
+  return {
+    dominant: overrides.dominant ?? defaults.dominant,
+    secondary: overrides.secondary ?? defaults.secondary,
+    accent: overrides.accent ?? defaults.accent,
+  }
+}
+
+/**
+ * Analyzes color distribution in a brand kit
+ *
+ * Categorizes semantic colors into dominant (60%), secondary (30%),
+ * and accent (10%) roles.
+ *
+ * @param config - Theme config to analyze
+ * @param options - Analysis options
+ * @returns Color distribution analysis
+ *
+ * @example
+ * ```typescript
+ * const distribution = analyzeColorDistribution(myBrand)
+ * console.log(`Dominant: ${distribution.dominant.percentage}%`)
+ * console.log(`Secondary: ${distribution.secondary.percentage}%`)
+ * console.log(`Accent: ${distribution.accent.percentage}%`)
+ * ```
+ */
+export function analyzeColorDistribution(
+  config: ThemeConfig,
+  options?: ColorDistributionConfig
+): ColorDistribution {
+  const roleMapping: ColorRoleMapping = mergeRoleMapping(
+    DEFAULT_ROLE_MAPPING,
+    options?.roleMapping
+  )
+
+  const colors = config.light.colors ?? {}
+  const colorKeys = Object.keys(colors)
+  const totalColors = colorKeys.length
+
+  if (totalColors === 0) {
+    return {
+      dominant: { colors: [], percentage: 0, idealPercentage: 60 },
+      secondary: { colors: [], percentage: 0, idealPercentage: 30 },
+      accent: { colors: [], percentage: 0, idealPercentage: 10 },
+    }
+  }
+
+  // Categorize colors
+  const dominant: string[] = []
+  const secondary: string[] = []
+  const accent: string[] = []
+
+  for (const key of colorKeys) {
+    if (roleMapping.dominant.includes(key)) {
+      dominant.push(key)
+    } else if (roleMapping.secondary.includes(key)) {
+      secondary.push(key)
+    } else if (roleMapping.accent.includes(key)) {
+      accent.push(key)
+    } else {
+      // Uncategorized colors go to secondary by default
+      secondary.push(key)
+    }
+  }
+
+  // Calculate percentages
+  const dominantPct = Math.round((dominant.length / totalColors) * 100)
+  const secondaryPct = Math.round((secondary.length / totalColors) * 100)
+  const accentPct = Math.round((accent.length / totalColors) * 100)
+
+  return {
+    dominant: {
+      colors: dominant,
+      percentage: dominantPct,
+      idealPercentage: 60,
+    },
+    secondary: {
+      colors: secondary,
+      percentage: secondaryPct,
+      idealPercentage: 30,
+    },
+    accent: {
+      colors: accent,
+      percentage: accentPct,
+      idealPercentage: 10,
+    },
+  }
+}
+
+/**
+ * Validates color distribution against the 60-30-10 rule
+ *
+ * The 60-30-10 rule is a design principle for color harmony:
+ * - 60% dominant color (backgrounds, large areas)
+ * - 30% secondary color (supporting elements)
+ * - 10% accent color (highlights, call-to-actions)
+ *
+ * @param config - Theme config to validate
+ * @param options - Validation options
+ * @returns Validation result with suggestions
+ *
+ * @example
+ * ```typescript
+ * const result = validate603010Rule(myBrand)
+ *
+ * if (!result.isValid) {
+ *   console.warn("Color distribution doesn't follow 60-30-10 rule")
+ *   result.suggestions.forEach(s => {
+ *     console.log(`[${s.priority}] ${s.description}`)
+ *   })
+ * }
+ *
+ * console.log(`Score: ${result.score}/100`)
+ * ```
+ */
+export function validate603010Rule(
+  config: ThemeConfig,
+  options?: ColorDistributionConfig
+): ColorDistributionResult {
+  const tolerance = options?.tolerance ?? 10
+  const distribution = analyzeColorDistribution(config, options)
+
+  // Calculate deviations
+  const deviations: DistributionDeviation[] = []
+
+  const roles: ColorRole[] = ["dominant", "secondary", "accent"]
+  for (const role of roles) {
+    const dist = distribution[role]
+    const deviation = Math.abs(dist.percentage - dist.idealPercentage)
+
+    if (deviation > tolerance) {
+      deviations.push({
+        role,
+        current: dist.percentage,
+        ideal: dist.idealPercentage,
+        deviation,
+        direction: dist.percentage > dist.idealPercentage ? "over" : "under",
+      })
+    }
+  }
+
+  // Generate suggestions
+  const suggestions = generateDistributionSuggestions(distribution, deviations)
+
+  // Calculate score (100 = perfect, 0 = worst)
+  const totalDeviation =
+    Math.abs(distribution.dominant.percentage - 60) +
+    Math.abs(distribution.secondary.percentage - 30) +
+    Math.abs(distribution.accent.percentage - 10)
+  // Max possible deviation is 200 (e.g., 0-60 + 0-30 + 100-10)
+  const score = Math.max(0, Math.round(100 - (totalDeviation / 2)))
+
+  // Determine severity
+  let severity: "ok" | "warning" | "error" = "ok"
+  if (deviations.some((d) => d.deviation > tolerance * 2)) {
+    severity = "error"
+  } else if (deviations.length > 0) {
+    severity = "warning"
+  }
+
+  // Build summary
+  let summary = `Color distribution: ${distribution.dominant.percentage}% dominant, ` +
+    `${distribution.secondary.percentage}% secondary, ${distribution.accent.percentage}% accent.`
+
+  if (deviations.length === 0) {
+    summary += " Follows 60-30-10 rule. ✓"
+  } else {
+    summary += ` ${deviations.length} deviation(s) from ideal.`
+  }
+
+  return {
+    isValid: deviations.length === 0,
+    distribution,
+    deviations,
+    severity,
+    suggestions,
+    score,
+    summary,
+  }
+}
+
+/**
+ * Generates suggestions for improving color distribution
+ */
+function generateDistributionSuggestions(
+  distribution: ColorDistribution,
+  deviations: DistributionDeviation[]
+): DistributionSuggestion[] {
+  const suggestions: DistributionSuggestion[] = []
+
+  for (const deviation of deviations) {
+    const { role, current, ideal, direction } = deviation
+    const priority = deviation.deviation > 20 ? "high" : deviation.deviation > 10 ? "medium" : "low"
+
+    if (direction === "over") {
+      suggestions.push({
+        priority,
+        role,
+        action: "decrease",
+        description: `${capitalize(role)} colors are ${current}% (ideal: ${ideal}%). Consider reducing ${role} color usage.`,
+        example: role === "accent"
+          ? "Reserve accent colors for important interactive elements only."
+          : role === "secondary"
+            ? "Move some secondary colors to dominant role if they're used for large areas."
+            : "Some dominant colors may be better suited as secondary colors.",
+      })
+    } else {
+      suggestions.push({
+        priority,
+        role,
+        action: "increase",
+        description: `${capitalize(role)} colors are ${current}% (ideal: ${ideal}%). Consider adding more ${role} colors.`,
+        example: role === "dominant"
+          ? "Add more background variants (subtle tints, muted versions)."
+          : role === "secondary"
+            ? "Add colors for borders, dividers, and secondary UI elements."
+            : "Add distinct accent colors for different action types.",
+      })
+    }
+  }
+
+  // Add general suggestions based on distribution
+  if (distribution.accent.percentage === 0) {
+    suggestions.push({
+      priority: "high",
+      role: "accent",
+      action: "add",
+      description: "No accent colors defined. Accent colors are crucial for visual hierarchy.",
+      example: "Add primary, accent, and destructive colors for interactive elements.",
+    })
+  }
+
+  if (distribution.dominant.percentage < 40) {
+    suggestions.push({
+      priority: "high",
+      role: "dominant",
+      action: "add",
+      description: "Dominant colors are significantly under-represented. This can lead to visual chaos.",
+      example: "Define background, card, popover, and muted color variants.",
+    })
+  }
+
+  // Sort by priority
+  const priorityOrder = { high: 0, medium: 1, low: 2 }
+  suggestions.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority])
+
+  return suggestions
+}
+
+/**
+ * Capitalizes first letter
+ */
+function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+/**
+ * Formats color distribution result as human-readable report
+ *
+ * @param result - Validation result to format
+ * @returns Formatted report string
+ *
+ * @example
+ * ```typescript
+ * const result = validate603010Rule(myBrand)
+ * console.log(formatColorDistributionReport(result))
+ * ```
+ */
+export function formatColorDistributionReport(result: ColorDistributionResult): string {
+  const lines: string[] = []
+
+  // Header
+  lines.push("=" .repeat(50))
+  lines.push("60-30-10 Color Distribution Analysis")
+  lines.push("=" .repeat(50))
+  lines.push("")
+
+  // Summary
+  lines.push("## Summary")
+  lines.push(result.summary)
+  lines.push(`Score: ${result.score}/100`)
+  lines.push("")
+
+  // Distribution breakdown
+  lines.push("## Distribution")
+  const { distribution } = result
+
+  const dominantBar = createProgressBar(distribution.dominant.percentage, 60)
+  const secondaryBar = createProgressBar(distribution.secondary.percentage, 30)
+  const accentBar = createProgressBar(distribution.accent.percentage, 10)
+
+  lines.push(`  Dominant (60%):  ${dominantBar} ${distribution.dominant.percentage}%`)
+  lines.push(`    Colors: ${distribution.dominant.colors.join(", ") || "none"}`)
+  lines.push("")
+  lines.push(`  Secondary (30%): ${secondaryBar} ${distribution.secondary.percentage}%`)
+  lines.push(`    Colors: ${distribution.secondary.colors.join(", ") || "none"}`)
+  lines.push("")
+  lines.push(`  Accent (10%):    ${accentBar} ${distribution.accent.percentage}%`)
+  lines.push(`    Colors: ${distribution.accent.colors.join(", ") || "none"}`)
+  lines.push("")
+
+  // Deviations
+  if (result.deviations.length > 0) {
+    lines.push("## Deviations")
+    for (const dev of result.deviations) {
+      const arrow = dev.direction === "over" ? "↑" : "↓"
+      lines.push(`  ${arrow} ${capitalize(dev.role)}: ${dev.current}% (${dev.direction} by ${dev.deviation}%)`)
+    }
+    lines.push("")
+  }
+
+  // Suggestions
+  if (result.suggestions.length > 0) {
+    lines.push("## Suggestions")
+    for (const suggestion of result.suggestions) {
+      const icon = suggestion.priority === "high" ? "🔴" : suggestion.priority === "medium" ? "🟡" : "🟢"
+      lines.push(`  ${icon} [${suggestion.priority.toUpperCase()}] ${suggestion.description}`)
+      if (suggestion.example) {
+        lines.push(`     → ${suggestion.example}`)
+      }
+    }
+    lines.push("")
+  }
+
+  // Status
+  const statusIcon = result.severity === "ok" ? "✅" : result.severity === "warning" ? "⚠️" : "❌"
+  lines.push(`Status: ${statusIcon} ${result.isValid ? "VALID" : "NEEDS IMPROVEMENT"}`)
+
+  return lines.join("\n")
+}
+
+/**
+ * Creates a simple ASCII progress bar
+ */
+function createProgressBar(current: number, target: number): string {
+  const width = 20
+  const filled = Math.round((current / 100) * width)
+  const targetPos = Math.round((target / 100) * width)
+
+  let bar = ""
+  for (let i = 0; i < width; i++) {
+    if (i < filled) {
+      bar += "█"
+    } else if (i === targetPos) {
+      bar += "│"
+    } else {
+      bar += "░"
+    }
+  }
+  return `[${bar}]`
+}
+
+/**
+ * Quick check if brand kit follows 60-30-10 rule
+ *
+ * @param config - Theme config to check
+ * @param tolerance - Deviation tolerance (default: 10%)
+ * @returns Whether distribution is valid
+ *
+ * @example
+ * ```typescript
+ * if (!follows603010Rule(myBrand)) {
+ *   console.warn("Consider adjusting color distribution")
+ * }
+ * ```
+ */
+export function follows603010Rule(config: ThemeConfig, tolerance = 10): boolean {
+  return validate603010Rule(config, { tolerance }).isValid
+}

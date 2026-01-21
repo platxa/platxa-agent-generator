@@ -348,6 +348,11 @@ export {
   compareBrandKitWithDefault,
   formatBundleAnalysisReport,
   getBuildSizeSummary,
+  // 60-30-10 Rule Validation (Feature #113)
+  analyzeColorDistribution,
+  validate603010Rule,
+  formatColorDistributionReport,
+  follows603010Rule,
 } from "./theme-worker"
 
 export type {
@@ -510,6 +515,15 @@ export type {
   BundleAnalysisResult,
   ChunkInfo,
   OptimizationSuggestion,
+  // 60-30-10 Rule Validation (Feature #113)
+  ColorRole,
+  ColorRoleMapping,
+  PartialColorRoleMapping,
+  ColorDistribution,
+  DistributionDeviation,
+  DistributionSuggestion,
+  ColorDistributionResult,
+  ColorDistributionConfig,
 } from "./theme-worker"
 
 // Token presets
