@@ -46,7 +46,16 @@ export {
   generateThemeFromPreset,
   createTheme,
   validateTheme,
+  // React Hook (Feature #34)
+  useTheme,
+  subscribeToThemeChanges,
+  getThemeStateSnapshot,
+  setThemeMode,
+  getThemeMode,
+  setThemeConfig,
 } from "./theme-worker"
+
+export type { UseThemeState } from "./theme-worker"
 
 // Token presets
 export {

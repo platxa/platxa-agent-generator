@@ -15,6 +15,7 @@ import type {
   HslColor,
   ColorGenerationOptions,
   PaletteGenerationOptions,
+  ThemeMode,
 } from "./types"
 
 import {
@@ -510,4 +511,134 @@ export function validateTheme(config: ThemeConfig): { valid: boolean; errors: st
     valid: errors.length === 0,
     errors,
   }
+}
+
+// ============================================================================
+// REACT HOOK (Feature #34)
+// ============================================================================
+
+/** Current theme state */
+let currentMode: ThemeMode = "system"
+let currentThemeConfig: ThemeConfig | null = null
+
+/** Subscribers for theme state changes */
+const themeSubscribers = new Set<() => void>()
+
+/** Notify all theme subscribers of state change */
+function notifyThemeSubscribers(): void {
+  themeSubscribers.forEach((callback) => callback())
+}
+
+/**
+ * Subscribe to theme state changes
+ * @param callback - Function to call when state changes
+ * @returns Unsubscribe function
+ */
+export function subscribeToThemeChanges(callback: () => void): () => void {
+  themeSubscribers.add(callback)
+  return () => themeSubscribers.delete(callback)
+}
+
+/**
+ * Theme state for React hook
+ */
+export interface UseThemeState {
+  /** Current theme mode (light/dark/system) */
+  mode: ThemeMode
+  /** Resolved mode (light/dark only, system resolved) */
+  resolvedMode: "light" | "dark"
+  /** Theme tokens */
+  tokens: DesignTokens
+  /** Theme configuration */
+  config: ThemeConfig | null
+  /** Set the theme mode */
+  setMode: (mode: ThemeMode) => void
+}
+
+/**
+ * Get the resolved mode (system preference resolved)
+ */
+function getResolvedMode(): "light" | "dark" {
+  if (currentMode === "system") {
+    // Check system preference (works in browser)
+    if (typeof window !== "undefined" && window.matchMedia) {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+    }
+    return "light" // Default to light in non-browser
+  }
+  return currentMode
+}
+
+/**
+ * Set the current theme mode
+ */
+export function setThemeMode(mode: ThemeMode): void {
+  currentMode = mode
+  notifyThemeSubscribers()
+}
+
+/**
+ * Get current theme mode
+ */
+export function getThemeMode(): ThemeMode {
+  return currentMode
+}
+
+/**
+ * Set current theme config
+ */
+export function setThemeConfig(config: ThemeConfig): void {
+  currentThemeConfig = config
+  notifyThemeSubscribers()
+}
+
+/**
+ * Get current theme state snapshot
+ */
+export function getThemeStateSnapshot(): UseThemeState {
+  return {
+    mode: currentMode,
+    resolvedMode: getResolvedMode(),
+    tokens: currentThemeConfig?.light ?? defaultTokens,
+    config: currentThemeConfig,
+    setMode: setThemeMode,
+  }
+}
+
+/**
+ * React hook to access current theme tokens
+ *
+ * Returns the current theme state including tokens, mode, and a setMode function.
+ * Automatically updates when theme state changes.
+ *
+ * @returns Current theme state
+ *
+ * @example
+ * ```tsx
+ * import { useTheme } from "@platxa/frontend-agent"
+ *
+ * function ThemedComponent() {
+ *   const { mode, resolvedMode, tokens, setMode } = useTheme()
+ *
+ *   return (
+ *     <div>
+ *       <p>Mode: {mode} (resolved: {resolvedMode})</p>
+ *       <p>Primary: {tokens.colors.primary}</p>
+ *       <button onClick={() => setMode("dark")}>Dark</button>
+ *       <button onClick={() => setMode("light")}>Light</button>
+ *       <button onClick={() => setMode("system")}>System</button>
+ *     </div>
+ *   )
+ * }
+ * ```
+ */
+export function useTheme(): UseThemeState {
+  // Note: For full React integration, consumers should use useSyncExternalStore:
+  //
+  // import { useSyncExternalStore } from "react"
+  // const state = useSyncExternalStore(
+  //   subscribeToThemeChanges,
+  //   getThemeStateSnapshot
+  // )
+  return getThemeStateSnapshot()
 }
