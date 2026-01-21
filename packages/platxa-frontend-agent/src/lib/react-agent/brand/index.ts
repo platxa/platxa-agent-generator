@@ -101,6 +101,9 @@ export {
   resolveBrand,
   validateBrandKit,
   isValidBrandPackageName,
+  // Local Path Loading (Feature #65)
+  isLocalPath,
+  isNpmPackage,
   // Token Normalization (Feature #5)
   normalizeBrandTokens,
   mergeDesignTokens,

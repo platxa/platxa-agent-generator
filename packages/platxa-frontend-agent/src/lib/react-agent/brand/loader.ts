@@ -668,16 +668,38 @@ async function dynamicImportBrand(packageName: string): Promise<BrandKitExport> 
 /**
  * Check if a package name is a valid import specifier
  *
+ * Validates that the package name can be used with dynamic import.
+ * Supports:
+ * - Relative paths (./brand, ../brand)
+ * - Absolute paths (/path/to/brand)
+ * - Scoped npm packages (@scope/name)
+ * - Regular npm packages (package-name)
+ *
  * @param packageName - The package name to validate
  * @returns true if valid for dynamic import
+ *
+ * @example
+ * ```typescript
+ * isValidBrandPackageName("./my-brand")         // true (relative)
+ * isValidBrandPackageName("../shared/brand")    // true (relative parent)
+ * isValidBrandPackageName("/home/user/brand")   // true (absolute)
+ * isValidBrandPackageName("@acme/brand-kit")    // true (scoped npm)
+ * isValidBrandPackageName("brand-kit")          // true (npm package)
+ * isValidBrandPackageName("")                   // false (empty)
+ * ```
  */
 export function isValidBrandPackageName(packageName: string): boolean {
   if (!packageName || typeof packageName !== "string") {
     return false
   }
 
-  // Local paths
+  // Local relative paths (./brand, ../brand)
   if (packageName.startsWith("./") || packageName.startsWith("../")) {
+    return true
+  }
+
+  // Absolute paths (/path/to/brand) - Feature #65
+  if (packageName.startsWith("/")) {
     return true
   }
 
@@ -688,6 +710,39 @@ export function isValidBrandPackageName(packageName: string): boolean {
 
   // Regular npm packages
   return /^[\w-]+/.test(packageName)
+}
+
+/**
+ * Check if a package name is a local file path (Feature #65)
+ *
+ * @param packageName - The package name to check
+ * @returns true if it's a local path (relative or absolute)
+ *
+ * @example
+ * ```typescript
+ * isLocalPath("./my-brand")         // true
+ * isLocalPath("../shared/brand")    // true
+ * isLocalPath("/home/user/brand")   // true
+ * isLocalPath("@acme/brand-kit")    // false
+ * isLocalPath("package-name")       // false
+ * ```
+ */
+export function isLocalPath(packageName: string): boolean {
+  return (
+    packageName.startsWith("./") ||
+    packageName.startsWith("../") ||
+    packageName.startsWith("/")
+  )
+}
+
+/**
+ * Check if a package name is an npm package (not a local path)
+ *
+ * @param packageName - The package name to check
+ * @returns true if it's an npm package reference
+ */
+export function isNpmPackage(packageName: string): boolean {
+  return isValidBrandPackageName(packageName) && !isLocalPath(packageName)
 }
 
 // =============================================================================
