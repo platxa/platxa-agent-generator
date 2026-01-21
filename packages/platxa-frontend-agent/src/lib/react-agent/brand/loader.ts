@@ -45,6 +45,7 @@ import type {
   BrandKitValidationResult,
   ConfigLoadingState,
   ResolvedConfig,
+  BrandColorPrimitives,
 } from "./types"
 import type { DesignTokens, SemanticColors, ThemeConfig } from "../theme/types"
 import { defaultTheme, defaultTokens } from "../theme/tokens"
@@ -1287,6 +1288,290 @@ function normalizeSemanticColors(colors: SemanticColors): SemanticColors {
     input: colors.input || defaults.input,
     ring: colors.ring || defaults.ring,
   }
+}
+
+// =============================================================================
+// SEMANTIC TOKEN MAPPING (Feature #71)
+// =============================================================================
+
+/**
+ * Mapping rule for a single semantic token
+ *
+ * Defines how to derive a semantic token from primitives.
+ */
+export interface SemanticTokenMappingRule {
+  /** Which primitive scale to use (primary, accent, neutral) */
+  scale: "primary" | "accent" | "neutral"
+  /** Which step in the scale (1-12) */
+  step: number
+  /** Optional alpha/opacity (0-1) */
+  alpha?: number
+}
+
+/**
+ * Complete mapping configuration for all semantic tokens
+ */
+export interface SemanticTokenMappingConfig {
+  // Light mode mappings
+  light: {
+    background: SemanticTokenMappingRule
+    foreground: SemanticTokenMappingRule
+    primary: SemanticTokenMappingRule
+    primaryForeground: SemanticTokenMappingRule
+    secondary: SemanticTokenMappingRule
+    secondaryForeground: SemanticTokenMappingRule
+    muted: SemanticTokenMappingRule
+    mutedForeground: SemanticTokenMappingRule
+    accent: SemanticTokenMappingRule
+    accentForeground: SemanticTokenMappingRule
+    card: SemanticTokenMappingRule
+    cardForeground: SemanticTokenMappingRule
+    popover: SemanticTokenMappingRule
+    popoverForeground: SemanticTokenMappingRule
+    border: SemanticTokenMappingRule
+    input: SemanticTokenMappingRule
+    ring: SemanticTokenMappingRule
+    destructive?: SemanticTokenMappingRule
+    destructiveForeground?: SemanticTokenMappingRule
+  }
+  // Dark mode mappings
+  dark: {
+    background: SemanticTokenMappingRule
+    foreground: SemanticTokenMappingRule
+    primary: SemanticTokenMappingRule
+    primaryForeground: SemanticTokenMappingRule
+    secondary: SemanticTokenMappingRule
+    secondaryForeground: SemanticTokenMappingRule
+    muted: SemanticTokenMappingRule
+    mutedForeground: SemanticTokenMappingRule
+    accent: SemanticTokenMappingRule
+    accentForeground: SemanticTokenMappingRule
+    card: SemanticTokenMappingRule
+    cardForeground: SemanticTokenMappingRule
+    popover: SemanticTokenMappingRule
+    popoverForeground: SemanticTokenMappingRule
+    border: SemanticTokenMappingRule
+    input: SemanticTokenMappingRule
+    ring: SemanticTokenMappingRule
+    destructive?: SemanticTokenMappingRule
+    destructiveForeground?: SemanticTokenMappingRule
+  }
+}
+
+/**
+ * Default semantic token mapping rules (Feature #71)
+ *
+ * These rules define how to derive semantic colors from primitives
+ * following Radix UI conventions (12-step color scales).
+ *
+ * Light mode:
+ * - Backgrounds use neutral 1-2 (lightest)
+ * - Foregrounds use neutral 11-12 (darkest)
+ * - Primary uses primary scale step 9 (main brand color)
+ * - Borders use neutral 6 (middle)
+ *
+ * Dark mode:
+ * - Backgrounds use neutral 1-2 (now darkest due to inverted scale)
+ * - Foregrounds use neutral 11-12 (now lightest)
+ */
+export const DEFAULT_SEMANTIC_MAPPING: SemanticTokenMappingConfig = {
+  light: {
+    background: { scale: "neutral", step: 1 },
+    foreground: { scale: "neutral", step: 12 },
+    primary: { scale: "primary", step: 9 },
+    primaryForeground: { scale: "neutral", step: 1 },
+    secondary: { scale: "neutral", step: 3 },
+    secondaryForeground: { scale: "neutral", step: 11 },
+    muted: { scale: "neutral", step: 3 },
+    mutedForeground: { scale: "neutral", step: 10 },
+    accent: { scale: "accent", step: 9 },
+    accentForeground: { scale: "neutral", step: 1 },
+    card: { scale: "neutral", step: 1 },
+    cardForeground: { scale: "neutral", step: 12 },
+    popover: { scale: "neutral", step: 1 },
+    popoverForeground: { scale: "neutral", step: 12 },
+    border: { scale: "neutral", step: 6 },
+    input: { scale: "neutral", step: 6 },
+    ring: { scale: "primary", step: 7 },
+  },
+  dark: {
+    background: { scale: "neutral", step: 1 },
+    foreground: { scale: "neutral", step: 12 },
+    primary: { scale: "primary", step: 9 },
+    primaryForeground: { scale: "neutral", step: 1 },
+    secondary: { scale: "neutral", step: 3 },
+    secondaryForeground: { scale: "neutral", step: 11 },
+    muted: { scale: "neutral", step: 3 },
+    mutedForeground: { scale: "neutral", step: 10 },
+    accent: { scale: "accent", step: 9 },
+    accentForeground: { scale: "neutral", step: 1 },
+    card: { scale: "neutral", step: 2 },
+    cardForeground: { scale: "neutral", step: 12 },
+    popover: { scale: "neutral", step: 2 },
+    popoverForeground: { scale: "neutral", step: 12 },
+    border: { scale: "neutral", step: 6 },
+    input: { scale: "neutral", step: 6 },
+    ring: { scale: "primary", step: 7 },
+  },
+}
+
+/**
+ * Apply alpha to a color string
+ */
+function applyAlpha(color: string, alpha: number): string {
+  // Handle HSL colors
+  if (color.startsWith("hsl(")) {
+    const match = color.match(/hsl\(([^)]+)\)/)
+    if (match) {
+      return `hsl(${match[1]} / ${alpha})`
+    }
+  }
+  // Handle OKLCH colors
+  if (color.startsWith("oklch(")) {
+    const match = color.match(/oklch\(([^)]+)\)/)
+    if (match) {
+      return `oklch(${match[1]} / ${alpha})`
+    }
+  }
+  return color
+}
+
+/**
+ * Map primitives to a semantic color using a rule
+ */
+function applyMappingRule(
+  primitives: BrandColorPrimitives,
+  rule: SemanticTokenMappingRule
+): string {
+  const scale = primitives[rule.scale]
+  if (!scale) {
+    throw new Error(`Primitive scale "${rule.scale}" not found`)
+  }
+
+  const color = scale[rule.step]
+  if (!color) {
+    throw new Error(`Step ${rule.step} not found in "${rule.scale}" scale`)
+  }
+
+  if (rule.alpha !== undefined && rule.alpha < 1) {
+    return applyAlpha(color, rule.alpha)
+  }
+
+  return color
+}
+
+/**
+ * Generate semantic colors from primitives (Feature #71)
+ *
+ * Automatically maps brand primitive colors to semantic tokens using
+ * configurable mapping rules. This eliminates the need to manually
+ * specify each semantic color when creating brand kits.
+ *
+ * @param primitives - Brand color primitives (primary, accent, neutral scales)
+ * @param config - Optional mapping configuration (uses defaults if not provided)
+ * @returns Both light and dark semantic color sets
+ *
+ * @example Basic usage with defaults
+ * ```typescript
+ * const { light, dark } = mapPrimitivesToSemantics(brandKit.primitives)
+ * // light.primary will be primitives.primary[9]
+ * // light.background will be primitives.neutral[1]
+ * ```
+ *
+ * @example Custom mapping rules
+ * ```typescript
+ * const config = {
+ *   ...DEFAULT_SEMANTIC_MAPPING,
+ *   light: {
+ *     ...DEFAULT_SEMANTIC_MAPPING.light,
+ *     primary: { scale: "accent", step: 8 }, // Use accent instead
+ *   }
+ * }
+ * const { light, dark } = mapPrimitivesToSemantics(primitives, config)
+ * ```
+ */
+export function mapPrimitivesToSemantics(
+  primitives: BrandColorPrimitives,
+  config: SemanticTokenMappingConfig = DEFAULT_SEMANTIC_MAPPING
+): { light: SemanticColors; dark: SemanticColors } {
+  const mapMode = (
+    rules: SemanticTokenMappingConfig["light"] | SemanticTokenMappingConfig["dark"]
+  ): SemanticColors => ({
+    background: applyMappingRule(primitives, rules.background),
+    foreground: applyMappingRule(primitives, rules.foreground),
+    primary: applyMappingRule(primitives, rules.primary),
+    primaryForeground: applyMappingRule(primitives, rules.primaryForeground),
+    secondary: applyMappingRule(primitives, rules.secondary),
+    secondaryForeground: applyMappingRule(primitives, rules.secondaryForeground),
+    muted: applyMappingRule(primitives, rules.muted),
+    mutedForeground: applyMappingRule(primitives, rules.mutedForeground),
+    accent: applyMappingRule(primitives, rules.accent),
+    accentForeground: applyMappingRule(primitives, rules.accentForeground),
+    card: applyMappingRule(primitives, rules.card),
+    cardForeground: applyMappingRule(primitives, rules.cardForeground),
+    popover: applyMappingRule(primitives, rules.popover),
+    popoverForeground: applyMappingRule(primitives, rules.popoverForeground),
+    border: applyMappingRule(primitives, rules.border),
+    input: applyMappingRule(primitives, rules.input),
+    ring: applyMappingRule(primitives, rules.ring),
+    // Destructive colors have sensible defaults if not mapped
+    destructive: rules.destructive
+      ? applyMappingRule(primitives, rules.destructive)
+      : "hsl(0 84% 60%)",
+    destructiveForeground: rules.destructiveForeground
+      ? applyMappingRule(primitives, rules.destructiveForeground)
+      : "hsl(0 0% 98%)",
+  })
+
+  return {
+    light: mapMode(config.light),
+    dark: mapMode(config.dark),
+  }
+}
+
+/**
+ * Create custom mapping configuration by overriding defaults (Feature #71)
+ *
+ * Utility to create a custom mapping config while keeping defaults
+ * for any rules not explicitly overridden.
+ *
+ * @param overrides - Partial overrides for light and/or dark mode
+ * @returns Complete mapping configuration
+ *
+ * @example Override primary color mapping
+ * ```typescript
+ * const config = createMappingConfig({
+ *   light: { primary: { scale: "accent", step: 10 } },
+ *   dark: { primary: { scale: "accent", step: 8 } }
+ * })
+ * ```
+ */
+export function createMappingConfig(
+  overrides: {
+    light?: Partial<SemanticTokenMappingConfig["light"]>
+    dark?: Partial<SemanticTokenMappingConfig["dark"]>
+  }
+): SemanticTokenMappingConfig {
+  return {
+    light: { ...DEFAULT_SEMANTIC_MAPPING.light, ...overrides.light },
+    dark: { ...DEFAULT_SEMANTIC_MAPPING.dark, ...overrides.dark },
+  }
+}
+
+/**
+ * Get the mapping rule for a specific semantic token
+ *
+ * @param token - Semantic token name
+ * @param mode - Light or dark mode
+ * @param config - Mapping configuration
+ * @returns The mapping rule for the token
+ */
+export function getMappingRule(
+  token: keyof SemanticTokenMappingConfig["light"],
+  mode: "light" | "dark",
+  config: SemanticTokenMappingConfig = DEFAULT_SEMANTIC_MAPPING
+): SemanticTokenMappingRule | undefined {
+  return config[mode][token]
 }
 
 /**

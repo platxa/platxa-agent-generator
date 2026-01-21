@@ -112,6 +112,11 @@ export {
   // Token Normalization (Feature #5)
   normalizeBrandTokens,
   mergeDesignTokens,
+  // Semantic Token Mapping (Feature #71)
+  DEFAULT_SEMANTIC_MAPPING,
+  mapPrimitivesToSemantics,
+  createMappingConfig,
+  getMappingRule,
   // State Management
   getBrandLoadingState,
   getCurrentBrandKit,
@@ -175,6 +180,9 @@ export type {
   VersionCompatibilityResult,
   // Loading States (Feature #68)
   BrandLoadingStatus,
+  // Semantic Token Mapping (Feature #71)
+  SemanticTokenMappingRule,
+  SemanticTokenMappingConfig,
 } from "./loader"
 
 // Types
