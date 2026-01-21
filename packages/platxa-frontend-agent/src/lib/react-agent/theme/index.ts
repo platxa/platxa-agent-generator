@@ -479,6 +479,12 @@ export {
   createRegexTransform,
   createScaleTransform,
   formatPipelineReport,
+  // Theme Composer (Feature #130)
+  composeTheme,
+  createThemeComposer,
+  createLayer,
+  createSelectiveLayer,
+  formatComposerReport,
 } from "./theme-worker"
 
 export type {
@@ -757,6 +763,13 @@ export type {
   TransformPipelineConfig,
   TransformResult,
   PipelineExecutionResult,
+  // Theme Composer (Feature #130)
+  TokenSourceType,
+  LayerBlendMode,
+  ComposerTokenSource,
+  ThemeComposerConfig,
+  TokenAttribution,
+  ThemeComposerResult,
 } from "./theme-worker"
 
 // Token presets

@@ -28115,3 +28115,714 @@ export function formatPipelineReport(result: PipelineExecutionResult): string {
 
   return lines.join("\n")
 }
+
+// ============================================================================
+// Feature #130: Theme Composer
+// ============================================================================
+
+/**
+ * Token source type
+ */
+export type TokenSourceType =
+  | "theme" // Full ThemeConfig
+  | "tokens" // Partial DesignTokens
+  | "colors" // Just colors
+  | "spacing" // Just spacing
+  | "typography" // Just typography
+  | "custom" // Custom token object
+
+/**
+ * Layer blend mode for composing
+ */
+export type LayerBlendMode =
+  | "replace" // Completely replace lower layer
+  | "merge" // Deep merge with lower layer
+  | "overlay" // Only override non-null values
+  | "underlay" // Only fill in missing values
+
+/**
+ * Token source definition for theme composition
+ */
+export interface ComposerTokenSource {
+  /** Source name for identification */
+  name: string
+  /** Source type */
+  type: TokenSourceType
+  /** Token data */
+  data: ThemeConfig | Partial<DesignTokens> | Record<string, unknown>
+  /** Layer order (higher = on top) */
+  order?: number
+  /** Blend mode */
+  blendMode?: LayerBlendMode
+  /** Whether source is enabled */
+  enabled?: boolean
+  /** Categories to include from this source */
+  includeCategories?: Array<
+    "colors" | "spacing" | "typography" | "radius" | "shadow" | "all"
+  >
+  /** Categories to exclude from this source */
+  excludeCategories?: Array<
+    "colors" | "spacing" | "typography" | "radius" | "shadow"
+  >
+  /** Path prefix to add to tokens */
+  prefix?: string
+  /** Transform to apply to values */
+  transform?: (value: unknown, path: string) => unknown
+}
+
+/**
+ * Composer configuration
+ */
+export interface ThemeComposerConfig {
+  /** Output theme name */
+  name: string
+  /** Default blend mode */
+  defaultBlendMode?: LayerBlendMode
+  /** Validate output */
+  validate?: boolean
+  /** Generate dark mode */
+  generateDarkMode?: boolean
+  /** Track source attribution */
+  trackSources?: boolean
+}
+
+/**
+ * Source attribution for a token
+ */
+export interface TokenAttribution {
+  /** Source name that provided this token */
+  sourceName: string
+  /** Original path in source */
+  originalPath: string
+  /** Blend mode used */
+  blendMode: LayerBlendMode
+  /** Layer order */
+  layerOrder: number
+}
+
+/**
+ * Composer result
+ */
+export interface ThemeComposerResult {
+  /** Composed theme */
+  theme: ThemeConfig
+  /** Whether composition succeeded */
+  success: boolean
+  /** Source attributions (if trackSources enabled) */
+  attributions?: Record<string, TokenAttribution>
+  /** Statistics */
+  stats: {
+    totalSources: number
+    enabledSources: number
+    totalTokens: number
+    replacedTokens: number
+    mergedTokens: number
+    skippedTokens: number
+  }
+  /** Warnings */
+  warnings: string[]
+  /** Errors */
+  errors: Error[]
+}
+
+/**
+ * Extracts tokens from a source based on its type
+ */
+function extractTokensFromSource(
+  source: ComposerTokenSource
+): Record<string, unknown> {
+  const { type, data } = source
+
+  switch (type) {
+    case "theme": {
+      const theme = data as ThemeConfig
+      return {
+        colors: theme.light?.colors,
+        spacing: theme.light?.spacing,
+        typography: theme.light?.typography,
+        fontWeight: theme.light?.fontWeight,
+        fontFamily: theme.light?.fontFamily,
+        radius: theme.light?.radius,
+        shadow: theme.light?.shadow,
+        duration: theme.light?.duration,
+        easing: theme.light?.easing,
+        breakpoints: theme.light?.breakpoints,
+        zIndex: theme.light?.zIndex,
+      }
+    }
+    case "tokens":
+      return data as Record<string, unknown>
+    case "colors":
+      return { colors: data }
+    case "spacing":
+      return { spacing: data }
+    case "typography":
+      return { typography: data }
+    case "custom":
+      return data as Record<string, unknown>
+    default:
+      return {}
+  }
+}
+
+/**
+ * Checks if a category should be included
+ */
+function shouldIncludeCategoryForComposer(
+  category: string,
+  source: ComposerTokenSource
+): boolean {
+  const { includeCategories, excludeCategories } = source
+
+  // Check exclusions first
+  if (excludeCategories?.includes(category as "colors")) {
+    return false
+  }
+
+  // Check inclusions
+  if (includeCategories) {
+    return (
+      includeCategories.includes("all") ||
+      includeCategories.includes(category as "colors")
+    )
+  }
+
+  return true
+}
+
+/**
+ * Applies blend mode to merge two values
+ */
+function applyBlendMode(
+  base: unknown,
+  overlay: unknown,
+  mode: LayerBlendMode
+): unknown {
+  switch (mode) {
+    case "replace":
+      return overlay
+
+    case "merge":
+      if (
+        base !== null &&
+        typeof base === "object" &&
+        !Array.isArray(base) &&
+        overlay !== null &&
+        typeof overlay === "object" &&
+        !Array.isArray(overlay)
+      ) {
+        const result: Record<string, unknown> = { ...(base as Record<string, unknown>) }
+        for (const [key, value] of Object.entries(overlay as Record<string, unknown>)) {
+          result[key] = applyBlendMode(result[key], value, mode)
+        }
+        return result
+      }
+      return overlay
+
+    case "overlay":
+      // Only override if overlay value is not null/undefined
+      if (overlay === null || overlay === undefined) {
+        return base
+      }
+      if (
+        base !== null &&
+        typeof base === "object" &&
+        !Array.isArray(base) &&
+        overlay !== null &&
+        typeof overlay === "object" &&
+        !Array.isArray(overlay)
+      ) {
+        const result: Record<string, unknown> = { ...(base as Record<string, unknown>) }
+        for (const [key, value] of Object.entries(overlay as Record<string, unknown>)) {
+          if (value !== null && value !== undefined) {
+            result[key] = applyBlendMode(result[key], value, mode)
+          }
+        }
+        return result
+      }
+      return overlay
+
+    case "underlay":
+      // Only fill in if base value is null/undefined
+      if (base !== null && base !== undefined) {
+        if (
+          base !== null &&
+          typeof base === "object" &&
+          !Array.isArray(base) &&
+          overlay !== null &&
+          typeof overlay === "object" &&
+          !Array.isArray(overlay)
+        ) {
+          const result: Record<string, unknown> = { ...(base as Record<string, unknown>) }
+          for (const [key, value] of Object.entries(overlay as Record<string, unknown>)) {
+            if (result[key] === null || result[key] === undefined) {
+              result[key] = value
+            } else if (typeof result[key] === "object") {
+              result[key] = applyBlendMode(result[key], value, mode)
+            }
+          }
+          return result
+        }
+        return base
+      }
+      return overlay
+
+    default:
+      return overlay
+  }
+}
+
+/**
+ * Collects attributions from an object
+ */
+function collectAttributions(
+  obj: Record<string, unknown>,
+  sourceName: string,
+  blendMode: LayerBlendMode,
+  layerOrder: number,
+  prefix = ""
+): Record<string, TokenAttribution> {
+  const attributions: Record<string, TokenAttribution> = {}
+
+  for (const [key, value] of Object.entries(obj)) {
+    const path = prefix ? `${prefix}.${key}` : key
+
+    if (
+      value !== null &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+    ) {
+      Object.assign(
+        attributions,
+        collectAttributions(
+          value as Record<string, unknown>,
+          sourceName,
+          blendMode,
+          layerOrder,
+          path
+        )
+      )
+    } else {
+      attributions[path] = {
+        sourceName,
+        originalPath: path,
+        blendMode,
+        layerOrder,
+      }
+    }
+  }
+
+  return attributions
+}
+
+/**
+ * Composes a theme from multiple token sources
+ *
+ * @example
+ * ```typescript
+ * const result = composeTheme([
+ *   { name: "base", type: "theme", data: baseTheme, order: 0 },
+ *   { name: "brand", type: "colors", data: brandColors, order: 1 },
+ *   { name: "overrides", type: "tokens", data: customTokens, order: 2, blendMode: "overlay" },
+ * ], { name: "composed-theme" })
+ * ```
+ */
+export function composeTheme(
+  sources: ComposerTokenSource[],
+  config: ThemeComposerConfig
+): ThemeComposerResult {
+  const {
+    name,
+    defaultBlendMode = "merge",
+    validate = false,
+    trackSources = false,
+  } = config
+
+  const warnings: string[] = []
+  const errors: Error[] = []
+  const allAttributions: Record<string, TokenAttribution> = {}
+
+  // Filter and sort sources
+  const enabledSources = sources
+    .filter((s) => s.enabled !== false)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+
+  if (enabledSources.length === 0) {
+    return {
+      theme: {
+        name,
+        light: {
+          colors: {} as SemanticColors,
+          spacing: {},
+          typography: {},
+          fontWeight: {},
+          radius: {},
+          shadow: {},
+        },
+      },
+      success: true,
+      stats: {
+        totalSources: sources.length,
+        enabledSources: 0,
+        totalTokens: 0,
+        replacedTokens: 0,
+        mergedTokens: 0,
+        skippedTokens: 0,
+      },
+      warnings: ["No enabled sources provided"],
+      errors: [],
+    }
+  }
+
+  // Start with empty composed object
+  let composed: Record<string, unknown> = {}
+  let totalTokens = 0
+  let replacedTokens = 0
+  let mergedTokens = 0
+  let skippedTokens = 0
+
+  // Process each source in order
+  for (const source of enabledSources) {
+    try {
+      const tokens = extractTokensFromSource(source)
+      const blendMode = source.blendMode ?? defaultBlendMode
+
+      // Filter by categories
+      const filteredTokens: Record<string, unknown> = {}
+      for (const [category, value] of Object.entries(tokens)) {
+        if (value === undefined || value === null) continue
+
+        if (!shouldIncludeCategoryForComposer(category, source)) {
+          skippedTokens++
+          continue
+        }
+
+        // Apply prefix if specified
+        const key = source.prefix ? `${source.prefix}.${category}` : category
+
+        // Apply transform if specified
+        let processedValue: unknown = value
+        if (source.transform) {
+          processedValue = source.transform(value, key)
+        }
+
+        filteredTokens[key] = processedValue
+        totalTokens++
+      }
+
+      // Track attributions before blending
+      if (trackSources) {
+        const sourceAttributions = collectAttributions(
+          filteredTokens,
+          source.name,
+          blendMode,
+          source.order ?? 0
+        )
+        Object.assign(allAttributions, sourceAttributions)
+      }
+
+      // Blend with composed
+      composed = applyBlendMode(composed, filteredTokens, blendMode) as Record<
+        string,
+        unknown
+      >
+
+      // Track blend statistics
+      if (blendMode === "replace") {
+        replacedTokens += Object.keys(filteredTokens).length
+      } else {
+        mergedTokens += Object.keys(filteredTokens).length
+      }
+    } catch (error) {
+      errors.push(
+        new Error(
+          `Failed to process source "${source.name}": ${
+            error instanceof Error ? error.message : String(error)
+          }`
+        )
+      )
+    }
+  }
+
+  // Build final theme
+  const theme: ThemeConfig = {
+    name,
+    light: {
+      colors: (composed.colors ?? {}) as SemanticColors,
+      spacing: (composed.spacing ?? {}) as Partial<SpacingScale>,
+      typography: (composed.typography ?? {}) as Partial<TypographyScale>,
+      fontWeight: (composed.fontWeight ?? {}) as Partial<FontWeightScale>,
+      fontFamily: composed.fontFamily as DesignTokens["fontFamily"],
+      radius: (composed.radius ?? {}) as Partial<RadiusScale>,
+      shadow: (composed.shadow ?? {}) as Partial<ShadowScale>,
+      duration: composed.duration as Partial<DurationScale>,
+      easing: composed.easing as Partial<EasingScale>,
+      breakpoints: composed.breakpoints as Partial<Breakpoints>,
+      zIndex: composed.zIndex as Partial<ZIndexScale>,
+    },
+  }
+
+  // Validate if requested
+  if (validate) {
+    const validationResult = validateTheme(theme)
+    if (!validationResult.valid) {
+      warnings.push(
+        `Composed theme validation: ${validationResult.errors.length} errors`
+      )
+      for (const err of validationResult.errors) {
+        warnings.push(`  - ${err}`)
+      }
+    }
+  }
+
+  return {
+    theme,
+    success: errors.length === 0,
+    attributions: trackSources ? allAttributions : undefined,
+    stats: {
+      totalSources: sources.length,
+      enabledSources: enabledSources.length,
+      totalTokens,
+      replacedTokens,
+      mergedTokens,
+      skippedTokens,
+    },
+    warnings,
+    errors,
+  }
+}
+
+/**
+ * Creates a theme composer builder
+ *
+ * @example
+ * ```typescript
+ * const composed = createThemeComposer("my-theme")
+ *   .addTheme(baseTheme, { order: 0 })
+ *   .addColors(brandColors, { order: 1 })
+ *   .addTokens(overrides, { order: 2, blendMode: "overlay" })
+ *   .compose()
+ * ```
+ */
+export function createThemeComposer(name: string): {
+  addSource: (source: ComposerTokenSource) => ReturnType<typeof createThemeComposer>
+  addTheme: (
+    theme: ThemeConfig,
+    options?: Partial<Omit<ComposerTokenSource, "type" | "data">>
+  ) => ReturnType<typeof createThemeComposer>
+  addTokens: (
+    tokens: Partial<DesignTokens>,
+    options?: Partial<Omit<ComposerTokenSource, "type" | "data">>
+  ) => ReturnType<typeof createThemeComposer>
+  addColors: (
+    colors: Partial<SemanticColors>,
+    options?: Partial<Omit<ComposerTokenSource, "type" | "data">>
+  ) => ReturnType<typeof createThemeComposer>
+  addSpacing: (
+    spacing: Partial<SpacingScale>,
+    options?: Partial<Omit<ComposerTokenSource, "type" | "data">>
+  ) => ReturnType<typeof createThemeComposer>
+  addTypography: (
+    typography: Partial<TypographyScale>,
+    options?: Partial<Omit<ComposerTokenSource, "type" | "data">>
+  ) => ReturnType<typeof createThemeComposer>
+  configure: (config: Partial<ThemeComposerConfig>) => ReturnType<typeof createThemeComposer>
+  compose: () => ThemeComposerResult
+} {
+  const sources: ComposerTokenSource[] = []
+  let composerConfig: Partial<ThemeComposerConfig> = {}
+  let orderCounter = 0
+
+  const builder = {
+    addSource(source: ComposerTokenSource) {
+      sources.push({
+        ...source,
+        order: source.order ?? orderCounter++,
+      })
+      return builder
+    },
+
+    addTheme(
+      theme: ThemeConfig,
+      options?: Partial<Omit<ComposerTokenSource, "type" | "data">>
+    ) {
+      return builder.addSource({
+        name: options?.name ?? theme.name,
+        type: "theme",
+        data: theme,
+        ...options,
+      })
+    },
+
+    addTokens(
+      tokens: Partial<DesignTokens>,
+      options?: Partial<Omit<ComposerTokenSource, "type" | "data">>
+    ) {
+      return builder.addSource({
+        name: options?.name ?? `tokens-${orderCounter}`,
+        type: "tokens",
+        data: tokens,
+        ...options,
+      })
+    },
+
+    addColors(
+      colors: Partial<SemanticColors>,
+      options?: Partial<Omit<ComposerTokenSource, "type" | "data">>
+    ) {
+      return builder.addSource({
+        name: options?.name ?? `colors-${orderCounter}`,
+        type: "colors",
+        data: colors,
+        ...options,
+      })
+    },
+
+    addSpacing(
+      spacing: Partial<SpacingScale>,
+      options?: Partial<Omit<ComposerTokenSource, "type" | "data">>
+    ) {
+      return builder.addSource({
+        name: options?.name ?? `spacing-${orderCounter}`,
+        type: "spacing",
+        data: spacing,
+        ...options,
+      })
+    },
+
+    addTypography(
+      typography: Partial<TypographyScale>,
+      options?: Partial<Omit<ComposerTokenSource, "type" | "data">>
+    ) {
+      return builder.addSource({
+        name: options?.name ?? `typography-${orderCounter}`,
+        type: "typography",
+        data: typography,
+        ...options,
+      })
+    },
+
+    configure(config: Partial<ThemeComposerConfig>) {
+      composerConfig = { ...composerConfig, ...config }
+      return builder
+    },
+
+    compose() {
+      return composeTheme(sources, { name, ...composerConfig })
+    },
+  }
+
+  return builder
+}
+
+/**
+ * Creates a layer from a theme config
+ */
+export function createLayer(
+  name: string,
+  theme: ThemeConfig,
+  options?: {
+    order?: number
+    blendMode?: LayerBlendMode
+    includeCategories?: ComposerTokenSource["includeCategories"]
+    excludeCategories?: ComposerTokenSource["excludeCategories"]
+  }
+): ComposerTokenSource {
+  return {
+    name,
+    type: "theme",
+    data: theme,
+    order: options?.order,
+    blendMode: options?.blendMode,
+    includeCategories: options?.includeCategories,
+    excludeCategories: options?.excludeCategories,
+  }
+}
+
+/**
+ * Creates a selective layer that only includes specific categories
+ */
+export function createSelectiveLayer(
+  name: string,
+  data: Record<string, unknown>,
+  categories: Array<"colors" | "spacing" | "typography" | "radius" | "shadow">,
+  options?: {
+    order?: number
+    blendMode?: LayerBlendMode
+  }
+): ComposerTokenSource {
+  return {
+    name,
+    type: "custom",
+    data,
+    order: options?.order,
+    blendMode: options?.blendMode,
+    includeCategories: categories,
+  }
+}
+
+/**
+ * Formats composer result as a report
+ */
+export function formatComposerReport(result: ThemeComposerResult): string {
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Theme Composer Report")
+  lines.push(divider)
+  lines.push("")
+
+  // Summary
+  lines.push("Summary")
+  lines.push("─".repeat(50))
+  lines.push(`  Theme Name:     ${result.theme.name}`)
+  lines.push(`  Success:        ${result.success ? "Yes" : "No"}`)
+  lines.push(`  Sources:        ${result.stats.enabledSources}/${result.stats.totalSources}`)
+  lines.push(`  Total Tokens:   ${result.stats.totalTokens}`)
+  lines.push(`  Replaced:       ${result.stats.replacedTokens}`)
+  lines.push(`  Merged:         ${result.stats.mergedTokens}`)
+  lines.push(`  Skipped:        ${result.stats.skippedTokens}`)
+  lines.push("")
+
+  // Attributions (sample)
+  if (result.attributions) {
+    const attrEntries = Object.entries(result.attributions)
+    lines.push("Token Attributions (first 10)")
+    lines.push("─".repeat(50))
+
+    for (const [path, attr] of attrEntries.slice(0, 10)) {
+      lines.push(`  ${path}`)
+      lines.push(`    Source: ${attr.sourceName} (order: ${attr.layerOrder}, mode: ${attr.blendMode})`)
+    }
+
+    if (attrEntries.length > 10) {
+      lines.push(`  ... and ${attrEntries.length - 10} more`)
+    }
+    lines.push("")
+  }
+
+  // Warnings
+  if (result.warnings.length > 0) {
+    lines.push("Warnings")
+    lines.push("─".repeat(50))
+    for (const warning of result.warnings) {
+      lines.push(`  - ${warning}`)
+    }
+    lines.push("")
+  }
+
+  // Errors
+  if (result.errors.length > 0) {
+    lines.push("Errors")
+    lines.push("─".repeat(50))
+    for (const error of result.errors) {
+      lines.push(`  - ${error.message}`)
+    }
+    lines.push("")
+  }
+
+  lines.push(divider)
+
+  return lines.join("\n")
+}
