@@ -469,6 +469,16 @@ export {
   createColorTransformPlugin,
   createValidationPlugin,
   formatPluginExecutionReport,
+  // Token Transformer (Feature #129)
+  executeTransformPipeline,
+  createTransformPipeline,
+  composeTransforms,
+  composeAsyncTransforms,
+  conditionalTransform,
+  createMapTransform,
+  createRegexTransform,
+  createScaleTransform,
+  formatPipelineReport,
 } from "./theme-worker"
 
 export type {
@@ -738,6 +748,15 @@ export type {
   PluginRegistrationOptions,
   PluginExecutionResult,
   PluginChainConfig,
+  // Token Transformer (Feature #129)
+  TransformTokenCategory,
+  TokenTransformFn,
+  AsyncTokenTransformFn,
+  TransformContext,
+  TokenTransform,
+  TransformPipelineConfig,
+  TransformResult,
+  PipelineExecutionResult,
 } from "./theme-worker"
 
 // Token presets

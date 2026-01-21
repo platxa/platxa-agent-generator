@@ -27350,3 +27350,768 @@ export function formatPluginExecutionReport(
 
   return lines.join("\n")
 }
+
+// ============================================================================
+// Feature #129: Token Transformer
+// ============================================================================
+
+/**
+ * Token categories for transformation pipelines
+ */
+export type TransformTokenCategory =
+  | "colors"
+  | "typography"
+  | "spacing"
+  | "radius"
+  | "shadow"
+  | "duration"
+  | "easing"
+  | "zIndex"
+  | "breakpoints"
+  | "all"
+
+/**
+ * Transform function signature (sync)
+ */
+export type TokenTransformFn<T = unknown> = (
+  value: T,
+  path: string,
+  context: TransformContext
+) => T
+
+/**
+ * Async transform function signature
+ */
+export type AsyncTokenTransformFn<T = unknown> = (
+  value: T,
+  path: string,
+  context: TransformContext
+) => T | Promise<T>
+
+/**
+ * Transform context passed to transform functions
+ */
+export interface TransformContext {
+  /** Full token path (e.g., "colors.primary") */
+  path: string
+  /** Token category */
+  category: TransformTokenCategory
+  /** Parent object reference */
+  parent: Record<string, unknown>
+  /** Root config reference */
+  root: ThemeConfig
+  /** Transform metadata */
+  meta: {
+    transformName: string
+    pipelineName?: string
+    index: number
+    total: number
+  }
+  /** Shared data between transforms */
+  shared: Record<string, unknown>
+  /** Abort the pipeline */
+  abort: () => void
+  /** Check if aborted */
+  isAborted: () => boolean
+}
+
+/**
+ * Single transform definition
+ */
+export interface TokenTransform {
+  /** Transform name */
+  name: string
+  /** Categories to apply to */
+  categories: TransformTokenCategory[]
+  /** Sync transform function */
+  transform?: TokenTransformFn
+  /** Async transform function */
+  asyncTransform?: AsyncTokenTransformFn
+  /** Path filter (regex or function) */
+  pathFilter?: RegExp | ((path: string) => boolean)
+  /** Value filter */
+  valueFilter?: (value: unknown) => boolean
+  /** Whether transform is enabled */
+  enabled?: boolean
+}
+
+/**
+ * Pipeline configuration
+ */
+export interface TransformPipelineConfig {
+  /** Pipeline name */
+  name: string
+  /** Transforms in order */
+  transforms: TokenTransform[]
+  /** Continue on error */
+  continueOnError?: boolean
+  /** Parallel execution for async transforms */
+  parallel?: boolean
+  /** Timeout per transform in ms */
+  timeout?: number
+  /** Enable debug logging */
+  debug?: boolean
+}
+
+/**
+ * Transform result for a single value
+ */
+export interface TransformResult {
+  /** Original value */
+  original: unknown
+  /** Transformed value */
+  transformed: unknown
+  /** Token path */
+  path: string
+  /** Transform that produced this result */
+  transformName: string
+  /** Whether transform was applied */
+  applied: boolean
+  /** Error if any */
+  error?: Error
+  /** Duration in ms */
+  duration: number
+}
+
+/**
+ * Pipeline execution result
+ */
+export interface PipelineExecutionResult {
+  /** Whether pipeline succeeded */
+  success: boolean
+  /** Transformed config */
+  config: ThemeConfig
+  /** Results per transform */
+  results: TransformResult[]
+  /** Statistics */
+  stats: {
+    totalTransforms: number
+    appliedTransforms: number
+    skippedTransforms: number
+    failedTransforms: number
+    totalDuration: number
+  }
+  /** Warnings */
+  warnings: string[]
+  /** Errors */
+  errors: Error[]
+}
+
+/**
+ * Internal abort controller
+ */
+interface AbortController {
+  aborted: boolean
+  abort: () => void
+  isAborted: () => boolean
+}
+
+/**
+ * Creates an abort controller
+ */
+function createAbortController(): AbortController {
+  const state = { aborted: false }
+  return {
+    get aborted() {
+      return state.aborted
+    },
+    abort: () => {
+      state.aborted = true
+    },
+    isAborted: () => state.aborted,
+  }
+}
+
+/**
+ * Gets category from token path
+ */
+function getCategoryFromPath(path: string): TransformTokenCategory {
+  const first = path.split(".")[0]
+
+  switch (first) {
+    case "colors":
+    case "dark":
+      return "colors"
+    case "typography":
+    case "fontWeight":
+    case "fontFamily":
+      return "typography"
+    case "spacing":
+      return "spacing"
+    case "radius":
+      return "radius"
+    case "shadow":
+      return "shadow"
+    case "duration":
+      return "duration"
+    case "easing":
+      return "easing"
+    case "zIndex":
+      return "zIndex"
+    case "breakpoints":
+      return "breakpoints"
+    default:
+      return "all"
+  }
+}
+
+/**
+ * Checks if transform should be applied to a path
+ */
+function shouldApplyTransform(
+  transform: TokenTransform,
+  path: string,
+  value: unknown,
+  category: TransformTokenCategory
+): boolean {
+  // Check enabled
+  if (transform.enabled === false) {
+    return false
+  }
+
+  // Check categories
+  if (
+    !transform.categories.includes("all") &&
+    !transform.categories.includes(category)
+  ) {
+    return false
+  }
+
+  // Check path filter
+  if (transform.pathFilter) {
+    if (typeof transform.pathFilter === "function") {
+      if (!transform.pathFilter(path)) {
+        return false
+      }
+    } else if (!transform.pathFilter.test(path)) {
+      return false
+    }
+  }
+
+  // Check value filter
+  if (transform.valueFilter && !transform.valueFilter(value)) {
+    return false
+  }
+
+  return true
+}
+
+/**
+ * Applies a single transform to a value
+ */
+async function applyTransform(
+  transform: TokenTransform,
+  value: unknown,
+  path: string,
+  context: TransformContext,
+  timeout?: number
+): Promise<{ value: unknown; applied: boolean; error?: Error; duration: number }> {
+  const start = Date.now()
+
+  try {
+    let result: unknown
+
+    if (transform.asyncTransform) {
+      // Async transform with optional timeout
+      if (timeout) {
+        result = await Promise.race([
+          transform.asyncTransform(value, path, context),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error(`Transform timeout (${timeout}ms)`)), timeout)
+          ),
+        ])
+      } else {
+        result = await transform.asyncTransform(value, path, context)
+      }
+    } else if (transform.transform) {
+      // Sync transform
+      result = transform.transform(value, path, context)
+    } else {
+      // No transform function
+      return { value, applied: false, duration: Date.now() - start }
+    }
+
+    return { value: result, applied: true, duration: Date.now() - start }
+  } catch (error) {
+    return {
+      value,
+      applied: false,
+      error: error instanceof Error ? error : new Error(String(error)),
+      duration: Date.now() - start,
+    }
+  }
+}
+
+/**
+ * Recursively transforms an object
+ */
+async function transformObject(
+  obj: Record<string, unknown>,
+  transforms: TokenTransform[],
+  rootConfig: ThemeConfig,
+  pipelineName: string,
+  options: {
+    continueOnError?: boolean
+    parallel?: boolean
+    timeout?: number
+    debug?: boolean
+  },
+  abortController: AbortController,
+  prefix = ""
+): Promise<{
+  result: Record<string, unknown>
+  transformResults: TransformResult[]
+}> {
+  const result: Record<string, unknown> = {}
+  const transformResults: TransformResult[] = []
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (abortController.isAborted()) {
+      result[key] = value
+      continue
+    }
+
+    const path = prefix ? `${prefix}.${key}` : key
+    const category = getCategoryFromPath(path)
+
+    if (
+      value !== null &&
+      typeof value === "object" &&
+      !Array.isArray(value)
+    ) {
+      // Recurse into nested objects
+      const nested = await transformObject(
+        value as Record<string, unknown>,
+        transforms,
+        rootConfig,
+        pipelineName,
+        options,
+        abortController,
+        path
+      )
+      result[key] = nested.result
+      transformResults.push(...nested.transformResults)
+    } else {
+      // Transform leaf value
+      let currentValue = value
+
+      for (let i = 0; i < transforms.length; i++) {
+        if (abortController.isAborted()) {
+          break
+        }
+
+        const transform = transforms[i]
+
+        if (!shouldApplyTransform(transform, path, currentValue, category)) {
+          continue
+        }
+
+        const context: TransformContext = {
+          path,
+          category,
+          parent: obj,
+          root: rootConfig,
+          meta: {
+            transformName: transform.name,
+            pipelineName,
+            index: i,
+            total: transforms.length,
+          },
+          shared: {},
+          abort: abortController.abort,
+          isAborted: abortController.isAborted,
+        }
+
+        if (options.debug) {
+          console.log(`[Transform] ${transform.name} @ ${path}`)
+        }
+
+        const transformResult = await applyTransform(
+          transform,
+          currentValue,
+          path,
+          context,
+          options.timeout
+        )
+
+        transformResults.push({
+          original: currentValue,
+          transformed: transformResult.value,
+          path,
+          transformName: transform.name,
+          applied: transformResult.applied,
+          error: transformResult.error,
+          duration: transformResult.duration,
+        })
+
+        if (transformResult.error) {
+          if (!options.continueOnError) {
+            abortController.abort()
+            break
+          }
+        } else if (transformResult.applied) {
+          currentValue = transformResult.value
+        }
+      }
+
+      result[key] = currentValue
+    }
+  }
+
+  return { result, transformResults }
+}
+
+/**
+ * Executes a transform pipeline on a theme config
+ *
+ * @example
+ * ```typescript
+ * const pipeline: TransformPipelineConfig = {
+ *   name: "color-adjust",
+ *   transforms: [
+ *     {
+ *       name: "lighten-colors",
+ *       categories: ["colors"],
+ *       transform: (value, path) => {
+ *         if (typeof value === "string" && value.startsWith("oklch")) {
+ *           return value.replace(/oklch\(([\d.]+)/, (_, l) =>
+ *             `oklch(${Math.min(1, parseFloat(l) + 0.1)}`
+ *           )
+ *         }
+ *         return value
+ *       },
+ *     },
+ *   ],
+ * }
+ *
+ * const result = await executeTransformPipeline(myTheme, pipeline)
+ * ```
+ */
+export async function executeTransformPipeline(
+  config: ThemeConfig,
+  pipeline: TransformPipelineConfig
+): Promise<PipelineExecutionResult> {
+  const start = Date.now()
+  const abortController = createAbortController()
+  const allResults: TransformResult[] = []
+  const warnings: string[] = []
+  const errors: Error[] = []
+
+  // Deep clone config
+  const clonedConfig: ThemeConfig = JSON.parse(JSON.stringify(config))
+
+  // Transform light tokens
+  const lightResult = await transformObject(
+    clonedConfig.light as unknown as Record<string, unknown>,
+    pipeline.transforms,
+    clonedConfig,
+    pipeline.name,
+    {
+      continueOnError: pipeline.continueOnError,
+      parallel: pipeline.parallel,
+      timeout: pipeline.timeout,
+      debug: pipeline.debug,
+    },
+    abortController,
+    "light"
+  )
+
+  clonedConfig.light = lightResult.result as unknown as DesignTokens
+  allResults.push(...lightResult.transformResults)
+
+  // Transform dark tokens if present
+  if (clonedConfig.dark && !abortController.isAborted()) {
+    const darkResult = await transformObject(
+      clonedConfig.dark as unknown as Record<string, unknown>,
+      pipeline.transforms,
+      clonedConfig,
+      pipeline.name,
+      {
+        continueOnError: pipeline.continueOnError,
+        parallel: pipeline.parallel,
+        timeout: pipeline.timeout,
+        debug: pipeline.debug,
+      },
+      abortController,
+      "dark"
+    )
+
+    clonedConfig.dark = darkResult.result as unknown as Partial<SemanticColors>
+    allResults.push(...darkResult.transformResults)
+  }
+
+  // Collect errors
+  for (const result of allResults) {
+    if (result.error) {
+      errors.push(result.error)
+    }
+  }
+
+  // Calculate stats
+  const appliedCount = allResults.filter((r) => r.applied && !r.error).length
+  const skippedCount = allResults.filter((r) => !r.applied && !r.error).length
+  const failedCount = allResults.filter((r) => r.error).length
+
+  return {
+    success: errors.length === 0,
+    config: clonedConfig,
+    results: allResults,
+    stats: {
+      totalTransforms: allResults.length,
+      appliedTransforms: appliedCount,
+      skippedTransforms: skippedCount,
+      failedTransforms: failedCount,
+      totalDuration: Date.now() - start,
+    },
+    warnings,
+    errors,
+  }
+}
+
+/**
+ * Creates a transform pipeline builder
+ *
+ * @example
+ * ```typescript
+ * const pipeline = createTransformPipeline("my-pipeline")
+ *   .add({
+ *     name: "uppercase-colors",
+ *     categories: ["colors"],
+ *     transform: (v) => typeof v === "string" ? v.toUpperCase() : v,
+ *   })
+ *   .add({
+ *     name: "round-spacing",
+ *     categories: ["spacing"],
+ *     transform: (v) => typeof v === "string" ? v.replace(/\d+\.\d+/, Math.round) : v,
+ *   })
+ *   .build()
+ *
+ * const result = await executeTransformPipeline(config, pipeline)
+ * ```
+ */
+export function createTransformPipeline(
+  name: string
+): {
+  add: (transform: TokenTransform) => ReturnType<typeof createTransformPipeline>
+  remove: (name: string) => ReturnType<typeof createTransformPipeline>
+  configure: (options: Partial<Omit<TransformPipelineConfig, "name" | "transforms">>) => ReturnType<typeof createTransformPipeline>
+  build: () => TransformPipelineConfig
+} {
+  const transforms: TokenTransform[] = []
+  let options: Partial<Omit<TransformPipelineConfig, "name" | "transforms">> = {}
+
+  const builder = {
+    add(transform: TokenTransform) {
+      transforms.push(transform)
+      return builder
+    },
+    remove(transformName: string) {
+      const index = transforms.findIndex((t) => t.name === transformName)
+      if (index !== -1) {
+        transforms.splice(index, 1)
+      }
+      return builder
+    },
+    configure(opts: Partial<Omit<TransformPipelineConfig, "name" | "transforms">>) {
+      options = { ...options, ...opts }
+      return builder
+    },
+    build(): TransformPipelineConfig {
+      return {
+        name,
+        transforms: [...transforms],
+        ...options,
+      }
+    },
+  }
+
+  return builder
+}
+
+/**
+ * Composes multiple transforms into a single transform
+ */
+export function composeTransforms(
+  name: string,
+  ...transforms: TokenTransformFn[]
+): TokenTransform {
+  return {
+    name,
+    categories: ["all"],
+    transform: (value, path, context) => {
+      let result = value
+      for (const transform of transforms) {
+        result = transform(result, path, context)
+        if (context.isAborted()) {
+          break
+        }
+      }
+      return result
+    },
+  }
+}
+
+/**
+ * Composes multiple async transforms into a single transform
+ */
+export function composeAsyncTransforms(
+  name: string,
+  ...transforms: AsyncTokenTransformFn[]
+): TokenTransform {
+  return {
+    name,
+    categories: ["all"],
+    asyncTransform: async (value, path, context) => {
+      let result = value
+      for (const transform of transforms) {
+        result = await transform(result, path, context)
+        if (context.isAborted()) {
+          break
+        }
+      }
+      return result
+    },
+  }
+}
+
+/**
+ * Creates a conditional transform
+ */
+export function conditionalTransform(
+  name: string,
+  condition: (value: unknown, path: string) => boolean,
+  transform: TokenTransformFn
+): TokenTransform {
+  return {
+    name,
+    categories: ["all"],
+    valueFilter: (value) => condition(value, ""),
+    transform,
+  }
+}
+
+/**
+ * Creates a map transform for string values
+ */
+export function createMapTransform(
+  name: string,
+  mapping: Record<string, string>,
+  categories: TransformTokenCategory[] = ["all"]
+): TokenTransform {
+  return {
+    name,
+    categories,
+    valueFilter: (value) => typeof value === "string" && value in mapping,
+    transform: (value) => mapping[value as string] ?? value,
+  }
+}
+
+/**
+ * Creates a regex replace transform
+ */
+export function createRegexTransform(
+  name: string,
+  pattern: RegExp,
+  replacement: string | ((match: string, ...groups: string[]) => string),
+  categories: TransformTokenCategory[] = ["all"]
+): TokenTransform {
+  return {
+    name,
+    categories,
+    valueFilter: (value) => typeof value === "string" && pattern.test(value),
+    transform: (value) =>
+      typeof value === "string"
+        ? value.replace(pattern, replacement as string)
+        : value,
+  }
+}
+
+/**
+ * Creates a numeric scale transform
+ */
+export function createScaleTransform(
+  name: string,
+  factor: number,
+  categories: TransformTokenCategory[] = ["spacing"]
+): TokenTransform {
+  return {
+    name,
+    categories,
+    valueFilter: (value) =>
+      typeof value === "string" && /^[\d.]+(?:rem|em|px)$/.test(value),
+    transform: (value) => {
+      if (typeof value !== "string") return value
+
+      const match = value.match(/^([\d.]+)(rem|em|px)$/)
+      if (!match) return value
+
+      const num = parseFloat(match[1])
+      const unit = match[2]
+
+      return `${num * factor}${unit}`
+    },
+  }
+}
+
+/**
+ * Formats pipeline execution result as a report
+ */
+export function formatPipelineReport(result: PipelineExecutionResult): string {
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Transform Pipeline Report")
+  lines.push(divider)
+  lines.push("")
+
+  // Summary
+  lines.push("Summary")
+  lines.push("─".repeat(50))
+  lines.push(`  Success:    ${result.success ? "Yes" : "No"}`)
+  lines.push(`  Duration:   ${result.stats.totalDuration}ms`)
+  lines.push(`  Applied:    ${result.stats.appliedTransforms}`)
+  lines.push(`  Skipped:    ${result.stats.skippedTransforms}`)
+  lines.push(`  Failed:     ${result.stats.failedTransforms}`)
+  lines.push("")
+
+  // Applied transforms (sample)
+  const applied = result.results.filter((r) => r.applied && !r.error)
+  if (applied.length > 0) {
+    lines.push("Applied Transforms (first 10)")
+    lines.push("─".repeat(50))
+
+    for (const r of applied.slice(0, 10)) {
+      const origStr =
+        typeof r.original === "object"
+          ? JSON.stringify(r.original)
+          : String(r.original)
+      const transStr =
+        typeof r.transformed === "object"
+          ? JSON.stringify(r.transformed)
+          : String(r.transformed)
+
+      lines.push(`  ${r.path}`)
+      lines.push(`    ${r.transformName}: ${origStr.slice(0, 30)} → ${transStr.slice(0, 30)}`)
+    }
+
+    if (applied.length > 10) {
+      lines.push(`  ... and ${applied.length - 10} more`)
+    }
+    lines.push("")
+  }
+
+  // Errors
+  if (result.errors.length > 0) {
+    lines.push("Errors")
+    lines.push("─".repeat(50))
+    for (const error of result.errors) {
+      lines.push(`  - ${error.message}`)
+    }
+    lines.push("")
+  }
+
+  lines.push(divider)
+
+  return lines.join("\n")
+}
