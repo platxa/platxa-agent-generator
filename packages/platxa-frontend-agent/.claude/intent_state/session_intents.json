@@ -1,32 +1,32 @@
 {
-  "session_id": "1aa06c99212c",
+  "session_id": "4e7b071a5e6e",
   "stack": {
     "session": {
-      "id": "1aa06c99212c-181",
-      "text": "[Validation & Security Features] Feature #121: [Duplicate Token Check] Warn about duplicate token definitions Verification: Duplicate names detected; Warning with locations; Suggestion for resolution Criteria: Manual verification required",
+      "id": "4e7b071a5e6e-183",
+      "text": "[Validation & Security Features] Feature #122: [Content Security Policy] Generate CSP headers for brand kit resources Verification: CSP directives generated; External URLs included; Nonce support for inline Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769001507.9986858,
-      "updated_at": 1769001507.9986863,
+      "created_at": 1769001727.5700312,
+      "updated_at": 1769001727.5700312,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 121,
+        "feature_id": 122,
         "category": "Validation & Security Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "1aa06c99212c-182",
-      "text": "Implement: [Duplicate Token Check] Warn about duplicate token definitions Verification: Duplicate names detected; Warning with locations; Suggestion for resolution",
+      "id": "4e7b071a5e6e-184",
+      "text": "Implement: [Content Security Policy] Generate CSP headers for brand kit resources Verification: CSP directives generated; External URLs included; Nonce support for inline",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769001508.0036104,
-      "updated_at": 1769001508.0036106,
+      "created_at": 1769001727.5751674,
+      "updated_at": 1769001727.5751677,
       "completed_at": null,
-      "parent_id": "1aa06c99212c-181",
+      "parent_id": "4e7b071a5e6e-183",
       "metadata": {},
       "keywords": []
     },
@@ -2671,9 +2671,38 @@
       "parent_id": "1aa06c99212c-181",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "4e7b071a5e6e-183",
+      "text": "[Validation & Security Features] Feature #122: [Content Security Policy] Generate CSP headers for brand kit resources Verification: CSP directives generated; External URLs included; Nonce support for inline Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769001727.5700312,
+      "updated_at": 1769001727.5700312,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 122,
+        "category": "Validation & Security Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "4e7b071a5e6e-184",
+      "text": "Implement: [Content Security Policy] Generate CSP headers for brand kit resources Verification: CSP directives generated; External URLs included; Nonce support for inline",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769001727.5751674,
+      "updated_at": 1769001727.5751677,
+      "completed_at": null,
+      "parent_id": "4e7b071a5e6e-183",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 182,
+  "intent_counter": 184,
   "created_at": 1768900061.32227,
-  "updated_at": 1769001508.003615
+  "updated_at": 1769001727.5751715
 }

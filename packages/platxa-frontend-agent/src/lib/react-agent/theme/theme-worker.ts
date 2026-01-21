@@ -22805,3 +22805,628 @@ export function validateNoDuplicates(
 
   return { passed, message, result }
 }
+
+// ============================================================================
+// Feature #122: Content Security Policy
+// Generate CSP headers for brand kit resources with nonce support
+// ============================================================================
+
+/**
+ * CSP directive names
+ */
+export type CspDirective =
+  | "default-src"
+  | "script-src"
+  | "style-src"
+  | "img-src"
+  | "font-src"
+  | "connect-src"
+  | "media-src"
+  | "object-src"
+  | "frame-src"
+  | "child-src"
+  | "worker-src"
+  | "manifest-src"
+  | "base-uri"
+  | "form-action"
+  | "frame-ancestors"
+  | "navigate-to"
+  | "report-uri"
+  | "report-to"
+  | "require-trusted-types-for"
+  | "trusted-types"
+  | "upgrade-insecure-requests"
+  | "block-all-mixed-content"
+
+/**
+ * CSP source values
+ */
+export type CspSource =
+  | "'self'"
+  | "'unsafe-inline'"
+  | "'unsafe-eval'"
+  | "'unsafe-hashes'"
+  | "'strict-dynamic'"
+  | "'report-sample'"
+  | "'none'"
+  | "'wasm-unsafe-eval'"
+  | string // URLs, nonces, hashes
+
+/**
+ * Configuration for CSP generation
+ */
+export interface CspConfig {
+  /** Enable nonce for inline scripts (default: true) */
+  useNonce?: boolean
+  /** Custom nonce value (if not provided, one will be generated) */
+  nonce?: string
+  /** Enable strict-dynamic for scripts */
+  useStrictDynamic?: boolean
+  /** Allow unsafe-inline as fallback (default: false) */
+  allowUnsafeInline?: boolean
+  /** Allow unsafe-eval (default: false) */
+  allowUnsafeEval?: boolean
+  /** Report-only mode (default: false) */
+  reportOnly?: boolean
+  /** Report URI for violations */
+  reportUri?: string
+  /** Report-to group name */
+  reportTo?: string
+  /** Additional trusted domains */
+  trustedDomains?: string[]
+  /** External font URLs to allow */
+  fontUrls?: string[]
+  /** External image URLs to allow */
+  imageUrls?: string[]
+  /** Upgrade insecure requests (default: true for production) */
+  upgradeInsecureRequests?: boolean
+  /** Block mixed content (default: true) */
+  blockMixedContent?: boolean
+  /** Frame ancestors (for clickjacking protection) */
+  frameAncestors?: string[]
+  /** Include hash for inline styles */
+  includeStyleHashes?: boolean
+}
+
+/**
+ * Generated CSP result
+ */
+export interface CspResult {
+  /** Full CSP header value */
+  header: string
+  /** Header name (Content-Security-Policy or Content-Security-Policy-Report-Only) */
+  headerName: string
+  /** Individual directives */
+  directives: Record<CspDirective, string[]>
+  /** Nonce value (if generated) */
+  nonce?: string
+  /** Nonce attribute for HTML (nonce="...") */
+  nonceAttr?: string
+  /** Meta tag equivalent */
+  metaTag: string
+  /** Hash of inline styles (if computed) */
+  styleHashes?: string[]
+  /** Warnings about the configuration */
+  warnings: string[]
+}
+
+/**
+ * Default CSP directives for brand kit resources
+ */
+const DEFAULT_CSP_DIRECTIVES: Partial<Record<CspDirective, CspSource[]>> = {
+  "default-src": ["'self'"],
+  "script-src": ["'self'"],
+  "style-src": ["'self'"],
+  "img-src": ["'self'", "data:", "blob:"],
+  "font-src": ["'self'"],
+  "connect-src": ["'self'"],
+  "object-src": ["'none'"],
+  "frame-ancestors": ["'self'"],
+  "base-uri": ["'self'"],
+  "form-action": ["'self'"],
+}
+
+/**
+ * Generates a cryptographically secure nonce
+ */
+function generateCspNonce(): string {
+  // Use crypto if available (Node.js or browser)
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return btoa(crypto.randomUUID()).replace(/[+/=]/g, "")
+  }
+  // Fallback for environments without crypto
+  return btoa(Math.random().toString(36) + Date.now().toString(36)).replace(/[+/=]/g, "")
+}
+
+/**
+ * Computes SHA-256 hash for CSP
+ */
+async function computeCspHash(content: string): Promise<string> {
+  if (typeof crypto !== "undefined" && crypto.subtle) {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(content)
+    const hashBuffer = await crypto.subtle.digest("SHA-256", data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const base64 = btoa(String.fromCharCode(...hashArray))
+    return "'sha256-" + base64 + "'"
+  }
+  // Fallback: return empty (hash not computable in this environment)
+  return ""
+}
+
+/**
+ * Extracts external URLs from a ThemeConfig
+ */
+function extractExternalUrls(config: ThemeConfig): {
+  fontUrls: string[]
+  imageUrls: string[]
+  connectUrls: string[]
+} {
+  const fontUrls: string[] = []
+  const imageUrls: string[] = []
+  const connectUrls: string[] = []
+
+  // Check font family for external font URLs
+  if (config.light?.fontFamily) {
+    const fonts = config.light.fontFamily
+    for (const value of Object.values(fonts)) {
+      if (typeof value === "string") {
+        // Check for Google Fonts
+        if (value.includes("fonts.googleapis.com") || value.includes("fonts.gstatic.com")) {
+          fontUrls.push("https://fonts.googleapis.com")
+          fontUrls.push("https://fonts.gstatic.com")
+        }
+        // Check for other font CDNs
+        const urlMatch = value.match(/https?:\/\/[^\s"',)]+/)
+        if (urlMatch) {
+          const url = new URL(urlMatch[0])
+          fontUrls.push(url.origin)
+        }
+      }
+    }
+  }
+
+  return {
+    fontUrls: [...new Set(fontUrls)],
+    imageUrls: [...new Set(imageUrls)],
+    connectUrls: [...new Set(connectUrls)],
+  }
+}
+
+/**
+ * Generates Content Security Policy headers for brand kit resources
+ *
+ * Creates CSP directives that allow the brand kit's styles, scripts, and
+ * external resources while maintaining security. Supports nonce-based
+ * CSP for inline styles and scripts.
+ *
+ * @param config - The theme configuration
+ * @param options - CSP generation options
+ * @returns CSP result with header, directives, and nonce
+ *
+ * @example
+ * ```typescript
+ * // Basic CSP generation
+ * const csp = generateCsp(myTheme)
+ * res.setHeader(csp.headerName, csp.header)
+ *
+ * // With nonce for inline styles
+ * const csp = generateCsp(myTheme, { useNonce: true })
+ * res.setHeader(csp.headerName, csp.header)
+ * // Use csp.nonceAttr in your inline style tags
+ *
+ * // Report-only mode for testing
+ * const csp = generateCsp(myTheme, {
+ *   reportOnly: true,
+ *   reportUri: "/csp-violation-report"
+ * })
+ * ```
+ */
+export function generateCsp(
+  config: ThemeConfig,
+  options: CspConfig = {}
+): CspResult {
+  const {
+    useNonce = true,
+    nonce = useNonce ? generateCspNonce() : undefined,
+    useStrictDynamic = false,
+    allowUnsafeInline = false,
+    allowUnsafeEval = false,
+    reportOnly = false,
+    reportUri,
+    reportTo,
+    trustedDomains = [],
+    fontUrls = [],
+    imageUrls = [],
+    upgradeInsecureRequests = true,
+    blockMixedContent = true,
+    frameAncestors = ["'self'"],
+  } = options
+
+  const warnings: string[] = []
+
+  // Initialize directives with defaults
+  const directives: Record<CspDirective, string[]> = {} as Record<CspDirective, string[]>
+  for (const [key, values] of Object.entries(DEFAULT_CSP_DIRECTIVES)) {
+    directives[key as CspDirective] = [...(values as string[])]
+  }
+
+  // Extract external URLs from theme config
+  const externalUrls = extractExternalUrls(config)
+
+  // Add font sources
+  const allFontUrls = [...new Set([...fontUrls, ...externalUrls.fontUrls])]
+  if (allFontUrls.length > 0) {
+    directives["font-src"].push(...allFontUrls)
+    // Also need style-src for font CSS
+    for (const url of allFontUrls) {
+      if (url.includes("fonts.googleapis.com")) {
+        directives["style-src"].push("https://fonts.googleapis.com")
+      }
+    }
+  }
+
+  // Add image sources
+  const allImageUrls = [...new Set([...imageUrls, ...externalUrls.imageUrls])]
+  if (allImageUrls.length > 0) {
+    directives["img-src"].push(...allImageUrls)
+  }
+
+  // Add trusted domains to connect-src
+  if (trustedDomains.length > 0) {
+    directives["connect-src"].push(...trustedDomains)
+  }
+
+  // Handle nonce for scripts and styles
+  if (nonce) {
+    const nonceValue = "'nonce-" + nonce + "'"
+    directives["script-src"].push(nonceValue)
+    directives["style-src"].push(nonceValue)
+  }
+
+  // Handle strict-dynamic
+  if (useStrictDynamic) {
+    directives["script-src"].push("'strict-dynamic'")
+    if (!nonce) {
+      warnings.push("strict-dynamic requires nonce or hash for trusted scripts")
+    }
+  }
+
+  // Handle unsafe-inline fallback
+  if (allowUnsafeInline) {
+    if (!nonce) {
+      directives["script-src"].push("'unsafe-inline'")
+      directives["style-src"].push("'unsafe-inline'")
+    } else {
+      warnings.push("unsafe-inline is ignored when nonce is present in modern browsers")
+    }
+  }
+
+  // Handle unsafe-eval
+  if (allowUnsafeEval) {
+    directives["script-src"].push("'unsafe-eval'")
+    warnings.push("unsafe-eval is enabled - this may be a security risk")
+  }
+
+  // Frame ancestors
+  directives["frame-ancestors"] = frameAncestors
+
+  // Build header value
+  const headerParts: string[] = []
+
+  for (const [directive, sources] of Object.entries(directives)) {
+    if (sources.length > 0) {
+      // Deduplicate sources
+      const uniqueSources = [...new Set(sources)]
+      headerParts.push(directive + " " + uniqueSources.join(" "))
+    }
+  }
+
+  // Add upgrade-insecure-requests
+  if (upgradeInsecureRequests) {
+    headerParts.push("upgrade-insecure-requests")
+  }
+
+  // Add block-all-mixed-content
+  if (blockMixedContent) {
+    headerParts.push("block-all-mixed-content")
+  }
+
+  // Add report directives
+  if (reportUri) {
+    headerParts.push("report-uri " + reportUri)
+  }
+  if (reportTo) {
+    headerParts.push("report-to " + reportTo)
+  }
+
+  const header = headerParts.join("; ")
+  const headerName = reportOnly
+    ? "Content-Security-Policy-Report-Only"
+    : "Content-Security-Policy"
+
+  // Generate meta tag (note: some directives don't work in meta tags)
+  const metaDirectives = headerParts.filter(
+    (part) =>
+      !part.startsWith("frame-ancestors") &&
+      !part.startsWith("report-uri") &&
+      !part.startsWith("report-to") &&
+      !part.startsWith("sandbox")
+  )
+  const metaTag =
+    '<meta http-equiv="Content-Security-Policy" content="' +
+    metaDirectives.join("; ").replace(/"/g, "&quot;") +
+    '">'
+
+  return {
+    header,
+    headerName,
+    directives,
+    nonce,
+    nonceAttr: nonce ? 'nonce="' + nonce + '"' : undefined,
+    metaTag,
+    warnings,
+  }
+}
+
+/**
+ * Generates CSP with computed hashes for inline styles
+ *
+ * @param config - Theme configuration
+ * @param inlineStyles - Array of inline style contents to hash
+ * @param options - CSP options
+ * @returns Promise resolving to CSP result with style hashes
+ */
+export async function generateCspWithHashes(
+  config: ThemeConfig,
+  inlineStyles: string[],
+  options: CspConfig = {}
+): Promise<CspResult> {
+  const result = generateCsp(config, { ...options, useNonce: false })
+
+  // Compute hashes for inline styles
+  const styleHashes: string[] = []
+  for (const style of inlineStyles) {
+    const hash = await computeCspHash(style)
+    if (hash) {
+      styleHashes.push(hash)
+    }
+  }
+
+  // Add hashes to style-src
+  if (styleHashes.length > 0) {
+    result.directives["style-src"].push(...styleHashes)
+    result.styleHashes = styleHashes
+
+    // Rebuild header with hashes
+    const headerParts: string[] = []
+    for (const [directive, sources] of Object.entries(result.directives)) {
+      if (sources.length > 0) {
+        const uniqueSources = [...new Set(sources)]
+        headerParts.push(directive + " " + uniqueSources.join(" "))
+      }
+    }
+    if (options.upgradeInsecureRequests !== false) {
+      headerParts.push("upgrade-insecure-requests")
+    }
+    if (options.blockMixedContent !== false) {
+      headerParts.push("block-all-mixed-content")
+    }
+    if (options.reportUri) {
+      headerParts.push("report-uri " + options.reportUri)
+    }
+    result.header = headerParts.join("; ")
+  }
+
+  return result
+}
+
+/**
+ * Creates CSP middleware configuration for Express/Koa
+ *
+ * @param config - Theme configuration
+ * @param options - CSP options
+ * @returns Middleware-ready CSP configuration
+ */
+export function createCspMiddlewareConfig(
+  config: ThemeConfig,
+  options: CspConfig = {}
+): {
+  directives: Record<string, string[]>
+  reportOnly: boolean
+  nonce: string | undefined
+} {
+  const csp = generateCsp(config, options)
+
+  // Convert directives to middleware format (camelCase keys)
+  const middlewareDirectives: Record<string, string[]> = {}
+  for (const [key, values] of Object.entries(csp.directives)) {
+    const camelKey = key.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+    middlewareDirectives[camelKey] = values
+  }
+
+  return {
+    directives: middlewareDirectives,
+    reportOnly: options.reportOnly || false,
+    nonce: csp.nonce,
+  }
+}
+
+/**
+ * Generates Next.js CSP configuration
+ *
+ * @param config - Theme configuration
+ * @param options - CSP options
+ * @returns Next.js headers configuration
+ */
+export function generateNextCspConfig(
+  config: ThemeConfig,
+  options: CspConfig = {}
+): {
+  headers: Array<{ key: string; value: string }>
+  nonce: string | undefined
+  generateNonceScript: string
+} {
+  const csp = generateCsp(config, options)
+
+  const generateNonceScript = [
+    "// Add to middleware.ts",
+    "import { NextResponse } from 'next/server'",
+    "import type { NextRequest } from 'next/server'",
+    "",
+    "export function middleware(request: NextRequest) {",
+    "  const nonce = Buffer.from(crypto.randomUUID()).toString('base64')",
+    "  const cspHeader = `" + csp.header.replace(/nonce-[^']+/, "nonce-${nonce}") + "`",
+    "  ",
+    "  const response = NextResponse.next()",
+    "  response.headers.set('" + csp.headerName + "', cspHeader)",
+    "  response.headers.set('x-nonce', nonce)",
+    "  return response",
+    "}",
+  ].join("\n")
+
+  return {
+    headers: [{ key: csp.headerName, value: csp.header }],
+    nonce: csp.nonce,
+    generateNonceScript,
+  }
+}
+
+/**
+ * Validates CSP configuration against common issues
+ *
+ * @param csp - Generated CSP result
+ * @returns Validation result with issues found
+ */
+export function validateCsp(csp: CspResult): {
+  valid: boolean
+  issues: Array<{
+    severity: "error" | "warning" | "info"
+    directive: string
+    message: string
+  }>
+} {
+  const issues: Array<{
+    severity: "error" | "warning" | "info"
+    directive: string
+    message: string
+  }> = []
+
+  // Check for unsafe-inline in script-src
+  if (csp.directives["script-src"]?.includes("'unsafe-inline'")) {
+    if (!csp.nonce && !csp.directives["script-src"]?.some((s) => s.startsWith("'sha"))) {
+      issues.push({
+        severity: "warning",
+        directive: "script-src",
+        message: "unsafe-inline without nonce or hash weakens XSS protection",
+      })
+    }
+  }
+
+  // Check for unsafe-eval
+  if (csp.directives["script-src"]?.includes("'unsafe-eval'")) {
+    issues.push({
+      severity: "warning",
+      directive: "script-src",
+      message: "unsafe-eval allows potentially dangerous code execution",
+    })
+  }
+
+  // Check for missing default-src
+  if (!csp.directives["default-src"] || csp.directives["default-src"].length === 0) {
+    issues.push({
+      severity: "error",
+      directive: "default-src",
+      message: "default-src should be defined as a fallback",
+    })
+  }
+
+  // Check for overly permissive default-src
+  if (csp.directives["default-src"]?.includes("*")) {
+    issues.push({
+      severity: "error",
+      directive: "default-src",
+      message: "Wildcard in default-src defeats the purpose of CSP",
+    })
+  }
+
+  // Check frame-ancestors for clickjacking protection
+  if (!csp.directives["frame-ancestors"] || csp.directives["frame-ancestors"].length === 0) {
+    issues.push({
+      severity: "warning",
+      directive: "frame-ancestors",
+      message: "Missing frame-ancestors - consider adding for clickjacking protection",
+    })
+  }
+
+  // Check object-src
+  if (!csp.directives["object-src"]?.includes("'none'")) {
+    issues.push({
+      severity: "info",
+      directive: "object-src",
+      message: "Consider setting object-src to 'none' to prevent plugin execution",
+    })
+  }
+
+  return {
+    valid: !issues.some((i) => i.severity === "error"),
+    issues,
+  }
+}
+
+/**
+ * Formats CSP result into a human-readable report
+ *
+ * @param csp - Generated CSP result
+ * @returns Formatted report string
+ */
+export function formatCspReport(csp: CspResult): string {
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Content Security Policy Report")
+  lines.push(divider)
+  lines.push("")
+
+  lines.push("Header Name: " + csp.headerName)
+  if (csp.nonce) {
+    lines.push("Nonce: " + csp.nonce)
+  }
+  lines.push("")
+
+  lines.push("─".repeat(50))
+  lines.push("Directives")
+  lines.push("─".repeat(50))
+
+  for (const [directive, sources] of Object.entries(csp.directives)) {
+    if (sources.length > 0) {
+      lines.push("")
+      lines.push("  " + directive + ":")
+      for (const source of sources) {
+        lines.push("    - " + source)
+      }
+    }
+  }
+  lines.push("")
+
+  if (csp.warnings.length > 0) {
+    lines.push("─".repeat(50))
+    lines.push("Warnings")
+    lines.push("─".repeat(50))
+    for (const warning of csp.warnings) {
+      lines.push("  ! " + warning)
+    }
+    lines.push("")
+  }
+
+  lines.push("─".repeat(50))
+  lines.push("Full Header")
+  lines.push("─".repeat(50))
+  lines.push(csp.header)
+  lines.push("")
+
+  lines.push(divider)
+
+  return lines.join("\n")
+}

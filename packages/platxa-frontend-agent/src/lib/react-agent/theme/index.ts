@@ -403,6 +403,13 @@ export {
   formatDuplicateTokenReport,
   getDuplicateResolutionSuggestions,
   validateNoDuplicates,
+  // Content Security Policy (Feature #122)
+  generateCsp,
+  generateCspWithHashes,
+  createCspMiddlewareConfig,
+  generateNextCspConfig,
+  validateCsp,
+  formatCspReport,
 } from "./theme-worker"
 
 export type {
@@ -621,6 +628,11 @@ export type {
   DuplicateToken,
   DuplicateTokenCheckConfig,
   DuplicateTokenCheckResult,
+  // Content Security Policy (Feature #122)
+  CspDirective,
+  CspSource,
+  CspConfig,
+  CspResult,
 } from "./theme-worker"
 
 // Token presets
