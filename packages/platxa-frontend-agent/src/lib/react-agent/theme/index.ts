@@ -106,6 +106,14 @@ export {
   flattenTokens,
   checkBrandKitCircularReferences,
   validateCircularReferences,
+  // Safe Dynamic Import (Feature #85)
+  DEFAULT_ALLOWED_PACKAGES,
+  matchesPattern,
+  validatePackage,
+  validatePackages,
+  createSafeImport,
+  validateBrandKitPackages,
+  formatPackageValidationReport,
 } from "./theme-worker"
 
 export type {
@@ -130,6 +138,11 @@ export type {
   // Circular Reference Check (Feature #84)
   CircularReference,
   CircularReferenceResult,
+  // Safe Dynamic Import (Feature #85)
+  PackageStatus,
+  PackageAllowlistConfig,
+  PackageValidationResult,
+  PackageValidationReport,
 } from "./theme-worker"
 
 // Token presets
