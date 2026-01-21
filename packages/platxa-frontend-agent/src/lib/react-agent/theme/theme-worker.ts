@@ -10072,3 +10072,530 @@ export function getComponentColorRecommendations(
 
   return result
 }
+
+// =============================================================================
+// Feature #101: AI Brand Validation
+// =============================================================================
+
+/**
+ * Severity level for brand violations
+ */
+export type BrandViolationSeverity = "error" | "warning" | "info"
+
+/**
+ * Category of brand violation
+ */
+export type BrandViolationCategory =
+  | "color"
+  | "typography"
+  | "spacing"
+  | "contrast"
+  | "semantic"
+
+/**
+ * A single brand violation
+ */
+export interface BrandViolation {
+  /** Unique violation ID */
+  id: string
+  /** Violation severity */
+  severity: BrandViolationSeverity
+  /** Violation category */
+  category: BrandViolationCategory
+  /** Human-readable message */
+  message: string
+  /** The offending value */
+  actual: string
+  /** Expected or suggested value */
+  expected?: string
+  /** Location in component (CSS property, etc.) */
+  location?: string
+  /** Suggested fix */
+  suggestion?: string
+}
+
+/**
+ * Brand validation result
+ */
+export interface BrandValidationResult {
+  /** Whether the component passes brand validation */
+  isValid: boolean
+  /** Overall compliance score (0-100) */
+  score: number
+  /** List of violations */
+  violations: BrandViolation[]
+  /** Summary statistics */
+  summary: {
+    errors: number
+    warnings: number
+    infos: number
+  }
+}
+
+/**
+ * Component styles to validate
+ */
+export interface ComponentStyles {
+  /** Background color */
+  backgroundColor?: string
+  /** Text color */
+  color?: string
+  /** Border color */
+  borderColor?: string
+  /** Font size */
+  fontSize?: string
+  /** Font weight */
+  fontWeight?: string | number
+  /** Line height */
+  lineHeight?: string
+  /** Padding values */
+  padding?: string
+  /** Margin values */
+  margin?: string
+  /** Border radius */
+  borderRadius?: string
+  /** Box shadow */
+  boxShadow?: string
+  /** Additional CSS properties */
+  [key: string]: string | number | undefined
+}
+
+/**
+ * Validates component styles against a brand theme
+ *
+ * Checks colors, typography, spacing, and accessibility compliance.
+ *
+ * @param styles - Component styles to validate
+ * @param brand - Brand theme configuration
+ * @returns Validation result with violations and score
+ *
+ * @example
+ * ```typescript
+ * const result = validateBrandCompliance(
+ *   { backgroundColor: "#ff0000", color: "#ffffff" },
+ *   myBrandTheme
+ * )
+ *
+ * if (!result.isValid) {
+ *   console.log("Violations:", result.violations)
+ * }
+ * ```
+ */
+export function validateBrandCompliance(
+  styles: ComponentStyles,
+  brand: ThemeConfig
+): BrandValidationResult {
+  const violations: BrandViolation[] = []
+
+  // Validate colors
+  if (styles.backgroundColor) {
+    const colorViolations = validateColorAgainstBrand(
+      styles.backgroundColor,
+      "backgroundColor",
+      brand
+    )
+    violations.push(...colorViolations)
+  }
+
+  if (styles.color) {
+    const colorViolations = validateColorAgainstBrand(styles.color, "color", brand)
+    violations.push(...colorViolations)
+  }
+
+  if (styles.borderColor) {
+    const colorViolations = validateColorAgainstBrand(
+      styles.borderColor,
+      "borderColor",
+      brand
+    )
+    violations.push(...colorViolations)
+  }
+
+  // Validate contrast if both colors present
+  if (styles.backgroundColor && styles.color) {
+    const contrastViolations = validateContrastCompliance(
+      styles.color,
+      styles.backgroundColor
+    )
+    violations.push(...contrastViolations)
+  }
+
+  // Validate typography
+  if (styles.fontSize) {
+    const typoViolations = validateTypography(styles.fontSize, "fontSize", brand)
+    violations.push(...typoViolations)
+  }
+
+  // Validate spacing
+  if (styles.padding) {
+    const spacingViolations = validateSpacing(styles.padding, "padding", brand)
+    violations.push(...spacingViolations)
+  }
+
+  if (styles.margin) {
+    const spacingViolations = validateSpacing(styles.margin, "margin", brand)
+    violations.push(...spacingViolations)
+  }
+
+  // Validate border radius
+  if (styles.borderRadius) {
+    const radiusViolations = validateRadius(styles.borderRadius, brand)
+    violations.push(...radiusViolations)
+  }
+
+  // Calculate summary
+  const summary = {
+    errors: violations.filter((v) => v.severity === "error").length,
+    warnings: violations.filter((v) => v.severity === "warning").length,
+    infos: violations.filter((v) => v.severity === "info").length,
+  }
+
+  // Calculate score (100 - deductions)
+  const errorDeduction = summary.errors * 20
+  const warningDeduction = summary.warnings * 5
+  const infoDeduction = summary.infos * 1
+  const score = Math.max(0, 100 - errorDeduction - warningDeduction - infoDeduction)
+
+  return {
+    isValid: summary.errors === 0,
+    score,
+    violations,
+    summary,
+  }
+}
+
+/**
+ * Validates a color against the brand palette
+ */
+function validateColorAgainstBrand(
+  colorValue: string,
+  property: string,
+  brand: ThemeConfig
+): BrandViolation[] {
+  const violations: BrandViolation[] = []
+  const brandColors = brand.light.colors
+
+  // Check if color is a semantic color from brand
+  const isSemanticMatch = Object.values(brandColors).some((brandColor) => {
+    const brandStr =
+      typeof brandColor === "string"
+        ? brandColor
+        : oklchToString(brandColor as OklchColor)
+    return colorsAreSimilar(colorValue, brandStr)
+  })
+
+  if (!isSemanticMatch) {
+    // Find closest semantic color
+    const closest = findClosestSemanticColor(colorValue, brandColors)
+
+    violations.push({
+      id: `color-${property}-off-brand`,
+      severity: "warning",
+      category: "color",
+      message: `Color "${colorValue}" is not from the brand palette`,
+      actual: colorValue,
+      expected: closest?.color,
+      location: property,
+      suggestion: closest
+        ? `Consider using semantic color "${closest.name}" (${closest.color})`
+        : "Use a color from the brand palette",
+    })
+  }
+
+  return violations
+}
+
+/**
+ * Checks if two colors are similar (within threshold)
+ */
+function colorsAreSimilar(color1: string, color2: string): boolean {
+  const rgb1 = parseColorToRgb(color1)
+  const rgb2 = parseColorToRgb(color2)
+
+  if (!rgb1 || !rgb2) return false
+
+  // Calculate color distance (simple RGB distance)
+  const dr = rgb1.r - rgb2.r
+  const dg = rgb1.g - rgb2.g
+  const db = rgb1.b - rgb2.b
+  const distance = Math.sqrt(dr * dr + dg * dg + db * db)
+
+  // Colors are similar if distance is small (threshold: ~5% of max distance)
+  return distance < 20
+}
+
+/**
+ * Finds the closest semantic color from the brand palette
+ */
+function findClosestSemanticColor(
+  colorValue: string,
+  brandColors: SemanticColors
+): { name: string; color: string } | null {
+  const rgb = parseColorToRgb(colorValue)
+  if (!rgb) return null
+
+  let closest: { name: string; color: string; distance: number } | null = null
+
+  for (const [name, brandColor] of Object.entries(brandColors)) {
+    const brandStr =
+      typeof brandColor === "string"
+        ? brandColor
+        : oklchToString(brandColor as OklchColor)
+    const brandRgb = parseColorToRgb(brandStr)
+
+    if (!brandRgb) continue
+
+    const dr = rgb.r - brandRgb.r
+    const dg = rgb.g - brandRgb.g
+    const db = rgb.b - brandRgb.b
+    const distance = Math.sqrt(dr * dr + dg * dg + db * db)
+
+    if (!closest || distance < closest.distance) {
+      closest = { name, color: brandStr, distance }
+    }
+  }
+
+  return closest ? { name: closest.name, color: closest.color } : null
+}
+
+/**
+ * Validates contrast compliance
+ */
+function validateContrastCompliance(
+  foreground: string,
+  background: string
+): BrandViolation[] {
+  const violations: BrandViolation[] = []
+
+  const contrast = calculateContrastRatio(foreground, background)
+
+  if (contrast < 3) {
+    violations.push({
+      id: "contrast-fail",
+      severity: "error",
+      category: "contrast",
+      message: `Contrast ratio ${contrast.toFixed(2)}:1 fails WCAG requirements`,
+      actual: `${contrast.toFixed(2)}:1`,
+      expected: "At least 4.5:1 for AA, 7:1 for AAA",
+      suggestion: "Increase lightness difference between foreground and background",
+    })
+  } else if (contrast < 4.5) {
+    violations.push({
+      id: "contrast-aa-fail",
+      severity: "warning",
+      category: "contrast",
+      message: `Contrast ratio ${contrast.toFixed(2)}:1 fails WCAG AA for normal text`,
+      actual: `${contrast.toFixed(2)}:1`,
+      expected: "At least 4.5:1 for AA compliance",
+      suggestion: "Increase contrast for better accessibility",
+    })
+  }
+
+  return violations
+}
+
+/**
+ * Validates typography against brand
+ */
+function validateTypography(
+  fontSize: string,
+  property: string,
+  brand: ThemeConfig
+): BrandViolation[] {
+  const violations: BrandViolation[] = []
+
+  // Check if font size is from typography scale
+  const typographyScale = brand.light.typography
+  const validSizes = Object.values(typographyScale)
+    .filter((v): v is { fontSize: string; lineHeight: string } =>
+      typeof v === "object" && v !== null && "fontSize" in v
+    )
+    .map((v) => v.fontSize)
+
+  if (!validSizes.includes(fontSize)) {
+    // Find closest scale value
+    const fontSizeNum = parseFloat(fontSize)
+    let closestSize = validSizes[0]
+    let closestDiff = Math.abs(parseFloat(closestSize) - fontSizeNum)
+
+    for (const size of validSizes) {
+      const diff = Math.abs(parseFloat(size) - fontSizeNum)
+      if (diff < closestDiff) {
+        closestDiff = diff
+        closestSize = size
+      }
+    }
+
+    violations.push({
+      id: `typography-${property}-off-scale`,
+      severity: "info",
+      category: "typography",
+      message: `Font size "${fontSize}" is not from the typography scale`,
+      actual: fontSize,
+      expected: closestSize,
+      location: property,
+      suggestion: `Use typography scale value "${closestSize}" instead`,
+    })
+  }
+
+  return violations
+}
+
+/**
+ * Validates spacing against brand
+ */
+function validateSpacing(
+  spacing: string,
+  property: string,
+  brand: ThemeConfig
+): BrandViolation[] {
+  const violations: BrandViolation[] = []
+
+  // Get spacing scale values
+  const spacingScale = brand.light.spacing
+  const validSpacings = Object.values(spacingScale).filter(
+    (v): v is string => typeof v === "string"
+  )
+
+  // Parse spacing value (handle shorthand like "8px 16px")
+  const spacingValues = spacing.split(/\s+/)
+
+  for (const value of spacingValues) {
+    if (value === "0" || value === "auto") continue
+
+    if (!validSpacings.includes(value)) {
+      // Find closest scale value
+      const valueNum = parseFloat(value)
+      let closestSpacing = validSpacings[0]
+      let closestDiff = Math.abs(parseFloat(closestSpacing) - valueNum)
+
+      for (const sp of validSpacings) {
+        const diff = Math.abs(parseFloat(sp) - valueNum)
+        if (diff < closestDiff) {
+          closestDiff = diff
+          closestSpacing = sp
+        }
+      }
+
+      violations.push({
+        id: `spacing-${property}-off-scale`,
+        severity: "info",
+        category: "spacing",
+        message: `Spacing value "${value}" is not from the spacing scale`,
+        actual: value,
+        expected: closestSpacing,
+        location: property,
+        suggestion: `Use spacing scale value "${closestSpacing}" instead`,
+      })
+    }
+  }
+
+  return violations
+}
+
+/**
+ * Validates border radius against brand
+ */
+function validateRadius(
+  radius: string,
+  brand: ThemeConfig
+): BrandViolation[] {
+  const violations: BrandViolation[] = []
+
+  const radiusScale = brand.light.radius
+  const validRadii = Object.values(radiusScale).filter(
+    (v): v is string => typeof v === "string"
+  )
+
+  if (!validRadii.includes(radius)) {
+    violations.push({
+      id: "radius-off-scale",
+      severity: "info",
+      category: "spacing",
+      message: `Border radius "${radius}" is not from the radius scale`,
+      actual: radius,
+      expected: validRadii.join(", "),
+      location: "borderRadius",
+      suggestion: "Use a radius value from the brand's radius scale",
+    })
+  }
+
+  return violations
+}
+
+/**
+ * Generates a brand compliance report
+ *
+ * Creates a formatted report of all brand violations with suggestions.
+ *
+ * @param result - Brand validation result
+ * @returns Formatted report string
+ */
+export function formatBrandValidationReport(
+  result: BrandValidationResult
+): string {
+  const lines: string[] = [
+    "# Brand Compliance Report",
+    "",
+    `**Score:** ${result.score}/100`,
+    `**Status:** ${result.isValid ? "PASS" : "FAIL"}`,
+    "",
+    `**Summary:** ${result.summary.errors} errors, ${result.summary.warnings} warnings, ${result.summary.infos} info`,
+    "",
+  ]
+
+  if (result.violations.length === 0) {
+    lines.push("No violations found. Component is fully brand-compliant.")
+  } else {
+    lines.push("## Violations", "")
+
+    const byCategory = new Map<string, BrandViolation[]>()
+    for (const violation of result.violations) {
+      const existing = byCategory.get(violation.category) || []
+      existing.push(violation)
+      byCategory.set(violation.category, existing)
+    }
+
+    for (const [category, violations] of byCategory) {
+      lines.push(`### ${category.charAt(0).toUpperCase() + category.slice(1)}`, "")
+
+      for (const v of violations) {
+        const icon =
+          v.severity === "error" ? "X" : v.severity === "warning" ? "!" : "i"
+        lines.push(`- [${icon}] **${v.message}**`)
+        lines.push(`  - Actual: \`${v.actual}\``)
+        if (v.expected) {
+          lines.push(`  - Expected: \`${v.expected}\``)
+        }
+        if (v.suggestion) {
+          lines.push(`  - Suggestion: ${v.suggestion}`)
+        }
+        lines.push("")
+      }
+    }
+  }
+
+  return lines.join("\n")
+}
+
+/**
+ * Suggests fixes for brand violations
+ *
+ * Generates a list of suggested style changes to fix violations.
+ *
+ * @param violations - List of violations to fix
+ * @returns Object with property: suggested value pairs
+ */
+export function suggestBrandFixes(
+  violations: BrandViolation[]
+): Record<string, string> {
+  const fixes: Record<string, string> = {}
+
+  for (const violation of violations) {
+    if (violation.expected && violation.location) {
+      fixes[violation.location] = violation.expected
+    }
+  }
+
+  return fixes
+}

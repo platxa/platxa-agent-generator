@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-21T16:57:09.890338",
+  "updated_at": "2026-01-21T17:02:23.337304",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -288,6 +288,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-21T12:12:42.287959",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-101",
+      "title": "Implementation: [AI Brand Validation] AI validates generated components agai...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:02:23.336817",
       "constitution_check": true
     },
     {

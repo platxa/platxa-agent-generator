@@ -239,6 +239,10 @@ export {
   suggestColors,
   suggestAccessiblePair,
   getComponentColorRecommendations,
+  // AI Brand Validation (Feature #101)
+  validateBrandCompliance,
+  formatBrandValidationReport,
+  suggestBrandFixes,
 } from "./theme-worker"
 
 export type {
@@ -336,6 +340,12 @@ export type {
   ColorSuggestion,
   ColorSuggestionOptions,
   PaletteAnalysis,
+  // AI Brand Validation (Feature #101)
+  BrandViolationSeverity,
+  BrandViolationCategory,
+  BrandViolation,
+  BrandValidationResult,
+  ComponentStyles,
 } from "./theme-worker"
 
 // Token presets
