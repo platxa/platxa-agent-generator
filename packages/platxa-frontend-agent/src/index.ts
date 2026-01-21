@@ -19,6 +19,15 @@ export type { ButtonProps, AnimatedButtonProps } from "./components/ui/button"
 // Re-export from barrel
 export * from "./components/ui"
 
+// Brand Provider Component (Feature #74)
+export {
+  BrandProvider,
+  BrandContext,
+  useBrandContext,
+  useHasBrandProvider,
+  useBrandContextSafe,
+} from "./components/brand"
+
 // =============================================================================
 // THEME SYSTEM
 // =============================================================================
