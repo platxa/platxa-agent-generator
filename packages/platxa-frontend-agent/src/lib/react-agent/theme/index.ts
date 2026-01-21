@@ -46,6 +46,14 @@ export {
   isInGamut,
   mapToGamut,
   convertColor,
+  // Contrast Ratio Validation (Feature #73)
+  WCAG_THRESHOLDS,
+  getRelativeLuminance,
+  calculateContrastRatio,
+  meetsWcagContrast,
+  validateContrast,
+  validateSemanticContrasts,
+  suggestContrastAdjustment,
   lighten,
   darken,
   saturate,
@@ -73,7 +81,14 @@ export {
   processPresetForBuild,
 } from "./theme-worker"
 
-export type { UseThemeState, BuildOutput } from "./theme-worker"
+export type {
+  UseThemeState,
+  BuildOutput,
+  // Contrast Ratio Validation (Feature #73)
+  WcagLevel,
+  TextSize,
+  ContrastResult,
+} from "./theme-worker"
 
 // Token presets
 export {

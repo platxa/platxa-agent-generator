@@ -518,6 +518,335 @@ export function convertColor(
   }
 }
 
+// =============================================================================
+// CONTRAST RATIO VALIDATION (Feature #73)
+// =============================================================================
+
+/**
+ * WCAG contrast ratio levels
+ */
+export type WcagLevel = "AA" | "AAA"
+
+/**
+ * Text size categories for WCAG requirements
+ */
+export type TextSize = "normal" | "large"
+
+/**
+ * Contrast ratio validation result
+ */
+export interface ContrastResult {
+  /** The calculated contrast ratio (1:1 to 21:1) */
+  ratio: number
+  /** Formatted ratio string (e.g., "4.5:1") */
+  ratioString: string
+  /** Whether it passes WCAG AA for normal text (4.5:1) */
+  passesAA: boolean
+  /** Whether it passes WCAG AA for large text (3:1) */
+  passesAALarge: boolean
+  /** Whether it passes WCAG AAA for normal text (7:1) */
+  passesAAA: boolean
+  /** Whether it passes WCAG AAA for large text (4.5:1) */
+  passesAAALarge: boolean
+  /** Foreground color used */
+  foreground: string
+  /** Background color used */
+  background: string
+}
+
+/**
+ * WCAG contrast ratio thresholds
+ */
+export const WCAG_THRESHOLDS = {
+  /** AA level for normal text (< 18pt or < 14pt bold) */
+  AA_NORMAL: 4.5,
+  /** AA level for large text (>= 18pt or >= 14pt bold) */
+  AA_LARGE: 3.0,
+  /** AAA level for normal text */
+  AAA_NORMAL: 7.0,
+  /** AAA level for large text */
+  AAA_LARGE: 4.5,
+} as const
+
+/**
+ * Calculate relative luminance of an RGB color (Feature #73)
+ *
+ * Uses the WCAG 2.1 formula for relative luminance.
+ * https://www.w3.org/TR/WCAG21/#dfn-relative-luminance
+ *
+ * @param rgb - RGB color
+ * @returns Relative luminance (0 to 1)
+ */
+export function getRelativeLuminance(rgb: RgbColor): number {
+  const toLinear = (c: number) => {
+    const s = c / 255
+    return s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+  }
+
+  const r = toLinear(rgb.r)
+  const g = toLinear(rgb.g)
+  const b = toLinear(rgb.b)
+
+  // WCAG luminance formula
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/**
+ * Calculate contrast ratio between two colors (Feature #73)
+ *
+ * Uses the WCAG 2.1 formula for contrast ratio.
+ * https://www.w3.org/TR/WCAG21/#dfn-contrast-ratio
+ *
+ * @param color1 - First color (any format)
+ * @param color2 - Second color (any format)
+ * @returns Contrast ratio between 1:1 and 21:1
+ *
+ * @example
+ * ```typescript
+ * const ratio = calculateContrastRatio("#000000", "#ffffff")
+ * console.log(ratio) // 21 (maximum contrast)
+ *
+ * const ratio2 = calculateContrastRatio("hsl(0 0% 50%)", "#ffffff")
+ * console.log(ratio2) // ~4.6
+ * ```
+ */
+export function calculateContrastRatio(
+  color1: string,
+  color2: string
+): number {
+  // Parse colors to RGB
+  const rgb1 = parseColorToRgb(color1)
+  const rgb2 = parseColorToRgb(color2)
+
+  if (!rgb1 || !rgb2) {
+    return 1 // Return minimum contrast if colors can't be parsed
+  }
+
+  const l1 = getRelativeLuminance(rgb1)
+  const l2 = getRelativeLuminance(rgb2)
+
+  // Ensure lighter color is in numerator
+  const lighter = Math.max(l1, l2)
+  const darker = Math.min(l1, l2)
+
+  // WCAG contrast ratio formula: (L1 + 0.05) / (L2 + 0.05)
+  const ratio = (lighter + 0.05) / (darker + 0.05)
+
+  // Round to 2 decimal places
+  return Math.round(ratio * 100) / 100
+}
+
+/**
+ * Parse any color format to RGB
+ */
+function parseColorToRgb(color: string): RgbColor | null {
+  if (color.startsWith("#")) {
+    return parseHex(color)
+  } else if (color.startsWith("rgb")) {
+    return parseRgb(color)
+  } else if (color.startsWith("hsl")) {
+    const hsl = parseHsl(color)
+    return hsl ? hslToRgb(hsl) : null
+  } else if (color.startsWith("oklch")) {
+    const oklch = parseOklch(color)
+    return oklch ? oklchToRgb(oklch) : null
+  }
+  return null
+}
+
+/**
+ * Check if contrast ratio meets WCAG requirements (Feature #73)
+ *
+ * @param ratio - Contrast ratio
+ * @param level - WCAG level ("AA" or "AAA")
+ * @param textSize - Text size category ("normal" or "large")
+ * @returns true if contrast meets the requirement
+ *
+ * @example
+ * ```typescript
+ * const ratio = calculateContrastRatio(fg, bg)
+ * if (meetsWcagContrast(ratio, "AA", "normal")) {
+ *   console.log("Passes WCAG AA for normal text")
+ * }
+ * ```
+ */
+export function meetsWcagContrast(
+  ratio: number,
+  level: WcagLevel,
+  textSize: TextSize
+): boolean {
+  if (level === "AA") {
+    return textSize === "large"
+      ? ratio >= WCAG_THRESHOLDS.AA_LARGE
+      : ratio >= WCAG_THRESHOLDS.AA_NORMAL
+  } else {
+    return textSize === "large"
+      ? ratio >= WCAG_THRESHOLDS.AAA_LARGE
+      : ratio >= WCAG_THRESHOLDS.AAA_NORMAL
+  }
+}
+
+/**
+ * Validate contrast between foreground and background (Feature #73)
+ *
+ * Comprehensive contrast validation returning all WCAG compliance levels.
+ *
+ * @param foreground - Foreground (text) color
+ * @param background - Background color
+ * @returns Detailed contrast result
+ *
+ * @example
+ * ```typescript
+ * const result = validateContrast("#333333", "#ffffff")
+ * console.log(result.ratio) // 12.63
+ * console.log(result.passesAA) // true
+ * console.log(result.passesAAA) // true
+ * ```
+ *
+ * @example Check semantic colors
+ * ```typescript
+ * const result = validateContrast(
+ *   semanticColors.foreground,
+ *   semanticColors.background
+ * )
+ * if (!result.passesAA) {
+ *   console.warn(`Contrast too low: ${result.ratioString}`)
+ * }
+ * ```
+ */
+export function validateContrast(
+  foreground: string,
+  background: string
+): ContrastResult {
+  const ratio = calculateContrastRatio(foreground, background)
+
+  return {
+    ratio,
+    ratioString: `${ratio}:1`,
+    passesAA: ratio >= WCAG_THRESHOLDS.AA_NORMAL,
+    passesAALarge: ratio >= WCAG_THRESHOLDS.AA_LARGE,
+    passesAAA: ratio >= WCAG_THRESHOLDS.AAA_NORMAL,
+    passesAAALarge: ratio >= WCAG_THRESHOLDS.AAA_LARGE,
+    foreground,
+    background,
+  }
+}
+
+/**
+ * Validate all semantic color contrasts (Feature #73)
+ *
+ * Checks contrast ratios for all foreground/background pairs
+ * in a semantic color set.
+ *
+ * @param colors - Semantic colors to validate
+ * @returns Array of contrast results with issues highlighted
+ *
+ * @example
+ * ```typescript
+ * const results = validateSemanticContrasts(brandKit.semantics.light)
+ * const issues = results.filter(r => !r.passesAA)
+ * if (issues.length > 0) {
+ *   console.warn("Contrast issues found:", issues)
+ * }
+ * ```
+ */
+export function validateSemanticContrasts(colors: SemanticColors): Array<{
+  pair: string
+  result: ContrastResult
+  issue: boolean
+}> {
+  const pairs: Array<{ name: string; fg: keyof SemanticColors; bg: keyof SemanticColors }> = [
+    { name: "foreground/background", fg: "foreground", bg: "background" },
+    { name: "primary/primaryForeground", fg: "primaryForeground", bg: "primary" },
+    { name: "secondary/secondaryForeground", fg: "secondaryForeground", bg: "secondary" },
+    { name: "muted/mutedForeground", fg: "mutedForeground", bg: "muted" },
+    { name: "accent/accentForeground", fg: "accentForeground", bg: "accent" },
+    { name: "destructive/destructiveForeground", fg: "destructiveForeground", bg: "destructive" },
+    { name: "card/cardForeground", fg: "cardForeground", bg: "card" },
+    { name: "popover/popoverForeground", fg: "popoverForeground", bg: "popover" },
+  ]
+
+  return pairs.map(({ name, fg, bg }) => {
+    const fgColor = String(colors[fg])
+    const bgColor = String(colors[bg])
+    const result = validateContrast(fgColor, bgColor)
+
+    return {
+      pair: name,
+      result,
+      issue: !result.passesAA,
+    }
+  })
+}
+
+/**
+ * Suggest a color adjustment to meet contrast requirements (Feature #73)
+ *
+ * @param foreground - Current foreground color
+ * @param background - Background color
+ * @param targetRatio - Target contrast ratio (default: 4.5 for AA)
+ * @returns Suggested adjusted foreground color
+ */
+export function suggestContrastAdjustment(
+  foreground: string,
+  background: string,
+  targetRatio: number = WCAG_THRESHOLDS.AA_NORMAL
+): string {
+  const currentRatio = calculateContrastRatio(foreground, background)
+
+  if (currentRatio >= targetRatio) {
+    return foreground // Already meets target
+  }
+
+  // Parse colors
+  const fgRgb = parseColorToRgb(foreground)
+  const bgRgb = parseColorToRgb(background)
+
+  if (!fgRgb || !bgRgb) {
+    return foreground
+  }
+
+  const bgLuminance = getRelativeLuminance(bgRgb)
+
+  // Determine if we need to lighten or darken
+  // If background is dark, lighten foreground; if light, darken
+  const shouldLighten = bgLuminance < 0.5
+
+  // Binary search for the right luminance
+  let hsl = rgbToHsl(fgRgb)
+  let low = shouldLighten ? hsl.l : 0
+  let high = shouldLighten ? 100 : hsl.l
+
+  for (let i = 0; i < 20; i++) {
+    const mid = (low + high) / 2
+    const testHsl = { ...hsl, l: mid }
+    const testRgb = hslToRgb(testHsl)
+    const testRatio = calculateContrastRatio(rgbToString(testRgb), background)
+
+    if (Math.abs(testRatio - targetRatio) < 0.1) {
+      hsl = testHsl
+      break
+    }
+
+    if (testRatio < targetRatio) {
+      if (shouldLighten) {
+        low = mid
+      } else {
+        high = mid
+      }
+    } else {
+      if (shouldLighten) {
+        high = mid
+      } else {
+        low = mid
+      }
+    }
+    hsl = testHsl
+  }
+
+  return hslToString(hsl)
+}
+
 /**
  * Lightens a color by percentage
  */
