@@ -329,6 +329,8 @@ const brandCache = new Map<string, BrandCacheEntry>()
  */
 let currentLoadingState: ConfigLoadingState = "idle"
 let currentBrandKit: BrandKitExport | null = null
+/** Current error message (Feature #68) */
+let currentBrandError: string | null = null
 
 /**
  * Get current brand loading state
@@ -342,6 +344,98 @@ export function getBrandLoadingState(): ConfigLoadingState {
  */
 export function getCurrentBrandKit(): BrandKitExport | null {
   return currentBrandKit
+}
+
+/**
+ * Get current brand loading error (Feature #68)
+ *
+ * Returns the error message if brand loading failed, null otherwise.
+ *
+ * @returns Error message or null
+ *
+ * @example
+ * ```typescript
+ * const error = getBrandError()
+ * if (error) {
+ *   console.error("Failed to load brand:", error)
+ * }
+ * ```
+ */
+export function getBrandError(): string | null {
+  return currentBrandError
+}
+
+/**
+ * Check if brand loading resulted in an error (Feature #68)
+ *
+ * @returns true if there's an error state
+ *
+ * @example
+ * ```typescript
+ * if (isBrandError()) {
+ *   showErrorMessage(getBrandError())
+ * }
+ * ```
+ */
+export function isBrandError(): boolean {
+  return currentLoadingState === "error" && currentBrandError !== null
+}
+
+/**
+ * Combined loading status for convenient access (Feature #68)
+ */
+export interface BrandLoadingStatus {
+  /** Current loading state */
+  state: ConfigLoadingState
+  /** Whether currently loading */
+  isLoading: boolean
+  /** Whether successfully loaded */
+  isLoaded: boolean
+  /** Whether loading resulted in error */
+  isError: boolean
+  /** Whether in idle state (not started) */
+  isIdle: boolean
+  /** Error message if any */
+  error: string | null
+  /** Loaded brand kit if any */
+  brandKit: BrandKitExport | null
+}
+
+/**
+ * Get combined brand loading status (Feature #68)
+ *
+ * Returns a comprehensive status object with all loading states.
+ * This is convenient for components that need multiple state checks.
+ *
+ * @returns Combined loading status
+ *
+ * @example
+ * ```typescript
+ * const status = getBrandLoadingStatus()
+ *
+ * if (status.isLoading) {
+ *   return <LoadingSpinner />
+ * }
+ *
+ * if (status.isError) {
+ *   return <ErrorMessage>{status.error}</ErrorMessage>
+ * }
+ *
+ * if (status.isLoaded && status.brandKit) {
+ *   return <BrandedUI brandKit={status.brandKit} />
+ * }
+ * ```
+ */
+export function getBrandLoadingStatus(): BrandLoadingStatus {
+  return {
+    state: currentLoadingState,
+    isLoading: currentLoadingState === "loading",
+    isLoaded: currentLoadingState === "loaded" && currentBrandKit !== null,
+    isError: currentLoadingState === "error",
+    isIdle: currentLoadingState === "idle",
+    error: currentBrandError,
+    brandKit: currentBrandKit,
+  }
 }
 
 /**
@@ -839,9 +933,10 @@ export async function loadBrandKit(
       cachedAt: Date.now(),
     })
 
-    // Update state
+    // Update state (Feature #68: clear error on success)
     currentLoadingState = "loaded"
     currentBrandKit = brandKit
+    currentBrandError = null
     notifySubscribers()
 
     return {
@@ -854,9 +949,10 @@ export async function loadBrandKit(
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error loading brand kit"
 
-    // Update state
+    // Update state (Feature #68: set error)
     currentLoadingState = "error"
     currentBrandKit = null
+    currentBrandError = errorMessage
     notifySubscribers()
 
     if (throwOnError) {

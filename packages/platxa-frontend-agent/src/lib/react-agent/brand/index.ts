@@ -112,6 +112,10 @@ export {
   getCurrentBrandKit,
   isBrandLoaded,
   isBrandLoading,
+  // Loading States (Feature #68)
+  getBrandError,
+  isBrandError,
+  getBrandLoadingStatus,
   clearBrandCache,
   removeBrandFromCache,
   isBrandCached,
@@ -164,6 +168,8 @@ export type {
   BrandContextValue,
   // Version Checking (Feature #67)
   VersionCompatibilityResult,
+  // Loading States (Feature #68)
+  BrandLoadingStatus,
 } from "./loader"
 
 // Types
