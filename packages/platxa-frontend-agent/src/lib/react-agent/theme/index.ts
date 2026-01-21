@@ -505,6 +505,22 @@ export {
   resetMultiTenant,
   useMultiTenant,
   formatMultiTenantReport,
+  // Brand Switching API (Feature #132)
+  initBrandSwitch,
+  registerBrand,
+  unregisterBrand,
+  getBrand,
+  listBrands,
+  getCurrentBrandId,
+  getCurrentBrand,
+  setBrand,
+  subscribeBrandChanges,
+  subscribeTransitionState,
+  isBrandTransitioning,
+  resetBrandSwitch,
+  useBrandSwitch,
+  createBrandSwitcher,
+  formatBrandSwitchReport,
 } from "./theme-worker"
 
 export type {
@@ -798,6 +814,13 @@ export type {
   MultiTenantConfig,
   TenantContext,
   UseMultiTenantResult,
+  // Brand Switching API (Feature #132)
+  BrandTransitionConfig,
+  BrandStatePreservation,
+  BrandSwitchConfig,
+  RegisteredBrand,
+  BrandSwitchResult,
+  UseBrandSwitchResult,
 } from "./theme-worker"
 
 // Token presets

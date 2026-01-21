@@ -29373,3 +29373,623 @@ export function formatMultiTenantReport(): string {
 
   return lines.join("\n")
 }
+
+// =============================================================================
+// BRAND SWITCHING API (Feature #132)
+// =============================================================================
+
+/**
+ * Transition configuration for brand switching
+ */
+export interface BrandTransitionConfig {
+  /** Transition duration in milliseconds */
+  duration?: number
+  /** CSS easing function */
+  easing?: string
+  /** Properties to transition (empty = all) */
+  properties?: string[]
+  /** Callback before transition starts */
+  onBeforeTransition?: (from: string | null, to: string) => void
+  /** Callback after transition completes */
+  onAfterTransition?: (from: string | null, to: string) => void
+}
+
+/**
+ * State preservation options
+ */
+export interface BrandStatePreservation {
+  /** Preserve scroll position */
+  preserveScroll?: boolean
+  /** Preserve focus */
+  preserveFocus?: boolean
+  /** Preserve form data */
+  preserveFormData?: boolean
+  /** Custom state to preserve */
+  customState?: Record<string, unknown>
+}
+
+/**
+ * Brand switching configuration
+ */
+export interface BrandSwitchConfig {
+  /** Transition configuration */
+  transition?: BrandTransitionConfig
+  /** State preservation options */
+  statePreservation?: BrandStatePreservation
+  /** Default brand ID */
+  defaultBrand?: string
+  /** Persist selection to storage */
+  persistSelection?: boolean
+  /** Storage key for persistence */
+  storageKey?: string
+  /** CSS variable prefix */
+  cssPrefix?: string
+  /** Style element ID */
+  styleElementId?: string
+}
+
+/**
+ * Registered brand entry
+ */
+export interface RegisteredBrand {
+  /** Brand ID */
+  id: string
+  /** Brand name for display */
+  name: string
+  /** Theme configuration */
+  config: ThemeConfig
+  /** Generated CSS */
+  css: string
+  /** CSS variables map */
+  variables: Record<string, string>
+  /** Brand metadata */
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * Brand switch result
+ */
+export interface BrandSwitchResult {
+  /** Whether switch was successful */
+  success: boolean
+  /** Previous brand ID */
+  previousBrand: string | null
+  /** New brand ID */
+  newBrand: string
+  /** Time taken for switch */
+  switchTime: number
+  /** Preserved state */
+  preservedState?: BrandStatePreservation
+  /** Error message if failed */
+  error?: string
+}
+
+/**
+ * Brand switching hook result
+ */
+export interface UseBrandSwitchResult {
+  /** Current brand ID */
+  currentBrand: string | null
+  /** Current brand config */
+  brandConfig: ThemeConfig | null
+  /** Available brands */
+  availableBrands: Array<{ id: string; name: string }>
+  /** Switch to a brand */
+  setBrand: (brandId: string) => Promise<BrandSwitchResult>
+  /** Is currently transitioning */
+  isTransitioning: boolean
+}
+
+/**
+ * Brand switching state
+ */
+interface BrandSwitchState {
+  config: BrandSwitchConfig
+  brands: Map<string, RegisteredBrand>
+  currentBrandId: string | null
+  isTransitioning: boolean
+  listeners: Set<(brandId: string | null, brand: RegisteredBrand | null) => void>
+  transitionListeners: Set<(isTransitioning: boolean) => void>
+}
+
+/**
+ * Internal state for brand switching
+ */
+const brandSwitchState: BrandSwitchState = {
+  config: {},
+  brands: new Map(),
+  currentBrandId: null,
+  isTransitioning: false,
+  listeners: new Set(),
+  transitionListeners: new Set(),
+}
+
+/**
+ * Initializes the brand switching system
+ */
+export function initBrandSwitch(config: BrandSwitchConfig = {}): void {
+  brandSwitchState.config = {
+    transition: {
+      duration: 300,
+      easing: "ease-in-out",
+      properties: ["color", "background-color", "border-color", "box-shadow"],
+      ...config.transition,
+    },
+    statePreservation: {
+      preserveScroll: true,
+      preserveFocus: true,
+      preserveFormData: false,
+      ...config.statePreservation,
+    },
+    persistSelection: config.persistSelection ?? true,
+    storageKey: config.storageKey ?? "platxa-brand",
+    cssPrefix: config.cssPrefix ?? "--",
+    styleElementId: config.styleElementId ?? "platxa-brand-styles",
+    defaultBrand: config.defaultBrand,
+  }
+
+  // Load persisted brand if enabled
+  if (brandSwitchState.config.persistSelection && typeof window !== "undefined") {
+    const stored = localStorage.getItem(brandSwitchState.config.storageKey!)
+    if (stored && brandSwitchState.brands.has(stored)) {
+      setBrand(stored)
+    } else if (brandSwitchState.config.defaultBrand) {
+      setBrand(brandSwitchState.config.defaultBrand)
+    }
+  }
+}
+
+/**
+ * Registers a brand for switching
+ */
+export function registerBrand(
+  id: string,
+  config: ThemeConfig,
+  metadata?: Record<string, unknown>
+): RegisteredBrand {
+  const generated = generateTheme(config)
+
+  const brand: RegisteredBrand = {
+    id,
+    name: config.name,
+    config,
+    css: generated.css + (generated.darkModeCss ?? ""),
+    variables: generated.cssVariables,
+    metadata,
+  }
+
+  brandSwitchState.brands.set(id, brand)
+
+  return brand
+}
+
+/**
+ * Unregisters a brand
+ */
+export function unregisterBrand(id: string): boolean {
+  if (brandSwitchState.currentBrandId === id) {
+    return false // Cannot unregister active brand
+  }
+  return brandSwitchState.brands.delete(id)
+}
+
+/**
+ * Gets a registered brand by ID
+ */
+export function getBrand(id: string): RegisteredBrand | undefined {
+  return brandSwitchState.brands.get(id)
+}
+
+/**
+ * Lists all registered brands
+ */
+export function listBrands(): Array<{ id: string; name: string; active: boolean }> {
+  const result: Array<{ id: string; name: string; active: boolean }> = []
+
+  brandSwitchState.brands.forEach((brand, id) => {
+    result.push({
+      id,
+      name: brand.name,
+      active: id === brandSwitchState.currentBrandId,
+    })
+  })
+
+  return result
+}
+
+/**
+ * Gets the current brand ID
+ */
+export function getCurrentBrandId(): string | null {
+  return brandSwitchState.currentBrandId
+}
+
+/**
+ * Gets the current brand configuration
+ */
+export function getCurrentBrand(): RegisteredBrand | null {
+  if (!brandSwitchState.currentBrandId) return null
+  return brandSwitchState.brands.get(brandSwitchState.currentBrandId) ?? null
+}
+
+/**
+ * Captures current state for preservation
+ */
+function captureState(options: BrandStatePreservation): BrandStatePreservation {
+  const state: BrandStatePreservation = { ...options }
+
+  if (typeof window === "undefined") return state
+
+  if (options.preserveScroll) {
+    state.customState = {
+      ...state.customState,
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
+    }
+  }
+
+  if (options.preserveFocus) {
+    const activeElement = document.activeElement
+    if (activeElement instanceof HTMLElement) {
+      state.customState = {
+        ...state.customState,
+        focusSelector: activeElement.id
+          ? `#${activeElement.id}`
+          : activeElement.getAttribute("data-focus-id")
+            ? `[data-focus-id="${activeElement.getAttribute("data-focus-id")}"]`
+            : null,
+      }
+    }
+  }
+
+  return state
+}
+
+/**
+ * Restores preserved state
+ */
+function restoreState(state: BrandStatePreservation): void {
+  if (typeof window === "undefined") return
+
+  if (state.preserveScroll && state.customState) {
+    const scrollX = state.customState.scrollX as number | undefined
+    const scrollY = state.customState.scrollY as number | undefined
+    if (scrollX !== undefined && scrollY !== undefined) {
+      window.scrollTo(scrollX, scrollY)
+    }
+  }
+
+  if (state.preserveFocus && state.customState) {
+    const focusSelector = state.customState.focusSelector as string | null
+    if (focusSelector) {
+      const element = document.querySelector(focusSelector)
+      if (element instanceof HTMLElement) {
+        element.focus()
+      }
+    }
+  }
+}
+
+/**
+ * Applies transition styles
+ */
+function applyTransitionStyles(config: BrandTransitionConfig): void {
+  if (typeof document === "undefined") return
+
+  const duration = config.duration ?? 300
+  const easing = config.easing ?? "ease-in-out"
+  const properties = config.properties?.join(", ") ?? "all"
+
+  const styleId = "platxa-brand-transition"
+  let styleEl = document.getElementById(styleId) as HTMLStyleElement | null
+
+  if (!styleEl) {
+    styleEl = document.createElement("style")
+    styleEl.id = styleId
+    document.head.appendChild(styleEl)
+  }
+
+  styleEl.textContent = `
+    *, *::before, *::after {
+      transition: ${properties} ${duration}ms ${easing} !important;
+    }
+  `
+}
+
+/**
+ * Removes transition styles
+ */
+function removeTransitionStyles(): void {
+  if (typeof document === "undefined") return
+
+  const styleEl = document.getElementById("platxa-brand-transition")
+  if (styleEl) {
+    styleEl.remove()
+  }
+}
+
+/**
+ * Injects brand CSS into the document
+ */
+function injectBrandCss(brand: RegisteredBrand): void {
+  if (typeof document === "undefined") return
+
+  const styleId = brandSwitchState.config.styleElementId!
+  let styleEl = document.getElementById(styleId) as HTMLStyleElement | null
+
+  if (!styleEl) {
+    styleEl = document.createElement("style")
+    styleEl.id = styleId
+    document.head.appendChild(styleEl)
+  }
+
+  styleEl.textContent = brand.css
+}
+
+/**
+ * Switches to a different brand with smooth transition
+ */
+export async function setBrand(brandId: string): Promise<BrandSwitchResult> {
+  const startTime = performance.now()
+  const previousBrandId = brandSwitchState.currentBrandId
+  const config = brandSwitchState.config
+
+  // Check if brand exists
+  const brand = brandSwitchState.brands.get(brandId)
+  if (!brand) {
+    return {
+      success: false,
+      previousBrand: previousBrandId,
+      newBrand: brandId,
+      switchTime: performance.now() - startTime,
+      error: `Brand "${brandId}" not found`,
+    }
+  }
+
+  // No-op if same brand
+  if (previousBrandId === brandId) {
+    return {
+      success: true,
+      previousBrand: previousBrandId,
+      newBrand: brandId,
+      switchTime: performance.now() - startTime,
+    }
+  }
+
+  // Set transitioning state
+  brandSwitchState.isTransitioning = true
+  notifyTransitionListeners(true)
+
+  // Capture current state
+  const preservedState = captureState(config.statePreservation ?? {})
+
+  // Fire before transition callback
+  config.transition?.onBeforeTransition?.(previousBrandId, brandId)
+
+  // Apply transition styles for smooth animation
+  if (config.transition && typeof document !== "undefined") {
+    applyTransitionStyles(config.transition)
+  }
+
+  // Inject new brand CSS
+  injectBrandCss(brand)
+
+  // Update state
+  brandSwitchState.currentBrandId = brandId
+
+  // Persist selection
+  if (config.persistSelection && typeof localStorage !== "undefined") {
+    localStorage.setItem(config.storageKey!, brandId)
+  }
+
+  // Wait for transition to complete
+  const transitionDuration = config.transition?.duration ?? 300
+
+  await new Promise<void>((resolve) => {
+    setTimeout(() => {
+      // Remove transition styles
+      removeTransitionStyles()
+
+      // Restore state
+      restoreState(preservedState)
+
+      // Fire after transition callback
+      config.transition?.onAfterTransition?.(previousBrandId, brandId)
+
+      // Update transitioning state
+      brandSwitchState.isTransitioning = false
+      notifyTransitionListeners(false)
+
+      // Notify listeners
+      notifyBrandListeners(brandId, brand)
+
+      resolve()
+    }, transitionDuration)
+  })
+
+  return {
+    success: true,
+    previousBrand: previousBrandId,
+    newBrand: brandId,
+    switchTime: performance.now() - startTime,
+    preservedState,
+  }
+}
+
+/**
+ * Notifies brand change listeners
+ */
+function notifyBrandListeners(
+  brandId: string | null,
+  brand: RegisteredBrand | null
+): void {
+  brandSwitchState.listeners.forEach((listener) => {
+    try {
+      listener(brandId, brand)
+    } catch {
+      // Ignore listener errors
+    }
+  })
+}
+
+/**
+ * Notifies transition state listeners
+ */
+function notifyTransitionListeners(isTransitioning: boolean): void {
+  brandSwitchState.transitionListeners.forEach((listener) => {
+    try {
+      listener(isTransitioning)
+    } catch {
+      // Ignore listener errors
+    }
+  })
+}
+
+/**
+ * Subscribes to brand changes
+ */
+export function subscribeBrandChanges(
+  callback: (brandId: string | null, brand: RegisteredBrand | null) => void
+): () => void {
+  brandSwitchState.listeners.add(callback)
+  return () => {
+    brandSwitchState.listeners.delete(callback)
+  }
+}
+
+/**
+ * Subscribes to transition state changes
+ */
+export function subscribeTransitionState(
+  callback: (isTransitioning: boolean) => void
+): () => void {
+  brandSwitchState.transitionListeners.add(callback)
+  return () => {
+    brandSwitchState.transitionListeners.delete(callback)
+  }
+}
+
+/**
+ * Checks if system is currently transitioning
+ */
+export function isBrandTransitioning(): boolean {
+  return brandSwitchState.isTransitioning
+}
+
+/**
+ * Resets the brand switching system
+ */
+export function resetBrandSwitch(): void {
+  brandSwitchState.config = {}
+  brandSwitchState.brands.clear()
+  brandSwitchState.currentBrandId = null
+  brandSwitchState.isTransitioning = false
+  brandSwitchState.listeners.clear()
+  brandSwitchState.transitionListeners.clear()
+
+  // Remove style elements
+  if (typeof document !== "undefined") {
+    const styleEl = document.getElementById(
+      brandSwitchState.config.styleElementId ?? "platxa-brand-styles"
+    )
+    if (styleEl) styleEl.remove()
+
+    removeTransitionStyles()
+  }
+}
+
+/**
+ * Hook-like function for brand switching
+ */
+export function useBrandSwitch(): UseBrandSwitchResult {
+  return {
+    currentBrand: brandSwitchState.currentBrandId,
+    brandConfig: getCurrentBrand()?.config ?? null,
+    availableBrands: listBrands().map(({ id, name }) => ({ id, name })),
+    setBrand,
+    isTransitioning: brandSwitchState.isTransitioning,
+  }
+}
+
+/**
+ * Creates a brand switcher component configuration
+ */
+export function createBrandSwitcher(
+  options: {
+    brands: Array<{ id: string; config: ThemeConfig; metadata?: Record<string, unknown> }>
+    defaultBrand?: string
+    transitionDuration?: number
+  } = { brands: [] }
+): {
+  init: () => void
+  brands: Array<{ id: string; name: string }>
+  switch: (id: string) => Promise<BrandSwitchResult>
+  getCurrent: () => string | null
+} {
+  return {
+    init: () => {
+      initBrandSwitch({
+        defaultBrand: options.defaultBrand,
+        transition: { duration: options.transitionDuration },
+      })
+
+      options.brands.forEach(({ id, config, metadata }) => {
+        registerBrand(id, config, metadata)
+      })
+
+      if (options.defaultBrand) {
+        setBrand(options.defaultBrand)
+      }
+    },
+    brands: options.brands.map(({ id, config }) => ({ id, name: config.name })),
+    switch: setBrand,
+    getCurrent: getCurrentBrandId,
+  }
+}
+
+/**
+ * Formats brand switching status as a report
+ */
+export function formatBrandSwitchReport(): string {
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Brand Switching API Report")
+  lines.push(divider)
+  lines.push("")
+
+  // Current state
+  lines.push("Current State")
+  lines.push("─".repeat(50))
+  lines.push(`  Current Brand:    ${brandSwitchState.currentBrandId ?? "None"}`)
+  lines.push(`  Is Transitioning: ${brandSwitchState.isTransitioning ? "Yes" : "No"}`)
+  lines.push(`  Registered:       ${brandSwitchState.brands.size} brand(s)`)
+  lines.push("")
+
+  // Configuration
+  lines.push("Configuration")
+  lines.push("─".repeat(50))
+  lines.push(`  Persist Selection: ${brandSwitchState.config.persistSelection ?? false}`)
+  lines.push(`  Storage Key:       ${brandSwitchState.config.storageKey ?? "N/A"}`)
+  lines.push(`  Transition:        ${brandSwitchState.config.transition?.duration ?? 300}ms`)
+  lines.push("")
+
+  // Registered brands
+  lines.push("Registered Brands")
+  lines.push("─".repeat(50))
+
+  if (brandSwitchState.brands.size === 0) {
+    lines.push("  (no brands registered)")
+  } else {
+    brandSwitchState.brands.forEach((brand, id) => {
+      const active = id === brandSwitchState.currentBrandId ? " [ACTIVE]" : ""
+      lines.push(`  ${id}: ${brand.name}${active}`)
+    })
+  }
+
+  lines.push("")
+  lines.push(divider)
+
+  return lines.join("\n")
+}
