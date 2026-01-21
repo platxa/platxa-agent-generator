@@ -251,6 +251,14 @@ export {
   getHotReloadState,
   forceFullBrandReload,
   createViteHMRHandler,
+  // Config Inheritance (Feature #104)
+  resolveConfigInheritance,
+  createConfigWithInheritance,
+  clearConfigCache,
+  getConfigCacheSize,
+  validateInheritanceChain,
+  createFetchLoader,
+  flattenConfigInheritance,
 } from "./theme-worker"
 
 export type {
@@ -359,6 +367,11 @@ export type {
   HotReloadCallback,
   HotReloadOptions,
   BrandHotReloadResult,
+  // Config Inheritance (Feature #104)
+  ConfigLoader,
+  ConfigInheritanceOptions,
+  ConfigInheritanceResult,
+  ExtendsValue,
 } from "./theme-worker"
 
 // Token presets

@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-21T17:07:49.539216",
+  "updated_at": "2026-01-21T17:11:35.488223",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -448,6 +448,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-21T16:53:11.480520",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-104",
+      "title": "Implementation: [Config Inheritance] extends field to inherit from another c...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:11:35.487578",
       "constitution_check": true
     },
     {

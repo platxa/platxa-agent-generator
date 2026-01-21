@@ -11024,3 +11024,357 @@ export function createViteHMRHandler(
     updateBrandConfig(newConfig)
   }
 }
+
+// =============================================================================
+// Feature #104: Config Inheritance (File-based)
+// =============================================================================
+
+/**
+ * Config loader function type
+ *
+ * Used to load config files from paths. The implementation
+ * is provided by the consuming application (e.g., using fs.readFile
+ * in Node.js or fetch in browser).
+ */
+export type ConfigLoader = (path: string) => Promise<ThemeConfig>
+
+/**
+ * Config inheritance options
+ */
+export interface ConfigInheritanceOptions {
+  /** Function to load config from path */
+  loader: ConfigLoader
+  /** Base directory for resolving relative paths */
+  basePath?: string
+  /** Maximum inheritance depth (default: 10) */
+  maxDepth?: number
+  /** Cache loaded configs (default: true) */
+  useCache?: boolean
+}
+
+/**
+ * Config inheritance result
+ */
+export interface ConfigInheritanceResult {
+  /** Fully resolved configuration */
+  config: ThemeConfig
+  /** Chain of inheritance (paths or names) */
+  chain: string[]
+  /** Warnings encountered during resolution */
+  warnings: string[]
+  /** Whether any configs were loaded from cache */
+  fromCache: boolean
+}
+
+/**
+ * Extends field value - can be path, config, or name
+ */
+export type ExtendsValue = string | ThemeConfig
+
+// Config cache for file-based inheritance
+const configCache = new Map<string, ThemeConfig>()
+
+/**
+ * Resolves config inheritance from file paths
+ *
+ * Loads parent configs from paths and performs deep merge
+ * to create the final resolved configuration.
+ *
+ * @param config - Child configuration with extends field
+ * @param options - Inheritance resolution options
+ * @returns Resolved configuration with inheritance applied
+ *
+ * @example
+ * ```typescript
+ * // In Node.js
+ * import { readFile } from "fs/promises"
+ *
+ * const loader: ConfigLoader = async (path) => {
+ *   const content = await readFile(path, "utf-8")
+ *   return JSON.parse(content)
+ * }
+ *
+ * const childConfig: ThemeConfig = {
+ *   name: "child",
+ *   extends: "./base-theme.json",
+ *   light: {
+ *     colors: { primary: "blue" }, // Overrides parent
+ *   },
+ * }
+ *
+ * const { config, chain } = await resolveConfigInheritance(childConfig, {
+ *   loader,
+ *   basePath: "/path/to/configs",
+ * })
+ * ```
+ */
+export async function resolveConfigInheritance(
+  config: ThemeConfig,
+  options: ConfigInheritanceOptions
+): Promise<ConfigInheritanceResult> {
+  const {
+    loader,
+    basePath = "",
+    maxDepth = 10,
+    useCache = true,
+  } = options
+
+  const chain: string[] = [config.name]
+  const warnings: string[] = []
+  let fromCache = false
+
+  // If no extends, return as-is
+  if (!config.extends) {
+    return { config, chain, warnings, fromCache }
+  }
+
+  // Build inheritance chain
+  const configs: ThemeConfig[] = [config]
+  let current: ExtendsValue | undefined = config.extends
+  let depth = 0
+
+  while (current && depth < maxDepth) {
+    depth++
+
+    if (typeof current === "string") {
+      // It's a path - load the config
+      const path = resolvePath(current, basePath)
+
+      // Check cache
+      if (useCache && configCache.has(path)) {
+        const cached = configCache.get(path)!
+        configs.unshift(cached)
+        chain.unshift(cached.name)
+        current = cached.extends
+        fromCache = true
+        continue
+      }
+
+      try {
+        const loaded = await loader(path)
+
+        // Cache if enabled
+        if (useCache) {
+          configCache.set(path, loaded)
+        }
+
+        configs.unshift(loaded)
+        chain.unshift(loaded.name)
+        current = loaded.extends
+      } catch (err) {
+        warnings.push(`Failed to load config from "${path}": ${err}`)
+        break
+      }
+    } else {
+      // It's a config object
+      configs.unshift(current)
+      chain.unshift(current.name)
+      current = current.extends
+    }
+  }
+
+  if (depth >= maxDepth) {
+    warnings.push(`Maximum inheritance depth (${maxDepth}) reached`)
+  }
+
+  // Merge configs from root to child (first is root, last is child)
+  let resolved = configs[0]
+  for (let i = 1; i < configs.length; i++) {
+    resolved = mergeConfigs(resolved, configs[i])
+  }
+
+  // Remove extends from final result
+  const { extends: _, ...resolvedWithoutExtends } = resolved
+
+  return {
+    config: resolvedWithoutExtends as ThemeConfig,
+    chain,
+    warnings,
+    fromCache,
+  }
+}
+
+/**
+ * Resolves a path relative to base path
+ */
+function resolvePath(path: string, basePath: string): string {
+  if (path.startsWith("/") || path.startsWith("http")) {
+    // Absolute path or URL
+    return path
+  }
+  if (!basePath) {
+    return path
+  }
+  // Join paths
+  const base = basePath.endsWith("/") ? basePath : basePath + "/"
+  return base + path
+}
+
+/**
+ * Deep merges two theme configs
+ *
+ * Child values override parent values. Nested objects are merged recursively.
+ */
+function mergeConfigs(parent: ThemeConfig, child: ThemeConfig): ThemeConfig {
+  const merged: ThemeConfig = {
+    name: child.name,
+    light: deepMergeTokens(parent.light, child.light),
+  }
+
+  // Merge dark mode if present
+  if (parent.dark || child.dark) {
+    merged.dark = {
+      ...parent.dark,
+      ...child.dark,
+    }
+  }
+
+  // Use child values for simple fields
+  merged.defaultMode = child.defaultMode ?? parent.defaultMode
+  merged.darkModeClass = child.darkModeClass ?? parent.darkModeClass
+  merged.useColorScheme = child.useColorScheme ?? parent.useColorScheme
+
+  // Carry extends only if child has a new one
+  if (child.extends) {
+    merged.extends = child.extends
+  }
+
+  return merged
+}
+
+/**
+ * Creates a config with file-based inheritance
+ *
+ * Convenience function for creating configs that extend from files.
+ *
+ * @param name - Config name
+ * @param extendsPath - Path to parent config
+ * @param overrides - Values to override from parent
+ * @returns Theme config with extends field
+ *
+ * @example
+ * ```typescript
+ * const myTheme = createConfigWithInheritance(
+ *   "my-theme",
+ *   "./base-theme.json",
+ *   {
+ *     light: {
+ *       colors: {
+ *         primary: "oklch(0.6 0.2 280)",
+ *       },
+ *     },
+ *   }
+ * )
+ * ```
+ */
+export function createConfigWithInheritance(
+  name: string,
+  extendsPath: string,
+  overrides: DeepPartial<Omit<ThemeConfig, "name" | "extends">>
+): ThemeConfig {
+  return {
+    name,
+    extends: extendsPath,
+    light: (overrides.light ?? {}) as DesignTokens,
+    dark: overrides.dark,
+    defaultMode: overrides.defaultMode,
+    darkModeClass: overrides.darkModeClass,
+    useColorScheme: overrides.useColorScheme,
+  }
+}
+
+/**
+ * Clears the config inheritance cache
+ *
+ * Call this when you want to force reload of all parent configs.
+ */
+export function clearConfigCache(): void {
+  configCache.clear()
+}
+
+/**
+ * Gets the current config cache size
+ *
+ * @returns Number of cached configs
+ */
+export function getConfigCacheSize(): number {
+  return configCache.size
+}
+
+/**
+ * Validates an inheritance chain for issues
+ *
+ * Checks for circular references, missing fields, and other problems.
+ *
+ * @param chain - Array of config paths/names
+ * @param configs - Map of path to config
+ * @returns Validation result
+ */
+export function validateInheritanceChain(
+  chain: string[],
+  configs: Map<string, ThemeConfig>
+): { valid: boolean; issues: string[] } {
+  const issues: string[] = []
+
+  // Check for duplicates (circular references)
+  const seen = new Set<string>()
+  for (const item of chain) {
+    if (seen.has(item)) {
+      issues.push(`Circular reference detected: "${item}" appears multiple times`)
+    }
+    seen.add(item)
+  }
+
+  // Check each config has required fields
+  for (const [path, config] of configs) {
+    if (!config.name) {
+      issues.push(`Config at "${path}" is missing required "name" field`)
+    }
+    if (!config.light) {
+      issues.push(`Config at "${path}" is missing required "light" field`)
+    }
+  }
+
+  return {
+    valid: issues.length === 0,
+    issues,
+  }
+}
+
+/**
+ * Creates a file-based config loader for browser (fetch)
+ *
+ * @returns Config loader using fetch
+ *
+ * @example
+ * ```typescript
+ * const loader = createFetchLoader()
+ * const result = await resolveConfigInheritance(config, { loader })
+ * ```
+ */
+export function createFetchLoader(): ConfigLoader {
+  return async (path: string): Promise<ThemeConfig> => {
+    const response = await fetch(path)
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    return response.json()
+  }
+}
+
+/**
+ * Flattens a config with inheritance into a standalone config
+ *
+ * Like resolveConfigInheritance but returns just the ThemeConfig.
+ *
+ * @param config - Config with extends
+ * @param options - Resolution options
+ * @returns Flattened config without extends
+ */
+export async function flattenConfigInheritance(
+  config: ThemeConfig,
+  options: ConfigInheritanceOptions
+): Promise<ThemeConfig> {
+  const { config: resolved } = await resolveConfigInheritance(config, options)
+  return resolved
+}
