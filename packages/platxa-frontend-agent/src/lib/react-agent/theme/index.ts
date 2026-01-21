@@ -54,6 +54,13 @@ export {
   validateContrast,
   validateSemanticContrasts,
   suggestContrastAdjustment,
+  // Color Format Validation (Feature #81)
+  validateHex,
+  validateRgb,
+  validateHsl,
+  validateOklch,
+  validateColor,
+  validateColorObject,
   lighten,
   darken,
   saturate,
@@ -88,6 +95,8 @@ export type {
   WcagLevel,
   TextSize,
   ContrastResult,
+  // Color Format Validation (Feature #81)
+  ColorValidationResult,
 } from "./theme-worker"
 
 // Token presets

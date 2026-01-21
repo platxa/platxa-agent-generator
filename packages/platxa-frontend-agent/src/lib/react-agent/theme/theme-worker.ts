@@ -172,6 +172,537 @@ export function parseHex(hex: string): RgbColor | null {
   return { r, g, b, alpha: a }
 }
 
+// =============================================================================
+// COLOR FORMAT VALIDATION (Feature #81)
+// =============================================================================
+
+/**
+ * Color validation result
+ */
+export interface ColorValidationResult {
+  /** Whether the color is valid */
+  valid: boolean
+  /** Detected color format */
+  format: "hex" | "rgb" | "rgba" | "hsl" | "hsla" | "oklch" | "unknown" | null
+  /** Normalized color value (if valid) */
+  normalized?: string
+  /** Error message (if invalid) */
+  error?: string
+  /** Specific validation issues */
+  issues?: string[]
+}
+
+/**
+ * Validate a hex color value (Feature #81)
+ *
+ * Supports: #RGB, #RGBA, #RRGGBB, #RRGGBBAA
+ *
+ * @param color - Color string to validate
+ * @returns Validation result with details
+ *
+ * @example
+ * ```typescript
+ * validateHex("#fff")       // { valid: true, format: "hex", normalized: "#ffffff" }
+ * validateHex("#12345")     // { valid: false, error: "Invalid hex length" }
+ * validateHex("#gggggg")    // { valid: false, error: "Invalid hex characters" }
+ * ```
+ */
+export function validateHex(color: string): ColorValidationResult {
+  // Check if starts with #
+  if (!color.startsWith("#")) {
+    return {
+      valid: false,
+      format: null,
+      error: "Hex color must start with #",
+      issues: ["Missing # prefix"],
+    }
+  }
+
+  const value = color.slice(1)
+
+  // Check length
+  if (![3, 4, 6, 8].includes(value.length)) {
+    return {
+      valid: false,
+      format: null,
+      error: `Invalid hex length: ${value.length}. Expected 3, 4, 6, or 8 characters`,
+      issues: [`Invalid length: ${value.length}`],
+    }
+  }
+
+  // Check characters
+  if (!/^[0-9a-f]+$/i.test(value)) {
+    const invalidChars = value.match(/[^0-9a-f]/gi) || []
+    return {
+      valid: false,
+      format: null,
+      error: `Invalid hex characters: ${[...new Set(invalidChars)].join(", ")}`,
+      issues: [`Invalid characters: ${invalidChars.join("")}`],
+    }
+  }
+
+  // Parse and normalize
+  const rgb = parseHex(color)
+  if (!rgb) {
+    return {
+      valid: false,
+      format: null,
+      error: "Failed to parse hex color",
+      issues: ["Parse error"],
+    }
+  }
+
+  // Normalize to #RRGGBB or #RRGGBBAA
+  const normalized = rgbToHex(rgb)
+
+  return {
+    valid: true,
+    format: value.length === 4 || value.length === 8 ? "rgba" : "hex",
+    normalized,
+  }
+}
+
+/**
+ * Validate an RGB/RGBA color value (Feature #81)
+ *
+ * Supports: rgb(r g b), rgb(r, g, b), rgba(r, g, b, a), rgb(r g b / a)
+ *
+ * @param color - Color string to validate
+ * @returns Validation result with details
+ *
+ * @example
+ * ```typescript
+ * validateRgb("rgb(255, 128, 0)")     // { valid: true, format: "rgb" }
+ * validateRgb("rgb(300, 0, 0)")       // { valid: false, error: "R value out of range" }
+ * validateRgb("rgb(255 128 0 / 0.5)") // { valid: true, format: "rgba" }
+ * ```
+ */
+export function validateRgb(color: string): ColorValidationResult {
+  const issues: string[] = []
+
+  // Check format prefix
+  const isRgba = color.toLowerCase().startsWith("rgba(")
+  const isRgb = color.toLowerCase().startsWith("rgb(")
+
+  if (!isRgb && !isRgba) {
+    return {
+      valid: false,
+      format: null,
+      error: "RGB color must start with rgb( or rgba(",
+      issues: ["Invalid prefix"],
+    }
+  }
+
+  // Check closing parenthesis
+  if (!color.endsWith(")")) {
+    return {
+      valid: false,
+      format: null,
+      error: "Missing closing parenthesis",
+      issues: ["Missing )"],
+    }
+  }
+
+  // Extract values
+  const inner = color.slice(isRgba ? 5 : 4, -1).trim()
+
+  // Parse values (supports comma or space separated, with optional / for alpha)
+  let r: number, g: number, b: number, a: number | undefined
+
+  // Try modern syntax: rgb(r g b) or rgb(r g b / a)
+  const modernMatch = inner.match(
+    /^([\d.]+%?)\s+([\d.]+%?)\s+([\d.]+%?)(?:\s*\/\s*([\d.]+%?))?$/
+  )
+  // Try legacy syntax: rgb(r, g, b) or rgba(r, g, b, a)
+  const legacyMatch = inner.match(
+    /^([\d.]+%?)\s*,\s*([\d.]+%?)\s*,\s*([\d.]+%?)(?:\s*,\s*([\d.]+%?))?$/
+  )
+
+  const match = modernMatch || legacyMatch
+
+  if (!match) {
+    return {
+      valid: false,
+      format: null,
+      error: "Invalid RGB syntax. Use: rgb(r g b), rgb(r, g, b), or rgb(r g b / a)",
+      issues: ["Invalid syntax"],
+    }
+  }
+
+  // Parse values
+  const parseValue = (v: string, max: number): number => {
+    if (v.endsWith("%")) {
+      return (parseFloat(v) / 100) * max
+    }
+    return parseFloat(v)
+  }
+
+  r = parseValue(match[1], 255)
+  g = parseValue(match[2], 255)
+  b = parseValue(match[3], 255)
+  if (match[4]) {
+    a = parseValue(match[4], 1)
+  }
+
+  // Validate ranges
+  if (r < 0 || r > 255) {
+    issues.push(`R value out of range: ${r} (expected 0-255)`)
+  }
+  if (g < 0 || g > 255) {
+    issues.push(`G value out of range: ${g} (expected 0-255)`)
+  }
+  if (b < 0 || b > 255) {
+    issues.push(`B value out of range: ${b} (expected 0-255)`)
+  }
+  if (a !== undefined && (a < 0 || a > 1)) {
+    issues.push(`Alpha value out of range: ${a} (expected 0-1)`)
+  }
+
+  if (issues.length > 0) {
+    return {
+      valid: false,
+      format: null,
+      error: issues[0],
+      issues,
+    }
+  }
+
+  // Normalize
+  const rgb: RgbColor = { r: Math.round(r), g: Math.round(g), b: Math.round(b), alpha: a }
+  const normalized = rgbToString(rgb)
+
+  return {
+    valid: true,
+    format: a !== undefined ? "rgba" : "rgb",
+    normalized,
+  }
+}
+
+/**
+ * Validate an HSL/HSLA color value (Feature #81)
+ *
+ * Supports: hsl(h s% l%), hsl(h, s%, l%), hsla(h, s%, l%, a)
+ *
+ * @param color - Color string to validate
+ * @returns Validation result with details
+ *
+ * @example
+ * ```typescript
+ * validateHsl("hsl(220, 90%, 50%)")   // { valid: true, format: "hsl" }
+ * validateHsl("hsl(400, 50%, 50%)")   // { valid: false, error: "Hue out of range" }
+ * validateHsl("hsl(220 90% 50% / 0.5)") // { valid: true, format: "hsla" }
+ * ```
+ */
+export function validateHsl(color: string): ColorValidationResult {
+  const issues: string[] = []
+
+  // Check format prefix
+  const isHsla = color.toLowerCase().startsWith("hsla(")
+  const isHsl = color.toLowerCase().startsWith("hsl(")
+
+  if (!isHsl && !isHsla) {
+    return {
+      valid: false,
+      format: null,
+      error: "HSL color must start with hsl( or hsla(",
+      issues: ["Invalid prefix"],
+    }
+  }
+
+  // Check closing parenthesis
+  if (!color.endsWith(")")) {
+    return {
+      valid: false,
+      format: null,
+      error: "Missing closing parenthesis",
+      issues: ["Missing )"],
+    }
+  }
+
+  // Extract values
+  const inner = color.slice(isHsla ? 5 : 4, -1).trim()
+
+  // Parse values
+  const modernMatch = inner.match(
+    /^([\d.]+)(?:deg)?\s+([\d.]+)%\s+([\d.]+)%(?:\s*\/\s*([\d.]+%?))?$/
+  )
+  const legacyMatch = inner.match(
+    /^([\d.]+)(?:deg)?\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%(?:\s*,\s*([\d.]+%?))?$/
+  )
+
+  const match = modernMatch || legacyMatch
+
+  if (!match) {
+    return {
+      valid: false,
+      format: null,
+      error: "Invalid HSL syntax. Use: hsl(h s% l%), hsl(h, s%, l%), or hsl(h s% l% / a)",
+      issues: ["Invalid syntax"],
+    }
+  }
+
+  const h = parseFloat(match[1])
+  const s = parseFloat(match[2])
+  const l = parseFloat(match[3])
+  let a: number | undefined
+  if (match[4]) {
+    a = match[4].endsWith("%") ? parseFloat(match[4]) / 100 : parseFloat(match[4])
+  }
+
+  // Validate ranges
+  if (h < 0 || h > 360) {
+    issues.push(`Hue out of range: ${h} (expected 0-360)`)
+  }
+  if (s < 0 || s > 100) {
+    issues.push(`Saturation out of range: ${s} (expected 0-100)`)
+  }
+  if (l < 0 || l > 100) {
+    issues.push(`Lightness out of range: ${l} (expected 0-100)`)
+  }
+  if (a !== undefined && (a < 0 || a > 1)) {
+    issues.push(`Alpha out of range: ${a} (expected 0-1)`)
+  }
+
+  if (issues.length > 0) {
+    return {
+      valid: false,
+      format: null,
+      error: issues[0],
+      issues,
+    }
+  }
+
+  // Normalize
+  const normalized = a !== undefined
+    ? `hsl(${h} ${s}% ${l}% / ${a})`
+    : `hsl(${h} ${s}% ${l}%)`
+
+  return {
+    valid: true,
+    format: a !== undefined ? "hsla" : "hsl",
+    normalized,
+  }
+}
+
+/**
+ * Validate an OKLCH color value (Feature #81)
+ *
+ * Supports: oklch(L C H), oklch(L C H / a)
+ *
+ * @param color - Color string to validate
+ * @returns Validation result with details
+ *
+ * @example
+ * ```typescript
+ * validateOklch("oklch(0.7 0.15 250)")     // { valid: true, format: "oklch" }
+ * validateOklch("oklch(1.5 0.15 250)")     // { valid: false, error: "Lightness out of range" }
+ * validateOklch("oklch(0.7 0.15 250 / 0.5)") // { valid: true, format: "oklch" }
+ * ```
+ */
+export function validateOklch(color: string): ColorValidationResult {
+  const issues: string[] = []
+
+  // Check format prefix
+  if (!color.toLowerCase().startsWith("oklch(")) {
+    return {
+      valid: false,
+      format: null,
+      error: "OKLCH color must start with oklch(",
+      issues: ["Invalid prefix"],
+    }
+  }
+
+  // Check closing parenthesis
+  if (!color.endsWith(")")) {
+    return {
+      valid: false,
+      format: null,
+      error: "Missing closing parenthesis",
+      issues: ["Missing )"],
+    }
+  }
+
+  // Extract values
+  const inner = color.slice(6, -1).trim()
+
+  // Parse: oklch(L C H) or oklch(L C H / a) or oklch(L% C H)
+  const match = inner.match(
+    /^([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)(?:deg)?(?:\s*\/\s*([\d.]+%?))?$/
+  )
+
+  if (!match) {
+    return {
+      valid: false,
+      format: null,
+      error: "Invalid OKLCH syntax. Use: oklch(L C H) or oklch(L C H / a)",
+      issues: ["Invalid syntax"],
+    }
+  }
+
+  let L = parseFloat(match[1])
+  const isPercent = match[2] === "%"
+  const C = parseFloat(match[3])
+  const H = parseFloat(match[4])
+  let a: number | undefined
+  if (match[5]) {
+    a = match[5].endsWith("%") ? parseFloat(match[5]) / 100 : parseFloat(match[5])
+  }
+
+  // Normalize L if percentage
+  if (isPercent) {
+    L = L / 100
+  }
+
+  // Validate ranges
+  // OKLCH: L is 0-1, C is typically 0-0.4 (but can be higher), H is 0-360
+  if (L < 0 || L > 1) {
+    issues.push(`Lightness out of range: ${L} (expected 0-1 or 0%-100%)`)
+  }
+  if (C < 0) {
+    issues.push(`Chroma cannot be negative: ${C}`)
+  }
+  if (C > 0.5) {
+    // Warning, not error - some colors can have higher chroma
+    issues.push(`Chroma unusually high: ${C} (typical range 0-0.4, may be out of gamut)`)
+  }
+  if (H < 0 || H > 360) {
+    issues.push(`Hue out of range: ${H} (expected 0-360)`)
+  }
+  if (a !== undefined && (a < 0 || a > 1)) {
+    issues.push(`Alpha out of range: ${a} (expected 0-1)`)
+  }
+
+  // Check for critical errors (non-warnings)
+  const criticalIssues = issues.filter(i =>
+    !i.includes("unusually high") && !i.includes("out of gamut")
+  )
+
+  if (criticalIssues.length > 0) {
+    return {
+      valid: false,
+      format: null,
+      error: criticalIssues[0],
+      issues: criticalIssues,
+    }
+  }
+
+  // Normalize
+  const normalized = a !== undefined
+    ? `oklch(${L.toFixed(2)} ${C.toFixed(3)} ${H}${a !== undefined ? ` / ${a}` : ""})`
+    : `oklch(${L.toFixed(2)} ${C.toFixed(3)} ${H})`
+
+  return {
+    valid: true,
+    format: "oklch",
+    normalized,
+    issues: issues.length > 0 ? issues : undefined, // Include warnings
+  }
+}
+
+/**
+ * Validate any CSS color value (Feature #81)
+ *
+ * Auto-detects format and validates accordingly.
+ *
+ * @param color - Color string to validate
+ * @returns Validation result with details
+ *
+ * @example
+ * ```typescript
+ * validateColor("#fff")              // { valid: true, format: "hex" }
+ * validateColor("rgb(255, 0, 0)")    // { valid: true, format: "rgb" }
+ * validateColor("hsl(220, 90%, 50%)") // { valid: true, format: "hsl" }
+ * validateColor("oklch(0.7 0.15 250)") // { valid: true, format: "oklch" }
+ * validateColor("invalid")           // { valid: false, format: "unknown" }
+ * ```
+ */
+export function validateColor(color: string): ColorValidationResult {
+  if (!color || typeof color !== "string") {
+    return {
+      valid: false,
+      format: null,
+      error: "Color must be a non-empty string",
+    }
+  }
+
+  const trimmed = color.trim()
+
+  // Detect format and validate
+  if (trimmed.startsWith("#")) {
+    return validateHex(trimmed)
+  }
+
+  if (trimmed.toLowerCase().startsWith("rgb")) {
+    return validateRgb(trimmed)
+  }
+
+  if (trimmed.toLowerCase().startsWith("hsl")) {
+    return validateHsl(trimmed)
+  }
+
+  if (trimmed.toLowerCase().startsWith("oklch")) {
+    return validateOklch(trimmed)
+  }
+
+  // Named colors (basic support)
+  const namedColors = [
+    "black", "white", "red", "green", "blue", "yellow", "cyan", "magenta",
+    "transparent", "currentcolor", "inherit",
+  ]
+  if (namedColors.includes(trimmed.toLowerCase())) {
+    return {
+      valid: true,
+      format: "unknown",
+      normalized: trimmed.toLowerCase(),
+    }
+  }
+
+  return {
+    valid: false,
+    format: "unknown",
+    error: `Unknown color format: "${trimmed}". Supported: hex, rgb, rgba, hsl, hsla, oklch`,
+  }
+}
+
+/**
+ * Validate all colors in a brand kit (Feature #81)
+ *
+ * @param colors - Object containing color values
+ * @returns Array of validation results with paths
+ *
+ * @example
+ * ```typescript
+ * const results = validateColorObject({
+ *   primary: { 500: "oklch(0.5 0.15 220)" },
+ *   semantic: { background: "#fff" }
+ * })
+ * ```
+ */
+export function validateColorObject(
+  colors: Record<string, unknown>,
+  path: string = ""
+): Array<{ path: string; color: string; result: ColorValidationResult }> {
+  const results: Array<{ path: string; color: string; result: ColorValidationResult }> = []
+
+  for (const [key, value] of Object.entries(colors)) {
+    const currentPath = path ? `${path}.${key}` : key
+
+    if (typeof value === "string") {
+      results.push({
+        path: currentPath,
+        color: value,
+        result: validateColor(value),
+      })
+    } else if (typeof value === "object" && value !== null) {
+      results.push(
+        ...validateColorObject(value as Record<string, unknown>, currentPath)
+      )
+    }
+  }
+
+  return results
+}
+
 /**
  * Convert RGB to string
  */
