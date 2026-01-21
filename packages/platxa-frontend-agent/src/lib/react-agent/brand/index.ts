@@ -81,9 +81,12 @@ export {
   getConfigFilePaths,
   getConfigFormatDescription,
   isConfigLoadingSupported,
+  // Config Auto-Discovery (Feature #62)
+  getAllConfigSearchPaths,
   CONFIG_FILE_NAME,
   CONFIG_FILE_NAMES,
   SUPPORTED_EXTENSIONS,
+  CONFIG_SEARCH_DIRS,
 } from "./config-loader"
 
 export type {

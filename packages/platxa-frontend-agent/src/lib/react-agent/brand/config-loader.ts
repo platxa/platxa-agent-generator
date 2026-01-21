@@ -197,26 +197,55 @@ async function importConfigFile(filePath: string): Promise<unknown> {
 }
 
 /**
- * Search for and load a config file
+ * Directories to search for config files, in priority order (Feature #62)
+ */
+export const CONFIG_SEARCH_DIRS: readonly string[] = Object.freeze([
+  ".", // Project root first
+  "config", // Then config/ folder
+  ".config", // Also check .config/ folder
+] as const)
+
+/**
+ * Search for and load a config file (Feature #62)
  *
- * Searches for config files in the following order:
- * 1. frontend.config.ts
- * 2. frontend.config.mjs
- * 3. frontend.config.js
- * 4. frontend.config.json
+ * ## Search Order
+ *
+ * Searches directories in this order:
+ * 1. Project root (cwd)
+ * 2. config/ folder
+ * 3. .config/ folder
+ *
+ * For each directory, searches file extensions in priority order:
+ * 1. frontend.config.ts (TypeScript)
+ * 2. frontend.config.mjs (ESM JavaScript)
+ * 3. frontend.config.js (CommonJS JavaScript)
+ * 4. frontend.config.json (JSON)
  *
  * @param options - Loader options
- * @returns Config file result
+ * @returns Config file result with found status and loaded config
  *
- * @example
+ * @example Auto-discovery (searches root, then config/)
  * ```typescript
- * // Search in current directory
+ * // Will find:
+ * // - ./frontend.config.ts (first priority)
+ * // - ./config/frontend.config.ts (if not in root)
+ * // - ./.config/frontend.config.json (last resort)
  * const result = await findAndLoadConfig()
  *
- * // Search in specific directory
- * const result = await findAndLoadConfig({ cwd: "/path/to/project" })
+ * if (result.found) {
+ *   console.log(`Found config at: ${result.path}`)
+ * }
+ * ```
  *
- * // Load specific file
+ * @example Search in specific directory
+ * ```typescript
+ * const result = await findAndLoadConfig({ cwd: "/path/to/project" })
+ * // Searches: /path/to/project/frontend.config.*
+ * //           /path/to/project/config/frontend.config.*
+ * ```
+ *
+ * @example Load specific file (skips search)
+ * ```typescript
  * const result = await findAndLoadConfig({ configPath: "./my-config.ts" })
  * ```
  */
@@ -230,19 +259,24 @@ export async function findAndLoadConfig(
     return loadConfigFile(configPath, { throwOnError })
   }
 
-  // Search for config files in priority order
-  for (const fileName of CONFIG_FILE_NAMES) {
-    const filePath = `${cwd}/${fileName}`
+  // Search directories in priority order (Feature #62)
+  for (const searchDir of CONFIG_SEARCH_DIRS) {
+    const directory = searchDir === "." ? cwd : `${cwd}/${searchDir}`
 
-    try {
-      // Try to load the file
-      const result = await loadConfigFile(filePath, { throwOnError: false })
-      if (result.found && result.config) {
-        return result
+    // Search for config files in this directory
+    for (const fileName of CONFIG_FILE_NAMES) {
+      const filePath = `${directory}/${fileName}`
+
+      try {
+        // Try to load the file
+        const result = await loadConfigFile(filePath, { throwOnError: false })
+        if (result.found && result.config) {
+          return result
+        }
+      } catch {
+        // File doesn't exist or couldn't be loaded, try next
+        continue
       }
-    } catch {
-      // File doesn't exist or couldn't be loaded, try next
-      continue
     }
   }
 
@@ -250,6 +284,38 @@ export async function findAndLoadConfig(
   return {
     found: false,
   }
+}
+
+/**
+ * Get all possible config file paths that will be searched (Feature #62)
+ *
+ * @param cwd - Base directory
+ * @returns Array of all paths that will be searched, in order
+ *
+ * @example
+ * ```typescript
+ * const paths = getAllConfigSearchPaths("/my/project")
+ * // [
+ * //   "/my/project/frontend.config.ts",
+ * //   "/my/project/frontend.config.mjs",
+ * //   "/my/project/frontend.config.js",
+ * //   "/my/project/frontend.config.json",
+ * //   "/my/project/config/frontend.config.ts",
+ * //   ...
+ * // ]
+ * ```
+ */
+export function getAllConfigSearchPaths(cwd: string = "."): string[] {
+  const paths: string[] = []
+
+  for (const searchDir of CONFIG_SEARCH_DIRS) {
+    const directory = searchDir === "." ? cwd : `${cwd}/${searchDir}`
+    for (const fileName of CONFIG_FILE_NAMES) {
+      paths.push(`${directory}/${fileName}`)
+    }
+  }
+
+  return paths
 }
 
 // =============================================================================
