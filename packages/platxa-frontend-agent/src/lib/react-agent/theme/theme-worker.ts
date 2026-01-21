@@ -13896,3 +13896,475 @@ export async function refreshBrandKit(
   // Reload with caching enabled
   return loadBrandKitFromUrl({ ...options, url, cache: true })
 }
+
+// ============================================================================
+// Feature #109: Runtime Resolution
+// ============================================================================
+
+/**
+ * Loading status for runtime resolution
+ */
+export type RuntimeLoadingStatus = "idle" | "loading" | "success" | "error"
+
+/**
+ * Error types for runtime resolution
+ */
+export type RuntimeLoadingErrorType =
+  | "network"
+  | "timeout"
+  | "validation"
+  | "not_found"
+  | "unauthorized"
+  | "unknown"
+
+/**
+ * Error details for runtime resolution
+ */
+export interface RuntimeLoadingError {
+  /** Error type category */
+  type: RuntimeLoadingErrorType
+  /** Human-readable error message */
+  message: string
+  /** HTTP status code (if applicable) */
+  statusCode?: number
+  /** Original error (if available) */
+  cause?: Error
+  /** Timestamp when error occurred */
+  timestamp: number
+  /** Number of retry attempts made */
+  retryCount: number
+}
+
+/**
+ * Runtime resolution state
+ */
+export interface RuntimeResolutionState {
+  /** Current loading status */
+  status: RuntimeLoadingStatus
+  /** Resolved theme config (when status is success) */
+  config: ThemeConfig | null
+  /** Error details (when status is error) */
+  error: RuntimeLoadingError | null
+  /** Source of the current config */
+  source: "static" | "url" | "inheritance" | "fallback" | null
+  /** URL that was loaded (if from URL) */
+  url: string | null
+  /** Timestamp of last successful load */
+  lastLoadedAt: number | null
+  /** Whether a refresh is in progress */
+  isRefreshing: boolean
+}
+
+/**
+ * Configuration for runtime resolver
+ */
+export interface RuntimeResolverConfig {
+  /** Initial/fallback theme config */
+  fallback?: ThemeConfig
+  /** URL to load from (optional) */
+  url?: string
+  /** URL loading options */
+  urlOptions?: Omit<UrlLoadingConfig, "url">
+  /** Whether to load on initialization (default: true) */
+  loadOnInit?: boolean
+  /** Auto-refresh interval in milliseconds (0 to disable) */
+  autoRefreshInterval?: number
+  /** Callback when state changes */
+  onStateChange?: (state: RuntimeResolutionState) => void
+  /** Callback when load completes successfully */
+  onLoad?: (config: ThemeConfig) => void
+  /** Callback when load fails */
+  onError?: (error: RuntimeLoadingError) => void
+}
+
+/** Runtime resolution state */
+const runtimeResolutionState: RuntimeResolutionState = {
+  status: "idle",
+  config: null,
+  error: null,
+  source: null,
+  url: null,
+  lastLoadedAt: null,
+  isRefreshing: false,
+}
+
+/** Subscribers for runtime resolution state changes */
+const runtimeResolutionSubscribers = new Set<(state: RuntimeResolutionState) => void>()
+
+/** Auto-refresh timer */
+let autoRefreshTimer: ReturnType<typeof setInterval> | null = null
+
+/** Current resolver config */
+let currentResolverConfig: RuntimeResolverConfig | null = null
+
+/**
+ * Notifies all runtime resolution subscribers
+ */
+function notifyRuntimeResolutionSubscribers(): void {
+  const state = { ...runtimeResolutionState }
+  runtimeResolutionSubscribers.forEach((callback) => callback(state))
+  currentResolverConfig?.onStateChange?.(state)
+}
+
+/**
+ * Creates a runtime loading error
+ */
+function createRuntimeLoadingError(
+  type: RuntimeLoadingErrorType,
+  message: string,
+  statusCode?: number,
+  cause?: Error,
+  retryCount = 0
+): RuntimeLoadingError {
+  return {
+    type,
+    message,
+    statusCode,
+    cause,
+    timestamp: Date.now(),
+    retryCount,
+  }
+}
+
+/**
+ * Determines error type from HTTP status code
+ */
+function getErrorTypeFromStatus(statusCode: number): RuntimeLoadingErrorType {
+  if (statusCode === 404) return "not_found"
+  if (statusCode === 401 || statusCode === 403) return "unauthorized"
+  if (statusCode >= 400 && statusCode < 500) return "validation"
+  if (statusCode >= 500) return "network"
+  return "unknown"
+}
+
+/**
+ * Initializes the runtime resolver
+ *
+ * Sets up the runtime resolver with the given configuration.
+ * If a URL is provided and loadOnInit is true, it will start loading.
+ *
+ * @param config - Resolver configuration
+ *
+ * @example
+ * ```typescript
+ * initRuntimeResolver({
+ *   fallback: defaultTheme,
+ *   url: "https://cdn.example.com/brand.json",
+ *   onLoad: (config) => console.log("Loaded:", config.name),
+ *   onError: (error) => console.error("Failed:", error.message),
+ * })
+ * ```
+ */
+export function initRuntimeResolver(config: RuntimeResolverConfig): void {
+  currentResolverConfig = config
+
+  // Set fallback as initial config
+  if (config.fallback) {
+    runtimeResolutionState.config = config.fallback
+    runtimeResolutionState.source = "fallback"
+    runtimeResolutionState.status = "success"
+  }
+
+  // Start loading if URL provided and loadOnInit
+  if (config.url && config.loadOnInit !== false) {
+    resolveRuntimeBrandKit(config.url, config.urlOptions)
+  }
+
+  // Set up auto-refresh
+  if (config.autoRefreshInterval && config.autoRefreshInterval > 0 && config.url) {
+    startAutoRefresh(config.autoRefreshInterval, config.url, config.urlOptions)
+  }
+}
+
+/**
+ * Resolves a brand kit at runtime
+ *
+ * Loads a brand kit from the given URL and updates the runtime state.
+ *
+ * @param url - URL to load from
+ * @param options - Loading options
+ * @returns Promise resolving to the loaded config or null on error
+ *
+ * @example
+ * ```typescript
+ * const config = await resolveRuntimeBrandKit(
+ *   "https://cdn.example.com/brand.json"
+ * )
+ *
+ * if (config) {
+ *   console.log("Loaded:", config.name)
+ * }
+ * ```
+ */
+export async function resolveRuntimeBrandKit(
+  url: string,
+  options?: Omit<UrlLoadingConfig, "url">
+): Promise<ThemeConfig | null> {
+  // Update state to loading
+  runtimeResolutionState.status = "loading"
+  runtimeResolutionState.url = url
+  runtimeResolutionState.error = null
+  notifyRuntimeResolutionSubscribers()
+
+  try {
+    const result = await loadBrandKitFromUrl({ ...options, url })
+
+    if (result.success && result.config) {
+      // Success
+      runtimeResolutionState.status = "success"
+      runtimeResolutionState.config = result.config
+      runtimeResolutionState.source = "url"
+      runtimeResolutionState.lastLoadedAt = Date.now()
+      runtimeResolutionState.error = null
+
+      // Update main theme config
+      currentThemeConfig = result.config
+
+      notifyRuntimeResolutionSubscribers()
+      currentResolverConfig?.onLoad?.(result.config)
+
+      return result.config
+    } else {
+      // Failed
+      const errorType = result.statusCode
+        ? getErrorTypeFromStatus(result.statusCode)
+        : "network"
+
+      const error = createRuntimeLoadingError(
+        errorType,
+        result.error ?? "Failed to load brand kit",
+        result.statusCode
+      )
+
+      runtimeResolutionState.status = "error"
+      runtimeResolutionState.error = error
+
+      notifyRuntimeResolutionSubscribers()
+      currentResolverConfig?.onError?.(error)
+
+      return null
+    }
+  } catch (err) {
+    const error = createRuntimeLoadingError(
+      err instanceof Error && err.name === "AbortError" ? "timeout" : "unknown",
+      err instanceof Error ? err.message : "Unknown error",
+      undefined,
+      err instanceof Error ? err : undefined
+    )
+
+    runtimeResolutionState.status = "error"
+    runtimeResolutionState.error = error
+
+    notifyRuntimeResolutionSubscribers()
+    currentResolverConfig?.onError?.(error)
+
+    return null
+  }
+}
+
+/**
+ * Refreshes the runtime brand kit
+ *
+ * Reloads the current URL, bypassing cache.
+ *
+ * @returns Promise resolving to the reloaded config or null on error
+ */
+export async function refreshRuntimeBrandKit(): Promise<ThemeConfig | null> {
+  const url = runtimeResolutionState.url
+  if (!url) {
+    return null
+  }
+
+  runtimeResolutionState.isRefreshing = true
+  notifyRuntimeResolutionSubscribers()
+
+  try {
+    const result = await refreshBrandKit(url, currentResolverConfig?.urlOptions)
+
+    if (result.success && result.config) {
+      runtimeResolutionState.config = result.config
+      runtimeResolutionState.lastLoadedAt = Date.now()
+      currentThemeConfig = result.config
+      currentResolverConfig?.onLoad?.(result.config)
+    }
+
+    return result.config ?? null
+  } finally {
+    runtimeResolutionState.isRefreshing = false
+    notifyRuntimeResolutionSubscribers()
+  }
+}
+
+/**
+ * Gets the current runtime resolution state
+ *
+ * @returns Current state snapshot
+ */
+export function getRuntimeResolutionState(): RuntimeResolutionState {
+  return { ...runtimeResolutionState }
+}
+
+/**
+ * Subscribes to runtime resolution state changes
+ *
+ * @param callback - Function called when state changes
+ * @returns Unsubscribe function
+ *
+ * @example
+ * ```typescript
+ * const unsubscribe = subscribeToRuntimeResolution((state) => {
+ *   console.log("Status:", state.status)
+ *   if (state.status === "error") {
+ *     console.error("Error:", state.error?.message)
+ *   }
+ * })
+ *
+ * // Later...
+ * unsubscribe()
+ * ```
+ */
+export function subscribeToRuntimeResolution(
+  callback: (state: RuntimeResolutionState) => void
+): () => void {
+  runtimeResolutionSubscribers.add(callback)
+  return () => runtimeResolutionSubscribers.delete(callback)
+}
+
+/**
+ * Starts auto-refresh for runtime brand kit
+ *
+ * @param interval - Refresh interval in milliseconds
+ * @param url - URL to refresh
+ * @param options - Loading options
+ */
+export function startAutoRefresh(
+  interval: number,
+  url: string,
+  options?: Omit<UrlLoadingConfig, "url">
+): void {
+  stopAutoRefresh()
+
+  autoRefreshTimer = setInterval(async () => {
+    if (runtimeResolutionState.status !== "loading" && !runtimeResolutionState.isRefreshing) {
+      await resolveRuntimeBrandKit(url, options)
+    }
+  }, interval)
+}
+
+/**
+ * Stops auto-refresh
+ */
+export function stopAutoRefresh(): void {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer)
+    autoRefreshTimer = null
+  }
+}
+
+/**
+ * Resets the runtime resolver
+ *
+ * Clears all state and stops auto-refresh.
+ */
+export function resetRuntimeResolver(): void {
+  stopAutoRefresh()
+
+  runtimeResolutionState.status = "idle"
+  runtimeResolutionState.config = null
+  runtimeResolutionState.error = null
+  runtimeResolutionState.source = null
+  runtimeResolutionState.url = null
+  runtimeResolutionState.lastLoadedAt = null
+  runtimeResolutionState.isRefreshing = false
+
+  currentResolverConfig = null
+  runtimeResolutionSubscribers.clear()
+
+  notifyRuntimeResolutionSubscribers()
+}
+
+/**
+ * Sets a static config (non-URL based)
+ *
+ * Useful for setting config from local sources.
+ *
+ * @param config - Theme config to set
+ * @param source - Source identifier
+ */
+export function setRuntimeStaticConfig(
+  config: ThemeConfig,
+  source: "static" | "inheritance" = "static"
+): void {
+  runtimeResolutionState.status = "success"
+  runtimeResolutionState.config = config
+  runtimeResolutionState.source = source
+  runtimeResolutionState.lastLoadedAt = Date.now()
+  runtimeResolutionState.error = null
+
+  currentThemeConfig = config
+  notifyRuntimeResolutionSubscribers()
+}
+
+/**
+ * Gets snapshot functions for React useSyncExternalStore
+ *
+ * @returns Object with subscribe, getSnapshot, and getServerSnapshot
+ *
+ * @example
+ * ```typescript
+ * import { useSyncExternalStore } from "react"
+ *
+ * function useRuntimeResolution() {
+ *   const { subscribe, getSnapshot, getServerSnapshot } = getRuntimeResolutionSync()
+ *   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+ * }
+ * ```
+ */
+export function getRuntimeResolutionSync(): {
+  subscribe: (callback: () => void) => () => void
+  getSnapshot: () => RuntimeResolutionState
+  getServerSnapshot: () => RuntimeResolutionState
+} {
+  return {
+    subscribe: (callback: () => void) => {
+      return subscribeToRuntimeResolution(() => callback())
+    },
+    getSnapshot: getRuntimeResolutionState,
+    getServerSnapshot: () => ({
+      status: "idle" as const,
+      config: currentResolverConfig?.fallback ?? null,
+      error: null,
+      source: currentResolverConfig?.fallback ? "fallback" as const : null,
+      url: null,
+      lastLoadedAt: null,
+      isRefreshing: false,
+    }),
+  }
+}
+
+/**
+ * Hook-compatible function for runtime resolution
+ *
+ * Returns the current state. For reactive updates in React,
+ * use with useSyncExternalStore.
+ *
+ * @returns Current runtime resolution state
+ *
+ * @example
+ * ```typescript
+ * // Simple usage (non-reactive)
+ * const state = useRuntimeResolution()
+ *
+ * // For reactive updates in React:
+ * import { useSyncExternalStore } from "react"
+ * const sync = getRuntimeResolutionSync()
+ * const state = useSyncExternalStore(
+ *   sync.subscribe,
+ *   sync.getSnapshot,
+ *   sync.getServerSnapshot
+ * )
+ * ```
+ */
+export function useRuntimeResolution(): RuntimeResolutionState {
+  return getRuntimeResolutionState()
+}

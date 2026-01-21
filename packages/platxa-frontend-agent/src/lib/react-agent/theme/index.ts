@@ -317,6 +317,18 @@ export {
   preloadBrandKits,
   createUrlConfigLoader,
   refreshBrandKit,
+  // Runtime Resolution (Feature #109)
+  initRuntimeResolver,
+  resolveRuntimeBrandKit,
+  refreshRuntimeBrandKit,
+  getRuntimeResolutionState,
+  subscribeToRuntimeResolution,
+  startAutoRefresh,
+  stopAutoRefresh,
+  resetRuntimeResolver,
+  setRuntimeStaticConfig,
+  getRuntimeResolutionSync,
+  useRuntimeResolution,
 } from "./theme-worker"
 
 export type {
@@ -459,6 +471,12 @@ export type {
   // URL Loading (Feature #108)
   UrlLoadingConfig,
   UrlLoadingResult,
+  // Runtime Resolution (Feature #109)
+  RuntimeLoadingStatus,
+  RuntimeLoadingErrorType,
+  RuntimeLoadingError,
+  RuntimeResolutionState,
+  RuntimeResolverConfig,
 } from "./theme-worker"
 
 // Token presets
