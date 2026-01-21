@@ -54,7 +54,8 @@
     "platxa-init": "./dist/cli/init.mjs",
     "platxa-validate": "./dist/cli/validate.mjs",
     "platxa-generate": "./dist/cli/generate.mjs",
-    "create-brand-kit": "./dist/cli/create-brand-kit.mjs"
+    "create-brand-kit": "./dist/cli/create-brand-kit.mjs",
+    "platxa-docs": "./dist/cli/docs.mjs"
   },
   "files": [
     "dist",

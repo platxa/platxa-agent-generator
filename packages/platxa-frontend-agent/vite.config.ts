@@ -47,6 +47,7 @@ export default defineConfig({
         "cli/validate": path.resolve(__dirname, "src/cli/validate.ts"),
         "cli/generate": path.resolve(__dirname, "src/cli/generate.ts"),
         "cli/create-brand-kit": path.resolve(__dirname, "src/cli/create-brand-kit.ts"),
+        "cli/docs": path.resolve(__dirname, "src/cli/docs.ts"),
       },
       name: "PlatxaFrontendAgent",
       formats: ["es", "cjs"],
