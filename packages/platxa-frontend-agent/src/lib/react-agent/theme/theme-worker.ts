@@ -16463,3 +16463,540 @@ function createProgressBar(current: number, target: number): string {
 export function follows603010Rule(config: ThemeConfig, tolerance = 10): boolean {
   return validate603010Rule(config, { tolerance }).isValid
 }
+
+// ============================================================================
+// Feature #114: Theme Preview Generator
+// ============================================================================
+
+/**
+ * Configuration for theme preview generation
+ */
+export interface ThemePreviewConfig {
+  /** Width of the preview in pixels */
+  width?: number
+  /** Height of the preview in pixels */
+  height?: number
+  /** Include dark mode comparison */
+  includeDarkMode?: boolean
+  /** Include component preview */
+  includeComponents?: boolean
+  /** Color swatch size */
+  swatchSize?: number
+  /** Show color labels */
+  showLabels?: boolean
+  /** Font family for labels */
+  fontFamily?: string
+  /** Background color for the preview */
+  backgroundColor?: string
+}
+
+/**
+ * Result of theme preview generation
+ */
+export interface ThemePreviewResult {
+  /** Color palette SVG */
+  paletteSvg: string
+  /** Component preview SVG (if requested) */
+  componentSvg?: string
+  /** Light/dark comparison SVG (if dark mode included) */
+  comparisonSvg?: string
+  /** Combined HTML preview */
+  html: string
+  /** List of colors used */
+  colors: Array<{ name: string; value: string }>
+}
+
+/**
+ * Default preview configuration
+ */
+const DEFAULT_PREVIEW_CONFIG: Required<ThemePreviewConfig> = {
+  width: 800,
+  height: 400,
+  includeDarkMode: true,
+  includeComponents: true,
+  swatchSize: 60,
+  showLabels: true,
+  fontFamily: "system-ui, -apple-system, sans-serif",
+  backgroundColor: "#ffffff",
+}
+
+/**
+ * Gets a color value from SemanticColors with fallback
+ *
+ * Uses keyof SemanticColors for type-safe access to color values.
+ *
+ * @param colors - SemanticColors object
+ * @param name - Color name (must be valid SemanticColors key)
+ * @param fallback - Fallback value if not found
+ * @returns Color string
+ */
+function getSemanticColor(
+  colors: SemanticColors | Partial<SemanticColors> | undefined,
+  name: keyof SemanticColors,
+  fallback: string
+): string {
+  if (!colors) return fallback
+  const value = colors[name]
+  if (!value) return fallback
+  return typeof value === "string" ? value : convertColorToString(value)
+}
+
+/**
+ * Generates an SVG color palette preview
+ *
+ * Creates a visual grid of all semantic colors in the theme.
+ *
+ * @param config - Theme config to preview
+ * @param options - Preview options
+ * @returns SVG string
+ *
+ * @example
+ * ```typescript
+ * const svg = generateColorPaletteSvg(myBrand)
+ * document.getElementById("preview").innerHTML = svg
+ * ```
+ */
+export function generateColorPaletteSvg(
+  config: ThemeConfig,
+  options?: Partial<ThemePreviewConfig>
+): string {
+  const opts = { ...DEFAULT_PREVIEW_CONFIG, ...options }
+  const colors = config.light.colors ?? {}
+  const colorEntries = Object.entries(colors)
+
+  if (colorEntries.length === 0) {
+    return createEmptySvg(opts.width, opts.height, "No colors defined")
+  }
+
+  const { swatchSize, showLabels, fontFamily } = opts
+  const cols = Math.ceil(Math.sqrt(colorEntries.length))
+  const rows = Math.ceil(colorEntries.length / cols)
+  const padding = 20
+  const labelHeight = showLabels ? 20 : 0
+  const cellWidth = swatchSize + 10
+  const cellHeight = swatchSize + labelHeight + 10
+
+  const width = cols * cellWidth + padding * 2
+  const height = rows * cellHeight + padding * 2 + 40 // Extra for title
+
+  const elements: string[] = []
+
+  // Background
+  elements.push(`<rect width="${width}" height="${height}" fill="${opts.backgroundColor}"/>`)
+
+  // Title
+  elements.push(
+    `<text x="${width / 2}" y="30" text-anchor="middle" ` +
+    `font-family="${fontFamily}" font-size="16" font-weight="bold" fill="#333">` +
+    `${escapeXml(config.name)} - Color Palette</text>`
+  )
+
+  // Color swatches
+  colorEntries.forEach(([name, value], index) => {
+    const col = index % cols
+    const row = Math.floor(index / cols)
+    const x = padding + col * cellWidth
+    const y = padding + 40 + row * cellHeight
+
+    const colorStr = typeof value === "string" ? value : convertColorToString(value)
+
+    // Swatch
+    elements.push(
+      `<rect x="${x}" y="${y}" width="${swatchSize}" height="${swatchSize}" ` +
+      `fill="${colorStr}" rx="4" stroke="#ddd" stroke-width="1"/>`
+    )
+
+    // Label
+    if (showLabels) {
+      const labelY = y + swatchSize + 14
+      const truncatedName = name.length > 10 ? name.slice(0, 9) + "…" : name
+      elements.push(
+        `<text x="${x + swatchSize / 2}" y="${labelY}" text-anchor="middle" ` +
+        `font-family="${fontFamily}" font-size="10" fill="#666">` +
+        `${escapeXml(truncatedName)}</text>`
+      )
+    }
+  })
+
+  return wrapInSvg(width, height, elements.join("\n"))
+}
+
+/**
+ * Generates an SVG component preview
+ *
+ * Creates visual representations of common UI components using theme colors.
+ *
+ * @param config - Theme config to preview
+ * @param options - Preview options
+ * @returns SVG string
+ */
+export function generateComponentPreviewSvg(
+  config: ThemeConfig,
+  options?: Partial<ThemePreviewConfig>
+): string {
+  const opts = { ...DEFAULT_PREVIEW_CONFIG, ...options }
+  const colors = config.light.colors
+
+  const width = opts.width
+  const height = 300
+  const padding = 20
+
+  const getColor = (name: keyof SemanticColors, fallback: string): string => {
+    return getSemanticColor(colors, name, fallback)
+  }
+
+  const bg = getColor("background", "#ffffff")
+  const fg = getColor("foreground", "#000000")
+  const primary = getColor("primary", "#3b82f6")
+  const primaryFg = getColor("primaryForeground", "#ffffff")
+  const secondary = getColor("secondary", "#f1f5f9")
+  const secondaryFg = getColor("secondaryForeground", "#334155")
+  const muted = getColor("muted", "#f1f5f9")
+  const mutedFg = getColor("mutedForeground", "#64748b")
+  const border = getColor("border", "#e2e8f0")
+  const card = getColor("card", "#ffffff")
+  const cardFg = getColor("cardForeground", "#000000")
+  const destructive = getColor("destructive", "#ef4444")
+
+  const elements: string[] = []
+
+  // Background
+  elements.push(`<rect width="${width}" height="${height}" fill="${bg}"/>`)
+
+  // Title
+  elements.push(
+    `<text x="${padding}" y="30" font-family="${opts.fontFamily}" font-size="14" ` +
+    `font-weight="bold" fill="${fg}">Component Preview</text>`
+  )
+
+  // Card component
+  const cardX = padding
+  const cardY = 50
+  const cardW = 200
+  const cardH = 120
+  elements.push(
+    `<rect x="${cardX}" y="${cardY}" width="${cardW}" height="${cardH}" ` +
+    `fill="${card}" rx="8" stroke="${border}" stroke-width="1"/>` +
+    `<text x="${cardX + 16}" y="${cardY + 30}" font-family="${opts.fontFamily}" ` +
+    `font-size="14" font-weight="600" fill="${cardFg}">Card Title</text>` +
+    `<text x="${cardX + 16}" y="${cardY + 50}" font-family="${opts.fontFamily}" ` +
+    `font-size="12" fill="${mutedFg}">Card description text</text>` +
+    `<rect x="${cardX + 16}" y="${cardY + 70}" width="80" height="32" ` +
+    `fill="${primary}" rx="4"/>` +
+    `<text x="${cardX + 56}" y="${cardY + 91}" text-anchor="middle" ` +
+    `font-family="${opts.fontFamily}" font-size="12" fill="${primaryFg}">Button</text>`
+  )
+
+  // Buttons row
+  const btnY = 190
+  // Primary button
+  elements.push(
+    `<rect x="${padding}" y="${btnY}" width="100" height="36" fill="${primary}" rx="6"/>` +
+    `<text x="${padding + 50}" y="${btnY + 23}" text-anchor="middle" ` +
+    `font-family="${opts.fontFamily}" font-size="12" fill="${primaryFg}">Primary</text>`
+  )
+  // Secondary button
+  elements.push(
+    `<rect x="${padding + 120}" y="${btnY}" width="100" height="36" fill="${secondary}" rx="6"/>` +
+    `<text x="${padding + 170}" y="${btnY + 23}" text-anchor="middle" ` +
+    `font-family="${opts.fontFamily}" font-size="12" fill="${secondaryFg}">Secondary</text>`
+  )
+  // Destructive button
+  elements.push(
+    `<rect x="${padding + 240}" y="${btnY}" width="100" height="36" fill="${destructive}" rx="6"/>` +
+    `<text x="${padding + 290}" y="${btnY + 23}" text-anchor="middle" ` +
+    `font-family="${opts.fontFamily}" font-size="12" fill="${primaryFg}">Delete</text>`
+  )
+
+  // Input field
+  const inputX = 250
+  const inputY = 50
+  elements.push(
+    `<text x="${inputX}" y="${inputY}" font-family="${opts.fontFamily}" ` +
+    `font-size="12" fill="${fg}">Input Field</text>` +
+    `<rect x="${inputX}" y="${inputY + 10}" width="200" height="40" ` +
+    `fill="${bg}" rx="6" stroke="${border}" stroke-width="1"/>` +
+    `<text x="${inputX + 12}" y="${inputY + 35}" font-family="${opts.fontFamily}" ` +
+    `font-size="12" fill="${mutedFg}">Placeholder text...</text>`
+  )
+
+  // Badge
+  elements.push(
+    `<rect x="${inputX}" y="${inputY + 70}" width="60" height="24" fill="${muted}" rx="12"/>` +
+    `<text x="${inputX + 30}" y="${inputY + 86}" text-anchor="middle" ` +
+    `font-family="${opts.fontFamily}" font-size="10" fill="${mutedFg}">Badge</text>`
+  )
+
+  return wrapInSvg(width, height, elements.join("\n"))
+}
+
+/**
+ * Generates a light/dark mode comparison SVG
+ *
+ * @param config - Theme config to compare
+ * @param options - Preview options
+ * @returns SVG string
+ */
+export function generateLightDarkComparisonSvg(
+  config: ThemeConfig,
+  options?: Partial<ThemePreviewConfig>
+): string {
+  const opts = { ...DEFAULT_PREVIEW_CONFIG, ...options }
+
+  if (!config.dark) {
+    return createEmptySvg(opts.width, 200, "No dark mode defined")
+  }
+
+  const width = opts.width
+  const height = 250
+  const halfWidth = width / 2 - 10
+  const padding = 20
+
+  const lightColors = config.light.colors
+  const darkColors = config.dark
+
+  // Get common colors to compare (type-safe array of semantic color keys)
+  const colorKeys: (keyof SemanticColors)[] = ["background", "foreground", "primary", "secondary", "muted", "card", "border"]
+
+  const getColor = (
+    colors: SemanticColors | Partial<SemanticColors> | undefined,
+    name: keyof SemanticColors,
+    fallback: string
+  ): string => {
+    return getSemanticColor(colors, name, fallback)
+  }
+
+  const elements: string[] = []
+
+  // Background
+  elements.push(`<rect width="${width}" height="${height}" fill="#f0f0f0"/>`)
+
+  // Light mode section
+  const lightBg = getColor(lightColors, "background", "#ffffff")
+  elements.push(
+    `<rect x="${padding}" y="${padding}" width="${halfWidth}" height="${height - padding * 2}" ` +
+    `fill="${lightBg}" rx="8" stroke="#ddd" stroke-width="1"/>` +
+    `<text x="${padding + halfWidth / 2}" y="${padding + 25}" text-anchor="middle" ` +
+    `font-family="${opts.fontFamily}" font-size="14" font-weight="bold" ` +
+    `fill="${getColor(lightColors, "foreground", "#000")}">Light Mode</text>`
+  )
+
+  // Dark mode section
+  const darkBg = getColor(darkColors, "background", "#1a1a1a")
+  elements.push(
+    `<rect x="${halfWidth + padding + 20}" y="${padding}" width="${halfWidth}" ` +
+    `height="${height - padding * 2}" fill="${darkBg}" rx="8" stroke="#333" stroke-width="1"/>` +
+    `<text x="${halfWidth + padding + 20 + halfWidth / 2}" y="${padding + 25}" text-anchor="middle" ` +
+    `font-family="${opts.fontFamily}" font-size="14" font-weight="bold" ` +
+    `fill="${getColor(darkColors, "foreground", "#fff")}">Dark Mode</text>`
+  )
+
+  // Color swatches in each section
+  const swatchSize = 30
+  const swatchY = padding + 50
+
+  colorKeys.forEach((key, index) => {
+    const y = swatchY + index * (swatchSize + 10)
+
+    // Light swatch
+    const lightColor = getColor(lightColors, key, "#ccc")
+    elements.push(
+      `<rect x="${padding + 15}" y="${y}" width="${swatchSize}" height="${swatchSize}" ` +
+      `fill="${lightColor}" rx="4" stroke="#ddd" stroke-width="1"/>` +
+      `<text x="${padding + 55}" y="${y + 20}" font-family="${opts.fontFamily}" ` +
+      `font-size="11" fill="${getColor(lightColors, "foreground", "#000")}">${key}</text>`
+    )
+
+    // Dark swatch
+    const darkColor = getColor(darkColors, key, lightColor)
+    elements.push(
+      `<rect x="${halfWidth + padding + 35}" y="${y}" width="${swatchSize}" height="${swatchSize}" ` +
+      `fill="${darkColor}" rx="4" stroke="#555" stroke-width="1"/>` +
+      `<text x="${halfWidth + padding + 75}" y="${y + 20}" font-family="${opts.fontFamily}" ` +
+      `font-size="11" fill="${getColor(darkColors, "foreground", "#fff")}">${key}</text>`
+    )
+  })
+
+  return wrapInSvg(width, height, elements.join("\n"))
+}
+
+/**
+ * Generates a complete theme preview with all visualizations
+ *
+ * @param config - Theme config to preview
+ * @param options - Preview options
+ * @returns Complete preview result with SVGs and HTML
+ *
+ * @example
+ * ```typescript
+ * const preview = generateThemePreview(myBrand, {
+ *   includeDarkMode: true,
+ *   includeComponents: true,
+ * })
+ *
+ * // Use individual SVGs
+ * document.getElementById("palette").innerHTML = preview.paletteSvg
+ *
+ * // Or use combined HTML
+ * document.body.innerHTML = preview.html
+ * ```
+ */
+export function generateThemePreview(
+  config: ThemeConfig,
+  options?: Partial<ThemePreviewConfig>
+): ThemePreviewResult {
+  const opts = { ...DEFAULT_PREVIEW_CONFIG, ...options }
+
+  // Generate palette SVG
+  const paletteSvg = generateColorPaletteSvg(config, opts)
+
+  // Generate component SVG if requested
+  const componentSvg = opts.includeComponents
+    ? generateComponentPreviewSvg(config, opts)
+    : undefined
+
+  // Generate comparison SVG if dark mode exists and requested
+  const comparisonSvg = opts.includeDarkMode && config.dark
+    ? generateLightDarkComparisonSvg(config, opts)
+    : undefined
+
+  // Extract color list
+  const colors = Object.entries(config.light.colors ?? {}).map(([name, value]) => ({
+    name,
+    value: typeof value === "string" ? value : convertColorToString(value),
+  }))
+
+  // Generate combined HTML
+  const html = generatePreviewHtml(config.name, paletteSvg, componentSvg, comparisonSvg, opts)
+
+  return {
+    paletteSvg,
+    componentSvg,
+    comparisonSvg,
+    html,
+    colors,
+  }
+}
+
+/**
+ * Generates combined HTML preview document
+ */
+function generatePreviewHtml(
+  name: string,
+  paletteSvg: string,
+  componentSvg: string | undefined,
+  comparisonSvg: string | undefined,
+  options: Required<ThemePreviewConfig>
+): string {
+  const sections: string[] = []
+
+  sections.push(`
+    <div style="margin-bottom: 40px;">
+      <h2 style="font-family: ${options.fontFamily}; margin-bottom: 16px;">Color Palette</h2>
+      ${paletteSvg}
+    </div>
+  `)
+
+  if (componentSvg) {
+    sections.push(`
+      <div style="margin-bottom: 40px;">
+        <h2 style="font-family: ${options.fontFamily}; margin-bottom: 16px;">Component Preview</h2>
+        ${componentSvg}
+      </div>
+    `)
+  }
+
+  if (comparisonSvg) {
+    sections.push(`
+      <div style="margin-bottom: 40px;">
+        <h2 style="font-family: ${options.fontFamily}; margin-bottom: 16px;">Light/Dark Comparison</h2>
+        ${comparisonSvg}
+      </div>
+    `)
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeXml(name)} - Theme Preview</title>
+  <style>
+    body {
+      font-family: ${options.fontFamily};
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      background: ${options.backgroundColor};
+    }
+    h1 {
+      margin-bottom: 40px;
+      color: #333;
+    }
+    h2 {
+      color: #555;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <h1>${escapeXml(name)} - Theme Preview</h1>
+  ${sections.join("\n")}
+</body>
+</html>`
+}
+
+/**
+ * Wraps SVG elements in proper SVG document
+ */
+function wrapInSvg(width: number, height: number, content: string): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+${content}
+</svg>`
+}
+
+/**
+ * Creates an empty SVG with a message
+ */
+function createEmptySvg(width: number, height: number, message: string): string {
+  return wrapInSvg(
+    width,
+    height,
+    `<rect width="${width}" height="${height}" fill="#f5f5f5"/>
+     <text x="${width / 2}" y="${height / 2}" text-anchor="middle" fill="#999" font-size="14">${escapeXml(message)}</text>`
+  )
+}
+
+/**
+ * Escapes XML special characters
+ */
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;")
+}
+
+/**
+ * Converts a ColorValue to string representation
+ */
+function convertColorToString(value: ColorValue): string {
+  if (typeof value === "string") {
+    return value
+  }
+  if ("l" in value && "c" in value && "h" in value) {
+    // OKLCH
+    return oklchToString(value as OklchColor)
+  }
+  if ("h" in value && "s" in value && "l" in value) {
+    // HSL
+    return hslToString(value as HslColor)
+  }
+  if ("r" in value && "g" in value && "b" in value) {
+    // RGB
+    return rgbToString(value as RgbColor)
+  }
+  return "#888888"
+}

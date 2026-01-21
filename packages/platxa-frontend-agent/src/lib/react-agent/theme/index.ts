@@ -353,6 +353,11 @@ export {
   validate603010Rule,
   formatColorDistributionReport,
   follows603010Rule,
+  // Theme Preview Generator (Feature #114)
+  generateColorPaletteSvg,
+  generateComponentPreviewSvg,
+  generateLightDarkComparisonSvg,
+  generateThemePreview,
 } from "./theme-worker"
 
 export type {
@@ -524,6 +529,9 @@ export type {
   DistributionSuggestion,
   ColorDistributionResult,
   ColorDistributionConfig,
+  // Theme Preview Generator (Feature #114)
+  ThemePreviewConfig,
+  ThemePreviewResult,
 } from "./theme-worker"
 
 // Token presets

@@ -91,6 +91,11 @@ export interface SemanticColors {
 }
 
 /**
+ * Valid semantic color names
+ */
+export type SemanticColorName = keyof SemanticColors
+
+/**
  * Color palette with shades
  */
 export interface ColorPalette {

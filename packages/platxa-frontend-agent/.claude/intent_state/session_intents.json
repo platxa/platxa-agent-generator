@@ -1,32 +1,32 @@
 {
-  "session_id": "5871f70c16c9",
+  "session_id": "2c5130e0a0ed",
   "stack": {
     "session": {
-      "id": "5871f70c16c9-175",
-      "text": "[Theme Integration Features] Feature #113: [60-30-10 Rule Validation] Validate color distribution follows 60-30-10 rule Verification: Color distribution analyzed; Warnings for imbalanced distribution; Suggestions for improvement Criteria: Manual verification required",
+      "id": "2c5130e0a0ed-177",
+      "text": "[Theme Integration Features] Feature #114: [Theme Preview Generator] Generate preview images of theme colors Verification: Color palette image generated; Component preview generated; Light/dark comparison Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768998813.0362384,
-      "updated_at": 1768998813.0362387,
+      "created_at": 1768999065.4303215,
+      "updated_at": 1768999065.4303215,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 113,
+        "feature_id": 114,
         "category": "Theme Integration Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "5871f70c16c9-176",
-      "text": "Implement: [60-30-10 Rule Validation] Validate color distribution follows 60-30-10 rule Verification: Color distribution analyzed; Warnings for imbalanced distribution; Suggestions for improvement",
+      "id": "2c5130e0a0ed-178",
+      "text": "Implement: [Theme Preview Generator] Generate preview images of theme colors Verification: Color palette image generated; Component preview generated; Light/dark comparison",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768998813.0434527,
-      "updated_at": 1768998813.043453,
+      "created_at": 1768999065.4361577,
+      "updated_at": 1768999065.436158,
       "completed_at": null,
-      "parent_id": "5871f70c16c9-175",
+      "parent_id": "2c5130e0a0ed-177",
       "metadata": {},
       "keywords": []
     },
@@ -2584,9 +2584,38 @@
       "parent_id": "5871f70c16c9-175",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "2c5130e0a0ed-177",
+      "text": "[Theme Integration Features] Feature #114: [Theme Preview Generator] Generate preview images of theme colors Verification: Color palette image generated; Component preview generated; Light/dark comparison Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768999065.4303215,
+      "updated_at": 1768999065.4303215,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 114,
+        "category": "Theme Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "2c5130e0a0ed-178",
+      "text": "Implement: [Theme Preview Generator] Generate preview images of theme colors Verification: Color palette image generated; Component preview generated; Light/dark comparison",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768999065.4361577,
+      "updated_at": 1768999065.436158,
+      "completed_at": null,
+      "parent_id": "2c5130e0a0ed-177",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 176,
+  "intent_counter": 178,
   "created_at": 1768900061.32227,
-  "updated_at": 1768998813.0434594
+  "updated_at": 1768999065.4361622
 }
