@@ -8253,3 +8253,485 @@ export const defaultTheme = theme
     themeTs,
   }
 }
+
+// =============================================================================
+// Feature #97: Migration Guide
+// =============================================================================
+
+/**
+ * Breaking change severity
+ */
+export type BreakingChangeSeverity = "major" | "minor" | "patch"
+
+/**
+ * Breaking change entry
+ */
+export interface BreakingChange {
+  /** Unique identifier */
+  id: string
+  /** Version where change was introduced */
+  version: string
+  /** Severity of the change */
+  severity: BreakingChangeSeverity
+  /** What changed */
+  description: string
+  /** How to migrate */
+  migration: string
+  /** Affected APIs or components */
+  affected: string[]
+  /** Codemod available */
+  codemod?: string
+}
+
+/**
+ * Version migration step
+ */
+export interface MigrationStep {
+  /** Step number */
+  step: number
+  /** Title */
+  title: string
+  /** Detailed description */
+  description: string
+  /** Code example (before) */
+  before?: string
+  /** Code example (after) */
+  after?: string
+  /** Is this step automated */
+  automated: boolean
+  /** Command to run (if automated) */
+  command?: string
+}
+
+/**
+ * Migration guide for a version
+ */
+export interface VersionMigrationGuide {
+  /** From version */
+  fromVersion: string
+  /** To version */
+  toVersion: string
+  /** Release date */
+  releaseDate?: string
+  /** Summary of changes */
+  summary: string
+  /** Breaking changes */
+  breakingChanges: BreakingChange[]
+  /** Migration steps */
+  steps: MigrationStep[]
+  /** Deprecations (not breaking yet) */
+  deprecations: string[]
+  /** New features */
+  newFeatures: string[]
+}
+
+/**
+ * Migration guide options
+ */
+export interface MigrationGuideOptions {
+  /** Include code examples */
+  includeExamples?: boolean
+  /** Include codemods */
+  includeCodemods?: boolean
+  /** Format (markdown, json, html) */
+  format?: "markdown" | "json" | "html"
+}
+
+/**
+ * Known breaking changes registry
+ */
+export const BREAKING_CHANGES: BreakingChange[] = [
+  {
+    id: "v1-theme-config-structure",
+    version: "1.0.0",
+    severity: "major",
+    description: "ThemeConfig structure changed: `colors` moved under `light.colors`",
+    migration: "Move your color definitions from `theme.colors` to `theme.light.colors`",
+    affected: ["ThemeConfig", "createTheme", "generateTheme"],
+    codemod: "npx @platxa/frontend-agent migrate-theme-config",
+  },
+  {
+    id: "v1-oklch-default",
+    version: "1.0.0",
+    severity: "minor",
+    description: "OKLCH is now the default color format instead of HSL",
+    migration: "Update color values to OKLCH format or set `useOklch: false` in options",
+    affected: ["generatePalette", "generateSemanticColors"],
+  },
+  {
+    id: "v1-tailwind-v4",
+    version: "1.0.0",
+    severity: "major",
+    description: "Tailwind v4 is now required (CSS-first configuration)",
+    migration: "Upgrade to Tailwind v4 and use @theme directive instead of tailwind.config.js",
+    affected: ["generateTailwindTheme", "generateCss"],
+    codemod: "npx @platxa/frontend-agent migrate-tailwind",
+  },
+]
+
+/**
+ * Gets breaking changes between two versions
+ *
+ * @param fromVersion - Starting version
+ * @param toVersion - Target version
+ * @returns Array of breaking changes
+ */
+export function getBreakingChangesBetween(
+  fromVersion: string,
+  toVersion: string
+): BreakingChange[] {
+  // Parse versions (simplified semver comparison)
+  const parseVersion = (v: string): number[] => {
+    return v.replace(/^v/, "").split(".").map(Number)
+  }
+
+  const from = parseVersion(fromVersion)
+  const to = parseVersion(toVersion)
+
+  return BREAKING_CHANGES.filter((change) => {
+    const changeVersion = parseVersion(change.version)
+    // Include if change version is > fromVersion and <= toVersion
+    const afterFrom =
+      changeVersion[0] > from[0] ||
+      (changeVersion[0] === from[0] && changeVersion[1] > from[1]) ||
+      (changeVersion[0] === from[0] &&
+        changeVersion[1] === from[1] &&
+        changeVersion[2] > from[2])
+    const beforeOrEqualTo =
+      changeVersion[0] < to[0] ||
+      (changeVersion[0] === to[0] && changeVersion[1] < to[1]) ||
+      (changeVersion[0] === to[0] &&
+        changeVersion[1] === to[1] &&
+        changeVersion[2] <= to[2])
+
+    return afterFrom && beforeOrEqualTo
+  })
+}
+
+/**
+ * Generates a migration guide between versions
+ *
+ * @param fromVersion - Starting version
+ * @param toVersion - Target version
+ * @param options - Guide options
+ * @returns Migration guide
+ *
+ * @example
+ * ```typescript
+ * const guide = generateMigrationGuide("0.9.0", "1.0.0")
+ * console.log(guide.breakingChanges)
+ * ```
+ */
+export function generateMigrationGuide(
+  fromVersion: string,
+  toVersion: string,
+  options: MigrationGuideOptions = {}
+): VersionMigrationGuide {
+  const breakingChanges = getBreakingChangesBetween(fromVersion, toVersion)
+
+  const steps: MigrationStep[] = []
+  let stepNumber = 1
+
+  // Add backup step
+  steps.push({
+    step: stepNumber++,
+    title: "Backup your project",
+    description: "Create a backup or commit your current state before migrating.",
+    automated: false,
+  })
+
+  // Add update step
+  steps.push({
+    step: stepNumber++,
+    title: "Update package version",
+    description: `Update @platxa/frontend-agent to version ${toVersion}`,
+    command: `npm install @platxa/frontend-agent@${toVersion}`,
+    automated: true,
+  })
+
+  // Add steps for each breaking change
+  for (const change of breakingChanges) {
+    const step: MigrationStep = {
+      step: stepNumber++,
+      title: `Migrate: ${change.id}`,
+      description: change.migration,
+      automated: !!change.codemod,
+    }
+
+    if (change.codemod && options.includeCodemods !== false) {
+      step.command = change.codemod
+    }
+
+    steps.push(step)
+  }
+
+  // Add verification step
+  steps.push({
+    step: stepNumber++,
+    title: "Verify migration",
+    description: "Run your tests and check that everything works correctly.",
+    command: "npm test",
+    automated: true,
+  })
+
+  return {
+    fromVersion,
+    toVersion,
+    summary: `Migration guide from v${fromVersion} to v${toVersion}. ${breakingChanges.length} breaking change(s) to address.`,
+    breakingChanges,
+    steps,
+    deprecations: [],
+    newFeatures: [],
+  }
+}
+
+/**
+ * Formats a migration guide as Markdown
+ *
+ * @param guide - Migration guide
+ * @returns Markdown string
+ */
+export function formatMigrationGuideMarkdown(
+  guide: VersionMigrationGuide
+): string {
+  const lines: string[] = []
+
+  lines.push(`# Migration Guide: v${guide.fromVersion} → v${guide.toVersion}`)
+  lines.push("")
+  lines.push(guide.summary)
+  lines.push("")
+
+  // Breaking changes
+  if (guide.breakingChanges.length > 0) {
+    lines.push("## Breaking Changes")
+    lines.push("")
+
+    for (const change of guide.breakingChanges) {
+      lines.push(`### ${change.id}`)
+      lines.push("")
+      lines.push(`**Severity:** ${change.severity}`)
+      lines.push("")
+      lines.push(change.description)
+      lines.push("")
+      lines.push(`**Affected:** ${change.affected.join(", ")}`)
+      lines.push("")
+      lines.push(`**Migration:** ${change.migration}`)
+      lines.push("")
+
+      if (change.codemod) {
+        lines.push("```bash")
+        lines.push(change.codemod)
+        lines.push("```")
+        lines.push("")
+      }
+    }
+  }
+
+  // Migration steps
+  lines.push("## Migration Steps")
+  lines.push("")
+
+  for (const step of guide.steps) {
+    lines.push(`### Step ${step.step}: ${step.title}`)
+    lines.push("")
+    lines.push(step.description)
+    lines.push("")
+
+    if (step.command) {
+      lines.push("```bash")
+      lines.push(step.command)
+      lines.push("```")
+      lines.push("")
+    }
+
+    if (step.before && step.after) {
+      lines.push("**Before:**")
+      lines.push("```typescript")
+      lines.push(step.before)
+      lines.push("```")
+      lines.push("")
+      lines.push("**After:**")
+      lines.push("```typescript")
+      lines.push(step.after)
+      lines.push("```")
+      lines.push("")
+    }
+  }
+
+  // Deprecations
+  if (guide.deprecations.length > 0) {
+    lines.push("## Deprecations")
+    lines.push("")
+    for (const dep of guide.deprecations) {
+      lines.push(`- ${dep}`)
+    }
+    lines.push("")
+  }
+
+  // New features
+  if (guide.newFeatures.length > 0) {
+    lines.push("## New Features")
+    lines.push("")
+    for (const feature of guide.newFeatures) {
+      lines.push(`- ${feature}`)
+    }
+    lines.push("")
+  }
+
+  return lines.join("\n")
+}
+
+/**
+ * Detects potential migration issues in a theme config
+ *
+ * @param config - Theme configuration to check
+ * @param targetVersion - Version migrating to
+ * @returns List of potential issues
+ */
+export function detectMigrationIssues(
+  config: ThemeConfig,
+  targetVersion: string = "1.0.0"
+): {
+  issues: Array<{
+    severity: "error" | "warning" | "info"
+    message: string
+    fix?: string
+  }>
+  compatible: boolean
+  targetVersion: string
+} {
+  const issues: Array<{
+    severity: "error" | "warning" | "info"
+    message: string
+    fix?: string
+  }> = []
+
+  // Parse target version for version-specific checks
+  const [major] = targetVersion.replace(/^v/, "").split(".").map(Number)
+
+  // Check for deprecated patterns
+  if (!config.name) {
+    issues.push({
+      severity: "error",
+      message: "Theme config must have a name",
+      fix: "Add a 'name' property to your theme config",
+    })
+  }
+
+  if (!config.light) {
+    issues.push({
+      severity: "error",
+      message: "Theme config must have light mode tokens",
+      fix: "Add a 'light' property with your design tokens",
+    })
+  }
+
+  // Check color format (warn if using old HSL format) - applies to v1+
+  if (major >= 1 && config.light?.colors) {
+    const colors = config.light.colors
+    for (const [key, value] of Object.entries(colors)) {
+      if (typeof value === "string" && value.startsWith("hsl(")) {
+        issues.push({
+          severity: "warning",
+          message: `Color '${key}' uses HSL format. Consider migrating to OKLCH for v${major}.x.`,
+          fix: `Use oklch() format for better color interpolation`,
+        })
+      }
+    }
+  }
+
+  // Check for extends field (v1 feature)
+  if (config.extends && typeof config.extends === "string") {
+    issues.push({
+      severity: "info",
+      message: `Using string-based extends for v${targetVersion}. Ensure brand kit registry is configured.`,
+    })
+  }
+
+  return {
+    issues,
+    compatible: !issues.some((i) => i.severity === "error"),
+    targetVersion,
+  }
+}
+
+/**
+ * Generates a codemod script for theme migration
+ *
+ * @param fromVersion - Source version
+ * @param toVersion - Target version
+ * @returns Codemod script as string
+ */
+export function generateMigrationCodemod(
+  fromVersion: string,
+  toVersion: string
+): string {
+  return `#!/usr/bin/env node
+/**
+ * Migration Codemod: v${fromVersion} → v${toVersion}
+ * Generated by @platxa/frontend-agent
+ *
+ * Usage: node migrate.js [files...]
+ */
+
+const fs = require("fs")
+const path = require("path")
+
+const transforms = [
+  // Transform old theme structure to new
+  {
+    pattern: /theme\\.colors\\s*=/g,
+    replacement: "theme.light.colors =",
+    description: "Move colors under light mode",
+  },
+  // Transform HSL to OKLCH (basic)
+  {
+    pattern: /hsl\\((\\d+)\\s+(\\d+)%\\s+(\\d+)%\\)/g,
+    replacement: (match, h, s, l) => {
+      // Simplified conversion (real conversion would need color math)
+      const lightness = parseInt(l) / 100
+      const chroma = parseInt(s) / 100 * 0.4
+      return \`oklch(\${lightness.toFixed(2)} \${chroma.toFixed(2)} \${h})\`
+    },
+    description: "Convert HSL to OKLCH",
+  },
+]
+
+function migrateFile(filePath) {
+  let content = fs.readFileSync(filePath, "utf8")
+  let modified = false
+
+  for (const transform of transforms) {
+    if (transform.pattern.test(content)) {
+      content = content.replace(transform.pattern, transform.replacement)
+      modified = true
+      console.log(\`  Applied: \${transform.description}\`)
+    }
+  }
+
+  if (modified) {
+    fs.writeFileSync(filePath, content)
+    console.log(\`✓ Migrated: \${filePath}\`)
+  }
+
+  return modified
+}
+
+// Run on provided files or find theme files
+const files = process.argv.slice(2)
+if (files.length === 0) {
+  console.log("Usage: node migrate.js [files...]")
+  console.log("Example: node migrate.js src/theme.ts src/tokens.ts")
+  process.exit(1)
+}
+
+let migratedCount = 0
+for (const file of files) {
+  if (migrateFile(file)) {
+    migratedCount++
+  }
+}
+
+console.log(\`\\nMigration complete: \${migratedCount} file(s) updated\`)
+`
+}

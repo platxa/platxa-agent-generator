@@ -208,6 +208,13 @@ export {
   generateBrandKitImport,
   validateMonorepoSetup,
   createBrandKitPackage,
+  // Migration Guide (Feature #97)
+  BREAKING_CHANGES,
+  getBreakingChangesBetween,
+  generateMigrationGuide,
+  formatMigrationGuideMarkdown,
+  detectMigrationIssues,
+  generateMigrationCodemod,
 } from "./theme-worker"
 
 export type {
@@ -283,6 +290,12 @@ export type {
   BrandKitReference,
   MonorepoBrandConfig,
   MonorepoResolveOptions,
+  // Migration Guide (Feature #97)
+  BreakingChangeSeverity,
+  BreakingChange,
+  MigrationStep,
+  VersionMigrationGuide,
+  MigrationGuideOptions,
 } from "./theme-worker"
 
 // Token presets

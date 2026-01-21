@@ -1,32 +1,32 @@
 {
-  "session_id": "c9aeda3674a0",
+  "session_id": "72723f2f4fcf",
   "stack": {
     "session": {
-      "id": "c9aeda3674a0-141",
-      "text": "[Build & Integration Features] Feature #96: [Monorepo Support] Support for brand kits in monorepos Verification: Workspace protocol support; Relative path resolution; pnpm/yarn workspaces Criteria: Manual verification required",
+      "id": "72723f2f4fcf-143",
+      "text": "[Documentation & AI Features] Feature #97: [Migration Guide] Guide for migrating existing projects Verification: Version upgrade guide; Breaking changes listed; Codemods if needed Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768993720.9926624,
-      "updated_at": 1768993720.9926624,
+      "created_at": 1768993947.860322,
+      "updated_at": 1768993947.8603222,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 96,
-        "category": "Build & Integration Features"
+        "feature_id": 97,
+        "category": "Documentation & AI Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "c9aeda3674a0-142",
-      "text": "Implement: [Monorepo Support] Support for brand kits in monorepos Verification: Workspace protocol support; Relative path resolution; pnpm/yarn workspaces",
+      "id": "72723f2f4fcf-144",
+      "text": "Implement: [Migration Guide] Guide for migrating existing projects Verification: Version upgrade guide; Breaking changes listed; Codemods if needed",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768993721.0064435,
-      "updated_at": 1768993721.0064437,
+      "created_at": 1768993947.8660724,
+      "updated_at": 1768993947.8660727,
       "completed_at": null,
-      "parent_id": "c9aeda3674a0-141",
+      "parent_id": "72723f2f4fcf-143",
       "metadata": {},
       "keywords": []
     },
@@ -2091,9 +2091,38 @@
       "parent_id": "c9aeda3674a0-141",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "72723f2f4fcf-143",
+      "text": "[Documentation & AI Features] Feature #97: [Migration Guide] Guide for migrating existing projects Verification: Version upgrade guide; Breaking changes listed; Codemods if needed Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993947.860322,
+      "updated_at": 1768993947.8603222,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 97,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "72723f2f4fcf-144",
+      "text": "Implement: [Migration Guide] Guide for migrating existing projects Verification: Version upgrade guide; Breaking changes listed; Codemods if needed",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993947.8660724,
+      "updated_at": 1768993947.8660727,
+      "completed_at": null,
+      "parent_id": "72723f2f4fcf-143",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 142,
+  "intent_counter": 144,
   "created_at": 1768900061.32227,
-  "updated_at": 1768993721.0064504
+  "updated_at": 1768993947.8661153
 }
