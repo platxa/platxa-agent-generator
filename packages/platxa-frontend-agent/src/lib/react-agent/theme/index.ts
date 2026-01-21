@@ -485,6 +485,26 @@ export {
   createLayer,
   createSelectiveLayer,
   formatComposerReport,
+  // Multi-Tenant Brands (Feature #131)
+  initMultiTenant,
+  registerTenant,
+  unregisterTenant,
+  switchTenant,
+  getTenantContext,
+  getCurrentTenantId,
+  getCurrentTenantBrand,
+  getTenant,
+  listTenants,
+  enableTenant,
+  disableTenant,
+  subscribeTenantChanges,
+  detectTenant,
+  autoDetectAndSwitch,
+  generateAllTenantsCss,
+  generateTenantStyleTag,
+  resetMultiTenant,
+  useMultiTenant,
+  formatMultiTenantReport,
 } from "./theme-worker"
 
 export type {
@@ -770,6 +790,14 @@ export type {
   ThemeComposerConfig,
   TokenAttribution,
   ThemeComposerResult,
+  // Multi-Tenant Brands (Feature #131)
+  TenantId,
+  TenantIsolation,
+  TenantBrand,
+  TenantDetectionPatterns,
+  MultiTenantConfig,
+  TenantContext,
+  UseMultiTenantResult,
 } from "./theme-worker"
 
 // Token presets

@@ -28826,3 +28826,550 @@ export function formatComposerReport(result: ThemeComposerResult): string {
 
   return lines.join("\n")
 }
+
+// ============================================================================
+// Feature #131: Multi-Tenant Brands
+// ============================================================================
+
+/**
+ * Tenant identifier type
+ */
+export type TenantId = string
+
+/**
+ * Tenant isolation level
+ */
+export type TenantIsolation =
+  | "none" // No isolation, shared global styles
+  | "css-scope" // CSS scoped via data attributes
+  | "shadow-dom" // Full Shadow DOM isolation
+  | "iframe" // Iframe-based isolation
+
+/**
+ * Tenant brand configuration
+ */
+export interface TenantBrand {
+  /** Tenant identifier */
+  tenantId: TenantId
+  /** Brand configuration */
+  brand: ThemeConfig
+  /** CSS scope selector */
+  scopeSelector?: string
+  /** Custom CSS class prefix */
+  classPrefix?: string
+  /** Whether tenant is active */
+  active?: boolean
+  /** Tenant metadata */
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * Multi-tenant configuration
+ */
+/**
+ * Tenant detection patterns for auto-detection
+ */
+export interface TenantDetectionPatterns {
+  /** Subdomain pattern (e.g., /^(\w+)\.myapp\.com$/) */
+  subdomain?: RegExp
+  /** Path pattern (e.g., /^\/tenant\/(\w+)/) */
+  path?: RegExp
+  /** Query parameter name (e.g., "tenant") */
+  query?: string
+  /** HTTP header name (e.g., "X-Tenant-ID") */
+  header?: string
+}
+
+export interface MultiTenantConfig {
+  /** Default tenant ID */
+  defaultTenant?: TenantId
+  /** Isolation level */
+  isolation?: TenantIsolation
+  /** Auto-detect tenant from URL/subdomain */
+  autoDetect?: boolean
+  /** Tenant detection patterns */
+  detectionPatterns?: TenantDetectionPatterns
+  /** Enable tenant switching */
+  allowSwitching?: boolean
+  /** Persist tenant selection */
+  persistSelection?: boolean
+  /** Storage key for persistence */
+  storageKey?: string
+  /** On tenant change callback */
+  onTenantChange?: (tenantId: TenantId, brand: ThemeConfig) => void
+}
+
+/**
+ * Tenant context state
+ */
+export interface TenantContext {
+  /** Current tenant ID */
+  currentTenant: TenantId | null
+  /** Current brand configuration */
+  currentBrand: ThemeConfig | null
+  /** Generated CSS for current tenant */
+  currentCss: string | null
+  /** All registered tenants */
+  tenants: Map<TenantId, TenantBrand>
+  /** Is initialized */
+  initialized: boolean
+}
+
+/**
+ * Multi-tenant registry state
+ */
+interface MultiTenantState {
+  config: MultiTenantConfig
+  context: TenantContext
+  listeners: Set<(context: TenantContext) => void>
+}
+
+/**
+ * Global multi-tenant state
+ */
+const multiTenantState: MultiTenantState = {
+  config: {},
+  context: {
+    currentTenant: null,
+    currentBrand: null,
+    currentCss: null,
+    tenants: new Map(),
+    initialized: false,
+  },
+  listeners: new Set(),
+}
+
+/**
+ * Notifies listeners of context changes
+ */
+function notifyTenantListeners(): void {
+  for (const listener of multiTenantState.listeners) {
+    listener(multiTenantState.context)
+  }
+}
+
+/**
+ * Generates scoped CSS for a tenant
+ */
+function generateScopedCss(
+  brand: ThemeConfig,
+  scopeSelector: string,
+  classPrefix?: string
+): string {
+  const generated = generateTheme(brand)
+  let css = generated.css
+
+  // Wrap in scope selector
+  if (scopeSelector) {
+    // Replace :root with scope selector
+    css = css.replace(/:root/g, scopeSelector)
+
+    // Add scope to all other selectors
+    css = css.replace(
+      /(\n\s*)([.#\w][^{]+)\s*\{/g,
+      `$1${scopeSelector} $2 {`
+    )
+  }
+
+  // Add class prefix if specified
+  if (classPrefix) {
+    css = css.replace(/\.([\w-]+)/g, `.${classPrefix}-$1`)
+  }
+
+  return css
+}
+
+/**
+ * Initializes multi-tenant brand system
+ */
+export function initMultiTenant(config: MultiTenantConfig = {}): void {
+  multiTenantState.config = { allowSwitching: true, ...config }
+  multiTenantState.context.initialized = true
+
+  // Try to restore persisted tenant
+  if (config.persistSelection && config.storageKey) {
+    try {
+      if (typeof localStorage !== "undefined") {
+        const stored = localStorage.getItem(config.storageKey)
+        if (stored && multiTenantState.context.tenants.has(stored)) {
+          switchTenant(stored)
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }
+}
+
+/**
+ * Registers a tenant brand
+ */
+export function registerTenant(tenant: TenantBrand): void {
+  const { tenantId, scopeSelector, classPrefix } = tenant
+
+  // Generate scope selector if not provided
+  const scope = scopeSelector ?? `[data-tenant="${tenantId}"]`
+
+  multiTenantState.context.tenants.set(tenantId, {
+    ...tenant,
+    scopeSelector: scope,
+    classPrefix: classPrefix ?? `tenant-${tenantId}`,
+    active: tenant.active ?? true,
+  })
+
+  // If this is the first tenant or default tenant, activate it
+  if (
+    multiTenantState.context.currentTenant === null ||
+    tenantId === multiTenantState.config.defaultTenant
+  ) {
+    switchTenant(tenantId)
+  }
+}
+
+/**
+ * Unregisters a tenant
+ */
+export function unregisterTenant(tenantId: TenantId): boolean {
+  const removed = multiTenantState.context.tenants.delete(tenantId)
+
+  // If current tenant was removed, switch to default or first available
+  if (removed && multiTenantState.context.currentTenant === tenantId) {
+    const defaultId = multiTenantState.config.defaultTenant
+    const firstTenant = multiTenantState.context.tenants.keys().next().value
+
+    if (defaultId && multiTenantState.context.tenants.has(defaultId)) {
+      switchTenant(defaultId)
+    } else if (firstTenant) {
+      switchTenant(firstTenant)
+    } else {
+      multiTenantState.context.currentTenant = null
+      multiTenantState.context.currentBrand = null
+      multiTenantState.context.currentCss = null
+      notifyTenantListeners()
+    }
+  }
+
+  return removed
+}
+
+/**
+ * Switches to a different tenant
+ */
+export function switchTenant(tenantId: TenantId): boolean {
+  if (
+    multiTenantState.config.allowSwitching === false &&
+    multiTenantState.context.currentTenant !== null
+  ) {
+    return false
+  }
+
+  const tenant = multiTenantState.context.tenants.get(tenantId)
+  if (!tenant || !tenant.active) {
+    return false
+  }
+
+  const previousTenant = multiTenantState.context.currentTenant
+
+  // Generate scoped CSS
+  const css = generateScopedCss(
+    tenant.brand,
+    tenant.scopeSelector ?? "",
+    tenant.classPrefix
+  )
+
+  // Update context
+  multiTenantState.context.currentTenant = tenantId
+  multiTenantState.context.currentBrand = tenant.brand
+  multiTenantState.context.currentCss = css
+
+  // Persist selection
+  if (
+    multiTenantState.config.persistSelection &&
+    multiTenantState.config.storageKey
+  ) {
+    try {
+      if (typeof localStorage !== "undefined") {
+        localStorage.setItem(multiTenantState.config.storageKey, tenantId)
+      }
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  // Call change callback
+  if (
+    multiTenantState.config.onTenantChange &&
+    previousTenant !== tenantId
+  ) {
+    multiTenantState.config.onTenantChange(tenantId, tenant.brand)
+  }
+
+  notifyTenantListeners()
+  return true
+}
+
+/**
+ * Gets current tenant context
+ */
+export function getTenantContext(): TenantContext {
+  return { ...multiTenantState.context }
+}
+
+/**
+ * Gets current tenant ID
+ */
+export function getCurrentTenantId(): TenantId | null {
+  return multiTenantState.context.currentTenant
+}
+
+/**
+ * Gets current tenant brand
+ */
+export function getCurrentTenantBrand(): ThemeConfig | null {
+  return multiTenantState.context.currentBrand
+}
+
+/**
+ * Gets tenant by ID
+ */
+export function getTenant(tenantId: TenantId): TenantBrand | undefined {
+  return multiTenantState.context.tenants.get(tenantId)
+}
+
+/**
+ * Lists all registered tenants
+ */
+export function listTenants(): Array<{
+  tenantId: TenantId
+  name: string
+  active: boolean
+}> {
+  return Array.from(multiTenantState.context.tenants.entries()).map(
+    ([id, tenant]) => ({
+      tenantId: id,
+      name: tenant.brand.name,
+      active: tenant.active ?? true,
+    })
+  )
+}
+
+/**
+ * Enables a tenant
+ */
+export function enableTenant(tenantId: TenantId): boolean {
+  const tenant = multiTenantState.context.tenants.get(tenantId)
+  if (!tenant) return false
+
+  tenant.active = true
+  notifyTenantListeners()
+  return true
+}
+
+/**
+ * Disables a tenant
+ */
+export function disableTenant(tenantId: TenantId): boolean {
+  const tenant = multiTenantState.context.tenants.get(tenantId)
+  if (!tenant) return false
+
+  tenant.active = false
+
+  // If current tenant was disabled, switch to another
+  if (multiTenantState.context.currentTenant === tenantId) {
+    const activeTenant = Array.from(
+      multiTenantState.context.tenants.entries()
+    ).find(([, t]) => t.active)?.[0]
+
+    if (activeTenant) {
+      switchTenant(activeTenant)
+    }
+  }
+
+  notifyTenantListeners()
+  return true
+}
+
+/**
+ * Subscribes to tenant context changes
+ */
+export function subscribeTenantChanges(
+  listener: (context: TenantContext) => void
+): () => void {
+  multiTenantState.listeners.add(listener)
+  return () => {
+    multiTenantState.listeners.delete(listener)
+  }
+}
+
+/**
+ * Detects tenant from current environment
+ */
+export function detectTenant(): TenantId | null {
+  const { detectionPatterns } = multiTenantState.config
+
+  if (!detectionPatterns) return null
+
+  // Try subdomain detection
+  if (detectionPatterns.subdomain && typeof window !== "undefined") {
+    const match = window.location.hostname.match(detectionPatterns.subdomain)
+    if (match?.[1] && multiTenantState.context.tenants.has(match[1])) {
+      return match[1]
+    }
+  }
+
+  // Try path detection
+  if (detectionPatterns.path && typeof window !== "undefined") {
+    const match = window.location.pathname.match(detectionPatterns.path)
+    if (match?.[1] && multiTenantState.context.tenants.has(match[1])) {
+      return match[1]
+    }
+  }
+
+  // Try query parameter detection
+  if (detectionPatterns.query && typeof window !== "undefined") {
+    const params = new URLSearchParams(window.location.search)
+    const tenant = params.get(detectionPatterns.query)
+    if (tenant && multiTenantState.context.tenants.has(tenant)) {
+      return tenant
+    }
+  }
+
+  return null
+}
+
+/**
+ * Auto-detects and switches to detected tenant
+ */
+export function autoDetectAndSwitch(): TenantId | null {
+  if (!multiTenantState.config.autoDetect) return null
+
+  const detected = detectTenant()
+  if (detected) {
+    switchTenant(detected)
+    return detected
+  }
+
+  return null
+}
+
+/**
+ * Generates CSS for all tenants
+ */
+export function generateAllTenantsCss(): string {
+  const cssBlocks: string[] = []
+
+  for (const [, tenant] of multiTenantState.context.tenants) {
+    if (!tenant.active) continue
+
+    const css = generateScopedCss(
+      tenant.brand,
+      tenant.scopeSelector ?? "",
+      tenant.classPrefix
+    )
+    cssBlocks.push(`/* Tenant: ${tenant.tenantId} */\n${css}`)
+  }
+
+  return cssBlocks.join("\n\n")
+}
+
+/**
+ * Generates a style tag for a tenant
+ */
+export function generateTenantStyleTag(tenantId?: TenantId): string {
+  const id = tenantId ?? multiTenantState.context.currentTenant
+  if (!id) return ""
+
+  const tenant = multiTenantState.context.tenants.get(id)
+  if (!tenant) return ""
+
+  const css = generateScopedCss(
+    tenant.brand,
+    tenant.scopeSelector ?? "",
+    tenant.classPrefix
+  )
+
+  return `<style data-tenant="${id}">\n${css}\n</style>`
+}
+
+/**
+ * Resets multi-tenant state
+ */
+export function resetMultiTenant(): void {
+  multiTenantState.config = {}
+  multiTenantState.context = {
+    currentTenant: null,
+    currentBrand: null,
+    currentCss: null,
+    tenants: new Map(),
+    initialized: false,
+  }
+  multiTenantState.listeners.clear()
+}
+
+/**
+ * Result type for useMultiTenant hook
+ */
+export interface UseMultiTenantResult {
+  /** Current tenant ID */
+  tenantId: TenantId | null
+  /** Current tenant's brand configuration */
+  brand: ThemeConfig | null
+  /** List of all registered tenants */
+  tenants: Array<{ tenantId: TenantId; name: string; active: boolean }>
+  /** Function to switch to a different tenant */
+  switchTenant: (id: TenantId) => boolean
+}
+
+/**
+ * Hook-like function for multi-tenant (returns current context)
+ */
+export function useMultiTenant(): UseMultiTenantResult {
+  return {
+    tenantId: multiTenantState.context.currentTenant,
+    brand: multiTenantState.context.currentBrand,
+    tenants: listTenants(),
+    switchTenant,
+  }
+}
+
+/**
+ * Formats multi-tenant status as a report
+ */
+export function formatMultiTenantReport(): string {
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+  const ctx = multiTenantState.context
+
+  lines.push(divider)
+  lines.push("Multi-Tenant Brands Report")
+  lines.push(divider)
+  lines.push("")
+
+  // Status
+  lines.push("Status")
+  lines.push("─".repeat(50))
+  lines.push(`  Initialized:     ${ctx.initialized ? "Yes" : "No"}`)
+  lines.push(`  Current Tenant:  ${ctx.currentTenant ?? "None"}`)
+  lines.push(`  Total Tenants:   ${ctx.tenants.size}`)
+  lines.push(`  Isolation:       ${multiTenantState.config.isolation ?? "none"}`)
+  lines.push(`  Auto-Detect:     ${multiTenantState.config.autoDetect ? "Yes" : "No"}`)
+  lines.push("")
+
+  // Tenants
+  if (ctx.tenants.size > 0) {
+    lines.push("Registered Tenants")
+    lines.push("─".repeat(50))
+
+    for (const [id, tenant] of ctx.tenants) {
+      const current = id === ctx.currentTenant ? " [CURRENT]" : ""
+      const status = tenant.active ? "[ACTIVE]" : "[INACTIVE]"
+      lines.push(`  ${status} ${id}: ${tenant.brand.name}${current}`)
+      lines.push(`         Scope: ${tenant.scopeSelector}`)
+    }
+    lines.push("")
+  }
+
+  lines.push(divider)
+
+  return lines.join("\n")
+}
