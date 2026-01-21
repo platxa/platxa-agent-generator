@@ -215,6 +215,15 @@ export {
   formatMigrationGuideMarkdown,
   detectMigrationIssues,
   generateMigrationCodemod,
+  // Best Practices Guide (Feature #98)
+  BEST_PRACTICES,
+  ANTI_PATTERNS,
+  PERFORMANCE_TIPS,
+  ACCESSIBILITY_GUIDELINES,
+  getBestPracticesByCategory,
+  getRequiredBestPractices,
+  validateBestPractices,
+  formatBestPracticesMarkdown,
 } from "./theme-worker"
 
 export type {
@@ -296,6 +305,13 @@ export type {
   MigrationStep,
   VersionMigrationGuide,
   MigrationGuideOptions,
+  // Best Practices Guide (Feature #98)
+  BestPracticeCategory,
+  BestPracticeSeverity,
+  BestPractice,
+  AntiPattern,
+  PerformanceTip,
+  AccessibilityGuideline,
 } from "./theme-worker"
 
 // Token presets

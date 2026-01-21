@@ -1,32 +1,32 @@
 {
-  "session_id": "72723f2f4fcf",
+  "session_id": "cd87207b61f0",
   "stack": {
     "session": {
-      "id": "72723f2f4fcf-143",
-      "text": "[Documentation & AI Features] Feature #97: [Migration Guide] Guide for migrating existing projects Verification: Version upgrade guide; Breaking changes listed; Codemods if needed Criteria: Manual verification required",
+      "id": "cd87207b61f0-145",
+      "text": "[Documentation & AI Features] Feature #98: [Best Practices Guide] Recommended patterns and anti-patterns Verification: Do's and don'ts; Performance tips; Accessibility guidelines Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768993947.860322,
-      "updated_at": 1768993947.8603222,
+      "created_at": 1768994219.845409,
+      "updated_at": 1768994219.8454094,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 97,
+        "feature_id": 98,
         "category": "Documentation & AI Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "72723f2f4fcf-144",
-      "text": "Implement: [Migration Guide] Guide for migrating existing projects Verification: Version upgrade guide; Breaking changes listed; Codemods if needed",
+      "id": "cd87207b61f0-146",
+      "text": "Implement: [Best Practices Guide] Recommended patterns and anti-patterns Verification: Do's and don'ts; Performance tips; Accessibility guidelines",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768993947.8660724,
-      "updated_at": 1768993947.8660727,
+      "created_at": 1768994219.8531096,
+      "updated_at": 1768994219.8531098,
       "completed_at": null,
-      "parent_id": "72723f2f4fcf-143",
+      "parent_id": "cd87207b61f0-145",
       "metadata": {},
       "keywords": []
     },
@@ -2120,9 +2120,38 @@
       "parent_id": "72723f2f4fcf-143",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "cd87207b61f0-145",
+      "text": "[Documentation & AI Features] Feature #98: [Best Practices Guide] Recommended patterns and anti-patterns Verification: Do's and don'ts; Performance tips; Accessibility guidelines Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768994219.845409,
+      "updated_at": 1768994219.8454094,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 98,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "cd87207b61f0-146",
+      "text": "Implement: [Best Practices Guide] Recommended patterns and anti-patterns Verification: Do's and don'ts; Performance tips; Accessibility guidelines",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768994219.8531096,
+      "updated_at": 1768994219.8531098,
+      "completed_at": null,
+      "parent_id": "cd87207b61f0-145",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 144,
+  "intent_counter": 146,
   "created_at": 1768900061.32227,
-  "updated_at": 1768993947.8661153
+  "updated_at": 1768994219.8531156
 }

@@ -8735,3 +8735,250 @@ for (const file of files) {
 console.log(\`\\nMigration complete: \${migratedCount} file(s) updated\`)
 `
 }
+
+// =============================================================================
+// Feature #98: Best Practices Guide
+// =============================================================================
+
+/** Best practice category */
+export type BestPracticeCategory =
+  | "performance"
+  | "accessibility"
+  | "maintainability"
+  | "security"
+  | "compatibility"
+
+/** Best practice severity */
+export type BestPracticeSeverity = "required" | "recommended" | "optional"
+
+/** Best practice entry */
+export interface BestPractice {
+  id: string
+  category: BestPracticeCategory
+  severity: BestPracticeSeverity
+  title: string
+  description: string
+  doThis: string
+  dontDoThis: string
+}
+
+/** Anti-pattern entry */
+export interface AntiPattern {
+  id: string
+  category: BestPracticeCategory
+  name: string
+  problem: string
+  consequences: string[]
+  solution: string
+}
+
+/** Performance tip */
+export interface PerformanceTip {
+  id: string
+  title: string
+  impact: "high" | "medium" | "low"
+  description: string
+  implementation: string
+  metricsAffected: string[]
+}
+
+/** Accessibility guideline */
+export interface AccessibilityGuideline {
+  id: string
+  wcagCriterion?: string
+  level: "A" | "AA" | "AAA"
+  title: string
+  description: string
+  implementation: string
+  testing: string
+}
+
+/** Best practices registry */
+export const BEST_PRACTICES: BestPractice[] = [
+  {
+    id: "use-oklch-colors",
+    category: "compatibility",
+    severity: "recommended",
+    title: "Use OKLCH color format",
+    description: "OKLCH provides perceptually uniform color manipulation.",
+    doThis: "Define colors using oklch() format",
+    dontDoThis: "Use HSL or RGB for colors needing interpolation",
+  },
+  {
+    id: "semantic-color-names",
+    category: "maintainability",
+    severity: "required",
+    title: "Use semantic color names",
+    description: "Name colors by purpose not appearance.",
+    doThis: "Use names like primary, secondary, accent",
+    dontDoThis: "Use names like blue, red, lightGray",
+  },
+  {
+    id: "contrast-ratios",
+    category: "accessibility",
+    severity: "required",
+    title: "Ensure WCAG contrast ratios",
+    description: "Text must have sufficient contrast.",
+    doThis: "Maintain 4.5:1 ratio for normal text",
+    dontDoThis: "Use low-contrast color combinations",
+  },
+  {
+    id: "focus-visible-styles",
+    category: "accessibility",
+    severity: "required",
+    title: "Provide visible focus indicators",
+    description: "Interactive elements need visible focus states.",
+    doThis: "Use focus-visible with high-contrast ring",
+    dontDoThis: "Remove focus outlines without alternatives",
+  },
+  {
+    id: "reduced-motion",
+    category: "accessibility",
+    severity: "required",
+    title: "Respect reduced motion preferences",
+    description: "Honor prefers-reduced-motion setting.",
+    doThis: "Wrap animations in prefers-reduced-motion query",
+    dontDoThis: "Apply animations unconditionally",
+  },
+  {
+    id: "css-variables",
+    category: "performance",
+    severity: "recommended",
+    title: "Use CSS custom properties",
+    description: "CSS variables enable runtime theme switching.",
+    doThis: "Define tokens as CSS custom properties",
+    dontDoThis: "Hard-code values throughout components",
+  },
+  {
+    id: "dark-mode-colors-only",
+    category: "performance",
+    severity: "recommended",
+    title: "Only override colors in dark mode",
+    description: "Dark mode should only change colors.",
+    doThis: "Define dark mode as Partial<SemanticColors>",
+    dontDoThis: "Duplicate all tokens for dark mode",
+  },
+]
+
+/** Anti-patterns registry */
+export const ANTI_PATTERNS: AntiPattern[] = [
+  {
+    id: "magic-numbers",
+    category: "maintainability",
+    name: "Magic Numbers",
+    problem: "Hard-coded values without semantic meaning",
+    consequences: ["Hard to maintain", "Inconsistent"],
+    solution: "Use design tokens for all values",
+  },
+  {
+    id: "z-index-wars",
+    category: "maintainability",
+    name: "Z-Index Wars",
+    problem: "Arbitrary z-index values competing",
+    consequences: ["Unpredictable layering"],
+    solution: "Use a z-index scale with semantic names",
+  },
+]
+
+/** Performance tips */
+export const PERFORMANCE_TIPS: PerformanceTip[] = [
+  {
+    id: "critical-css",
+    title: "Extract Critical CSS",
+    impact: "high",
+    description: "Inline critical CSS to prevent render-blocking",
+    implementation: "Use generateCriticalCss()",
+    metricsAffected: ["FCP", "LCP"],
+  },
+  {
+    id: "static-generation",
+    title: "Generate CSS at Build Time",
+    impact: "high",
+    description: "Pre-generate CSS instead of runtime",
+    implementation: "Use buildStaticTheme()",
+    metricsAffected: ["FCP", "TTI"],
+  },
+]
+
+/** Accessibility guidelines */
+export const ACCESSIBILITY_GUIDELINES: AccessibilityGuideline[] = [
+  {
+    id: "color-contrast",
+    wcagCriterion: "1.4.3",
+    level: "AA",
+    title: "Contrast (Minimum)",
+    description: "Text must have contrast ratio of at least 4.5:1",
+    implementation: "Use validateContrast()",
+    testing: "Run generateWcagReport()",
+  },
+  {
+    id: "focus-visible",
+    wcagCriterion: "2.4.7",
+    level: "AA",
+    title: "Focus Visible",
+    description: "Keyboard focus indicator must be visible",
+    implementation: "Define --color-ring for focus styles",
+    testing: "Tab through all interactive elements",
+  },
+]
+
+/** Gets best practices by category */
+export function getBestPracticesByCategory(
+  category: BestPracticeCategory
+): BestPractice[] {
+  return BEST_PRACTICES.filter((bp) => bp.category === category)
+}
+
+/** Gets required best practices */
+export function getRequiredBestPractices(): BestPractice[] {
+  return BEST_PRACTICES.filter((bp) => bp.severity === "required")
+}
+
+/** Validates theme config against best practices */
+export function validateBestPractices(config: ThemeConfig): {
+  passed: BestPractice[]
+  failed: Array<{ practice: BestPractice; reason: string }>
+  score: number
+} {
+  const passed: BestPractice[] = []
+  const failed: Array<{ practice: BestPractice; reason: string }> = []
+
+  const semanticNames = ["primary", "secondary", "background", "foreground"]
+  const hasSemanticNames =
+    config.light?.colors &&
+    semanticNames.some((name) => name in config.light.colors)
+
+  const semanticPractice = BEST_PRACTICES.find(
+    (bp) => bp.id === "semantic-color-names"
+  )
+  if (semanticPractice) {
+    if (hasSemanticNames) {
+      passed.push(semanticPractice)
+    } else {
+      failed.push({ practice: semanticPractice, reason: "No semantic names" })
+    }
+  }
+
+  const total = passed.length + failed.length
+  const score = total > 0 ? (passed.length / total) * 100 : 100
+
+  return { passed, failed, score }
+}
+
+/** Formats best practices as Markdown */
+export function formatBestPracticesMarkdown(): string {
+  const lines: string[] = ["# Best Practices Guide", ""]
+
+  for (const bp of BEST_PRACTICES) {
+    const badge = bp.severity === "required" ? "Required" : "Recommended"
+    lines.push("## [" + badge + "] " + bp.title)
+    lines.push("")
+    lines.push(bp.description)
+    lines.push("")
+    lines.push("Do: " + bp.doThis)
+    lines.push("Dont: " + bp.dontDoThis)
+    lines.push("")
+  }
+
+  return lines.join("\n")
+}
