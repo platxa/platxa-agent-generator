@@ -521,6 +521,26 @@ export {
   useBrandSwitch,
   createBrandSwitcher,
   formatBrandSwitchReport,
+  // Brand Events (Feature #133)
+  initBrandEvents,
+  onBrandEvent,
+  onBrandLoad,
+  onBrandChange,
+  onBrandError,
+  offBrandEvent,
+  emitBrandEvent,
+  createBrandLoadEvent,
+  createBrandChangeEvent,
+  createBrandErrorEvent,
+  getBrandEventHistory,
+  clearBrandEventHistory,
+  getBrandEventListenerCount,
+  setBrandEventsEnabled,
+  isBrandEventsEnabled,
+  resetBrandEvents,
+  createBrandEventScope,
+  useBrandEvents,
+  formatBrandEventsReport,
 } from "./theme-worker"
 
 export type {
@@ -821,6 +841,20 @@ export type {
   RegisteredBrand,
   BrandSwitchResult,
   UseBrandSwitchResult,
+  // Brand Events (Feature #133)
+  BrandEventType,
+  BaseBrandEvent,
+  BrandLoadEvent,
+  BrandChangeEvent,
+  BrandErrorEvent,
+  BrandUnloadEvent,
+  BrandValidateEvent,
+  BrandBeforeChangeEvent,
+  BrandAfterChangeEvent,
+  BrandEvent,
+  BrandErrorCode,
+  BrandEventListener,
+  BrandEventListenerOptions,
 } from "./theme-worker"
 
 // Token presets

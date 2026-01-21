@@ -29993,3 +29993,591 @@ export function formatBrandSwitchReport(): string {
 
   return lines.join("\n")
 }
+
+// =============================================================================
+// BRAND EVENTS (Feature #133)
+// =============================================================================
+
+/**
+ * Brand event types
+ */
+export type BrandEventType =
+  | "brand:load"
+  | "brand:change"
+  | "brand:error"
+  | "brand:unload"
+  | "brand:validate"
+  | "brand:beforeChange"
+  | "brand:afterChange"
+
+/**
+ * Base brand event
+ */
+export interface BaseBrandEvent {
+  /** Event type */
+  type: BrandEventType
+  /** Timestamp of the event */
+  timestamp: number
+  /** Brand ID involved */
+  brandId: string | null
+  /** Event metadata */
+  metadata?: Record<string, unknown>
+}
+
+/**
+ * Brand load event
+ */
+export interface BrandLoadEvent extends BaseBrandEvent {
+  type: "brand:load"
+  /** The loaded brand configuration */
+  brand: ThemeConfig
+  /** Source of the brand (file, url, preset, etc.) */
+  source: string
+  /** Load duration in milliseconds */
+  loadTime: number
+}
+
+/**
+ * Brand change event
+ */
+export interface BrandChangeEvent extends BaseBrandEvent {
+  type: "brand:change"
+  /** Previous brand ID */
+  previousBrandId: string | null
+  /** Previous brand configuration */
+  previousBrand: ThemeConfig | null
+  /** New brand configuration */
+  newBrand: ThemeConfig
+  /** Change trigger (user, auto, api) */
+  trigger: "user" | "auto" | "api" | "init"
+}
+
+/**
+ * Brand error event
+ */
+export interface BrandErrorEvent extends BaseBrandEvent {
+  type: "brand:error"
+  /** Error code */
+  code: BrandErrorCode
+  /** Error message */
+  message: string
+  /** Original error if any */
+  originalError?: Error
+  /** Whether the error is recoverable */
+  recoverable: boolean
+}
+
+/**
+ * Brand unload event
+ */
+export interface BrandUnloadEvent extends BaseBrandEvent {
+  type: "brand:unload"
+  /** Reason for unload */
+  reason: "switch" | "reset" | "manual" | "error"
+}
+
+/**
+ * Brand validate event
+ */
+export interface BrandValidateEvent extends BaseBrandEvent {
+  type: "brand:validate"
+  /** Validation passed */
+  valid: boolean
+  /** Validation errors if any */
+  errors: string[]
+  /** Validation warnings */
+  warnings: string[]
+}
+
+/**
+ * Brand before change event (cancelable)
+ */
+export interface BrandBeforeChangeEvent extends BaseBrandEvent {
+  type: "brand:beforeChange"
+  /** Previous brand ID */
+  previousBrandId: string | null
+  /** New brand ID */
+  newBrandId: string
+  /** Whether the change was canceled */
+  canceled: boolean
+  /** Cancel reason if canceled */
+  cancelReason?: string
+}
+
+/**
+ * Brand after change event
+ */
+export interface BrandAfterChangeEvent extends BaseBrandEvent {
+  type: "brand:afterChange"
+  /** Previous brand ID */
+  previousBrandId: string | null
+  /** New brand ID */
+  newBrandId: string
+  /** Transition duration */
+  transitionDuration: number
+}
+
+/**
+ * Union of all brand events
+ */
+export type BrandEvent =
+  | BrandLoadEvent
+  | BrandChangeEvent
+  | BrandErrorEvent
+  | BrandUnloadEvent
+  | BrandValidateEvent
+  | BrandBeforeChangeEvent
+  | BrandAfterChangeEvent
+
+/**
+ * Brand error codes
+ */
+export type BrandErrorCode =
+  | "BRAND_NOT_FOUND"
+  | "BRAND_INVALID"
+  | "BRAND_LOAD_FAILED"
+  | "BRAND_PARSE_ERROR"
+  | "BRAND_VALIDATION_FAILED"
+  | "BRAND_CIRCULAR_REF"
+  | "BRAND_TIMEOUT"
+  | "BRAND_NETWORK_ERROR"
+  | "BRAND_UNKNOWN_ERROR"
+
+/**
+ * Brand event listener
+ */
+export type BrandEventListener<T extends BrandEvent = BrandEvent> = (
+  event: T
+) => void | Promise<void>
+
+/**
+ * Brand event listener options
+ */
+export interface BrandEventListenerOptions {
+  /** Only fire once then auto-remove */
+  once?: boolean
+  /** Priority (higher = earlier execution) */
+  priority?: number
+  /** Filter function to conditionally handle events */
+  filter?: (event: BrandEvent) => boolean
+}
+
+/**
+ * Internal listener entry
+ */
+interface BrandEventListenerEntry {
+  listener: BrandEventListener
+  options: BrandEventListenerOptions
+}
+
+/**
+ * Brand events state
+ */
+interface BrandEventsState {
+  listeners: Map<BrandEventType | "*", BrandEventListenerEntry[]>
+  eventHistory: BrandEvent[]
+  maxHistorySize: number
+  enabled: boolean
+}
+
+/**
+ * Internal state for brand events
+ */
+const brandEventsState: BrandEventsState = {
+  listeners: new Map(),
+  eventHistory: [],
+  maxHistorySize: 100,
+  enabled: true,
+}
+
+/**
+ * Initializes the brand events system
+ */
+export function initBrandEvents(options: { maxHistorySize?: number } = {}): void {
+  brandEventsState.maxHistorySize = options.maxHistorySize ?? 100
+  brandEventsState.enabled = true
+}
+
+/**
+ * Adds a brand event listener
+ */
+export function onBrandEvent<T extends BrandEventType>(
+  eventType: T | "*",
+  listener: BrandEventListener<Extract<BrandEvent, { type: T }>>,
+  options: BrandEventListenerOptions = {}
+): () => void {
+  const listeners = brandEventsState.listeners.get(eventType) ?? []
+
+  const entry: BrandEventListenerEntry = {
+    listener: listener as BrandEventListener,
+    options,
+  }
+
+  // Insert based on priority (higher priority first)
+  const priority = options.priority ?? 0
+  let inserted = false
+  for (let i = 0; i < listeners.length; i++) {
+    const existingPriority = listeners[i].options.priority ?? 0
+    if (priority > existingPriority) {
+      listeners.splice(i, 0, entry)
+      inserted = true
+      break
+    }
+  }
+  if (!inserted) {
+    listeners.push(entry)
+  }
+
+  brandEventsState.listeners.set(eventType, listeners)
+
+  // Return unsubscribe function
+  return () => {
+    offBrandEvent(eventType, listener as BrandEventListener)
+  }
+}
+
+/**
+ * Convenience: Listen for brand load events
+ */
+export function onBrandLoad(
+  listener: BrandEventListener<BrandLoadEvent>,
+  options?: BrandEventListenerOptions
+): () => void {
+  return onBrandEvent("brand:load", listener, options)
+}
+
+/**
+ * Convenience: Listen for brand change events
+ */
+export function onBrandChange(
+  listener: BrandEventListener<BrandChangeEvent>,
+  options?: BrandEventListenerOptions
+): () => void {
+  return onBrandEvent("brand:change", listener, options)
+}
+
+/**
+ * Convenience: Listen for brand error events
+ */
+export function onBrandError(
+  listener: BrandEventListener<BrandErrorEvent>,
+  options?: BrandEventListenerOptions
+): () => void {
+  return onBrandEvent("brand:error", listener, options)
+}
+
+/**
+ * Removes a brand event listener
+ */
+export function offBrandEvent(
+  eventType: BrandEventType | "*",
+  listener: BrandEventListener
+): boolean {
+  const listeners = brandEventsState.listeners.get(eventType)
+  if (!listeners) return false
+
+  const index = listeners.findIndex((entry) => entry.listener === listener)
+  if (index === -1) return false
+
+  listeners.splice(index, 1)
+  return true
+}
+
+/**
+ * Emits a brand event
+ */
+export async function emitBrandEvent<T extends BrandEvent>(
+  event: Omit<T, "timestamp">
+): Promise<void> {
+  if (!brandEventsState.enabled) return
+
+  const fullEvent = {
+    ...event,
+    timestamp: Date.now(),
+  } as T
+
+  // Add to history
+  brandEventsState.eventHistory.push(fullEvent)
+  if (brandEventsState.eventHistory.length > brandEventsState.maxHistorySize) {
+    brandEventsState.eventHistory.shift()
+  }
+
+  // Get specific listeners
+  const specificListeners = brandEventsState.listeners.get(event.type as BrandEventType) ?? []
+
+  // Get wildcard listeners
+  const wildcardListeners = brandEventsState.listeners.get("*") ?? []
+
+  // Combine and execute
+  const allListeners = [...specificListeners, ...wildcardListeners]
+  const toRemove: BrandEventListenerEntry[] = []
+
+  for (const entry of allListeners) {
+    // Apply filter if present
+    if (entry.options.filter && !entry.options.filter(fullEvent)) {
+      continue
+    }
+
+    try {
+      await entry.listener(fullEvent)
+    } catch (error) {
+      // Emit error event if not already an error event
+      if (event.type !== "brand:error") {
+        await emitBrandEvent<BrandErrorEvent>({
+          type: "brand:error",
+          brandId: fullEvent.brandId,
+          code: "BRAND_UNKNOWN_ERROR",
+          message: error instanceof Error ? error.message : "Unknown error in event listener",
+          originalError: error instanceof Error ? error : undefined,
+          recoverable: true,
+        })
+      }
+    }
+
+    // Mark for removal if once option
+    if (entry.options.once) {
+      toRemove.push(entry)
+    }
+  }
+
+  // Remove once listeners
+  for (const entry of toRemove) {
+    offBrandEvent(event.type as BrandEventType, entry.listener)
+    offBrandEvent("*", entry.listener)
+  }
+}
+
+/**
+ * Creates a brand load event
+ */
+export function createBrandLoadEvent(
+  brandId: string,
+  brand: ThemeConfig,
+  source: string,
+  loadTime: number
+): BrandLoadEvent {
+  return {
+    type: "brand:load",
+    timestamp: Date.now(),
+    brandId,
+    brand,
+    source,
+    loadTime,
+  }
+}
+
+/**
+ * Creates a brand change event
+ */
+export function createBrandChangeEvent(
+  brandId: string,
+  previousBrandId: string | null,
+  previousBrand: ThemeConfig | null,
+  newBrand: ThemeConfig,
+  trigger: BrandChangeEvent["trigger"] = "api"
+): BrandChangeEvent {
+  return {
+    type: "brand:change",
+    timestamp: Date.now(),
+    brandId,
+    previousBrandId,
+    previousBrand,
+    newBrand,
+    trigger,
+  }
+}
+
+/**
+ * Creates a brand error event
+ */
+export function createBrandErrorEvent(
+  brandId: string | null,
+  code: BrandErrorCode,
+  message: string,
+  options: { originalError?: Error; recoverable?: boolean } = {}
+): BrandErrorEvent {
+  return {
+    type: "brand:error",
+    timestamp: Date.now(),
+    brandId,
+    code,
+    message,
+    originalError: options.originalError,
+    recoverable: options.recoverable ?? true,
+  }
+}
+
+/**
+ * Gets the event history
+ */
+export function getBrandEventHistory(options: {
+  type?: BrandEventType
+  limit?: number
+  since?: number
+} = {}): BrandEvent[] {
+  let events = [...brandEventsState.eventHistory]
+
+  if (options.type) {
+    events = events.filter((e) => e.type === options.type)
+  }
+
+  if (options.since) {
+    events = events.filter((e) => e.timestamp >= options.since!)
+  }
+
+  if (options.limit) {
+    events = events.slice(-options.limit)
+  }
+
+  return events
+}
+
+/**
+ * Clears the event history
+ */
+export function clearBrandEventHistory(): void {
+  brandEventsState.eventHistory = []
+}
+
+/**
+ * Gets all registered listeners count
+ */
+export function getBrandEventListenerCount(eventType?: BrandEventType | "*"): number {
+  if (eventType) {
+    return brandEventsState.listeners.get(eventType)?.length ?? 0
+  }
+
+  let count = 0
+  brandEventsState.listeners.forEach((listeners) => {
+    count += listeners.length
+  })
+  return count
+}
+
+/**
+ * Enables or disables brand events
+ */
+export function setBrandEventsEnabled(enabled: boolean): void {
+  brandEventsState.enabled = enabled
+}
+
+/**
+ * Checks if brand events are enabled
+ */
+export function isBrandEventsEnabled(): boolean {
+  return brandEventsState.enabled
+}
+
+/**
+ * Resets the brand events system
+ */
+export function resetBrandEvents(): void {
+  brandEventsState.listeners.clear()
+  brandEventsState.eventHistory = []
+  brandEventsState.maxHistorySize = 100
+  brandEventsState.enabled = true
+}
+
+/**
+ * Creates a scoped event emitter for a specific brand
+ */
+export function createBrandEventScope(brandId: string): {
+  emit: <T extends BrandEvent>(event: Omit<T, "timestamp" | "brandId">) => Promise<void>
+  on: <T extends BrandEventType>(
+    eventType: T,
+    listener: BrandEventListener<Extract<BrandEvent, { type: T }>>
+  ) => () => void
+  history: () => BrandEvent[]
+} {
+  return {
+    emit: async <T extends BrandEvent>(event: Omit<T, "timestamp" | "brandId">) => {
+      await emitBrandEvent({ ...event, brandId } as Omit<T, "timestamp">)
+    },
+    on: <T extends BrandEventType>(
+      eventType: T,
+      listener: BrandEventListener<Extract<BrandEvent, { type: T }>>
+    ) => {
+      return onBrandEvent(eventType, listener, {
+        filter: (e) => e.brandId === brandId,
+      })
+    },
+    history: () => getBrandEventHistory().filter((e) => e.brandId === brandId),
+  }
+}
+
+/**
+ * Hook-like function for brand events
+ */
+export function useBrandEvents(): {
+  on: typeof onBrandEvent
+  off: typeof offBrandEvent
+  emit: typeof emitBrandEvent
+  history: BrandEvent[]
+  enabled: boolean
+} {
+  return {
+    on: onBrandEvent,
+    off: offBrandEvent,
+    emit: emitBrandEvent,
+    history: brandEventsState.eventHistory,
+    enabled: brandEventsState.enabled,
+  }
+}
+
+/**
+ * Formats brand events as a report
+ */
+export function formatBrandEventsReport(): string {
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Brand Events Report")
+  lines.push(divider)
+  lines.push("")
+
+  // Status
+  lines.push("Status")
+  lines.push("─".repeat(50))
+  lines.push(`  Enabled:        ${brandEventsState.enabled ? "Yes" : "No"}`)
+  lines.push(`  Max History:    ${brandEventsState.maxHistorySize}`)
+  lines.push(`  History Count:  ${brandEventsState.eventHistory.length}`)
+  lines.push("")
+
+  // Listeners
+  lines.push("Registered Listeners")
+  lines.push("─".repeat(50))
+
+  let totalListeners = 0
+  brandEventsState.listeners.forEach((listeners, type) => {
+    if (listeners.length > 0) {
+      lines.push(`  ${type}: ${listeners.length}`)
+      totalListeners += listeners.length
+    }
+  })
+
+  if (totalListeners === 0) {
+    lines.push("  (no listeners registered)")
+  }
+
+  lines.push("")
+
+  // Recent events
+  lines.push("Recent Events (last 10)")
+  lines.push("─".repeat(50))
+
+  const recentEvents = brandEventsState.eventHistory.slice(-10)
+  if (recentEvents.length === 0) {
+    lines.push("  (no events)")
+  } else {
+    recentEvents.forEach((event) => {
+      const time = new Date(event.timestamp).toISOString().slice(11, 23)
+      lines.push(`  [${time}] ${event.type} (${event.brandId ?? "null"})`)
+    })
+  }
+
+  lines.push("")
+  lines.push(divider)
+
+  return lines.join("\n")
+}
