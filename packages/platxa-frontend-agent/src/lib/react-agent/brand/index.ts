@@ -52,6 +52,8 @@ export {
   EXAMPLE_BRAND_KIT,
   // Brand Kit Package Template (Feature #46)
   generateBrandKitPackageTemplate,
+  // Environment Detection (Feature #60)
+  getCurrentEnvironment,
 } from "./config"
 
 export type {
@@ -59,6 +61,8 @@ export type {
   BrandKitTemplateOptions,
   BrandKitPackageOptions,
   BrandKitPackageTemplate,
+  // Environment Detection (Feature #60)
+  ResolveConfigOptions,
 } from "./config"
 
 // Config File Loader (Feature #7)
@@ -148,6 +152,9 @@ export type {
   ResolvedConfig,
   ConfigLoadingState,
   ConfigState,
+  // Environment types (Feature #60)
+  EnvironmentName,
+  EnvironmentOverrides,
   // Helper types
   DefineFrontendConfigReturn,
   DefineBrandKitReturn,

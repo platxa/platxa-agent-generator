@@ -27,6 +27,7 @@ import type {
   ThemePresetName,
   BuiltInPreset,
   BrandKitExport,
+  EnvironmentName,
 } from "./types"
 
 // =============================================================================
@@ -168,19 +169,99 @@ export function getAllPresetNames(): string[] {
 }
 
 // =============================================================================
+// ENVIRONMENT DETECTION (Feature #60)
+// =============================================================================
+
+/**
+ * Options for configuration resolution
+ */
+export interface ResolveConfigOptions {
+  /**
+   * Override environment detection
+   * @default process.env.NODE_ENV or "production"
+   */
+  env?: EnvironmentName
+}
+
+/**
+ * Detect current environment from NODE_ENV
+ *
+ * @returns Current environment name
+ *
+ * @example
+ * ```typescript
+ * // When NODE_ENV="development"
+ * getCurrentEnvironment() // "development"
+ *
+ * // When NODE_ENV is not set
+ * getCurrentEnvironment() // "production"
+ * ```
+ */
+export function getCurrentEnvironment(): EnvironmentName {
+  // Safe check for both Node.js and browser environments
+  if (typeof process !== "undefined" && process.env?.NODE_ENV) {
+    return process.env.NODE_ENV as EnvironmentName
+  }
+  // Default to production for safety
+  return "production"
+}
+
+/**
+ * Merge base config with environment-specific overrides
+ *
+ * Performs a shallow merge at the top level, deep merge for nested objects.
+ *
+ * @param base - Base configuration
+ * @param envOverride - Environment-specific override
+ * @returns Merged configuration
+ */
+function mergeConfigWithEnv(
+  base: FrontendConfig,
+  envOverride: Partial<Omit<FrontendConfig, "environments">>
+): FrontendConfig {
+  return {
+    theme: envOverride.theme
+      ? { ...base.theme, ...envOverride.theme }
+      : base.theme,
+    brand: envOverride.brand
+      ? {
+          ...base.brand,
+          ...envOverride.brand,
+          // Deep merge overrides if both exist
+          overrides:
+            base.brand?.overrides || envOverride.brand?.overrides
+              ? { ...base.brand?.overrides, ...envOverride.brand?.overrides }
+              : undefined,
+        }
+      : base.brand,
+    // Don't propagate environments to merged config
+  }
+}
+
+// =============================================================================
 // CONFIGURATION RESOLUTION
 // =============================================================================
 
 /**
  * Resolve configuration with all defaults applied
  *
- * Resolution order:
- * 1. If brand.package specified → mode: "brand"
- * 2. If theme.custom specified → use custom theme generation
- * 3. If theme.preset specified → use built-in preset
- * 4. Default → use "default" preset
+ * ## Resolution Order
+ * 1. Start with base configuration (theme, brand)
+ * 2. Apply environment-specific overrides if current env matches
+ * 3. Determine mode based on final brand.package presence
+ *
+ * ## Environment Detection (Feature #60)
+ * - Uses `process.env.NODE_ENV` when available
+ * - Falls back to "production" if not set
+ * - Can be overridden via options.env
+ *
+ * ## Precedence Rules
+ * ```
+ * Base Config → Environment Override → Final Config
+ * ```
  *
  * @param config - User configuration (may be undefined for zero-config)
+ * @param options - Resolution options (e.g., env override)
  * @returns Resolved configuration with theme config
  *
  * @example Zero-config (uses default preset)
@@ -212,10 +293,46 @@ export function getAllPresetNames(): string[] {
  * // config.brandOverrides contains the overrides
  * // When loaded, brand tokens are merged with overrides
  * ```
+ *
+ * @example Environment-specific configuration (Feature #60)
+ * ```typescript
+ * const config = resolveConfig({
+ *   brand: { package: "@acme/brand-kit" },
+ *   environments: {
+ *     development: {
+ *       brand: { package: "./local-brand" }
+ *     },
+ *     staging: {
+ *       brand: {
+ *         overrides: { colors: { accent: "hsl(45 100% 50%)" } }
+ *       }
+ *     }
+ *   }
+ * })
+ * // In development: uses "./local-brand"
+ * // In staging: uses "@acme/brand-kit" with accent override
+ * // In production: uses "@acme/brand-kit" as-is
+ *
+ * // Override environment detection:
+ * const stagingConfig = resolveConfig(config, { env: "staging" })
+ * ```
  */
-export function resolveConfig(config?: FrontendConfig): ResolvedConfig {
+export function resolveConfig(
+  config?: FrontendConfig,
+  options?: ResolveConfigOptions
+): ResolvedConfig {
   // Zero-config default: use DEFAULT_CONFIG when no config provided
-  const userConfig = config ?? DEFAULT_CONFIG
+  let userConfig = config ?? DEFAULT_CONFIG
+
+  // Apply environment-specific overrides (Feature #60)
+  if (userConfig.environments) {
+    const currentEnv = options?.env ?? getCurrentEnvironment()
+    const envOverride = userConfig.environments[currentEnv]
+
+    if (envOverride) {
+      userConfig = mergeConfigWithEnv(userConfig, envOverride)
+    }
+  }
 
   // Check if brand kit is specified (opt-in)
   const hasBrandPackage = Boolean(userConfig.brand?.package)

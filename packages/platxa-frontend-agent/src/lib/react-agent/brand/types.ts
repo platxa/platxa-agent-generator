@@ -359,7 +359,58 @@ export interface BrandOptions {
 }
 
 /**
+ * Environment name for configuration selection
+ *
+ * Standard environments:
+ * - "development" - Local development (default when NODE_ENV is "development")
+ * - "staging" - Pre-production testing
+ * - "production" - Production deployment (default when NODE_ENV is "production")
+ *
+ * Custom environments are also supported for advanced use cases.
+ */
+export type EnvironmentName = "development" | "staging" | "production" | string
+
+/**
+ * Environment-specific configuration overrides (Feature #60)
+ *
+ * Allows different configurations per environment. Overrides are
+ * deep-merged with the base configuration.
+ *
+ * @example
+ * ```typescript
+ * const config = defineFrontendConfig({
+ *   brand: { package: "@acme/brand-kit" },
+ *   environments: {
+ *     development: {
+ *       brand: { package: "@acme/brand-kit-dev" }
+ *     },
+ *     staging: {
+ *       brand: {
+ *         overrides: { colors: { accent: "hsl(45 100% 50%)" } }
+ *       }
+ *     }
+ *   }
+ * })
+ * ```
+ */
+export interface EnvironmentOverrides {
+  [env: string]: Partial<Omit<FrontendConfig, "environments">>
+}
+
+/**
  * Frontend configuration
+ *
+ * ## Configuration Precedence (Feature #60)
+ *
+ * When resolving configuration, values are merged in this order:
+ * 1. Base configuration (theme, brand)
+ * 2. Environment-specific overrides (if current env matches)
+ * 3. Explicit overrides passed to resolveConfig
+ *
+ * Environment detection:
+ * - Uses `process.env.NODE_ENV` when available
+ * - Falls back to "production" if not set
+ * - Can be overridden via `resolveConfig(config, { env: "staging" })`
  */
 export interface FrontendConfig {
   /**
@@ -372,6 +423,23 @@ export interface FrontendConfig {
    * When specified, brand kit tokens override theme preset
    */
   brand?: BrandOptions
+  /**
+   * Environment-specific configuration overrides (Feature #60)
+   *
+   * Keys are environment names, values are partial configs to merge.
+   * Current environment is determined by NODE_ENV or explicit option.
+   *
+   * @example
+   * ```typescript
+   * {
+   *   environments: {
+   *     development: { brand: { package: "./local-brand" } },
+   *     production: { brand: { package: "@acme/brand-kit" } }
+   *   }
+   * }
+   * ```
+   */
+  environments?: EnvironmentOverrides
 }
 
 /**
