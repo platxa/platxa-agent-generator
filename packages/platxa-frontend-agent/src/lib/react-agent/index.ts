@@ -1,31 +1,141 @@
 /**
- * ReAct Agent Framework
+ * Platxa Frontend Agent
  *
- * A TypeScript implementation of the ReAct (Reasoning and Acting) pattern
- * for building AI agents that alternate between reasoning and action steps.
+ * AI-powered frontend design system with opt-in brand kit support.
+ * Generates beautiful, production-ready React UI components.
  *
- * @example
+ * ## Getting Started (5-minute quickstart)
+ *
+ * ### Scenario 1: Zero-Config (Recommended Start)
+ *
+ * Just import and use - no configuration needed:
+ *
  * ```typescript
- * import { createAgent, createAction } from "@/lib/react-agent"
+ * import { resolveConfig, generateTheme } from "@platxa/frontend-agent"
  *
- * const searchAction = createAction({
- *   name: "search",
- *   description: "Search for information",
- *   parameters: {
- *     query: { type: "string", description: "Search query", required: true },
- *   },
- *   execute: async (params) => ({
- *     success: true,
- *     output: `Results for: ${params.query}`,
- *   }),
+ * // Uses built-in "default" theme automatically
+ * const config = resolveConfig()
+ * const theme = generateTheme(config.themeConfig)
+ *
+ * console.log(theme.css)  // Ready-to-use CSS variables
+ * ```
+ *
+ * ### Scenario 2: Built-in Theme Presets
+ *
+ * Choose from built-in presets (blue, green, violet):
+ *
+ * ```typescript
+ * import { resolveConfig, generateTheme } from "@platxa/frontend-agent"
+ *
+ * // Use blue preset
+ * const config = resolveConfig({ theme: { preset: "blue" } })
+ * const theme = generateTheme(config.themeConfig)
+ * ```
+ *
+ * ### Scenario 3: Custom Theme
+ *
+ * Create a custom theme with your brand colors:
+ *
+ * ```typescript
+ * import { createTheme, generateTheme } from "@platxa/frontend-agent"
+ *
+ * const customTheme = createTheme("my-brand", {
+ *   primaryHue: 262,      // Purple
+ *   saturation: "high",
+ *   useOklch: true,       // Use OKLCH color space
  * })
  *
- * const agent = createAgent()
- *   .withAction(searchAction)
- *   .withConfig({ maxIterations: 5, verbose: true })
- *   .build()
+ * const theme = generateTheme(customTheme)
+ * ```
  *
- * const result = await agent.run({ task: "Find information about TypeScript" })
+ * ### Scenario 4: Brand Kit Integration (Advanced)
+ *
+ * Use a custom brand kit package:
+ *
+ * ```typescript
+ * // platxa.config.ts
+ * import { defineFrontendConfig } from "@platxa/frontend-agent"
+ *
+ * export default defineFrontendConfig({
+ *   brand: { package: "@company/brand-kit" }
+ * })
+ *
+ * // main.ts
+ * import { resolveConfig, loadBrandKit } from "@platxa/frontend-agent"
+ *
+ * const config = resolveConfig(platxaConfig)
+ * if (config.mode === "brand" && config.brandPackage) {
+ *   const result = await loadBrandKit(config.brandPackage)
+ *   // result.tokens contains normalized design tokens
+ * }
+ * ```
+ *
+ * ### Scenario 5: Vite Integration
+ *
+ * Auto-load config and inject CSS:
+ *
+ * ```typescript
+ * // vite.config.ts
+ * import { defineConfig } from "vite"
+ * import { platxaTheme } from "@platxa/frontend-agent/vite"
+ *
+ * export default defineConfig({
+ *   plugins: [platxaTheme()]
+ * })
+ *
+ * // main.tsx - import virtual CSS
+ * import "virtual:platxa-theme.css"
+ * ```
+ *
+ * ### Scenario 6: Build-Time CSS Generation
+ *
+ * Generate static CSS at build time:
+ *
+ * ```typescript
+ * import { processThemeForBuild, getThemePreset } from "@platxa/frontend-agent"
+ * import { writeFileSync } from "fs"
+ *
+ * const config = getThemePreset("blue")
+ * const output = processThemeForBuild(config)
+ *
+ * writeFileSync("dist/theme.css", output.stylesheet)
+ * ```
+ *
+ * ### Scenario 7: Creating a Brand Kit Package
+ *
+ * Create a shareable brand kit:
+ *
+ * ```typescript
+ * import { generateBrandKitPackageTemplate } from "@platxa/frontend-agent"
+ * import { writeFileSync, mkdirSync } from "fs"
+ *
+ * const template = generateBrandKitPackageTemplate({
+ *   packageName: "@company/brand-kit",
+ *   brandName: "My Company",
+ *   primaryHue: 220,
+ * })
+ *
+ * mkdirSync("brand-kit/src", { recursive: true })
+ * for (const [path, content] of Object.entries(template)) {
+ *   writeFileSync(`brand-kit/${path}`, content)
+ * }
+ * ```
+ *
+ * ## React Hooks
+ *
+ * ```typescript
+ * import { useTheme, useBrand } from "@platxa/frontend-agent"
+ *
+ * function MyComponent() {
+ *   const { mode, tokens, setMode } = useTheme()
+ *   const { name, isLoaded } = useBrand()
+ *
+ *   return (
+ *     <div style={{ color: tokens.colors.primary }}>
+ *       <button onClick={() => setMode("dark")}>Dark Mode</button>
+ *     </div>
+ *   )
+ * }
  * ```
  *
  * @module react-agent
@@ -894,3 +1004,120 @@ export type {
   CoordinatorEvent,
   CoordinatorEventCallback,
 } from "./coordinator"
+
+// =============================================================================
+// BRAND SYSTEM (Feature #45-49)
+// =============================================================================
+
+// Brand Configuration
+export {
+  defineFrontendConfig,
+  defineBrandKit,
+  resolveConfig,
+  validateConfig,
+  getBuiltInTheme,
+  getBuiltInPresetNames,
+  getAllPresetNames,
+  isBuiltInPreset,
+  usesBrandKit,
+  usesBuiltInTheme,
+  getEffectivePreset,
+  BUILTIN_PRESETS,
+  DEFAULT_CONFIG,
+  createBrandKitTemplate,
+  EXAMPLE_BRAND_KIT,
+  generateBrandKitPackageTemplate,
+} from "./brand"
+
+export type {
+  ConfigValidationResult,
+  BrandKitTemplateOptions,
+  BrandKitPackageOptions,
+  BrandKitPackageTemplate,
+} from "./brand"
+
+// Brand Loading
+export {
+  loadBrandKit,
+  resolveBrand,
+  validateBrandKit,
+  isValidBrandPackageName,
+  normalizeBrandTokens,
+  mergeDesignTokens,
+  getBrandLoadingState,
+  getCurrentBrandKit,
+  isBrandLoaded,
+  isBrandLoading,
+  clearBrandCache,
+  removeBrandFromCache,
+  isBrandCached,
+  getBrandCacheSize,
+  useBrand,
+  subscribeToBrandChanges,
+  getBrandStateSnapshot,
+  validateCssValue,
+  sanitizeCssValue,
+  validateBrandKitCss,
+} from "./brand"
+
+export type { BrandLoadResult, BrandLoaderOptions, UseBrandState } from "./brand"
+
+// Config File Loading
+export {
+  loadConfigFile,
+  findAndLoadConfig,
+  validateLoadedConfig,
+  isSupportedExtension,
+  getConfigExtension,
+  isConfigFileName,
+  getConfigFilePaths,
+  getConfigFormatDescription,
+  isConfigLoadingSupported,
+  CONFIG_FILE_NAME,
+  CONFIG_FILE_NAMES,
+  SUPPORTED_EXTENSIONS,
+} from "./brand"
+
+export type {
+  ConfigFileExtension,
+  ConfigFileResult,
+  ConfigLoaderOptions,
+} from "./brand"
+
+// Brand Types
+export type {
+  BuiltInPreset,
+  ThemePresetName,
+  BrandKitMeta,
+  BrandKitExport,
+  BrandColorPrimitives,
+  BrandSemanticColors,
+  BrandTypography,
+  BrandSpacing,
+  BrandRadius,
+  BrandShadow,
+  FrontendConfig,
+  ThemeOptions,
+  BrandOptions,
+  ResolvedConfig,
+  ConfigLoadingState,
+  ConfigState,
+  DefineFrontendConfigReturn,
+  DefineBrandKitReturn,
+  BrandKitValidationResult,
+} from "./brand"
+
+// Theme React Hooks
+export {
+  useTheme,
+  subscribeToThemeChanges,
+  getThemeStateSnapshot,
+  setThemeMode,
+  getThemeMode,
+  setThemeConfig,
+  generateStaticStylesheet,
+  processThemeForBuild,
+  processPresetForBuild,
+} from "./theme"
+
+export type { UseThemeState, BuildOutput } from "./theme"

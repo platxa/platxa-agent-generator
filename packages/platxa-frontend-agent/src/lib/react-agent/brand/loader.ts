@@ -194,6 +194,152 @@ export function useBrand(): UseBrandState {
 }
 
 // =============================================================================
+// BRAND CONTEXT PROVIDER (Feature #58)
+// =============================================================================
+
+/**
+ * Props for BrandProvider component
+ */
+export interface BrandProviderProps {
+  /** Brand package to load (optional - uses default theme if not specified) */
+  brandPackage?: string
+  /** Children to render */
+  children: React.ReactNode
+  /** Loading component to show while brand loads */
+  loading?: React.ReactNode
+  /** Error component to show if brand fails to load */
+  fallback?: React.ReactNode
+  /** Whether to throw on error (default: false, shows fallback) */
+  throwOnError?: boolean
+}
+
+/**
+ * Brand context value type
+ */
+export interface BrandContextValue extends UseBrandState {
+  /** Load a different brand kit */
+  loadBrand: (packageName: string) => Promise<void>
+  /** Clear current brand and use default theme */
+  clearBrand: () => void
+}
+
+/**
+ * React context for brand information
+ *
+ * Use this with React.createContext in your app:
+ *
+ * @example Creating context in your app
+ * ```tsx
+ * import { createContext, useContext } from "react"
+ * import type { BrandContextValue } from "@platxa/frontend-agent"
+ *
+ * const BrandContext = createContext<BrandContextValue | null>(null)
+ *
+ * export function useBrandContext() {
+ *   const context = useContext(BrandContext)
+ *   if (!context) throw new Error("useBrandContext must be used within BrandProvider")
+ *   return context
+ * }
+ * ```
+ */
+export const defaultBrandContextValue: BrandContextValue = {
+  ...getBrandStateSnapshot(),
+  loadBrand: async (packageName: string) => {
+    await loadBrandKit(packageName)
+  },
+  clearBrand: () => {
+    clearBrandCache()
+  },
+}
+
+/**
+ * Creates BrandProvider props for React component usage
+ *
+ * Since this library avoids direct React imports for maximum compatibility,
+ * this function provides the props needed to create a BrandProvider in your app.
+ *
+ * @param props - Provider configuration
+ * @returns Object with context value and effect handlers
+ *
+ * @example Creating a BrandProvider in your app
+ * ```tsx
+ * import { createContext, useContext, useEffect, useState } from "react"
+ * import {
+ *   createBrandProviderProps,
+ *   subscribeToBrandChanges,
+ *   getBrandStateSnapshot,
+ *   type BrandContextValue,
+ * } from "@platxa/frontend-agent"
+ *
+ * const BrandContext = createContext<BrandContextValue | null>(null)
+ *
+ * export function BrandProvider({ children, brandPackage }: { children: React.ReactNode, brandPackage?: string }) {
+ *   const [state, setState] = useState(getBrandStateSnapshot())
+ *
+ *   // Subscribe to changes
+ *   useEffect(() => {
+ *     return subscribeToBrandChanges(() => {
+ *       setState(getBrandStateSnapshot())
+ *     })
+ *   }, [])
+ *
+ *   // Load brand on mount
+ *   useEffect(() => {
+ *     if (brandPackage) {
+ *       loadBrandKit(brandPackage)
+ *     }
+ *   }, [brandPackage])
+ *
+ *   const contextValue: BrandContextValue = {
+ *     ...state,
+ *     loadBrand: async (pkg) => { await loadBrandKit(pkg) },
+ *     clearBrand: () => { clearBrandCache() },
+ *   }
+ *
+ *   return (
+ *     <BrandContext.Provider value={contextValue}>
+ *       {children}
+ *     </BrandContext.Provider>
+ *   )
+ * }
+ *
+ * export function useBrandContext() {
+ *   const context = useContext(BrandContext)
+ *   if (!context) throw new Error("Must be used within BrandProvider")
+ *   return context
+ * }
+ * ```
+ *
+ * @example With useSyncExternalStore (React 18+)
+ * ```tsx
+ * import { useSyncExternalStore } from "react"
+ * import { subscribeToBrandChanges, getBrandStateSnapshot } from "@platxa/frontend-agent"
+ *
+ * function useBrandState() {
+ *   return useSyncExternalStore(
+ *     subscribeToBrandChanges,
+ *     getBrandStateSnapshot,
+ *     getBrandStateSnapshot // SSR snapshot
+ *   )
+ * }
+ * ```
+ */
+export function createBrandProviderValue(
+  overrides?: Partial<BrandContextValue>
+): BrandContextValue {
+  return {
+    ...getBrandStateSnapshot(),
+    loadBrand: async (packageName: string) => {
+      await loadBrandKit(packageName)
+    },
+    clearBrand: () => {
+      clearBrandCache()
+    },
+    ...overrides,
+  }
+}
+
+// =============================================================================
 // BRAND LOADING
 // =============================================================================
 
@@ -1063,4 +1209,253 @@ export function isBrandCached(packageName: string): boolean {
  */
 export function getBrandCacheSize(): number {
   return brandCache.size
+}
+
+// =============================================================================
+// AI BRAND CONTEXT INJECTION (Feature #55)
+// =============================================================================
+
+/**
+ * Options for generating AI brand context
+ */
+export interface BrandContextOptions {
+  /** Include full color palette */
+  includeColors?: boolean
+  /** Include typography scale */
+  includeTypography?: boolean
+  /** Include spacing scale */
+  includeSpacing?: boolean
+  /** Include radius/shadow tokens */
+  includeExtras?: boolean
+  /** Format: "xml" for structured tags, "markdown" for readable format */
+  format?: "xml" | "markdown"
+}
+
+/**
+ * Generates brand context for injection into AI prompts
+ *
+ * This function creates a formatted context block containing the current
+ * theme/brand tokens that can be included in AI system prompts. This helps
+ * AI models understand the design system when generating components.
+ *
+ * @param tokens - Design tokens (from theme or brand kit)
+ * @param options - Context generation options
+ * @returns Formatted context string for AI prompt injection
+ *
+ * @example Inject into AI system prompt
+ * ```typescript
+ * import { generateBrandContext, defaultTokens } from "@platxa/frontend-agent"
+ *
+ * const brandContext = generateBrandContext(defaultTokens)
+ *
+ * const systemPrompt = `You are a UI component generator.
+ *
+ * ${brandContext}
+ *
+ * Generate components that use these design tokens.`
+ * ```
+ *
+ * @example With brand kit tokens
+ * ```typescript
+ * import { loadBrandKit, generateBrandContext } from "@platxa/frontend-agent"
+ *
+ * const result = await loadBrandKit("@company/brand-kit")
+ * if (result.tokens) {
+ *   const context = generateBrandContext(result.tokens, {
+ *     format: "xml",
+ *     includeTypography: true,
+ *   })
+ *   // Use context in AI prompt
+ * }
+ * ```
+ */
+export function generateBrandContext(
+  tokens: DesignTokens,
+  options: BrandContextOptions = {}
+): string {
+  const {
+    includeColors = true,
+    includeTypography = true,
+    includeSpacing = true,
+    includeExtras = true,
+    format = "xml",
+  } = options
+
+  if (format === "xml") {
+    return generateXmlContext(tokens, {
+      includeColors,
+      includeTypography,
+      includeSpacing,
+      includeExtras,
+    })
+  }
+
+  return generateMarkdownContext(tokens, {
+    includeColors,
+    includeTypography,
+    includeSpacing,
+    includeExtras,
+  })
+}
+
+/**
+ * Generate XML-formatted context (better for structured AI parsing)
+ */
+function generateXmlContext(
+  tokens: DesignTokens,
+  opts: { includeColors: boolean; includeTypography: boolean; includeSpacing: boolean; includeExtras: boolean }
+): string {
+  const sections: string[] = []
+
+  sections.push("<design-system>")
+
+  if (opts.includeColors) {
+    sections.push("  <colors>")
+    sections.push("    <semantic-colors>")
+    for (const [key, value] of Object.entries(tokens.colors)) {
+      sections.push(`      <${key}>${value}</${key}>`)
+    }
+    sections.push("    </semantic-colors>")
+    sections.push("  </colors>")
+  }
+
+  if (opts.includeTypography && tokens.typography) {
+    sections.push("  <typography>")
+    for (const [key, value] of Object.entries(tokens.typography)) {
+      if (typeof value === "object" && value !== null) {
+        const v = value as { fontSize: string; lineHeight: string }
+        sections.push(`    <${key} fontSize="${v.fontSize}" lineHeight="${v.lineHeight}" />`)
+      }
+    }
+    sections.push("  </typography>")
+
+    if (tokens.fontFamily) {
+      sections.push("  <font-families>")
+      for (const [key, value] of Object.entries(tokens.fontFamily)) {
+        sections.push(`    <${key}>${value}</${key}>`)
+      }
+      sections.push("  </font-families>")
+    }
+  }
+
+  if (opts.includeSpacing && tokens.spacing) {
+    sections.push("  <spacing>")
+    for (const [key, value] of Object.entries(tokens.spacing)) {
+      sections.push(`    <space-${key}>${value}</space-${key}>`)
+    }
+    sections.push("  </spacing>")
+  }
+
+  if (opts.includeExtras) {
+    if (tokens.radius) {
+      sections.push("  <border-radius>")
+      for (const [key, value] of Object.entries(tokens.radius)) {
+        sections.push(`    <radius-${key}>${value}</radius-${key}>`)
+      }
+      sections.push("  </border-radius>")
+    }
+
+    if (tokens.shadow) {
+      sections.push("  <shadows>")
+      for (const [key, value] of Object.entries(tokens.shadow)) {
+        sections.push(`    <shadow-${key}>${value}</shadow-${key}>`)
+      }
+      sections.push("  </shadows>")
+    }
+  }
+
+  sections.push("</design-system>")
+
+  return sections.join("\n")
+}
+
+/**
+ * Generate Markdown-formatted context (more human-readable)
+ */
+function generateMarkdownContext(
+  tokens: DesignTokens,
+  opts: { includeColors: boolean; includeTypography: boolean; includeSpacing: boolean; includeExtras: boolean }
+): string {
+  const sections: string[] = []
+
+  sections.push("## Design System Tokens\n")
+
+  if (opts.includeColors) {
+    sections.push("### Semantic Colors")
+    sections.push("Use these color tokens for component styling:\n")
+    for (const [key, value] of Object.entries(tokens.colors)) {
+      sections.push(`- **${key}**: \`${value}\``)
+    }
+    sections.push("")
+  }
+
+  if (opts.includeTypography && tokens.typography) {
+    sections.push("### Typography Scale")
+    sections.push("Font sizes with line heights:\n")
+    for (const [key, value] of Object.entries(tokens.typography)) {
+      if (typeof value === "object" && value !== null) {
+        const v = value as { fontSize: string; lineHeight: string }
+        sections.push(`- **${key}**: ${v.fontSize} / ${v.lineHeight}`)
+      }
+    }
+    sections.push("")
+
+    if (tokens.fontFamily) {
+      sections.push("### Font Families\n")
+      for (const [key, value] of Object.entries(tokens.fontFamily)) {
+        sections.push(`- **${key}**: \`${value}\``)
+      }
+      sections.push("")
+    }
+  }
+
+  if (opts.includeSpacing && tokens.spacing) {
+    sections.push("### Spacing Scale")
+    sections.push("Use these spacing values:\n")
+    const entries = Object.entries(tokens.spacing).slice(0, 12) // Limit to common values
+    for (const [key, value] of entries) {
+      sections.push(`- **${key}**: ${value}`)
+    }
+    sections.push("")
+  }
+
+  if (opts.includeExtras) {
+    if (tokens.radius) {
+      sections.push("### Border Radius\n")
+      for (const [key, value] of Object.entries(tokens.radius)) {
+        sections.push(`- **${key}**: ${value}`)
+      }
+      sections.push("")
+    }
+  }
+
+  return sections.join("\n")
+}
+
+/**
+ * Gets current brand/theme context for AI injection
+ *
+ * Convenience function that uses the currently loaded brand or default theme.
+ *
+ * @param options - Context generation options
+ * @returns Formatted context string
+ *
+ * @example
+ * ```typescript
+ * import { getCurrentBrandContext } from "@platxa/frontend-agent"
+ *
+ * const context = getCurrentBrandContext()
+ * // Includes current theme/brand tokens
+ * ```
+ */
+export function getCurrentBrandContext(options: BrandContextOptions = {}): string {
+  const brandKit = currentBrandKit
+
+  if (brandKit) {
+    const tokens = normalizeBrandTokens(brandKit)
+    return generateBrandContext(tokens, options)
+  }
+
+  // Fall back to default tokens
+  return generateBrandContext(defaultTokens, options)
 }

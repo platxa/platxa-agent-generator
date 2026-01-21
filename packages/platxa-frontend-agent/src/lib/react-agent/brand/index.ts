@@ -47,9 +47,19 @@ export {
   getEffectivePreset,
   BUILTIN_PRESETS,
   DEFAULT_CONFIG,
+  // Brand Kit Creation Tools (Feature #45)
+  createBrandKitTemplate,
+  EXAMPLE_BRAND_KIT,
+  // Brand Kit Package Template (Feature #46)
+  generateBrandKitPackageTemplate,
 } from "./config"
 
-export type { ConfigValidationResult } from "./config"
+export type {
+  ConfigValidationResult,
+  BrandKitTemplateOptions,
+  BrandKitPackageOptions,
+  BrandKitPackageTemplate,
+} from "./config"
 
 // Config File Loader (Feature #7)
 export {
@@ -99,9 +109,23 @@ export {
   validateCssValue,
   sanitizeCssValue,
   validateBrandKitCss,
+  // AI Brand Context Injection (Feature #55)
+  generateBrandContext,
+  getCurrentBrandContext,
+  // Brand Context Provider (Feature #58)
+  defaultBrandContextValue,
+  createBrandProviderValue,
 } from "./loader"
 
-export type { BrandLoadResult, BrandLoaderOptions, UseBrandState } from "./loader"
+export type {
+  BrandLoadResult,
+  BrandLoaderOptions,
+  UseBrandState,
+  BrandContextOptions,
+  // Brand Context Provider (Feature #58)
+  BrandProviderProps,
+  BrandContextValue,
+} from "./loader"
 
 // Types
 export type {

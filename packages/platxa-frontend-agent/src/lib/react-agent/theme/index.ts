@@ -53,9 +53,13 @@ export {
   setThemeMode,
   getThemeMode,
   setThemeConfig,
+  // Build-Time Processing (Feature #43)
+  generateStaticStylesheet,
+  processThemeForBuild,
+  processPresetForBuild,
 } from "./theme-worker"
 
-export type { UseThemeState } from "./theme-worker"
+export type { UseThemeState, BuildOutput } from "./theme-worker"
 
 // Token presets
 export {

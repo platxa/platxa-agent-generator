@@ -642,3 +642,183 @@ export function useTheme(): UseThemeState {
   // )
   return getThemeStateSnapshot()
 }
+
+// ============================================================================
+// BUILD-TIME PROCESSING (Feature #43)
+// ============================================================================
+// Key Design Decisions:
+// 1. All CSS generation is pure and synchronous - no runtime dependencies
+// 2. Output is static CSS strings ready to write to files
+// 3. No DOM manipulation - works in Node.js build environments
+// 4. Combines multiple CSS outputs into single stylesheet for efficiency
+// ============================================================================
+
+/**
+ * Build output structure containing all static assets
+ */
+export interface BuildOutput {
+  /** Complete CSS stylesheet (light + dark modes) */
+  stylesheet: string
+  /** Tailwind v4 @theme block */
+  tailwindTheme: string
+  /** Theme initialization script */
+  themeScript: string
+  /** CSS variables as JSON (for programmatic access) */
+  cssVariables: Record<string, string>
+  /** Metadata about the build */
+  meta: {
+    themeName: string
+    generatedAt: string
+    hasDarkMode: boolean
+  }
+}
+
+/**
+ * Generates a complete static CSS stylesheet for build-time output
+ *
+ * Combines all CSS (light mode, dark mode, Tailwind theme) into a single
+ * stylesheet that can be written to a file and served statically.
+ * No runtime token processing required.
+ *
+ * @param config - Theme configuration
+ * @returns Complete CSS stylesheet as string
+ *
+ * @example Build-time usage (Vite plugin, CLI, etc.)
+ * ```typescript
+ * import { generateStaticStylesheet, getThemePreset } from "@platxa/frontend-agent"
+ * import { writeFileSync } from "fs"
+ *
+ * const config = getThemePreset("blue")
+ * const css = generateStaticStylesheet(config)
+ * writeFileSync("dist/theme.css", css)
+ * ```
+ */
+export function generateStaticStylesheet(config: ThemeConfig): string {
+  const sections: string[] = []
+
+  // Header comment
+  sections.push(`/**
+ * Theme: ${config.name}
+ * Generated at build time - no runtime processing required
+ * @generated
+ */`)
+
+  // Tailwind v4 @theme block (must come first for Tailwind to process)
+  sections.push("")
+  sections.push("/* Tailwind v4 Theme Tokens */")
+  sections.push(generateTailwindTheme(config.light))
+
+  // Base CSS variables (:root)
+  sections.push("")
+  sections.push("/* Base Theme (Light Mode) */")
+  sections.push(generateCss(config.light))
+
+  // Dark mode CSS
+  if (config.dark) {
+    sections.push("")
+    sections.push("/* Dark Mode */")
+    sections.push(generateDarkModeCss(config.dark, `.${config.darkModeClass || "dark"}`))
+
+    // Also add media query version for system preference
+    sections.push("")
+    sections.push("/* System Dark Mode Preference */")
+    sections.push(`@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+${Object.entries(config.dark)
+  .filter(([, value]) => value)
+  .map(([key, value]) => `    --${toKebabCase(key)}: ${typeof value === "string" ? value : ""};`)
+  .join("\n")}
+  }
+}`)
+  }
+
+  return sections.join("\n")
+}
+
+/**
+ * Processes a theme configuration at build time and returns all static assets
+ *
+ * This is the main entry point for build-time processing. It generates:
+ * - Complete CSS stylesheet (no runtime processing needed)
+ * - Tailwind @theme block for Tailwind v4
+ * - Theme initialization script (optional, for SSR hydration)
+ * - CSS variables as JSON for programmatic access
+ *
+ * All outputs are static strings that can be written to files.
+ *
+ * @param config - Theme configuration
+ * @returns BuildOutput with all static assets
+ *
+ * @example Vite plugin usage
+ * ```typescript
+ * import { processThemeForBuild, getThemePreset } from "@platxa/frontend-agent/build"
+ *
+ * export function platxaThemePlugin() {
+ *   return {
+ *     name: "platxa-theme",
+ *     generateBundle() {
+ *       const config = getThemePreset("default")
+ *       const output = processThemeForBuild(config)
+ *
+ *       this.emitFile({
+ *         type: "asset",
+ *         fileName: "theme.css",
+ *         source: output.stylesheet
+ *       })
+ *     }
+ *   }
+ * }
+ * ```
+ *
+ * @example CLI build script
+ * ```typescript
+ * import { processThemeForBuild, createTheme } from "@platxa/frontend-agent"
+ * import { writeFileSync, mkdirSync } from "fs"
+ *
+ * const config = createTheme("custom", { primaryHue: 262 })
+ * const output = processThemeForBuild(config)
+ *
+ * mkdirSync("dist/theme", { recursive: true })
+ * writeFileSync("dist/theme/styles.css", output.stylesheet)
+ * writeFileSync("dist/theme/tailwind.css", output.tailwindTheme)
+ * writeFileSync("dist/theme/init.js", output.themeScript)
+ * writeFileSync("dist/theme/variables.json", JSON.stringify(output.cssVariables, null, 2))
+ * ```
+ */
+export function processThemeForBuild(config: ThemeConfig): BuildOutput {
+  const cssVariables = generateColorVariables(config.light.colors)
+
+  return {
+    stylesheet: generateStaticStylesheet(config),
+    tailwindTheme: generateTailwindTheme(config.light),
+    themeScript: generateThemeScript(config),
+    cssVariables,
+    meta: {
+      themeName: config.name,
+      generatedAt: new Date().toISOString(),
+      hasDarkMode: !!config.dark,
+    },
+  }
+}
+
+/**
+ * Generates build output from a preset name
+ *
+ * Convenience function for quickly generating build output from
+ * one of the built-in theme presets.
+ *
+ * @param presetName - Name of built-in preset
+ * @returns BuildOutput with all static assets
+ *
+ * @example
+ * ```typescript
+ * import { processPresetForBuild } from "@platxa/frontend-agent"
+ *
+ * const output = processPresetForBuild("blue")
+ * // output.stylesheet contains complete CSS
+ * ```
+ */
+export function processPresetForBuild(presetName: string): BuildOutput {
+  const config = getThemePreset(presetName)
+  return processThemeForBuild(config)
+}
