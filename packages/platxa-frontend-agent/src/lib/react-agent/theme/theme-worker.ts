@@ -20040,3 +20040,923 @@ export function generateStorybookIntegration(
     instructions,
   }
 }
+
+// =============================================================================
+// Feature #118: Interactive Playground
+// =============================================================================
+
+/**
+ * Playground configuration options
+ */
+export interface PlaygroundConfig {
+  /** Initial theme configuration */
+  initialConfig: ThemeConfig
+  /** Available presets to load */
+  presets?: Array<{ id: string; name: string; config: ThemeConfig }>
+  /** Enable JSON editor */
+  enableJsonEditor?: boolean
+  /** Enable visual color picker */
+  enableColorPicker?: boolean
+  /** Enable export options */
+  enableExport?: boolean
+  /** Preview components to show */
+  previewComponents?: PlaygroundPreviewComponent[]
+  /** Custom styles for playground */
+  customStyles?: string
+}
+
+/**
+ * Preview component configuration
+ */
+export interface PlaygroundPreviewComponent {
+  /** Component ID */
+  id: string
+  /** Display name */
+  name: string
+  /** Component category */
+  category: "button" | "card" | "input" | "typography" | "layout" | "custom"
+  /** Render function code (as string for code generation) */
+  renderCode: string
+}
+
+/**
+ * Playground state
+ */
+export interface PlaygroundState {
+  /** Current theme configuration */
+  config: ThemeConfig
+  /** Generated CSS */
+  generatedCss: string
+  /** Generated Tailwind theme */
+  generatedTailwind: string
+  /** Validation result */
+  validation: {
+    isValid: boolean
+    errors: string[]
+    warnings: string[]
+  }
+  /** Current mode */
+  mode: ThemeMode
+  /** Active preset ID */
+  activePresetId?: string
+}
+
+/**
+ * Export format for playground
+ */
+export type PlaygroundExportFormat = "json" | "css" | "tailwind" | "typescript" | "all"
+
+/**
+ * Export result from playground
+ */
+export interface PlaygroundExportResult {
+  /** Format of the export */
+  format: PlaygroundExportFormat
+  /** File name suggestion */
+  fileName: string
+  /** Content to export */
+  content: string
+  /** MIME type */
+  mimeType: string
+}
+
+/**
+ * Playground generation result
+ */
+export interface PlaygroundResult {
+  /** HTML page content */
+  html: string
+  /** React component code */
+  reactComponent: string
+  /** Standalone JavaScript code */
+  standaloneScript: string
+  /** CSS styles for playground */
+  styles: string
+  /** Initial state */
+  initialState: PlaygroundState
+}
+
+/**
+ * Default preview components for playground
+ */
+const DEFAULT_PREVIEW_COMPONENTS: PlaygroundPreviewComponent[] = [
+  {
+    id: "button-primary",
+    name: "Primary Button",
+    category: "button",
+    renderCode: [
+      "<button style={{",
+      "  backgroundColor: 'var(--primary)',",
+      "  color: 'var(--primary-foreground)',",
+      "  padding: '0.5rem 1rem',",
+      "  borderRadius: 'var(--radius-md, 0.375rem)',",
+      "  border: 'none',",
+      "  cursor: 'pointer',",
+      "  fontWeight: 500,",
+      "}}>Primary Button</button>",
+    ].join("\n"),
+  },
+  {
+    id: "button-secondary",
+    name: "Secondary Button",
+    category: "button",
+    renderCode: [
+      "<button style={{",
+      "  backgroundColor: 'var(--secondary)',",
+      "  color: 'var(--secondary-foreground)',",
+      "  padding: '0.5rem 1rem',",
+      "  borderRadius: 'var(--radius-md, 0.375rem)',",
+      "  border: 'none',",
+      "  cursor: 'pointer',",
+      "  fontWeight: 500,",
+      "}}>Secondary Button</button>",
+    ].join("\n"),
+  },
+  {
+    id: "card",
+    name: "Card",
+    category: "card",
+    renderCode: [
+      "<div style={{",
+      "  backgroundColor: 'var(--card)',",
+      "  color: 'var(--card-foreground)',",
+      "  padding: '1.5rem',",
+      "  borderRadius: 'var(--radius-lg, 0.5rem)',",
+      "  border: '1px solid var(--border)',",
+      "  boxShadow: 'var(--shadow-sm)',",
+      "}}>",
+      "  <h3 style={{ margin: '0 0 0.5rem 0' }}>Card Title</h3>",
+      "  <p style={{ margin: 0, color: 'var(--muted-foreground)' }}>Card content goes here.</p>",
+      "</div>",
+    ].join("\n"),
+  },
+  {
+    id: "input",
+    name: "Input Field",
+    category: "input",
+    renderCode: [
+      "<input",
+      "  type='text'",
+      "  placeholder='Enter text...'",
+      "  style={{",
+      "    backgroundColor: 'var(--background)',",
+      "    color: 'var(--foreground)',",
+      "    padding: '0.5rem 0.75rem',",
+      "    borderRadius: 'var(--radius-md, 0.375rem)',",
+      "    border: '1px solid var(--input)',",
+      "    outline: 'none',",
+      "    width: '200px',",
+      "  }}",
+      "/>",
+    ].join("\n"),
+  },
+  {
+    id: "typography",
+    name: "Typography",
+    category: "typography",
+    renderCode: [
+      "<div style={{ color: 'var(--foreground)' }}>",
+      "  <h1 style={{ margin: '0 0 0.5rem 0', fontSize: '2rem' }}>Heading 1</h1>",
+      "  <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.5rem' }}>Heading 2</h2>",
+      "  <p style={{ margin: '0 0 0.5rem 0' }}>Body text with <strong>bold</strong> and <em>italic</em>.</p>",
+      "  <p style={{ margin: 0, color: 'var(--muted-foreground)', fontSize: '0.875rem' }}>Muted text</p>",
+      "</div>",
+    ].join("\n"),
+  },
+  {
+    id: "color-palette",
+    name: "Color Palette",
+    category: "layout",
+    renderCode: [
+      "<div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>",
+      "  {['primary', 'secondary', 'accent', 'muted', 'destructive', 'background', 'card', 'border'].map(color => (",
+      "    <div key={color} style={{ textAlign: 'center' }}>",
+      "      <div style={{",
+      "        width: '48px',",
+      "        height: '48px',",
+      "        backgroundColor: `var(--${color})`,",
+      "        borderRadius: '0.25rem',",
+      "        border: '1px solid var(--border)',",
+      "        margin: '0 auto 0.25rem',",
+      "      }} />",
+      "      <span style={{ fontSize: '0.75rem', color: 'var(--muted-foreground)' }}>{color}</span>",
+      "    </div>",
+      "  ))}",
+      "</div>",
+    ].join("\n"),
+  },
+]
+
+/**
+ * Creates initial playground state from config
+ */
+function createPlaygroundState(config: ThemeConfig): PlaygroundState {
+  const generated = generateTheme(config)
+  const validation = validateTheme(config)
+
+  return {
+    config,
+    generatedCss: generated.css,
+    generatedTailwind: generated.tailwindTheme,
+    validation: {
+      isValid: validation.valid,
+      errors: validation.errors,
+      warnings: [],
+    },
+    mode: config.defaultMode || "light",
+    activePresetId: undefined,
+  }
+}
+
+/**
+ * Generates export content for a specific format
+ */
+export function generatePlaygroundExport(
+  state: PlaygroundState,
+  format: PlaygroundExportFormat
+): PlaygroundExportResult | PlaygroundExportResult[] {
+  const themeName = state.config.name || "theme"
+
+  switch (format) {
+    case "json":
+      return {
+        format: "json",
+        fileName: themeName + ".brandkit.json",
+        content: JSON.stringify(state.config, null, 2),
+        mimeType: "application/json",
+      }
+
+    case "css":
+      return {
+        format: "css",
+        fileName: themeName + ".css",
+        content: state.generatedCss,
+        mimeType: "text/css",
+      }
+
+    case "tailwind":
+      return {
+        format: "tailwind",
+        fileName: themeName + ".tailwind.css",
+        content: state.generatedTailwind,
+        mimeType: "text/css",
+      }
+
+    case "typescript": {
+      const tsContent = [
+        "import type { ThemeConfig } from '@platxa/frontend-agent/theme';",
+        "",
+        "export const " + toCamelCase(themeName) + "Theme: ThemeConfig = " + JSON.stringify(state.config, null, 2) + ";",
+      ].join("\n")
+      return {
+        format: "typescript",
+        fileName: themeName + ".theme.ts",
+        content: tsContent,
+        mimeType: "text/typescript",
+      }
+    }
+
+    case "all":
+      return [
+        generatePlaygroundExport(state, "json") as PlaygroundExportResult,
+        generatePlaygroundExport(state, "css") as PlaygroundExportResult,
+        generatePlaygroundExport(state, "tailwind") as PlaygroundExportResult,
+        generatePlaygroundExport(state, "typescript") as PlaygroundExportResult,
+      ]
+  }
+}
+
+/**
+ * Converts string to camelCase
+ */
+function toCamelCase(str: string): string {
+  return str
+    .replace(/[-_\s]+(.)?/g, (_, c) => (c ? c.toUpperCase() : ""))
+    .replace(/^(.)/, (c) => c.toLowerCase())
+}
+
+/**
+ * Generates playground React component code
+ */
+function generatePlaygroundReactComponent(config: PlaygroundConfig): string {
+  const presets = config.presets || []
+  const components = config.previewComponents || DEFAULT_PREVIEW_COMPONENTS
+
+  const lines: string[] = [
+    "import React, { useState, useEffect, useCallback } from 'react';",
+    "",
+    "// Types",
+    "interface ThemeConfig {",
+    "  name: string;",
+    "  light: Record<string, unknown>;",
+    "  dark?: Record<string, unknown>;",
+    "  defaultMode?: 'light' | 'dark' | 'system';",
+    "}",
+    "",
+    "interface PlaygroundState {",
+    "  config: ThemeConfig;",
+    "  generatedCss: string;",
+    "  mode: 'light' | 'dark' | 'system';",
+    "  isValid: boolean;",
+    "  errors: string[];",
+    "}",
+    "",
+    "// Initial configuration",
+    "const initialConfig: ThemeConfig = " + JSON.stringify(config.initialConfig, null, 2) + ";",
+    "",
+    "// Presets",
+    "const presets = " + JSON.stringify(presets.map(p => ({ id: p.id, name: p.name })), null, 2) + ";",
+    "",
+    "export function BrandPlayground() {",
+    "  const [state, setState] = useState<PlaygroundState>({",
+    "    config: initialConfig,",
+    "    generatedCss: '',",
+    "    mode: 'light',",
+    "    isValid: true,",
+    "    errors: [],",
+    "  });",
+    "  const [jsonInput, setJsonInput] = useState(JSON.stringify(initialConfig, null, 2));",
+    "  const [activeTab, setActiveTab] = useState<'editor' | 'preview' | 'export'>('preview');",
+    "",
+    "  // Update CSS when config changes",
+    "  useEffect(() => {",
+    "    try {",
+    "      // In real implementation, call generateTheme()",
+    "      const css = generateCssFromConfig(state.config);",
+    "      setState(prev => ({ ...prev, generatedCss: css, isValid: true, errors: [] }));",
+    "      injectStyles(css);",
+    "    } catch (e) {",
+    "      setState(prev => ({",
+    "        ...prev,",
+    "        isValid: false,",
+    "        errors: [e instanceof Error ? e.message : 'Invalid configuration'],",
+    "      }));",
+    "    }",
+    "  }, [state.config]);",
+    "",
+    "  // Handle JSON editor changes",
+    "  const handleJsonChange = useCallback((value: string) => {",
+    "    setJsonInput(value);",
+    "    try {",
+    "      const parsed = JSON.parse(value);",
+    "      setState(prev => ({ ...prev, config: parsed }));",
+    "    } catch {",
+    "      // Invalid JSON, don't update",
+    "    }",
+    "  }, []);",
+    "",
+    "  // Handle preset selection",
+    "  const handlePresetChange = useCallback((presetId: string) => {",
+    "    // In real implementation, load preset config",
+    "    console.log('Load preset:', presetId);",
+    "  }, []);",
+    "",
+    "  // Handle mode toggle",
+    "  const handleModeToggle = useCallback((mode: 'light' | 'dark' | 'system') => {",
+    "    setState(prev => ({ ...prev, mode }));",
+    "    document.documentElement.dataset.mode = mode === 'system'",
+    "      ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')",
+    "      : mode;",
+    "  }, []);",
+    "",
+    "  // Handle export",
+    "  const handleExport = useCallback((format: string) => {",
+    "    let content = '';",
+    "    let filename = '';",
+    "    let mimeType = '';",
+    "",
+    "    switch (format) {",
+    "      case 'json':",
+    "        content = JSON.stringify(state.config, null, 2);",
+    "        filename = state.config.name + '.brandkit.json';",
+    "        mimeType = 'application/json';",
+    "        break;",
+    "      case 'css':",
+    "        content = state.generatedCss;",
+    "        filename = state.config.name + '.css';",
+    "        mimeType = 'text/css';",
+    "        break;",
+    "    }",
+    "",
+    "    const blob = new Blob([content], { type: mimeType });",
+    "    const url = URL.createObjectURL(blob);",
+    "    const a = document.createElement('a');",
+    "    a.href = url;",
+    "    a.download = filename;",
+    "    a.click();",
+    "    URL.revokeObjectURL(url);",
+    "  }, [state.config, state.generatedCss]);",
+    "",
+    "  return (",
+    "    <div className='playground'>",
+    "      <header className='playground-header'>",
+    "        <h1>Brand Kit Playground</h1>",
+    "        <div className='controls'>",
+    "          <select onChange={(e) => handlePresetChange(e.target.value)}>",
+    "            <option value=''>Select Preset</option>",
+    "            {presets.map(p => (",
+    "              <option key={p.id} value={p.id}>{p.name}</option>",
+    "            ))}",
+    "          </select>",
+    "          <div className='mode-toggle'>",
+    "            <button onClick={() => handleModeToggle('light')} data-active={state.mode === 'light'}>Light</button>",
+    "            <button onClick={() => handleModeToggle('dark')} data-active={state.mode === 'dark'}>Dark</button>",
+    "            <button onClick={() => handleModeToggle('system')} data-active={state.mode === 'system'}>System</button>",
+    "          </div>",
+    "        </div>",
+    "      </header>",
+    "",
+    "      <nav className='playground-tabs'>",
+    "        <button onClick={() => setActiveTab('editor')} data-active={activeTab === 'editor'}>Editor</button>",
+    "        <button onClick={() => setActiveTab('preview')} data-active={activeTab === 'preview'}>Preview</button>",
+    "        <button onClick={() => setActiveTab('export')} data-active={activeTab === 'export'}>Export</button>",
+    "      </nav>",
+    "",
+    "      <main className='playground-content'>",
+    "        {activeTab === 'editor' && (",
+    "          <div className='editor-panel'>",
+    "            <textarea",
+    "              value={jsonInput}",
+    "              onChange={(e) => handleJsonChange(e.target.value)}",
+    "              spellCheck={false}",
+    "            />",
+    "            {!state.isValid && (",
+    "              <div className='errors'>",
+    "                {state.errors.map((err, i) => <div key={i} className='error'>{err}</div>)}",
+    "              </div>",
+    "            )}",
+    "          </div>",
+    "        )}",
+    "",
+    "        {activeTab === 'preview' && (",
+    "          <div className='preview-panel'>",
+    "            <PreviewComponents />",
+    "          </div>",
+    "        )}",
+    "",
+    "        {activeTab === 'export' && (",
+    "          <div className='export-panel'>",
+    "            <h2>Export Options</h2>",
+    "            <div className='export-buttons'>",
+    "              <button onClick={() => handleExport('json')}>Export JSON</button>",
+    "              <button onClick={() => handleExport('css')}>Export CSS</button>",
+    "              <button onClick={() => handleExport('tailwind')}>Export Tailwind</button>",
+    "              <button onClick={() => handleExport('typescript')}>Export TypeScript</button>",
+    "            </div>",
+    "          </div>",
+    "        )}",
+    "      </main>",
+    "    </div>",
+    "  );",
+    "}",
+    "",
+    "// Preview components",
+    "function PreviewComponents() {",
+    "  return (",
+    "    <div className='preview-grid'>",
+    ...components.map(c => [
+      "      <div className='preview-item'>",
+      "        <h3>" + c.name + "</h3>",
+      "        " + c.renderCode.split("\n").join("\n        "),
+      "      </div>",
+    ].join("\n")),
+    "    </div>",
+    "  );",
+    "}",
+    "",
+    "// Helper to generate CSS (simplified)",
+    "function generateCssFromConfig(config: ThemeConfig): string {",
+    "  // In real implementation, use generateTheme() from theme-worker",
+    "  const colors = config.light.colors as Record<string, string> || {};",
+    "  const lines = [':root {'];",
+    "  for (const [key, value] of Object.entries(colors)) {",
+    "    lines.push('  --' + toKebabCase(key) + ': ' + value + ';');",
+    "  }",
+    "  lines.push('}');",
+    "  return lines.join('\\n');",
+    "}",
+    "",
+    "function toKebabCase(str: string): string {",
+    "  return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();",
+    "}",
+    "",
+    "// Inject styles into document",
+    "function injectStyles(css: string) {",
+    "  let styleEl = document.getElementById('playground-styles');",
+    "  if (!styleEl) {",
+    "    styleEl = document.createElement('style');",
+    "    styleEl.id = 'playground-styles';",
+    "    document.head.appendChild(styleEl);",
+    "  }",
+    "  styleEl.textContent = css;",
+    "}",
+  ]
+
+  return lines.join("\n")
+}
+
+/**
+ * Generates playground CSS styles
+ */
+function generatePlaygroundStyles(): string {
+  return [
+    ".playground {",
+    "  font-family: system-ui, sans-serif;",
+    "  max-width: 1200px;",
+    "  margin: 0 auto;",
+    "  padding: 1rem;",
+    "}",
+    "",
+    ".playground-header {",
+    "  display: flex;",
+    "  justify-content: space-between;",
+    "  align-items: center;",
+    "  margin-bottom: 1rem;",
+    "  padding-bottom: 1rem;",
+    "  border-bottom: 1px solid var(--border, #e5e7eb);",
+    "}",
+    "",
+    ".playground-header h1 {",
+    "  margin: 0;",
+    "  font-size: 1.5rem;",
+    "}",
+    "",
+    ".controls {",
+    "  display: flex;",
+    "  gap: 1rem;",
+    "  align-items: center;",
+    "}",
+    "",
+    ".mode-toggle {",
+    "  display: flex;",
+    "  gap: 0.25rem;",
+    "  background: var(--muted, #f3f4f6);",
+    "  padding: 0.25rem;",
+    "  border-radius: 0.5rem;",
+    "}",
+    "",
+    ".mode-toggle button {",
+    "  padding: 0.5rem 1rem;",
+    "  border: none;",
+    "  background: transparent;",
+    "  border-radius: 0.375rem;",
+    "  cursor: pointer;",
+    "}",
+    "",
+    ".mode-toggle button[data-active='true'] {",
+    "  background: var(--background, white);",
+    "  box-shadow: 0 1px 2px rgba(0,0,0,0.1);",
+    "}",
+    "",
+    ".playground-tabs {",
+    "  display: flex;",
+    "  gap: 0.5rem;",
+    "  margin-bottom: 1rem;",
+    "}",
+    "",
+    ".playground-tabs button {",
+    "  padding: 0.5rem 1rem;",
+    "  border: none;",
+    "  background: var(--muted, #f3f4f6);",
+    "  border-radius: 0.375rem;",
+    "  cursor: pointer;",
+    "}",
+    "",
+    ".playground-tabs button[data-active='true'] {",
+    "  background: var(--primary, #3b82f6);",
+    "  color: var(--primary-foreground, white);",
+    "}",
+    "",
+    ".playground-content {",
+    "  min-height: 400px;",
+    "}",
+    "",
+    ".editor-panel textarea {",
+    "  width: 100%;",
+    "  height: 400px;",
+    "  font-family: monospace;",
+    "  font-size: 14px;",
+    "  padding: 1rem;",
+    "  border: 1px solid var(--border, #e5e7eb);",
+    "  border-radius: 0.5rem;",
+    "  resize: vertical;",
+    "}",
+    "",
+    ".errors {",
+    "  margin-top: 0.5rem;",
+    "  padding: 0.5rem;",
+    "  background: #fef2f2;",
+    "  border-radius: 0.375rem;",
+    "}",
+    "",
+    ".error {",
+    "  color: #dc2626;",
+    "  font-size: 0.875rem;",
+    "}",
+    "",
+    ".preview-panel {",
+    "  background: var(--background, white);",
+    "  padding: 1.5rem;",
+    "  border-radius: 0.5rem;",
+    "  border: 1px solid var(--border, #e5e7eb);",
+    "}",
+    "",
+    ".preview-grid {",
+    "  display: grid;",
+    "  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));",
+    "  gap: 1.5rem;",
+    "}",
+    "",
+    ".preview-item {",
+    "  padding: 1rem;",
+    "  background: var(--card, #f9fafb);",
+    "  border-radius: 0.5rem;",
+    "}",
+    "",
+    ".preview-item h3 {",
+    "  margin: 0 0 1rem 0;",
+    "  font-size: 0.875rem;",
+    "  color: var(--muted-foreground, #6b7280);",
+    "}",
+    "",
+    ".export-panel {",
+    "  padding: 1.5rem;",
+    "}",
+    "",
+    ".export-buttons {",
+    "  display: flex;",
+    "  gap: 0.5rem;",
+    "  flex-wrap: wrap;",
+    "}",
+    "",
+    ".export-buttons button {",
+    "  padding: 0.75rem 1.5rem;",
+    "  background: var(--primary, #3b82f6);",
+    "  color: var(--primary-foreground, white);",
+    "  border: none;",
+    "  border-radius: 0.375rem;",
+    "  cursor: pointer;",
+    "}",
+    "",
+    ".export-buttons button:hover {",
+    "  opacity: 0.9;",
+    "}",
+  ].join("\n")
+}
+
+/**
+ * Generates a standalone HTML playground page
+ */
+function generatePlaygroundHtml(config: PlaygroundConfig): string {
+  const initialState = createPlaygroundState(config.initialConfig)
+  const styles = generatePlaygroundStyles()
+  const presets = config.presets || []
+  const components = config.previewComponents || DEFAULT_PREVIEW_COMPONENTS
+
+  return [
+    "<!DOCTYPE html>",
+    "<html lang='en'>",
+    "<head>",
+    "  <meta charset='UTF-8'>",
+    "  <meta name='viewport' content='width=device-width, initial-scale=1.0'>",
+    "  <title>Brand Kit Playground</title>",
+    "  <style>",
+    "    " + styles.split("\n").join("\n    "),
+    "  </style>",
+    "  <style id='playground-theme'>",
+    "    " + initialState.generatedCss.split("\n").join("\n    "),
+    "  </style>",
+    "</head>",
+    "<body>",
+    "  <div id='app' class='playground'>",
+    "    <header class='playground-header'>",
+    "      <h1>Brand Kit Playground</h1>",
+    "      <div class='controls'>",
+    "        <select id='preset-select'>",
+    "          <option value=''>Select Preset</option>",
+    ...presets.map(p => "          <option value='" + p.id + "'>" + p.name + "</option>"),
+    "        </select>",
+    "        <div class='mode-toggle'>",
+    "          <button onclick='setMode(\"light\")' id='mode-light'>Light</button>",
+    "          <button onclick='setMode(\"dark\")' id='mode-dark'>Dark</button>",
+    "          <button onclick='setMode(\"system\")' id='mode-system'>System</button>",
+    "        </div>",
+    "      </div>",
+    "    </header>",
+    "",
+    "    <nav class='playground-tabs'>",
+    "      <button onclick='showTab(\"editor\")' id='tab-editor'>Editor</button>",
+    "      <button onclick='showTab(\"preview\")' id='tab-preview' data-active='true'>Preview</button>",
+    "      <button onclick='showTab(\"export\")' id='tab-export'>Export</button>",
+    "    </nav>",
+    "",
+    "    <main class='playground-content'>",
+    "      <div id='panel-editor' class='editor-panel' style='display:none'>",
+    "        <textarea id='json-editor' spellcheck='false'>" + JSON.stringify(config.initialConfig, null, 2).replace(/</g, "&lt;") + "</textarea>",
+    "        <div id='errors' class='errors' style='display:none'></div>",
+    "      </div>",
+    "",
+    "      <div id='panel-preview' class='preview-panel'>",
+    "        <div class='preview-grid'>",
+    ...components.map(c => [
+      "          <div class='preview-item'>",
+      "            <h3>" + c.name + "</h3>",
+      "            <div id='preview-" + c.id + "'></div>",
+      "          </div>",
+    ].join("\n")),
+    "        </div>",
+    "      </div>",
+    "",
+    "      <div id='panel-export' class='export-panel' style='display:none'>",
+    "        <h2>Export Options</h2>",
+    "        <div class='export-buttons'>",
+    "          <button onclick='exportAs(\"json\")'>Export JSON</button>",
+    "          <button onclick='exportAs(\"css\")'>Export CSS</button>",
+    "          <button onclick='exportAs(\"tailwind\")'>Export Tailwind</button>",
+    "        </div>",
+    "      </div>",
+    "    </main>",
+    "  </div>",
+    "",
+    "  <script>",
+    "    // State",
+    "    let state = {",
+    "      config: " + JSON.stringify(config.initialConfig) + ",",
+    "      mode: 'light',",
+    "      css: " + JSON.stringify(initialState.generatedCss) + ",",
+    "    };",
+    "",
+    "    // Tab switching",
+    "    function showTab(tab) {",
+    "      ['editor', 'preview', 'export'].forEach(t => {",
+    "        document.getElementById('panel-' + t).style.display = t === tab ? 'block' : 'none';",
+    "        document.getElementById('tab-' + t).dataset.active = t === tab;",
+    "      });",
+    "    }",
+    "",
+    "    // Mode switching",
+    "    function setMode(mode) {",
+    "      state.mode = mode;",
+    "      ['light', 'dark', 'system'].forEach(m => {",
+    "        document.getElementById('mode-' + m).dataset.active = m === mode;",
+    "      });",
+    "      const resolved = mode === 'system'",
+    "        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')",
+    "        : mode;",
+    "      document.documentElement.dataset.mode = resolved;",
+    "    }",
+    "",
+    "    // JSON editor",
+    "    document.getElementById('json-editor').addEventListener('input', function(e) {",
+    "      try {",
+    "        const config = JSON.parse(e.target.value);",
+    "        state.config = config;",
+    "        document.getElementById('errors').style.display = 'none';",
+    "        updatePreview();",
+    "      } catch (err) {",
+    "        document.getElementById('errors').textContent = err.message;",
+    "        document.getElementById('errors').style.display = 'block';",
+    "      }",
+    "    });",
+    "",
+    "    // Update preview (simplified)",
+    "    function updatePreview() {",
+    "      const colors = state.config.light?.colors || {};",
+    "      let css = ':root {\\n';",
+    "      for (const [key, value] of Object.entries(colors)) {",
+    "        const kebab = key.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();",
+    "        css += '  --' + kebab + ': ' + value + ';\\n';",
+    "      }",
+    "      css += '}';",
+    "      state.css = css;",
+    "      document.getElementById('playground-theme').textContent = css;",
+    "    }",
+    "",
+    "    // Export",
+    "    function exportAs(format) {",
+    "      let content, filename, type;",
+    "      switch (format) {",
+    "        case 'json':",
+    "          content = JSON.stringify(state.config, null, 2);",
+    "          filename = (state.config.name || 'theme') + '.brandkit.json';",
+    "          type = 'application/json';",
+    "          break;",
+    "        case 'css':",
+    "          content = state.css;",
+    "          filename = (state.config.name || 'theme') + '.css';",
+    "          type = 'text/css';",
+    "          break;",
+    "        case 'tailwind':",
+    "          content = '@theme {\\n' + state.css.replace(':root {', '').replace('}', '') + '}';",
+    "          filename = (state.config.name || 'theme') + '.tailwind.css';",
+    "          type = 'text/css';",
+    "          break;",
+    "      }",
+    "      const blob = new Blob([content], { type });",
+    "      const url = URL.createObjectURL(blob);",
+    "      const a = document.createElement('a');",
+    "      a.href = url;",
+    "      a.download = filename;",
+    "      a.click();",
+    "      URL.revokeObjectURL(url);",
+    "    }",
+    "",
+    "    // Initialize preview components",
+    "    function initPreviews() {",
+    ...components.map(c => {
+      // Generate simple HTML for each component
+      const simpleHtml = c.renderCode
+        .replace(/style=\{\{([^}]+)\}\}/g, (_, styles) => {
+          const cssStyles = styles
+            .replace(/'/g, "")
+            .replace(/,\s*$/gm, ";")
+            .replace(/:\s+/g, ": ")
+          return "style=\"" + cssStyles.trim() + "\""
+        })
+        .replace(/<([A-Z][a-zA-Z]*)/g, "<div") // Convert React components to divs
+        .replace(/<\/([A-Z][a-zA-Z]*)>/g, "</div>")
+      return "      document.getElementById('preview-" + c.id + "').innerHTML = `" + simpleHtml.replace(/`/g, "\\`") + "`;"
+    }),
+    "    }",
+    "",
+    "    // Init",
+    "    setMode('light');",
+    "    initPreviews();",
+    "  </script>",
+    "</body>",
+    "</html>",
+  ].join("\n")
+}
+
+/**
+ * Generates an interactive playground for testing brand configurations
+ *
+ * @param config - Playground configuration
+ * @returns Playground result with HTML, React component, and styles
+ *
+ * @example
+ * ```typescript
+ * const result = generatePlayground({
+ *   initialConfig: defaultTheme,
+ *   presets: [
+ *     { id: "default", name: "Default", config: defaultTheme },
+ *     { id: "blue", name: "Blue", config: blueTheme },
+ *   ],
+ *   enableJsonEditor: true,
+ *   enableExport: true,
+ * })
+ * ```
+ */
+export function generatePlayground(config: PlaygroundConfig): PlaygroundResult {
+  const initialState = createPlaygroundState(config.initialConfig)
+  const html = generatePlaygroundHtml(config)
+  const reactComponent = generatePlaygroundReactComponent(config)
+  const styles = generatePlaygroundStyles()
+
+  // Generate standalone script version
+  const standaloneScript = [
+    "// Brand Kit Playground - Standalone Script",
+    "// Include this script in your HTML page",
+    "",
+    "(function() {",
+    "  const initialConfig = " + JSON.stringify(config.initialConfig) + ";",
+    "  ",
+    "  // Initialize playground",
+    "  function init() {",
+    "    console.log('Brand Kit Playground initialized');",
+    "    // Add implementation here",
+    "  }",
+    "  ",
+    "  if (document.readyState === 'loading') {",
+    "    document.addEventListener('DOMContentLoaded', init);",
+    "  } else {",
+    "    init();",
+    "  }",
+    "})();",
+  ].join("\n")
+
+  return {
+    html,
+    reactComponent,
+    standaloneScript,
+    styles,
+    initialState,
+  }
+}
+
+/**
+ * Creates a simple playground with default settings
+ */
+export function createSimplePlayground(
+  initialConfig: ThemeConfig,
+  presets?: Array<{ id: string; name: string; config: ThemeConfig }>
+): PlaygroundResult {
+  return generatePlayground({
+    initialConfig,
+    presets,
+    enableJsonEditor: true,
+    enableColorPicker: true,
+    enableExport: true,
+    previewComponents: DEFAULT_PREVIEW_COMPONENTS,
+  })
+}

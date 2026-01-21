@@ -374,6 +374,10 @@ export {
   generateStorybookAddon,
   createStorybookBrandSwitcher,
   generateStorybookIntegration,
+  // Interactive Playground (Feature #118)
+  generatePlaygroundExport,
+  generatePlayground,
+  createSimplePlayground,
 } from "./theme-worker"
 
 export type {
@@ -568,6 +572,13 @@ export type {
   StorybookGlobalTypes,
   StorybookDecoratorConfig,
   StorybookAddonResult,
+  // Interactive Playground (Feature #118)
+  PlaygroundConfig,
+  PlaygroundPreviewComponent,
+  PlaygroundState,
+  PlaygroundExportFormat,
+  PlaygroundExportResult,
+  PlaygroundResult,
 } from "./theme-worker"
 
 // Token presets
