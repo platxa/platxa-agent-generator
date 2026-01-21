@@ -4269,3 +4269,363 @@ export function clearTokenCaches(): void {
 export function getTokenCacheStats(): CacheStats {
   return tokenCache.getStats()
 }
+
+// =============================================================================
+// SSR SUPPORT (Feature #88)
+// =============================================================================
+
+/**
+ * Checks if code is running on the server (no DOM available)
+ */
+export function isServer(): boolean {
+  return typeof window === "undefined" || typeof document === "undefined"
+}
+
+/**
+ * Checks if code is running in the browser
+ */
+export function isBrowser(): boolean {
+  return !isServer()
+}
+
+/**
+ * Default theme mode for SSR (safe for hydration)
+ */
+export const SSR_DEFAULT_MODE: ThemeMode = "light"
+
+/**
+ * Configuration for SSR-safe theme handling
+ */
+export interface SSRThemeConfig {
+  /** Default mode to use on server (default: "light") */
+  defaultMode?: ThemeMode
+  /** Whether to suppress hydration warnings (default: false) */
+  suppressHydrationWarning?: boolean
+  /** CSS nonce for CSP (Content Security Policy) */
+  nonce?: string
+}
+
+/**
+ * SSR-safe theme state for initial render
+ */
+export interface SSRThemeState {
+  /** Theme mode (always resolved, never "system" on SSR) */
+  mode: "light" | "dark"
+  /** CSS string for inline styles */
+  css: string
+  /** Script for client-side theme initialization */
+  initScript: string
+  /** Data attributes for the HTML element */
+  htmlAttributes: Record<string, string>
+}
+
+/**
+ * Gets SSR-safe theme mode
+ *
+ * On the server, always returns a resolved mode (light or dark).
+ * Never returns "system" to prevent hydration mismatch.
+ *
+ * @param preferredMode - User's preferred mode
+ * @param defaultMode - Default mode for SSR
+ * @returns Resolved theme mode
+ *
+ * @example
+ * ```tsx
+ * // In server component or getServerSideProps
+ * const mode = getSSRSafeMode(userPreference, "light")
+ * ```
+ */
+export function getSSRSafeMode(
+  preferredMode?: ThemeMode,
+  defaultMode: ThemeMode = SSR_DEFAULT_MODE
+): "light" | "dark" {
+  // On server, never use "system" - it would cause hydration mismatch
+  if (isServer()) {
+    if (preferredMode === "light" || preferredMode === "dark") {
+      return preferredMode
+    }
+    return defaultMode === "system" ? "light" : defaultMode
+  }
+
+  // On client, can safely resolve system preference
+  if (preferredMode === "system" || !preferredMode) {
+    return getResolvedMode()
+  }
+
+  return preferredMode === "dark" ? "dark" : "light"
+}
+
+/**
+ * Generates CSS for SSR with both light and dark themes
+ *
+ * Creates CSS that works without JavaScript by using
+ * CSS media queries for system preference detection.
+ *
+ * @param config - Theme configuration
+ * @returns CSS string safe for SSR
+ *
+ * @example
+ * ```tsx
+ * // In _document.tsx or layout.tsx
+ * const css = generateSSRCss(themeConfig)
+ *
+ * <head>
+ *   <style dangerouslySetInnerHTML={{ __html: css }} />
+ * </head>
+ * ```
+ */
+export function generateSSRCss(config: ThemeConfig): string {
+  const sections: string[] = []
+
+  // Base light mode (default)
+  sections.push("/* SSR Theme - Light Mode (default) */")
+  sections.push(generateCss(config.light))
+
+  // Dark mode with media query
+  // Note: config.dark is Partial<SemanticColors> (colors only), not DesignTokens
+  if (config.dark) {
+    sections.push("")
+    sections.push("/* SSR Theme - Dark Mode (system preference) */")
+    sections.push("@media (prefers-color-scheme: dark) {")
+    sections.push("  :root:not([data-theme='light']) {")
+
+    // Generate dark mode variables directly from semantic colors
+    for (const [key, value] of Object.entries(config.dark)) {
+      if (value && typeof value === "string") {
+        const varName = `--${toKebabCase(key)}`
+        sections.push(`    ${varName}: ${value};`)
+      }
+    }
+
+    sections.push("  }")
+    sections.push("}")
+
+    // Explicit dark mode via data attribute
+    sections.push("")
+    sections.push("/* SSR Theme - Dark Mode (explicit) */")
+    sections.push(":root[data-theme='dark'] {")
+    for (const [key, value] of Object.entries(config.dark)) {
+      if (value && typeof value === "string") {
+        const varName = `--${toKebabCase(key)}`
+        sections.push(`  ${varName}: ${value};`)
+      }
+    }
+    sections.push("}")
+  }
+
+  // Explicit light mode via data attribute (overrides system preference)
+  sections.push("")
+  sections.push("/* SSR Theme - Light Mode (explicit) */")
+  sections.push(":root[data-theme='light'] {")
+  for (const [key, value] of Object.entries(
+    generateColorVariables(config.light.colors)
+  )) {
+    sections.push(`  ${key}: ${value};`)
+  }
+  sections.push("}")
+
+  return sections.join("\n")
+}
+
+/**
+ * Generates theme initialization script for SSR
+ *
+ * This script runs before hydration to set the correct theme
+ * based on stored preference or system setting, preventing flash.
+ *
+ * @param config - SSR theme configuration
+ * @returns Script string (without script tags)
+ *
+ * @example
+ * ```tsx
+ * const script = generateSSRInitScript({ defaultMode: "light" })
+ *
+ * <head>
+ *   <script dangerouslySetInnerHTML={{ __html: script }} />
+ * </head>
+ * ```
+ */
+export function generateSSRInitScript(config: SSRThemeConfig = {}): string {
+  const { defaultMode = "light" } = config
+
+  // This script is designed to run synchronously before paint
+  return `(function(){try{var e=localStorage.getItem("theme-mode"),t="${defaultMode}";if(e&&(e==="light"||e==="dark"))t=e;else if(e==="system"||!e){t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"}document.documentElement.setAttribute("data-theme",t);document.documentElement.classList.add("theme-"+t)}catch(n){}})();`
+}
+
+/**
+ * Generates complete SSR theme state
+ *
+ * Returns everything needed to render theme-aware content
+ * on the server without hydration mismatch.
+ *
+ * @param config - Theme configuration
+ * @param ssrConfig - SSR-specific options
+ * @returns SSR theme state
+ *
+ * @example
+ * ```tsx
+ * // In getServerSideProps or server component
+ * const ssrTheme = getSSRThemeState(themeConfig, {
+ *   defaultMode: cookies.theme || "light"
+ * })
+ *
+ * // In _document.tsx
+ * <html {...ssrTheme.htmlAttributes}>
+ *   <head>
+ *     <style dangerouslySetInnerHTML={{ __html: ssrTheme.css }} />
+ *     <script dangerouslySetInnerHTML={{ __html: ssrTheme.initScript }} />
+ *   </head>
+ * </html>
+ * ```
+ */
+export function getSSRThemeState(
+  config: ThemeConfig,
+  ssrConfig: SSRThemeConfig = {}
+): SSRThemeState {
+  const { defaultMode = SSR_DEFAULT_MODE, suppressHydrationWarning = false } =
+    ssrConfig
+
+  const mode = getSSRSafeMode(defaultMode)
+
+  const htmlAttributes: Record<string, string> = {
+    "data-theme": mode,
+    class: `theme-${mode}`,
+  }
+
+  if (suppressHydrationWarning) {
+    htmlAttributes["suppressHydrationWarning"] = "true"
+  }
+
+  return {
+    mode,
+    css: generateSSRCss(config),
+    initScript: generateSSRInitScript(ssrConfig),
+    htmlAttributes,
+  }
+}
+
+/**
+ * Hook-compatible function for SSR-safe theme access
+ *
+ * Returns theme state that's safe to use during SSR.
+ * On the server, returns default values to prevent mismatch.
+ *
+ * @param defaultMode - Default mode for SSR
+ * @returns Theme state safe for SSR
+ */
+export function getSSRSafeThemeState(
+  defaultMode: ThemeMode = SSR_DEFAULT_MODE
+): UseThemeState {
+  if (isServer()) {
+    const mode = defaultMode === "system" ? "light" : defaultMode
+    return {
+      mode: defaultMode,
+      resolvedMode: mode,
+      tokens: currentThemeConfig?.light ?? defaultTokens,
+      config: currentThemeConfig,
+      setMode: () => {
+        // No-op on server
+      },
+    }
+  }
+
+  return getThemeStateSnapshot()
+}
+
+/**
+ * Creates a theme provider props object for SSR
+ *
+ * Useful for passing theme state to context providers
+ * in a way that's safe for server-side rendering.
+ *
+ * @param config - Theme configuration
+ * @param ssrConfig - SSR-specific options
+ * @returns Props object for theme provider
+ */
+export function createSSRThemeProviderProps(
+  config: ThemeConfig,
+  ssrConfig: SSRThemeConfig = {}
+): {
+  initialMode: "light" | "dark"
+  initialTokens: DesignTokens
+  css: string
+} {
+  const mode = getSSRSafeMode(ssrConfig.defaultMode)
+
+  // Dark mode only overrides colors, so merge with light tokens
+  // config.dark is Partial<SemanticColors>, not DesignTokens
+  let initialTokens = config.light
+  if (mode === "dark" && config.dark) {
+    initialTokens = {
+      ...config.light,
+      colors: {
+        ...config.light.colors,
+        ...config.dark,
+      },
+    }
+  }
+
+  return {
+    initialMode: mode,
+    initialTokens,
+    css: generateSSRCss(config),
+  }
+}
+
+/**
+ * Wraps CSS in a style tag with optional nonce for CSP
+ *
+ * @param css - CSS string
+ * @param nonce - CSP nonce (optional)
+ * @returns Style tag HTML string
+ */
+export function wrapCssInStyleTag(css: string, nonce?: string): string {
+  const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
+  return `<style${nonceAttr}>${css}</style>`
+}
+
+/**
+ * Wraps script in a script tag with optional nonce for CSP
+ *
+ * @param script - Script string
+ * @param nonce - CSP nonce (optional)
+ * @returns Script tag HTML string
+ */
+export function wrapInScriptTag(script: string, nonce?: string): string {
+  const nonceAttr = nonce ? ` nonce="${nonce}"` : ""
+  return `<script${nonceAttr}>${script}</script>`
+}
+
+/**
+ * Generates complete head content for SSR theme support
+ *
+ * Returns HTML string containing style and script tags
+ * for complete theme support without hydration mismatch.
+ *
+ * @param config - Theme configuration
+ * @param ssrConfig - SSR-specific options
+ * @returns HTML string for head section
+ *
+ * @example
+ * ```tsx
+ * const headContent = generateSSRHeadContent(themeConfig, {
+ *   nonce: cspNonce
+ * })
+ *
+ * <head dangerouslySetInnerHTML={{ __html: headContent }} />
+ * ```
+ */
+export function generateSSRHeadContent(
+  config: ThemeConfig,
+  ssrConfig: SSRThemeConfig = {}
+): string {
+  const { nonce } = ssrConfig
+
+  const css = generateSSRCss(config)
+  const script = generateSSRInitScript(ssrConfig)
+
+  return [
+    wrapCssInStyleTag(css, nonce),
+    wrapInScriptTag(script, nonce),
+  ].join("\n")
+}

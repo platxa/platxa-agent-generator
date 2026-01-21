@@ -130,6 +130,19 @@ export {
   batchMemoize,
   clearTokenCaches,
   getTokenCacheStats,
+  // SSR Support (Feature #88)
+  isServer,
+  isBrowser,
+  SSR_DEFAULT_MODE,
+  getSSRSafeMode,
+  generateSSRCss,
+  generateSSRInitScript,
+  getSSRThemeState,
+  getSSRSafeThemeState,
+  createSSRThemeProviderProps,
+  wrapCssInStyleTag,
+  wrapInScriptTag,
+  generateSSRHeadContent,
 } from "./theme-worker"
 
 export type {
@@ -165,6 +178,9 @@ export type {
   // Token Memoization (Feature #87)
   TokenCacheConfig,
   CacheStats,
+  // SSR Support (Feature #88)
+  SSRThemeConfig,
+  SSRThemeState,
 } from "./theme-worker"
 
 // Token presets
