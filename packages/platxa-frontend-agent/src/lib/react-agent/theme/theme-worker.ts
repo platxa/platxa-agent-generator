@@ -22153,3 +22153,655 @@ export function mergeAuditResults(
 
   return merged
 }
+
+// ============================================================================
+// Feature #121: Duplicate Token Check
+// Warn about duplicate token definitions with locations and suggestions
+// ============================================================================
+
+/**
+ * Token category types for organization
+ */
+export type TokenCategory =
+  | "colors"
+  | "spacing"
+  | "typography"
+  | "fontWeight"
+  | "fontFamily"
+  | "radius"
+  | "shadow"
+  | "duration"
+  | "easing"
+  | "breakpoints"
+  | "zIndex"
+  | "palettes"
+
+/**
+ * Location where a duplicate token was found
+ */
+export interface DuplicateTokenLocation {
+  /** Category containing the token */
+  category: TokenCategory
+  /** Path within the category (e.g., "colors.primary") */
+  path: string
+  /** The value at this location */
+  value: unknown
+  /** Whether this is in dark mode config */
+  isDarkMode: boolean
+  /** Full path from root (e.g., "light.colors.primary") */
+  fullPath: string
+}
+
+/**
+ * Information about a duplicate token
+ */
+export interface DuplicateToken {
+  /** Token name that is duplicated */
+  name: string
+  /** Locations where the duplicate was found */
+  locations: DuplicateTokenLocation[]
+  /** Whether the values are identical */
+  valuesMatch: boolean
+  /** Severity of the duplicate (error if values differ, warning if same) */
+  severity: "error" | "warning"
+  /** Suggested resolution */
+  suggestion: string
+}
+
+/**
+ * Configuration for duplicate token checking
+ */
+export interface DuplicateTokenCheckConfig {
+  /** Check within same mode only (default: false) */
+  sameModeOnly?: boolean
+  /** Categories to check (default: all) */
+  categories?: TokenCategory[]
+  /** Ignore duplicates with matching values (default: false) */
+  ignoreMatchingValues?: boolean
+  /** Include inherited tokens in check (default: true) */
+  includeInherited?: boolean
+  /** Custom paths to ignore */
+  ignorePaths?: string[]
+}
+
+/**
+ * Result of duplicate token check
+ */
+export interface DuplicateTokenCheckResult {
+  /** Whether any duplicates were found */
+  hasDuplicates: boolean
+  /** Total number of duplicates */
+  totalDuplicates: number
+  /** Number of duplicates with different values (errors) */
+  conflictingDuplicates: number
+  /** Number of duplicates with same values (warnings) */
+  matchingDuplicates: number
+  /** List of all duplicates found */
+  duplicates: DuplicateToken[]
+  /** Duplicates by category */
+  byCategory: Partial<Record<TokenCategory, DuplicateToken[]>>
+  /** Summary warnings */
+  warnings: string[]
+  /** Timestamp */
+  checkedAt: string
+}
+
+/**
+ * Extracts all token paths and values from a design tokens object
+ */
+function extractTokenPaths(
+  obj: unknown,
+  prefix: string = "",
+  category: TokenCategory,
+  isDarkMode: boolean
+): Array<{ path: string; value: unknown; category: TokenCategory; isDarkMode: boolean; fullPath: string }> {
+  const results: Array<{ path: string; value: unknown; category: TokenCategory; isDarkMode: boolean; fullPath: string }> = []
+
+  if (obj === null || obj === undefined) {
+    return results
+  }
+
+  if (typeof obj !== "object") {
+    return [{ path: prefix, value: obj, category, isDarkMode, fullPath: (isDarkMode ? "dark." : "light.") + prefix }]
+  }
+
+  const record = obj as Record<string, unknown>
+  for (const [key, value] of Object.entries(record)) {
+    const newPath = prefix ? prefix + "." + key : key
+
+    if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+      results.push(...extractTokenPaths(value, newPath, category, isDarkMode))
+    } else {
+      results.push({
+        path: newPath,
+        value,
+        category,
+        isDarkMode,
+        fullPath: (isDarkMode ? "dark." : "light.") + category + "." + newPath,
+      })
+    }
+  }
+
+  return results
+}
+
+/**
+ * Finds duplicate tokens within a ThemeConfig
+ *
+ * Scans the theme configuration for tokens that have the same name
+ * but appear in multiple locations, identifying potential conflicts.
+ *
+ * @param config - The theme configuration to check
+ * @param options - Check configuration options
+ * @returns Object with duplicate token information
+ *
+ * @example
+ * ```typescript
+ * const config: ThemeConfig = {
+ *   name: "my-theme",
+ *   light: {
+ *     colors: {
+ *       primary: "blue",
+ *       brand: "blue", // Same value as primary
+ *     },
+ *     // ...
+ *   },
+ * }
+ *
+ * const result = findDuplicateTokens(config)
+ * if (result.hasDuplicates) {
+ *   console.log("Found duplicates:", result.duplicates)
+ * }
+ * ```
+ */
+export function findDuplicateTokens(
+  config: ThemeConfig,
+  options: DuplicateTokenCheckConfig = {}
+): DuplicateTokenCheckResult {
+  const {
+    sameModeOnly = false,
+    categories,
+    ignoreMatchingValues = false,
+    ignorePaths = [],
+  } = options
+
+  const result: DuplicateTokenCheckResult = {
+    hasDuplicates: false,
+    totalDuplicates: 0,
+    conflictingDuplicates: 0,
+    matchingDuplicates: 0,
+    duplicates: [],
+    byCategory: {},
+    warnings: [],
+    checkedAt: new Date().toISOString(),
+  }
+
+  const ignorePathSet = new Set(ignorePaths)
+
+  // Default categories to check
+  const categoriesToCheck: TokenCategory[] = categories || [
+    "colors",
+    "spacing",
+    "typography",
+    "fontWeight",
+    "fontFamily",
+    "radius",
+    "shadow",
+    "duration",
+    "easing",
+    "breakpoints",
+    "zIndex",
+    "palettes",
+  ]
+
+  // Collect all token values by their string representation
+  const valueMap = new Map<string, DuplicateTokenLocation[]>()
+
+  // Process light mode tokens
+  if (config.light) {
+    for (const category of categoriesToCheck) {
+      const categoryValue = config.light[category as keyof DesignTokens]
+      if (categoryValue) {
+        const paths = extractTokenPaths(categoryValue, "", category, false)
+        for (const { path, value, fullPath } of paths) {
+          if (ignorePathSet.has(fullPath) || ignorePathSet.has(path)) continue
+
+          const valueKey = JSON.stringify(value)
+          const locations = valueMap.get(valueKey) || []
+          locations.push({
+            category,
+            path,
+            value,
+            isDarkMode: false,
+            fullPath,
+          })
+          valueMap.set(valueKey, locations)
+        }
+      }
+    }
+  }
+
+  // Process dark mode colors (if checking across modes)
+  if (!sameModeOnly && config.dark) {
+    const darkColors = config.dark
+    const paths = extractTokenPaths(darkColors, "", "colors", true)
+    for (const { path, value, fullPath } of paths) {
+      if (ignorePathSet.has(fullPath) || ignorePathSet.has(path)) continue
+
+      const valueKey = JSON.stringify(value)
+      const locations = valueMap.get(valueKey) || []
+      locations.push({
+        category: "colors",
+        path,
+        value,
+        isDarkMode: true,
+        fullPath,
+      })
+      valueMap.set(valueKey, locations)
+    }
+  }
+
+  // Now check for duplicates by token NAME (not value)
+  // Group by token path/name to find same-named tokens with different values
+  const nameMap = new Map<string, DuplicateTokenLocation[]>()
+
+  // Re-process to group by name
+  if (config.light) {
+    for (const category of categoriesToCheck) {
+      const categoryValue = config.light[category as keyof DesignTokens]
+      if (categoryValue) {
+        const paths = extractTokenPaths(categoryValue, "", category, false)
+        for (const { path, value, fullPath } of paths) {
+          if (ignorePathSet.has(fullPath) || ignorePathSet.has(path)) continue
+
+          // Use category + path as key for name-based grouping
+          const nameKey = category + ":" + path
+          const locations = nameMap.get(nameKey) || []
+          locations.push({
+            category,
+            path,
+            value,
+            isDarkMode: false,
+            fullPath,
+          })
+          nameMap.set(nameKey, locations)
+        }
+      }
+    }
+  }
+
+  if (!sameModeOnly && config.dark) {
+    const darkColors = config.dark
+    const paths = extractTokenPaths(darkColors, "", "colors", true)
+    for (const { path, value, fullPath } of paths) {
+      if (ignorePathSet.has(fullPath) || ignorePathSet.has(path)) continue
+
+      const nameKey = "colors:" + path
+      const locations = nameMap.get(nameKey) || []
+      locations.push({
+        category: "colors",
+        path,
+        value,
+        isDarkMode: true,
+        fullPath,
+      })
+      nameMap.set(nameKey, locations)
+    }
+  }
+
+  // Find tokens with same values in different locations (potential duplicates)
+  for (const [, locations] of valueMap) {
+    if (locations.length < 2) continue
+
+    // Group by category to find cross-category duplicates
+    const crossCategory = new Set(locations.map((l) => l.category))
+    if (crossCategory.size < 2) continue // Same category, not a cross-category duplicate
+
+    const valuesMatch = true // These are grouped by value, so they match
+    if (ignoreMatchingValues && valuesMatch) continue
+
+    const duplicate: DuplicateToken = {
+      name: "value:" + JSON.stringify(locations[0].value),
+      locations,
+      valuesMatch,
+      severity: "warning",
+      suggestion: suggestDuplicateResolution(locations, valuesMatch),
+    }
+
+    result.duplicates.push(duplicate)
+    result.matchingDuplicates++
+
+    // Add to category breakdown
+    for (const loc of locations) {
+      if (!result.byCategory[loc.category]) {
+        result.byCategory[loc.category] = []
+      }
+      if (!result.byCategory[loc.category]!.includes(duplicate)) {
+        result.byCategory[loc.category]!.push(duplicate)
+      }
+    }
+  }
+
+  // Find same-named tokens with different values across modes
+  for (const [nameKey, locations] of nameMap) {
+    if (locations.length < 2) continue
+
+    // If same name appears in both light and dark mode with same value, it's intentional
+    // But if same name appears twice in same mode, that's a problem
+    const lightLocs = locations.filter((l) => !l.isDarkMode)
+    // Note: dark mode duplicates for colors are expected (light/dark variants)
+
+    // Check for duplicates within same mode
+    if (lightLocs.length > 1) {
+      const lightValues = new Set(lightLocs.map((l) => JSON.stringify(l.value)))
+      const valuesMatch = lightValues.size === 1
+
+      if (!valuesMatch || !ignoreMatchingValues) {
+        const duplicate: DuplicateToken = {
+          name: nameKey.split(":")[1] || nameKey,
+          locations: lightLocs,
+          valuesMatch,
+          severity: valuesMatch ? "warning" : "error",
+          suggestion: suggestDuplicateResolution(lightLocs, valuesMatch),
+        }
+
+        result.duplicates.push(duplicate)
+        if (valuesMatch) {
+          result.matchingDuplicates++
+        } else {
+          result.conflictingDuplicates++
+        }
+
+        const category = lightLocs[0].category
+        if (!result.byCategory[category]) {
+          result.byCategory[category] = []
+        }
+        result.byCategory[category]!.push(duplicate)
+      }
+    }
+
+    // Note: duplicates between light and dark mode for colors are expected
+    // and not flagged as errors
+  }
+
+  result.hasDuplicates = result.duplicates.length > 0
+  result.totalDuplicates = result.duplicates.length
+
+  // Add summary warnings
+  if (result.conflictingDuplicates > 0) {
+    result.warnings.push(
+      result.conflictingDuplicates + " duplicate tokens with DIFFERENT values found - requires resolution"
+    )
+  }
+  if (result.matchingDuplicates > 0) {
+    result.warnings.push(
+      result.matchingDuplicates + " duplicate tokens with matching values found - consider consolidating"
+    )
+  }
+
+  return result
+}
+
+/**
+ * Generates a resolution suggestion for duplicate tokens
+ */
+function suggestDuplicateResolution(
+  locations: DuplicateTokenLocation[],
+  valuesMatch: boolean
+): string {
+  if (locations.length === 0) return "No suggestion available"
+
+  const categories = [...new Set(locations.map((l) => l.category))]
+  const paths = locations.map((l) => l.fullPath)
+
+  if (valuesMatch) {
+    // Values are the same - suggest creating a shared token
+    return "Consider creating a shared token reference. Locations: " + paths.join(", ")
+  } else {
+    // Values differ - this is a conflict
+    const firstLoc = locations[0]
+    const secondLoc = locations[1]
+
+    if (categories.length === 1) {
+      return "Conflicting values in same category. " +
+        "Choose one value or rename one token. " +
+        "First: " + JSON.stringify(firstLoc.value) + " at " + firstLoc.fullPath + ", " +
+        "Second: " + JSON.stringify(secondLoc?.value) + " at " + secondLoc?.fullPath
+    }
+
+    return "Same value used in multiple categories (" + categories.join(", ") + "). " +
+      "Consider using a semantic token or CSS variable to share the value."
+  }
+}
+
+/**
+ * Checks a ThemeConfig for duplicate tokens and returns warnings
+ *
+ * This is a convenience wrapper around findDuplicateTokens that returns
+ * a simpler result format suitable for validation pipelines.
+ *
+ * @param config - Theme configuration to check
+ * @param options - Check options
+ * @returns Object with valid flag and messages
+ *
+ * @example
+ * ```typescript
+ * const result = checkDuplicateTokens(myTheme)
+ * if (!result.valid) {
+ *   console.warn("Duplicate warnings:", result.warnings)
+ * }
+ * if (result.hasErrors) {
+ *   console.error("Duplicate errors:", result.errors)
+ *   throw new Error("Theme has conflicting duplicates")
+ * }
+ * ```
+ */
+export function checkDuplicateTokens(
+  config: ThemeConfig,
+  options: DuplicateTokenCheckConfig = {}
+): {
+  valid: boolean
+  hasErrors: boolean
+  hasWarnings: boolean
+  errors: string[]
+  warnings: string[]
+  details: DuplicateTokenCheckResult
+} {
+  const details = findDuplicateTokens(config, options)
+
+  const errors: string[] = details.duplicates
+    .filter((d) => d.severity === "error")
+    .map((d) => "Conflicting duplicate: " + d.name + " - " + d.suggestion)
+
+  const warnings: string[] = details.duplicates
+    .filter((d) => d.severity === "warning")
+    .map((d) => "Duplicate found: " + d.name + " - " + d.suggestion)
+
+  return {
+    valid: errors.length === 0,
+    hasErrors: errors.length > 0,
+    hasWarnings: warnings.length > 0,
+    errors,
+    warnings,
+    details,
+  }
+}
+
+/**
+ * Formats duplicate token check result into a human-readable report
+ *
+ * @param result - The check result
+ * @param options - Formatting options
+ * @returns Formatted report string
+ *
+ * @example
+ * ```typescript
+ * const result = findDuplicateTokens(myTheme)
+ * const report = formatDuplicateTokenReport(result)
+ * console.log(report)
+ * ```
+ */
+export function formatDuplicateTokenReport(
+  result: DuplicateTokenCheckResult,
+  options: {
+    verbose?: boolean
+    showSuggestions?: boolean
+  } = {}
+): string {
+  const { verbose = false, showSuggestions = true } = options
+
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Duplicate Token Check Report")
+  lines.push(divider)
+  lines.push("")
+
+  // Status
+  const status = result.hasDuplicates ? "DUPLICATES FOUND" : "NO DUPLICATES"
+  const statusIcon = result.hasDuplicates
+    ? result.conflictingDuplicates > 0
+      ? "[ERROR]"
+      : "[WARN]"
+    : "[OK]"
+  lines.push("Status: " + statusIcon + " " + status)
+  lines.push("Checked: " + result.checkedAt)
+  lines.push("")
+
+  // Summary
+  lines.push("─".repeat(50))
+  lines.push("Summary")
+  lines.push("─".repeat(50))
+  lines.push("  Total Duplicates:      " + result.totalDuplicates)
+  lines.push("  Conflicting (Errors):  " + result.conflictingDuplicates)
+  lines.push("  Matching (Warnings):   " + result.matchingDuplicates)
+  lines.push("")
+
+  // By category
+  if (Object.keys(result.byCategory).length > 0) {
+    lines.push("─".repeat(50))
+    lines.push("By Category")
+    lines.push("─".repeat(50))
+    for (const [category, duplicates] of Object.entries(result.byCategory)) {
+      if (duplicates && duplicates.length > 0) {
+        lines.push("  " + category + ": " + duplicates.length)
+      }
+    }
+    lines.push("")
+  }
+
+  // Errors (conflicting duplicates)
+  const errors = result.duplicates.filter((d) => d.severity === "error")
+  if (errors.length > 0) {
+    lines.push("─".repeat(50))
+    lines.push("ERRORS - Conflicting Duplicates (" + errors.length + ")")
+    lines.push("─".repeat(50))
+
+    for (const dup of errors) {
+      lines.push("")
+      lines.push("  [ERROR] " + dup.name)
+      lines.push("    Locations:")
+      for (const loc of dup.locations) {
+        lines.push("      - " + loc.fullPath + ": " + JSON.stringify(loc.value))
+      }
+      if (showSuggestions) {
+        lines.push("    Suggestion: " + dup.suggestion)
+      }
+    }
+    lines.push("")
+  }
+
+  // Warnings (matching duplicates)
+  const warnings = result.duplicates.filter((d) => d.severity === "warning")
+  if (verbose && warnings.length > 0) {
+    lines.push("─".repeat(50))
+    lines.push("WARNINGS - Matching Duplicates (" + warnings.length + ")")
+    lines.push("─".repeat(50))
+
+    for (const dup of warnings) {
+      lines.push("")
+      lines.push("  [WARN] " + dup.name)
+      lines.push("    Locations:")
+      for (const loc of dup.locations) {
+        lines.push("      - " + loc.fullPath)
+      }
+      if (showSuggestions) {
+        lines.push("    Suggestion: " + dup.suggestion)
+      }
+    }
+    lines.push("")
+  }
+
+  // Summary warnings
+  if (result.warnings.length > 0) {
+    lines.push("─".repeat(50))
+    lines.push("Notes")
+    lines.push("─".repeat(50))
+    for (const warning of result.warnings) {
+      lines.push("  ! " + warning)
+    }
+    lines.push("")
+  }
+
+  lines.push(divider)
+
+  return lines.join("\n")
+}
+
+/**
+ * Gets suggestions for resolving all duplicates in a check result
+ *
+ * @param result - The check result
+ * @returns Array of resolution suggestions
+ */
+export function getDuplicateResolutionSuggestions(
+  result: DuplicateTokenCheckResult
+): Array<{
+  duplicate: DuplicateToken
+  suggestion: string
+  priority: "high" | "medium" | "low"
+}> {
+  return result.duplicates.map((dup) => ({
+    duplicate: dup,
+    suggestion: dup.suggestion,
+    priority: dup.severity === "error" ? "high" : "medium",
+  }))
+}
+
+/**
+ * Validates that a theme has no problematic duplicates
+ *
+ * @param config - Theme configuration
+ * @param options - Validation options
+ * @returns Validation result with pass/fail status
+ */
+export function validateNoDuplicates(
+  config: ThemeConfig,
+  options: DuplicateTokenCheckConfig & {
+    /** Fail on warnings too (default: false) */
+    strict?: boolean
+  } = {}
+): {
+  passed: boolean
+  message: string
+  result: DuplicateTokenCheckResult
+} {
+  const { strict = false, ...checkOptions } = options
+  const result = findDuplicateTokens(config, checkOptions)
+
+  const passed = strict
+    ? !result.hasDuplicates
+    : result.conflictingDuplicates === 0
+
+  let message: string
+  if (passed) {
+    message = result.hasDuplicates
+      ? "Passed with " + result.matchingDuplicates + " non-critical duplicate warnings"
+      : "No duplicates found"
+  } else {
+    message = "Failed: " + result.conflictingDuplicates + " conflicting duplicates require resolution"
+  }
+
+  return { passed, message, result }
+}

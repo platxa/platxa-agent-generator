@@ -397,6 +397,12 @@ export {
   createStrictAuditConfig,
   createCIAuditConfig,
   mergeAuditResults,
+  // Duplicate Token Check (Feature #121)
+  findDuplicateTokens,
+  checkDuplicateTokens,
+  formatDuplicateTokenReport,
+  getDuplicateResolutionSuggestions,
+  validateNoDuplicates,
 } from "./theme-worker"
 
 export type {
@@ -609,6 +615,12 @@ export type {
   DependencyVulnerability,
   DependencyAuditConfig,
   DependencyAuditResult,
+  // Duplicate Token Check (Feature #121)
+  TokenCategory,
+  DuplicateTokenLocation,
+  DuplicateToken,
+  DuplicateTokenCheckConfig,
+  DuplicateTokenCheckResult,
 } from "./theme-worker"
 
 // Token presets
