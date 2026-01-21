@@ -43,11 +43,17 @@
       "types": "./dist/cli/validate.d.ts",
       "import": "./dist/cli/validate.mjs",
       "require": "./dist/cli/validate.cjs"
+    },
+    "./cli/generate": {
+      "types": "./dist/cli/generate.d.ts",
+      "import": "./dist/cli/generate.mjs",
+      "require": "./dist/cli/generate.cjs"
     }
   },
   "bin": {
     "platxa-init": "./dist/cli/init.mjs",
-    "platxa-validate": "./dist/cli/validate.mjs"
+    "platxa-validate": "./dist/cli/validate.mjs",
+    "platxa-generate": "./dist/cli/generate.mjs"
   },
   "files": [
     "dist",
