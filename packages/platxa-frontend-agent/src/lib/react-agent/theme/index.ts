@@ -99,6 +99,13 @@ export {
   checkSizeLimit,
   isUnderSizeLimit,
   validateBrandKitSize,
+  // Circular Reference Check (Feature #84)
+  extractTokenReferences,
+  buildDependencyGraph,
+  checkCircularReferences,
+  flattenTokens,
+  checkBrandKitCircularReferences,
+  validateCircularReferences,
 } from "./theme-worker"
 
 export type {
@@ -120,6 +127,9 @@ export type {
   SizeBreakdown,
   SizeSeverity,
   SizeLimitResult,
+  // Circular Reference Check (Feature #84)
+  CircularReference,
+  CircularReferenceResult,
 } from "./theme-worker"
 
 // Token presets

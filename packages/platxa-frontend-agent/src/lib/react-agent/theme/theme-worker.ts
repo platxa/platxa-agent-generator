@@ -2750,3 +2750,380 @@ export function validateBrandKitSize(
 
   return lines
 }
+
+// =============================================================================
+// CIRCULAR REFERENCE CHECK (Feature #84)
+// =============================================================================
+
+/**
+ * Regex pattern to extract CSS variable references from a value
+ * Matches: var(--token-name), var(--token-name, fallback)
+ */
+const CSS_VAR_REFERENCE_PATTERN = /var\(\s*(--[\w-]+)(?:\s*,\s*[^)]+)?\s*\)/g
+
+/**
+ * Regex pattern to extract token references in special syntax
+ * Matches: {token.name}, ${token.name}
+ */
+const TOKEN_REFERENCE_PATTERN = /\{([\w.-]+)\}|\$\{([\w.-]+)\}/g
+
+/**
+ * A single detected circular reference
+ */
+export interface CircularReference {
+  /** The token where the cycle starts/ends */
+  token: string
+  /** The complete reference chain forming the cycle */
+  chain: string[]
+  /** Human-readable description of the cycle */
+  description: string
+}
+
+/**
+ * Result of circular reference check
+ */
+export interface CircularReferenceResult {
+  /** Whether the tokens are free of circular references */
+  valid: boolean
+  /** Number of circular references found */
+  circularCount: number
+  /** Details of each circular reference */
+  circular: CircularReference[]
+  /** All tokens that are part of any circular reference */
+  affectedTokens: string[]
+  /** Total number of tokens checked */
+  totalTokensChecked: number
+  /** Total number of references analyzed */
+  totalReferences: number
+}
+
+/**
+ * Extracts token references from a value string
+ *
+ * Detects both CSS variable syntax (var(--name)) and
+ * template syntax ({name} or ${name}).
+ *
+ * @param value - Token value to parse
+ * @returns Array of referenced token names
+ *
+ * @example
+ * ```typescript
+ * extractTokenReferences("var(--color-primary)")
+ * // Returns: ["--color-primary"]
+ *
+ * extractTokenReferences("hsl(var(--h), var(--s), var(--l))")
+ * // Returns: ["--h", "--s", "--l"]
+ *
+ * extractTokenReferences("{colors.primary}")
+ * // Returns: ["colors.primary"]
+ * ```
+ */
+export function extractTokenReferences(value: string): string[] {
+  const references: string[] = []
+
+  // Extract CSS variable references
+  let match: RegExpExecArray | null
+  const cssPattern = new RegExp(CSS_VAR_REFERENCE_PATTERN.source, "g")
+  while ((match = cssPattern.exec(value)) !== null) {
+    references.push(match[1])
+  }
+
+  // Extract template token references
+  const tokenPattern = new RegExp(TOKEN_REFERENCE_PATTERN.source, "g")
+  while ((match = tokenPattern.exec(value)) !== null) {
+    const tokenName = match[1] || match[2]
+    if (tokenName) {
+      references.push(tokenName)
+    }
+  }
+
+  return references
+}
+
+/**
+ * Builds a dependency graph from tokens
+ *
+ * Creates a map where each key is a token name and
+ * the value is an array of tokens it references.
+ *
+ * @param tokens - Token map (name -> value)
+ * @returns Dependency graph
+ */
+export function buildDependencyGraph(
+  tokens: Record<string, string>
+): Map<string, string[]> {
+  const graph = new Map<string, string[]>()
+
+  for (const [tokenName, tokenValue] of Object.entries(tokens)) {
+    const references = extractTokenReferences(tokenValue)
+    graph.set(tokenName, references)
+  }
+
+  return graph
+}
+
+/**
+ * Detects cycles in a dependency graph using DFS
+ *
+ * @param graph - Dependency graph
+ * @returns Array of detected cycles
+ */
+function detectCycles(graph: Map<string, string[]>): CircularReference[] {
+  const cycles: CircularReference[] = []
+  const visited = new Set<string>()
+  const recursionStack = new Set<string>()
+  const path: string[] = []
+
+  function dfs(node: string): void {
+    if (recursionStack.has(node)) {
+      // Found a cycle - extract it from the path
+      const cycleStart = path.indexOf(node)
+      const cycle = path.slice(cycleStart)
+      cycle.push(node) // Complete the cycle
+
+      // Only add if we haven't found this exact cycle before
+      const cycleKey = [...cycle].sort().join(",")
+      const existingKeys = cycles.map((c) =>
+        [...c.chain].sort().join(",")
+      )
+      if (!existingKeys.includes(cycleKey)) {
+        cycles.push({
+          token: node,
+          chain: cycle,
+          description: cycle.join(" → "),
+        })
+      }
+      return
+    }
+
+    if (visited.has(node)) {
+      return
+    }
+
+    visited.add(node)
+    recursionStack.add(node)
+    path.push(node)
+
+    const dependencies = graph.get(node) || []
+    for (const dep of dependencies) {
+      // Only follow edges to nodes that exist in the graph
+      if (graph.has(dep)) {
+        dfs(dep)
+      }
+    }
+
+    path.pop()
+    recursionStack.delete(node)
+  }
+
+  // Run DFS from each node
+  for (const node of graph.keys()) {
+    if (!visited.has(node)) {
+      dfs(node)
+    }
+  }
+
+  return cycles
+}
+
+/**
+ * Checks for circular references in design tokens
+ *
+ * Analyzes a token map to detect any circular reference chains
+ * that would cause infinite loops during token resolution.
+ *
+ * @param tokens - Token map (name -> value)
+ * @returns Circular reference check result
+ *
+ * @example
+ * ```typescript
+ * import { checkCircularReferences } from "@platxa/frontend-agent"
+ *
+ * const tokens = {
+ *   "--color-primary": "var(--color-brand)",
+ *   "--color-brand": "var(--color-accent)",
+ *   "--color-accent": "var(--color-primary)", // Circular!
+ *   "--color-text": "#000000", // Safe
+ * }
+ *
+ * const result = checkCircularReferences(tokens)
+ * if (!result.valid) {
+ *   console.error("Circular references detected:")
+ *   result.circular.forEach(c => {
+ *     console.error(`  ${c.description}`)
+ *   })
+ * }
+ * ```
+ */
+export function checkCircularReferences(
+  tokens: Record<string, string>
+): CircularReferenceResult {
+  const graph = buildDependencyGraph(tokens)
+  const cycles = detectCycles(graph)
+
+  // Collect all affected tokens
+  const affectedTokens = new Set<string>()
+  for (const cycle of cycles) {
+    for (const token of cycle.chain) {
+      affectedTokens.add(token)
+    }
+  }
+
+  // Count total references
+  let totalReferences = 0
+  for (const refs of graph.values()) {
+    totalReferences += refs.length
+  }
+
+  return {
+    valid: cycles.length === 0,
+    circularCount: cycles.length,
+    circular: cycles,
+    affectedTokens: Array.from(affectedTokens),
+    totalTokensChecked: Object.keys(tokens).length,
+    totalReferences,
+  }
+}
+
+/**
+ * Flattens nested tokens object into flat token map
+ *
+ * Converts nested object structure into flat key-value pairs
+ * using dot notation for nested keys.
+ *
+ * @param obj - Nested tokens object
+ * @param prefix - Current path prefix
+ * @returns Flat token map
+ *
+ * @example
+ * ```typescript
+ * flattenTokens({
+ *   colors: {
+ *     primary: "blue",
+ *     secondary: "red"
+ *   }
+ * })
+ * // Returns: { "colors.primary": "blue", "colors.secondary": "red" }
+ * ```
+ */
+export function flattenTokens(
+  obj: Record<string, unknown>,
+  prefix = ""
+): Record<string, string> {
+  const result: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(obj)) {
+    const fullKey = prefix ? `${prefix}.${key}` : key
+
+    if (typeof value === "string") {
+      result[fullKey] = value
+    } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      Object.assign(result, flattenTokens(value as Record<string, unknown>, fullKey))
+    }
+  }
+
+  return result
+}
+
+/**
+ * Checks for circular references in a brand kit's design tokens
+ *
+ * Flattens all token sections and checks for circular references
+ * across the entire brand kit.
+ *
+ * @param brandKit - Brand kit to check
+ * @returns Circular reference check result
+ *
+ * @example
+ * ```typescript
+ * import { checkBrandKitCircularReferences } from "@platxa/frontend-agent"
+ *
+ * const result = checkBrandKitCircularReferences(myBrandKit)
+ * if (!result.valid) {
+ *   console.error(`Found ${result.circularCount} circular reference(s)`)
+ *   result.circular.forEach(c => console.error(`  ${c.description}`))
+ * }
+ * ```
+ */
+export function checkBrandKitCircularReferences(
+  brandKit: Record<string, unknown>
+): CircularReferenceResult {
+  // Flatten all token-like sections
+  const allTokens: Record<string, string> = {}
+
+  // Common token section names
+  const tokenSections = [
+    "tokens",
+    "colors",
+    "semantics",
+    "spacing",
+    "typography",
+    "variables",
+    "cssVariables",
+  ]
+
+  for (const section of tokenSections) {
+    if (brandKit[section] && typeof brandKit[section] === "object") {
+      const flattened = flattenTokens(brandKit[section] as Record<string, unknown>, section)
+      Object.assign(allTokens, flattened)
+    }
+  }
+
+  // Also check for CSS variable style tokens at root
+  for (const [key, value] of Object.entries(brandKit)) {
+    if (key.startsWith("--") && typeof value === "string") {
+      allTokens[key] = value
+    }
+  }
+
+  return checkCircularReferences(allTokens)
+}
+
+/**
+ * Validates tokens and returns formatted report
+ *
+ * Provides a human-readable report of circular reference
+ * check suitable for CLI output.
+ *
+ * @param tokens - Token map to validate
+ * @returns Array of report lines
+ *
+ * @example
+ * ```typescript
+ * const report = validateCircularReferences(tokens)
+ * report.forEach(line => console.log(line))
+ * ```
+ */
+export function validateCircularReferences(
+  tokens: Record<string, string>
+): string[] {
+  const result = checkCircularReferences(tokens)
+  const lines: string[] = []
+
+  // Header with status
+  const statusIcon = result.valid ? "✓" : "✗"
+  lines.push(
+    `${statusIcon} Circular Reference Check: ${result.valid ? "PASSED" : "FAILED"}`
+  )
+  lines.push(`  Tokens checked: ${result.totalTokensChecked}`)
+  lines.push(`  References analyzed: ${result.totalReferences}`)
+
+  if (!result.valid) {
+    lines.push("")
+    lines.push(`  Found ${result.circularCount} circular reference(s):`)
+    for (const cycle of result.circular) {
+      lines.push("")
+      lines.push(`    ⟳ ${cycle.description}`)
+    }
+
+    if (result.affectedTokens.length > 0) {
+      lines.push("")
+      lines.push("  Affected tokens:")
+      for (const token of result.affectedTokens) {
+        lines.push(`    • ${token}`)
+      }
+    }
+  }
+
+  return lines
+}
