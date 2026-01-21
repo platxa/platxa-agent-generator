@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-21T18:54:58.972054",
+  "updated_at": "2026-01-21T18:59:04.136680",
   "plans": [
     {
       "id": "plan-feature-108",
@@ -24,6 +24,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-20T19:11:27.149470",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-124",
+      "title": "Implementation: [Selective Loading] Load only needed parts of brand kit (col...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T18:59:04.136001",
       "constitution_check": true
     },
     {

@@ -423,6 +423,19 @@ export {
   createBrandLogger,
   formatAuditLogReport,
   exportAuditLogsJson,
+  // Selective Loading (Feature #124)
+  selectiveLoad,
+  loadColorsOnly,
+  loadSpacingOnly,
+  loadTypographyOnly,
+  loadEffectsOnly,
+  loadAnimationOnly,
+  loadMinimalBrandKit,
+  createGranularExports,
+  generateSelectiveImportCode,
+  generateGranularBrandKitModule,
+  analyzeUsedParts,
+  createOptimizedBrandKit,
 } from "./theme-worker"
 
 export type {
@@ -651,6 +664,16 @@ export type {
   AuditEventType,
   AuditLogEntry,
   AuditLoggerConfig,
+  // Selective Loading (Feature #124)
+  BrandKitPart,
+  SelectiveLoadConfig,
+  SelectiveLoadResult,
+  ColorsOnlyBrandKit,
+  SpacingOnlyBrandKit,
+  TypographyOnlyBrandKit,
+  EffectsOnlyBrandKit,
+  AnimationOnlyBrandKit,
+  PartialBrandKitType,
 } from "./theme-worker"
 
 // Token presets

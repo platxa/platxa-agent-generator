@@ -21,6 +21,13 @@ import type {
   SpacingScale,
   TypographyScale,
   ColorValue,
+  FontWeightScale,
+  RadiusScale,
+  ShadowScale,
+  DurationScale,
+  EasingScale,
+  Breakpoints,
+  ZIndexScale,
 } from "./types"
 
 import {
@@ -24066,4 +24073,664 @@ export function exportAuditLogsJson(entries?: AuditLogEntry[]): string {
     totalEntries: logsToExport.length,
     entries: logsToExport,
   }, null, 2)
+}
+
+// ============================================================================
+// Feature #124: Selective Loading
+// Load only needed parts of brand kit with granular export structure
+// ============================================================================
+
+/**
+ * Selectable parts of a brand kit
+ */
+export type BrandKitPart =
+  | "colors"
+  | "spacing"
+  | "typography"
+  | "fontWeight"
+  | "fontFamily"
+  | "radius"
+  | "shadow"
+  | "duration"
+  | "easing"
+  | "breakpoints"
+  | "zIndex"
+  | "palettes"
+  | "darkColors"
+
+/**
+ * Configuration for selective loading
+ */
+export interface SelectiveLoadConfig {
+  /** Parts to include (if not specified, all are included) */
+  include?: BrandKitPart[]
+  /** Parts to exclude (applied after include) */
+  exclude?: BrandKitPart[]
+  /** Include dark mode colors */
+  includeDarkMode?: boolean
+  /** Flatten nested structures */
+  flatten?: boolean
+  /** Include only semantic colors (no palettes) */
+  semanticColorsOnly?: boolean
+}
+
+/**
+ * Result of selective loading
+ */
+export interface SelectiveLoadResult<T = unknown> {
+  /** Loaded data */
+  data: T
+  /** Parts that were loaded */
+  loadedParts: BrandKitPart[]
+  /** Parts that were excluded */
+  excludedParts: BrandKitPart[]
+  /** Estimated size in bytes */
+  estimatedSize: number
+  /** Size reduction percentage vs full load */
+  sizeReduction: number
+}
+
+/**
+ * Partial brand kit with only colors
+ */
+export interface ColorsOnlyBrandKit {
+  name: string
+  colors: SemanticColors
+  darkColors?: Partial<SemanticColors>
+}
+
+/**
+ * Partial brand kit with only spacing
+ */
+export interface SpacingOnlyBrandKit {
+  name: string
+  spacing: Partial<SpacingScale>
+}
+
+/**
+ * Partial brand kit with only typography
+ */
+export interface TypographyOnlyBrandKit {
+  name: string
+  typography: Partial<TypographyScale>
+  fontWeight?: Partial<FontWeightScale>
+  fontFamily?: {
+    sans?: string
+    serif?: string
+    mono?: string
+  }
+}
+
+/**
+ * Partial brand kit with only visual effects
+ */
+export interface EffectsOnlyBrandKit {
+  name: string
+  radius: Partial<RadiusScale>
+  shadow: Partial<ShadowScale>
+}
+
+/**
+ * Partial brand kit with only animation tokens
+ */
+export interface AnimationOnlyBrandKit {
+  name: string
+  duration?: Partial<DurationScale>
+  easing?: Partial<EasingScale>
+}
+
+/**
+ * All possible partial brand kit types
+ */
+export type PartialBrandKitType =
+  | ColorsOnlyBrandKit
+  | SpacingOnlyBrandKit
+  | TypographyOnlyBrandKit
+  | EffectsOnlyBrandKit
+  | AnimationOnlyBrandKit
+
+/**
+ * Maps part names to their data keys in ThemeConfig
+ */
+const PART_TO_KEY_MAP: Record<BrandKitPart, keyof DesignTokens | "dark" | "palettes"> = {
+  colors: "colors",
+  spacing: "spacing",
+  typography: "typography",
+  fontWeight: "fontWeight",
+  fontFamily: "fontFamily",
+  radius: "radius",
+  shadow: "shadow",
+  duration: "duration",
+  easing: "easing",
+  breakpoints: "breakpoints",
+  zIndex: "zIndex",
+  palettes: "palettes",
+  darkColors: "dark" as keyof DesignTokens,
+}
+
+/**
+ * Default parts to load if none specified
+ */
+const DEFAULT_PARTS: BrandKitPart[] = [
+  "colors",
+  "spacing",
+  "typography",
+  "fontWeight",
+  "radius",
+  "shadow",
+]
+
+/**
+ * Calculates estimated size of an object in bytes
+ */
+function estimateObjectSize(obj: unknown): number {
+  return JSON.stringify(obj).length * 2 // Approximate UTF-16 encoding
+}
+
+/**
+ * Loads only specific parts of a brand kit
+ *
+ * Enables tree-shaking by extracting only the needed tokens from a
+ * ThemeConfig. This reduces bundle size when only specific design
+ * tokens are needed.
+ *
+ * @param config - Full theme configuration
+ * @param options - Selective loading options
+ * @returns Partial brand kit with only requested parts
+ *
+ * @example
+ * ```typescript
+ * // Load only colors
+ * const colors = selectiveLoad(fullBrand, { include: ["colors"] })
+ *
+ * // Load colors and spacing, exclude dark mode
+ * const tokens = selectiveLoad(fullBrand, {
+ *   include: ["colors", "spacing"],
+ *   includeDarkMode: false,
+ * })
+ *
+ * // Load everything except animations
+ * const noAnim = selectiveLoad(fullBrand, {
+ *   exclude: ["duration", "easing"],
+ * })
+ * ```
+ */
+export function selectiveLoad(
+  config: ThemeConfig,
+  options: SelectiveLoadConfig = {}
+): SelectiveLoadResult<Partial<DesignTokens> & { name: string; dark?: Partial<SemanticColors> }> {
+  const {
+    include,
+    exclude = [],
+    includeDarkMode = true,
+    semanticColorsOnly = false,
+  } = options
+
+  // Determine which parts to load
+  let partsToLoad: BrandKitPart[] = include || DEFAULT_PARTS
+  partsToLoad = partsToLoad.filter((part) => !exclude.includes(part))
+
+  // Add darkColors if colors are included and dark mode is enabled
+  if (partsToLoad.includes("colors") && includeDarkMode && config.dark) {
+    if (!partsToLoad.includes("darkColors")) {
+      partsToLoad.push("darkColors")
+    }
+  }
+
+  // Build partial result
+  const result: Partial<DesignTokens> & { name: string; dark?: Partial<SemanticColors> } = {
+    name: config.name,
+  }
+
+  const loadedParts: BrandKitPart[] = []
+  const excludedParts: BrandKitPart[] = []
+
+  for (const part of Object.keys(PART_TO_KEY_MAP) as BrandKitPart[]) {
+    if (partsToLoad.includes(part)) {
+      const key = PART_TO_KEY_MAP[part]
+
+      if (part === "darkColors") {
+        if (config.dark) {
+          result.dark = config.dark
+          loadedParts.push(part)
+        }
+      } else if (part === "palettes") {
+        if (!semanticColorsOnly && config.light?.palettes) {
+          (result as Record<string, unknown>).palettes = config.light.palettes
+          loadedParts.push(part)
+        } else {
+          excludedParts.push(part)
+        }
+      } else {
+        const value = config.light?.[key as keyof DesignTokens]
+        if (value !== undefined) {
+          (result as Record<string, unknown>)[key] = value
+          loadedParts.push(part)
+        }
+      }
+    } else {
+      excludedParts.push(part)
+    }
+  }
+
+  // Calculate sizes
+  const loadedSize = estimateObjectSize(result)
+  const fullSize = estimateObjectSize(config)
+  const sizeReduction = fullSize > 0 ? Math.round((1 - loadedSize / fullSize) * 100) : 0
+
+  return {
+    data: result,
+    loadedParts,
+    excludedParts,
+    estimatedSize: loadedSize,
+    sizeReduction,
+  }
+}
+
+/**
+ * Loads only colors from a brand kit
+ *
+ * @param config - Full theme configuration
+ * @param includeDark - Include dark mode colors
+ * @returns Colors-only brand kit
+ */
+export function loadColorsOnly(
+  config: ThemeConfig,
+  includeDark: boolean = true
+): ColorsOnlyBrandKit {
+  const result: ColorsOnlyBrandKit = {
+    name: config.name,
+    colors: config.light.colors,
+  }
+
+  if (includeDark && config.dark) {
+    result.darkColors = config.dark
+  }
+
+  return result
+}
+
+/**
+ * Loads only spacing from a brand kit
+ *
+ * @param config - Full theme configuration
+ * @returns Spacing-only brand kit
+ */
+export function loadSpacingOnly(config: ThemeConfig): SpacingOnlyBrandKit {
+  return {
+    name: config.name,
+    spacing: config.light.spacing,
+  }
+}
+
+/**
+ * Loads only typography from a brand kit
+ *
+ * @param config - Full theme configuration
+ * @param includeFonts - Include font family and weight
+ * @returns Typography-only brand kit
+ */
+export function loadTypographyOnly(
+  config: ThemeConfig,
+  includeFonts: boolean = true
+): TypographyOnlyBrandKit {
+  const result: TypographyOnlyBrandKit = {
+    name: config.name,
+    typography: config.light.typography,
+  }
+
+  if (includeFonts) {
+    if (config.light.fontWeight) {
+      result.fontWeight = config.light.fontWeight
+    }
+    if (config.light.fontFamily) {
+      result.fontFamily = config.light.fontFamily
+    }
+  }
+
+  return result
+}
+
+/**
+ * Loads only visual effects (radius, shadow) from a brand kit
+ *
+ * @param config - Full theme configuration
+ * @returns Effects-only brand kit
+ */
+export function loadEffectsOnly(config: ThemeConfig): EffectsOnlyBrandKit {
+  return {
+    name: config.name,
+    radius: config.light.radius,
+    shadow: config.light.shadow,
+  }
+}
+
+/**
+ * Loads only animation tokens from a brand kit
+ *
+ * @param config - Full theme configuration
+ * @returns Animation-only brand kit
+ */
+export function loadAnimationOnly(config: ThemeConfig): AnimationOnlyBrandKit {
+  return {
+    name: config.name,
+    duration: config.light.duration,
+    easing: config.light.easing,
+  }
+}
+
+/**
+ * Creates a minimal brand kit with only essential tokens
+ *
+ * Essential tokens are: colors, spacing, radius (for basic UI)
+ *
+ * @param config - Full theme configuration
+ * @returns Minimal brand kit
+ */
+export function loadMinimalBrandKit(
+  config: ThemeConfig
+): SelectiveLoadResult<Partial<DesignTokens> & { name: string }> {
+  return selectiveLoad(config, {
+    include: ["colors", "spacing", "radius"],
+    includeDarkMode: true,
+  })
+}
+
+/**
+ * Creates granular exports for tree-shaking
+ *
+ * Generates individual export statements that bundlers can tree-shake.
+ *
+ * @param config - Full theme configuration
+ * @returns Object with individual token exports
+ */
+export function createGranularExports(config: ThemeConfig): {
+  colors: SemanticColors
+  darkColors: Partial<SemanticColors> | undefined
+  spacing: Partial<SpacingScale>
+  typography: Partial<TypographyScale>
+  fontWeight: Partial<FontWeightScale>
+  fontFamily: { sans?: string; serif?: string; mono?: string } | undefined
+  radius: Partial<RadiusScale>
+  shadow: Partial<ShadowScale>
+  duration: Partial<DurationScale> | undefined
+  easing: Partial<EasingScale> | undefined
+  breakpoints: Partial<Breakpoints> | undefined
+  zIndex: Partial<ZIndexScale> | undefined
+  palettes: Record<string, ColorPalette> | undefined
+} {
+  return {
+    colors: config.light.colors,
+    darkColors: config.dark,
+    spacing: config.light.spacing,
+    typography: config.light.typography,
+    fontWeight: config.light.fontWeight,
+    fontFamily: config.light.fontFamily,
+    radius: config.light.radius,
+    shadow: config.light.shadow,
+    duration: config.light.duration,
+    easing: config.light.easing,
+    breakpoints: config.light.breakpoints,
+    zIndex: config.light.zIndex,
+    palettes: config.light.palettes,
+  }
+}
+
+/**
+ * Generates code for selective imports
+ *
+ * Creates import statements that enable tree-shaking.
+ *
+ * @param brandName - Brand kit module name
+ * @param parts - Parts to import
+ * @returns Import code string
+ */
+export function generateSelectiveImportCode(
+  brandName: string,
+  parts: BrandKitPart[]
+): string {
+  const imports = parts.map((part) => {
+    switch (part) {
+      case "colors":
+        return "colors"
+      case "darkColors":
+        return "darkColors"
+      case "spacing":
+        return "spacing"
+      case "typography":
+        return "typography"
+      case "fontWeight":
+        return "fontWeight"
+      case "fontFamily":
+        return "fontFamily"
+      case "radius":
+        return "radius"
+      case "shadow":
+        return "shadow"
+      case "duration":
+        return "duration"
+      case "easing":
+        return "easing"
+      case "breakpoints":
+        return "breakpoints"
+      case "zIndex":
+        return "zIndex"
+      case "palettes":
+        return "palettes"
+      default:
+        return part
+    }
+  })
+
+  return "import { " + imports.join(", ") + " } from \"" + brandName + "\""
+}
+
+/**
+ * Generates a brand kit module with granular exports
+ *
+ * Creates a JavaScript/TypeScript module that exports each token
+ * category separately for optimal tree-shaking.
+ *
+ * @param config - Full theme configuration
+ * @param options - Generation options
+ * @returns Module code string
+ */
+export function generateGranularBrandKitModule(
+  config: ThemeConfig,
+  options: {
+    typescript?: boolean
+    esm?: boolean
+    includeTypes?: boolean
+  } = {}
+): string {
+  const { typescript = true, esm = true, includeTypes = true } = options
+  const exports = createGranularExports(config)
+  const lines: string[] = []
+
+  // Header
+  lines.push("/**")
+  lines.push(" * " + config.name + " - Granular Brand Kit Exports")
+  lines.push(" * Generated for tree-shaking optimization")
+  lines.push(" */")
+  lines.push("")
+
+  // Type imports for TypeScript
+  if (typescript && includeTypes) {
+    lines.push("import type {")
+    lines.push("  SemanticColors,")
+    lines.push("  SpacingScale,")
+    lines.push("  TypographyScale,")
+    lines.push("  FontWeightScale,")
+    lines.push("  RadiusScale,")
+    lines.push("  ShadowScale,")
+    lines.push("  DurationScale,")
+    lines.push("  EasingScale,")
+    lines.push("  Breakpoints,")
+    lines.push("  ZIndexScale,")
+    lines.push("  ColorPalette,")
+    lines.push('} from "@platxa/frontend-agent/theme"')
+    lines.push("")
+  }
+
+  // Generate exports
+  const exportKeyword = esm ? "export const" : "exports."
+  const assignOp = esm ? " =" : " ="
+
+  // Colors
+  lines.push("/** Semantic color tokens */")
+  if (typescript) {
+    lines.push(exportKeyword + " colors: SemanticColors" + assignOp + " " + JSON.stringify(exports.colors, null, 2))
+  } else {
+    lines.push(exportKeyword + " colors" + assignOp + " " + JSON.stringify(exports.colors, null, 2))
+  }
+  lines.push("")
+
+  // Dark colors
+  if (exports.darkColors) {
+    lines.push("/** Dark mode color overrides */")
+    if (typescript) {
+      lines.push(exportKeyword + " darkColors: Partial<SemanticColors>" + assignOp + " " + JSON.stringify(exports.darkColors, null, 2))
+    } else {
+      lines.push(exportKeyword + " darkColors" + assignOp + " " + JSON.stringify(exports.darkColors, null, 2))
+    }
+    lines.push("")
+  }
+
+  // Spacing
+  lines.push("/** Spacing scale tokens */")
+  if (typescript) {
+    lines.push(exportKeyword + " spacing: Partial<SpacingScale>" + assignOp + " " + JSON.stringify(exports.spacing, null, 2))
+  } else {
+    lines.push(exportKeyword + " spacing" + assignOp + " " + JSON.stringify(exports.spacing, null, 2))
+  }
+  lines.push("")
+
+  // Typography
+  lines.push("/** Typography scale tokens */")
+  if (typescript) {
+    lines.push(exportKeyword + " typography: Partial<TypographyScale>" + assignOp + " " + JSON.stringify(exports.typography, null, 2))
+  } else {
+    lines.push(exportKeyword + " typography" + assignOp + " " + JSON.stringify(exports.typography, null, 2))
+  }
+  lines.push("")
+
+  // Font weight
+  lines.push("/** Font weight tokens */")
+  if (typescript) {
+    lines.push(exportKeyword + " fontWeight: Partial<FontWeightScale>" + assignOp + " " + JSON.stringify(exports.fontWeight, null, 2))
+  } else {
+    lines.push(exportKeyword + " fontWeight" + assignOp + " " + JSON.stringify(exports.fontWeight, null, 2))
+  }
+  lines.push("")
+
+  // Radius
+  lines.push("/** Border radius tokens */")
+  if (typescript) {
+    lines.push(exportKeyword + " radius: Partial<RadiusScale>" + assignOp + " " + JSON.stringify(exports.radius, null, 2))
+  } else {
+    lines.push(exportKeyword + " radius" + assignOp + " " + JSON.stringify(exports.radius, null, 2))
+  }
+  lines.push("")
+
+  // Shadow
+  lines.push("/** Box shadow tokens */")
+  if (typescript) {
+    lines.push(exportKeyword + " shadow: Partial<ShadowScale>" + assignOp + " " + JSON.stringify(exports.shadow, null, 2))
+  } else {
+    lines.push(exportKeyword + " shadow" + assignOp + " " + JSON.stringify(exports.shadow, null, 2))
+  }
+  lines.push("")
+
+  // Optional exports
+  if (exports.fontFamily) {
+    lines.push("/** Font family tokens */")
+    lines.push(exportKeyword + " fontFamily" + assignOp + " " + JSON.stringify(exports.fontFamily, null, 2))
+    lines.push("")
+  }
+
+  if (exports.duration) {
+    lines.push("/** Animation duration tokens */")
+    lines.push(exportKeyword + " duration" + assignOp + " " + JSON.stringify(exports.duration, null, 2))
+    lines.push("")
+  }
+
+  if (exports.easing) {
+    lines.push("/** Animation easing tokens */")
+    lines.push(exportKeyword + " easing" + assignOp + " " + JSON.stringify(exports.easing, null, 2))
+    lines.push("")
+  }
+
+  if (exports.breakpoints) {
+    lines.push("/** Responsive breakpoints */")
+    lines.push(exportKeyword + " breakpoints" + assignOp + " " + JSON.stringify(exports.breakpoints, null, 2))
+    lines.push("")
+  }
+
+  if (exports.zIndex) {
+    lines.push("/** Z-index scale */")
+    lines.push(exportKeyword + " zIndex" + assignOp + " " + JSON.stringify(exports.zIndex, null, 2))
+    lines.push("")
+  }
+
+  return lines.join("\n")
+}
+
+/**
+ * Analyzes which parts of a brand kit are actually used
+ *
+ * Scans code for token references to determine minimal required parts.
+ *
+ * @param code - Source code to analyze
+ * @returns Array of used parts
+ */
+export function analyzeUsedParts(code: string): BrandKitPart[] {
+  const usedParts: Set<BrandKitPart> = new Set()
+
+  // Token patterns to search for
+  const patterns: Array<{ pattern: RegExp; part: BrandKitPart }> = [
+    { pattern: /(?:bg|text|border|ring)-(?:primary|secondary|accent|muted|destructive|foreground|background|card|popover)/g, part: "colors" },
+    { pattern: /(?:dark:|\.dark\s)/g, part: "darkColors" },
+    { pattern: /(?:p|m|gap|space)-\d+/g, part: "spacing" },
+    { pattern: /text-(?:xs|sm|base|lg|xl|\d*xl)/g, part: "typography" },
+    { pattern: /font-(?:thin|light|normal|medium|semibold|bold|extrabold|black)/g, part: "fontWeight" },
+    { pattern: /font-(?:sans|serif|mono)/g, part: "fontFamily" },
+    { pattern: /rounded(?:-(?:none|sm|md|lg|xl|\d*xl|full))?/g, part: "radius" },
+    { pattern: /shadow(?:-(?:sm|md|lg|xl|\d*xl|inner|none))?/g, part: "shadow" },
+    { pattern: /duration-\d+/g, part: "duration" },
+    { pattern: /ease-(?:linear|in|out|in-out)/g, part: "easing" },
+    { pattern: /(?:sm|md|lg|xl|2xl):/g, part: "breakpoints" },
+    { pattern: /z-\d+/g, part: "zIndex" },
+  ]
+
+  for (const { pattern, part } of patterns) {
+    if (pattern.test(code)) {
+      usedParts.add(part)
+    }
+  }
+
+  return Array.from(usedParts)
+}
+
+/**
+ * Creates an optimized brand kit based on usage analysis
+ *
+ * @param config - Full theme configuration
+ * @param sourceCode - Source code to analyze for usage
+ * @returns Optimized selective load result
+ */
+export function createOptimizedBrandKit(
+  config: ThemeConfig,
+  sourceCode: string
+): SelectiveLoadResult<Partial<DesignTokens> & { name: string; dark?: Partial<SemanticColors> }> {
+  const usedParts = analyzeUsedParts(sourceCode)
+
+  // Always include colors if any color-related tokens are used
+  if (usedParts.length === 0) {
+    usedParts.push("colors", "spacing", "radius")
+  }
+
+  return selectiveLoad(config, {
+    include: usedParts,
+    includeDarkMode: usedParts.includes("darkColors"),
+  })
 }
