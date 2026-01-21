@@ -273,6 +273,22 @@ export {
   getRuntimeConfigSnapshot,
   getRuntimeConfigServerSnapshot,
   useRuntimeConfig,
+  // Component Tokens (Feature #106)
+  generateButtonTokens,
+  generateCardTokens,
+  generateInputTokens,
+  generateSelectTokens,
+  generateCheckboxTokens,
+  generateBadgeTokens,
+  generateDialogTokens,
+  generateTableTokens,
+  createCustomComponentTokens,
+  generateComponentTokens,
+  getComponentTokens,
+  generateComponentTokensCss,
+  generateAllComponentTokensCss,
+  mergeComponentTokens,
+  extractComponentTokensFromElement,
 } from "./theme-worker"
 
 export type {
@@ -390,6 +406,19 @@ export type {
   RuntimeConfigState,
   SetRuntimeConfigOptions,
   UseRuntimeConfigResult,
+  // Component Tokens (Feature #106)
+  BaseComponentTokens,
+  ButtonTokens,
+  CardTokens,
+  InputTokens,
+  SelectTokens,
+  CheckboxTokens,
+  BadgeTokens,
+  DialogTokens,
+  TableTokens,
+  CustomComponentTokens,
+  ComponentTokens,
+  GenerateComponentTokensOptions,
 } from "./theme-worker"
 
 // Token presets

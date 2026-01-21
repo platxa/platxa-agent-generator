@@ -1,32 +1,32 @@
 {
-  "session_id": "2a03bb33f0cb",
+  "session_id": "6fefa9d2a5db",
   "stack": {
     "session": {
-      "id": "2a03bb33f0cb-159",
-      "text": "[Configuration Features] Feature #105: [Runtime Config Override] API to override config at runtime for testing Verification: setConfig() function available; Config changes trigger re-render; Original config restorable Criteria: Manual verification required",
+      "id": "6fefa9d2a5db-161",
+      "text": "[Brand Kit Interface Features] Feature #106: [Component Tokens] Brand kit can export component-specific tokens (button, card, input) Verification: Component tokens optional; Button, card, input tokens supported; Custom component tokens allowed Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768995949.9639862,
-      "updated_at": 1768995949.9639864,
+      "created_at": 1768996308.8939838,
+      "updated_at": 1768996308.8939838,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 105,
-        "category": "Configuration Features"
+        "feature_id": 106,
+        "category": "Brand Kit Interface Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "2a03bb33f0cb-160",
-      "text": "Implement: [Runtime Config Override] API to override config at runtime for testing Verification: setConfig() function available; Config changes trigger re-render; Original config restorable",
+      "id": "6fefa9d2a5db-162",
+      "text": "Implement: [Component Tokens] Brand kit can export component-specific tokens (button, card, input) Verification: Component tokens optional; Button, card, input tokens supported; Custom component tokens allowed",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768995949.969727,
-      "updated_at": 1768995949.9697273,
+      "created_at": 1768996308.9000218,
+      "updated_at": 1768996308.900022,
       "completed_at": null,
-      "parent_id": "2a03bb33f0cb-159",
+      "parent_id": "6fefa9d2a5db-161",
       "metadata": {},
       "keywords": []
     },
@@ -2352,9 +2352,38 @@
       "parent_id": "2a03bb33f0cb-159",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "6fefa9d2a5db-161",
+      "text": "[Brand Kit Interface Features] Feature #106: [Component Tokens] Brand kit can export component-specific tokens (button, card, input) Verification: Component tokens optional; Button, card, input tokens supported; Custom component tokens allowed Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768996308.8939838,
+      "updated_at": 1768996308.8939838,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 106,
+        "category": "Brand Kit Interface Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "6fefa9d2a5db-162",
+      "text": "Implement: [Component Tokens] Brand kit can export component-specific tokens (button, card, input) Verification: Component tokens optional; Button, card, input tokens supported; Custom component tokens allowed",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768996308.9000218,
+      "updated_at": 1768996308.900022,
+      "completed_at": null,
+      "parent_id": "6fefa9d2a5db-161",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 160,
+  "intent_counter": 162,
   "created_at": 1768900061.32227,
-  "updated_at": 1768995949.969732
+  "updated_at": 1768996308.9000297
 }

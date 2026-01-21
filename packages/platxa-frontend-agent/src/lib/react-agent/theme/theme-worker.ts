@@ -20,6 +20,7 @@ import type {
   ThemeMode,
   SpacingScale,
   TypographyScale,
+  ColorValue,
 } from "./types"
 
 import {
@@ -11817,4 +11818,834 @@ export function useRuntimeConfig(): UseRuntimeConfigResult {
   //   getRuntimeConfigServerSnapshot
   // )
   return getRuntimeConfigSnapshot()
+}
+
+// ============================================================================
+// Feature #106: Component Tokens
+// ============================================================================
+
+/**
+ * Base component token structure
+ *
+ * All color fields use ColorValue to support string, OKLCH, HSL, and RGB formats.
+ */
+export interface BaseComponentTokens {
+  /** Background color */
+  background?: ColorValue
+  /** Foreground/text color */
+  foreground?: ColorValue
+  /** Border color */
+  border?: ColorValue
+  /** Border radius */
+  borderRadius?: string
+  /** Padding */
+  padding?: string
+  /** Font size */
+  fontSize?: string
+  /** Font weight */
+  fontWeight?: string | number
+  /** Line height */
+  lineHeight?: string
+  /** Box shadow */
+  shadow?: string
+  /** Transition */
+  transition?: string
+}
+
+/**
+ * Button component tokens
+ */
+export interface ButtonTokens extends BaseComponentTokens {
+  /** Hover background */
+  hoverBackground?: ColorValue
+  /** Hover foreground */
+  hoverForeground?: ColorValue
+  /** Active/pressed background */
+  activeBackground?: ColorValue
+  /** Disabled opacity */
+  disabledOpacity?: string
+  /** Focus ring color */
+  focusRing?: ColorValue
+  /** Focus ring offset */
+  focusRingOffset?: string
+  /** Gap between icon and text */
+  gap?: string
+  /** Minimum height */
+  minHeight?: string
+  /** Variants */
+  variants?: {
+    primary?: Partial<ButtonTokens>
+    secondary?: Partial<ButtonTokens>
+    outline?: Partial<ButtonTokens>
+    ghost?: Partial<ButtonTokens>
+    destructive?: Partial<ButtonTokens>
+    link?: Partial<ButtonTokens>
+  }
+  /** Sizes */
+  sizes?: {
+    sm?: Partial<ButtonTokens>
+    md?: Partial<ButtonTokens>
+    lg?: Partial<ButtonTokens>
+    icon?: Partial<ButtonTokens>
+  }
+}
+
+/**
+ * Card component tokens
+ */
+export interface CardTokens extends BaseComponentTokens {
+  /** Header background */
+  headerBackground?: ColorValue
+  /** Header padding */
+  headerPadding?: string
+  /** Footer background */
+  footerBackground?: ColorValue
+  /** Footer padding */
+  footerPadding?: string
+  /** Content padding */
+  contentPadding?: string
+  /** Border width */
+  borderWidth?: string
+  /** Hover shadow */
+  hoverShadow?: string
+  /** Hover border color */
+  hoverBorder?: ColorValue
+}
+
+/**
+ * Input component tokens
+ */
+export interface InputTokens extends BaseComponentTokens {
+  /** Placeholder color */
+  placeholder?: ColorValue
+  /** Focus border color */
+  focusBorder?: ColorValue
+  /** Focus ring color */
+  focusRing?: ColorValue
+  /** Error border color */
+  errorBorder?: ColorValue
+  /** Error text color */
+  errorText?: ColorValue
+  /** Disabled background */
+  disabledBackground?: ColorValue
+  /** Disabled text */
+  disabledText?: ColorValue
+  /** Label font size */
+  labelFontSize?: string
+  /** Label font weight */
+  labelFontWeight?: string | number
+  /** Label color */
+  labelColor?: ColorValue
+  /** Helper text font size */
+  helperFontSize?: string
+  /** Helper text color */
+  helperColor?: ColorValue
+  /** Height */
+  height?: string
+  /** Sizes */
+  sizes?: {
+    sm?: Partial<InputTokens>
+    md?: Partial<InputTokens>
+    lg?: Partial<InputTokens>
+  }
+}
+
+/**
+ * Select component tokens
+ */
+export interface SelectTokens extends InputTokens {
+  /** Dropdown background */
+  dropdownBackground?: ColorValue
+  /** Option hover background */
+  optionHoverBackground?: ColorValue
+  /** Option selected background */
+  optionSelectedBackground?: ColorValue
+  /** Option padding */
+  optionPadding?: string
+  /** Chevron color */
+  chevronColor?: ColorValue
+  /** Max dropdown height */
+  maxDropdownHeight?: string
+}
+
+/**
+ * Checkbox component tokens
+ */
+export interface CheckboxTokens extends BaseComponentTokens {
+  /** Checked background */
+  checkedBackground?: ColorValue
+  /** Checked foreground (checkmark) */
+  checkedForeground?: ColorValue
+  /** Indeterminate background */
+  indeterminateBackground?: ColorValue
+  /** Focus ring */
+  focusRing?: ColorValue
+  /** Size (width and height) */
+  size?: string
+  /** Label gap */
+  labelGap?: string
+}
+
+/**
+ * Badge component tokens
+ */
+export interface BadgeTokens extends BaseComponentTokens {
+  /** Variants */
+  variants?: {
+    default?: Partial<BadgeTokens>
+    secondary?: Partial<BadgeTokens>
+    outline?: Partial<BadgeTokens>
+    destructive?: Partial<BadgeTokens>
+    success?: Partial<BadgeTokens>
+    warning?: Partial<BadgeTokens>
+  }
+}
+
+/**
+ * Dialog/Modal component tokens
+ */
+export interface DialogTokens extends BaseComponentTokens {
+  /** Overlay background */
+  overlayBackground?: ColorValue
+  /** Overlay blur */
+  overlayBlur?: string
+  /** Header padding */
+  headerPadding?: string
+  /** Content padding */
+  contentPadding?: string
+  /** Footer padding */
+  footerPadding?: string
+  /** Max width */
+  maxWidth?: string
+  /** Animation duration */
+  animationDuration?: string
+}
+
+/**
+ * Table component tokens
+ */
+export interface TableTokens extends BaseComponentTokens {
+  /** Header background */
+  headerBackground?: ColorValue
+  /** Header font weight */
+  headerFontWeight?: string | number
+  /** Row hover background */
+  rowHoverBackground?: ColorValue
+  /** Row selected background */
+  rowSelectedBackground?: ColorValue
+  /** Cell padding */
+  cellPadding?: string
+  /** Border color between rows */
+  rowBorder?: ColorValue
+}
+
+/**
+ * Custom component tokens with flexible structure
+ */
+export interface CustomComponentTokens {
+  [key: string]: ColorValue | number | CustomComponentTokens | undefined
+}
+
+/**
+ * Complete component tokens collection
+ */
+export interface ComponentTokens {
+  /** Button tokens */
+  button?: ButtonTokens
+  /** Card tokens */
+  card?: CardTokens
+  /** Input tokens */
+  input?: InputTokens
+  /** Select tokens */
+  select?: SelectTokens
+  /** Checkbox tokens */
+  checkbox?: CheckboxTokens
+  /** Badge tokens */
+  badge?: BadgeTokens
+  /** Dialog tokens */
+  dialog?: DialogTokens
+  /** Table tokens */
+  table?: TableTokens
+  /** Custom component tokens */
+  custom?: Record<string, CustomComponentTokens>
+}
+
+/**
+ * Options for generating component tokens
+ */
+export interface GenerateComponentTokensOptions {
+  /** Include button tokens */
+  includeButton?: boolean
+  /** Include card tokens */
+  includeCard?: boolean
+  /** Include input tokens */
+  includeInput?: boolean
+  /** Include select tokens */
+  includeSelect?: boolean
+  /** Include checkbox tokens */
+  includeCheckbox?: boolean
+  /** Include badge tokens */
+  includeBadge?: boolean
+  /** Include dialog tokens */
+  includeDialog?: boolean
+  /** Include table tokens */
+  includeTable?: boolean
+  /** Custom components to generate */
+  customComponents?: string[]
+}
+
+/**
+ * Generates button tokens from theme config
+ *
+ * @param theme - Theme configuration
+ * @returns Button tokens
+ */
+export function generateButtonTokens(theme: ThemeConfig): ButtonTokens {
+  const tokens = theme.light
+  const colors = tokens.colors
+
+  return {
+    background: colors.primary,
+    foreground: colors.primaryForeground,
+    border: "transparent",
+    borderRadius: tokens.radius?.md ?? "0.375rem",
+    padding: `${tokens.spacing?.[2] ?? "0.5rem"} ${tokens.spacing?.[4] ?? "1rem"}`,
+    fontSize: tokens.typography?.sm?.fontSize ?? "0.875rem",
+    fontWeight: tokens.fontWeight?.medium ?? "500",
+    lineHeight: tokens.typography?.sm?.lineHeight ?? "1.25rem",
+    shadow: tokens.shadow?.sm,
+    transition: "all 150ms ease",
+    hoverBackground: colors.primary,
+    hoverForeground: colors.primaryForeground,
+    activeBackground: colors.primary,
+    disabledOpacity: "0.5",
+    focusRing: colors.ring,
+    focusRingOffset: "2px",
+    gap: tokens.spacing?.[2] ?? "0.5rem",
+    minHeight: tokens.spacing?.[10] ?? "2.5rem",
+    variants: {
+      primary: {
+        background: colors.primary,
+        foreground: colors.primaryForeground,
+      },
+      secondary: {
+        background: colors.secondary,
+        foreground: colors.secondaryForeground,
+      },
+      outline: {
+        background: "transparent",
+        foreground: colors.foreground,
+        border: colors.border,
+      },
+      ghost: {
+        background: "transparent",
+        foreground: colors.foreground,
+        hoverBackground: colors.accent,
+      },
+      destructive: {
+        background: colors.destructive,
+        foreground: colors.destructiveForeground,
+      },
+      link: {
+        background: "transparent",
+        foreground: colors.primary,
+        padding: "0",
+      },
+    },
+    sizes: {
+      sm: {
+        minHeight: tokens.spacing?.[8] ?? "2rem",
+        padding: `${tokens.spacing?.[1] ?? "0.25rem"} ${tokens.spacing?.[3] ?? "0.75rem"}`,
+        fontSize: tokens.typography?.xs?.fontSize ?? "0.75rem",
+      },
+      md: {
+        minHeight: tokens.spacing?.[10] ?? "2.5rem",
+        padding: `${tokens.spacing?.[2] ?? "0.5rem"} ${tokens.spacing?.[4] ?? "1rem"}`,
+      },
+      lg: {
+        minHeight: tokens.spacing?.[12] ?? "3rem",
+        padding: `${tokens.spacing?.[3] ?? "0.75rem"} ${tokens.spacing?.[6] ?? "1.5rem"}`,
+        fontSize: tokens.typography?.base?.fontSize ?? "1rem",
+      },
+      icon: {
+        minHeight: tokens.spacing?.[10] ?? "2.5rem",
+        padding: "0",
+      },
+    },
+  }
+}
+
+/**
+ * Generates card tokens from theme config
+ *
+ * @param theme - Theme configuration
+ * @returns Card tokens
+ */
+export function generateCardTokens(theme: ThemeConfig): CardTokens {
+  const tokens = theme.light
+  const colors = tokens.colors
+
+  return {
+    background: colors.card,
+    foreground: colors.cardForeground,
+    border: colors.border,
+    borderRadius: tokens.radius?.lg ?? "0.5rem",
+    borderWidth: "1px",
+    shadow: tokens.shadow?.sm,
+    padding: tokens.spacing?.[6] ?? "1.5rem",
+    headerBackground: "transparent",
+    headerPadding: `${tokens.spacing?.[6] ?? "1.5rem"} ${tokens.spacing?.[6] ?? "1.5rem"} 0`,
+    footerBackground: "transparent",
+    footerPadding: `0 ${tokens.spacing?.[6] ?? "1.5rem"} ${tokens.spacing?.[6] ?? "1.5rem"}`,
+    contentPadding: tokens.spacing?.[6] ?? "1.5rem",
+    hoverShadow: tokens.shadow?.md,
+    hoverBorder: colors.border,
+  }
+}
+
+/**
+ * Generates input tokens from theme config
+ *
+ * @param theme - Theme configuration
+ * @returns Input tokens
+ */
+export function generateInputTokens(theme: ThemeConfig): InputTokens {
+  const tokens = theme.light
+  const colors = tokens.colors
+
+  return {
+    background: colors.background,
+    foreground: colors.foreground,
+    border: colors.input,
+    borderRadius: tokens.radius?.md ?? "0.375rem",
+    padding: `${tokens.spacing?.[2] ?? "0.5rem"} ${tokens.spacing?.[3] ?? "0.75rem"}`,
+    fontSize: tokens.typography?.sm?.fontSize ?? "0.875rem",
+    fontWeight: tokens.fontWeight?.normal ?? "400",
+    lineHeight: tokens.typography?.sm?.lineHeight ?? "1.25rem",
+    height: tokens.spacing?.[10] ?? "2.5rem",
+    placeholder: colors.mutedForeground,
+    focusBorder: colors.ring,
+    focusRing: colors.ring,
+    errorBorder: colors.destructive,
+    errorText: colors.destructive,
+    disabledBackground: colors.muted,
+    disabledText: colors.mutedForeground,
+    labelFontSize: tokens.typography?.sm?.fontSize ?? "0.875rem",
+    labelFontWeight: tokens.fontWeight?.medium ?? "500",
+    labelColor: colors.foreground,
+    helperFontSize: tokens.typography?.xs?.fontSize ?? "0.75rem",
+    helperColor: colors.mutedForeground,
+    transition: "border-color 150ms ease, box-shadow 150ms ease",
+    sizes: {
+      sm: {
+        height: tokens.spacing?.[8] ?? "2rem",
+        padding: `${tokens.spacing?.[1] ?? "0.25rem"} ${tokens.spacing?.[2] ?? "0.5rem"}`,
+        fontSize: tokens.typography?.xs?.fontSize ?? "0.75rem",
+      },
+      md: {
+        height: tokens.spacing?.[10] ?? "2.5rem",
+      },
+      lg: {
+        height: tokens.spacing?.[12] ?? "3rem",
+        padding: `${tokens.spacing?.[3] ?? "0.75rem"} ${tokens.spacing?.[4] ?? "1rem"}`,
+        fontSize: tokens.typography?.base?.fontSize ?? "1rem",
+      },
+    },
+  }
+}
+
+/**
+ * Generates select tokens from theme config
+ *
+ * @param theme - Theme configuration
+ * @returns Select tokens
+ */
+export function generateSelectTokens(theme: ThemeConfig): SelectTokens {
+  const inputTokens = generateInputTokens(theme)
+  const tokens = theme.light
+  const colors = tokens.colors
+
+  return {
+    ...inputTokens,
+    dropdownBackground: colors.popover,
+    optionHoverBackground: colors.accent,
+    optionSelectedBackground: colors.accent,
+    optionPadding: `${tokens.spacing?.[2] ?? "0.5rem"} ${tokens.spacing?.[3] ?? "0.75rem"}`,
+    chevronColor: colors.mutedForeground,
+    maxDropdownHeight: "15rem",
+  }
+}
+
+/**
+ * Generates checkbox tokens from theme config
+ *
+ * @param theme - Theme configuration
+ * @returns Checkbox tokens
+ */
+export function generateCheckboxTokens(theme: ThemeConfig): CheckboxTokens {
+  const tokens = theme.light
+  const colors = tokens.colors
+
+  return {
+    background: colors.background,
+    foreground: colors.foreground,
+    border: colors.input,
+    borderRadius: tokens.radius?.sm ?? "0.125rem",
+    checkedBackground: colors.primary,
+    checkedForeground: colors.primaryForeground,
+    indeterminateBackground: colors.primary,
+    focusRing: colors.ring,
+    size: "1rem",
+    labelGap: tokens.spacing?.[2] ?? "0.5rem",
+    transition: "all 150ms ease",
+  }
+}
+
+/**
+ * Generates badge tokens from theme config
+ *
+ * @param theme - Theme configuration
+ * @returns Badge tokens
+ */
+export function generateBadgeTokens(theme: ThemeConfig): BadgeTokens {
+  const tokens = theme.light
+  const colors = tokens.colors
+
+  return {
+    background: colors.primary,
+    foreground: colors.primaryForeground,
+    borderRadius: tokens.radius?.full ?? "9999px",
+    padding: `${tokens.spacing?.[1] ?? "0.25rem"} ${tokens.spacing?.[2] ?? "0.5rem"}`,
+    fontSize: tokens.typography?.xs?.fontSize ?? "0.75rem",
+    fontWeight: tokens.fontWeight?.medium ?? "500",
+    lineHeight: "1",
+    variants: {
+      default: {
+        background: colors.primary,
+        foreground: colors.primaryForeground,
+      },
+      secondary: {
+        background: colors.secondary,
+        foreground: colors.secondaryForeground,
+      },
+      outline: {
+        background: "transparent",
+        foreground: colors.foreground,
+        border: colors.border,
+      },
+      destructive: {
+        background: colors.destructive,
+        foreground: colors.destructiveForeground,
+      },
+      success: {
+        background: "oklch(0.7 0.15 145)",
+        foreground: "oklch(0.98 0 0)",
+      },
+      warning: {
+        background: "oklch(0.75 0.15 85)",
+        foreground: "oklch(0.2 0 0)",
+      },
+    },
+  }
+}
+
+/**
+ * Generates dialog tokens from theme config
+ *
+ * @param theme - Theme configuration
+ * @returns Dialog tokens
+ */
+export function generateDialogTokens(theme: ThemeConfig): DialogTokens {
+  const tokens = theme.light
+  const colors = tokens.colors
+
+  return {
+    background: colors.background,
+    foreground: colors.foreground,
+    border: colors.border,
+    borderRadius: tokens.radius?.lg ?? "0.5rem",
+    shadow: tokens.shadow?.lg,
+    overlayBackground: "oklch(0 0 0 / 0.5)",
+    overlayBlur: "4px",
+    headerPadding: `${tokens.spacing?.[6] ?? "1.5rem"} ${tokens.spacing?.[6] ?? "1.5rem"} 0`,
+    contentPadding: tokens.spacing?.[6] ?? "1.5rem",
+    footerPadding: `0 ${tokens.spacing?.[6] ?? "1.5rem"} ${tokens.spacing?.[6] ?? "1.5rem"}`,
+    maxWidth: "32rem",
+    animationDuration: "200ms",
+  }
+}
+
+/**
+ * Generates table tokens from theme config
+ *
+ * @param theme - Theme configuration
+ * @returns Table tokens
+ */
+export function generateTableTokens(theme: ThemeConfig): TableTokens {
+  const tokens = theme.light
+  const colors = tokens.colors
+
+  return {
+    background: colors.background,
+    foreground: colors.foreground,
+    border: colors.border,
+    borderRadius: tokens.radius?.md ?? "0.375rem",
+    headerBackground: colors.muted,
+    headerFontWeight: tokens.fontWeight?.medium ?? "500",
+    rowHoverBackground: colors.muted,
+    rowSelectedBackground: colors.accent,
+    cellPadding: `${tokens.spacing?.[3] ?? "0.75rem"} ${tokens.spacing?.[4] ?? "1rem"}`,
+    rowBorder: colors.border,
+    fontSize: tokens.typography?.sm?.fontSize ?? "0.875rem",
+  }
+}
+
+/**
+ * Creates custom component tokens
+ *
+ * @param name - Component name
+ * @param tokens - Token values
+ * @returns Custom component tokens entry
+ */
+export function createCustomComponentTokens(
+  name: string,
+  tokens: CustomComponentTokens
+): Record<string, CustomComponentTokens> {
+  return { [name]: tokens }
+}
+
+/**
+ * Generates all component tokens from theme config
+ *
+ * @param theme - Theme configuration
+ * @param options - Generation options
+ * @returns Component tokens collection
+ *
+ * @example
+ * ```typescript
+ * // Generate all component tokens
+ * const tokens = generateComponentTokens(myTheme)
+ *
+ * // Generate only specific components
+ * const tokens = generateComponentTokens(myTheme, {
+ *   includeButton: true,
+ *   includeCard: true,
+ *   includeInput: false,
+ * })
+ *
+ * // Use tokens
+ * const buttonBg = tokens.button?.background
+ * ```
+ */
+export function generateComponentTokens(
+  theme: ThemeConfig,
+  options: GenerateComponentTokensOptions = {}
+): ComponentTokens {
+  const {
+    includeButton = true,
+    includeCard = true,
+    includeInput = true,
+    includeSelect = true,
+    includeCheckbox = true,
+    includeBadge = true,
+    includeDialog = true,
+    includeTable = true,
+  } = options
+
+  const result: ComponentTokens = {}
+
+  if (includeButton) {
+    result.button = generateButtonTokens(theme)
+  }
+  if (includeCard) {
+    result.card = generateCardTokens(theme)
+  }
+  if (includeInput) {
+    result.input = generateInputTokens(theme)
+  }
+  if (includeSelect) {
+    result.select = generateSelectTokens(theme)
+  }
+  if (includeCheckbox) {
+    result.checkbox = generateCheckboxTokens(theme)
+  }
+  if (includeBadge) {
+    result.badge = generateBadgeTokens(theme)
+  }
+  if (includeDialog) {
+    result.dialog = generateDialogTokens(theme)
+  }
+  if (includeTable) {
+    result.table = generateTableTokens(theme)
+  }
+
+  return result
+}
+
+/**
+ * Gets component tokens for a specific component
+ *
+ * @param theme - Theme configuration
+ * @param component - Component name
+ * @returns Component tokens or undefined
+ *
+ * @example
+ * ```typescript
+ * const buttonTokens = getComponentTokens(myTheme, "button")
+ * console.log(buttonTokens?.background)
+ * ```
+ */
+export function getComponentTokens(
+  theme: ThemeConfig,
+  component: keyof Omit<ComponentTokens, "custom">
+): BaseComponentTokens | undefined {
+  const generators: Record<string, (t: ThemeConfig) => BaseComponentTokens> = {
+    button: generateButtonTokens,
+    card: generateCardTokens,
+    input: generateInputTokens,
+    select: generateSelectTokens,
+    checkbox: generateCheckboxTokens,
+    badge: generateBadgeTokens,
+    dialog: generateDialogTokens,
+    table: generateTableTokens,
+  }
+
+  const generator = generators[component]
+  return generator ? generator(theme) : undefined
+}
+
+/**
+ * Generates CSS variables for component tokens
+ *
+ * @param tokens - Component tokens
+ * @param prefix - CSS variable prefix
+ * @returns CSS variable declarations
+ *
+ * @example
+ * ```typescript
+ * const buttonTokens = generateButtonTokens(myTheme)
+ * const css = generateComponentTokensCss(buttonTokens, "button")
+ * // --button-background: oklch(0.6 0.2 250);
+ * // --button-foreground: oklch(0.98 0 0);
+ * ```
+ */
+export function generateComponentTokensCss(
+  tokens: BaseComponentTokens | CustomComponentTokens,
+  prefix: string
+): string {
+  const lines: string[] = []
+
+  function processTokens(obj: Record<string, unknown>, path: string): void {
+    for (const [key, value] of Object.entries(obj)) {
+      if (value === undefined || value === null) continue
+
+      const varName = path ? `${path}-${key}` : `${prefix}-${key}`
+
+      if (typeof value === "object" && !Array.isArray(value)) {
+        processTokens(value as Record<string, unknown>, varName)
+      } else {
+        lines.push(`  --${varName}: ${value};`)
+      }
+    }
+  }
+
+  processTokens(tokens as Record<string, unknown>, "")
+  return lines.join("\n")
+}
+
+/**
+ * Generates complete CSS for all component tokens
+ *
+ * @param theme - Theme configuration
+ * @param options - Generation options
+ * @returns CSS string with component token variables
+ *
+ * @example
+ * ```typescript
+ * const css = generateAllComponentTokensCss(myTheme)
+ * // :root {
+ * //   --button-background: ...;
+ * //   --card-background: ...;
+ * // }
+ * ```
+ */
+export function generateAllComponentTokensCss(
+  theme: ThemeConfig,
+  options: GenerateComponentTokensOptions = {}
+): string {
+  const allTokens = generateComponentTokens(theme, options)
+  const sections: string[] = []
+
+  for (const [component, tokens] of Object.entries(allTokens)) {
+    if (tokens && component !== "custom") {
+      sections.push(`  /* ${component} */`)
+      sections.push(generateComponentTokensCss(tokens, component))
+    }
+  }
+
+  // Handle custom components
+  if (allTokens.custom) {
+    for (const [name, tokens] of Object.entries(allTokens.custom)) {
+      sections.push(`  /* custom: ${name} */`)
+      sections.push(generateComponentTokensCss(tokens, name))
+    }
+  }
+
+  return `:root {\n${sections.join("\n")}\n}`
+}
+
+/**
+ * Merges component tokens with overrides
+ *
+ * @param base - Base component tokens
+ * @param overrides - Token overrides
+ * @returns Merged tokens
+ */
+export function mergeComponentTokens<T extends BaseComponentTokens>(
+  base: T,
+  overrides: Partial<T>
+): T {
+  return { ...base, ...overrides } as T
+}
+
+/**
+ * Extracts component tokens from existing CSS variables
+ *
+ * @param element - DOM element with CSS variables
+ * @param component - Component name prefix
+ * @returns Extracted tokens
+ */
+export function extractComponentTokensFromElement(
+  element: Element,
+  component: string
+): CustomComponentTokens {
+  if (typeof window === "undefined") {
+    return {}
+  }
+
+  const computed = window.getComputedStyle(element)
+  const tokens: CustomComponentTokens = {}
+
+  // Get all CSS custom properties
+  const allProps = Array.from(document.styleSheets)
+    .flatMap((sheet) => {
+      try {
+        return Array.from(sheet.cssRules)
+      } catch {
+        return []
+      }
+    })
+    .filter((rule): rule is CSSStyleRule => rule instanceof CSSStyleRule)
+    .flatMap((rule) => Array.from(rule.style))
+    .filter((prop) => prop.startsWith(`--${component}-`))
+
+  for (const prop of new Set(allProps)) {
+    const value = computed.getPropertyValue(prop).trim()
+    if (value) {
+      const key = prop.replace(`--${component}-`, "")
+      tokens[key] = value
+    }
+  }
+
+  return tokens
 }
