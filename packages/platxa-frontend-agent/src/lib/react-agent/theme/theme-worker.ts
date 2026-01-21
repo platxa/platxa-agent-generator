@@ -11378,3 +11378,443 @@ export async function flattenConfigInheritance(
   const { config: resolved } = await resolveConfigInheritance(config, options)
   return resolved
 }
+
+// ============================================================================
+// Feature #105: Runtime Config Override
+// ============================================================================
+
+/**
+ * State for runtime config override
+ */
+export interface RuntimeConfigState {
+  /** Current active config (may be override or original) */
+  current: ThemeConfig | null
+  /** Original config before any overrides */
+  original: ThemeConfig | null
+  /** Whether an override is currently active */
+  isOverridden: boolean
+  /** History of config changes for debugging */
+  history: Array<{
+    timestamp: number
+    action: "set" | "reset" | "update"
+    configName: string | null
+  }>
+}
+
+/**
+ * Options for setting runtime config
+ */
+export interface SetRuntimeConfigOptions {
+  /** Whether to preserve the original for reset (default: true) */
+  preserveOriginal?: boolean
+  /** Whether to notify subscribers (default: true) */
+  notify?: boolean
+  /** Whether to merge with current config instead of replace */
+  merge?: boolean
+}
+
+/**
+ * Result from runtime config hook
+ */
+export interface UseRuntimeConfigResult {
+  /** Current active config */
+  config: ThemeConfig | null
+  /** Whether config is overridden */
+  isOverridden: boolean
+  /** Set a new config override */
+  setConfig: (config: ThemeConfig, options?: SetRuntimeConfigOptions) => void
+  /** Update current config with partial changes */
+  updateConfig: (partial: Partial<ThemeConfig>) => void
+  /** Reset to original config */
+  resetConfig: () => void
+  /** Get the original config */
+  getOriginal: () => ThemeConfig | null
+}
+
+/** Runtime config state */
+const runtimeConfigState: RuntimeConfigState = {
+  current: null,
+  original: null,
+  isOverridden: false,
+  history: [],
+}
+
+/** Subscribers for runtime config changes */
+const runtimeConfigSubscribers = new Set<() => void>()
+
+/** Maximum history entries to keep */
+const MAX_HISTORY_ENTRIES = 50
+
+/**
+ * Notify all runtime config subscribers
+ */
+function notifyRuntimeConfigSubscribers(): void {
+  runtimeConfigSubscribers.forEach((callback) => callback())
+}
+
+/**
+ * Add entry to config history
+ */
+function addToConfigHistory(
+  action: "set" | "reset" | "update",
+  configName: string | null
+): void {
+  runtimeConfigState.history.push({
+    timestamp: Date.now(),
+    action,
+    configName,
+  })
+
+  // Trim history if too long
+  if (runtimeConfigState.history.length > MAX_HISTORY_ENTRIES) {
+    runtimeConfigState.history = runtimeConfigState.history.slice(-MAX_HISTORY_ENTRIES)
+  }
+}
+
+/**
+ * Sets the runtime config override
+ *
+ * Allows overriding the active theme config at runtime, useful for:
+ * - Testing different themes
+ * - A/B testing
+ * - Preview modes
+ * - Development tools
+ *
+ * @param config - The config to set as active
+ * @param options - Set options
+ *
+ * @example
+ * ```typescript
+ * import { setRuntimeConfig, resetRuntimeConfig } from "@/lib/react-agent/theme"
+ *
+ * // Override for testing
+ * setRuntimeConfig(testTheme)
+ *
+ * // ... run tests ...
+ *
+ * // Restore original
+ * resetRuntimeConfig()
+ * ```
+ */
+export function setRuntimeConfig(
+  config: ThemeConfig,
+  options: SetRuntimeConfigOptions = {}
+): void {
+  const { preserveOriginal = true, notify = true, merge = false } = options
+
+  // Preserve original if this is first override
+  if (preserveOriginal && !runtimeConfigState.isOverridden) {
+    runtimeConfigState.original = runtimeConfigState.current
+  }
+
+  // Set new config
+  if (merge && runtimeConfigState.current) {
+    runtimeConfigState.current = mergeConfigs(
+      runtimeConfigState.current,
+      config
+    )
+  } else {
+    runtimeConfigState.current = config
+  }
+
+  runtimeConfigState.isOverridden = true
+  addToConfigHistory("set", config.name)
+
+  // Also update the main theme config for consistency
+  if (config) {
+    currentThemeConfig = config
+  }
+
+  if (notify) {
+    notifyRuntimeConfigSubscribers()
+    notifyThemeSubscribers()
+  }
+}
+
+/**
+ * Gets the current runtime config
+ *
+ * @returns Current active config or null
+ *
+ * @example
+ * ```typescript
+ * const config = getRuntimeConfig()
+ * if (config) {
+ *   console.log("Current theme:", config.name)
+ * }
+ * ```
+ */
+export function getRuntimeConfig(): ThemeConfig | null {
+  return runtimeConfigState.current
+}
+
+/**
+ * Gets the original config before any overrides
+ *
+ * @returns Original config or null if never set
+ */
+export function getOriginalConfig(): ThemeConfig | null {
+  return runtimeConfigState.original
+}
+
+/**
+ * Resets to the original config
+ *
+ * Restores the config that was active before setRuntimeConfig was called.
+ *
+ * @param options - Reset options
+ *
+ * @example
+ * ```typescript
+ * // Override
+ * setRuntimeConfig(testTheme)
+ *
+ * // ... do testing ...
+ *
+ * // Restore
+ * resetRuntimeConfig()
+ * ```
+ */
+export function resetRuntimeConfig(options: { notify?: boolean } = {}): void {
+  const { notify = true } = options
+
+  if (runtimeConfigState.original !== null) {
+    runtimeConfigState.current = runtimeConfigState.original
+    currentThemeConfig = runtimeConfigState.original
+  }
+
+  runtimeConfigState.isOverridden = false
+  addToConfigHistory("reset", runtimeConfigState.current?.name ?? null)
+
+  if (notify) {
+    notifyRuntimeConfigSubscribers()
+    notifyThemeSubscribers()
+  }
+}
+
+/**
+ * Updates the current config with partial changes
+ *
+ * Merges the partial config with the current config.
+ *
+ * @param partial - Partial config to merge
+ * @param options - Update options
+ *
+ * @example
+ * ```typescript
+ * // Update just the primary color
+ * updateRuntimeConfig({
+ *   light: {
+ *     colors: {
+ *       primary: "oklch(0.6 0.2 280)"
+ *     }
+ *   }
+ * })
+ * ```
+ */
+export function updateRuntimeConfig(
+  partial: Partial<ThemeConfig>,
+  options: { notify?: boolean } = {}
+): void {
+  const { notify = true } = options
+
+  const currentConfig = runtimeConfigState.current
+  if (!currentConfig) {
+    return
+  }
+
+  // Preserve original before first update
+  if (!runtimeConfigState.isOverridden) {
+    runtimeConfigState.original = currentConfig
+  }
+
+  const merged = mergeConfigs(currentConfig, partial as ThemeConfig)
+  runtimeConfigState.current = merged
+  runtimeConfigState.isOverridden = true
+  currentThemeConfig = merged
+  addToConfigHistory("update", merged.name)
+
+  if (notify) {
+    notifyRuntimeConfigSubscribers()
+    notifyThemeSubscribers()
+  }
+}
+
+/**
+ * Subscribe to runtime config changes
+ *
+ * @param callback - Function called when config changes
+ * @returns Unsubscribe function
+ *
+ * @example
+ * ```typescript
+ * const unsubscribe = subscribeToRuntimeConfig(() => {
+ *   console.log("Config changed:", getRuntimeConfig())
+ * })
+ *
+ * // Later...
+ * unsubscribe()
+ * ```
+ */
+export function subscribeToRuntimeConfig(callback: () => void): () => void {
+  runtimeConfigSubscribers.add(callback)
+  return () => runtimeConfigSubscribers.delete(callback)
+}
+
+/**
+ * Gets the full runtime config state
+ *
+ * Useful for debugging and testing.
+ *
+ * @returns Full runtime config state
+ */
+export function getRuntimeConfigState(): RuntimeConfigState {
+  return { ...runtimeConfigState }
+}
+
+/**
+ * Checks if runtime config is currently overridden
+ *
+ * @returns true if an override is active
+ */
+export function isRuntimeConfigOverridden(): boolean {
+  return runtimeConfigState.isOverridden
+}
+
+/**
+ * Clears all runtime config state
+ *
+ * Resets everything including original and history.
+ */
+export function clearRuntimeConfigState(): void {
+  runtimeConfigState.current = null
+  runtimeConfigState.original = null
+  runtimeConfigState.isOverridden = false
+  runtimeConfigState.history = []
+}
+
+/**
+ * Initializes runtime config with a base config
+ *
+ * Should be called once at app startup to set the initial config.
+ *
+ * @param config - Base config to start with
+ *
+ * @example
+ * ```typescript
+ * // In app initialization
+ * initRuntimeConfig(defaultTheme)
+ * ```
+ */
+export function initRuntimeConfig(config: ThemeConfig): void {
+  runtimeConfigState.current = config
+  runtimeConfigState.original = config
+  runtimeConfigState.isOverridden = false
+  currentThemeConfig = config
+  addToConfigHistory("set", config.name)
+}
+
+/**
+ * Gets a snapshot of runtime config state for React integration
+ *
+ * Use with useSyncExternalStore for reactive updates.
+ *
+ * @returns Current runtime config snapshot
+ *
+ * @example
+ * ```typescript
+ * import { useSyncExternalStore } from "react"
+ *
+ * function useRuntimeConfigReactive() {
+ *   return useSyncExternalStore(
+ *     subscribeToRuntimeConfig,
+ *     getRuntimeConfigSnapshot,
+ *     getRuntimeConfigServerSnapshot
+ *   )
+ * }
+ * ```
+ */
+export function getRuntimeConfigSnapshot(): UseRuntimeConfigResult {
+  return {
+    config: runtimeConfigState.current,
+    isOverridden: runtimeConfigState.isOverridden,
+    setConfig: setRuntimeConfig,
+    updateConfig: updateRuntimeConfig,
+    resetConfig: resetRuntimeConfig,
+    getOriginal: getOriginalConfig,
+  }
+}
+
+/**
+ * Gets a server-safe snapshot of runtime config state for SSR
+ *
+ * Returns safe defaults when running on server.
+ *
+ * @returns Server-safe runtime config snapshot
+ */
+export function getRuntimeConfigServerSnapshot(): UseRuntimeConfigResult {
+  return {
+    config: null,
+    isOverridden: false,
+    setConfig: setRuntimeConfig,
+    updateConfig: updateRuntimeConfig,
+    resetConfig: resetRuntimeConfig,
+    getOriginal: () => null,
+  }
+}
+
+/**
+ * Hook for runtime config management
+ *
+ * Provides access to runtime config controls. For reactive updates in React,
+ * use with useSyncExternalStore:
+ *
+ * @returns Runtime config state and controls
+ *
+ * @example
+ * ```typescript
+ * import { useSyncExternalStore } from "react"
+ * import {
+ *   subscribeToRuntimeConfig,
+ *   getRuntimeConfigSnapshot,
+ *   getRuntimeConfigServerSnapshot
+ * } from "@/lib/react-agent/theme"
+ *
+ * // For reactive updates, use useSyncExternalStore:
+ * function useRuntimeConfigReactive() {
+ *   return useSyncExternalStore(
+ *     subscribeToRuntimeConfig,
+ *     getRuntimeConfigSnapshot,
+ *     getRuntimeConfigServerSnapshot
+ *   )
+ * }
+ *
+ * // Simple usage (non-reactive):
+ * function ThemeSwitcher() {
+ *   const { config, setConfig, resetConfig, isOverridden } = useRuntimeConfig()
+ *
+ *   return (
+ *     <div>
+ *       <p>Current theme: {config?.name}</p>
+ *       {isOverridden && (
+ *         <button onClick={resetConfig}>Reset to original</button>
+ *       )}
+ *       <button onClick={() => setConfig(darkTheme)}>
+ *         Switch to dark
+ *       </button>
+ *     </div>
+ *   )
+ * }
+ * ```
+ */
+export function useRuntimeConfig(): UseRuntimeConfigResult {
+  // Note: For full React reactivity, consumers should use useSyncExternalStore:
+  //
+  // import { useSyncExternalStore } from "react"
+  // const state = useSyncExternalStore(
+  //   subscribeToRuntimeConfig,
+  //   getRuntimeConfigSnapshot,
+  //   getRuntimeConfigServerSnapshot
+  // )
+  return getRuntimeConfigSnapshot()
+}

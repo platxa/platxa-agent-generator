@@ -1,32 +1,32 @@
 {
-  "session_id": "d12fbf55b23c",
+  "session_id": "2a03bb33f0cb",
   "stack": {
     "session": {
-      "id": "d12fbf55b23c-157",
-      "text": "[Configuration Features] Feature #104: [Config Inheritance] extends field to inherit from another config file Verification: extends field accepts path to base config; Child config overrides parent values; Deep merge of nested objects Criteria: Manual verification required",
+      "id": "2a03bb33f0cb-159",
+      "text": "[Configuration Features] Feature #105: [Runtime Config Override] API to override config at runtime for testing Verification: setConfig() function available; Config changes trigger re-render; Original config restorable Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768995704.2730396,
-      "updated_at": 1768995704.2730398,
+      "created_at": 1768995949.9639862,
+      "updated_at": 1768995949.9639864,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 104,
+        "feature_id": 105,
         "category": "Configuration Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "d12fbf55b23c-158",
-      "text": "Implement: [Config Inheritance] extends field to inherit from another config file Verification: extends field accepts path to base config; Child config overrides parent values; Deep merge of nested objects",
+      "id": "2a03bb33f0cb-160",
+      "text": "Implement: [Runtime Config Override] API to override config at runtime for testing Verification: setConfig() function available; Config changes trigger re-render; Original config restorable",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768995704.2788782,
-      "updated_at": 1768995704.2788785,
+      "created_at": 1768995949.969727,
+      "updated_at": 1768995949.9697273,
       "completed_at": null,
-      "parent_id": "d12fbf55b23c-157",
+      "parent_id": "2a03bb33f0cb-159",
       "metadata": {},
       "keywords": []
     },
@@ -2323,9 +2323,38 @@
       "parent_id": "d12fbf55b23c-157",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "2a03bb33f0cb-159",
+      "text": "[Configuration Features] Feature #105: [Runtime Config Override] API to override config at runtime for testing Verification: setConfig() function available; Config changes trigger re-render; Original config restorable Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768995949.9639862,
+      "updated_at": 1768995949.9639864,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 105,
+        "category": "Configuration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "2a03bb33f0cb-160",
+      "text": "Implement: [Runtime Config Override] API to override config at runtime for testing Verification: setConfig() function available; Config changes trigger re-render; Original config restorable",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768995949.969727,
+      "updated_at": 1768995949.9697273,
+      "completed_at": null,
+      "parent_id": "2a03bb33f0cb-159",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 158,
+  "intent_counter": 160,
   "created_at": 1768900061.32227,
-  "updated_at": 1768995704.278884
+  "updated_at": 1768995949.969732
 }

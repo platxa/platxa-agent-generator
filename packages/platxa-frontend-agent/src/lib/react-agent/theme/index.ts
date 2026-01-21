@@ -259,6 +259,20 @@ export {
   validateInheritanceChain,
   createFetchLoader,
   flattenConfigInheritance,
+  // Runtime Config Override (Feature #105)
+  setRuntimeConfig,
+  getRuntimeConfig,
+  getOriginalConfig,
+  resetRuntimeConfig,
+  updateRuntimeConfig,
+  subscribeToRuntimeConfig,
+  getRuntimeConfigState,
+  isRuntimeConfigOverridden,
+  clearRuntimeConfigState,
+  initRuntimeConfig,
+  getRuntimeConfigSnapshot,
+  getRuntimeConfigServerSnapshot,
+  useRuntimeConfig,
 } from "./theme-worker"
 
 export type {
@@ -372,6 +386,10 @@ export type {
   ConfigInheritanceOptions,
   ConfigInheritanceResult,
   ExtendsValue,
+  // Runtime Config Override (Feature #105)
+  RuntimeConfigState,
+  SetRuntimeConfigOptions,
+  UseRuntimeConfigResult,
 } from "./theme-worker"
 
 // Token presets
