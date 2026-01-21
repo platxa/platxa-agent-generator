@@ -14901,3 +14901,534 @@ export function formatDependencyReport(result: DependencyResolutionResult): stri
 
   return lines.join("\n")
 }
+
+// ============================================================================
+// Feature #111: Preloading
+// ============================================================================
+
+/**
+ * Preload configuration options
+ */
+export interface PreloadConfig {
+  /** Brand kit config to preload (mutually exclusive with url) */
+  config?: ThemeConfig
+  /** URL to load brand kit from (mutually exclusive with config) */
+  url?: string
+  /** Whether to inject CSS into document head */
+  injectStyles?: boolean
+  /** ID for the injected style element */
+  styleId?: string
+  /** Whether to include dark mode CSS */
+  includeDarkMode?: boolean
+  /** Timeout for URL loading in milliseconds */
+  timeout?: number
+  /** Callback when preload completes */
+  onComplete?: (result: PreloadResult) => void
+  /** Callback on preload error */
+  onError?: (error: Error) => void
+  /** Nonce for CSP compliance */
+  nonce?: string
+}
+
+/**
+ * Result of preload operation
+ */
+export interface PreloadResult {
+  /** Whether preload was successful */
+  success: boolean
+  /** The loaded theme config */
+  config: ThemeConfig | null
+  /** Generated CSS (if injectStyles was true) */
+  css?: string
+  /** Time taken to preload in milliseconds */
+  duration: number
+  /** Source of the config */
+  source: "static" | "url" | "cache"
+  /** Error if preload failed */
+  error?: Error
+}
+
+/**
+ * Internal preload state
+ */
+interface PreloadStateInternal {
+  /** Whether preload has been initiated */
+  initiated: boolean
+  /** Whether preload is complete */
+  complete: boolean
+  /** Whether preload is in progress */
+  loading: boolean
+  /** The preloaded config */
+  config: ThemeConfig | null
+  /** The preloaded CSS */
+  css: string | null
+  /** Preload start time */
+  startTime: number | null
+  /** Error if preload failed */
+  error: Error | null
+  /** Promise for in-progress preload */
+  promise: Promise<PreloadResult> | null
+}
+
+/** Internal preload state */
+const preloadState: PreloadStateInternal = {
+  initiated: false,
+  complete: false,
+  loading: false,
+  config: null,
+  css: null,
+  startTime: null,
+  error: null,
+  promise: null,
+}
+
+/** Default style element ID */
+const DEFAULT_PRELOAD_STYLE_ID = "brand-kit-preload-styles"
+
+/**
+ * Preloads a brand kit before first render
+ *
+ * Call this function early in your application initialization
+ * (e.g., in the entry point before React.render) to prevent
+ * flash of unstyled content (FOUC).
+ *
+ * @param options - Preload configuration
+ * @returns Promise resolving to preload result
+ *
+ * @example
+ * ```typescript
+ * // In main.tsx or index.tsx, before ReactDOM.render:
+ * import { preloadBrand, myBrandConfig } from "./brand"
+ *
+ * // Preload with static config
+ * await preloadBrand({
+ *   config: myBrandConfig,
+ *   injectStyles: true,
+ *   includeDarkMode: true,
+ * })
+ *
+ * // Then render React app
+ * ReactDOM.createRoot(document.getElementById("root")!).render(<App />)
+ * ```
+ *
+ * @example
+ * ```typescript
+ * // Preload from URL
+ * await preloadBrand({
+ *   url: "https://cdn.example.com/brand-kit.json",
+ *   injectStyles: true,
+ *   timeout: 5000,
+ *   onError: (err) => {
+ *     // Fall back to default theme
+ *     console.warn("Brand kit preload failed:", err)
+ *   }
+ * })
+ * ```
+ */
+export async function preloadBrand(options: PreloadConfig): Promise<PreloadResult> {
+  const {
+    config,
+    url,
+    injectStyles = true,
+    styleId = DEFAULT_PRELOAD_STYLE_ID,
+    includeDarkMode = true,
+    timeout = 10000,
+    onComplete,
+    onError,
+    nonce,
+  } = options
+
+  // If already complete, return cached result
+  if (preloadState.complete && preloadState.config) {
+    const result: PreloadResult = {
+      success: true,
+      config: preloadState.config,
+      css: preloadState.css ?? undefined,
+      duration: 0,
+      source: "cache",
+    }
+    onComplete?.(result)
+    return result
+  }
+
+  // If already loading, return existing promise
+  if (preloadState.loading && preloadState.promise) {
+    return preloadState.promise
+  }
+
+  // Validate input
+  if (!config && !url) {
+    const error = new Error("preloadBrand requires either 'config' or 'url' option")
+    onError?.(error)
+    return {
+      success: false,
+      config: null,
+      duration: 0,
+      source: "static",
+      error,
+    }
+  }
+
+  // Start preload
+  preloadState.initiated = true
+  preloadState.loading = true
+  preloadState.startTime = Date.now()
+  preloadState.error = null
+
+  const preloadPromise = (async (): Promise<PreloadResult> => {
+    try {
+      let loadedConfig: ThemeConfig | null = null
+      let source: "static" | "url" = "static"
+
+      // Load config
+      if (config) {
+        loadedConfig = config
+        source = "static"
+      } else if (url) {
+        source = "url"
+        const loadResult = await loadBrandKitFromUrl({
+          url,
+          timeout,
+          cache: true,
+        })
+
+        if (!loadResult.success || !loadResult.config) {
+          throw new Error(loadResult.error ?? "Failed to load brand kit from URL")
+        }
+
+        loadedConfig = loadResult.config
+      }
+
+      if (!loadedConfig) {
+        throw new Error("No config loaded")
+      }
+
+      // Generate and inject CSS if requested
+      let css: string | undefined
+      if (injectStyles && isBrowser()) {
+        const generated = generateTheme(loadedConfig)
+        css = includeDarkMode && loadedConfig.dark
+          ? `${generated.css}\n${generateDarkModeCss(loadedConfig.dark)}`
+          : generated.css
+
+        injectPreloadStyles(css, styleId, nonce)
+      }
+
+      // Update state
+      preloadState.config = loadedConfig
+      preloadState.css = css ?? null
+      preloadState.complete = true
+      preloadState.loading = false
+
+      // Also update the main theme config
+      currentThemeConfig = loadedConfig
+
+      const duration = Date.now() - (preloadState.startTime ?? Date.now())
+
+      const result: PreloadResult = {
+        success: true,
+        config: loadedConfig,
+        css,
+        duration,
+        source,
+      }
+
+      onComplete?.(result)
+      return result
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error(String(err))
+
+      preloadState.error = error
+      preloadState.loading = false
+
+      const duration = Date.now() - (preloadState.startTime ?? Date.now())
+
+      const result: PreloadResult = {
+        success: false,
+        config: null,
+        duration,
+        source: url ? "url" : "static",
+        error,
+      }
+
+      onError?.(error)
+      return result
+    }
+  })()
+
+  preloadState.promise = preloadPromise
+  return preloadPromise
+}
+
+/**
+ * Injects preload styles into document head
+ *
+ * @param css - CSS content to inject
+ * @param styleId - ID for the style element
+ * @param nonce - Optional nonce for CSP
+ */
+function injectPreloadStyles(css: string, styleId: string, nonce?: string): void {
+  if (!isBrowser()) {
+    return
+  }
+
+  // Check if style element already exists
+  let styleElement = document.getElementById(styleId) as HTMLStyleElement | null
+
+  if (!styleElement) {
+    // Create new style element
+    styleElement = document.createElement("style")
+    styleElement.id = styleId
+    styleElement.setAttribute("data-brand-kit", "preload")
+
+    if (nonce) {
+      styleElement.nonce = nonce
+    }
+
+    // Insert at the beginning of head for highest priority
+    const head = document.head
+    const firstChild = head.firstChild
+    if (firstChild) {
+      head.insertBefore(styleElement, firstChild)
+    } else {
+      head.appendChild(styleElement)
+    }
+  }
+
+  // Update content
+  styleElement.textContent = css
+}
+
+/**
+ * Checks if a brand kit has been preloaded
+ *
+ * @returns Whether preload is complete
+ *
+ * @example
+ * ```typescript
+ * if (!isPreloaded()) {
+ *   await preloadBrand({ config: myConfig })
+ * }
+ * ```
+ */
+export function isPreloaded(): boolean {
+  return preloadState.complete && preloadState.config !== null
+}
+
+/**
+ * Gets the current preload state
+ *
+ * @returns Current preload state snapshot
+ *
+ * @example
+ * ```typescript
+ * const state = getPreloadState()
+ * if (state.loading) {
+ *   console.log("Brand kit is loading...")
+ * } else if (state.error) {
+ *   console.error("Preload failed:", state.error)
+ * }
+ * ```
+ */
+export function getPreloadState(): {
+  initiated: boolean
+  complete: boolean
+  loading: boolean
+  config: ThemeConfig | null
+  error: Error | null
+} {
+  return {
+    initiated: preloadState.initiated,
+    complete: preloadState.complete,
+    loading: preloadState.loading,
+    config: preloadState.config,
+    error: preloadState.error,
+  }
+}
+
+/**
+ * Gets the preloaded config if available
+ *
+ * @returns The preloaded config or null
+ *
+ * @example
+ * ```typescript
+ * const config = getPreloadedConfig()
+ * if (config) {
+ *   // Use preloaded config
+ * } else {
+ *   // Fall back to default
+ * }
+ * ```
+ */
+export function getPreloadedConfig(): ThemeConfig | null {
+  return preloadState.config
+}
+
+/**
+ * Waits for preload to complete
+ *
+ * Useful when you need to ensure preload is done before proceeding.
+ *
+ * @param timeout - Maximum time to wait in milliseconds
+ * @returns Promise resolving to preload result
+ *
+ * @example
+ * ```typescript
+ * // Start preload without awaiting
+ * preloadBrand({ url: "..." })
+ *
+ * // Later, wait for completion
+ * const result = await waitForPreload(5000)
+ * if (result.success) {
+ *   // Proceed with preloaded config
+ * }
+ * ```
+ */
+export async function waitForPreload(timeout = 10000): Promise<PreloadResult> {
+  // If already complete, return immediately
+  if (preloadState.complete) {
+    return {
+      success: preloadState.config !== null,
+      config: preloadState.config,
+      css: preloadState.css ?? undefined,
+      duration: 0,
+      source: "cache",
+      error: preloadState.error ?? undefined,
+    }
+  }
+
+  // If not initiated, return failure
+  if (!preloadState.initiated || !preloadState.promise) {
+    return {
+      success: false,
+      config: null,
+      duration: 0,
+      source: "static",
+      error: new Error("Preload not initiated. Call preloadBrand() first."),
+    }
+  }
+
+  // Race between preload promise and timeout
+  const timeoutPromise = new Promise<PreloadResult>((resolve) => {
+    setTimeout(() => {
+      resolve({
+        success: false,
+        config: preloadState.config,
+        duration: timeout,
+        source: "cache",
+        error: new Error(`Preload timed out after ${timeout}ms`),
+      })
+    }, timeout)
+  })
+
+  return Promise.race([preloadState.promise, timeoutPromise])
+}
+
+/**
+ * Resets preload state
+ *
+ * Useful for testing or when switching brand kits.
+ *
+ * @param removeStyles - Whether to remove injected style element
+ * @param styleId - ID of style element to remove
+ */
+export function resetPreloadState(
+  removeStyles = false,
+  styleId = DEFAULT_PRELOAD_STYLE_ID
+): void {
+  preloadState.initiated = false
+  preloadState.complete = false
+  preloadState.loading = false
+  preloadState.config = null
+  preloadState.css = null
+  preloadState.startTime = null
+  preloadState.error = null
+  preloadState.promise = null
+
+  if (removeStyles && isBrowser()) {
+    const styleElement = document.getElementById(styleId)
+    if (styleElement) {
+      styleElement.remove()
+    }
+  }
+}
+
+/**
+ * Generates preload script for SSR
+ *
+ * Returns a script that can be inlined in HTML to preload
+ * brand kit on the client before React hydration.
+ *
+ * @param config - Theme config or URL to load
+ * @param options - Preload options
+ * @returns Script content to inline
+ *
+ * @example
+ * ```typescript
+ * // In your SSR handler
+ * const preloadScript = generatePreloadScript(brandConfig)
+ *
+ * const html = `
+ *   <head>
+ *     <script>${preloadScript}</script>
+ *   </head>
+ * `
+ * ```
+ */
+export function generatePreloadScript(
+  config: ThemeConfig | string,
+  options?: Pick<PreloadConfig, "includeDarkMode" | "styleId">
+): string {
+  const {
+    includeDarkMode = true,
+    styleId = DEFAULT_PRELOAD_STYLE_ID,
+  } = options ?? {}
+
+  if (typeof config === "string") {
+    // URL-based preload
+    return `
+(function() {
+  var styleId = ${JSON.stringify(styleId)};
+  var url = ${JSON.stringify(config)};
+
+  fetch(url)
+    .then(function(res) { return res.json(); })
+    .then(function(config) {
+      if (window.__BRAND_KIT_PRELOAD__) {
+        window.__BRAND_KIT_PRELOAD__(config, styleId, ${includeDarkMode});
+      }
+    })
+    .catch(function(err) {
+      console.warn("Brand kit preload failed:", err);
+    });
+})();
+`.trim()
+  }
+
+  // Static config preload
+  const generated = generateTheme(config)
+  const css = includeDarkMode && config.dark
+    ? `${generated.css}\n${generateDarkModeCss(config.dark)}`
+    : generated.css
+
+  return `
+(function() {
+  var css = ${JSON.stringify(css)};
+  var styleId = ${JSON.stringify(styleId)};
+
+  var style = document.createElement("style");
+  style.id = styleId;
+  style.setAttribute("data-brand-kit", "preload");
+  style.textContent = css;
+
+  var head = document.head;
+  var first = head.firstChild;
+  if (first) {
+    head.insertBefore(style, first);
+  } else {
+    head.appendChild(style);
+  }
+})();
+`.trim()
+}

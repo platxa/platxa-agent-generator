@@ -335,6 +335,14 @@ export {
   validateBrandKitDependencies,
   generateInstallCommand,
   formatDependencyReport,
+  // Preloading (Feature #111)
+  preloadBrand,
+  isPreloaded,
+  getPreloadState,
+  getPreloadedConfig,
+  waitForPreload,
+  resetPreloadState,
+  generatePreloadScript,
 } from "./theme-worker"
 
 export type {
@@ -489,6 +497,9 @@ export type {
   DependencyResolutionResult,
   BrandKitWithDependencies,
   DependencyValidationOptions,
+  // Preloading (Feature #111)
+  PreloadConfig,
+  PreloadResult,
 } from "./theme-worker"
 
 // Token presets
