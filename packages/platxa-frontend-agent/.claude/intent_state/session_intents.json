@@ -1,32 +1,32 @@
 {
-  "session_id": "52f00d375817",
+  "session_id": "1155edef733e",
   "stack": {
     "session": {
-      "id": "52f00d375817-189",
-      "text": "[Performance Features] Feature #125: [Prefetch Hints] Generate prefetch hints for brand kit resources Verification: Link prefetch generated; Priority hints set; Configurable prefetch Criteria: Manual verification required",
+      "id": "1155edef733e-191",
+      "text": "[Performance Features] Feature #126: [Critical CSS Extraction] Extract critical brand CSS for above-fold content Verification: Critical CSS identified; Inlined in HTML head; Rest loaded async Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769002354.5883071,
-      "updated_at": 1769002354.5883074,
+      "created_at": 1769002632.9423954,
+      "updated_at": 1769002632.9423957,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 125,
+        "feature_id": 126,
         "category": "Performance Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "52f00d375817-190",
-      "text": "Implement: [Prefetch Hints] Generate prefetch hints for brand kit resources Verification: Link prefetch generated; Priority hints set; Configurable prefetch",
+      "id": "1155edef733e-192",
+      "text": "Implement: [Critical CSS Extraction] Extract critical brand CSS for above-fold content Verification: Critical CSS identified; Inlined in HTML head; Rest loaded async",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769002354.595072,
-      "updated_at": 1769002354.5950723,
+      "created_at": 1769002632.9494448,
+      "updated_at": 1769002632.949445,
       "completed_at": null,
-      "parent_id": "52f00d375817-189",
+      "parent_id": "1155edef733e-191",
       "metadata": {},
       "keywords": []
     },
@@ -2787,9 +2787,38 @@
       "parent_id": "52f00d375817-189",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "1155edef733e-191",
+      "text": "[Performance Features] Feature #126: [Critical CSS Extraction] Extract critical brand CSS for above-fold content Verification: Critical CSS identified; Inlined in HTML head; Rest loaded async Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769002632.9423954,
+      "updated_at": 1769002632.9423957,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 126,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "1155edef733e-192",
+      "text": "Implement: [Critical CSS Extraction] Extract critical brand CSS for above-fold content Verification: Critical CSS identified; Inlined in HTML head; Rest loaded async",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769002632.9494448,
+      "updated_at": 1769002632.949445,
+      "completed_at": null,
+      "parent_id": "1155edef733e-191",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 190,
+  "intent_counter": 192,
   "created_at": 1768900061.32227,
-  "updated_at": 1769002354.595078
+  "updated_at": 1769002632.9494512
 }

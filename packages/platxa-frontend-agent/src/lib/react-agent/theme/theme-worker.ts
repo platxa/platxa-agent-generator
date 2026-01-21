@@ -25356,3 +25356,543 @@ export function formatPrefetchHintReport(result: PrefetchHintResult): string {
 
   return lines.join("\n")
 }
+
+// ============================================================================
+// Feature #126: Critical CSS Extraction
+// Extract critical brand CSS for above-fold content with async loading
+// ============================================================================
+
+/**
+ * Critical CSS categories for above-fold content
+ */
+export type CriticalCssCategory =
+  | "colors"
+  | "typography"
+  | "spacing"
+  | "layout"
+  | "buttons"
+  | "forms"
+  | "navigation"
+  | "hero"
+  | "custom"
+
+/**
+ * Configuration for critical CSS extraction
+ */
+export interface CriticalCssConfig {
+  /** Categories to include in critical CSS */
+  categories?: CriticalCssCategory[]
+  /** Include color variables (default: true) */
+  includeColors?: boolean
+  /** Include typography variables (default: true) */
+  includeTypography?: boolean
+  /** Include spacing variables (default: true) */
+  includeSpacing?: boolean
+  /** Include dark mode in critical CSS (default: false) */
+  includeDarkMode?: boolean
+  /** Custom CSS selectors to always include */
+  includeSelectors?: string[]
+  /** Maximum size in bytes for critical CSS (default: 14KB) */
+  maxSize?: number
+  /** Minify output (default: true) */
+  minify?: boolean
+  /** Include reset styles (default: false) */
+  includeReset?: boolean
+  /** CSP nonce for inline styles */
+  nonce?: string
+}
+
+/**
+ * Result of critical CSS extraction
+ */
+export interface CriticalCssResult {
+  /** Critical CSS to inline in head */
+  critical: string
+  /** Remaining CSS to load async */
+  deferred: string
+  /** HTML for inline critical CSS */
+  inlineHtml: string
+  /** HTML for async loading deferred CSS */
+  asyncLoadHtml: string
+  /** Complete head HTML (critical + async loader) */
+  headHtml: string
+  /** Size metrics */
+  metrics: {
+    criticalSize: number
+    deferredSize: number
+    totalSize: number
+    criticalPercentage: number
+  }
+  /** Categories included in critical */
+  includedCategories: CriticalCssCategory[]
+  /** Whether size limit was exceeded */
+  exceededSizeLimit: boolean
+}
+
+/**
+ * CSS variable categories for critical extraction
+ */
+const CRITICAL_VAR_PATTERNS: Record<CriticalCssCategory, RegExp[]> = {
+  colors: [
+    /--color-(?:primary|secondary|background|foreground|muted|accent|destructive|card|popover|border|input|ring)/,
+    /--color-(?:primary|secondary|muted|accent|destructive|card|popover)-foreground/,
+  ],
+  typography: [
+    /--font-(?:sans|serif|mono)/,
+    /--font-size-(?:xs|sm|base|lg|xl|2xl|3xl|4xl)/,
+    /--font-weight-(?:normal|medium|semibold|bold)/,
+    /--line-height/,
+    /--letter-spacing/,
+  ],
+  spacing: [
+    /--spacing-(?:0|1|2|3|4|5|6|8|10|12|16)/,
+    /--gap/,
+    /--padding/,
+    /--margin/,
+  ],
+  layout: [
+    /--container/,
+    /--max-width/,
+    /--min-height/,
+    /--z-index/,
+  ],
+  buttons: [
+    /--button/,
+    /--btn/,
+  ],
+  forms: [
+    /--input/,
+    /--form/,
+    /--label/,
+  ],
+  navigation: [
+    /--nav/,
+    /--header/,
+    /--menu/,
+  ],
+  hero: [
+    /--hero/,
+    /--banner/,
+    /--jumbotron/,
+  ],
+  custom: [],
+}
+
+/**
+ * Default critical categories for above-fold content
+ */
+const DEFAULT_CRITICAL_CATEGORIES: CriticalCssCategory[] = [
+  "colors",
+  "typography",
+  "spacing",
+  "layout",
+]
+
+/**
+ * Extracts CSS variables matching patterns
+ */
+function extractMatchingVariables(
+  css: string,
+  patterns: RegExp[]
+): string[] {
+  const variables: string[] = []
+  const varRegex = /(--[\w-]+)\s*:\s*([^;]+);/g
+  let match
+
+  while ((match = varRegex.exec(css)) !== null) {
+    const varName = match[1]
+    const fullDeclaration = match[0]
+
+    for (const pattern of patterns) {
+      if (pattern.test(varName)) {
+        variables.push(fullDeclaration)
+        break
+      }
+    }
+  }
+
+  return variables
+}
+
+/**
+ * Generates critical CSS from a ThemeConfig
+ *
+ * Extracts essential CSS variables and styles needed for above-fold
+ * content rendering. The critical CSS is designed to be inlined in
+ * the HTML head, while the remaining CSS loads asynchronously.
+ *
+ * @param config - Theme configuration
+ * @param options - Critical CSS configuration
+ * @returns Critical CSS result with inline and async loading HTML
+ *
+ * @example
+ * ```typescript
+ * // Basic critical CSS extraction
+ * const result = extractCriticalCss(myTheme)
+ *
+ * // In your HTML template
+ * // <head>
+ * //   ${result.headHtml}
+ * // </head>
+ *
+ * // With custom configuration
+ * const result = extractCriticalCss(myTheme, {
+ *   categories: ["colors", "typography", "hero"],
+ *   includeDarkMode: true,
+ *   maxSize: 10000,
+ * })
+ * ```
+ */
+export function extractCriticalCss(
+  config: ThemeConfig,
+  options: CriticalCssConfig = {}
+): CriticalCssResult {
+  const {
+    categories = DEFAULT_CRITICAL_CATEGORIES,
+    includeColors = true,
+    includeTypography = true,
+    includeSpacing = true,
+    includeDarkMode = false,
+    includeSelectors = [],
+    maxSize = 14 * 1024, // 14KB default
+    minify: shouldMinify = true,
+    includeReset = false,
+    nonce,
+  } = options
+
+  // Generate full CSS
+  const generated = generateTheme(config)
+  const fullCss = generated.css + (includeDarkMode && generated.darkModeCss ? "\n" + generated.darkModeCss : "")
+
+  // Build patterns for critical extraction
+  const criticalPatterns: RegExp[] = []
+
+  if (includeColors || categories.includes("colors")) {
+    criticalPatterns.push(...CRITICAL_VAR_PATTERNS.colors)
+  }
+  if (includeTypography || categories.includes("typography")) {
+    criticalPatterns.push(...CRITICAL_VAR_PATTERNS.typography)
+  }
+  if (includeSpacing || categories.includes("spacing")) {
+    criticalPatterns.push(...CRITICAL_VAR_PATTERNS.spacing)
+  }
+
+  for (const category of categories) {
+    if (CRITICAL_VAR_PATTERNS[category]) {
+      criticalPatterns.push(...CRITICAL_VAR_PATTERNS[category])
+    }
+  }
+
+  // Extract critical variables
+  const criticalVars = extractMatchingVariables(fullCss, criticalPatterns)
+
+  // Build critical CSS
+  const criticalLines: string[] = []
+
+  // Add reset styles if requested
+  if (includeReset) {
+    criticalLines.push("*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}")
+  }
+
+  // Add root variables
+  if (criticalVars.length > 0) {
+    criticalLines.push(":root{")
+    criticalLines.push(criticalVars.join(""))
+    criticalLines.push("}")
+  }
+
+  // Add custom selectors
+  for (const selector of includeSelectors) {
+    const selectorRegex = new RegExp(
+      selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s*\\{[^}]*\\}",
+      "g"
+    )
+    const matches = fullCss.match(selectorRegex)
+    if (matches) {
+      criticalLines.push(...matches)
+    }
+  }
+
+  // Build critical CSS string
+  let critical = criticalLines.join("\n")
+  if (shouldMinify) {
+    critical = minifyCss(critical)
+  }
+
+  // Check size limit
+  let exceededSizeLimit = false
+  if (critical.length > maxSize) {
+    exceededSizeLimit = true
+    // Trim to essential colors and typography only
+    const essentialPatterns = [
+      ...CRITICAL_VAR_PATTERNS.colors,
+      ...CRITICAL_VAR_PATTERNS.typography.slice(0, 3),
+    ]
+    const essentialVars = extractMatchingVariables(fullCss, essentialPatterns)
+    critical = ":root{" + essentialVars.join("") + "}"
+    if (shouldMinify) {
+      critical = minifyCss(critical)
+    }
+  }
+
+  // Calculate deferred CSS (everything not in critical)
+  const deferred = fullCss
+
+  // Generate inline HTML
+  const nonceAttr = nonce ? ' nonce="' + nonce + '"' : ""
+  const inlineHtml = "<style" + nonceAttr + ">" + critical + "</style>"
+
+  // Generate async loader HTML
+  const asyncLoadHtml = [
+    '<link rel="preload" href="' + config.name + '.css" as="style" onload="this.onload=null;this.rel=\'stylesheet\'">',
+    '<noscript><link rel="stylesheet" href="' + config.name + '.css"></noscript>',
+  ].join("\n")
+
+  // Complete head HTML
+  const headHtml = inlineHtml + "\n" + asyncLoadHtml
+
+  // Calculate metrics
+  const criticalSize = critical.length
+  const deferredSize = deferred.length
+  const totalSize = criticalSize + deferredSize
+  const criticalPercentage = totalSize > 0 ? Math.round((criticalSize / totalSize) * 100) : 0
+
+  return {
+    critical,
+    deferred,
+    inlineHtml,
+    asyncLoadHtml,
+    headHtml,
+    metrics: {
+      criticalSize,
+      deferredSize,
+      totalSize,
+      criticalPercentage,
+    },
+    includedCategories: categories,
+    exceededSizeLimit,
+  }
+}
+
+/**
+ * Generates critical CSS with custom viewport dimensions
+ *
+ * @param config - Theme configuration
+ * @param viewport - Viewport dimensions for above-fold calculation
+ * @param options - Critical CSS options
+ * @returns Critical CSS result
+ */
+export function extractCriticalCssForViewport(
+  config: ThemeConfig,
+  viewport: { width: number; height: number },
+  options: CriticalCssConfig = {}
+): CriticalCssResult {
+  // Adjust categories based on viewport
+  const categories = [...(options.categories || DEFAULT_CRITICAL_CATEGORIES)]
+
+  // Mobile viewports need navigation critical
+  if (viewport.width < 768) {
+    if (!categories.includes("navigation")) {
+      categories.push("navigation")
+    }
+  }
+
+  // Large viewports might show hero
+  if (viewport.width >= 1024 && viewport.height >= 600) {
+    if (!categories.includes("hero")) {
+      categories.push("hero")
+    }
+  }
+
+  return extractCriticalCss(config, { ...options, categories })
+}
+
+/**
+ * Creates a script for loading CSS asynchronously
+ *
+ * @param cssUrl - URL of the CSS file
+ * @param options - Loading options
+ * @returns JavaScript code for async CSS loading
+ */
+export function generateAsyncCssLoaderScript(
+  cssUrl: string,
+  options: {
+    nonce?: string
+    onLoad?: string
+    fallbackTimeout?: number
+  } = {}
+): string {
+  const { nonce, onLoad, fallbackTimeout = 5000 } = options
+
+  const lines: string[] = [
+    "// Async CSS Loader",
+    "(function() {",
+    "  'use strict';",
+    "  var link = document.createElement('link');",
+    "  link.rel = 'stylesheet';",
+    "  link.href = '" + cssUrl + "';",
+  ]
+
+  if (nonce) {
+    lines.push("  link.nonce = '" + nonce + "';")
+  }
+
+  if (onLoad) {
+    lines.push("  link.onload = function() { " + onLoad + " };")
+  }
+
+  lines.push(
+    "  link.onerror = function() {",
+    "    console.warn('Failed to load stylesheet: " + cssUrl + "');",
+    "  };",
+    "",
+    "  // Insert after inline styles",
+    "  var firstLink = document.querySelector('link[rel=\"stylesheet\"]');",
+    "  if (firstLink) {",
+    "    firstLink.parentNode.insertBefore(link, firstLink);",
+    "  } else {",
+    "    document.head.appendChild(link);",
+    "  }",
+    "",
+    "  // Fallback for browsers without onload",
+    "  setTimeout(function() {",
+    "    if (!link.sheet) {",
+    "      link.href = link.href;",
+    "    }",
+    "  }, " + fallbackTimeout + ");",
+    "})();"
+  )
+
+  return lines.join("\n")
+}
+
+/**
+ * Generates Next.js critical CSS configuration
+ *
+ * @param config - Theme configuration
+ * @param options - Critical CSS options
+ * @returns Next.js compatible configuration
+ */
+export function generateNextCriticalCssConfig(
+  config: ThemeConfig,
+  options: CriticalCssConfig = {}
+): {
+  inlineStyles: string
+  preloadLinks: Array<{ href: string; as: string }>
+  scriptContent: string
+} {
+  const result = extractCriticalCss(config, options)
+
+  return {
+    inlineStyles: result.critical,
+    preloadLinks: [
+      { href: config.name + ".css", as: "style" },
+    ],
+    scriptContent: generateAsyncCssLoaderScript(config.name + ".css", {
+      nonce: options.nonce,
+    }),
+  }
+}
+
+/**
+ * Splits CSS into critical and non-critical parts based on selectors
+ *
+ * @param fullCss - Complete CSS content
+ * @param criticalSelectors - Selectors to include in critical CSS
+ * @returns Object with critical and remaining CSS
+ */
+export function splitCssBySelectors(
+  fullCss: string,
+  criticalSelectors: string[]
+): {
+  critical: string
+  remaining: string
+} {
+  const criticalRules: string[] = []
+  const remainingRules: string[] = []
+
+  // Parse CSS rules (simplified - handles basic cases)
+  const ruleRegex = /([^{]+)\{([^}]*)\}/g
+  let match
+
+  while ((match = ruleRegex.exec(fullCss)) !== null) {
+    const selector = match[1].trim()
+    const rule = match[0]
+
+    const isCritical = criticalSelectors.some((critSelector) => {
+      if (critSelector.startsWith("*")) {
+        return selector.includes(critSelector.slice(1))
+      }
+      return selector === critSelector || selector.startsWith(critSelector + " ")
+    })
+
+    if (isCritical) {
+      criticalRules.push(rule)
+    } else {
+      remainingRules.push(rule)
+    }
+  }
+
+  return {
+    critical: criticalRules.join("\n"),
+    remaining: remainingRules.join("\n"),
+  }
+}
+
+/**
+ * Formats critical CSS result into a human-readable report
+ *
+ * @param result - Critical CSS result
+ * @returns Formatted report string
+ */
+export function formatCriticalCssReport(result: CriticalCssResult): string {
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Critical CSS Extraction Report")
+  lines.push(divider)
+  lines.push("")
+
+  // Status
+  const status = result.exceededSizeLimit ? "SIZE LIMIT EXCEEDED" : "OK"
+  const statusIcon = result.exceededSizeLimit ? "[WARN]" : "[OK]"
+  lines.push("Status: " + statusIcon + " " + status)
+  lines.push("")
+
+  // Metrics
+  lines.push("─".repeat(50))
+  lines.push("Size Metrics")
+  lines.push("─".repeat(50))
+  lines.push("  Critical CSS:  " + result.metrics.criticalSize + " bytes")
+  lines.push("  Deferred CSS:  " + result.metrics.deferredSize + " bytes")
+  lines.push("  Total CSS:     " + result.metrics.totalSize + " bytes")
+  lines.push("  Critical %:    " + result.metrics.criticalPercentage + "%")
+  lines.push("")
+
+  // Categories
+  lines.push("─".repeat(50))
+  lines.push("Included Categories")
+  lines.push("─".repeat(50))
+  for (const category of result.includedCategories) {
+    lines.push("  - " + category)
+  }
+  lines.push("")
+
+  // HTML snippets
+  lines.push("─".repeat(50))
+  lines.push("Inline HTML (for <head>)")
+  lines.push("─".repeat(50))
+  lines.push(result.inlineHtml.slice(0, 200) + (result.inlineHtml.length > 200 ? "..." : ""))
+  lines.push("")
+
+  lines.push("─".repeat(50))
+  lines.push("Async Load HTML")
+  lines.push("─".repeat(50))
+  lines.push(result.asyncLoadHtml)
+  lines.push("")
+
+  lines.push(divider)
+
+  return lines.join("\n")
+}

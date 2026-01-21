@@ -443,6 +443,13 @@ export {
   generateNextPrefetchConfig,
   generatePrefetchScript,
   formatPrefetchHintReport,
+  // Critical CSS Extraction (Feature #126)
+  extractCriticalCss,
+  extractCriticalCssForViewport,
+  generateAsyncCssLoaderScript,
+  generateNextCriticalCssConfig,
+  splitCssBySelectors,
+  formatCriticalCssReport,
 } from "./theme-worker"
 
 export type {
@@ -689,6 +696,10 @@ export type {
   PrefetchHint,
   PrefetchHintConfig,
   PrefetchHintResult,
+  // Critical CSS Extraction (Feature #126)
+  CriticalCssCategory,
+  CriticalCssConfig,
+  CriticalCssResult,
 } from "./theme-worker"
 
 // Token presets
