@@ -46,6 +46,7 @@ export default defineConfig({
         "cli/init": path.resolve(__dirname, "src/cli/init.ts"),
         "cli/validate": path.resolve(__dirname, "src/cli/validate.ts"),
         "cli/generate": path.resolve(__dirname, "src/cli/generate.ts"),
+        "cli/create-brand-kit": path.resolve(__dirname, "src/cli/create-brand-kit.ts"),
       },
       name: "PlatxaFrontendAgent",
       formats: ["es", "cjs"],
@@ -69,6 +70,7 @@ export default defineConfig({
         "node:fs",
         "node:path",
         "node:readline",
+        "node:child_process",
       ],
       output: {
         globals: {
