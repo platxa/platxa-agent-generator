@@ -182,6 +182,36 @@ export function getAllPresetNames(): string[] {
  *
  * @param config - User configuration (may be undefined for zero-config)
  * @returns Resolved configuration with theme config
+ *
+ * @example Zero-config (uses default preset)
+ * ```typescript
+ * const config = resolveConfig()
+ * // config.mode === "builtin"
+ * // config.preset === "default"
+ * ```
+ *
+ * @example Using a brand kit with token overrides (Feature #59)
+ * ```typescript
+ * const config = resolveConfig({
+ *   brand: {
+ *     package: "@acme/brand-kit",
+ *     overrides: {
+ *       colors: {
+ *         primary: "hsl(220 100% 50%)",
+ *         accent: "hsl(45 100% 50%)"
+ *       },
+ *       radius: {
+ *         sm: "0.25rem",
+ *         md: "0.5rem",
+ *         lg: "1rem"
+ *       }
+ *     }
+ *   }
+ * })
+ * // config.mode === "brand"
+ * // config.brandOverrides contains the overrides
+ * // When loaded, brand tokens are merged with overrides
+ * ```
  */
 export function resolveConfig(config?: FrontendConfig): ResolvedConfig {
   // Zero-config default: use DEFAULT_CONFIG when no config provided
