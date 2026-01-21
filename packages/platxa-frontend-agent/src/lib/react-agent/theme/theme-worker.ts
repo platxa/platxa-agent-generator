@@ -5933,3 +5933,347 @@ export function validateExtendedBrand(brand: ThemeConfig): {
     warnings,
   }
 }
+
+// =============================================================================
+// Feature #92: Brand Kit Inheritance
+// =============================================================================
+
+/**
+ * Brand kit registry for resolving string-based extends references
+ */
+export type BrandKitRegistry = Map<string, ThemeConfig>
+
+/**
+ * Options for resolving brand kit inheritance
+ */
+export interface ResolveInheritanceOptions {
+  /**
+   * Registry for resolving string-based extends references
+   * If not provided, string references will throw an error
+   */
+  registry?: BrandKitRegistry
+
+  /**
+   * Maximum inheritance depth to prevent infinite loops
+   * @default 10
+   */
+  maxDepth?: number
+
+  /**
+   * Whether to validate the resolved brand kit
+   * @default true
+   */
+  validate?: boolean
+}
+
+/**
+ * Result of inheritance resolution
+ */
+export interface InheritanceResolutionResult {
+  /** The fully resolved brand kit with all inherited tokens */
+  resolved: ThemeConfig
+  /** Chain of brand kits in inheritance order (root first) */
+  chain: string[]
+  /** Any warnings during resolution */
+  warnings: string[]
+}
+
+/**
+ * Creates a brand kit registry from an array of brand kits
+ *
+ * @param brandKits - Array of brand kits to register
+ * @returns Registry map
+ *
+ * @example
+ * ```typescript
+ * const registry = createBrandKitRegistry([
+ *   defaultTheme,
+ *   blueTheme,
+ *   greenTheme,
+ * ])
+ * ```
+ */
+export function createBrandKitRegistry(
+  brandKits: ThemeConfig[]
+): BrandKitRegistry {
+  const registry = new Map<string, ThemeConfig>()
+  for (const kit of brandKits) {
+    if (kit.name) {
+      registry.set(kit.name, kit)
+    }
+  }
+  return registry
+}
+
+/**
+ * Resolves a parent reference to a ThemeConfig
+ *
+ * @param parent - Parent reference (ThemeConfig or string name)
+ * @param registry - Optional registry for string lookups
+ * @returns Resolved ThemeConfig or null if not found
+ */
+function resolveParentReference(
+  parent: ThemeConfig | string,
+  registry?: BrandKitRegistry
+): ThemeConfig | null {
+  if (typeof parent === "string") {
+    if (!registry) {
+      return null
+    }
+    return registry.get(parent) ?? null
+  }
+  return parent
+}
+
+/**
+ * Resolves brand kit inheritance chain
+ *
+ * Walks up the inheritance chain and collects all parent brand kits.
+ * Detects circular references and enforces maximum depth.
+ *
+ * @param brandKit - Brand kit to resolve
+ * @param options - Resolution options
+ * @returns Inheritance chain (root first, child last)
+ */
+function resolveInheritanceChain(
+  brandKit: ThemeConfig,
+  options: ResolveInheritanceOptions = {}
+): { chain: ThemeConfig[]; warnings: string[] } {
+  const { registry, maxDepth = 10 } = options
+  const chain: ThemeConfig[] = []
+  const visited = new Set<string>()
+  const warnings: string[] = []
+
+  let current: ThemeConfig | null = brandKit
+  let depth = 0
+
+  // Walk up the inheritance chain
+  while (current) {
+    // Check for circular reference
+    if (visited.has(current.name)) {
+      warnings.push(
+        `Circular inheritance detected: ${current.name} appears twice in chain`
+      )
+      break
+    }
+
+    // Check max depth
+    if (depth >= maxDepth) {
+      warnings.push(
+        `Maximum inheritance depth (${maxDepth}) exceeded at ${current.name}`
+      )
+      break
+    }
+
+    visited.add(current.name)
+    chain.unshift(current) // Add to front (building root-first order)
+    depth++
+
+    // Move to parent
+    if (current.extends) {
+      const parent = resolveParentReference(current.extends, registry)
+      if (!parent && typeof current.extends === "string") {
+        warnings.push(
+          `Could not resolve parent "${current.extends}" for ${current.name}. ` +
+            `Provide a registry or use ThemeConfig object directly.`
+        )
+      }
+      current = parent
+    } else {
+      current = null
+    }
+  }
+
+  return { chain, warnings }
+}
+
+/**
+ * Resolves brand kit inheritance, merging all parent tokens
+ *
+ * Walks up the inheritance chain and merges tokens from root to child,
+ * so child tokens override parent tokens at each level.
+ *
+ * @param brandKit - Brand kit with potential extends field
+ * @param options - Resolution options
+ * @returns Fully resolved brand kit with all inherited tokens
+ *
+ * @example
+ * ```typescript
+ * // Direct object reference
+ * const child: ThemeConfig = {
+ *   name: "child",
+ *   extends: parentTheme,
+ *   light: {
+ *     colors: { primary: "purple" },
+ *   },
+ * }
+ * const resolved = resolveBrandInheritance(child)
+ * // resolved.light includes all parent tokens + overridden primary
+ *
+ * // String reference with registry
+ * const child2: ThemeConfig = {
+ *   name: "child2",
+ *   extends: "parent-theme",
+ *   light: { colors: { primary: "green" } },
+ * }
+ * const registry = createBrandKitRegistry([parentTheme])
+ * const resolved2 = resolveBrandInheritance(child2, { registry })
+ * ```
+ */
+export function resolveBrandInheritance(
+  brandKit: ThemeConfig,
+  options: ResolveInheritanceOptions = {}
+): InheritanceResolutionResult {
+  const { validate = true } = options
+
+  // Get the inheritance chain
+  const { chain, warnings } = resolveInheritanceChain(brandKit, options)
+
+  // If no inheritance, return as-is
+  if (chain.length <= 1) {
+    return {
+      resolved: brandKit,
+      chain: [brandKit.name],
+      warnings,
+    }
+  }
+
+  // Merge from root to child
+  let resolved = chain[0]
+  for (let i = 1; i < chain.length; i++) {
+    const child = chain[i]
+    // Use extendBrand to merge, removing the extends field from result
+    resolved = extendBrand(resolved, {
+      ...child,
+      extends: undefined, // Don't carry extends to resolved config
+    } as DeepPartial<ThemeConfig>) as ThemeConfig
+
+    // Ensure the final name is the child's name
+    resolved = { ...resolved, name: child.name }
+  }
+
+  // Remove extends from final result
+  const { extends: _, ...resolvedWithoutExtends } = resolved
+  resolved = resolvedWithoutExtends as ThemeConfig
+
+  // Validate if requested
+  if (validate) {
+    const validation = validateExtendedBrand(resolved)
+    if (!validation.valid) {
+      warnings.push(
+        `Resolved brand kit missing required fields: ${validation.missing.join(", ")}`
+      )
+    }
+    warnings.push(...validation.warnings)
+  }
+
+  return {
+    resolved,
+    chain: chain.map((c) => c.name),
+    warnings,
+  }
+}
+
+/**
+ * Checks if a brand kit has inheritance
+ *
+ * @param brandKit - Brand kit to check
+ * @returns True if the brand kit extends another
+ */
+export function hasInheritance(brandKit: ThemeConfig): boolean {
+  return brandKit.extends !== undefined
+}
+
+/**
+ * Gets the immediate parent of a brand kit
+ *
+ * @param brandKit - Brand kit to check
+ * @param registry - Optional registry for string lookups
+ * @returns Parent ThemeConfig or null
+ */
+export function getParentBrand(
+  brandKit: ThemeConfig,
+  registry?: BrandKitRegistry
+): ThemeConfig | null {
+  if (!brandKit.extends) {
+    return null
+  }
+  return resolveParentReference(brandKit.extends, registry)
+}
+
+/**
+ * Creates a child brand kit that extends a parent
+ *
+ * Convenience function that sets up the extends relationship
+ * and allows specifying overrides.
+ *
+ * @param name - Name for the child brand
+ * @param parent - Parent brand kit or name
+ * @param overrides - Tokens to override from parent
+ * @returns New brand kit configuration
+ *
+ * @example
+ * ```typescript
+ * const myBrand = createChildBrand("my-brand", defaultTheme, {
+ *   light: {
+ *     colors: {
+ *       primary: "oklch(0.7 0.15 280)",
+ *       secondary: "oklch(0.6 0.1 200)",
+ *     },
+ *   },
+ * })
+ *
+ * // Resolve to get full tokens
+ * const resolved = resolveBrandInheritance(myBrand)
+ * ```
+ */
+export function createChildBrand(
+  name: string,
+  parent: ThemeConfig | string,
+  overrides: DeepPartial<Omit<ThemeConfig, "name" | "extends">>
+): ThemeConfig {
+  // Create a minimal child config that will inherit everything
+  const childConfig: ThemeConfig = {
+    name,
+    extends: parent,
+    // Provide minimal light config - will be merged with parent
+    light: (overrides.light ?? {}) as DesignTokens,
+  }
+
+  // Add optional fields if provided
+  if (overrides.dark) {
+    childConfig.dark = overrides.dark
+  }
+  if (overrides.defaultMode) {
+    childConfig.defaultMode = overrides.defaultMode
+  }
+  if (overrides.darkModeClass) {
+    childConfig.darkModeClass = overrides.darkModeClass
+  }
+  if (overrides.useColorScheme !== undefined) {
+    childConfig.useColorScheme = overrides.useColorScheme
+  }
+
+  return childConfig
+}
+
+/**
+ * Flattens a brand kit with inheritance into a standalone config
+ *
+ * Similar to resolveBrandInheritance but returns just the ThemeConfig
+ * without metadata.
+ *
+ * @param brandKit - Brand kit to flatten
+ * @param options - Resolution options
+ * @returns Flattened brand kit without extends field
+ */
+export function flattenBrandInheritance(
+  brandKit: ThemeConfig,
+  options: ResolveInheritanceOptions = {}
+): ThemeConfig {
+  const { resolved } = resolveBrandInheritance(brandKit, {
+    ...options,
+    validate: false,
+  })
+  return resolved
+}

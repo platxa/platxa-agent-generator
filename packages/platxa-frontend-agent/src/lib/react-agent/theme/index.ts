@@ -167,6 +167,13 @@ export {
   pickBrandCategories,
   omitBrandCategories,
   validateExtendedBrand,
+  // Brand Kit Inheritance (Feature #92)
+  createBrandKitRegistry,
+  resolveBrandInheritance,
+  hasInheritance,
+  getParentBrand,
+  createChildBrand,
+  flattenBrandInheritance,
 } from "./theme-worker"
 
 export type {
@@ -219,6 +226,10 @@ export type {
   // Extend Brand Helper (Feature #91)
   ExtendBrandOptions,
   DeepPartial,
+  // Brand Kit Inheritance (Feature #92)
+  BrandKitRegistry,
+  ResolveInheritanceOptions,
+  InheritanceResolutionResult,
 } from "./theme-worker"
 
 // Token presets

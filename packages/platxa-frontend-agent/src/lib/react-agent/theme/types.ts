@@ -314,6 +314,27 @@ export interface ThemeConfig {
   darkModeClass?: string
   /** Use CSS color-scheme */
   useColorScheme?: boolean
+  /**
+   * Parent brand kit to extend from
+   *
+   * When specified, this brand kit inherits all tokens from the parent.
+   * Tokens defined in this config override the parent's tokens.
+   * Can be a ThemeConfig object or a string name that will be resolved
+   * from a registry.
+   *
+   * @example
+   * ```typescript
+   * const childBrand: ThemeConfig = {
+   *   name: "child-brand",
+   *   extends: parentBrand, // or "parent-brand" for registry lookup
+   *   light: {
+   *     colors: { primary: "purple" }, // overrides parent's primary
+   *     // spacing, typography, etc. inherited from parent
+   *   },
+   * }
+   * ```
+   */
+  extends?: ThemeConfig | string
 }
 
 /**
