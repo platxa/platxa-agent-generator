@@ -365,6 +365,11 @@ export {
   generateStitchesConfig,
   generateVanillaExtractTheme,
   createCssInJsThemePackage,
+  // VSCode Extension (Feature #116)
+  validateConfigForVscode,
+  generateVscodeExtensionManifest,
+  generateVscodeExtension,
+  createVscodeExtensionPackage,
 } from "./theme-worker"
 
 export type {
@@ -545,6 +550,15 @@ export type {
   CssInJsDualTheme,
   CssInJsThemeConfig,
   CssInJsThemeResult,
+  // VSCode Extension (Feature #116)
+  VscodeTokenType,
+  VscodeColorDecoration,
+  VscodeTokenHover,
+  VscodeExtensionConfig,
+  VscodeExtensionManifest,
+  VscodeValidationDiagnostic,
+  VscodeConfigValidation,
+  VscodeExtensionResult,
 } from "./theme-worker"
 
 // Token presets

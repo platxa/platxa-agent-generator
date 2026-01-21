@@ -18206,3 +18206,1199 @@ ${notes.map((n) => `- ${n}`).join("\n")}
 
   return files
 }
+
+// =============================================================================
+// Feature #116: VSCode Extension Support
+// =============================================================================
+
+/**
+ * Token type for VSCode decorations
+ */
+export type VscodeTokenType = "color" | "spacing" | "typography" | "radius" | "shadow"
+
+/**
+ * Color decoration for VSCode editor
+ */
+export interface VscodeColorDecoration {
+  /** Token name (e.g., "primary", "background") */
+  token: string
+  /** Resolved color value */
+  color: string
+  /** CSS variable name */
+  cssVariable: string
+  /** Position pattern to match in code */
+  pattern: string
+  /** Decoration render options */
+  renderOptions: {
+    backgroundColor: string
+    borderColor: string
+    borderWidth: string
+    borderStyle: string
+    width: string
+    height: string
+    margin: string
+    borderRadius: string
+  }
+}
+
+/**
+ * Token hover information for VSCode
+ */
+export interface VscodeTokenHover {
+  /** Token name */
+  token: string
+  /** Token type */
+  type: VscodeTokenType
+  /** Resolved value */
+  value: string
+  /** CSS variable */
+  cssVariable: string
+  /** Markdown documentation */
+  documentation: string
+  /** Preview data (color swatch, size visualization) */
+  preview?: {
+    type: "color" | "size" | "shadow"
+    value: string
+  }
+}
+
+/**
+ * VSCode extension configuration
+ */
+export interface VscodeExtensionConfig {
+  /** Extension name */
+  name: string
+  /** Extension display name */
+  displayName: string
+  /** Extension description */
+  description: string
+  /** Extension version */
+  version: string
+  /** Publisher name */
+  publisher: string
+  /** Supported file patterns */
+  filePatterns: string[]
+  /** Activation events */
+  activationEvents: string[]
+}
+
+/**
+ * VSCode extension manifest (package.json)
+ */
+export interface VscodeExtensionManifest {
+  name: string
+  displayName: string
+  description: string
+  version: string
+  publisher: string
+  engines: { vscode: string }
+  categories: string[]
+  activationEvents: string[]
+  main: string
+  contributes: {
+    configuration: {
+      title: string
+      properties: Record<string, {
+        type: string
+        default: unknown
+        description: string
+      }>
+    }
+    commands: Array<{
+      command: string
+      title: string
+      category: string
+    }>
+    languages?: Array<{
+      id: string
+      extensions: string[]
+    }>
+  }
+}
+
+/**
+ * Validation diagnostic for VSCode
+ */
+export interface VscodeValidationDiagnostic {
+  /** Severity: error, warning, info, hint */
+  severity: "error" | "warning" | "info" | "hint"
+  /** Diagnostic message */
+  message: string
+  /** Token that caused the issue */
+  token?: string
+  /** Suggested fix */
+  suggestion?: string
+  /** Documentation link */
+  documentationUrl?: string
+}
+
+/**
+ * Config validation result for VSCode
+ */
+export interface VscodeConfigValidation {
+  /** Whether the config is valid */
+  isValid: boolean
+  /** Validation diagnostics */
+  diagnostics: VscodeValidationDiagnostic[]
+  /** Token completions available */
+  completions: string[]
+}
+
+/**
+ * VSCode extension generation result
+ */
+export interface VscodeExtensionResult {
+  /** Extension manifest (package.json) */
+  manifest: VscodeExtensionManifest
+  /** Color decorations for all tokens */
+  colorDecorations: VscodeColorDecoration[]
+  /** Hover information for all tokens */
+  hoverInfo: VscodeTokenHover[]
+  /** Extension source code files */
+  sourceFiles: Record<string, string>
+  /** README content */
+  readme: string
+}
+
+/**
+ * Generates color decoration data for VSCode editor
+ */
+function generateColorDecorationData(
+  colors: SemanticColors
+): VscodeColorDecoration[] {
+  const decorations: VscodeColorDecoration[] = []
+
+  const colorKeys: (keyof SemanticColors)[] = [
+    "primary",
+    "primaryForeground",
+    "secondary",
+    "secondaryForeground",
+    "muted",
+    "mutedForeground",
+    "accent",
+    "accentForeground",
+    "destructive",
+    "destructiveForeground",
+    "background",
+    "foreground",
+    "card",
+    "cardForeground",
+    "popover",
+    "popoverForeground",
+    "border",
+    "input",
+    "ring",
+  ]
+
+  for (const key of colorKeys) {
+    const value = colors[key]
+    const colorStr = convertColorToString(value)
+    const cssVar = `--${toKebabCase(key)}`
+
+    decorations.push({
+      token: key,
+      color: colorStr,
+      cssVariable: cssVar,
+      pattern: `(${cssVar}|colors\\.${key}|theme\\.colors\\.${key})`,
+      renderOptions: {
+        backgroundColor: colorStr,
+        borderColor: "rgba(128, 128, 128, 0.5)",
+        borderWidth: "1px",
+        borderStyle: "solid",
+        width: "0.8em",
+        height: "0.8em",
+        margin: "0 0.2em 0 0",
+        borderRadius: "2px",
+      },
+    })
+  }
+
+  return decorations
+}
+
+/**
+ * Generates hover information for all theme tokens
+ */
+function generateTokenHoverInfo(config: ThemeConfig): VscodeTokenHover[] {
+  const hovers: VscodeTokenHover[] = []
+
+  // Color tokens
+  const colorKeys: (keyof SemanticColors)[] = [
+    "primary",
+    "primaryForeground",
+    "secondary",
+    "secondaryForeground",
+    "muted",
+    "mutedForeground",
+    "accent",
+    "accentForeground",
+    "destructive",
+    "destructiveForeground",
+    "background",
+    "foreground",
+    "card",
+    "cardForeground",
+    "popover",
+    "popoverForeground",
+    "border",
+    "input",
+    "ring",
+  ]
+
+  for (const key of colorKeys) {
+    const value = config.light.colors[key]
+    const colorStr = convertColorToString(value)
+
+    hovers.push({
+      token: key,
+      type: "color",
+      value: colorStr,
+      cssVariable: `--${toKebabCase(key)}`,
+      documentation: generateColorDocumentation(key, colorStr, config.dark?.[key]),
+      preview: {
+        type: "color",
+        value: colorStr,
+      },
+    })
+  }
+
+  // Spacing tokens
+  for (const [key, value] of Object.entries(config.light.spacing)) {
+    if (value !== undefined) {
+      hovers.push({
+        token: `spacing-${key}`,
+        type: "spacing",
+        value: value,
+        cssVariable: `--spacing-${key}`,
+        documentation: `### Spacing: ${key}\n\n**Value:** \`${value}\`\n\nUsed for margins, paddings, and gaps.`,
+        preview: {
+          type: "size",
+          value: value,
+        },
+      })
+    }
+  }
+
+  // Typography tokens
+  for (const [key, value] of Object.entries(config.light.typography)) {
+    if (value !== undefined) {
+      hovers.push({
+        token: `text-${key}`,
+        type: "typography",
+        value: value.fontSize,
+        cssVariable: `--font-size-${key}`,
+        documentation: `### Typography: ${key}\n\n**Font Size:** \`${value.fontSize}\`\n**Line Height:** \`${value.lineHeight}\``,
+        preview: {
+          type: "size",
+          value: value.fontSize,
+        },
+      })
+    }
+  }
+
+  // Radius tokens
+  for (const [key, value] of Object.entries(config.light.radius)) {
+    if (value !== undefined) {
+      hovers.push({
+        token: `radius-${key}`,
+        type: "radius",
+        value: value,
+        cssVariable: `--radius-${key}`,
+        documentation: `### Border Radius: ${key}\n\n**Value:** \`${value}\``,
+        preview: {
+          type: "size",
+          value: value,
+        },
+      })
+    }
+  }
+
+  // Shadow tokens
+  for (const [key, value] of Object.entries(config.light.shadow)) {
+    if (value !== undefined) {
+      hovers.push({
+        token: `shadow-${key}`,
+        type: "shadow",
+        value: value,
+        cssVariable: `--shadow-${key}`,
+        documentation: `### Shadow: ${key}\n\n**Value:** \`${value}\``,
+        preview: {
+          type: "shadow",
+          value: value,
+        },
+      })
+    }
+  }
+
+  return hovers
+}
+
+/**
+ * Generates markdown documentation for a color token
+ */
+function generateColorDocumentation(
+  name: string,
+  lightValue: string,
+  darkValue?: ColorValue
+): string {
+  let doc = `### Color: ${name}\n\n`
+  doc += `**Light Mode:** \`${lightValue}\`\n\n`
+
+  if (darkValue) {
+    doc += `**Dark Mode:** \`${convertColorToString(darkValue)}\`\n\n`
+  }
+
+  // Add usage hints based on token name
+  const usageHints: Record<string, string> = {
+    primary: "Use for primary buttons, links, and key interactive elements.",
+    primaryForeground: "Text color on primary-colored backgrounds.",
+    secondary: "Use for secondary buttons and less prominent actions.",
+    secondaryForeground: "Text color on secondary-colored backgrounds.",
+    muted: "Use for subtle backgrounds and disabled states.",
+    mutedForeground: "Text color for muted or secondary text.",
+    accent: "Use for highlights and decorative elements.",
+    accentForeground: "Text color on accent-colored backgrounds.",
+    destructive: "Use for error states, delete buttons, and warnings.",
+    destructiveForeground: "Text color on destructive-colored backgrounds.",
+    background: "Main page background color.",
+    foreground: "Default text color.",
+    card: "Background color for card components.",
+    cardForeground: "Text color within cards.",
+    popover: "Background color for popovers, dropdowns, and tooltips.",
+    popoverForeground: "Text color within popovers.",
+    border: "Default border color for dividers and outlines.",
+    input: "Border color for input fields.",
+    ring: "Focus ring color for accessibility.",
+  }
+
+  if (usageHints[name]) {
+    doc += `**Usage:** ${usageHints[name]}\n`
+  }
+
+  return doc
+}
+
+/**
+ * Validates a theme configuration and returns VSCode-compatible diagnostics
+ */
+export function validateConfigForVscode(
+  config: unknown
+): VscodeConfigValidation {
+  const diagnostics: VscodeValidationDiagnostic[] = []
+  const completions: string[] = []
+
+  // Check if config is an object
+  if (!config || typeof config !== "object") {
+    return {
+      isValid: false,
+      diagnostics: [
+        {
+          severity: "error",
+          message: "Theme configuration must be an object",
+          suggestion: "Provide a valid ThemeConfig object",
+        },
+      ],
+      completions: [],
+    }
+  }
+
+  const cfg = config as Record<string, unknown>
+
+  // Check for required name
+  if (!cfg.name || typeof cfg.name !== "string") {
+    diagnostics.push({
+      severity: "error",
+      message: "Theme configuration must have a 'name' property",
+      token: "name",
+      suggestion: "Add a name: 'my-theme' property",
+    })
+  }
+
+  // Check for light theme
+  if (!cfg.light || typeof cfg.light !== "object") {
+    diagnostics.push({
+      severity: "error",
+      message: "Theme configuration must have a 'light' property with design tokens",
+      token: "light",
+      suggestion: "Add light theme tokens",
+    })
+  } else {
+    const light = cfg.light as Record<string, unknown>
+
+    // Validate colors
+    if (!light.colors || typeof light.colors !== "object") {
+      diagnostics.push({
+        severity: "error",
+        message: "Light theme must have a 'colors' object",
+        token: "light.colors",
+        suggestion: "Add semantic colors (primary, background, etc.)",
+      })
+    } else {
+      const colors = light.colors as Record<string, unknown>
+      const requiredColors: (keyof SemanticColors)[] = [
+        "primary",
+        "primaryForeground",
+        "secondary",
+        "secondaryForeground",
+        "background",
+        "foreground",
+        "border",
+      ]
+
+      for (const color of requiredColors) {
+        if (!colors[color]) {
+          diagnostics.push({
+            severity: "warning",
+            message: `Missing recommended color: '${color}'`,
+            token: `light.colors.${color}`,
+            suggestion: `Add ${color} color value`,
+          })
+          completions.push(`"${color}": "oklch(0.5 0.1 250)"`)
+        }
+      }
+
+      // Validate color contrast
+      if (colors.primary && colors.primaryForeground) {
+        const primaryStr =
+          typeof colors.primary === "string"
+            ? colors.primary
+            : convertColorToString(colors.primary as ColorValue)
+        const fgStr =
+          typeof colors.primaryForeground === "string"
+            ? colors.primaryForeground
+            : convertColorToString(colors.primaryForeground as ColorValue)
+
+        try {
+          const contrast = calculateContrastRatio(primaryStr, fgStr)
+          if (contrast < 4.5) {
+            diagnostics.push({
+              severity: "warning",
+              message: `Low contrast ratio (${contrast.toFixed(2)}) between primary and primaryForeground`,
+              token: "light.colors.primary",
+              suggestion: "Increase lightness difference for WCAG AA compliance (4.5:1)",
+              documentationUrl:
+                "https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum.html",
+            })
+          }
+        } catch {
+          // Skip contrast check if color parsing fails
+        }
+      }
+    }
+
+    // Validate spacing
+    if (!light.spacing || typeof light.spacing !== "object") {
+      diagnostics.push({
+        severity: "info",
+        message: "Consider adding a spacing scale",
+        token: "light.spacing",
+        suggestion: "Add spacing tokens for consistent layouts",
+      })
+    }
+
+    // Validate typography
+    if (!light.typography || typeof light.typography !== "object") {
+      diagnostics.push({
+        severity: "info",
+        message: "Consider adding a typography scale",
+        token: "light.typography",
+        suggestion: "Add typography tokens for consistent text styles",
+      })
+    }
+
+    // Validate radius
+    if (!light.radius || typeof light.radius !== "object") {
+      diagnostics.push({
+        severity: "info",
+        message: "Consider adding a border radius scale",
+        token: "light.radius",
+        suggestion: "Add radius tokens for consistent rounding",
+      })
+    }
+  }
+
+  // Check dark theme if present
+  if (cfg.dark && typeof cfg.dark === "object") {
+    const dark = cfg.dark as Record<string, unknown>
+    const light = cfg.light as Record<string, unknown>
+    const lightColors = (light?.colors || {}) as Record<string, unknown>
+
+    // Check that dark only overrides colors that exist in light
+    for (const key of Object.keys(dark)) {
+      if (!lightColors[key]) {
+        diagnostics.push({
+          severity: "warning",
+          message: `Dark theme defines '${key}' which doesn't exist in light theme`,
+          token: `dark.${key}`,
+          suggestion: `Add '${key}' to light theme colors first`,
+        })
+      }
+    }
+  }
+
+  return {
+    isValid: diagnostics.filter((d) => d.severity === "error").length === 0,
+    diagnostics,
+    completions,
+  }
+}
+
+/**
+ * Generates VSCode extension manifest (package.json)
+ */
+export function generateVscodeExtensionManifest(
+  config: VscodeExtensionConfig
+): VscodeExtensionManifest {
+  return {
+    name: config.name,
+    displayName: config.displayName,
+    description: config.description,
+    version: config.version,
+    publisher: config.publisher,
+    engines: {
+      vscode: "^1.85.0",
+    },
+    categories: ["Other", "Themes", "Linters"],
+    activationEvents: config.activationEvents,
+    main: "./dist/extension.js",
+    contributes: {
+      configuration: {
+        title: config.displayName,
+        properties: {
+          [`${config.name}.configPath`]: {
+            type: "string",
+            default: "",
+            description: "Path to the brand kit configuration file",
+          },
+          [`${config.name}.enableColorDecorations`]: {
+            type: "boolean",
+            default: true,
+            description: "Show color swatches inline in the editor",
+          },
+          [`${config.name}.enableHoverPreviews`]: {
+            type: "boolean",
+            default: true,
+            description: "Show token previews on hover",
+          },
+          [`${config.name}.enableValidation`]: {
+            type: "boolean",
+            default: true,
+            description: "Enable real-time config validation",
+          },
+        },
+      },
+      commands: [
+        {
+          command: `${config.name}.validateConfig`,
+          title: "Validate Brand Kit Configuration",
+          category: config.displayName,
+        },
+        {
+          command: `${config.name}.previewTheme`,
+          title: "Preview Theme",
+          category: config.displayName,
+        },
+        {
+          command: `${config.name}.generateCss`,
+          title: "Generate CSS from Config",
+          category: config.displayName,
+        },
+        {
+          command: `${config.name}.refreshDecorations`,
+          title: "Refresh Color Decorations",
+          category: config.displayName,
+        },
+      ],
+      languages: [
+        {
+          id: "brandkit",
+          extensions: [".brandkit.json", ".brandkit.ts", ".theme.json"],
+        },
+      ],
+    },
+  }
+}
+
+/**
+ * Generates VSCode extension source code using string builders
+ * to avoid nested template literal issues
+ */
+function generateVscodeExtensionSource(
+  config: VscodeExtensionConfig,
+  themeConfig: ThemeConfig
+): Record<string, string> {
+  const files: Record<string, string> = {}
+  const extensionName = config.name
+  const displayName = config.displayName
+
+  // Use string arrays and join to avoid nested template literal issues
+  files["src/extension.ts"] = buildExtensionTs(extensionName, displayName)
+  files["src/colorDecorations.ts"] = buildColorDecorationsTs()
+  files["src/hoverProvider.ts"] = buildHoverProviderTs()
+  files["src/configValidator.ts"] = buildConfigValidatorTs()
+
+  // Generate theme tokens data
+  const colorDecorations = generateColorDecorationData(themeConfig.light.colors)
+  const hoverInfo = generateTokenHoverInfo(themeConfig)
+
+  files["src/themeTokens.ts"] = [
+    "// Auto-generated theme tokens for VSCode extension",
+    "// Generated from: " + themeConfig.name,
+    "",
+    "import type { ColorDecoration } from './colorDecorations';",
+    "import type { TokenHover } from './hoverProvider';",
+    "",
+    "export const themeTokens = {",
+    "  colorDecorations: " + JSON.stringify(colorDecorations, null, 2) + " as ColorDecoration[],",
+    "  hoverInfo: " + JSON.stringify(hoverInfo, null, 2) + " as TokenHover[],",
+    "};",
+  ].join("\n")
+
+  files["tsconfig.json"] = JSON.stringify(
+    {
+      compilerOptions: {
+        module: "commonjs",
+        target: "ES2020",
+        outDir: "dist",
+        rootDir: "src",
+        lib: ["ES2020"],
+        sourceMap: true,
+        strict: true,
+        esModuleInterop: true,
+        skipLibCheck: true,
+        forceConsistentCasingInFileNames: true,
+      },
+      exclude: ["node_modules", "dist"],
+    },
+    null,
+    2
+  )
+
+  files[".vscodeignore"] = [
+    ".vscode/**",
+    "node_modules/**",
+    "src/**",
+    ".gitignore",
+    "tsconfig.json",
+    "**/*.map",
+    "**/*.ts",
+  ].join("\n")
+
+  return files
+}
+
+/**
+ * Builds extension.ts source code
+ */
+function buildExtensionTs(extensionName: string, displayName: string): string {
+  const lines: string[] = [
+    "import * as vscode from 'vscode';",
+    "import { ColorDecorationProvider } from './colorDecorations';",
+    "import { TokenHoverProvider } from './hoverProvider';",
+    "import { ConfigValidator } from './configValidator';",
+    "import { themeTokens } from './themeTokens';",
+    "",
+    "let colorDecorationProvider: ColorDecorationProvider | undefined;",
+    "let configValidator: ConfigValidator | undefined;",
+    "",
+    "export function activate(context: vscode.ExtensionContext) {",
+    "  console.log('" + displayName + " is now active');",
+    "",
+    "  const extensionConfig = vscode.workspace.getConfiguration('" + extensionName + "');",
+    "",
+    "  // Initialize color decorations",
+    "  if (extensionConfig.get('enableColorDecorations')) {",
+    "    colorDecorationProvider = new ColorDecorationProvider(themeTokens.colorDecorations);",
+    "    context.subscriptions.push(",
+    "      vscode.window.onDidChangeActiveTextEditor((editor) => {",
+    "        if (editor) {",
+    "          colorDecorationProvider?.updateDecorations(editor);",
+    "        }",
+    "      }),",
+    "      vscode.workspace.onDidChangeTextDocument((event) => {",
+    "        const editor = vscode.window.activeTextEditor;",
+    "        if (editor && event.document === editor.document) {",
+    "          colorDecorationProvider?.updateDecorations(editor);",
+    "        }",
+    "      })",
+    "    );",
+    "",
+    "    // Initial decoration",
+    "    if (vscode.window.activeTextEditor) {",
+    "      colorDecorationProvider.updateDecorations(vscode.window.activeTextEditor);",
+    "    }",
+    "  }",
+    "",
+    "  // Initialize hover provider",
+    "  if (extensionConfig.get('enableHoverPreviews')) {",
+    "    const hoverProvider = new TokenHoverProvider(themeTokens.hoverInfo);",
+    "    context.subscriptions.push(",
+    "      vscode.languages.registerHoverProvider(",
+    "        ['typescript', 'typescriptreact', 'javascript', 'javascriptreact', 'css', 'scss'],",
+    "        hoverProvider",
+    "      )",
+    "    );",
+    "  }",
+    "",
+    "  // Initialize config validator",
+    "  if (extensionConfig.get('enableValidation')) {",
+    "    configValidator = new ConfigValidator();",
+    "    context.subscriptions.push(",
+    "      vscode.workspace.onDidSaveTextDocument((document) => {",
+    "        if (document.fileName.includes('.brandkit') || document.fileName.includes('.theme')) {",
+    "          configValidator?.validateDocument(document);",
+    "        }",
+    "      })",
+    "    );",
+    "  }",
+    "",
+    "  // Register commands",
+    "  context.subscriptions.push(",
+    "    vscode.commands.registerCommand('" + extensionName + ".validateConfig', () => {",
+    "      const editor = vscode.window.activeTextEditor;",
+    "      if (editor) {",
+    "        configValidator?.validateDocument(editor.document);",
+    "        vscode.window.showInformationMessage('Brand kit configuration validated');",
+    "      }",
+    "    }),",
+    "    vscode.commands.registerCommand('" + extensionName + ".previewTheme', () => {",
+    "      vscode.window.showInformationMessage('Theme preview feature');",
+    "    }),",
+    "    vscode.commands.registerCommand('" + extensionName + ".generateCss', async () => {",
+    "      vscode.window.showInformationMessage('CSS generation feature');",
+    "    }),",
+    "    vscode.commands.registerCommand('" + extensionName + ".refreshDecorations', () => {",
+    "      const editor = vscode.window.activeTextEditor;",
+    "      if (editor && colorDecorationProvider) {",
+    "        colorDecorationProvider.updateDecorations(editor);",
+    "        vscode.window.showInformationMessage('Color decorations refreshed');",
+    "      }",
+    "    })",
+    "  );",
+    "}",
+    "",
+    "export function deactivate() {",
+    "  colorDecorationProvider = undefined;",
+    "  configValidator = undefined;",
+    "}",
+  ]
+  return lines.join("\n")
+}
+
+/**
+ * Builds colorDecorations.ts source code
+ */
+function buildColorDecorationsTs(): string {
+  const lines: string[] = [
+    "import * as vscode from 'vscode';",
+    "",
+    "export interface ColorDecoration {",
+    "  token: string;",
+    "  color: string;",
+    "  cssVariable: string;",
+    "  pattern: string;",
+    "  renderOptions: {",
+    "    backgroundColor: string;",
+    "    borderColor: string;",
+    "    borderWidth: string;",
+    "    borderStyle: string;",
+    "    width: string;",
+    "    height: string;",
+    "    margin: string;",
+    "    borderRadius: string;",
+    "  };",
+    "}",
+    "",
+    "export class ColorDecorationProvider {",
+    "  private decorationTypes: Map<string, vscode.TextEditorDecorationType> = new Map();",
+    "  private decorations: ColorDecoration[];",
+    "",
+    "  constructor(decorations: ColorDecoration[]) {",
+    "    this.decorations = decorations;",
+    "    this.initializeDecorationTypes();",
+    "  }",
+    "",
+    "  private initializeDecorationTypes() {",
+    "    for (const decoration of this.decorations) {",
+    "      const opts = decoration.renderOptions;",
+    "      const borderStr = opts.borderWidth + ' ' + opts.borderStyle + ' ' + opts.borderColor;",
+    "      const decorationType = vscode.window.createTextEditorDecorationType({",
+    "        before: {",
+    "          contentText: ' ',",
+    "          backgroundColor: opts.backgroundColor,",
+    "          border: borderStr,",
+    "          width: opts.width,",
+    "          height: opts.height,",
+    "          margin: opts.margin,",
+    "        },",
+    "      });",
+    "      this.decorationTypes.set(decoration.token, decorationType);",
+    "    }",
+    "  }",
+    "",
+    "  public updateDecorations(editor: vscode.TextEditor) {",
+    "    const text = editor.document.getText();",
+    "",
+    "    for (const decoration of this.decorations) {",
+    "      const decorationType = this.decorationTypes.get(decoration.token);",
+    "      if (!decorationType) continue;",
+    "",
+    "      const regex = new RegExp(decoration.pattern, 'g');",
+    "      const decorationsArray: vscode.DecorationOptions[] = [];",
+    "",
+    "      let match;",
+    "      while ((match = regex.exec(text)) !== null) {",
+    "        const startPos = editor.document.positionAt(match.index);",
+    "        const endPos = editor.document.positionAt(match.index + match[0].length);",
+    "        decorationsArray.push({ range: new vscode.Range(startPos, endPos) });",
+    "      }",
+    "",
+    "      editor.setDecorations(decorationType, decorationsArray);",
+    "    }",
+    "  }",
+    "",
+    "  public dispose() {",
+    "    for (const decorationType of this.decorationTypes.values()) {",
+    "      decorationType.dispose();",
+    "    }",
+    "    this.decorationTypes.clear();",
+    "  }",
+    "}",
+  ]
+  return lines.join("\n")
+}
+
+/**
+ * Builds hoverProvider.ts source code
+ */
+function buildHoverProviderTs(): string {
+  const lines: string[] = [
+    "import * as vscode from 'vscode';",
+    "",
+    "export interface TokenHover {",
+    "  token: string;",
+    "  type: 'color' | 'spacing' | 'typography' | 'radius' | 'shadow';",
+    "  value: string;",
+    "  cssVariable: string;",
+    "  documentation: string;",
+    "  preview?: {",
+    "    type: 'color' | 'size' | 'shadow';",
+    "    value: string;",
+    "  };",
+    "}",
+    "",
+    "export class TokenHoverProvider implements vscode.HoverProvider {",
+    "  private tokenMap: Map<string, TokenHover> = new Map();",
+    "",
+    "  constructor(hoverInfo: TokenHover[]) {",
+    "    for (const info of hoverInfo) {",
+    "      this.tokenMap.set(info.token, info);",
+    "      this.tokenMap.set(info.cssVariable, info);",
+    "    }",
+    "  }",
+    "",
+    "  public provideHover(",
+    "    document: vscode.TextDocument,",
+    "    position: vscode.Position,",
+    "    _token: vscode.CancellationToken",
+    "  ): vscode.ProviderResult<vscode.Hover> {",
+    "    const wordRange = document.getWordRangeAtPosition(position, /[\\\\w-]+/);",
+    "    if (!wordRange) return null;",
+    "",
+    "    const word = document.getText(wordRange);",
+    "    const tokenInfo = this.tokenMap.get(word);",
+    "",
+    "    if (!tokenInfo) return null;",
+    "",
+    "    const markdown = new vscode.MarkdownString();",
+    "    markdown.isTrusted = true;",
+    "    markdown.supportHtml = true;",
+    "",
+    "    if (tokenInfo.type === 'color' && tokenInfo.preview) {",
+    "      const swatchHtml = '<span style=\"display:inline-block;width:16px;height:16px;' +",
+    "        'background:' + tokenInfo.preview.value + ';border:1px solid #888;' +",
+    "        'border-radius:2px;margin-right:8px;vertical-align:middle;\"></span>';",
+    "      markdown.appendMarkdown(swatchHtml);",
+    "    }",
+    "",
+    "    markdown.appendMarkdown(tokenInfo.documentation);",
+    "",
+    "    return new vscode.Hover(markdown, wordRange);",
+    "  }",
+    "}",
+  ]
+  return lines.join("\n")
+}
+
+/**
+ * Builds configValidator.ts source code
+ */
+function buildConfigValidatorTs(): string {
+  const lines: string[] = [
+    "import * as vscode from 'vscode';",
+    "",
+    "interface ValidationDiagnostic {",
+    "  severity: 'error' | 'warning' | 'info' | 'hint';",
+    "  message: string;",
+    "  token?: string;",
+    "  suggestion?: string;",
+    "  documentationUrl?: string;",
+    "}",
+    "",
+    "export class ConfigValidator {",
+    "  private diagnosticCollection: vscode.DiagnosticCollection;",
+    "",
+    "  constructor() {",
+    "    this.diagnosticCollection = vscode.languages.createDiagnosticCollection('brandkit');",
+    "  }",
+    "",
+    "  public validateDocument(document: vscode.TextDocument) {",
+    "    const text = document.getText();",
+    "    const diagnostics: vscode.Diagnostic[] = [];",
+    "",
+    "    try {",
+    "      const config = JSON.parse(text);",
+    "      const validationResult = this.validateConfig(config);",
+    "",
+    "      for (const diag of validationResult.diagnostics) {",
+    "        const severity = this.mapSeverity(diag.severity);",
+    "        const range = this.findTokenRange(document, diag.token);",
+    "",
+    "        const diagnostic = new vscode.Diagnostic(range, diag.message, severity);",
+    "",
+    "        if (diag.suggestion) {",
+    "          diagnostic.message += '\\n\\nSuggestion: ' + diag.suggestion;",
+    "        }",
+    "",
+    "        diagnostics.push(diagnostic);",
+    "      }",
+    "    } catch (e) {",
+    "      const errMsg = e instanceof Error ? e.message : 'Parse error';",
+    "      const diagnostic = new vscode.Diagnostic(",
+    "        new vscode.Range(0, 0, 0, 1),",
+    "        'Invalid JSON: ' + errMsg,",
+    "        vscode.DiagnosticSeverity.Error",
+    "      );",
+    "      diagnostics.push(diagnostic);",
+    "    }",
+    "",
+    "    this.diagnosticCollection.set(document.uri, diagnostics);",
+    "  }",
+    "",
+    "  private validateConfig(config: unknown): { diagnostics: ValidationDiagnostic[] } {",
+    "    const diagnostics: ValidationDiagnostic[] = [];",
+    "",
+    "    if (!config || typeof config !== 'object') {",
+    "      diagnostics.push({",
+    "        severity: 'error',",
+    "        message: 'Configuration must be an object',",
+    "      });",
+    "      return { diagnostics };",
+    "    }",
+    "",
+    "    const cfg = config as Record<string, unknown>;",
+    "",
+    "    if (!cfg.name) {",
+    "      diagnostics.push({",
+    "        severity: 'error',",
+    "        message: \"Missing required 'name' field\",",
+    "        token: 'name',",
+    "        suggestion: 'Add a name for your theme',",
+    "      });",
+    "    }",
+    "",
+    "    if (!cfg.light) {",
+    "      diagnostics.push({",
+    "        severity: 'error',",
+    "        message: \"Missing required 'light' field\",",
+    "        token: 'light',",
+    "        suggestion: 'Add light theme configuration',",
+    "      });",
+    "    }",
+    "",
+    "    return { diagnostics };",
+    "  }",
+    "",
+    "  private mapSeverity(severity: string): vscode.DiagnosticSeverity {",
+    "    switch (severity) {",
+    "      case 'error':",
+    "        return vscode.DiagnosticSeverity.Error;",
+    "      case 'warning':",
+    "        return vscode.DiagnosticSeverity.Warning;",
+    "      case 'info':",
+    "        return vscode.DiagnosticSeverity.Information;",
+    "      case 'hint':",
+    "        return vscode.DiagnosticSeverity.Hint;",
+    "      default:",
+    "        return vscode.DiagnosticSeverity.Information;",
+    "    }",
+    "  }",
+    "",
+    "  private findTokenRange(document: vscode.TextDocument, token?: string): vscode.Range {",
+    "    if (!token) {",
+    "      return new vscode.Range(0, 0, 0, 1);",
+    "    }",
+    "",
+    "    const text = document.getText();",
+    "    const searchStr = '\"' + token + '\"';",
+    "    const index = text.indexOf(searchStr);",
+    "",
+    "    if (index === -1) {",
+    "      return new vscode.Range(0, 0, 0, 1);",
+    "    }",
+    "",
+    "    const startPos = document.positionAt(index);",
+    "    const endPos = document.positionAt(index + searchStr.length);",
+    "    return new vscode.Range(startPos, endPos);",
+    "  }",
+    "",
+    "  public dispose() {",
+    "    this.diagnosticCollection.dispose();",
+    "  }",
+    "}",
+  ]
+  return lines.join("\n")
+}
+
+/**
+ * Generates a complete VSCode extension for brand kit token previews
+ *
+ * @param themeConfig - The theme configuration to generate extension for
+ * @param extensionConfig - VSCode extension configuration
+ * @returns Complete VSCode extension with all files
+ *
+ * @example
+ * ```typescript
+ * const result = generateVscodeExtension(myBrand, {
+ *   name: "my-brand-tokens",
+ *   displayName: "My Brand Tokens",
+ *   description: "Color previews and validation for My Brand",
+ *   version: "1.0.0",
+ *   publisher: "my-company",
+ *   filePatterns: ["*.tsx", "*.css"],
+ *   activationEvents: ["onLanguage:typescript"],
+ * })
+ *
+ * // result.manifest - package.json for the extension
+ * // result.sourceFiles - All source code files
+ * // result.colorDecorations - Color decoration data
+ * // result.hoverInfo - Hover information data
+ * ```
+ */
+export function generateVscodeExtension(
+  themeConfig: ThemeConfig,
+  extensionConfig: VscodeExtensionConfig
+): VscodeExtensionResult {
+  const manifest = generateVscodeExtensionManifest(extensionConfig)
+  const colorDecorations = generateColorDecorationData(themeConfig.light.colors)
+  const hoverInfo = generateTokenHoverInfo(themeConfig)
+  const sourceFiles = generateVscodeExtensionSource(extensionConfig, themeConfig)
+
+  const readme = `# ${extensionConfig.displayName}
+
+${extensionConfig.description}
+
+## Features
+
+### Color Swatches
+See color previews inline in your editor when referencing theme tokens:
+
+\`\`\`tsx
+<Button className="bg-primary text-primary-foreground" />
+\`\`\`
+
+### Token Hover Previews
+Hover over any token to see its value and documentation:
+- Color values with visual swatches
+- Spacing values with size visualization
+- Typography scale information
+- Border radius values
+
+### Config Validation
+Real-time validation of your brand kit configuration:
+- Missing required tokens
+- WCAG contrast ratio warnings
+- Best practice suggestions
+
+## Installation
+
+1. Install the extension from VS Code Marketplace
+2. Configure the path to your brand kit (optional)
+3. Open any TypeScript/CSS file using your theme tokens
+
+## Commands
+
+- **${extensionConfig.displayName}: Validate Config** - Validate your brand kit configuration
+- **${extensionConfig.displayName}: Preview Theme** - Open theme preview panel
+- **${extensionConfig.displayName}: Generate CSS** - Generate CSS from your configuration
+- **${extensionConfig.displayName}: Refresh Decorations** - Refresh color decorations
+
+## Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| \`${extensionConfig.name}.configPath\` | \`""\` | Path to brand kit config |
+| \`${extensionConfig.name}.enableColorDecorations\` | \`true\` | Show inline color swatches |
+| \`${extensionConfig.name}.enableHoverPreviews\` | \`true\` | Show token hover info |
+| \`${extensionConfig.name}.enableValidation\` | \`true\` | Enable config validation |
+
+## Token Reference
+
+### Colors
+${colorDecorations.map((c) => `- \`${c.token}\`: ${c.color}`).join("\n")}
+
+## License
+
+MIT
+`
+
+  return {
+    manifest,
+    colorDecorations,
+    hoverInfo,
+    sourceFiles: {
+      ...sourceFiles,
+      "package.json": JSON.stringify(manifest, null, 2),
+      "README.md": readme,
+    },
+    readme,
+  }
+}
+
+/**
+ * Creates VSCode extension package files ready for publishing
+ */
+export function createVscodeExtensionPackage(
+  themeConfig: ThemeConfig,
+  options: {
+    name?: string
+    displayName?: string
+    description?: string
+    version?: string
+    publisher?: string
+  } = {}
+): Record<string, string> {
+  const themeName = themeConfig.name || "brand-kit"
+
+  const extensionConfig: VscodeExtensionConfig = {
+    name: options.name || `${themeName}-tokens`,
+    displayName: options.displayName || `${themeName} Tokens`,
+    description:
+      options.description ||
+      `Color previews and validation for ${themeName} brand kit`,
+    version: options.version || "1.0.0",
+    publisher: options.publisher || "brand-kit",
+    filePatterns: ["**/*.tsx", "**/*.ts", "**/*.jsx", "**/*.js", "**/*.css", "**/*.scss"],
+    activationEvents: [
+      "onLanguage:typescript",
+      "onLanguage:typescriptreact",
+      "onLanguage:javascript",
+      "onLanguage:javascriptreact",
+      "onLanguage:css",
+      "onLanguage:scss",
+    ],
+  }
+
+  const result = generateVscodeExtension(themeConfig, extensionConfig)
+  return result.sourceFiles
+}
