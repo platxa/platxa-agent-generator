@@ -116,6 +116,12 @@ export {
   // Tailwind Preset (Feature #63)
   getTailwindPreset,
   hasTailwindPreset,
+  // CSS File Paths (Feature #64)
+  getCssPaths,
+  getCssTokensPath,
+  getCssThemesPath,
+  hasCssPaths,
+  getAllCssPaths,
   // React Hook (Feature #33)
   useBrand,
   subscribeToBrandChanges,
@@ -159,6 +165,8 @@ export type {
   // Tailwind v4 Preset (Feature #63)
   TailwindV4Preset,
   TailwindV4ThemeExtend,
+  // CSS File Paths (Feature #64)
+  BrandKitCssPaths,
   // Configuration types
   FrontendConfig,
   ThemeOptions,

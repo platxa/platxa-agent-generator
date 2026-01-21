@@ -320,15 +320,102 @@ export interface BrandKitExport {
   tailwindPreset?: TailwindV4Preset
 
   /**
-   * Paths to pre-built CSS files (optional)
-   * Useful for CDN or static file serving
+   * Paths to pre-built CSS files (optional, Feature #64)
+   *
+   * Brand kits can optionally export paths to pre-built CSS files.
+   * This is useful for:
+   * - CDN hosting of brand styles
+   * - Static file serving without build step
+   * - Server-side rendering
+   *
+   * @example Brand kit exporting CSS paths
+   * ```typescript
+   * const brandKit: BrandKitExport = {
+   *   meta: { name: "acme", version: "1.0.0" },
+   *   primitives: { ... },
+   *   semantics: { ... },
+   *   css: {
+   *     tokens: "./dist/tokens.css",
+   *     themes: "./dist/themes.css",
+   *   },
+   * }
+   * ```
+   *
+   * @example Importing CSS from brand kit
+   * ```typescript
+   * import brandKit from "@acme/brand-kit"
+   *
+   * // Import CSS files if available
+   * if (brandKit.css?.tokens) {
+   *   import(brandKit.css.tokens)
+   * }
+   * if (brandKit.css?.themes) {
+   *   import(brandKit.css.themes)
+   * }
+   * ```
    */
-  css?: {
-    /** Path to CSS custom properties file */
-    tokens?: string
-    /** Path to theme CSS file */
-    themes?: string
-  }
+  css?: BrandKitCssPaths
+}
+
+/**
+ * CSS file paths for brand kit (Feature #64)
+ *
+ * Defines optional paths to pre-built CSS files that the brand kit provides.
+ * All paths are optional - brand kits can provide both, one, or neither.
+ */
+export interface BrandKitCssPaths {
+  /**
+   * Path to CSS custom properties (design tokens) file
+   *
+   * This file should contain CSS custom properties for all design tokens:
+   * colors, spacing, typography, etc.
+   *
+   * @example File content
+   * ```css
+   * :root {
+   *   --color-primary: hsl(220 100% 50%);
+   *   --color-secondary: hsl(180 60% 40%);
+   *   --spacing-sm: 0.5rem;
+   *   --spacing-md: 1rem;
+   * }
+   * ```
+   */
+  tokens?: string
+
+  /**
+   * Path to theme CSS file
+   *
+   * This file should contain theme-specific styles including
+   * light/dark mode variations and component defaults.
+   *
+   * @example File content
+   * ```css
+   * :root {
+   *   --background: var(--color-neutral-1);
+   *   --foreground: var(--color-neutral-12);
+   * }
+   *
+   * .dark {
+   *   --background: var(--color-neutral-12);
+   *   --foreground: var(--color-neutral-1);
+   * }
+   * ```
+   */
+  themes?: string
+
+  /**
+   * Path to components CSS file (optional)
+   *
+   * Additional CSS for component-specific styling.
+   */
+  components?: string
+
+  /**
+   * Path to utilities CSS file (optional)
+   *
+   * Additional utility classes provided by the brand kit.
+   */
+  utilities?: string
 }
 
 // =============================================================================

@@ -145,6 +145,117 @@ export function hasTailwindPreset(kit?: BrandKitExport | null): boolean {
   return brandKit?.tailwindPreset !== undefined
 }
 
+// =============================================================================
+// CSS FILE PATHS (Feature #64)
+// =============================================================================
+
+/**
+ * Get CSS file paths from a brand kit (Feature #64)
+ *
+ * Returns the CSS paths object if the brand kit provides one.
+ * All paths are optional within the css object.
+ *
+ * @param kit - Optional brand kit (uses current loaded kit if not provided)
+ * @returns CSS paths object or undefined
+ *
+ * @example Get all CSS paths
+ * ```typescript
+ * const paths = getCssPaths(brandKit)
+ * if (paths?.tokens) {
+ *   console.log("Tokens CSS:", paths.tokens)
+ * }
+ * ```
+ */
+export function getCssPaths(
+  kit?: BrandKitExport | null
+): BrandKitExport["css"] {
+  const brandKit = kit ?? currentBrandKit
+  return brandKit?.css
+}
+
+/**
+ * Get the tokens CSS file path from a brand kit (Feature #64)
+ *
+ * @param kit - Optional brand kit (uses current loaded kit if not provided)
+ * @returns Path to tokens CSS file or undefined
+ *
+ * @example
+ * ```typescript
+ * const tokensPath = getCssTokensPath(brandKit)
+ * if (tokensPath) {
+ *   // Import or load the CSS file
+ * }
+ * ```
+ */
+export function getCssTokensPath(
+  kit?: BrandKitExport | null
+): string | undefined {
+  const brandKit = kit ?? currentBrandKit
+  return brandKit?.css?.tokens
+}
+
+/**
+ * Get the themes CSS file path from a brand kit (Feature #64)
+ *
+ * @param kit - Optional brand kit (uses current loaded kit if not provided)
+ * @returns Path to themes CSS file or undefined
+ */
+export function getCssThemesPath(
+  kit?: BrandKitExport | null
+): string | undefined {
+  const brandKit = kit ?? currentBrandKit
+  return brandKit?.css?.themes
+}
+
+/**
+ * Check if a brand kit provides CSS file paths (Feature #64)
+ *
+ * @param kit - Optional brand kit (uses current loaded kit if not provided)
+ * @returns true if the brand kit has any css paths defined
+ */
+export function hasCssPaths(kit?: BrandKitExport | null): boolean {
+  const brandKit = kit ?? currentBrandKit
+  const css = brandKit?.css
+  return css !== undefined && (
+    css.tokens !== undefined ||
+    css.themes !== undefined ||
+    css.components !== undefined ||
+    css.utilities !== undefined
+  )
+}
+
+/**
+ * Get all available CSS file paths as an array (Feature #64)
+ *
+ * Useful for loading all CSS files provided by a brand kit.
+ *
+ * @param kit - Optional brand kit (uses current loaded kit if not provided)
+ * @returns Array of CSS file paths (may be empty)
+ *
+ * @example Load all brand CSS files
+ * ```typescript
+ * const paths = getAllCssPaths(brandKit)
+ * for (const path of paths) {
+ *   await import(path)
+ * }
+ * ```
+ */
+export function getAllCssPaths(
+  kit?: BrandKitExport | null
+): string[] {
+  const brandKit = kit ?? currentBrandKit
+  const css = brandKit?.css
+  if (!css) return []
+
+  const paths: string[] = []
+  // Order matters: tokens first, then themes, then components, then utilities
+  if (css.tokens) paths.push(css.tokens)
+  if (css.themes) paths.push(css.themes)
+  if (css.components) paths.push(css.components)
+  if (css.utilities) paths.push(css.utilities)
+  return paths
+}
+
 /**
  * Check if a brand kit is currently loaded
  */
