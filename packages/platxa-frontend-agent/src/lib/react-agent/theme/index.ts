@@ -183,6 +183,14 @@ export {
   mergePartialBrandKit,
   mergePartialBrandKits,
   extractPartialBrandKit,
+  // Next.js Integration (Feature #94)
+  generateNextMetadata,
+  generateNextLayoutConfig,
+  getServerThemeTokens,
+  getServerThemeStyle,
+  generateNextViewport,
+  generateNextThemeProvider,
+  generateNextRouteConfig,
 } from "./theme-worker"
 
 export type {
@@ -243,6 +251,11 @@ export type {
   PartialBrandKit,
   MergePartialOptions,
   PartialBrandKitValidation,
+  // Next.js Integration (Feature #94)
+  NextThemeColorEntry,
+  NextThemeMetadata,
+  NextIntegrationOptions,
+  NextLayoutConfig,
 } from "./theme-worker"
 
 // Token presets

@@ -6753,3 +6753,451 @@ export function extractPartialBrandKit(
 
   return partial
 }
+
+// =============================================================================
+// Feature #94: Next.js App Router Integration
+// =============================================================================
+
+/**
+ * Next.js Metadata theme color entry
+ */
+export interface NextThemeColorEntry {
+  /** Media query for this color (e.g., "(prefers-color-scheme: dark)") */
+  media?: string
+  /** Color value */
+  color: string
+}
+
+/**
+ * Next.js Metadata object for theme integration
+ *
+ * This is a subset of Next.js Metadata type focused on theme-related fields.
+ */
+export interface NextThemeMetadata {
+  /** Theme color for the browser */
+  themeColor?: string | NextThemeColorEntry[]
+  /** Color scheme preference */
+  colorScheme?: "light" | "dark" | "light dark" | "dark light" | "only light"
+  /** Viewport settings */
+  viewport?: {
+    themeColor?: string | NextThemeColorEntry[]
+    colorScheme?: "light" | "dark" | "light dark" | "dark light" | "only light"
+  }
+}
+
+/**
+ * Options for Next.js integration
+ */
+export interface NextIntegrationOptions {
+  /**
+   * Include viewport meta configuration
+   * @default true
+   */
+  includeViewport?: boolean
+
+  /**
+   * Color scheme setting
+   * @default "light dark"
+   */
+  colorScheme?: "light" | "dark" | "light dark" | "dark light" | "only light"
+
+  /**
+   * Use the new viewport export (Next.js 14+)
+   * @default false
+   */
+  useViewportExport?: boolean
+}
+
+/**
+ * Result of generating Next.js layout configuration
+ */
+export interface NextLayoutConfig {
+  /** Metadata for the layout */
+  metadata: NextThemeMetadata
+  /** CSS to include in the layout (inline or as file) */
+  css: string
+  /** Script for theme initialization (prevents flash) */
+  script: string
+  /** HTML attributes for the html element */
+  htmlAttributes: {
+    suppressHydrationWarning: boolean
+    lang?: string
+  }
+  /** Body class name for theme */
+  bodyClassName: string
+}
+
+/**
+ * Generates Next.js Metadata API compatible theme color configuration
+ *
+ * Creates theme color entries that work with Next.js App Router's
+ * generateMetadata and metadata export.
+ *
+ * @param config - Theme configuration
+ * @param options - Integration options
+ * @returns Metadata object for Next.js
+ *
+ * @example
+ * ```typescript
+ * // In app/layout.tsx
+ * import { generateNextMetadata } from "@platxa/frontend-agent"
+ * import { myTheme } from "./theme"
+ *
+ * export const metadata = {
+ *   title: "My App",
+ *   ...generateNextMetadata(myTheme),
+ * }
+ * ```
+ */
+export function generateNextMetadata(
+  config: ThemeConfig,
+  options: NextIntegrationOptions = {}
+): NextThemeMetadata {
+  const { includeViewport = true, colorScheme = "light dark" } = options
+
+  // Get the background colors for light and dark modes
+  const lightBg = getColorString(config.light.colors.background)
+  const darkBg = config.dark?.background
+    ? getColorString(config.dark.background)
+    : lightBg
+
+  const themeColor: NextThemeColorEntry[] = [
+    { media: "(prefers-color-scheme: light)", color: lightBg },
+    { media: "(prefers-color-scheme: dark)", color: darkBg },
+  ]
+
+  const metadata: NextThemeMetadata = {
+    themeColor,
+    colorScheme,
+  }
+
+  if (includeViewport) {
+    metadata.viewport = {
+      themeColor,
+      colorScheme,
+    }
+  }
+
+  return metadata
+}
+
+/**
+ * Helper to convert ColorValue to string
+ */
+function getColorString(color: unknown): string {
+  if (typeof color === "string") {
+    return color
+  }
+  if (color && typeof color === "object") {
+    // Handle OklchColor
+    if ("l" in color && "c" in color && "h" in color) {
+      const c = color as OklchColor
+      return `oklch(${c.l} ${c.c} ${c.h})`
+    }
+    // Handle HslColor
+    if ("h" in color && "s" in color && "l" in color) {
+      const c = color as HslColor
+      return `hsl(${c.h} ${c.s}% ${c.l}%)`
+    }
+    // Handle RgbColor
+    if ("r" in color && "g" in color && "b" in color) {
+      const c = color as RgbColor
+      return `rgb(${c.r} ${c.g} ${c.b})`
+    }
+  }
+  return "#ffffff"
+}
+
+/**
+ * Generates a complete Next.js App Router layout configuration
+ *
+ * Provides everything needed to set up theming in a Next.js App Router
+ * layout, including metadata, CSS, and hydration-safe initialization.
+ *
+ * @param config - Theme configuration
+ * @param options - Integration options
+ * @returns Complete layout configuration
+ *
+ * @example
+ * ```typescript
+ * // In app/layout.tsx
+ * import { generateNextLayoutConfig } from "@platxa/frontend-agent"
+ * import { myTheme } from "./theme"
+ *
+ * const layoutConfig = generateNextLayoutConfig(myTheme)
+ *
+ * export const metadata = layoutConfig.metadata
+ *
+ * export default function RootLayout({ children }) {
+ *   return (
+ *     <html {...layoutConfig.htmlAttributes}>
+ *       <head>
+ *         <style dangerouslySetInnerHTML={{ __html: layoutConfig.css }} />
+ *         <script dangerouslySetInnerHTML={{ __html: layoutConfig.script }} />
+ *       </head>
+ *       <body className={layoutConfig.bodyClassName}>
+ *         {children}
+ *       </body>
+ *     </html>
+ *   )
+ * }
+ * ```
+ */
+export function generateNextLayoutConfig(
+  config: ThemeConfig,
+  options: NextIntegrationOptions = {}
+): NextLayoutConfig {
+  const metadata = generateNextMetadata(config, options)
+  const css = generateSSRCss(config)
+  const script = generateSSRInitScript(config)
+
+  return {
+    metadata,
+    css,
+    script,
+    htmlAttributes: {
+      suppressHydrationWarning: true,
+      lang: "en",
+    },
+    bodyClassName: config.darkModeClass ?? "theme-root",
+  }
+}
+
+/**
+ * Generates Server Component compatible theme tokens
+ *
+ * Returns tokens that can be used in React Server Components
+ * without any client-side dependencies.
+ *
+ * @param config - Theme configuration
+ * @param mode - Theme mode to generate for
+ * @returns Static token values
+ *
+ * @example
+ * ```typescript
+ * // In a Server Component
+ * import { getServerThemeTokens } from "@platxa/frontend-agent"
+ *
+ * export default function Page() {
+ *   const tokens = getServerThemeTokens(myTheme, "light")
+ *   return (
+ *     <div style={{ backgroundColor: tokens.colors.background }}>
+ *       Server-rendered with theme
+ *     </div>
+ *   )
+ * }
+ * ```
+ */
+export function getServerThemeTokens(
+  config: ThemeConfig,
+  mode: ThemeMode = "light"
+): DesignTokens {
+  if (mode === "dark" && config.dark) {
+    // Merge dark colors with light tokens
+    return {
+      ...config.light,
+      colors: {
+        ...config.light.colors,
+        ...config.dark,
+      },
+    }
+  }
+  return config.light
+}
+
+/**
+ * Generates CSS custom properties for Server Components
+ *
+ * Returns a style object that can be used directly in JSX
+ * for Server Component styling.
+ *
+ * @param config - Theme configuration
+ * @param mode - Theme mode
+ * @returns CSS custom properties as style object
+ *
+ * @example
+ * ```typescript
+ * // In a Server Component
+ * export default function Card() {
+ *   const style = getServerThemeStyle(myTheme)
+ *   return <div style={style}>Themed card</div>
+ * }
+ * ```
+ */
+export function getServerThemeStyle(
+  config: ThemeConfig,
+  mode: ThemeMode = "light"
+): Record<string, string> {
+  const tokens = getServerThemeTokens(config, mode)
+  const style: Record<string, string> = {}
+
+  // Add color variables
+  for (const [key, value] of Object.entries(tokens.colors)) {
+    const varName = `--${toKebabCase(key)}`
+    style[varName] = typeof value === "string" ? value : getColorString(value)
+  }
+
+  // Add spacing variables
+  for (const [key, value] of Object.entries(tokens.spacing)) {
+    style[`--spacing-${key}`] = value
+  }
+
+  return style
+}
+
+/**
+ * Generates the viewport export for Next.js 14+
+ *
+ * In Next.js 14+, viewport configuration is separate from metadata.
+ *
+ * @param config - Theme configuration
+ * @returns Viewport configuration object
+ *
+ * @example
+ * ```typescript
+ * // In app/layout.tsx (Next.js 14+)
+ * import { generateNextViewport } from "@platxa/frontend-agent"
+ *
+ * export const viewport = generateNextViewport(myTheme)
+ * ```
+ */
+export function generateNextViewport(
+  config: ThemeConfig
+): {
+  themeColor: NextThemeColorEntry[]
+  colorScheme: string
+} {
+  const lightBg = getColorString(config.light.colors.background)
+  const darkBg = config.dark?.background
+    ? getColorString(config.dark.background)
+    : lightBg
+
+  return {
+    themeColor: [
+      { media: "(prefers-color-scheme: light)", color: lightBg },
+      { media: "(prefers-color-scheme: dark)", color: darkBg },
+    ],
+    colorScheme: "light dark",
+  }
+}
+
+/**
+ * Generates a theme provider wrapper for Client Components
+ *
+ * Returns the code for a client-side theme provider that can
+ * wrap the application while keeping the root layout as a
+ * Server Component.
+ *
+ * @param config - Theme configuration
+ * @returns Provider component code as string
+ *
+ * @example
+ * ```typescript
+ * // Generate the provider code
+ * const providerCode = generateNextThemeProvider(myTheme)
+ *
+ * // Write to providers.tsx
+ * // "use client"
+ * // ... generated code
+ * ```
+ */
+export function generateNextThemeProvider(config: ThemeConfig): string {
+  const defaultMode = config.defaultMode ?? "system"
+
+  return `"use client"
+
+import * as React from "react"
+
+type ThemeMode = "light" | "dark" | "system"
+
+interface ThemeProviderProps {
+  children: React.ReactNode
+  defaultMode?: ThemeMode
+  storageKey?: string
+}
+
+const ThemeContext = React.createContext<{
+  mode: ThemeMode
+  setMode: (mode: ThemeMode) => void
+  resolvedMode: "light" | "dark"
+}>({
+  mode: "${defaultMode}",
+  setMode: () => {},
+  resolvedMode: "light",
+})
+
+export function ThemeProvider({
+  children,
+  defaultMode = "${defaultMode}",
+  storageKey = "theme-mode",
+}: ThemeProviderProps) {
+  const [mode, setModeState] = React.useState<ThemeMode>(defaultMode)
+  const [resolvedMode, setResolvedMode] = React.useState<"light" | "dark">("light")
+
+  React.useEffect(() => {
+    // Check localStorage
+    const stored = localStorage.getItem(storageKey) as ThemeMode | null
+    if (stored) {
+      setModeState(stored)
+    }
+  }, [storageKey])
+
+  React.useEffect(() => {
+    const root = document.documentElement
+
+    const updateTheme = () => {
+      let resolved: "light" | "dark" = "light"
+
+      if (mode === "system") {
+        resolved = window.matchMedia("(prefers-color-scheme: dark)").matches
+          ? "dark"
+          : "light"
+      } else {
+        resolved = mode
+      }
+
+      setResolvedMode(resolved)
+      root.classList.remove("light", "dark")
+      root.classList.add(resolved)
+      root.style.colorScheme = resolved
+    }
+
+    updateTheme()
+
+    if (mode === "system") {
+      const mq = window.matchMedia("(prefers-color-scheme: dark)")
+      mq.addEventListener("change", updateTheme)
+      return () => mq.removeEventListener("change", updateTheme)
+    }
+  }, [mode])
+
+  const setMode = React.useCallback((newMode: ThemeMode) => {
+    setModeState(newMode)
+    localStorage.setItem(storageKey, newMode)
+  }, [storageKey])
+
+  return (
+    <ThemeContext.Provider value={{ mode, setMode, resolvedMode }}>
+      {children}
+    </ThemeContext.Provider>
+  )
+}
+
+export const useThemeMode = () => React.useContext(ThemeContext)
+`
+}
+
+/**
+ * Generates route segment config for static generation
+ *
+ * @returns Route segment config for Next.js
+ */
+export function generateNextRouteConfig(): {
+  dynamic: "force-static" | "force-dynamic" | "auto"
+  revalidate: number | false
+} {
+  return {
+    dynamic: "force-static",
+    revalidate: false,
+  }
+}

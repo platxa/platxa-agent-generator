@@ -1,32 +1,32 @@
 {
-  "session_id": "86ae44e62dc8",
+  "session_id": "705b92205691",
   "stack": {
     "session": {
-      "id": "86ae44e62dc8-135",
-      "text": "[Extensibility Features] Feature #93: [Partial Brand Kits] Support brand kits that only override specific tokens Verification: Partial tokens allowed; Merged with base; Type support for partial Criteria: Manual verification required",
+      "id": "705b92205691-137",
+      "text": "[Build & Integration Features] Feature #94: [Next.js Integration] First-class Next.js App Router support Verification: App Router compatible; Server Components work; Metadata API support Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768993158.9952521,
-      "updated_at": 1768993158.9952521,
+      "created_at": 1768993338.7693996,
+      "updated_at": 1768993338.7694,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 93,
-        "category": "Extensibility Features"
+        "feature_id": 94,
+        "category": "Build & Integration Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "86ae44e62dc8-136",
-      "text": "Implement: [Partial Brand Kits] Support brand kits that only override specific tokens Verification: Partial tokens allowed; Merged with base; Type support for partial",
+      "id": "705b92205691-138",
+      "text": "Implement: [Next.js Integration] First-class Next.js App Router support Verification: App Router compatible; Server Components work; Metadata API support",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768993159.000986,
-      "updated_at": 1768993159.0009863,
+      "created_at": 1768993338.774872,
+      "updated_at": 1768993338.7748723,
       "completed_at": null,
-      "parent_id": "86ae44e62dc8-135",
+      "parent_id": "705b92205691-137",
       "metadata": {},
       "keywords": []
     },
@@ -2004,9 +2004,38 @@
       "parent_id": "86ae44e62dc8-135",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "705b92205691-137",
+      "text": "[Build & Integration Features] Feature #94: [Next.js Integration] First-class Next.js App Router support Verification: App Router compatible; Server Components work; Metadata API support Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993338.7693996,
+      "updated_at": 1768993338.7694,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 94,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "705b92205691-138",
+      "text": "Implement: [Next.js Integration] First-class Next.js App Router support Verification: App Router compatible; Server Components work; Metadata API support",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993338.774872,
+      "updated_at": 1768993338.7748723,
+      "completed_at": null,
+      "parent_id": "705b92205691-137",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 136,
+  "intent_counter": 138,
   "created_at": 1768900061.32227,
-  "updated_at": 1768993159.0009918
+  "updated_at": 1768993338.774877
 }
