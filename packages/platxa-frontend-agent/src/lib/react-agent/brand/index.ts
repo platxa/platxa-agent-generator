@@ -38,6 +38,8 @@ export {
   defineBrandKit,
   resolveConfig,
   validateConfig,
+  // Config Validation (Feature #61)
+  formatValidationResult,
   getBuiltInTheme,
   getBuiltInPresetNames,
   getAllPresetNames,
@@ -58,6 +60,9 @@ export {
 
 export type {
   ConfigValidationResult,
+  // Config Validation (Feature #61)
+  ConfigValidationError,
+  ConfigValidationWarning,
   BrandKitTemplateOptions,
   BrandKitPackageOptions,
   BrandKitPackageTemplate,

@@ -372,66 +372,270 @@ export function resolveConfig(
 }
 
 // =============================================================================
-// CONFIGURATION VALIDATION
+// CONFIGURATION VALIDATION (Feature #61)
 // =============================================================================
 
 /**
- * Validation result
+ * Single validation error with field path and suggestion
  */
-export interface ConfigValidationResult {
-  valid: boolean
-  errors: string[]
-  warnings: string[]
+export interface ConfigValidationError {
+  /** Field path (e.g., "theme.preset", "brand.package") */
+  field: string
+  /** Error message describing the issue */
+  message: string
+  /** Suggestion for fixing the error */
+  suggestion?: string
 }
 
 /**
- * Validate frontend configuration
+ * Single validation warning
+ */
+export interface ConfigValidationWarning {
+  /** Field path or paths involved */
+  field: string
+  /** Warning message */
+  message: string
+}
+
+/**
+ * Validation result with detailed errors and warnings
+ */
+export interface ConfigValidationResult {
+  /** Whether the configuration is valid */
+  valid: boolean
+  /** Legacy error strings (for backward compatibility) */
+  errors: string[]
+  /** Legacy warning strings (for backward compatibility) */
+  warnings: string[]
+  /** Detailed validation errors with field paths and suggestions */
+  details: ConfigValidationError[]
+  /** Detailed warnings */
+  warningDetails: ConfigValidationWarning[]
+}
+
+/**
+ * Format validation result as human-readable string
+ *
+ * @param result - Validation result
+ * @returns Formatted string for console/build output
+ *
+ * @example
+ * ```typescript
+ * const result = validateConfig(config)
+ * if (!result.valid) {
+ *   console.error(formatValidationResult(result))
+ *   process.exit(1)
+ * }
+ * ```
+ */
+export function formatValidationResult(result: ConfigValidationResult): string {
+  const lines: string[] = []
+
+  if (!result.valid) {
+    lines.push("❌ Configuration validation failed:\n")
+    for (const error of result.details) {
+      lines.push(`  • ${error.field}: ${error.message}`)
+      if (error.suggestion) {
+        lines.push(`    → Suggestion: ${error.suggestion}`)
+      }
+    }
+  }
+
+  if (result.warningDetails.length > 0) {
+    if (lines.length > 0) lines.push("")
+    lines.push("⚠️  Warnings:\n")
+    for (const warning of result.warningDetails) {
+      lines.push(`  • ${warning.field}: ${warning.message}`)
+    }
+  }
+
+  return lines.join("\n")
+}
+
+/**
+ * Validate frontend configuration at build time
+ *
+ * Performs comprehensive validation with helpful error messages:
+ * - Points to specific field paths
+ * - Provides suggestions for fixing issues
+ * - Validates theme presets, custom options, brand packages
+ * - Checks environment configuration
  *
  * @param config - Configuration to validate
- * @returns Validation result with errors and warnings
+ * @returns Validation result with detailed errors and suggestions
+ *
+ * @example Build-time validation
+ * ```typescript
+ * import { validateConfig, formatValidationResult } from "@platxa/frontend-agent"
+ *
+ * const result = validateConfig(userConfig)
+ * if (!result.valid) {
+ *   console.error(formatValidationResult(result))
+ *   throw new Error("Invalid configuration")
+ * }
+ * ```
+ *
+ * @example Accessing detailed errors
+ * ```typescript
+ * const result = validateConfig({
+ *   theme: { preset: "invalid-preset" }
+ * })
+ * // result.details[0].field === "theme.preset"
+ * // result.details[0].message === 'Invalid preset "invalid-preset"'
+ * // result.details[0].suggestion === "Use one of: default, blue, green, violet"
+ * ```
  */
 export function validateConfig(config: FrontendConfig): ConfigValidationResult {
-  const errors: string[] = []
-  const warnings: string[] = []
+  const details: ConfigValidationError[] = []
+  const warningDetails: ConfigValidationWarning[] = []
 
   // Validate theme preset if specified
   if (config.theme?.preset) {
     const validPresets = [...BUILTIN_PRESETS, ...getThemePresetNames()]
     if (!validPresets.includes(config.theme.preset)) {
-      errors.push(
-        `Invalid theme preset "${config.theme.preset}". ` +
-          `Available presets: ${BUILTIN_PRESETS.join(", ")}`
-      )
+      details.push({
+        field: "theme.preset",
+        message: `Invalid preset "${config.theme.preset}"`,
+        suggestion: `Use one of: ${BUILTIN_PRESETS.join(", ")}`,
+      })
     }
   }
 
   // Validate custom theme options
   if (config.theme?.custom) {
-    const { primaryHue, saturation } = config.theme.custom
+    const { primaryHue, saturation, useOklch } = config.theme.custom
 
-    if (typeof primaryHue !== "number" || primaryHue < 0 || primaryHue > 360) {
-      errors.push("theme.custom.primaryHue must be a number between 0 and 360")
+    if (primaryHue === undefined || primaryHue === null) {
+      details.push({
+        field: "theme.custom.primaryHue",
+        message: "primaryHue is required when using custom theme",
+        suggestion: "Add primaryHue: <number between 0-360>",
+      })
+    } else if (typeof primaryHue !== "number") {
+      details.push({
+        field: "theme.custom.primaryHue",
+        message: `Expected number, got ${typeof primaryHue}`,
+        suggestion: "primaryHue must be a number (e.g., 220 for blue)",
+      })
+    } else if (primaryHue < 0 || primaryHue > 360) {
+      details.push({
+        field: "theme.custom.primaryHue",
+        message: `Value ${primaryHue} is out of range`,
+        suggestion: "primaryHue must be between 0 and 360 (color wheel degrees)",
+      })
     }
 
     if (saturation && !["low", "medium", "high"].includes(saturation)) {
-      errors.push(
-        'theme.custom.saturation must be "low", "medium", or "high"'
-      )
+      details.push({
+        field: "theme.custom.saturation",
+        message: `Invalid saturation "${saturation}"`,
+        suggestion: 'Use "low", "medium", or "high"',
+      })
+    }
+
+    if (useOklch !== undefined && typeof useOklch !== "boolean") {
+      details.push({
+        field: "theme.custom.useOklch",
+        message: `Expected boolean, got ${typeof useOklch}`,
+        suggestion: "useOklch must be true or false",
+      })
+    }
+  }
+
+  // Validate brand package format
+  if (config.brand?.package) {
+    const pkg = config.brand.package
+    if (typeof pkg !== "string") {
+      details.push({
+        field: "brand.package",
+        message: `Expected string, got ${typeof pkg}`,
+        suggestion: 'Use a package name like "@acme/brand-kit" or path like "./my-brand"',
+      })
+    } else if (pkg.trim() === "") {
+      details.push({
+        field: "brand.package",
+        message: "Package name cannot be empty",
+        suggestion: 'Specify a valid package name or remove the brand.package field',
+      })
+    } else if (!pkg.startsWith("@") && !pkg.startsWith(".") && !pkg.startsWith("/") && pkg.includes(" ")) {
+      details.push({
+        field: "brand.package",
+        message: "Package name contains spaces",
+        suggestion: "Remove spaces from the package name",
+      })
+    }
+  }
+
+  // Validate brand overrides structure
+  if (config.brand?.overrides) {
+    if (typeof config.brand.overrides !== "object" || Array.isArray(config.brand.overrides)) {
+      details.push({
+        field: "brand.overrides",
+        message: "Overrides must be an object",
+        suggestion: "Provide an object with token categories like { colors: {...}, spacing: {...} }",
+      })
+    }
+  }
+
+  // Validate environments configuration (Feature #60)
+  if (config.environments) {
+    if (typeof config.environments !== "object" || Array.isArray(config.environments)) {
+      details.push({
+        field: "environments",
+        message: "Environments must be an object",
+        suggestion: 'Use { development: {...}, staging: {...}, production: {...} }',
+      })
+    } else {
+      for (const [envName, envConfig] of Object.entries(config.environments)) {
+        if (typeof envConfig !== "object" || envConfig === null) {
+          details.push({
+            field: `environments.${envName}`,
+            message: "Environment config must be an object",
+            suggestion: `Set environments.${envName} to a partial FrontendConfig`,
+          })
+        }
+        // Validate nested environments are not allowed
+        if (envConfig && "environments" in envConfig) {
+          details.push({
+            field: `environments.${envName}.environments`,
+            message: "Nested environments are not supported",
+            suggestion: "Remove the environments field from the environment-specific config",
+          })
+        }
+      }
     }
   }
 
   // Warn about conflicting options
   if (config.theme && config.brand?.package) {
-    warnings.push(
-      "Both theme and brand.package specified. " +
-        "Brand kit tokens will override theme preset when loaded."
-    )
+    warningDetails.push({
+      field: "theme + brand.package",
+      message: "Both theme and brand.package specified. Brand kit tokens will override theme preset when loaded.",
+    })
   }
 
+  // Warn about unused custom theme when brand is specified
+  if (config.theme?.custom && config.brand?.package) {
+    warningDetails.push({
+      field: "theme.custom",
+      message: "Custom theme options will be ignored when using a brand kit",
+    })
+  }
+
+  // Generate legacy error strings for backward compatibility
+  const errors = details.map(d =>
+    d.suggestion
+      ? `${d.field}: ${d.message}. ${d.suggestion}`
+      : `${d.field}: ${d.message}`
+  )
+  const warnings = warningDetails.map(w => `${w.field}: ${w.message}`)
+
   return {
-    valid: errors.length === 0,
+    valid: details.length === 0,
     errors,
     warnings,
+    details,
+    warningDetails,
   }
 }
 
