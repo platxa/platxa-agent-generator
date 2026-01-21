@@ -299,10 +299,25 @@ export interface BrandKitExport {
   shadow?: BrandShadow
 
   /**
-   * Pre-built Tailwind v4 preset (optional)
-   * For advanced integration with Tailwind CSS
+   * Pre-built Tailwind v4 preset (optional, Feature #63)
+   *
+   * If provided, must follow Tailwind v4 preset format.
+   * Can be used directly in tailwind.config.ts.
+   *
+   * @example Using the preset in tailwind.config.ts
+   * ```typescript
+   * // tailwind.config.ts
+   * import type { Config } from "tailwindcss"
+   * import brandKit from "@acme/brand-kit"
+   *
+   * export default {
+   *   // Spread the brand kit's Tailwind preset
+   *   ...(brandKit.tailwindPreset ?? {}),
+   *   content: ["./src/** /*.{ts,tsx}"],
+   * } satisfies Config
+   * ```
    */
-  tailwindPreset?: Record<string, unknown>
+  tailwindPreset?: TailwindV4Preset
 
   /**
    * Paths to pre-built CSS files (optional)
@@ -314,6 +329,100 @@ export interface BrandKitExport {
     /** Path to theme CSS file */
     themes?: string
   }
+}
+
+// =============================================================================
+// TAILWIND V4 PRESET TYPES (Feature #63)
+// =============================================================================
+
+/**
+ * Tailwind v4 theme extension structure
+ *
+ * @see https://tailwindcss.com/docs/theme
+ */
+export interface TailwindV4ThemeExtend {
+  /** Color tokens */
+  colors?: Record<string, string | Record<string, string>>
+  /** Spacing scale */
+  spacing?: Record<string, string>
+  /** Font family definitions */
+  fontFamily?: Record<string, string | string[]>
+  /** Font size scale */
+  fontSize?: Record<string, string | [string, { lineHeight?: string; letterSpacing?: string }]>
+  /** Font weight scale */
+  fontWeight?: Record<string, string | number>
+  /** Border radius scale */
+  borderRadius?: Record<string, string>
+  /** Box shadow scale */
+  boxShadow?: Record<string, string>
+  /** Transition duration scale */
+  transitionDuration?: Record<string, string>
+  /** Transition timing function scale */
+  transitionTimingFunction?: Record<string, string>
+  /** Z-index scale */
+  zIndex?: Record<string, string | number>
+  /** Breakpoints */
+  screens?: Record<string, string>
+  /** Any other theme extensions */
+  [key: string]: unknown
+}
+
+/**
+ * Tailwind v4 preset format (Feature #63)
+ *
+ * A preset that can be spread directly into tailwind.config.ts.
+ * Follows the Tailwind v4 configuration structure.
+ *
+ * @example Creating a preset in a brand kit
+ * ```typescript
+ * const brandKit: BrandKitExport = {
+ *   meta: { name: "acme", version: "1.0.0" },
+ *   primitives: { ... },
+ *   semantics: { ... },
+ *   tailwindPreset: {
+ *     theme: {
+ *       extend: {
+ *         colors: {
+ *           primary: "hsl(var(--color-primary))",
+ *           secondary: "hsl(var(--color-secondary))",
+ *         },
+ *         fontFamily: {
+ *           sans: ["Inter", "sans-serif"],
+ *         },
+ *       },
+ *     },
+ *   },
+ * }
+ * ```
+ *
+ * @example Using in tailwind.config.ts
+ * ```typescript
+ * import brandKit from "@acme/brand-kit"
+ *
+ * export default {
+ *   ...brandKit.tailwindPreset,
+ *   content: ["./src/** /*.{ts,tsx}"],
+ * }
+ * ```
+ */
+export interface TailwindV4Preset {
+  /** Theme configuration */
+  theme?: {
+    /** Theme extensions (merged with defaults) */
+    extend?: TailwindV4ThemeExtend
+    /** Override defaults completely */
+    [key: string]: unknown
+  }
+  /** Plugins to include */
+  plugins?: unknown[]
+  /** Dark mode configuration */
+  darkMode?: "media" | "class" | ["class", string]
+  /** Prefix for all classes */
+  prefix?: string
+  /** Important selector or boolean */
+  important?: boolean | string
+  /** Any other Tailwind config options */
+  [key: string]: unknown
 }
 
 // =============================================================================

@@ -113,6 +113,9 @@ export {
   removeBrandFromCache,
   isBrandCached,
   getBrandCacheSize,
+  // Tailwind Preset (Feature #63)
+  getTailwindPreset,
+  hasTailwindPreset,
   // React Hook (Feature #33)
   useBrand,
   subscribeToBrandChanges,
@@ -153,6 +156,9 @@ export type {
   BrandSpacing,
   BrandRadius,
   BrandShadow,
+  // Tailwind v4 Preset (Feature #63)
+  TailwindV4Preset,
+  TailwindV4ThemeExtend,
   // Configuration types
   FrontendConfig,
   ThemeOptions,

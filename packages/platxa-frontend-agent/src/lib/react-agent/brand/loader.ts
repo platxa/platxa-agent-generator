@@ -88,6 +88,64 @@ export function getCurrentBrandKit(): BrandKitExport | null {
 }
 
 /**
+ * Get Tailwind v4 preset from current or provided brand kit (Feature #63)
+ *
+ * Returns the Tailwind preset if the brand kit provides one, or undefined
+ * if no preset is available. The preset can be spread directly into
+ * tailwind.config.ts.
+ *
+ * @param kit - Optional brand kit (uses current loaded kit if not provided)
+ * @returns Tailwind v4 preset or undefined
+ *
+ * @example Using with current loaded brand kit
+ * ```typescript
+ * // After loading a brand kit
+ * const preset = getTailwindPreset()
+ * if (preset) {
+ *   // Use in tailwind.config.ts
+ * }
+ * ```
+ *
+ * @example Using with a specific brand kit
+ * ```typescript
+ * import brandKit from "@acme/brand-kit"
+ *
+ * const preset = getTailwindPreset(brandKit)
+ * // preset is typed as TailwindV4Preset | undefined
+ * ```
+ *
+ * @example In tailwind.config.ts
+ * ```typescript
+ * import { getTailwindPreset } from "@platxa/frontend-agent"
+ * import brandKit from "@acme/brand-kit"
+ *
+ * const preset = getTailwindPreset(brandKit) ?? {}
+ *
+ * export default {
+ *   ...preset,
+ *   content: ["./src/** /*.{ts,tsx}"],
+ * }
+ * ```
+ */
+export function getTailwindPreset(
+  kit?: BrandKitExport | null
+): BrandKitExport["tailwindPreset"] {
+  const brandKit = kit ?? currentBrandKit
+  return brandKit?.tailwindPreset
+}
+
+/**
+ * Check if a brand kit provides a Tailwind preset (Feature #63)
+ *
+ * @param kit - Optional brand kit (uses current loaded kit if not provided)
+ * @returns true if the brand kit has a tailwindPreset field
+ */
+export function hasTailwindPreset(kit?: BrandKitExport | null): boolean {
+  const brandKit = kit ?? currentBrandKit
+  return brandKit?.tailwindPreset !== undefined
+}
+
+/**
  * Check if a brand kit is currently loaded
  */
 export function isBrandLoaded(): boolean {
