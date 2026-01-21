@@ -116,6 +116,11 @@ export {
   removeBrandFromCache,
   isBrandCached,
   getBrandCacheSize,
+  // Version-Aware Caching (Feature #66)
+  getCachedBrandVersion,
+  isCacheVersionValid,
+  invalidateCacheIfVersionMismatch,
+  getCacheEntryInfo,
   // Tailwind Preset (Feature #63)
   getTailwindPreset,
   hasTailwindPreset,

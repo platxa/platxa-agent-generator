@@ -59,8 +59,32 @@ export interface BrandLoaderOptions {
 /** Default loading timeout (10 seconds) */
 const DEFAULT_TIMEOUT = 10000
 
-/** Cache for loaded brand kits */
-const brandCache = new Map<string, BrandKitExport>()
+/**
+ * Cache entry for brand kits (Feature #66)
+ *
+ * Stores both the brand kit and its version for invalidation.
+ */
+interface BrandCacheEntry {
+  /** The cached brand kit */
+  brandKit: BrandKitExport
+  /** Version from brand kit meta (for invalidation) */
+  version: string
+  /** Timestamp when cached (for potential TTL) */
+  cachedAt: number
+}
+
+/**
+ * Cache for loaded brand kits (Feature #66)
+ *
+ * Key: package name
+ * Value: cache entry with brand kit and version
+ *
+ * The cache stores version info in each entry, allowing version validation
+ * without requiring version-specific keys. Use `isCacheVersionValid()` to
+ * check if cached version matches expected, and `invalidateCacheIfVersionMismatch()`
+ * to conditionally clear stale entries.
+ */
+const brandCache = new Map<string, BrandCacheEntry>()
 
 // =============================================================================
 // BRAND LOADING STATE
@@ -541,14 +565,15 @@ export async function loadBrandKit(
 ): Promise<BrandLoadResult> {
   const { timeout = DEFAULT_TIMEOUT, throwOnError = false } = options
 
-  // Check cache first
+  // Check cache first (Feature #66)
   const cached = brandCache.get(packageName)
   if (cached) {
+    // Return cached version
     return {
       status: "loaded",
-      brandKit: cached,
-      tokens: normalizeTokens(cached),
-      themeConfig: createThemeFromBrand(cached),
+      brandKit: cached.brandKit,
+      tokens: normalizeTokens(cached.brandKit),
+      themeConfig: createThemeFromBrand(cached.brandKit),
     }
   }
 
@@ -574,8 +599,12 @@ export async function loadBrandKit(
       throw new Error(validationError)
     }
 
-    // Cache the loaded brand kit
-    brandCache.set(packageName, brandKit)
+    // Cache the loaded brand kit with version (Feature #66)
+    brandCache.set(packageName, {
+      brandKit,
+      version: brandKit.meta.version,
+      cachedAt: Date.now(),
+    })
 
     // Update state
     currentLoadingState = "loaded"
@@ -1402,11 +1431,13 @@ export function validateBrandKitCss(brandKit: BrandKitExport): string[] {
 }
 
 // =============================================================================
-// CACHE MANAGEMENT
+// CACHE MANAGEMENT (Feature #66)
 // =============================================================================
 
 /**
  * Clear the brand kit cache
+ *
+ * Removes all cached brand kits and resets loading state.
  */
 export function clearBrandCache(): void {
   brandCache.clear()
@@ -1416,6 +1447,9 @@ export function clearBrandCache(): void {
 
 /**
  * Remove a specific brand kit from cache
+ *
+ * @param packageName - The package name to remove
+ * @returns true if the entry was removed
  */
 export function removeBrandFromCache(packageName: string): boolean {
   return brandCache.delete(packageName)
@@ -1423,6 +1457,9 @@ export function removeBrandFromCache(packageName: string): boolean {
 
 /**
  * Check if a brand kit is cached
+ *
+ * @param packageName - The package name to check
+ * @returns true if the brand kit is in cache
  */
 export function isBrandCached(packageName: string): boolean {
   return brandCache.has(packageName)
@@ -1430,9 +1467,88 @@ export function isBrandCached(packageName: string): boolean {
 
 /**
  * Get cache size
+ *
+ * @returns Number of brand kits in cache
  */
 export function getBrandCacheSize(): number {
   return brandCache.size
+}
+
+/**
+ * Get cached brand kit version (Feature #66)
+ *
+ * @param packageName - The package name to check
+ * @returns The cached version or undefined if not cached
+ */
+export function getCachedBrandVersion(packageName: string): string | undefined {
+  const entry = brandCache.get(packageName)
+  return entry?.version
+}
+
+/**
+ * Check if cached brand kit matches expected version (Feature #66)
+ *
+ * Useful for cache invalidation checks.
+ *
+ * @param packageName - The package name to check
+ * @param version - The expected version
+ * @returns true if cached version matches
+ */
+export function isCacheVersionValid(packageName: string, version: string): boolean {
+  const cachedVersion = getCachedBrandVersion(packageName)
+  return cachedVersion === version
+}
+
+/**
+ * Invalidate cache entry if version doesn't match (Feature #66)
+ *
+ * Call this before loading if you want to force reload on version mismatch.
+ *
+ * @param packageName - The package name to check
+ * @param expectedVersion - The expected version
+ * @returns true if cache was invalidated
+ *
+ * @example Force reload on version change
+ * ```typescript
+ * // Check if version changed and invalidate if needed
+ * invalidateCacheIfVersionMismatch("@acme/brand-kit", "2.0.0")
+ *
+ * // Now load will fetch fresh copy if version was different
+ * const result = await loadBrandKit("@acme/brand-kit")
+ * ```
+ */
+export function invalidateCacheIfVersionMismatch(
+  packageName: string,
+  expectedVersion: string
+): boolean {
+  if (!isBrandCached(packageName)) {
+    return false
+  }
+
+  if (!isCacheVersionValid(packageName, expectedVersion)) {
+    removeBrandFromCache(packageName)
+    return true
+  }
+
+  return false
+}
+
+/**
+ * Get cache entry metadata (Feature #66)
+ *
+ * @param packageName - The package name
+ * @returns Cache metadata or undefined if not cached
+ */
+export function getCacheEntryInfo(
+  packageName: string
+): { version: string; cachedAt: Date } | undefined {
+  const entry = brandCache.get(packageName)
+  if (!entry) return undefined
+
+  return {
+    version: entry.version,
+    cachedAt: new Date(entry.cachedAt),
+  }
 }
 
 // =============================================================================
