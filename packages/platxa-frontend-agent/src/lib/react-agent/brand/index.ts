@@ -56,6 +56,9 @@ export {
   generateBrandKitPackageTemplate,
   // Environment Detection (Feature #60)
   getCurrentEnvironment,
+  // Tree Shaking Support (Feature #69)
+  validateTreeShakingConfig,
+  getTreeShakingBestPractices,
 } from "./config"
 
 export type {
@@ -68,6 +71,8 @@ export type {
   BrandKitPackageTemplate,
   // Environment Detection (Feature #60)
   ResolveConfigOptions,
+  // Tree Shaking Support (Feature #69)
+  TreeShakingValidationResult,
 } from "./config"
 
 // Config File Loader (Feature #7)

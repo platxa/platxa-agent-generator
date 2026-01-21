@@ -9,11 +9,29 @@
   "main": "./dist/index.cjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
+  "sideEffects": [
+    "*.css"
+  ],
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs",
       "require": "./dist/index.cjs"
+    },
+    "./brand": {
+      "types": "./dist/lib/react-agent/brand/index.d.ts",
+      "import": "./dist/lib/react-agent/brand/index.mjs",
+      "require": "./dist/lib/react-agent/brand/index.cjs"
+    },
+    "./theme": {
+      "types": "./dist/lib/react-agent/theme/index.d.ts",
+      "import": "./dist/lib/react-agent/theme/index.mjs",
+      "require": "./dist/lib/react-agent/theme/index.cjs"
+    },
+    "./components": {
+      "types": "./dist/components/ui/index.d.ts",
+      "import": "./dist/components/ui/index.mjs",
+      "require": "./dist/components/ui/index.cjs"
     },
     "./styles": "./src/styles/globals.css"
   },

@@ -10,6 +10,33 @@
  * 3. Graceful error handling with fallback to default theme
  * 4. Clear loading states (idle, loading, loaded, error)
  *
+ * ## Tree Shaking Support (Feature #69)
+ *
+ * This module is designed to be fully tree-shakeable:
+ * - All exports are ESM-compatible with named exports
+ * - No side effects at module level (sideEffects: false in package.json)
+ * - Functions are pure where possible
+ * - Dynamic imports prevent unused brand kits from being bundled
+ *
+ * ### For Brand Kit Authors
+ *
+ * To ensure your brand kit is tree-shakeable:
+ * 1. Use named exports only (no default exports with objects)
+ * 2. Add `"sideEffects": false` to your package.json
+ * 3. Use `"type": "module"` for ESM output
+ * 4. Avoid top-level side effects (console.log, DOM manipulation, etc.)
+ *
+ * @example Tree-shakeable brand kit structure
+ * ```typescript
+ * // Good: Named exports
+ * export const meta: BrandKitMeta = { ... }
+ * export const colors: BrandColorPrimitives = { ... }
+ * export const tokens: DesignTokens = { ... }
+ *
+ * // Avoid: Default export with everything
+ * // export default { meta, colors, tokens }
+ * ```
+ *
  * @module react-agent/brand/loader
  */
 

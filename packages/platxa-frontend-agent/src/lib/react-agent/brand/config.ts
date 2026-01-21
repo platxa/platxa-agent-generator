@@ -1003,7 +1003,7 @@ export function generateBrandKitPackageTemplate(
     accentHue = 280,
   } = options
 
-  // Generate package.json
+  // Generate package.json (Feature #69: Tree Shaking Support)
   const packageJson = {
     name: packageName,
     version,
@@ -1014,10 +1014,22 @@ export function generateBrandKitPackageTemplate(
     main: "./dist/index.js",
     module: "./dist/index.js",
     types: "./dist/index.d.ts",
+    // Tree shaking support (Feature #69)
+    // Marks package as side-effect free for bundlers
+    sideEffects: false,
     exports: {
       ".": {
         import: "./dist/index.js",
         types: "./dist/index.d.ts",
+      },
+      // Granular exports for better tree shaking
+      "./colors": {
+        import: "./dist/colors.js",
+        types: "./dist/colors.d.ts",
+      },
+      "./tokens": {
+        import: "./dist/tokens.js",
+        types: "./dist/tokens.d.ts",
       },
     },
     files: ["dist"],
@@ -1032,7 +1044,7 @@ export function generateBrandKitPackageTemplate(
       "@platxa/frontend-agent": "^1.0.0",
       typescript: "^5.0.0",
     },
-    keywords: ["brand-kit", "platxa", "design-tokens", "theme"],
+    keywords: ["brand-kit", "platxa", "design-tokens", "theme", "tree-shakeable"],
   }
 
   // Generate tsconfig.json
@@ -1288,4 +1300,116 @@ ${license}
     "src/index.ts": indexTs,
     "README.md": readmeMd,
   }
+}
+
+// =============================================================================
+// TREE SHAKING SUPPORT (Feature #69)
+// =============================================================================
+
+/**
+ * Tree shaking configuration validation result
+ */
+export interface TreeShakingValidationResult {
+  /** Whether the configuration supports tree shaking */
+  valid: boolean
+  /** List of issues found */
+  issues: string[]
+  /** Recommendations for improvement */
+  recommendations: string[]
+}
+
+/**
+ * Validate package.json for tree shaking support (Feature #69)
+ *
+ * Checks if a package.json has the necessary configuration for
+ * bundlers to tree-shake unused exports.
+ *
+ * @param packageJson - The package.json content as an object
+ * @returns Validation result with issues and recommendations
+ *
+ * @example
+ * ```typescript
+ * import { validateTreeShakingConfig } from "@platxa/frontend-agent"
+ * import pkg from "./package.json"
+ *
+ * const result = validateTreeShakingConfig(pkg)
+ * if (!result.valid) {
+ *   console.warn("Tree shaking issues:", result.issues)
+ *   console.info("Recommendations:", result.recommendations)
+ * }
+ * ```
+ */
+export function validateTreeShakingConfig(
+  packageJson: Record<string, unknown>
+): TreeShakingValidationResult {
+  const issues: string[] = []
+  const recommendations: string[] = []
+
+  // Check for ESM module type
+  if (packageJson.type !== "module") {
+    issues.push('Missing "type": "module" - required for ESM exports')
+    recommendations.push('Add "type": "module" to package.json')
+  }
+
+  // Check for sideEffects
+  if (packageJson.sideEffects === undefined) {
+    issues.push('Missing "sideEffects" field - bundlers cannot optimize')
+    recommendations.push(
+      'Add "sideEffects": false or "sideEffects": ["*.css"] to package.json'
+    )
+  } else if (packageJson.sideEffects !== false && !Array.isArray(packageJson.sideEffects)) {
+    issues.push('"sideEffects" should be false or an array of files with side effects')
+  }
+
+  // Check for module entry point
+  if (!packageJson.module && !packageJson.exports) {
+    issues.push('Missing "module" or "exports" field - ESM entry point not defined')
+    recommendations.push('Add "module" field or use "exports" with "import" condition')
+  }
+
+  // Check exports field structure
+  if (packageJson.exports && typeof packageJson.exports === "object") {
+    const exports = packageJson.exports as Record<string, unknown>
+    const mainExport = exports["."]
+    if (mainExport && typeof mainExport === "object") {
+      const main = mainExport as Record<string, unknown>
+      if (!main.import) {
+        issues.push('exports["."] missing "import" condition')
+        recommendations.push('Add "import" condition to exports["."] for ESM support')
+      }
+    }
+  }
+
+  // Check for CommonJS indicators that hurt tree shaking
+  if (packageJson.main && String(packageJson.main).endsWith(".cjs")) {
+    recommendations.push(
+      'Consider using .mjs extension for module field to clearly indicate ESM'
+    )
+  }
+
+  return {
+    valid: issues.length === 0,
+    issues,
+    recommendations,
+  }
+}
+
+/**
+ * Get tree shaking best practices for brand kits (Feature #69)
+ *
+ * Returns a list of best practices for creating tree-shakeable brand kits.
+ *
+ * @returns Array of best practice recommendations
+ */
+export function getTreeShakingBestPractices(): string[] {
+  return [
+    'Use named exports: export const meta = { ... } instead of export default { meta }',
+    'Add "sideEffects": false to package.json',
+    'Use "type": "module" for ESM-first approach',
+    'Avoid top-level side effects (no console.log, DOM access, etc.)',
+    'Split large exports into separate files with granular exports',
+    'Use /* #__PURE__ */ annotation for function calls that are side-effect free',
+    'Prefer const over let for exported values',
+    'Avoid circular dependencies between modules',
+  ]
 }
