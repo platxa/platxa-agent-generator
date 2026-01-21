@@ -61,6 +61,11 @@ export {
   validateOklch,
   validateColor,
   validateColorObject,
+  // WCAG Contrast Check (Feature #82)
+  checkWcagContrast,
+  checkSemanticWcagContrast,
+  generateWcagReport,
+  passesWcagAA,
   lighten,
   darken,
   saturate,
@@ -97,6 +102,10 @@ export type {
   ContrastResult,
   // Color Format Validation (Feature #81)
   ColorValidationResult,
+  // WCAG Contrast Check (Feature #82)
+  WcagComplianceLevel,
+  WcagCheckResult,
+  WcagComplianceReport,
 } from "./theme-worker"
 
 // Token presets

@@ -1378,6 +1378,288 @@ export function suggestContrastAdjustment(
   return hslToString(hsl)
 }
 
+// =============================================================================
+// WCAG CONTRAST CHECK (Feature #82)
+// =============================================================================
+
+/**
+ * WCAG compliance level
+ */
+export type WcagComplianceLevel = "AAA" | "AA" | "AA-large" | "fail"
+
+/**
+ * WCAG check result for a single color pair
+ */
+export interface WcagCheckResult {
+  /** Name/identifier for this pair */
+  pair: string
+  /** Foreground color */
+  foreground: string
+  /** Background color */
+  background: string
+  /** Contrast ratio */
+  ratio: number
+  /** Formatted ratio string */
+  ratioString: string
+  /** Highest compliance level achieved */
+  compliance: WcagComplianceLevel
+  /** Whether it passes AA for normal text */
+  passesAA: boolean
+  /** Whether it passes AAA for normal text */
+  passesAAA: boolean
+  /** Warning message if any */
+  warning?: string
+  /** Suggested fix if failing */
+  suggestion?: string
+}
+
+/**
+ * Full WCAG compliance report for a brand kit
+ */
+export interface WcagComplianceReport {
+  /** Overall compliance status */
+  compliant: boolean
+  /** Compliance level achieved (minimum across all pairs) */
+  level: WcagComplianceLevel
+  /** Number of pairs checked */
+  totalPairs: number
+  /** Number passing AA */
+  passingAA: number
+  /** Number passing AAA */
+  passingAAA: number
+  /** Number with warnings */
+  warnings: number
+  /** Number failing */
+  failures: number
+  /** Results for light mode */
+  lightMode: WcagCheckResult[]
+  /** Results for dark mode */
+  darkMode: WcagCheckResult[]
+  /** Summary messages */
+  summary: string[]
+}
+
+/**
+ * Check a single foreground/background pair for WCAG compliance (Feature #82)
+ *
+ * @param foreground - Foreground color
+ * @param background - Background color
+ * @param pairName - Name for this pair (e.g., "primary/primaryForeground")
+ * @returns WCAG check result with compliance level and warnings
+ *
+ * @example
+ * ```typescript
+ * const result = checkWcagContrast("#000000", "#ffffff", "text/background")
+ * console.log(result.compliance) // "AAA"
+ * console.log(result.ratio) // 21
+ * ```
+ */
+export function checkWcagContrast(
+  foreground: string,
+  background: string,
+  pairName: string
+): WcagCheckResult {
+  const ratio = calculateContrastRatio(foreground, background)
+  const roundedRatio = Math.round(ratio * 100) / 100
+
+  // Determine compliance level
+  let compliance: WcagComplianceLevel
+  let warning: string | undefined
+  let suggestion: string | undefined
+
+  if (ratio >= WCAG_THRESHOLDS.AAA_NORMAL) {
+    compliance = "AAA"
+  } else if (ratio >= WCAG_THRESHOLDS.AA_NORMAL) {
+    compliance = "AA"
+  } else if (ratio >= WCAG_THRESHOLDS.AA_LARGE) {
+    compliance = "AA-large"
+    warning = `Low contrast (${roundedRatio}:1). Only suitable for large text (18pt+)`
+  } else {
+    compliance = "fail"
+    warning = `Insufficient contrast (${roundedRatio}:1). Minimum 4.5:1 required for AA`
+    suggestion = `Increase contrast to at least ${WCAG_THRESHOLDS.AA_NORMAL}:1`
+  }
+
+  // Generate suggestion for non-compliant pairs
+  if (compliance === "fail" || compliance === "AA-large") {
+    const needed = WCAG_THRESHOLDS.AA_NORMAL - ratio
+    if (needed > 0) {
+      suggestion = `Need ${needed.toFixed(1)} more contrast. Try ${ratio < 4.5 ? "darkening foreground or lightening background" : "adjusting colors"}`
+    }
+  }
+
+  return {
+    pair: pairName,
+    foreground,
+    background,
+    ratio: roundedRatio,
+    ratioString: `${roundedRatio}:1`,
+    compliance,
+    passesAA: ratio >= WCAG_THRESHOLDS.AA_NORMAL,
+    passesAAA: ratio >= WCAG_THRESHOLDS.AAA_NORMAL,
+    warning,
+    suggestion,
+  }
+}
+
+/**
+ * Check all semantic color pairs for WCAG compliance (Feature #82)
+ *
+ * @param semanticColors - Object with semantic color values
+ * @returns Array of WCAG check results
+ */
+export function checkSemanticWcagContrast(
+  semanticColors: Record<string, string>
+): WcagCheckResult[] {
+  // Define standard foreground/background pairs to check
+  const pairs: Array<{ name: string; fg: string; bg: string }> = [
+    { name: "foreground/background", fg: "foreground", bg: "background" },
+    { name: "primary/primaryForeground", fg: "primaryForeground", bg: "primary" },
+    { name: "secondary/secondaryForeground", fg: "secondaryForeground", bg: "secondary" },
+    { name: "muted/mutedForeground", fg: "mutedForeground", bg: "muted" },
+    { name: "accent/accentForeground", fg: "accentForeground", bg: "accent" },
+    { name: "destructive/destructiveForeground", fg: "destructiveForeground", bg: "destructive" },
+    { name: "card/cardForeground", fg: "cardForeground", bg: "card" },
+    { name: "popover/popoverForeground", fg: "popoverForeground", bg: "popover" },
+  ]
+
+  const results: WcagCheckResult[] = []
+
+  for (const { name, fg, bg } of pairs) {
+    const fgColor = semanticColors[fg]
+    const bgColor = semanticColors[bg]
+
+    if (fgColor && bgColor) {
+      results.push(checkWcagContrast(fgColor, bgColor, name))
+    }
+  }
+
+  // Also check foreground against common backgrounds
+  if (semanticColors.foreground) {
+    if (semanticColors.card) {
+      results.push(
+        checkWcagContrast(semanticColors.foreground, semanticColors.card, "foreground/card")
+      )
+    }
+    if (semanticColors.popover) {
+      results.push(
+        checkWcagContrast(semanticColors.foreground, semanticColors.popover, "foreground/popover")
+      )
+    }
+  }
+
+  return results
+}
+
+/**
+ * Generate a full WCAG compliance report for a brand kit (Feature #82)
+ *
+ * Checks all foreground/background pairs in both light and dark modes.
+ *
+ * @param brandKit - Brand kit with semantics.light and semantics.dark
+ * @returns Full compliance report with all pairs checked
+ *
+ * @example
+ * ```typescript
+ * import { generateWcagReport } from "@platxa/frontend-agent"
+ *
+ * const report = generateWcagReport(brandKit)
+ *
+ * if (!report.compliant) {
+ *   console.warn("WCAG compliance issues:")
+ *   report.summary.forEach(msg => console.warn(msg))
+ * }
+ *
+ * // Check specific failures
+ * const failures = [...report.lightMode, ...report.darkMode]
+ *   .filter(r => !r.passesAA)
+ * ```
+ */
+export function generateWcagReport(brandKit: {
+  semantics: {
+    light: Record<string, string>
+    dark: Record<string, string>
+  }
+}): WcagComplianceReport {
+  const lightResults = checkSemanticWcagContrast(brandKit.semantics.light)
+  const darkResults = checkSemanticWcagContrast(brandKit.semantics.dark)
+
+  const allResults = [...lightResults, ...darkResults]
+
+  // Calculate statistics
+  const totalPairs = allResults.length
+  const passingAA = allResults.filter((r) => r.passesAA).length
+  const passingAAA = allResults.filter((r) => r.passesAAA).length
+  const warnings = allResults.filter((r) => r.warning && r.passesAA).length
+  const failures = allResults.filter((r) => !r.passesAA).length
+
+  // Determine overall compliance level
+  let level: WcagComplianceLevel = "AAA"
+  if (failures > 0) {
+    level = "fail"
+  } else if (passingAAA < totalPairs) {
+    level = allResults.every((r) => r.compliance !== "AA-large") ? "AA" : "AA-large"
+  }
+
+  // Generate summary messages
+  const summary: string[] = []
+
+  if (failures > 0) {
+    summary.push(`❌ ${failures} color pair(s) fail WCAG AA compliance`)
+
+    const lightFailures = lightResults.filter((r) => !r.passesAA)
+    if (lightFailures.length > 0) {
+      summary.push(`  Light mode: ${lightFailures.map((r) => r.pair).join(", ")}`)
+    }
+
+    const darkFailures = darkResults.filter((r) => !r.passesAA)
+    if (darkFailures.length > 0) {
+      summary.push(`  Dark mode: ${darkFailures.map((r) => r.pair).join(", ")}`)
+    }
+  } else {
+    summary.push(`✅ All ${totalPairs} color pairs pass WCAG AA`)
+  }
+
+  if (passingAAA === totalPairs) {
+    summary.push(`✅ All pairs also pass WCAG AAA (enhanced contrast)`)
+  } else if (passingAAA > 0) {
+    summary.push(`ℹ️ ${passingAAA}/${totalPairs} pairs pass WCAG AAA`)
+  }
+
+  if (warnings > 0) {
+    summary.push(`⚠️ ${warnings} pair(s) have low contrast warnings`)
+  }
+
+  return {
+    compliant: failures === 0,
+    level,
+    totalPairs,
+    passingAA,
+    passingAAA,
+    warnings,
+    failures,
+    lightMode: lightResults,
+    darkMode: darkResults,
+    summary,
+  }
+}
+
+/**
+ * Quick check if a brand kit passes WCAG AA (Feature #82)
+ *
+ * @param brandKit - Brand kit to check
+ * @returns true if all pairs pass WCAG AA
+ */
+export function passesWcagAA(brandKit: {
+  semantics: {
+    light: Record<string, string>
+    dark: Record<string, string>
+  }
+}): boolean {
+  const report = generateWcagReport(brandKit)
+  return report.compliant
+}
+
 /**
  * Lightens a color by percentage
  */
