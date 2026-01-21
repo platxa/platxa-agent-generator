@@ -41,10 +41,14 @@ export default defineConfig({
   },
   build: {
     lib: {
-      entry: path.resolve(__dirname, "src/index.ts"),
+      entry: {
+        index: path.resolve(__dirname, "src/index.ts"),
+        "cli/init": path.resolve(__dirname, "src/cli/init.ts"),
+      },
       name: "PlatxaFrontendAgent",
       formats: ["es", "cjs"],
-      fileName: (format) => `index.${format === "es" ? "mjs" : "cjs"}`,
+      fileName: (format, entryName) =>
+        `${entryName}.${format === "es" ? "mjs" : "cjs"}`,
     },
     rollupOptions: {
       external: [
@@ -59,6 +63,10 @@ export default defineConfig({
         "@radix-ui/react-tooltip",
         "@radix-ui/react-slot",
         "@radix-ui/react-collapsible",
+        // Node.js built-ins for CLI
+        "node:fs",
+        "node:path",
+        "node:readline",
       ],
       output: {
         globals: {

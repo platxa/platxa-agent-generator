@@ -33,7 +33,15 @@
       "import": "./dist/components/ui/index.mjs",
       "require": "./dist/components/ui/index.cjs"
     },
-    "./styles": "./src/styles/globals.css"
+    "./styles": "./src/styles/globals.css",
+    "./cli/init": {
+      "types": "./dist/cli/init.d.ts",
+      "import": "./dist/cli/init.mjs",
+      "require": "./dist/cli/init.cjs"
+    }
+  },
+  "bin": {
+    "platxa-init": "./dist/cli/init.mjs"
   },
   "files": [
     "dist",
