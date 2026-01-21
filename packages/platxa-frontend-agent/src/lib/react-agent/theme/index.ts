@@ -436,6 +436,13 @@ export {
   generateGranularBrandKitModule,
   analyzeUsedParts,
   createOptimizedBrandKit,
+  // Prefetch Hints (Feature #125)
+  generatePrefetchHints,
+  generateMultiBrandPrefetchHints,
+  generateConditionalPrefetchHints,
+  generateNextPrefetchConfig,
+  generatePrefetchScript,
+  formatPrefetchHintReport,
 } from "./theme-worker"
 
 export type {
@@ -674,6 +681,14 @@ export type {
   EffectsOnlyBrandKit,
   AnimationOnlyBrandKit,
   PartialBrandKitType,
+  // Prefetch Hints (Feature #125)
+  ResourceHintType,
+  ResourcePriority,
+  FetchPriority,
+  ResourceAsType,
+  PrefetchHint,
+  PrefetchHintConfig,
+  PrefetchHintResult,
 } from "./theme-worker"
 
 // Token presets

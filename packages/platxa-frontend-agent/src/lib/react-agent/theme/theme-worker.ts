@@ -24734,3 +24734,625 @@ export function createOptimizedBrandKit(
     includeDarkMode: usedParts.includes("darkColors"),
   })
 }
+
+// ============================================================================
+// Feature #125: Prefetch Hints
+// Generate prefetch hints for brand kit resources with priority configuration
+// ============================================================================
+
+/**
+ * Resource hint types
+ */
+export type ResourceHintType =
+  | "prefetch"
+  | "preload"
+  | "preconnect"
+  | "dns-prefetch"
+  | "modulepreload"
+
+/**
+ * Resource priority levels
+ */
+export type ResourcePriority = "high" | "low" | "auto"
+
+/**
+ * Fetch priority for resources
+ */
+export type FetchPriority = "high" | "low" | "auto"
+
+/**
+ * Resource types for "as" attribute
+ */
+export type ResourceAsType =
+  | "style"
+  | "script"
+  | "font"
+  | "image"
+  | "fetch"
+  | "document"
+  | "worker"
+
+/**
+ * Individual prefetch hint
+ */
+export interface PrefetchHint {
+  /** Hint type */
+  type: ResourceHintType
+  /** Resource URL */
+  href: string
+  /** Resource type (for preload) */
+  as?: ResourceAsType
+  /** CORS mode */
+  crossorigin?: "anonymous" | "use-credentials" | ""
+  /** MIME type */
+  mimeType?: string
+  /** Fetch priority */
+  fetchpriority?: FetchPriority
+  /** Media query (for conditional loading) */
+  media?: string
+  /** Integrity hash (SRI) */
+  integrity?: string
+  /** Nonce for CSP */
+  nonce?: string
+}
+
+/**
+ * Configuration for prefetch hint generation
+ */
+export interface PrefetchHintConfig {
+  /** Base URL for resources */
+  baseUrl?: string
+  /** Include font preloading */
+  includeFonts?: boolean
+  /** Include CSS preloading */
+  includeCss?: boolean
+  /** Include JS preloading */
+  includeJs?: boolean
+  /** Default priority for resources */
+  defaultPriority?: FetchPriority
+  /** Font priority */
+  fontPriority?: FetchPriority
+  /** CSS priority */
+  cssPriority?: FetchPriority
+  /** Enable preconnect for external origins */
+  preconnectOrigins?: boolean
+  /** Enable DNS prefetch for external origins */
+  dnsPrefetch?: boolean
+  /** Custom resources to include (supports integrity hashes) */
+  customResources?: Array<{
+    url: string
+    type: ResourceHintType
+    as?: ResourceAsType
+    priority?: FetchPriority
+    /** SRI integrity hash for the resource */
+    integrity?: string
+    /** CORS mode */
+    crossorigin?: "anonymous" | "use-credentials"
+  }>
+  /** Media query for conditional hints */
+  media?: string
+  /** CSP nonce */
+  nonce?: string
+}
+
+/**
+ * Result of prefetch hint generation
+ */
+export interface PrefetchHintResult {
+  /** Array of hint objects */
+  hints: PrefetchHint[]
+  /** HTML link tags */
+  html: string
+  /** HTTP Link header value */
+  httpHeader: string
+  /** Origins that need preconnect */
+  preconnectOrigins: string[]
+  /** Total number of hints */
+  totalHints: number
+  /** Hints by type */
+  byType: Record<ResourceHintType, number>
+}
+
+/**
+ * Extracts external origins from a ThemeConfig
+ */
+function extractOrigins(config: ThemeConfig): string[] {
+  const origins: Set<string> = new Set()
+
+  // Check font family for external font URLs
+  if (config.light?.fontFamily) {
+    const fonts = config.light.fontFamily
+    for (const value of Object.values(fonts)) {
+      if (typeof value === "string") {
+        // Check for Google Fonts
+        if (value.includes("fonts.googleapis.com")) {
+          origins.add("https://fonts.googleapis.com")
+          origins.add("https://fonts.gstatic.com")
+        }
+        // Check for other URLs
+        const urlMatch = value.match(/https?:\/\/[^/\s"',)]+/)
+        if (urlMatch) {
+          origins.add(urlMatch[0])
+        }
+      }
+    }
+  }
+
+  return Array.from(origins)
+}
+
+/**
+ * Generates a link tag from a PrefetchHint
+ */
+function hintToLinkTag(hint: PrefetchHint): string {
+  const attrs: string[] = ['rel="' + hint.type + '"', 'href="' + hint.href + '"']
+
+  if (hint.as) {
+    attrs.push('as="' + hint.as + '"')
+  }
+
+  if (hint.crossorigin !== undefined) {
+    if (hint.crossorigin === "") {
+      attrs.push("crossorigin")
+    } else {
+      attrs.push('crossorigin="' + hint.crossorigin + '"')
+    }
+  }
+
+  if (hint.mimeType) {
+    attrs.push('type="' + hint.mimeType + '"')
+  }
+
+  if (hint.fetchpriority) {
+    attrs.push('fetchpriority="' + hint.fetchpriority + '"')
+  }
+
+  if (hint.media) {
+    attrs.push('media="' + hint.media + '"')
+  }
+
+  if (hint.integrity) {
+    attrs.push('integrity="' + hint.integrity + '"')
+  }
+
+  if (hint.nonce) {
+    attrs.push('nonce="' + hint.nonce + '"')
+  }
+
+  return "<link " + attrs.join(" ") + ">"
+}
+
+/**
+ * Generates HTTP Link header format from hints
+ */
+function hintsToHttpHeader(hints: PrefetchHint[]): string {
+  return hints
+    .map((hint) => {
+      const parts: string[] = ["<" + hint.href + ">", 'rel="' + hint.type + '"']
+
+      if (hint.as) {
+        parts.push('as="' + hint.as + '"')
+      }
+
+      if (hint.crossorigin !== undefined) {
+        parts.push("crossorigin")
+      }
+
+      return parts.join("; ")
+    })
+    .join(", ")
+}
+
+/**
+ * Generates prefetch hints for brand kit resources
+ *
+ * Creates link prefetch, preload, and preconnect hints for optimal
+ * resource loading. Supports fonts, CSS, and JavaScript resources
+ * with configurable priorities.
+ *
+ * @param config - Theme configuration
+ * @param options - Prefetch hint configuration
+ * @returns Prefetch hint result with HTML and HTTP header formats
+ *
+ * @example
+ * ```typescript
+ * // Basic prefetch hints
+ * const hints = generatePrefetchHints(myTheme)
+ * document.head.insertAdjacentHTML('beforeend', hints.html)
+ *
+ * // With custom configuration
+ * const hints = generatePrefetchHints(myTheme, {
+ *   baseUrl: '/assets/brand/',
+ *   includeFonts: true,
+ *   fontPriority: 'high',
+ *   preconnectOrigins: true,
+ * })
+ *
+ * // Set HTTP header
+ * res.setHeader('Link', hints.httpHeader)
+ * ```
+ */
+export function generatePrefetchHints(
+  config: ThemeConfig,
+  options: PrefetchHintConfig = {}
+): PrefetchHintResult {
+  const {
+    baseUrl = "",
+    includeFonts = true,
+    includeCss = true,
+    includeJs = false,
+    defaultPriority = "auto",
+    fontPriority = "high",
+    cssPriority = "high",
+    preconnectOrigins = true,
+    dnsPrefetch = true,
+    customResources = [],
+    media,
+    nonce,
+  } = options
+
+  const hints: PrefetchHint[] = []
+  const origins = extractOrigins(config)
+
+  // Add preconnect hints for external origins
+  if (preconnectOrigins) {
+    for (const origin of origins) {
+      hints.push({
+        type: "preconnect",
+        href: origin,
+        crossorigin: "anonymous",
+      })
+    }
+  }
+
+  // Add DNS prefetch as fallback
+  if (dnsPrefetch) {
+    for (const origin of origins) {
+      hints.push({
+        type: "dns-prefetch",
+        href: origin,
+      })
+    }
+  }
+
+  // Add font preload hints
+  if (includeFonts && config.light?.fontFamily) {
+    // Google Fonts CSS
+    if (origins.some((o) => o.includes("fonts.googleapis.com"))) {
+      const fontFamilies = Object.values(config.light.fontFamily)
+        .filter((f): f is string => typeof f === "string")
+        .map((f) => f.replace(/['"]/g, "").split(",")[0].trim())
+        .filter((f) => f && !f.includes("system-ui") && !f.includes("sans-serif"))
+
+      if (fontFamilies.length > 0) {
+        const googleFontsUrl =
+          "https://fonts.googleapis.com/css2?family=" +
+          fontFamilies.map((f) => f.replace(/\s+/g, "+")).join("&family=") +
+          "&display=swap"
+
+        hints.push({
+          type: "preload",
+          href: googleFontsUrl,
+          as: "style",
+          crossorigin: "anonymous",
+          fetchpriority: fontPriority,
+          media,
+        })
+      }
+    }
+  }
+
+  // Add CSS preload hints
+  if (includeCss) {
+    const cssUrl = baseUrl + config.name + ".css"
+    hints.push({
+      type: "preload",
+      href: cssUrl,
+      as: "style",
+      fetchpriority: cssPriority,
+      media,
+      nonce,
+    })
+  }
+
+  // Add JS preload hints
+  if (includeJs) {
+    const jsUrl = baseUrl + config.name + ".js"
+    hints.push({
+      type: "modulepreload",
+      href: jsUrl,
+      fetchpriority: defaultPriority,
+      nonce,
+    })
+  }
+
+  // Add custom resources (supports integrity hashes for SRI)
+  for (const resource of customResources) {
+    hints.push({
+      type: resource.type,
+      href: resource.url,
+      as: resource.as,
+      fetchpriority: resource.priority || defaultPriority,
+      crossorigin: resource.crossorigin,
+      integrity: resource.integrity,
+      media,
+      nonce,
+    })
+  }
+
+  // Count hints by type
+  const byType: Record<ResourceHintType, number> = {
+    prefetch: 0,
+    preload: 0,
+    preconnect: 0,
+    "dns-prefetch": 0,
+    modulepreload: 0,
+  }
+
+  for (const hint of hints) {
+    byType[hint.type]++
+  }
+
+  // Generate HTML
+  const html = hints.map(hintToLinkTag).join("\n")
+
+  // Generate HTTP header
+  const httpHeader = hintsToHttpHeader(hints)
+
+  return {
+    hints,
+    html,
+    httpHeader,
+    preconnectOrigins: origins,
+    totalHints: hints.length,
+    byType,
+  }
+}
+
+/**
+ * Generates prefetch hints for multiple brand kits
+ *
+ * @param configs - Array of theme configurations
+ * @param options - Prefetch hint configuration
+ * @returns Combined prefetch hint result
+ */
+export function generateMultiBrandPrefetchHints(
+  configs: ThemeConfig[],
+  options: PrefetchHintConfig = {}
+): PrefetchHintResult {
+  const allHints: PrefetchHint[] = []
+  const allOrigins: Set<string> = new Set()
+  const seenUrls: Set<string> = new Set()
+
+  for (const config of configs) {
+    const result = generatePrefetchHints(config, options)
+
+    // Deduplicate hints by URL
+    for (const hint of result.hints) {
+      if (!seenUrls.has(hint.href)) {
+        seenUrls.add(hint.href)
+        allHints.push(hint)
+      }
+    }
+
+    for (const origin of result.preconnectOrigins) {
+      allOrigins.add(origin)
+    }
+  }
+
+  // Count hints by type
+  const byType: Record<ResourceHintType, number> = {
+    prefetch: 0,
+    preload: 0,
+    preconnect: 0,
+    "dns-prefetch": 0,
+    modulepreload: 0,
+  }
+
+  for (const hint of allHints) {
+    byType[hint.type]++
+  }
+
+  return {
+    hints: allHints,
+    html: allHints.map(hintToLinkTag).join("\n"),
+    httpHeader: hintsToHttpHeader(allHints),
+    preconnectOrigins: Array.from(allOrigins),
+    totalHints: allHints.length,
+    byType,
+  }
+}
+
+/**
+ * Generates conditional prefetch hints based on user preferences
+ *
+ * @param config - Theme configuration
+ * @param options - Configuration options
+ * @returns Prefetch hints with media queries for reduced data/motion
+ */
+export function generateConditionalPrefetchHints(
+  config: ThemeConfig,
+  options: PrefetchHintConfig & {
+    respectReducedData?: boolean
+    respectReducedMotion?: boolean
+  } = {}
+): {
+  standard: PrefetchHintResult
+  reducedData?: PrefetchHintResult
+  reducedMotion?: PrefetchHintResult
+} {
+  const { respectReducedData = true, respectReducedMotion = false, ...baseOptions } = options
+
+  // Standard hints
+  const standard = generatePrefetchHints(config, baseOptions)
+
+  const result: {
+    standard: PrefetchHintResult
+    reducedData?: PrefetchHintResult
+    reducedMotion?: PrefetchHintResult
+  } = { standard }
+
+  // Reduced data hints (minimal resources)
+  if (respectReducedData) {
+    result.reducedData = generatePrefetchHints(config, {
+      ...baseOptions,
+      includeFonts: false, // Skip web fonts
+      includeJs: false, // Skip non-essential JS
+      media: "(prefers-reduced-data: no-preference)",
+    })
+  }
+
+  // Reduced motion hints (skip animation-related resources)
+  if (respectReducedMotion) {
+    result.reducedMotion = generatePrefetchHints(config, {
+      ...baseOptions,
+      media: "(prefers-reduced-motion: no-preference)",
+    })
+  }
+
+  return result
+}
+
+/**
+ * Generates Next.js viewport and prefetch configuration
+ *
+ * @param config - Theme configuration
+ * @param options - Configuration options
+ * @returns Next.js metadata configuration
+ */
+export function generateNextPrefetchConfig(
+  config: ThemeConfig,
+  options: PrefetchHintConfig = {}
+): {
+  links: Array<{
+    rel: string
+    href: string
+    as?: string
+    crossOrigin?: string
+    fetchPriority?: string
+  }>
+  preconnect: string[]
+} {
+  const result = generatePrefetchHints(config, options)
+
+  const links = result.hints
+    .filter((h) => h.type !== "dns-prefetch")
+    .map((hint) => ({
+      rel: hint.type,
+      href: hint.href,
+      as: hint.as,
+      crossOrigin: hint.crossorigin === "anonymous" ? "anonymous" : undefined,
+      fetchPriority: hint.fetchpriority,
+    }))
+
+  return {
+    links,
+    preconnect: result.preconnectOrigins,
+  }
+}
+
+/**
+ * Creates a prefetch script for dynamic loading
+ *
+ * @param config - Theme configuration
+ * @param options - Configuration options
+ * @returns JavaScript code for dynamic prefetching
+ */
+export function generatePrefetchScript(
+  config: ThemeConfig,
+  options: PrefetchHintConfig = {}
+): string {
+  const result = generatePrefetchHints(config, options)
+
+  const lines: string[] = [
+    "// Brand Kit Prefetch Script",
+    "(function() {",
+    "  'use strict';",
+    "",
+    "  // Check for prefetch support",
+    "  var link = document.createElement('link');",
+    "  var supportsPreload = link.relList && link.relList.supports && link.relList.supports('preload');",
+    "",
+    "  function addHint(rel, href, as, crossorigin, priority) {",
+    "    var link = document.createElement('link');",
+    "    link.rel = rel;",
+    "    link.href = href;",
+    "    if (as) link.as = as;",
+    "    if (crossorigin) link.crossOrigin = crossorigin;",
+    "    if (priority && 'fetchPriority' in link) link.fetchPriority = priority;",
+    "    document.head.appendChild(link);",
+    "  }",
+    "",
+    "  // Add hints",
+  ]
+
+  for (const hint of result.hints) {
+    const args = [
+      '"' + hint.type + '"',
+      '"' + hint.href + '"',
+      hint.as ? '"' + hint.as + '"' : "null",
+      hint.crossorigin ? '"' + hint.crossorigin + '"' : "null",
+      hint.fetchpriority ? '"' + hint.fetchpriority + '"' : "null",
+    ]
+    lines.push("  addHint(" + args.join(", ") + ");")
+  }
+
+  lines.push("})();")
+
+  return lines.join("\n")
+}
+
+/**
+ * Formats prefetch hints into a human-readable report
+ *
+ * @param result - Prefetch hint result
+ * @returns Formatted report string
+ */
+export function formatPrefetchHintReport(result: PrefetchHintResult): string {
+  const lines: string[] = []
+  const divider = "═".repeat(50)
+
+  lines.push(divider)
+  lines.push("Prefetch Hints Report")
+  lines.push(divider)
+  lines.push("")
+
+  lines.push("Total Hints: " + result.totalHints)
+  lines.push("")
+
+  lines.push("─".repeat(50))
+  lines.push("By Type")
+  lines.push("─".repeat(50))
+  for (const [type, count] of Object.entries(result.byType)) {
+    if (count > 0) {
+      lines.push("  " + type + ": " + count)
+    }
+  }
+  lines.push("")
+
+  if (result.preconnectOrigins.length > 0) {
+    lines.push("─".repeat(50))
+    lines.push("Preconnect Origins")
+    lines.push("─".repeat(50))
+    for (const origin of result.preconnectOrigins) {
+      lines.push("  " + origin)
+    }
+    lines.push("")
+  }
+
+  lines.push("─".repeat(50))
+  lines.push("HTML Output")
+  lines.push("─".repeat(50))
+  lines.push(result.html)
+  lines.push("")
+
+  lines.push("─".repeat(50))
+  lines.push("HTTP Link Header")
+  lines.push("─".repeat(50))
+  lines.push(result.httpHeader)
+  lines.push("")
+
+  lines.push(divider)
+
+  return lines.join("\n")
+}

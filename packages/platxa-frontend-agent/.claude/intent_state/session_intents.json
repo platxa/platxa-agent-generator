@@ -1,32 +1,32 @@
 {
-  "session_id": "d1d693a2a0d0",
+  "session_id": "52f00d375817",
   "stack": {
     "session": {
-      "id": "d1d693a2a0d0-187",
-      "text": "[Performance Features] Feature #124: [Selective Loading] Load only needed parts of brand kit (colors only, etc.) Verification: Partial imports supported; Unused parts tree-shaken; Granular export structure Criteria: Manual verification required",
+      "id": "52f00d375817-189",
+      "text": "[Performance Features] Feature #125: [Prefetch Hints] Generate prefetch hints for brand kit resources Verification: Link prefetch generated; Priority hints set; Configurable prefetch Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769002150.8143642,
-      "updated_at": 1769002150.8143644,
+      "created_at": 1769002354.5883071,
+      "updated_at": 1769002354.5883074,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 124,
+        "feature_id": 125,
         "category": "Performance Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "d1d693a2a0d0-188",
-      "text": "Implement: [Selective Loading] Load only needed parts of brand kit (colors only, etc.) Verification: Partial imports supported; Unused parts tree-shaken; Granular export structure",
+      "id": "52f00d375817-190",
+      "text": "Implement: [Prefetch Hints] Generate prefetch hints for brand kit resources Verification: Link prefetch generated; Priority hints set; Configurable prefetch",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769002150.819608,
-      "updated_at": 1769002150.819608,
+      "created_at": 1769002354.595072,
+      "updated_at": 1769002354.5950723,
       "completed_at": null,
-      "parent_id": "d1d693a2a0d0-187",
+      "parent_id": "52f00d375817-189",
       "metadata": {},
       "keywords": []
     },
@@ -2758,9 +2758,38 @@
       "parent_id": "d1d693a2a0d0-187",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "52f00d375817-189",
+      "text": "[Performance Features] Feature #125: [Prefetch Hints] Generate prefetch hints for brand kit resources Verification: Link prefetch generated; Priority hints set; Configurable prefetch Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769002354.5883071,
+      "updated_at": 1769002354.5883074,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 125,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "52f00d375817-190",
+      "text": "Implement: [Prefetch Hints] Generate prefetch hints for brand kit resources Verification: Link prefetch generated; Priority hints set; Configurable prefetch",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769002354.595072,
+      "updated_at": 1769002354.5950723,
+      "completed_at": null,
+      "parent_id": "52f00d375817-189",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 188,
+  "intent_counter": 190,
   "created_at": 1768900061.32227,
-  "updated_at": 1769002150.819613
+  "updated_at": 1769002354.595078
 }
