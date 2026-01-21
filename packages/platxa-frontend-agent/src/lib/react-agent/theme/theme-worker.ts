@@ -18,6 +18,8 @@ import type {
   ColorGenerationOptions,
   PaletteGenerationOptions,
   ThemeMode,
+  SpacingScale,
+  TypographyScale,
 } from "./types"
 
 import {
@@ -6276,4 +6278,478 @@ export function flattenBrandInheritance(
     validate: false,
   })
   return resolved
+}
+
+// =============================================================================
+// Feature #93: Partial Brand Kits
+// =============================================================================
+
+/**
+ * Partial brand kit type
+ *
+ * Represents a brand kit that only overrides specific tokens.
+ * All fields are optional except for name.
+ */
+export interface PartialBrandKit {
+  /** Brand kit name (required for identification) */
+  name: string
+  /** Partial light mode tokens */
+  light?: DeepPartial<DesignTokens>
+  /** Partial dark mode tokens */
+  dark?: Partial<SemanticColors>
+  /** Default mode override */
+  defaultMode?: ThemeMode
+  /** Dark mode class override */
+  darkModeClass?: string
+  /** Color scheme preference */
+  useColorScheme?: boolean
+  /** Parent brand kit to extend */
+  extends?: ThemeConfig | string
+  /** Description of what this partial kit overrides */
+  description?: string
+  /** Categories this partial kit targets */
+  targetCategories?: Array<keyof DesignTokens>
+}
+
+/**
+ * Options for merging partial brand kits
+ */
+export interface MergePartialOptions {
+  /**
+   * How to handle conflicts when the same token is defined in multiple partials
+   * - 'last': Later partials override earlier ones (default)
+   * - 'first': Keep the first value
+   * - 'error': Throw an error on conflicts
+   */
+  conflictResolution?: "last" | "first" | "error"
+
+  /**
+   * Whether to validate the result
+   * @default true
+   */
+  validate?: boolean
+
+  /**
+   * Name for the merged result
+   */
+  resultName?: string
+}
+
+/**
+ * Result of validating a partial brand kit
+ */
+export interface PartialBrandKitValidation {
+  /** Whether the partial kit is valid */
+  valid: boolean
+  /** What categories are being overridden */
+  overriddenCategories: Array<keyof DesignTokens>
+  /** Warnings (non-fatal issues) */
+  warnings: string[]
+  /** Errors (if not valid) */
+  errors: string[]
+}
+
+/**
+ * Validates a partial brand kit
+ *
+ * Checks that the partial kit is well-formed and identifies
+ * what categories it overrides.
+ *
+ * @param partial - Partial brand kit to validate
+ * @returns Validation result
+ *
+ * @example
+ * ```typescript
+ * const colorOverride: PartialBrandKit = {
+ *   name: "brand-colors",
+ *   light: {
+ *     colors: { primary: "purple" },
+ *   },
+ * }
+ *
+ * const result = validatePartialBrandKit(colorOverride)
+ * console.log(result.overriddenCategories) // ["colors"]
+ * ```
+ */
+export function validatePartialBrandKit(
+  partial: PartialBrandKit
+): PartialBrandKitValidation {
+  const errors: string[] = []
+  const warnings: string[] = []
+  const overriddenCategories: Array<keyof DesignTokens> = []
+
+  // Name is required
+  if (!partial.name || partial.name.trim() === "") {
+    errors.push("Partial brand kit must have a name")
+  }
+
+  // Check what categories are being overridden in light tokens
+  if (partial.light) {
+    const categories: Array<keyof DesignTokens> = [
+      "colors",
+      "spacing",
+      "typography",
+      "fontWeight",
+      "radius",
+      "shadow",
+    ]
+
+    for (const cat of categories) {
+      if (partial.light[cat] !== undefined) {
+        overriddenCategories.push(cat)
+      }
+    }
+
+    // Warn if light is empty
+    if (Object.keys(partial.light).length === 0) {
+      warnings.push("light object is empty - no tokens will be overridden")
+    }
+  }
+
+  // Check dark mode
+  if (partial.dark && Object.keys(partial.dark).length > 0) {
+    if (!overriddenCategories.includes("colors")) {
+      // Dark mode colors without light mode colors
+      warnings.push(
+        "dark mode colors defined without corresponding light mode colors"
+      )
+    }
+  }
+
+  // Check target categories match actual overrides
+  if (partial.targetCategories && partial.targetCategories.length > 0) {
+    for (const target of partial.targetCategories) {
+      if (!overriddenCategories.includes(target)) {
+        warnings.push(
+          `targetCategories includes "${target}" but no ${target} tokens are defined`
+        )
+      }
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    overriddenCategories,
+    warnings,
+    errors,
+  }
+}
+
+/**
+ * Creates a partial brand kit for color overrides only
+ *
+ * @param name - Name for the partial kit
+ * @param colors - Color overrides
+ * @param darkColors - Optional dark mode color overrides
+ * @returns Partial brand kit
+ *
+ * @example
+ * ```typescript
+ * const purpleColors = createColorOverride("purple-theme", {
+ *   primary: "oklch(0.6 0.2 280)",
+ *   secondary: "oklch(0.7 0.15 250)",
+ * })
+ * ```
+ */
+export function createColorOverride(
+  name: string,
+  colors: Partial<SemanticColors>,
+  darkColors?: Partial<SemanticColors>
+): PartialBrandKit {
+  const partial: PartialBrandKit = {
+    name,
+    description: "Color overrides",
+    targetCategories: ["colors"],
+    light: {
+      colors: colors as SemanticColors,
+    },
+  }
+
+  if (darkColors) {
+    partial.dark = darkColors
+  }
+
+  return partial
+}
+
+/**
+ * Creates a partial brand kit for spacing overrides only
+ *
+ * @param name - Name for the partial kit
+ * @param spacing - Spacing overrides
+ * @returns Partial brand kit
+ */
+export function createSpacingOverride(
+  name: string,
+  spacing: Partial<SpacingScale>
+): PartialBrandKit {
+  return {
+    name,
+    description: "Spacing overrides",
+    targetCategories: ["spacing"],
+    light: {
+      spacing: spacing as SpacingScale,
+    },
+  }
+}
+
+/**
+ * Creates a partial brand kit for typography overrides only
+ *
+ * @param name - Name for the partial kit
+ * @param typography - Typography overrides
+ * @returns Partial brand kit
+ */
+export function createTypographyOverride(
+  name: string,
+  typography: Partial<TypographyScale>
+): PartialBrandKit {
+  return {
+    name,
+    description: "Typography overrides",
+    targetCategories: ["typography"],
+    light: {
+      typography: typography as TypographyScale,
+    },
+  }
+}
+
+/**
+ * Checks if a brand kit is partial (doesn't have all required tokens)
+ *
+ * @param brandKit - Brand kit to check
+ * @returns True if the brand kit is partial
+ */
+export function isPartialBrandKit(
+  brandKit: ThemeConfig | PartialBrandKit
+): brandKit is PartialBrandKit {
+  // A full ThemeConfig has complete light tokens
+  // A partial one has DeepPartial<DesignTokens>
+  if (!brandKit.light) {
+    return true
+  }
+
+  const light = brandKit.light
+  const requiredCategories: Array<keyof DesignTokens> = [
+    "colors",
+    "spacing",
+    "typography",
+    "fontWeight",
+    "radius",
+    "shadow",
+  ]
+
+  // Check if all required categories have complete data
+  for (const cat of requiredCategories) {
+    if (light[cat] === undefined) {
+      return true
+    }
+  }
+
+  // Check if colors has all required semantic colors
+  if (light.colors) {
+    const requiredColors: Array<keyof SemanticColors> = [
+      "primary",
+      "secondary",
+      "background",
+      "foreground",
+    ]
+    for (const color of requiredColors) {
+      if ((light.colors as SemanticColors)[color] === undefined) {
+        return true
+      }
+    }
+  }
+
+  return false
+}
+
+/**
+ * Merges a partial brand kit with a base theme
+ *
+ * @param base - Base theme to extend
+ * @param partial - Partial brand kit to merge
+ * @param options - Merge options
+ * @returns Complete theme config
+ *
+ * @example
+ * ```typescript
+ * const colorOverride: PartialBrandKit = {
+ *   name: "my-colors",
+ *   light: { colors: { primary: "purple" } },
+ * }
+ *
+ * const myTheme = mergePartialBrandKit(defaultTheme, colorOverride)
+ * ```
+ */
+export function mergePartialBrandKit(
+  base: ThemeConfig,
+  partial: PartialBrandKit,
+  options: MergePartialOptions = {}
+): ThemeConfig {
+  const { validate = true, resultName } = options
+
+  // Convert partial to DeepPartial<ThemeConfig>
+  const override: DeepPartial<ThemeConfig> = {
+    name: resultName ?? partial.name,
+  }
+
+  if (partial.light) {
+    override.light = partial.light as DeepPartial<DesignTokens>
+  }
+  if (partial.dark) {
+    override.dark = partial.dark
+  }
+  if (partial.defaultMode) {
+    override.defaultMode = partial.defaultMode
+  }
+  if (partial.darkModeClass) {
+    override.darkModeClass = partial.darkModeClass
+  }
+  if (partial.useColorScheme !== undefined) {
+    override.useColorScheme = partial.useColorScheme
+  }
+
+  // Use extendBrand to merge
+  const result = extendBrand(base, override)
+
+  // Validate if requested
+  if (validate) {
+    const validation = validateExtendedBrand(result)
+    if (!validation.valid) {
+      throw new Error(
+        `Merged brand kit is incomplete: ${validation.missing.join(", ")}`
+      )
+    }
+  }
+
+  return result
+}
+
+/**
+ * Merges multiple partial brand kits with a base theme
+ *
+ * Applies partials in order, with later partials taking precedence
+ * (unless conflictResolution is changed).
+ *
+ * @param base - Base theme to extend
+ * @param partials - Array of partial brand kits
+ * @param options - Merge options
+ * @returns Complete theme config
+ *
+ * @example
+ * ```typescript
+ * const result = mergePartialBrandKits(defaultTheme, [
+ *   colorOverride,
+ *   spacingOverride,
+ *   typographyOverride,
+ * ])
+ * ```
+ */
+export function mergePartialBrandKits(
+  base: ThemeConfig,
+  partials: PartialBrandKit[],
+  options: MergePartialOptions = {}
+): ThemeConfig {
+  const { conflictResolution = "last", validate = true, resultName } = options
+
+  if (partials.length === 0) {
+    return base
+  }
+
+  // Track seen tokens for conflict detection
+  const seenTokens = new Map<string, string>()
+
+  // Check for conflicts if needed
+  if (conflictResolution === "error") {
+    for (const partial of partials) {
+      if (partial.light) {
+        for (const [category, tokens] of Object.entries(partial.light)) {
+          if (tokens && typeof tokens === "object") {
+            for (const key of Object.keys(tokens)) {
+              const path = `${category}.${key}`
+              if (seenTokens.has(path)) {
+                throw new Error(
+                  `Token conflict: "${path}" defined in both "${seenTokens.get(path)}" and "${partial.name}"`
+                )
+              }
+              seenTokens.set(path, partial.name)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Determine order based on conflict resolution
+  const orderedPartials =
+    conflictResolution === "first" ? [...partials].reverse() : partials
+
+  // Merge partials
+  let result = base
+  for (const partial of orderedPartials) {
+    result = mergePartialBrandKit(result, partial, {
+      validate: false,
+      resultName: partial.name,
+    })
+  }
+
+  // Set final name
+  if (resultName) {
+    result = { ...result, name: resultName }
+  }
+
+  // Final validation
+  if (validate) {
+    const validation = validateExtendedBrand(result)
+    if (!validation.valid) {
+      throw new Error(
+        `Merged brand kit is incomplete: ${validation.missing.join(", ")}`
+      )
+    }
+  }
+
+  return result
+}
+
+/**
+ * Extracts a partial brand kit from a full theme
+ *
+ * Creates a partial that only contains the specified categories.
+ *
+ * @param theme - Theme to extract from
+ * @param categories - Categories to extract
+ * @param name - Name for the partial (defaults to "{theme.name}-partial")
+ * @returns Partial brand kit
+ *
+ * @example
+ * ```typescript
+ * // Extract only colors from a theme
+ * const colorPartial = extractPartialBrandKit(myTheme, ["colors"])
+ * ```
+ */
+export function extractPartialBrandKit(
+  theme: ThemeConfig,
+  categories: Array<keyof DesignTokens>,
+  name?: string
+): PartialBrandKit {
+  const partial: PartialBrandKit = {
+    name: name ?? `${theme.name}-partial`,
+    description: `Extracted ${categories.join(", ")} from ${theme.name}`,
+    targetCategories: categories,
+    light: {},
+  }
+
+  for (const cat of categories) {
+    if (theme.light[cat]) {
+      (partial.light as Record<string, unknown>)[cat] = theme.light[cat]
+    }
+  }
+
+  // Extract dark mode colors if colors are requested
+  if (categories.includes("colors") && theme.dark) {
+    partial.dark = theme.dark
+  }
+
+  return partial
 }

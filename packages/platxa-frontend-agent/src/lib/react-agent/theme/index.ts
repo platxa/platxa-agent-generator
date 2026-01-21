@@ -174,6 +174,15 @@ export {
   getParentBrand,
   createChildBrand,
   flattenBrandInheritance,
+  // Partial Brand Kits (Feature #93)
+  validatePartialBrandKit,
+  createColorOverride,
+  createSpacingOverride,
+  createTypographyOverride,
+  isPartialBrandKit,
+  mergePartialBrandKit,
+  mergePartialBrandKits,
+  extractPartialBrandKit,
 } from "./theme-worker"
 
 export type {
@@ -230,6 +239,10 @@ export type {
   BrandKitRegistry,
   ResolveInheritanceOptions,
   InheritanceResolutionResult,
+  // Partial Brand Kits (Feature #93)
+  PartialBrandKit,
+  MergePartialOptions,
+  PartialBrandKitValidation,
 } from "./theme-worker"
 
 // Token presets

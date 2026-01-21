@@ -1,32 +1,32 @@
 {
-  "session_id": "754c8598cf42",
+  "session_id": "86ae44e62dc8",
   "stack": {
     "session": {
-      "id": "754c8598cf42-133",
-      "text": "[Extensibility Features] Feature #92: [Brand Kit Inheritance] Brand kit can extend another brand kit Verification: extends field in brand kit; Parent tokens inherited; Child overrides parent Criteria: Manual verification required",
+      "id": "86ae44e62dc8-135",
+      "text": "[Extensibility Features] Feature #93: [Partial Brand Kits] Support brand kits that only override specific tokens Verification: Partial tokens allowed; Merged with base; Type support for partial Criteria: Manual verification required",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768992992.1767411,
-      "updated_at": 1768992992.1767411,
+      "created_at": 1768993158.9952521,
+      "updated_at": 1768993158.9952521,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 92,
+        "feature_id": 93,
         "category": "Extensibility Features"
       },
       "keywords": []
     },
     "task": {
-      "id": "754c8598cf42-134",
-      "text": "Implement: [Brand Kit Inheritance] Brand kit can extend another brand kit Verification: extends field in brand kit; Parent tokens inherited; Child overrides parent",
+      "id": "86ae44e62dc8-136",
+      "text": "Implement: [Partial Brand Kits] Support brand kits that only override specific tokens Verification: Partial tokens allowed; Merged with base; Type support for partial",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1768992992.1820948,
-      "updated_at": 1768992992.1820948,
+      "created_at": 1768993159.000986,
+      "updated_at": 1768993159.0009863,
       "completed_at": null,
-      "parent_id": "754c8598cf42-133",
+      "parent_id": "86ae44e62dc8-135",
       "metadata": {},
       "keywords": []
     },
@@ -1975,9 +1975,38 @@
       "parent_id": "754c8598cf42-133",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "86ae44e62dc8-135",
+      "text": "[Extensibility Features] Feature #93: [Partial Brand Kits] Support brand kits that only override specific tokens Verification: Partial tokens allowed; Merged with base; Type support for partial Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993158.9952521,
+      "updated_at": 1768993158.9952521,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 93,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "86ae44e62dc8-136",
+      "text": "Implement: [Partial Brand Kits] Support brand kits that only override specific tokens Verification: Partial tokens allowed; Merged with base; Type support for partial",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993159.000986,
+      "updated_at": 1768993159.0009863,
+      "completed_at": null,
+      "parent_id": "86ae44e62dc8-135",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 134,
+  "intent_counter": 136,
   "created_at": 1768900061.32227,
-  "updated_at": 1768992992.1820998
+  "updated_at": 1768993159.0009918
 }
