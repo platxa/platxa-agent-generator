@@ -954,3 +954,26 @@ export type {
   PaletteGenerationOptions,
   ThemePreset,
 } from "./types"
+
+// Custom Adapters (Feature #144)
+export {
+  registerAdapter,
+  unregisterAdapter,
+  getAdapter,
+  getAdapters,
+  setDefaultAdapter,
+  getDefaultAdapter,
+  clearAdapters,
+  findAdapter,
+  transformWithAdapter,
+  transformWithSpecificAdapter,
+  initializeDefaultAdapters,
+  defaultAdapter,
+  figmaTokensAdapter,
+  styleDictionaryAdapter,
+  type AdapterInput,
+  type AdapterResult,
+  type BrandKitAdapter,
+  type AdapterOptions,
+  type AdapterRegistrationOptions,
+} from "./adapters"

@@ -190,6 +190,9 @@ export interface FontWeightScale {
 /**
  * Border radius scale
  */
+/**
+ * Border radius scale
+ */
 export interface RadiusScale {
   none: string
   sm: string
