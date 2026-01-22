@@ -1133,3 +1133,27 @@ export {
 } from "./postcss"
 
 export type { PlatxaPostCSSOptions } from "./postcss"
+
+// =============================================================================
+// ESLINT PLUGIN (Feature #138)
+// =============================================================================
+
+// ESLint Plugin for Brand Token Usage
+export {
+  plugin as eslintPlugin,
+  flatConfigRecommended as eslintConfigRecommended,
+  flatConfigStrict as eslintConfigStrict,
+  isColorValue,
+  isColorProperty,
+  extractColorsFromValue,
+  suggestTokenForColor,
+  COLOR_PATTERNS,
+  COLOR_PROPERTIES,
+  NAMED_COLORS,
+  DEFAULT_ALLOWED_COLORS,
+} from "./eslint"
+
+export type {
+  NoHardcodedColorsOptions,
+  PreferBrandTokenOptions,
+} from "./eslint"
