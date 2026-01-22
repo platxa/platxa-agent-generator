@@ -1157,3 +1157,36 @@ export type {
   NoHardcodedColorsOptions,
   PreferBrandTokenOptions,
 } from "./eslint"
+
+// =============================================================================
+// STYLELINT PLUGIN (Feature #145)
+// =============================================================================
+
+// Stylelint Plugin for Brand CSS Rules
+export {
+  default as stylelintPlugin,
+  createStylelintPlugin,
+  rules as stylelintRules,
+  configs as stylelintConfigs,
+  createEnforceCSSVariablesRule,
+  createColorFormatRule,
+  createNamingConventionRule,
+  isCSSVariable,
+  isHardcodedColor,
+  detectColorFormat as detectCSSColorFormat,
+  isColorProperty as isStylelintColorProperty,
+  extractColors,
+  validateCustomPropertyName,
+  validateSelectorName,
+  COLOR_FORMAT_PATTERNS,
+  TOKEN_PROPERTIES,
+  NAMED_COLORS as STYLELINT_NAMED_COLORS,
+  DEFAULT_ALLOWED_VALUES as STYLELINT_DEFAULT_ALLOWED_VALUES,
+  NAMESPACE as STYLELINT_NAMESPACE,
+} from "./stylelint"
+
+export type {
+  EnforceCSSVariablesOptions,
+  ColorFormatOptions,
+  NamingConventionOptions,
+} from "./stylelint"
