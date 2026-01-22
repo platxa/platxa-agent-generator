@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-21T20:03:00.580271",
+  "updated_at": "2026-01-22T14:37:28.438260",
   "plans": [
     {
       "id": "plan-feature-108",
@@ -187,6 +187,14 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-139",
+      "title": "Implementation: [CI/CD Integration] GitHub Actions for brand kit validation ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T12:22:48.365470",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-16",
       "title": "Implementation: [Light Theme Colors] Brand kit must export light mode semant...",
       "progress": 0.0,
@@ -267,6 +275,14 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-140",
+      "title": "Implementation: [Video Tutorials] Video walkthroughs for key features Verifi...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T12:26:49.032289",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-13",
       "title": "Implementation: [Meta Information] Brand kit must export meta with name, ver...",
       "progress": 0.0,
@@ -304,6 +320,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-21T12:46:29.990735",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-143",
+      "title": "Implementation: [DevTools Integration] Browser devtools panel for brand insp...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T14:14:33.743140",
       "constitution_check": true
     },
     {
@@ -483,6 +507,14 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-142",
+      "title": "Implementation: [Sass Variable Export] Export brand tokens as Sass variables...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T13:53:54.718541",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-32",
       "title": "Implementation: [IntelliSense Support] Config file IntelliSense in VSCode/ed...",
       "progress": 0.0,
@@ -504,6 +536,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-21T11:33:05.131920",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-145",
+      "title": "Implementation: [Stylelint Plugin] Stylelint rules for brand CSS Verificatio...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T14:37:28.437868",
       "constitution_check": true
     },
     {
@@ -616,6 +656,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-21T14:07:42.149715",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-144",
+      "title": "Implementation: [Custom Adapters] Allow custom adapters for non-standard bra...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T14:23:39.892329",
       "constitution_check": true
     },
     {
@@ -792,6 +840,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-21T12:26:44.041182",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-141",
+      "title": "Implementation: [Brand Guidelines AI] AI generates brand usage guidelines Ve...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T12:30:32.227317",
       "constitution_check": true
     },
     {
