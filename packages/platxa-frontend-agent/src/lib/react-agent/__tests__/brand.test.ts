@@ -238,7 +238,7 @@ describe("validateConfig", () => {
 
     expect(result.valid).toBe(false)
     expect(result.errors.length).toBeGreaterThan(0)
-    expect(result.errors[0]).toContain("Invalid theme preset")
+    expect(result.errors[0]).toContain("Invalid preset")
   })
 
   it("validates custom theme primaryHue range", () => {
