@@ -432,6 +432,14 @@ Examples:
 }
 
 // Run if executed directly
-if (require.main === module) {
-  main().catch(console.error)
+const isMain =
+  typeof require !== "undefined"
+    ? require.main === module
+    : import.meta.url === `file://${process.argv[1]}`
+
+if (isMain) {
+  main().catch((err) => {
+    console.error("Error:", err instanceof Error ? err.message : err)
+    process.exit(1)
+  })
 }

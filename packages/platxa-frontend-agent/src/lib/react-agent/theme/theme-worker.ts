@@ -317,7 +317,7 @@ export function validateRgb(color: string): ColorValidationResult {
   const inner = color.slice(isRgba ? 5 : 4, -1).trim()
 
   // Parse values (supports comma or space separated, with optional / for alpha)
-  let r: number, g: number, b: number, a: number | undefined
+  let a: number | undefined
 
   // Try modern syntax: rgb(r g b) or rgb(r g b / a)
   const modernMatch = inner.match(
@@ -347,9 +347,9 @@ export function validateRgb(color: string): ColorValidationResult {
     return parseFloat(v)
   }
 
-  r = parseValue(match[1], 255)
-  g = parseValue(match[2], 255)
-  b = parseValue(match[3], 255)
+  const r = parseValue(match[1], 255)
+  const g = parseValue(match[2], 255)
+  const b = parseValue(match[3], 255)
   if (match[4]) {
     a = parseValue(match[4], 1)
   }

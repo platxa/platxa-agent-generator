@@ -128,6 +128,29 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     const Comp = asChild ? Slot : "button"
 
+    // When asChild is true, render children directly without wrapper
+    // Slot component passes props to the child element, so we can't wrap in Fragment
+    const renderContent = () => {
+      if (asChild) {
+        return children
+      }
+      if (isLoading) {
+        return (
+          <>
+            <LoadingSpinner className="mr-2" />
+            {children}
+          </>
+        )
+      }
+      return (
+        <>
+          {leftIcon}
+          {children}
+          {rightIcon}
+        </>
+      )
+    }
+
     return (
       <Comp
         className={cn(buttonVariants({ variant, size, className }))}
@@ -136,18 +159,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         aria-busy={isLoading || undefined}
         {...props}
       >
-        {isLoading ? (
-          <>
-            <LoadingSpinner className="mr-2" />
-            {children}
-          </>
-        ) : (
-          <>
-            {leftIcon}
-            {children}
-            {rightIcon}
-          </>
-        )}
+        {renderContent()}
       </Comp>
     )
   }

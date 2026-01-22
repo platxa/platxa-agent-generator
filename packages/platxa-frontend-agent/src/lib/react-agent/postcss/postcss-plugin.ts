@@ -30,7 +30,7 @@
  * @module react-agent/postcss
  */
 
-import type { Root, AtRule, Declaration, PluginCreator } from "postcss"
+import postcss, { type Root, type AtRule, type Declaration, type PluginCreator } from "postcss"
 import { resolveConfig as resolvePlatxaConfig } from "../brand/config"
 import { findAndLoadConfig } from "../brand/config-loader"
 import { getThemePreset } from "../theme/tokens"
@@ -702,7 +702,6 @@ const platxaTokens: PluginCreator<PlatxaPostCSSOptions> = (options = {}) => {
 
     if (generatedCss) {
       // Parse generated CSS and insert nodes
-      const postcss = require("postcss")
       const parsed = postcss.parse(generatedCss)
 
       // Insert generated nodes before the at-rule
@@ -771,7 +770,6 @@ const platxaTokens: PluginCreator<PlatxaPostCSSOptions> = (options = {}) => {
             ? generateCompleteTheme(state.themeConfig, options)
             : generateLightTheme(state.themeConfig.light, prefix)
 
-          const postcss = require("postcss")
           const parsed = postcss.parse(themeCss)
 
           // Prepend to root
