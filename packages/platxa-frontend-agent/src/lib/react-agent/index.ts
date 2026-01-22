@@ -1121,3 +1121,15 @@ export {
 } from "./theme"
 
 export type { UseThemeState, BuildOutput } from "./theme"
+
+// =============================================================================
+// POSTCSS PLUGIN (Feature #137)
+// =============================================================================
+
+// PostCSS Plugin for Brand Token Processing
+export {
+  platxaTokens,
+  postcssPluginPlatxa,
+} from "./postcss"
+
+export type { PlatxaPostCSSOptions } from "./postcss"
