@@ -525,19 +525,26 @@ export function validateFileStructure(
   const issues: ValidationIssue[] = [];
   const filePaths = files.map((f) => f.path);
 
-  // Required files
-  const requiredFiles = [
-    `${themeName}/__manifest__.py`,
-    `${themeName}/__init__.py`,
-  ];
+  // Normalize paths - check if files have theme prefix or not
+  const hasThemePrefix = filePaths.some((p) => p.startsWith(`${themeName}/`));
+
+  // Helper to check if a file exists (with or without theme prefix)
+  const fileExists = (relativePath: string): boolean => {
+    const withPrefix = `${themeName}/${relativePath}`;
+    return filePaths.includes(relativePath) || filePaths.includes(withPrefix);
+  };
+
+  // Required files (check without prefix)
+  const requiredFiles = ["__manifest__.py", "__init__.py"];
 
   requiredFiles.forEach((reqFile) => {
-    if (!filePaths.includes(reqFile)) {
+    if (!fileExists(reqFile)) {
+      const displayPath = hasThemePrefix ? `${themeName}/${reqFile}` : reqFile;
       issues.push({
         severity: "error",
         code: "STRUCT001",
-        message: `Missing required file: ${reqFile}`,
-        file: reqFile,
+        message: `Missing required file: ${displayPath}`,
+        file: displayPath,
       });
     }
   });
@@ -552,9 +559,13 @@ export function validateFileStructure(
 
       assetPaths?.forEach((assetPath) => {
         const cleanPath = assetPath.replace(/['"]/g, "");
-        const fullPath = cleanPath.startsWith(themeName) ? cleanPath : `${themeName}/${cleanPath}`;
+        // Strip theme name prefix if present in the manifest reference
+        const relativePath = cleanPath.startsWith(`${themeName}/`)
+          ? cleanPath.slice(themeName.length + 1)
+          : cleanPath;
+        const fileName = relativePath.split("/").pop() || "";
 
-        if (!filePaths.some((fp) => fp.includes(cleanPath.split("/").pop() || ""))) {
+        if (!filePaths.some((fp) => fp.endsWith(fileName))) {
           issues.push({
             severity: "warning",
             code: "STRUCT002",
@@ -576,15 +587,14 @@ export function validateFileStructure(
 
       dataFiles?.forEach((dataFile) => {
         const cleanPath = dataFile.replace(/['"]/g, "");
-        const fullPath = `${themeName}/${cleanPath}`;
 
-        if (!filePaths.includes(fullPath)) {
+        if (!fileExists(cleanPath)) {
           issues.push({
             severity: "error",
             code: "STRUCT003",
             message: `Data file referenced but not found: ${cleanPath}`,
             file: manifestFile.path,
-            suggestion: `Create ${fullPath} or remove from manifest`,
+            suggestion: `Create ${cleanPath} or remove from manifest`,
           });
         }
       });
