@@ -26,7 +26,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       files: parseGeneratedFiles(messageContent),
       textContent: extractTextContent(messageContent),
     };
-  }, [message.content, isUser]);
+  }, [messageContent, isUser]);
 
   return (
     <div

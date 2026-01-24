@@ -230,7 +230,7 @@ export function SnippetPalette({ onInsertSnippet, className }: SnippetPalettePro
                 ))
               ) : (
                 <div className="text-center py-8 text-muted-foreground text-sm">
-                  No snippets found for "{searchQuery}"
+                  No snippets found for &ldquo;{searchQuery}&rdquo;
                 </div>
               )}
             </div>

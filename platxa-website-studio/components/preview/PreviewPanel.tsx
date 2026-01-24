@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import {
   RefreshCw,
   ExternalLink,
@@ -471,7 +471,7 @@ export function PreviewPanel() {
   }, [previewBlobUrl]);
 
   // Refresh preview
-  const refreshPreview = () => {
+  const refreshPreview = useCallback(() => {
     setIsLoading(true);
     setHasError(false);
 
@@ -482,7 +482,7 @@ export function PreviewPanel() {
       // For standalone, just trigger re-render
       setTimeout(() => setIsLoading(false), 300);
     }
-  };
+  }, [previewMode, baseUrl, currentPath]);
 
   // Handle iframe load
   const handleIframeLoad = () => {
@@ -503,7 +503,7 @@ export function PreviewPanel() {
       const timeout = setTimeout(refreshPreview, 1000);
       return () => clearTimeout(timeout);
     }
-  }, [isDeploying, previewStatus, previewMode]);
+  }, [isDeploying, previewStatus, previewMode, refreshPreview]);
 
   // Update standalone preview when files change
   useEffect(() => {
