@@ -127,6 +127,7 @@ export async function POST(req: Request) {
         enablePostGeneration: true,
         enableSidecarWrite: !!SIDECAR_BASE_URL,
         sidecarBaseUrl: SIDECAR_BASE_URL || undefined,
+        enableFrontendAgent: true,
       });
 
       try {
