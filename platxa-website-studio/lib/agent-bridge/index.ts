@@ -62,9 +62,13 @@ export {
 } from "./scss-transformer";
 export type { OdooScssOutput } from "./scss-transformer";
 
-// Sidecar writer
+// Sidecar writer (HTTP)
 export { writeThroughSidecar } from "./sidecar-writer";
 export type { SidecarWriteOptions } from "./sidecar-writer";
+
+// WebSocket file writer (real-time Yjs channel)
+export { writeThroughWebSocket } from "./ws-file-writer";
+export type { WsFileWriterOptions } from "./ws-file-writer";
 
 // Activity listener
 export { subscribeToActivity } from "./activity-listener";

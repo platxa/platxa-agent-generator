@@ -538,4 +538,84 @@ describe("AgentBridge (real integration)", () => {
       pipeline.dispose();
     });
   });
+
+  // =========================================================================
+  // WebSocket File Writer
+  // =========================================================================
+
+  describe("WebSocket file writer", () => {
+    it("writeThroughWebSocket is exported and callable", async () => {
+      const { writeThroughWebSocket } = await import(
+        "@/lib/agent-bridge/ws-file-writer"
+      );
+      expect(typeof writeThroughWebSocket).toBe("function");
+    });
+
+    it("writeThroughWebSocket returns empty result for no files", async () => {
+      const { writeThroughWebSocket } = await import(
+        "@/lib/agent-bridge/ws-file-writer"
+      );
+
+      const result = await writeThroughWebSocket([], {
+        wsBaseUrl: "ws://localhost:8765",
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.filesWritten).toHaveLength(0);
+      expect(result.totalFiles).toBe(0);
+    });
+
+    it("writeThroughWebSocket returns empty result for missing wsBaseUrl", async () => {
+      const { writeThroughWebSocket } = await import(
+        "@/lib/agent-bridge/ws-file-writer"
+      );
+
+      const result = await writeThroughWebSocket(
+        [{ path: "test.txt", content: "hello" }],
+        { wsBaseUrl: "" },
+      );
+
+      expect(result.success).toBe(false);
+      expect(result.usedSidecar).toBe(false);
+    });
+
+    it("writeFilesRealtime returns null when no wsBaseUrl configured", async () => {
+      const { AgentPipeline } = await import("@/lib/agent-bridge/pipeline");
+
+      const pipeline = new AgentPipeline({
+        enableSidecarWrite: false,
+      });
+
+      const result = await pipeline.writeFilesRealtime([
+        { path: "test.scss", content: "body { color: red; }" },
+      ]);
+
+      expect(result).toBeNull();
+
+      pipeline.dispose();
+    });
+
+    it("writeFilesRealtime derives ws URL from sidecar http URL", async () => {
+      const { AgentPipeline } = await import("@/lib/agent-bridge/pipeline");
+
+      // Pipeline with HTTP sidecar URL — writeFilesRealtime should derive ws://
+      const pipeline = new AgentPipeline({
+        enableSidecarWrite: true,
+        sidecarBaseUrl: "http://localhost:8765",
+      });
+
+      // Will fail to connect (no server running) but should attempt with ws:// URL
+      const result = await pipeline.writeFilesRealtime([
+        { path: "test.scss", content: ".test { color: red; }" },
+      ]);
+
+      // Connection fails gracefully
+      expect(result).not.toBeNull();
+      expect(result!.usedSidecar).toBe(true);
+      expect(result!.filesWritten[0].success).toBe(false);
+      expect(result!.filesWritten[0].error).toBeTruthy();
+
+      pipeline.dispose();
+    });
+  });
 });

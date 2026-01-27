@@ -35,6 +35,8 @@ import type { PreGenerationInput } from "./pre-generation";
 import { runPostGeneration as execPostGen } from "./post-generation";
 import { injectBrandTokens } from "./brand-token-injector";
 import { writeThroughSidecar } from "./sidecar-writer";
+import { writeThroughWebSocket } from "./ws-file-writer";
+import type { WsFileWriterOptions } from "./ws-file-writer";
 import { AgentBridge } from "./agent-bridge";
 import type { AgentBridgeResult } from "./agent-bridge";
 
@@ -479,6 +481,38 @@ export class AgentPipeline {
 
     this.writeResult = await writeThroughSidecar(files, {
       sidecarBaseUrl: this.config.sidecarBaseUrl,
+    });
+
+    return this.writeResult;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Phase 4b: Write Files Through WebSocket (real-time Yjs channel)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Writes generated files through the editor-sync WebSocket using Yjs
+   * doc.transact(). Each file write propagates to all connected clients
+   * in real-time via CRDT sync.
+   *
+   * Use this instead of writeFiles() when real-time propagation is needed.
+   */
+  async writeFilesRealtime(
+    files: Array<{ path: string; content: string }>,
+    wsOptions?: Partial<WsFileWriterOptions>,
+  ): Promise<WriteResult | null> {
+    const wsBaseUrl = wsOptions?.wsBaseUrl ?? this.config.sidecarBaseUrl?.replace(/^http/, "ws");
+    if (!wsBaseUrl || files.length === 0) {
+      return null;
+    }
+
+    this.emitStatus("writing_files", `Writing ${files.length} files via WebSocket...`, 90);
+
+    this.writeResult = await writeThroughWebSocket(files, {
+      wsBaseUrl,
+      authToken: wsOptions?.authToken,
+      connectTimeoutMs: wsOptions?.connectTimeoutMs,
+      writeTimeoutMs: wsOptions?.writeTimeoutMs,
     });
 
     return this.writeResult;
