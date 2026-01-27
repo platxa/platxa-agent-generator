@@ -41,6 +41,8 @@ export interface ProjectTemplate {
   features: TemplateFeatures;
   /** Default color palette */
   colors: ColorPalette;
+  /** Typography configuration */
+  typography: Typography;
   /** Tags for filtering */
   tags: string[];
   /** Popularity score (for sorting) */
@@ -187,6 +189,7 @@ export const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       ecommerce: false,
     },
     colors: INDUSTRY_PRESETS.restaurant.colors,
+    typography: INDUSTRY_PRESETS.restaurant.typography,
     tags: ["restaurant", "food", "dining", "reservations", "upscale"],
     popularity: 95,
     premium: false,
@@ -227,6 +230,7 @@ export const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       ecommerce: false,
     },
     colors: { ...INDUSTRY_PRESETS.restaurant.colors, primary: "#e67e22" },
+    typography: INDUSTRY_PRESETS.restaurant.typography,
     tags: ["restaurant", "cafe", "casual", "friendly"],
     popularity: 82,
     premium: false,
@@ -295,6 +299,7 @@ export const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       ecommerce: false,
     },
     colors: INDUSTRY_PRESETS.technology.colors,
+    typography: INDUSTRY_PRESETS.technology.typography,
     tags: ["saas", "technology", "software", "startup", "pricing"],
     popularity: 98,
     premium: false,
@@ -335,6 +340,7 @@ export const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       ecommerce: false,
     },
     colors: { ...INDUSTRY_PRESETS.technology.colors, primary: "#7c3aed" },
+    typography: INDUSTRY_PRESETS.technology.typography,
     tags: ["startup", "technology", "app", "innovation"],
     popularity: 90,
     premium: false,
@@ -399,6 +405,7 @@ export const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       ecommerce: false,
     },
     colors: INDUSTRY_PRESETS.legal.colors,
+    typography: INDUSTRY_PRESETS.legal.typography,
     tags: ["legal", "law", "attorney", "professional", "corporate"],
     popularity: 85,
     premium: false,
@@ -443,6 +450,7 @@ export const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       ecommerce: false,
     },
     colors: INDUSTRY_PRESETS.healthcare.colors,
+    typography: INDUSTRY_PRESETS.healthcare.typography,
     tags: ["healthcare", "medical", "clinic", "doctor", "health"],
     popularity: 88,
     premium: false,
@@ -488,6 +496,7 @@ export const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       ecommerce: true,
     },
     colors: INDUSTRY_PRESETS.ecommerce.colors,
+    typography: INDUSTRY_PRESETS.ecommerce.typography,
     tags: ["ecommerce", "fashion", "clothing", "store", "shop"],
     popularity: 92,
     premium: false,
@@ -532,6 +541,7 @@ export const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       ecommerce: false,
     },
     colors: INDUSTRY_PRESETS.education.colors,
+    typography: INDUSTRY_PRESETS.education.typography,
     tags: ["education", "school", "university", "college", "learning"],
     popularity: 80,
     premium: false,
@@ -576,6 +586,7 @@ export const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       ecommerce: false,
     },
     colors: INDUSTRY_PRESETS.creative.colors,
+    typography: INDUSTRY_PRESETS.creative.typography,
     tags: ["portfolio", "creative", "designer", "artist", "photography"],
     popularity: 87,
     premium: false,
@@ -620,6 +631,7 @@ export const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       ecommerce: false,
     },
     colors: INDUSTRY_PRESETS.nonprofit.colors,
+    typography: INDUSTRY_PRESETS.nonprofit.typography,
     tags: ["nonprofit", "charity", "donation", "cause", "organization"],
     popularity: 78,
     premium: false,
@@ -662,6 +674,7 @@ export const PROJECT_TEMPLATES: Record<string, ProjectTemplate> = {
       ecommerce: false,
     },
     colors: INDUSTRY_PRESETS.generic.colors,
+    typography: INDUSTRY_PRESETS.generic.typography,
     tags: ["minimal", "starter", "simple", "clean", "basic"],
     popularity: 75,
     premium: false,
@@ -738,19 +751,11 @@ export const TEMPLATE_CATEGORIES: TemplateCategory[] = [
 /**
  * Get all templates (with category field added)
  */
-export function getAllTemplates(): (ProjectTemplate & { category: string; typography: Typography })[] {
+export function getAllTemplates(): (ProjectTemplate & { category: string })[] {
   return Object.values(PROJECT_TEMPLATES)
     .map((template) => ({
       ...template,
       category: template.industry,
-      typography: INDUSTRY_PRESETS[template.industry]?.typography || {
-        headingFamily: "Poppins",
-        bodyFamily: "Inter",
-        headingWeight: 600,
-        bodyWeight: 400,
-        baseSize: "1rem",
-        scale: 1.25,
-      },
     }))
     .sort((a, b) => b.popularity - a.popularity);
 }
@@ -822,6 +827,7 @@ export function templateToThemeConfig(
     description: template.description,
     industry: template.industry,
     colors: template.colors,
+    typography: template.typography,
     features: {
       stickyHeader: template.features.stickyHeader,
       promoBar: template.features.promoBar,

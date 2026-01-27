@@ -68,3 +68,6 @@ export type {
 
 // Pipeline
 export { AgentPipeline } from "./pipeline";
+
+// Design Tokens (Tier 2)
+export * from "../design-tokens";

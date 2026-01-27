@@ -14,6 +14,8 @@ import type {
   PreGenerationResult,
 } from "./types";
 import { mapOdooPaletteToBrandTokens } from "./color-mapper";
+import { assembleTokenSet } from "../design-tokens/token-assembler";
+import { deriveDarkMode } from "../design-tokens/color-scale-generator";
 
 // =============================================================================
 // Lightweight Design Analysis (Odoo-focused)
@@ -162,7 +164,8 @@ export interface PreGenerationInput {
  * Runs the pre-generation pipeline:
  * 1. Analyze user message for design intent
  * 2. Map color palette to brand tokens
- * 3. Build enhanced prompt fragment
+ * 3. Generate full DTCG design tokens (when palette is available)
+ * 4. Build enhanced prompt fragment
  */
 export function runPreGeneration(input: PreGenerationInput): PreGenerationResult {
   const { userMessage, colorPalette, industry, designStyle } = input;
@@ -173,7 +176,41 @@ export function runPreGeneration(input: PreGenerationInput): PreGenerationResult
   // 2. Map Odoo palette to brand tokens
   const brandTokens = mapOdooPaletteToBrandTokens(colorPalette);
 
-  // 3. Build compact prompt fragment
+  // 3. Generate full DTCG token set from the palette
+  if (colorPalette) {
+    const palette = {
+      primary: colorPalette.primary || brandTokens.colors.primary,
+      secondary: colorPalette.secondary || brandTokens.colors.secondary,
+      accent: colorPalette.accent || brandTokens.colors.accent,
+      background: colorPalette.background || brandTokens.colors.background,
+      text: colorPalette.text || brandTokens.colors.text,
+    };
+
+    const typographyConfig = brandTokens.typography
+      ? {
+          headingFamily: brandTokens.typography.headingFamily,
+          bodyFamily: brandTokens.typography.bodyFamily,
+          headingWeight: 700,
+          bodyWeight: 400,
+          scale: parseFloat(brandTokens.typography.scale) || 1.2,
+        }
+      : undefined;
+
+    brandTokens.designTokens = assembleTokenSet({
+      palette,
+      typography: typographyConfig,
+      designStyle: designStyle || "modern",
+      industry,
+      name: industry ? `platxa-${industry}` : "platxa-custom",
+    });
+
+    // Generate dark mode tokens if design analysis suggests dark theme
+    if (designAnalysis.colorIntent?.mood === "dark") {
+      brandTokens.darkModeTokens = deriveDarkMode(brandTokens.designTokens);
+    }
+  }
+
+  // 4. Build compact prompt fragment
   const enhancedPromptFragment = buildPromptFragment(
     designAnalysis,
     brandTokens,

@@ -9,6 +9,7 @@ import {
   getIndustryPreset,
   INDUSTRY_PRESETS,
   type ThemeConfig,
+  type Industry,
 } from '../lib/odoo-skills/theme-generator';
 import {
   SnippetBuilder,
@@ -37,7 +38,7 @@ import {
 describe('Theme Generator', () => {
   describe('Industry Presets', () => {
     it('should have all required industry presets', () => {
-      const requiredPresets = [
+      const requiredPresets: Industry[] = [
         'restaurant',
         'technology',
         'legal',
@@ -66,7 +67,7 @@ describe('Theme Generator', () => {
     });
 
     it('should return undefined for invalid preset', () => {
-      const preset = getIndustryPreset('invalid_preset');
+      const preset = getIndustryPreset('invalid_preset' as Industry);
       expect(preset).toBeUndefined();
     });
   });
@@ -157,7 +158,7 @@ describe('Theme Generator', () => {
     it('should handle feature flags correctly', () => {
       const theme = generateTheme({
         ...themeConfig,
-        features: { stickyHeader: true, darkMode: false },
+        features: { ...themeConfig.features, stickyHeader: true, darkMode: false },
       });
 
       const files = theme.files.map((f) => f.content).join('\n');

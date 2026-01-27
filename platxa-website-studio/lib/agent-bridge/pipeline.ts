@@ -170,30 +170,33 @@ export class AgentPipeline {
 
     this.emitStatus("complete", "Generation complete", 100);
 
-    return {
-      preGeneration: this.preResult || {
-        designAnalysis: null,
-        brandTokens: {
-          colors: {
-            primary: "#7c3aed",
-            primaryOklch: { l: 0.5, c: 0.2, h: 280 },
-            secondary: "#6c757d",
-            secondaryOklch: { l: 0.5, c: 0.05, h: 250 },
-            accent: "#ec4899",
-            accentOklch: { l: 0.6, c: 0.2, h: 350 },
-            background: "#f8f9fa",
-            text: "#212529",
-            error: "#dc3545",
-            warning: "#ffc107",
-            success: "#198754",
-            info: "#0dcaf0",
-          },
+    const preGeneration = this.preResult || {
+      designAnalysis: null,
+      brandTokens: {
+        colors: {
+          primary: "#7c3aed",
+          primaryOklch: { l: 0.5, c: 0.2, h: 280 },
+          secondary: "#6c757d",
+          secondaryOklch: { l: 0.5, c: 0.05, h: 250 },
+          accent: "#ec4899",
+          accentOklch: { l: 0.6, c: 0.2, h: 350 },
+          background: "#f8f9fa",
+          text: "#212529",
+          error: "#dc3545",
+          warning: "#ffc107",
+          success: "#198754",
+          info: "#0dcaf0",
         },
-        enhancedPromptFragment: "",
-        timestamp: new Date().toISOString(),
       },
+      enhancedPromptFragment: "",
+      timestamp: new Date().toISOString(),
+    };
+
+    return {
+      preGeneration,
       postGeneration: this.postResult,
       filesWritten: this.writeResult,
+      designTokens: preGeneration.brandTokens.designTokens ?? null,
       totalDurationMs,
     };
   }
@@ -205,6 +208,11 @@ export class AgentPipeline {
   /** Get the brand tokens from pre-generation (for UI display) */
   getBrandTokens(): BrandTokenContext | null {
     return this.preResult?.brandTokens ?? null;
+  }
+
+  /** Get the DTCG design tokens (when available) */
+  getDesignTokens(): import("../design-tokens/types").DesignTokenSet | null {
+    return this.preResult?.brandTokens.designTokens ?? null;
   }
 
   /** Get the quality report from post-generation */

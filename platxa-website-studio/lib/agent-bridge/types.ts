@@ -57,6 +57,10 @@ export interface BrandTokenContext {
     unit: number; // base unit in px (default 8)
     scale: string; // e.g. "4,8,12,16,24,32,48,64"
   };
+  /** Full DTCG design token set (canonical, generated in pre-generation) */
+  designTokens?: import("../design-tokens/types").DesignTokenSet;
+  /** Dark mode variant of design tokens */
+  darkModeTokens?: import("../design-tokens/types").DesignTokenSet;
 }
 
 // =============================================================================
@@ -153,6 +157,8 @@ export interface AgentPipelineResult {
   preGeneration: PreGenerationResult;
   postGeneration: PostGenerationResult | null;
   filesWritten: WriteResult | null;
+  /** Full DTCG design tokens generated during pre-generation (when available) */
+  designTokens: import("../design-tokens/types").DesignTokenSet | null;
   totalDurationMs: number;
 }
 

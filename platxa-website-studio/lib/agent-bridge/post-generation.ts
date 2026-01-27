@@ -67,6 +67,9 @@ function extractColorPairs(
 /**
  * Checks how many colors in the generated code match the brand palette.
  * Returns a 0-100 score where 100 means all colors are on-brand.
+ *
+ * When DTCG tokens are available, the full 50-950 color scale is used,
+ * giving the LLM more room to use lighter/darker shades while staying on-brand.
  */
 function checkBrandConsistency(
   code: string,
@@ -75,8 +78,27 @@ function checkBrandConsistency(
   const extractedColors = extractColorsFromCode(code);
   if (extractedColors.length === 0) return { score: 100, offBrandColors: [] };
 
-  const brandColors = new Set(
-    [
+  const brandColors = new Set<string>();
+
+  // When DTCG tokens exist, use the full scale for wider tolerance
+  if (brandTokens.designTokens) {
+    const dt = brandTokens.designTokens;
+    for (const role of ["primary", "secondary", "accent", "error", "warning", "success", "info"] as const) {
+      const scale = dt.color[role];
+      if (!scale) continue;
+      for (const step of Object.keys(scale)) {
+        if (step.startsWith("$")) continue;
+        const token = scale[step as keyof typeof scale];
+        if (token && typeof token === "object" && "$value" in token) {
+          brandColors.add((token as { $value: { hex: string } }).$value.hex.toLowerCase());
+        }
+      }
+    }
+    brandColors.add(dt.color.background.$value.hex.toLowerCase());
+    brandColors.add(dt.color.text.$value.hex.toLowerCase());
+  } else {
+    // Legacy path: only 9 base colors
+    for (const c of [
       brandTokens.colors.primary,
       brandTokens.colors.secondary,
       brandTokens.colors.accent,
@@ -86,8 +108,10 @@ function checkBrandConsistency(
       brandTokens.colors.warning,
       brandTokens.colors.success,
       brandTokens.colors.info,
-    ].map((c) => c.toLowerCase()),
-  );
+    ]) {
+      brandColors.add(c.toLowerCase());
+    }
+  }
 
   // Also allow common neutrals that are always acceptable
   const allowedNeutrals = new Set([
@@ -257,10 +281,39 @@ export function runPostGeneration(input: PostGenerationInput): PostGenerationRes
     );
   }
 
-  // 6. Compute overall quality
-  const overallScore = Math.round(
-    (accessibilityReport.score * 0.4 + brandScore * 0.6),
-  );
+  // 6. Typography consistency check (when DTCG tokens available)
+  let typographyScore = 100;
+  if (brandTokens.designTokens?.typography?.fontFamily) {
+    const dt = brandTokens.designTokens;
+    const headingFont = dt.typography.fontFamily.heading.$value.toLowerCase();
+    const bodyFont = dt.typography.fontFamily.body.$value.toLowerCase();
+    const codeLower = generatedCode.toLowerCase();
+
+    const hasHeading = codeLower.includes(headingFont);
+    const hasBody = codeLower.includes(bodyFont);
+
+    if (!hasHeading && !hasBody) {
+      typographyScore = 30;
+      suggestions.push(`Brand fonts not found in output. Expected "${dt.typography.fontFamily.heading.$value}" and/or "${dt.typography.fontFamily.body.$value}".`);
+    } else if (!hasHeading || !hasBody) {
+      typographyScore = 65;
+      const missing = !hasHeading ? dt.typography.fontFamily.heading.$value : dt.typography.fontFamily.body.$value;
+      suggestions.push(`Brand font "${missing}" not found in generated code.`);
+    }
+  }
+
+  // 7. Compute overall quality
+  // When DTCG tokens exist: 40% a11y + 30% color + 20% typography + 10% baseline
+  // Legacy: 40% a11y + 60% color
+  const hasDtcg = !!brandTokens.designTokens;
+  const overallScore = hasDtcg
+    ? Math.round(
+        accessibilityReport.score * 0.4
+        + brandScore * 0.3
+        + typographyScore * 0.2
+        + 10, // baseline for spacing/structure (not yet checked)
+      )
+    : Math.round(accessibilityReport.score * 0.4 + brandScore * 0.6);
 
   return {
     quality: {

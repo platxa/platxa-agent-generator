@@ -18,6 +18,9 @@ import type {
   IndustryPreset,
 } from "./types";
 
+// Re-export types that consumers need
+export type { ThemeConfig, Industry, IndustryPreset, ColorPalette, Typography };
+
 // =============================================================================
 // INDUSTRY PRESETS
 // =============================================================================

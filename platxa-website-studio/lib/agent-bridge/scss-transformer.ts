@@ -8,6 +8,8 @@
  */
 
 import type { BrandTokenContext } from "./types";
+import type { DesignTokenSet } from "../design-tokens/types";
+import { COLOR_SCALE_STEPS } from "../design-tokens/types";
 import { generateLightnessScale } from "./color-mapper";
 
 // =============================================================================
@@ -149,4 +151,99 @@ function generateColorScale(tokens: BrandTokenContext): string {
   lines.push(");");
 
   return lines.join("\n");
+}
+
+// =============================================================================
+// DTCG Token Set → Odoo SCSS
+// =============================================================================
+
+/**
+ * Transforms a full DTCG DesignTokenSet into Odoo-compatible SCSS.
+ * This is the preferred path when design tokens are available.
+ *
+ * Uses the 500-step from each color scale as the canonical Odoo palette value,
+ * and emits the full 50-950 scale as additional SCSS variables.
+ */
+export function transformDtcgToOdooScss(tokens: DesignTokenSet): OdooScssOutput {
+  // --- variables: Odoo palette from DTCG color scales ---
+  const varLines = [
+    "// =============================================================================",
+    "// Odoo Color Palette (auto-generated from DTCG tokens by Platxa)",
+    "// =============================================================================",
+    "",
+    `$o-color-1: ${tokens.color.primary["500"].$value.hex};`,
+    `$o-color-2: ${tokens.color.secondary["500"].$value.hex};`,
+    `$o-color-3: ${tokens.color.accent["500"].$value.hex};`,
+    `$o-color-4: ${tokens.color.background.$value.hex};`,
+    `$o-color-5: ${tokens.color.text.$value.hex};`,
+    "",
+    "// Odoo color palettes map",
+    "$o-color-palettes: (",
+    "  1: $o-color-1,",
+    "  2: $o-color-2,",
+    "  3: $o-color-3,",
+    "  4: $o-color-4,",
+    "  5: $o-color-5,",
+    ") !default;",
+  ];
+  const variables = varLines.join("\n");
+
+  // --- overrides: Bootstrap variables from DTCG tokens ---
+  const ovrLines = [
+    "// =============================================================================",
+    "// Bootstrap Overrides (auto-generated from DTCG tokens by Platxa)",
+    "// =============================================================================",
+    "",
+    `$primary: ${tokens.color.primary["500"].$value.hex};`,
+    `$secondary: ${tokens.color.secondary["500"].$value.hex};`,
+    `$success: ${tokens.color.success["500"].$value.hex};`,
+    `$info: ${tokens.color.info["500"].$value.hex};`,
+    `$warning: ${tokens.color.warning["500"].$value.hex};`,
+    `$danger: ${tokens.color.error["500"].$value.hex};`,
+    `$light: ${tokens.color.background.$value.hex};`,
+    `$dark: ${tokens.color.text.$value.hex};`,
+    "",
+    "// Body",
+    `$body-bg: ${tokens.color.background.$value.hex};`,
+    `$body-color: ${tokens.color.text.$value.hex};`,
+    "",
+    "// Links",
+    `$link-color: ${tokens.color.primary["500"].$value.hex};`,
+  ];
+
+  // Typography from DTCG tokens
+  if (tokens.typography?.fontFamily) {
+    ovrLines.push("");
+    ovrLines.push("// Typography");
+    ovrLines.push(`$font-family-sans-serif: "${tokens.typography.fontFamily.body.$value}", system-ui, -apple-system, sans-serif;`);
+    ovrLines.push(`$headings-font-family: "${tokens.typography.fontFamily.heading.$value}", system-ui, -apple-system, sans-serif;`);
+  }
+
+  const overrides = ovrLines.join("\n");
+
+  // --- colorScale: Full 50-950 scales for all palette colors ---
+  const scaleLines = [
+    "// =============================================================================",
+    "// Color Scales (auto-generated from DTCG tokens by Platxa)",
+    "// =============================================================================",
+    "",
+  ];
+
+  for (const role of ["primary", "secondary", "accent"] as const) {
+    scaleLines.push(`// ${role} scale`);
+    for (const step of COLOR_SCALE_STEPS) {
+      scaleLines.push(`$${role}-${step}: ${tokens.color[role][step].$value.hex};`);
+    }
+    scaleLines.push("");
+    scaleLines.push(`$${role}-scale: (`);
+    for (const step of COLOR_SCALE_STEPS) {
+      scaleLines.push(`  ${step}: ${tokens.color[role][step].$value.hex},`);
+    }
+    scaleLines.push(");");
+    scaleLines.push("");
+  }
+
+  const colorScale = scaleLines.join("\n");
+
+  return { variables, overrides, colorScale };
 }
