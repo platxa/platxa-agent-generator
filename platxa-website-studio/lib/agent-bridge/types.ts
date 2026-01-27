@@ -150,6 +150,77 @@ export interface PostGenerationResult {
 }
 
 // =============================================================================
+// Page Section Generation
+// =============================================================================
+
+/** Odoo section types supported by generate_page */
+export type OdooSectionType =
+  | "hero"
+  | "features"
+  | "services"
+  | "about"
+  | "team"
+  | "testimonials"
+  | "portfolio"
+  | "pricing"
+  | "cta"
+  | "contact"
+  | "faq"
+  | "stats"
+  | "partners"
+  | "blog";
+
+/** Maps Odoo section types to Odoo snippet IDs (s_section_name) */
+export const SECTION_SNIPPET_IDS: Record<OdooSectionType, string> = {
+  hero: "s_hero",
+  features: "s_features",
+  services: "s_services",
+  about: "s_about",
+  team: "s_team",
+  testimonials: "s_testimonials",
+  portfolio: "s_portfolio",
+  pricing: "s_pricing",
+  cta: "s_cta",
+  contact: "s_contact",
+  faq: "s_faq",
+  stats: "s_stats",
+  partners: "s_partners",
+  blog: "s_blog",
+};
+
+/** Result of processing a single page section through the orchestrator */
+export interface PageSectionResult {
+  /** Odoo section type */
+  sectionType: OdooSectionType;
+  /** Odoo snippet ID (e.g. "s_hero") */
+  snippetId: string;
+  /** Design analysis from FrontendOrchestrator */
+  designAnalysis: DesignAnalysis | null;
+  /** Theme CSS scoped to this section */
+  themeCss: string | null;
+  /** Accessibility score for this section */
+  accessibilityScore: number | null;
+  /** Accessibility issues for this section */
+  accessibilityIssues: string[];
+  /** Whether orchestrator processing succeeded */
+  success: boolean;
+  /** Processing duration in ms */
+  durationMs: number;
+}
+
+/** Result of processing an entire page's sections */
+export interface PageGenerationResult {
+  /** Per-section results in page order */
+  sections: PageSectionResult[];
+  /** Combined theme CSS for all sections */
+  combinedThemeCss: string;
+  /** Average accessibility score across sections */
+  averageAccessibilityScore: number | null;
+  /** Total processing duration in ms */
+  totalDurationMs: number;
+}
+
+// =============================================================================
 // Pipeline Result
 // =============================================================================
 
@@ -159,6 +230,8 @@ export interface AgentPipelineResult {
   filesWritten: WriteResult | null;
   /** Full DTCG design tokens generated during pre-generation (when available) */
   designTokens: import("../design-tokens/types").DesignTokenSet | null;
+  /** Result from the platxa-frontend-agent orchestrator (when enableFrontendAgent=true) */
+  frontendAgentResult: import("./agent-bridge").AgentBridgeResult | null;
   totalDurationMs: number;
 }
 
@@ -193,6 +266,10 @@ export interface AgentPipelineConfig {
   enableSidecarWrite: boolean;
   /** Editor-sync sidecar base URL */
   sidecarBaseUrl?: string;
+  /** Enable platxa-frontend-agent orchestrator integration */
+  enableFrontendAgent: boolean;
+  /** Configuration forwarded to AgentBridge (only used when enableFrontendAgent=true) */
+  frontendAgentConfig?: import("./agent-bridge").AgentBridgeConfig;
   /** Status callback for UI updates */
   onStatusChange?: (status: AgentStatus) => void;
 }
@@ -201,6 +278,7 @@ export const DEFAULT_PIPELINE_CONFIG: AgentPipelineConfig = {
   enablePreGeneration: true,
   enablePostGeneration: true,
   enableSidecarWrite: false,
+  enableFrontendAgent: false,
   sidecarBaseUrl: undefined,
   onStatusChange: undefined,
 };

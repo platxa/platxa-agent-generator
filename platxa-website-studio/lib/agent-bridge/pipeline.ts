@@ -20,13 +20,18 @@ import type {
   PostGenerationResult,
   WriteResult,
   BrandTokenContext,
+  OdooSectionType,
+  PageSectionResult,
+  PageGenerationResult,
 } from "./types";
-import { DEFAULT_PIPELINE_CONFIG } from "./types";
+import { DEFAULT_PIPELINE_CONFIG, SECTION_SNIPPET_IDS } from "./types";
 import { runPreGeneration as execPreGen } from "./pre-generation";
 import type { PreGenerationInput } from "./pre-generation";
 import { runPostGeneration as execPostGen } from "./post-generation";
 import { injectBrandTokens } from "./brand-token-injector";
 import { writeThroughSidecar } from "./sidecar-writer";
+import { AgentBridge } from "./agent-bridge";
+import type { AgentBridgeResult } from "./agent-bridge";
 
 // =============================================================================
 // Pipeline Class
@@ -37,10 +42,19 @@ export class AgentPipeline {
   private preResult: PreGenerationResult | null = null;
   private postResult: PostGenerationResult | null = null;
   private writeResult: WriteResult | null = null;
+  private bridge: AgentBridge | null = null;
+  private bridgeResult: AgentBridgeResult | null = null;
   private startTime: number = 0;
 
   constructor(config?: Partial<AgentPipelineConfig>) {
     this.config = { ...DEFAULT_PIPELINE_CONFIG, ...config };
+
+    if (this.config.enableFrontendAgent) {
+      this.bridge = new AgentBridge({
+        ...this.config.frontendAgentConfig,
+        onStatusChange: this.config.onStatusChange,
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -87,6 +101,26 @@ export class AgentPipeline {
 
     this.emitStatus("generating_palette", "Brand tokens ready", 25);
 
+    // Run frontend-agent orchestrator if enabled
+    if (this.bridge) {
+      this.emitStatus("generating_theme", "Running frontend agent analysis...", 30);
+
+      this.bridgeResult = await this.bridge.processRequest({
+        description: input.userMessage,
+        brandTokens: this.preResult.brandTokens,
+        generateTheme: true,
+        auditAccessibility: true,
+      });
+
+      // Merge enhanced design analysis if the orchestrator succeeded
+      if (this.bridgeResult.success && this.bridgeResult.designAnalysis) {
+        this.preResult.designAnalysis = {
+          ...this.preResult.designAnalysis,
+          ...this.bridgeResult.designAnalysis,
+        };
+      }
+    }
+
     return this.preResult;
   }
 
@@ -106,6 +140,90 @@ export class AgentPipeline {
       this.preResult.brandTokens,
       this.preResult.enhancedPromptFragment || undefined,
     );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Page-Level Section Generation
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Processes each page section through the FrontendOrchestrator individually.
+   * Each section gets its own design analysis, theme CSS, and a11y audit.
+   *
+   * Call this during pre-generation when the user message describes a full page
+   * with multiple sections (i.e. generate_page tool invocation).
+   */
+  async runPageGeneration(
+    sections: OdooSectionType[],
+    brandTokens?: BrandTokenContext,
+  ): Promise<PageGenerationResult> {
+    const startTime = Date.now();
+
+    if (!this.bridge || sections.length === 0) {
+      return {
+        sections: [],
+        combinedThemeCss: "",
+        averageAccessibilityScore: null,
+        totalDurationMs: Date.now() - startTime,
+      };
+    }
+
+    const tokens = brandTokens ?? this.preResult?.brandTokens;
+    const sectionResults: PageSectionResult[] = [];
+
+    for (let i = 0; i < sections.length; i++) {
+      const sectionType = sections[i];
+      const snippetId = SECTION_SNIPPET_IDS[sectionType];
+      const progress = 30 + Math.round((i / sections.length) * 40);
+
+      this.emitStatus(
+        "generating_theme",
+        `Processing section ${i + 1}/${sections.length}: ${sectionType}`,
+        progress,
+      );
+
+      const result = await this.bridge.processRequest({
+        description: `A ${sectionType} section for an Odoo website page`,
+        brandTokens: tokens ?? undefined,
+        generateTheme: true,
+        auditAccessibility: true,
+      });
+
+      sectionResults.push({
+        sectionType,
+        snippetId,
+        designAnalysis: result.designAnalysis,
+        themeCss: result.themeCss,
+        accessibilityScore: result.accessibilityScore,
+        accessibilityIssues: result.accessibilityIssues,
+        success: result.success,
+        durationMs: result.durationMs,
+      });
+    }
+
+    // Combine theme CSS from all sections
+    const combinedThemeCss = sectionResults
+      .filter((s) => s.themeCss)
+      .map((s) => `/* ${s.snippetId} */\n${s.themeCss}`)
+      .join("\n\n");
+
+    // Average accessibility score
+    const scores = sectionResults
+      .map((s) => s.accessibilityScore)
+      .filter((s): s is number => s !== null);
+    const averageAccessibilityScore =
+      scores.length > 0
+        ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
+        : null;
+
+    this.emitStatus("generating_theme", "All sections processed", 70);
+
+    return {
+      sections: sectionResults,
+      combinedThemeCss,
+      averageAccessibilityScore,
+      totalDurationMs: Date.now() - startTime,
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -197,6 +315,7 @@ export class AgentPipeline {
       postGeneration: this.postResult,
       filesWritten: this.writeResult,
       designTokens: preGeneration.brandTokens.designTokens ?? null,
+      frontendAgentResult: this.bridgeResult,
       totalDurationMs,
     };
   }
@@ -218,5 +337,15 @@ export class AgentPipeline {
   /** Get the quality report from post-generation */
   getQualityScore(): number | null {
     return this.postResult?.quality.overallScore ?? null;
+  }
+
+  /** Get the frontend-agent bridge result (when enableFrontendAgent=true) */
+  getFrontendAgentResult(): AgentBridgeResult | null {
+    return this.bridgeResult;
+  }
+
+  /** Clean up resources (event listeners, etc.) */
+  dispose(): void {
+    this.bridge?.dispose();
   }
 }

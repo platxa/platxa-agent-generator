@@ -22,9 +22,12 @@ export type {
   FileWriteStatus,
   WriteResult,
   AgentPipelineConfig,
+  OdooSectionType,
+  PageSectionResult,
+  PageGenerationResult,
 } from "./types";
 
-export { DEFAULT_PIPELINE_CONFIG } from "./types";
+export { DEFAULT_PIPELINE_CONFIG, SECTION_SNIPPET_IDS } from "./types";
 
 // Color mapper
 export {
@@ -68,6 +71,14 @@ export type {
 
 // Pipeline
 export { AgentPipeline } from "./pipeline";
+
+// Agent Bridge (Frontend Agent integration)
+export { AgentBridge } from "./agent-bridge";
+export type {
+  AgentBridgeConfig,
+  AgentBridgeInput,
+  AgentBridgeResult,
+} from "./agent-bridge";
 
 // Design Tokens (Tier 2)
 export * from "../design-tokens";

@@ -327,5 +327,88 @@ describe("AgentBridge (real integration)", () => {
 
       pipeline.dispose();
     });
+
+    it("runPageGeneration processes each section through the orchestrator", async () => {
+      const { AgentPipeline } = await import("@/lib/agent-bridge/pipeline");
+
+      const statuses: AgentStatus[] = [];
+      const pipeline = new AgentPipeline({
+        enablePreGeneration: true,
+        enablePostGeneration: true,
+        enableSidecarWrite: false,
+        enableFrontendAgent: true,
+        onStatusChange: (s) => statuses.push(s),
+      });
+
+      const pageResult = await pipeline.runPageGeneration(
+        ["hero", "features", "cta"],
+        BRAND_TOKENS,
+      );
+
+      // All three sections processed
+      expect(pageResult.sections).toHaveLength(3);
+      expect(pageResult.totalDurationMs).toBeGreaterThanOrEqual(0);
+
+      // Each section has correct snippet IDs
+      expect(pageResult.sections[0].snippetId).toBe("s_hero");
+      expect(pageResult.sections[1].snippetId).toBe("s_features");
+      expect(pageResult.sections[2].snippetId).toBe("s_cta");
+
+      // Each section succeeded with real orchestrator output
+      for (const section of pageResult.sections) {
+        expect(section.success).toBe(true);
+        expect(section.sectionType).toBeTruthy();
+        expect(section.durationMs).toBeGreaterThanOrEqual(0);
+      }
+
+      // Combined theme CSS aggregates all sections
+      expect(pageResult.combinedThemeCss).toContain("s_hero");
+      expect(pageResult.combinedThemeCss).toContain("s_features");
+      expect(pageResult.combinedThemeCss).toContain("s_cta");
+
+      // Average accessibility score computed
+      expect(pageResult.averageAccessibilityScore).toBeTypeOf("number");
+      expect(pageResult.averageAccessibilityScore).toBeGreaterThanOrEqual(0);
+      expect(pageResult.averageAccessibilityScore).toBeLessThanOrEqual(100);
+
+      // Status events emitted for each section
+      const sectionStatuses = statuses.filter((s) =>
+        s.message.includes("Processing section"),
+      );
+      expect(sectionStatuses).toHaveLength(3);
+
+      pipeline.dispose();
+    });
+
+    it("runPageGeneration returns empty result without frontend agent", async () => {
+      const { AgentPipeline } = await import("@/lib/agent-bridge/pipeline");
+
+      const pipeline = new AgentPipeline({
+        enableFrontendAgent: false,
+      });
+
+      const result = await pipeline.runPageGeneration(["hero", "features"]);
+
+      expect(result.sections).toHaveLength(0);
+      expect(result.combinedThemeCss).toBe("");
+      expect(result.averageAccessibilityScore).toBeNull();
+
+      pipeline.dispose();
+    });
+
+    it("runPageGeneration returns empty result for empty sections array", async () => {
+      const { AgentPipeline } = await import("@/lib/agent-bridge/pipeline");
+
+      const pipeline = new AgentPipeline({
+        enableFrontendAgent: true,
+      });
+
+      const result = await pipeline.runPageGeneration([]);
+
+      expect(result.sections).toHaveLength(0);
+      expect(result.combinedThemeCss).toBe("");
+
+      pipeline.dispose();
+    });
   });
 });
