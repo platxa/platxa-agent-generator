@@ -78,6 +78,16 @@ export type {
   ActivityListenerOptions,
 } from "./activity-listener";
 
+// Project Config Bridge
+export {
+  deriveAgentContext,
+  subscribeProjectConfigBridge,
+} from "./project-config-bridge";
+export type {
+  AgentProjectContext,
+  ProjectContextChangeHandler,
+} from "./project-config-bridge";
+
 // AI Awareness Protocol
 export { AiAwarenessManager } from "./ai-awareness";
 export type {

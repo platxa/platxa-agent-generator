@@ -540,6 +540,165 @@ describe("AgentBridge (real integration)", () => {
   });
 
   // =========================================================================
+  // Project Config Bridge
+  // =========================================================================
+
+  describe("project config bridge", () => {
+    it("deriveAgentContext returns current project state", async () => {
+      const { deriveAgentContext } = await import(
+        "@/lib/agent-bridge/project-config-bridge"
+      );
+      const { useProjectStore } = await import("@/lib/stores/project-store");
+
+      // Set project config
+      useProjectStore.getState().setProject("test-1", "Test Project");
+      useProjectStore.getState().setProjectConfig({
+        themeName: "theme_test",
+        displayName: "Test Project",
+        industry: "technology",
+        colorPalette: {
+          primary: "#7c3aed",
+          secondary: "#6c757d",
+          accent: "#ec4899",
+          background: "#f8f9fa",
+          text: "#212529",
+        },
+      });
+
+      const context = deriveAgentContext();
+
+      expect(context.projectId).toBe("test-1");
+      expect(context.projectName).toBe("Test Project");
+      expect(context.industry).toBe("technology");
+      expect(context.colorPalette).not.toBeNull();
+      expect(context.colorPalette!.primary).toBe("#7c3aed");
+      expect(context.brandTokens).not.toBeNull();
+      expect(context.brandTokens!.colors.primary).toBe("#7c3aed");
+
+      useProjectStore.getState().resetProject();
+    });
+
+    it("deriveAgentContext returns null brand tokens when no palette", async () => {
+      const { deriveAgentContext } = await import(
+        "@/lib/agent-bridge/project-config-bridge"
+      );
+      const { useProjectStore } = await import("@/lib/stores/project-store");
+
+      useProjectStore.getState().resetProject();
+
+      const context = deriveAgentContext();
+
+      expect(context.brandTokens).toBeNull();
+      expect(context.colorPalette).toBeNull();
+      expect(context.industry).toBeNull();
+    });
+
+    it("subscribeProjectConfigBridge fires on config changes", async () => {
+      const { subscribeProjectConfigBridge } = await import(
+        "@/lib/agent-bridge/project-config-bridge"
+      );
+      const { useProjectStore } = await import("@/lib/stores/project-store");
+
+      useProjectStore.getState().resetProject();
+
+      const contexts: Array<{ projectName: string; industry: string | null }> = [];
+
+      const unsub = subscribeProjectConfigBridge((ctx) => {
+        contexts.push({ projectName: ctx.projectName, industry: ctx.industry });
+      });
+
+      // Initial sync fires immediately
+      expect(contexts.length).toBeGreaterThanOrEqual(1);
+
+      // Change project config
+      useProjectStore.getState().setProjectConfig({
+        themeName: "theme_new",
+        displayName: "New Project",
+        industry: "restaurant",
+        colorPalette: {
+          primary: "#dc3545",
+          secondary: "#6c757d",
+          accent: "#ffc107",
+          background: "#ffffff",
+          text: "#000000",
+        },
+      });
+
+      // Should have fired again
+      expect(contexts.length).toBeGreaterThanOrEqual(2);
+      const latest = contexts[contexts.length - 1];
+      expect(latest.projectName).toBe("New Project");
+      expect(latest.industry).toBe("restaurant");
+
+      unsub();
+      useProjectStore.getState().resetProject();
+    });
+
+    it("subscribeProjectConfigBridge syncs brand tokens to agent store", async () => {
+      const { subscribeProjectConfigBridge } = await import(
+        "@/lib/agent-bridge/project-config-bridge"
+      );
+      const { useProjectStore } = await import("@/lib/stores/project-store");
+      const { useAgentStore } = await import("@/lib/stores/agent-store");
+
+      useProjectStore.getState().resetProject();
+      useAgentStore.getState().reset();
+
+      useProjectStore.getState().setProjectConfig({
+        themeName: "theme_sync",
+        displayName: "Sync Test",
+        colorPalette: {
+          primary: "#7c3aed",
+          secondary: "#6c757d",
+          accent: "#ec4899",
+          background: "#f8f9fa",
+          text: "#212529",
+        },
+      });
+
+      const unsub = subscribeProjectConfigBridge();
+
+      // Agent store should now have brand tokens
+      const brandContext = useAgentStore.getState().brandContext;
+      expect(brandContext).not.toBeNull();
+      expect(brandContext!.colors.primary).toBe("#7c3aed");
+
+      unsub();
+      useProjectStore.getState().resetProject();
+      useAgentStore.getState().reset();
+    });
+
+    it("collectFilePaths extracts paths from file tree", async () => {
+      const { deriveAgentContext } = await import(
+        "@/lib/agent-bridge/project-config-bridge"
+      );
+      const { useProjectStore } = await import("@/lib/stores/project-store");
+
+      useProjectStore.getState().resetProject();
+      useProjectStore.getState().setFiles([
+        { id: "1", name: "style.scss", path: "static/src/scss/style.scss", type: "file" },
+        {
+          id: "2",
+          name: "views",
+          path: "views",
+          type: "directory",
+          children: [
+            { id: "3", name: "pages.xml", path: "views/pages.xml", type: "file" },
+          ],
+        },
+      ]);
+
+      const context = deriveAgentContext();
+
+      expect(context.existingFiles).toContain("static/src/scss/style.scss");
+      expect(context.existingFiles).toContain("views/pages.xml");
+      expect(context.existingFiles).toHaveLength(2);
+
+      useProjectStore.getState().resetProject();
+    });
+  });
+
+  // =========================================================================
   // AI Awareness Protocol
   // =========================================================================
 
