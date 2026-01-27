@@ -23,6 +23,8 @@ import type {
   OdooSectionType,
   PageSectionResult,
   PageGenerationResult,
+  DesignTokenConstraints,
+  SnippetGenerationResult,
 } from "./types";
 import { DEFAULT_PIPELINE_CONFIG, SECTION_SNIPPET_IDS } from "./types";
 import { runPreGeneration as execPreGen } from "./pre-generation";
@@ -223,6 +225,120 @@ export class AgentPipeline {
       combinedThemeCss,
       averageAccessibilityScore,
       totalDurationMs: Date.now() - startTime,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Snippet Generation (with design token constraints)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Processes a snippet through the FrontendOrchestrator and builds design
+   * token constraints — a map from hardcoded color values to CSS variable
+   * references (e.g. "#7c3aed" → "var(--o-color-1)").
+   *
+   * The constraints ensure generated snippets reference design token variables
+   * instead of hardcoded hex values.
+   */
+  async runSnippetGeneration(
+    snippetId: string,
+    snippetType: string,
+    brandTokens?: BrandTokenContext,
+  ): Promise<SnippetGenerationResult> {
+    const tokens = brandTokens ?? this.preResult?.brandTokens;
+
+    if (!this.bridge) {
+      return {
+        snippetId,
+        snippetType,
+        designAnalysis: null,
+        tokenConstraints: { colorVariables: {}, scopedThemeCss: null },
+        themeCss: null,
+        accessibilityScore: null,
+        accessibilityIssues: [],
+        success: false,
+        durationMs: 0,
+      };
+    }
+
+    this.emitStatus("generating_theme", `Processing snippet: ${snippetId}`, 35);
+
+    const result = await this.bridge.processRequest({
+      description: `A ${snippetType} snippet for an Odoo website builder`,
+      brandTokens: tokens ?? undefined,
+      generateTheme: true,
+      auditAccessibility: true,
+    });
+
+    // Build design token constraints from brand tokens
+    const tokenConstraints = this.buildTokenConstraints(tokens ?? null, result.themeCss);
+
+    this.emitStatus("generating_theme", `Snippet ${snippetId} processed`, 50);
+
+    return {
+      snippetId,
+      snippetType,
+      designAnalysis: result.designAnalysis,
+      tokenConstraints,
+      themeCss: result.themeCss,
+      accessibilityScore: result.accessibilityScore,
+      accessibilityIssues: result.accessibilityIssues,
+      success: result.success,
+      durationMs: result.durationMs,
+    };
+  }
+
+  /**
+   * Builds a design token constraint map from brand tokens.
+   * Maps each brand color hex value to its Odoo CSS variable reference.
+   */
+  private buildTokenConstraints(
+    tokens: BrandTokenContext | null,
+    themeCss: string | null,
+  ): DesignTokenConstraints {
+    if (!tokens) {
+      return { colorVariables: {}, scopedThemeCss: null };
+    }
+
+    const { colors } = tokens;
+    const colorVariables: Record<string, string> = {};
+
+    // Odoo color palette variables ($o-color-1 through $o-color-5)
+    const odooMap: [string, string][] = [
+      [colors.primary, "var(--o-color-1)"],
+      [colors.secondary, "var(--o-color-2)"],
+      [colors.accent, "var(--o-color-3)"],
+      [colors.background, "var(--o-color-4)"],
+      [colors.text, "var(--o-color-5)"],
+    ];
+
+    // Bootstrap semantic variables
+    const bootstrapMap: [string, string][] = [
+      [colors.primary, "var(--bs-primary)"],
+      [colors.secondary, "var(--bs-secondary)"],
+      [colors.success, "var(--bs-success)"],
+      [colors.info, "var(--bs-info)"],
+      [colors.warning, "var(--bs-warning)"],
+      [colors.error, "var(--bs-danger)"],
+    ];
+
+    // Odoo variables take precedence (added first)
+    for (const [hex, varRef] of odooMap) {
+      if (hex && !colorVariables[hex.toLowerCase()]) {
+        colorVariables[hex.toLowerCase()] = varRef;
+      }
+    }
+
+    // Bootstrap variables as secondary mapping
+    for (const [hex, varRef] of bootstrapMap) {
+      if (hex && !colorVariables[hex.toLowerCase()]) {
+        colorVariables[hex.toLowerCase()] = varRef;
+      }
+    }
+
+    return {
+      colorVariables,
+      scopedThemeCss: themeCss,
     };
   }
 

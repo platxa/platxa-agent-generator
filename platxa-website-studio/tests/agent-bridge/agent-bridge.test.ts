@@ -396,6 +396,55 @@ describe("AgentBridge (real integration)", () => {
       pipeline.dispose();
     });
 
+    it("runSnippetGeneration processes snippet with design token constraints", async () => {
+      const { AgentPipeline } = await import("@/lib/agent-bridge/pipeline");
+
+      const pipeline = new AgentPipeline({
+        enableFrontendAgent: true,
+      });
+
+      const result = await pipeline.runSnippetGeneration(
+        "s_hero",
+        "hero",
+        BRAND_TOKENS,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.snippetId).toBe("s_hero");
+      expect(result.snippetType).toBe("hero");
+      expect(result.durationMs).toBeGreaterThanOrEqual(0);
+
+      // Design token constraints map hex values to CSS variables
+      const vars = result.tokenConstraints.colorVariables;
+      expect(vars["#7c3aed"]).toBe("var(--o-color-1)");
+      expect(vars["#6c757d"]).toBe("var(--o-color-2)");
+      expect(vars["#ec4899"]).toBe("var(--o-color-3)");
+      expect(vars["#f8f9fa"]).toBe("var(--o-color-4)");
+      expect(vars["#212529"]).toBe("var(--o-color-5)");
+
+      // Bootstrap semantic variables for non-overlapping colors
+      expect(vars["#198754"]).toBe("var(--bs-success)");
+      expect(vars["#0dcaf0"]).toBe("var(--bs-info)");
+      expect(vars["#ffc107"]).toBe("var(--bs-warning)");
+      expect(vars["#dc3545"]).toBe("var(--bs-danger)");
+
+      pipeline.dispose();
+    });
+
+    it("runSnippetGeneration returns empty constraints without frontend agent", async () => {
+      const { AgentPipeline } = await import("@/lib/agent-bridge/pipeline");
+
+      const pipeline = new AgentPipeline({ enableFrontendAgent: false });
+
+      const result = await pipeline.runSnippetGeneration("s_cta", "cta");
+
+      expect(result.success).toBe(false);
+      expect(Object.keys(result.tokenConstraints.colorVariables)).toHaveLength(0);
+      expect(result.tokenConstraints.scopedThemeCss).toBeNull();
+
+      pipeline.dispose();
+    });
+
     it("runPageGeneration returns empty result for empty sections array", async () => {
       const { AgentPipeline } = await import("@/lib/agent-bridge/pipeline");
 

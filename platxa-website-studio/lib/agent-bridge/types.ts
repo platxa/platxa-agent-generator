@@ -221,6 +221,40 @@ export interface PageGenerationResult {
 }
 
 // =============================================================================
+// Snippet Generation (with design token constraints)
+// =============================================================================
+
+/** Maps hardcoded values to design token CSS variable references */
+export interface DesignTokenConstraints {
+  /** CSS variable map: hex value → var(--o-color-N) or var(--bs-*) */
+  colorVariables: Record<string, string>;
+  /** Snippet-scoped theme CSS using design token variables */
+  scopedThemeCss: string | null;
+}
+
+/** Result of processing a snippet through the orchestrator */
+export interface SnippetGenerationResult {
+  /** Snippet technical ID (e.g. "s_hero") */
+  snippetId: string;
+  /** Snippet type */
+  snippetType: string;
+  /** Design analysis from FrontendOrchestrator */
+  designAnalysis: DesignAnalysis | null;
+  /** Design token constraints — variable references to use instead of hardcoded values */
+  tokenConstraints: DesignTokenConstraints;
+  /** Theme CSS from orchestrator */
+  themeCss: string | null;
+  /** Accessibility score */
+  accessibilityScore: number | null;
+  /** Accessibility issues */
+  accessibilityIssues: string[];
+  /** Whether orchestrator processing succeeded */
+  success: boolean;
+  /** Processing duration in ms */
+  durationMs: number;
+}
+
+// =============================================================================
 // Pipeline Result
 // =============================================================================
 
