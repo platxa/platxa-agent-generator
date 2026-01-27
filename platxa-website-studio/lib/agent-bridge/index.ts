@@ -27,6 +27,9 @@ export type {
   PageGenerationResult,
   DesignTokenConstraints,
   SnippetGenerationResult,
+  StyleChange,
+  TokenValidationIssue,
+  StyleModificationResult,
 } from "./types";
 
 export { DEFAULT_PIPELINE_CONFIG, SECTION_SNIPPET_IDS } from "./types";

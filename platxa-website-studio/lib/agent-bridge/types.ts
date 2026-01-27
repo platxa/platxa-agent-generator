@@ -255,6 +255,45 @@ export interface SnippetGenerationResult {
 }
 
 // =============================================================================
+// Style Modification (with design token validation)
+// =============================================================================
+
+/** A single CSS property change to validate */
+export interface StyleChange {
+  selector: string;
+  properties: Record<string, string>;
+}
+
+/** Validation result for a single property value */
+export interface TokenValidationIssue {
+  selector: string;
+  property: string;
+  /** The hardcoded value found */
+  value: string;
+  /** The design token variable that should be used instead */
+  suggestedVariable: string;
+  severity: "error" | "warning";
+}
+
+/** Result of validating and processing style modifications */
+export interface StyleModificationResult {
+  /** Whether all changes passed design token validation */
+  valid: boolean;
+  /** Style changes with hardcoded values replaced by token variables */
+  resolvedChanges: StyleChange[];
+  /** Validation issues found (hardcoded values that should use tokens) */
+  validationIssues: TokenValidationIssue[];
+  /** Design analysis from FrontendOrchestrator (if available) */
+  designAnalysis: DesignAnalysis | null;
+  /** Accessibility score for the modified styles */
+  accessibilityScore: number | null;
+  /** Whether orchestrator processing succeeded */
+  success: boolean;
+  /** Processing duration in ms */
+  durationMs: number;
+}
+
+// =============================================================================
 // Pipeline Result
 // =============================================================================
 

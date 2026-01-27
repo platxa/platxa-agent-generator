@@ -25,6 +25,9 @@ import type {
   PageGenerationResult,
   DesignTokenConstraints,
   SnippetGenerationResult,
+  StyleChange,
+  TokenValidationIssue,
+  StyleModificationResult,
 } from "./types";
 import { DEFAULT_PIPELINE_CONFIG, SECTION_SNIPPET_IDS } from "./types";
 import { runPreGeneration as execPreGen } from "./pre-generation";
@@ -339,6 +342,96 @@ export class AgentPipeline {
     return {
       colorVariables,
       scopedThemeCss: themeCss,
+    };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Style Modification (with design token validation)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Validates style changes against active design tokens before applying.
+   * Detects hardcoded color values that should use design token variables
+   * and returns resolved changes with token references substituted.
+   */
+  async runStyleModification(
+    changes: StyleChange[],
+    brandTokens?: BrandTokenContext,
+  ): Promise<StyleModificationResult> {
+    const startTime = Date.now();
+    const tokens = brandTokens ?? this.preResult?.brandTokens ?? null;
+
+    // Build the token constraint map for validation
+    const constraints = this.buildTokenConstraints(tokens, null);
+    const hexPattern = /#[0-9a-fA-F]{6}\b/g;
+
+    const validationIssues: TokenValidationIssue[] = [];
+    const resolvedChanges: StyleChange[] = [];
+
+    for (const change of changes) {
+      const resolvedProperties: Record<string, string> = {};
+
+      for (const [property, value] of Object.entries(change.properties)) {
+        let resolvedValue = value;
+
+        // Find all hex colors in the value
+        const matches = value.match(hexPattern);
+        if (matches) {
+          for (const hex of matches) {
+            const lower = hex.toLowerCase();
+            const varRef = constraints.colorVariables[lower];
+            if (varRef) {
+              validationIssues.push({
+                selector: change.selector,
+                property,
+                value: hex,
+                suggestedVariable: varRef,
+                severity: "warning",
+              });
+              resolvedValue = resolvedValue.replace(hex, varRef);
+            }
+          }
+        }
+
+        resolvedProperties[property] = resolvedValue;
+      }
+
+      resolvedChanges.push({
+        selector: change.selector,
+        properties: resolvedProperties,
+      });
+    }
+
+    // Run orchestrator analysis if available
+    let designAnalysis = null;
+    let accessibilityScore = null;
+
+    if (this.bridge) {
+      this.emitStatus("generating_theme", "Validating style modifications...", 40);
+
+      const selectorSummary = changes
+        .map((c) => c.selector)
+        .join(", ");
+
+      const result = await this.bridge.processRequest({
+        description: `Style modifications for selectors: ${selectorSummary}`,
+        brandTokens: tokens ?? undefined,
+        generateTheme: false,
+        auditAccessibility: true,
+      });
+
+      designAnalysis = result.designAnalysis;
+      accessibilityScore = result.accessibilityScore;
+    }
+
+    return {
+      valid: validationIssues.length === 0,
+      resolvedChanges,
+      validationIssues,
+      designAnalysis,
+      accessibilityScore,
+      success: true,
+      durationMs: Date.now() - startTime,
     };
   }
 

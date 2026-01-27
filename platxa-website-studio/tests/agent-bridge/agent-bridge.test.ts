@@ -445,6 +445,84 @@ describe("AgentBridge (real integration)", () => {
       pipeline.dispose();
     });
 
+    it("runStyleModification validates hardcoded colors against design tokens", async () => {
+      const { AgentPipeline } = await import("@/lib/agent-bridge/pipeline");
+
+      const pipeline = new AgentPipeline({
+        enableFrontendAgent: true,
+      });
+
+      const result = await pipeline.runStyleModification(
+        [
+          {
+            selector: ".s_hero h1",
+            properties: { color: "#7c3aed", "background-color": "#f8f9fa" },
+          },
+          {
+            selector: ".s_cta",
+            properties: { "border-color": "#ec4899", padding: "16px" },
+          },
+        ],
+        BRAND_TOKENS,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.durationMs).toBeGreaterThanOrEqual(0);
+
+      // Validation issues flagged for hardcoded brand colors
+      expect(result.valid).toBe(false);
+      expect(result.validationIssues.length).toBeGreaterThan(0);
+
+      const primaryIssue = result.validationIssues.find(
+        (i) => i.value === "#7c3aed",
+      );
+      expect(primaryIssue).toBeDefined();
+      expect(primaryIssue!.suggestedVariable).toBe("var(--o-color-1)");
+
+      // Resolved changes have token variables substituted
+      const heroChange = result.resolvedChanges.find(
+        (c) => c.selector === ".s_hero h1",
+      );
+      expect(heroChange).toBeDefined();
+      expect(heroChange!.properties["color"]).toBe("var(--o-color-1)");
+      expect(heroChange!.properties["background-color"]).toBe("var(--o-color-4)");
+
+      // Non-color properties pass through unchanged
+      const ctaChange = result.resolvedChanges.find(
+        (c) => c.selector === ".s_cta",
+      );
+      expect(ctaChange).toBeDefined();
+      expect(ctaChange!.properties["padding"]).toBe("16px");
+      expect(ctaChange!.properties["border-color"]).toBe("var(--o-color-3)");
+
+      pipeline.dispose();
+    });
+
+    it("runStyleModification passes validation when no hardcoded tokens used", async () => {
+      const { AgentPipeline } = await import("@/lib/agent-bridge/pipeline");
+
+      const pipeline = new AgentPipeline({
+        enableFrontendAgent: true,
+      });
+
+      const result = await pipeline.runStyleModification(
+        [
+          {
+            selector: ".my-class",
+            properties: { padding: "8px", margin: "0 auto" },
+          },
+        ],
+        BRAND_TOKENS,
+      );
+
+      expect(result.success).toBe(true);
+      expect(result.valid).toBe(true);
+      expect(result.validationIssues).toHaveLength(0);
+      expect(result.resolvedChanges[0].properties["padding"]).toBe("8px");
+
+      pipeline.dispose();
+    });
+
     it("runPageGeneration returns empty result for empty sections array", async () => {
       const { AgentPipeline } = await import("@/lib/agent-bridge/pipeline");
 
