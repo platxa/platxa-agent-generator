@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
 import { StreamingIndicator } from "./StreamingIndicator";
+import { AgentPhaseIndicator } from "./AgentPhaseIndicator";
 import { DesignSuggestions } from "./DesignSuggestions";
 import { useChatStore, useProjectStore, useEditorStore } from "@/lib/stores";
 import { useStreamingPreviewSafe } from "@/lib/preview";
@@ -295,6 +296,7 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps) {
         ) : (
           <div className="space-y-4">
             <MessageList messages={messages} isLoading={false} />
+            <AgentPhaseIndicator />
             {isLoading && (
               <StreamingIndicator
                 isStreaming={isLoading}

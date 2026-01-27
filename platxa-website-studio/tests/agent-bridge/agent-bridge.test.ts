@@ -540,6 +540,105 @@ describe("AgentBridge (real integration)", () => {
   });
 
   // =========================================================================
+  // Agent Status Streaming
+  // =========================================================================
+
+  describe("agent status streaming to chat UI", () => {
+    it("agent store receives pipeline status updates", async () => {
+      const { useAgentStore } = await import("@/lib/stores/agent-store");
+      const { AgentPipeline } = await import("@/lib/agent-bridge/pipeline");
+
+      const store = useAgentStore.getState();
+      store.reset();
+
+      const statuses: AgentStatus[] = [];
+      const pipeline = new AgentPipeline({
+        enablePreGeneration: true,
+        enablePostGeneration: true,
+        enableSidecarWrite: false,
+        enableFrontendAgent: true,
+        onStatusChange: (s) => {
+          statuses.push(s);
+          store.setAgentStatus(s);
+        },
+      });
+
+      store.startPipeline();
+      expect(useAgentStore.getState().pipelineStatus).toBe("running");
+
+      await pipeline.runPreGeneration({
+        userMessage: "Build a pricing page",
+        colorPalette: {
+          primary: "#7c3aed",
+          secondary: "#6c757d",
+          accent: "#ec4899",
+          background: "#f8f9fa",
+          text: "#212529",
+        },
+      });
+
+      // Status updates propagated to store
+      expect(statuses.length).toBeGreaterThan(0);
+      const lastStatus = useAgentStore.getState().agentStatus;
+      expect(lastStatus).not.toBeNull();
+      expect(lastStatus!.phase).toBeTruthy();
+      expect(lastStatus!.message).toBeTruthy();
+
+      // Each status has progress
+      for (const s of statuses) {
+        expect(s.startedAt).toBeTruthy();
+      }
+
+      pipeline.dispose();
+      store.reset();
+    });
+
+    it("agent store tracks phase transitions through full pipeline", async () => {
+      const { useAgentStore } = await import("@/lib/stores/agent-store");
+      const { AgentPipeline } = await import("@/lib/agent-bridge/pipeline");
+
+      const store = useAgentStore.getState();
+      store.reset();
+
+      const phases: string[] = [];
+      const pipeline = new AgentPipeline({
+        enablePreGeneration: true,
+        enablePostGeneration: true,
+        enableSidecarWrite: false,
+        enableFrontendAgent: true,
+        onStatusChange: (s) => {
+          phases.push(s.phase);
+          store.setAgentStatus(s);
+        },
+      });
+
+      store.startPipeline();
+
+      await pipeline.runPreGeneration({
+        userMessage: "Create a hero section",
+      });
+
+      await pipeline.runPostGeneration(
+        '<section class="hero"><h1>Hello</h1></section>',
+      );
+
+      const result = pipeline.finalize();
+      store.completePipeline(result);
+
+      // Should have transitioned through multiple phases
+      expect(phases.length).toBeGreaterThan(0);
+      expect(phases).toContain("analyzing");
+
+      // Pipeline completed
+      expect(useAgentStore.getState().pipelineStatus).toBe("completed");
+      expect(useAgentStore.getState().agentStatus!.phase).toBe("complete");
+
+      pipeline.dispose();
+      store.reset();
+    });
+  });
+
+  // =========================================================================
   // Project Config Bridge
   // =========================================================================
 
