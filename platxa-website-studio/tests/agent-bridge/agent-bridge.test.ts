@@ -540,6 +540,138 @@ describe("AgentBridge (real integration)", () => {
   });
 
   // =========================================================================
+  // AI Awareness Protocol
+  // =========================================================================
+
+  describe("AI awareness protocol", () => {
+    it("creates awareness manager with default state (idle)", async () => {
+      const Y = await import("yjs");
+      const { Awareness } = await import("y-protocols/awareness");
+      const { AiAwarenessManager } = await import(
+        "@/lib/agent-bridge/ai-awareness"
+      );
+
+      const doc = new Y.Doc();
+      const awareness = new Awareness(doc);
+      const manager = new AiAwarenessManager(awareness);
+
+      const state = manager.getState();
+      expect(state).not.toBeNull();
+      expect(state!.isAi).toBe(true);
+      expect(state!.name).toBe("Platxa AI");
+      expect(state!.color).toBe("#7c3aed");
+      expect(state!.phase).toBe("idle");
+      expect(state!.filePath).toBeNull();
+      expect(state!.cursorPosition).toBeNull();
+
+      manager.dispose();
+      doc.destroy();
+    });
+
+    it("sets editing state with cursor position", async () => {
+      const Y = await import("yjs");
+      const { Awareness } = await import("y-protocols/awareness");
+      const { AiAwarenessManager } = await import(
+        "@/lib/agent-bridge/ai-awareness"
+      );
+
+      const doc = new Y.Doc();
+      const awareness = new Awareness(doc);
+      const manager = new AiAwarenessManager(awareness);
+
+      manager.setEditing(
+        "views/pages.xml",
+        "generating",
+        "Generating hero section...",
+        42,
+        { start: 40, end: 80 },
+      );
+
+      const state = manager.getState();
+      expect(state!.phase).toBe("generating");
+      expect(state!.filePath).toBe("views/pages.xml");
+      expect(state!.message).toBe("Generating hero section...");
+      expect(state!.cursorPosition).toBe(42);
+      expect(state!.selectionRange).toEqual({ start: 40, end: 80 });
+      expect(state!.lastActivity).toBeTruthy();
+
+      manager.dispose();
+      doc.destroy();
+    });
+
+    it("transitions through editing lifecycle", async () => {
+      const Y = await import("yjs");
+      const { Awareness } = await import("y-protocols/awareness");
+      const { AiAwarenessManager } = await import(
+        "@/lib/agent-bridge/ai-awareness"
+      );
+
+      const doc = new Y.Doc();
+      const awareness = new Awareness(doc);
+      const manager = new AiAwarenessManager(awareness);
+
+      // Start editing
+      manager.setEditing("style.scss", "analyzing", "Analyzing styles...");
+      expect(manager.getState()!.phase).toBe("analyzing");
+
+      // Progress to writing
+      manager.setEditing("style.scss", "writing", "Writing SCSS...", 100);
+      expect(manager.getState()!.phase).toBe("writing");
+
+      // Complete
+      manager.setComplete("style.scss");
+      expect(manager.getState()!.phase).toBe("complete");
+      expect(manager.getState()!.cursorPosition).toBeNull();
+
+      // Back to idle via dispose
+      manager.dispose();
+      expect(manager.getState()!.phase).toBe("idle");
+
+      doc.destroy();
+    });
+
+    it("accepts custom config", async () => {
+      const Y = await import("yjs");
+      const { Awareness } = await import("y-protocols/awareness");
+      const { AiAwarenessManager } = await import(
+        "@/lib/agent-bridge/ai-awareness"
+      );
+
+      const doc = new Y.Doc();
+      const awareness = new Awareness(doc);
+      const manager = new AiAwarenessManager(awareness, {
+        name: "Custom AI",
+        color: "#ec4899",
+        idleTimeoutMs: 5000,
+      });
+
+      const state = manager.getState();
+      expect(state!.name).toBe("Custom AI");
+      expect(state!.color).toBe("#ec4899");
+
+      manager.dispose();
+      doc.destroy();
+    });
+
+    it("getAwareness returns underlying Awareness instance", async () => {
+      const Y = await import("yjs");
+      const { Awareness } = await import("y-protocols/awareness");
+      const { AiAwarenessManager } = await import(
+        "@/lib/agent-bridge/ai-awareness"
+      );
+
+      const doc = new Y.Doc();
+      const awareness = new Awareness(doc);
+      const manager = new AiAwarenessManager(awareness);
+
+      expect(manager.getAwareness()).toBe(awareness);
+
+      manager.dispose();
+      doc.destroy();
+    });
+  });
+
+  // =========================================================================
   // WebSocket File Writer
   // =========================================================================
 

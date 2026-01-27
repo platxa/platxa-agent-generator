@@ -78,6 +78,14 @@ export type {
   ActivityListenerOptions,
 } from "./activity-listener";
 
+// AI Awareness Protocol
+export { AiAwarenessManager } from "./ai-awareness";
+export type {
+  AiEditingPhase,
+  AiAwarenessState,
+  AiAwarenessConfig,
+} from "./ai-awareness";
+
 // Pipeline
 export { AgentPipeline } from "./pipeline";
 
