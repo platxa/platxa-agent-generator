@@ -1,4 +1,9 @@
 import { buildSystemPrompt } from "@/lib/ai/system-prompts";
+import { AgentPipeline } from "@/lib/agent-bridge/pipeline";
+
+// Sidecar configuration (optional - for writing files through editor-sync)
+const SIDECAR_BASE_URL = process.env.SIDECAR_BASE_URL || "";
+const ENABLE_AGENT_BRIDGE = process.env.ENABLE_AGENT_BRIDGE !== "false";
 
 // Increase timeout for local LLM (10 minutes max)
 export const maxDuration = 600;
@@ -113,8 +118,36 @@ export async function POST(req: Request) {
       );
     }
 
-    // Build system prompt with context
-    const systemPrompt = buildSystemPrompt({
+    // --- Agent Bridge: Pre-Generation (runs before LLM) ---
+    let pipeline: AgentPipeline | null = null;
+
+    if (ENABLE_AGENT_BRIDGE) {
+      pipeline = new AgentPipeline({
+        enablePreGeneration: true,
+        enablePostGeneration: true,
+        enableSidecarWrite: !!SIDECAR_BASE_URL,
+        sidecarBaseUrl: SIDECAR_BASE_URL || undefined,
+      });
+
+      try {
+        const lastUserMessage = [...messages]
+          .reverse()
+          .find((m: ChatMessage) => m.role === "user");
+
+        await pipeline.runPreGeneration({
+          userMessage: lastUserMessage?.content || "",
+          colorPalette: projectContext?.colorPalette,
+          industry: projectContext?.industry,
+          designStyle: projectContext?.designStyle,
+        });
+      } catch (err) {
+        console.warn("Agent pre-generation failed, continuing without enhancement:", err);
+        pipeline = null;
+      }
+    }
+
+    // Build system prompt with context (enhanced with brand tokens if pipeline ran)
+    const basePrompt = buildSystemPrompt({
       projectName: projectContext?.projectName,
       industry: projectContext?.industry,
       colorPalette: projectContext?.colorPalette,
@@ -122,6 +155,10 @@ export async function POST(req: Request) {
       designStyle: projectContext?.designStyle,
       useCompactPrompt: true,
     });
+
+    const systemPrompt = pipeline
+      ? pipeline.enhanceSystemPrompt(basePrompt)
+      : basePrompt;
 
     // Build Ollama messages array
     const ollamaMessages: OllamaMessage[] = [
@@ -178,6 +215,9 @@ export async function POST(req: Request) {
       const encoder = new TextEncoder();
       const decoder = new TextDecoder();
 
+      // Capture pipeline reference for use inside the stream closure
+      const activePipeline = pipeline;
+
       const transformedStream = new ReadableStream({
         async start(streamController) {
           const reader = ollamaResponse.body?.getReader();
@@ -188,6 +228,7 @@ export async function POST(req: Request) {
 
           try {
             let buffer = "";
+            let fullResponseText = ""; // Accumulate for post-generation
 
             while (true) {
               const { done, value } = await reader.read();
@@ -203,6 +244,7 @@ export async function POST(req: Request) {
                 try {
                   const data = JSON.parse(line);
                   if (data.message?.content) {
+                    fullResponseText += data.message.content;
                     // AI SDK v3 data stream format
                     const aiChunk = `0:${JSON.stringify(data.message.content)}\n`;
                     streamController.enqueue(encoder.encode(aiChunk));
@@ -230,11 +272,35 @@ export async function POST(req: Request) {
               try {
                 const data = JSON.parse(buffer);
                 if (data.message?.content) {
+                  fullResponseText += data.message.content;
                   const aiChunk = `0:${JSON.stringify(data.message.content)}\n`;
                   streamController.enqueue(encoder.encode(aiChunk));
                 }
               } catch {
                 // Ignore
+              }
+            }
+
+            // --- Agent Bridge: Post-Generation (runs after LLM stream) ---
+            if (activePipeline && fullResponseText) {
+              try {
+                const postResult = await activePipeline.runPostGeneration(fullResponseText);
+                if (postResult) {
+                  const qualityData = {
+                    agentQuality: {
+                      score: postResult.quality.overallScore,
+                      accessibility: postResult.quality.accessibility.score,
+                      brandConsistency: postResult.quality.brandConsistency,
+                      issueCount: postResult.quality.accessibility.issues.length,
+                    },
+                  };
+                  const qualityChunk = `2:${JSON.stringify([qualityData])}\n`;
+                  streamController.enqueue(encoder.encode(qualityChunk));
+                }
+
+                activePipeline.finalize();
+              } catch (err) {
+                console.warn("Agent post-generation failed:", err);
               }
             }
           } catch (error) {

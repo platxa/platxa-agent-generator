@@ -387,6 +387,35 @@ export interface ProjectContext {
 }
 
 // =============================================================================
+// ENHANCED SYSTEM PROMPT (with Agent Bridge integration)
+// =============================================================================
+
+import { injectBrandTokens } from "@/lib/agent-bridge/brand-token-injector";
+import type { BrandTokenContext } from "@/lib/agent-bridge/types";
+
+/**
+ * Build an enhanced system prompt with brand token injection.
+ * Calls the base buildSystemPrompt() then appends brand tokens
+ * from the agent bridge pre-generation pipeline.
+ *
+ * @param options - Project context for base prompt
+ * @param brandTokens - Brand tokens from pre-generation (optional)
+ * @param promptFragment - Pre-built prompt fragment from design analysis (optional)
+ * @returns Enhanced system prompt with brand tokens appended
+ */
+export function buildEnhancedSystemPrompt(
+  options: ProjectContext,
+  brandTokens?: BrandTokenContext,
+  promptFragment?: string,
+): string {
+  const basePrompt = buildSystemPrompt(options);
+
+  if (!brandTokens) return basePrompt;
+
+  return injectBrandTokens(basePrompt, brandTokens, promptFragment);
+}
+
+// =============================================================================
 // INDUSTRY-SPECIFIC ENHANCEMENTS
 // =============================================================================
 

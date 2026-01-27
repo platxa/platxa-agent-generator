@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { AgentStatus, QualityReport } from "@/lib/agent-bridge/types";
 
 /**
  * Message role types
@@ -69,6 +70,10 @@ interface ChatState {
   sessionId: string;
   lastUpdated: string;
 
+  // Agent bridge status
+  agentStatus: AgentStatus | null;
+  qualityReport: QualityReport | null;
+
   // Actions
   addMessage: (message: Omit<ChatMessage, "id" | "timestamp">) => void;
   updateLastMessage: (content: MessageContent[]) => void;
@@ -79,6 +84,8 @@ interface ChatState {
   clearSuggestions: () => void;
   setInputValue: (value: string) => void;
   setInputDisabled: (disabled: boolean) => void;
+  setAgentStatus: (status: AgentStatus | null) => void;
+  setQualityReport: (report: QualityReport | null) => void;
   clearMessages: () => void;
   newSession: () => void;
 }
@@ -112,6 +119,8 @@ export const useChatStore = create<ChatState>()(
       isInputDisabled: false,
       sessionId: generateSessionId(),
       lastUpdated: new Date().toISOString(),
+      agentStatus: null,
+      qualityReport: null,
 
       // Actions
       addMessage: (message) =>
@@ -183,6 +192,10 @@ export const useChatStore = create<ChatState>()(
 
       setInputDisabled: (disabled) => set({ isInputDisabled: disabled }),
 
+      setAgentStatus: (status) => set({ agentStatus: status }),
+
+      setQualityReport: (report) => set({ qualityReport: report }),
+
       clearMessages: () =>
         set({
           messages: [],
@@ -200,6 +213,8 @@ export const useChatStore = create<ChatState>()(
           suggestions: [],
           inputValue: "",
           isInputDisabled: false,
+          agentStatus: null,
+          qualityReport: null,
           sessionId: generateSessionId(),
           lastUpdated: new Date().toISOString(),
         }),
