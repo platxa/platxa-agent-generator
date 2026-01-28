@@ -319,6 +319,20 @@ export type {
   IndexOptions,
 } from "./rag-pipeline";
 
+// Color Harmony
+export {
+  hexToHsl,
+  hslToHex,
+  validateHarmony,
+  generateHarmoniousPalette,
+} from "./color-harmony";
+export type {
+  HarmonyType,
+  HslColor,
+  HarmonyIssue,
+  HarmonyResult,
+} from "./color-harmony";
+
 // Font Validator
 export {
   validateFont,
