@@ -62,3 +62,11 @@ export {
   type ErrorContext,
   type ErrorInjectorOptions,
 } from './error-injector';
+
+export {
+  Replanner,
+  createReplanner,
+  type ReplannerConfig,
+  type ReplanResult,
+  type FixStrategy,
+} from './replanner';
