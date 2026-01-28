@@ -109,3 +109,14 @@ export {
   type OdooColorPalette,
   type ScssColorUpdateResult,
 } from "./scss-color-updater";
+
+// Live SCSS compilation and CSS injection
+export {
+  compileScssToCSS,
+  compileAllScss,
+  injectCSSToIframe,
+  createLiveCompiler,
+  CSS_INJECT_SCRIPT,
+  type LiveCompileResult,
+  type LiveCompilerOptions,
+} from "./live-scss-compiler";
