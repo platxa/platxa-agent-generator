@@ -25,7 +25,8 @@ import { useSyncStore, useProjectStore, useEditorStore, useChatStore } from "@/l
 import { useStreamingPreviewSafe, QWebRuntime, detectSnippets, replaceImagesWithPlaceholders } from "@/lib/preview";
 import { usePreviewHotReload } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
-import { DeviceFrame } from "./DeviceFrame";
+import { DeviceFrame, DEVICE_SPECS } from "./DeviceFrame";
+import type { DeviceType } from "./DeviceFrame";
 import { BreakpointIndicator } from "./BreakpointIndicator";
 import { PreviewErrorBoundary } from "./PreviewErrorBoundary";
 import { StreamingOverlay } from "./StreamingOverlay";
@@ -35,14 +36,7 @@ import { ZoomControls, ZoomIndicator, useZoom } from "./ZoomControls";
 import { SnippetSelector, SNIPPET_SELECT_SCRIPT } from "./SnippetSelector";
 import { SnippetContextMenu, SNIPPET_CONTEXT_SCRIPT } from "./SnippetContextMenu";
 
-type DeviceType = "mobile" | "tablet" | "desktop";
 type PreviewMode = "standalone" | "odoo";
-
-const DEVICE_SIZES: Record<DeviceType, { width: number | string; height: number | string }> = {
-  mobile: { width: 375, height: 667 },
-  tablet: { width: 768, height: 1024 },
-  desktop: { width: "100%", height: "100%" },
-};
 
 /**
  * Convert SCSS variables to CSS custom properties
