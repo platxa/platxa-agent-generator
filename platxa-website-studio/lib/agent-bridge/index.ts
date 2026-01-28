@@ -594,5 +594,26 @@ export type {
   ProgressCallback,
 } from "./parallel-generator";
 
+// Task Router
+export {
+  LAYOUT_WORKER,
+  CONTENT_WORKER,
+  STYLE_WORKER,
+  INTERACTION_WORKER,
+  DEFAULT_WORKERS,
+  DEFAULT_ROUTER_CONFIG,
+  scoreWorker,
+  routeTask,
+  routeBatch,
+} from "./task-router";
+export type {
+  WorkerType,
+  RoutableTask,
+  RoutingDecision,
+  WorkerDefinition,
+  RouterConfig,
+  BatchRoutingResult,
+} from "./task-router";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
