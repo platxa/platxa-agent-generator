@@ -510,5 +510,28 @@ export type {
   KeyframesDefinition,
 } from "./ai-editing-indicators";
 
+// Live Font Preview
+export {
+  buildGoogleFontsUrl,
+  buildMultiFontUrl,
+  buildLinkTag,
+  createFontPreviewState,
+  applyFontToken,
+  markFontLoaded,
+  markFontError,
+  getLoadingFonts,
+  getLoadedFonts,
+  getCssOverrideString,
+  getTrackedFamilies,
+  isFontLoaded,
+} from "./live-font-preview";
+export type {
+  FontToken,
+  FontLoadStatus,
+  FontLoadEntry,
+  FontPreviewState,
+  FontChangeResult,
+} from "./live-font-preview";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
