@@ -686,6 +686,37 @@ export type {
   ContextWindowState,
 } from "./context-window";
 
+// Dev Mode
+export {
+  WEBSITE_STUDIO,
+  EDITOR_SYNC,
+  FRONTEND_AGENT,
+  DEFAULT_SYSTEMS,
+  DEFAULT_DEV_CONFIG,
+  classifyReload,
+  createReloadAction,
+  getCrossDependencies,
+  expandReloads,
+  createDevState,
+  startDevMode,
+  markRunning,
+  recordChange,
+  completeReload,
+  stopDevMode,
+  getDevSummary,
+  getErrorSystems,
+  allRunning,
+} from "./dev-mode";
+export type {
+  DevSystem,
+  SystemStatus,
+  SystemState,
+  FileChangeEvent,
+  ReloadAction,
+  DevModeState,
+  DevModeConfig,
+} from "./dev-mode";
+
 // Platxa CLI
 export {
   GENERATE_CMD,
