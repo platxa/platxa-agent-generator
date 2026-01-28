@@ -76,7 +76,8 @@ describe('AgentToolExecutor', () => {
 
     it('should route "read" to read_file', async () => {
       const executor = new AgentToolExecutor();
-      const step = createMockStep('read', 'views/template.xml');
+      // Use a real file that exists in the codebase
+      const step = createMockStep('read', 'lib/agentic-core/tool-executor.ts');
 
       const result = await executor.executeStep(step, createMockContext());
 

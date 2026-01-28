@@ -12,3 +12,10 @@ export {
   type SearchMatch,
   type SearchOptions,
 } from './search-codebase';
+
+export {
+  readFileTool,
+  readFileImpl,
+  type ReadFileOptions,
+  type ReadFileResult,
+} from './read-file';

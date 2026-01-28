@@ -22,6 +22,7 @@ import type {
   ToolExecutor,
 } from './agent-engine';
 import { searchCodebaseTool } from './tools/search-codebase';
+import { readFileTool } from './tools/read-file';
 
 // ============================================================================
 // Types
@@ -85,28 +86,10 @@ async function searchCodebase(params: ToolParams): Promise<ToolResult> {
 
 /**
  * Default read_file tool
+ * Uses the production readFileTool implementation with line range support
  */
 async function readFile(params: ToolParams): Promise<ToolResult> {
-  const startTime = Date.now();
-
-  try {
-    // Placeholder - to be connected to actual file system
-    const content = params.context.filesRead.get(params.target) || '';
-
-    return {
-      success: true,
-      data: { path: params.target, content },
-      duration: Date.now() - startTime,
-      toolName: 'read_file',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: (error as Error).message,
-      duration: Date.now() - startTime,
-      toolName: 'read_file',
-    };
-  }
+  return readFileTool(params);
 }
 
 /**
