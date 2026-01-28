@@ -138,6 +138,27 @@ export type {
   OrchestratorOptions,
 } from "./orchestrator-workers";
 
+// SSE Stream
+export {
+  resetEventCounter,
+  createSSEEvent,
+  formatSSE,
+  parseSSE,
+  createSSEEmitter,
+  createSSEConsumer,
+} from "./sse-stream";
+export type {
+  SSEEventType,
+  SSEEvent,
+  ProgressData,
+  TokenData,
+  SectionCompleteData,
+  ErrorData,
+  DoneData,
+  SSEWriter,
+  SSEHandlers,
+} from "./sse-stream";
+
 // Scaffolding Wizard
 export {
   detectIndustry,
