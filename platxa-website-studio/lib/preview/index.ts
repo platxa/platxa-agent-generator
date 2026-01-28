@@ -87,3 +87,12 @@ export {
   type PlaceholderConfig,
   type PlaceholderType,
 } from "./placeholder-images";
+
+// QWeb source map for DOM ↔ source bidirectional mapping
+export {
+  annotateTemplateSource,
+  buildSourceMap,
+  SOURCE_MAP_CLICK_SCRIPT,
+  type SourceMapEntry,
+  type QWebSourceMap,
+} from "./qweb-source-map";
