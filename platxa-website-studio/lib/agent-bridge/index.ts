@@ -686,6 +686,27 @@ export type {
   ContextWindowState,
 } from "./context-window";
 
+// Telemetry
+export {
+  resetTelemetryCounter,
+  createTelemetryState,
+  recordEvent,
+  recordGeneration,
+  recordSatisfaction,
+  computeAnalytics,
+  getMetricsByRange,
+  getEventsByType,
+  serializeTelemetry,
+  deserializeTelemetry,
+} from "./telemetry";
+export type {
+  TelemetryEvent,
+  TelemetryEventType,
+  GenerationMetrics,
+  AnalyticsSummary,
+  TelemetryState,
+} from "./telemetry";
+
 // Dev Mode
 export {
   WEBSITE_STUDIO,
