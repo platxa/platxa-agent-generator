@@ -319,5 +319,20 @@ export type {
   IndexOptions,
 } from "./rag-pipeline";
 
+// Error Pipeline
+export {
+  classifyError,
+  formatForChat,
+  createErrorPipeline,
+} from "./error-pipeline";
+export type {
+  ErrorCategory,
+  ErrorSeverity,
+  ErrorSuggestion,
+  PipelineError,
+  RawAgentError,
+  ErrorHandler,
+} from "./error-pipeline";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
