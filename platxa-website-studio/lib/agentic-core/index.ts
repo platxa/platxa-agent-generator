@@ -18,7 +18,9 @@ export {
   type AgentState,
   type AgentEngineConfig,
   type AgentResult,
+  type AgentResultStatus,
   type AgentEvents,
+  type ProgressEvent,
   type ToolExecutor,
   type LLMProvider,
 } from './agent-engine';
