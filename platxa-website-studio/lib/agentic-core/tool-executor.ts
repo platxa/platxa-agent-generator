@@ -21,6 +21,7 @@ import type {
   AgentContext,
   ToolExecutor,
 } from './agent-engine';
+import { searchCodebaseTool } from './tools/search-codebase';
 
 // ============================================================================
 // Types
@@ -76,32 +77,10 @@ export interface ToolExecutorConfig {
 
 /**
  * Default search_codebase tool
+ * Uses ripgrep with semantic ranking via the searchCodebaseTool implementation
  */
 async function searchCodebase(params: ToolParams): Promise<ToolResult> {
-  const startTime = Date.now();
-
-  try {
-    // Placeholder implementation - to be replaced with actual glob/grep
-    const results = {
-      pattern: params.target,
-      matches: [],
-      totalFiles: 0,
-    };
-
-    return {
-      success: true,
-      data: results,
-      duration: Date.now() - startTime,
-      toolName: 'search_codebase',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: (error as Error).message,
-      duration: Date.now() - startTime,
-      toolName: 'search_codebase',
-    };
-  }
+  return searchCodebaseTool(params);
 }
 
 /**
