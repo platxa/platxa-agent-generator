@@ -319,6 +319,15 @@ export type {
   IndexOptions,
 } from "./rag-pipeline";
 
+// Keyboard Navigation Validator
+export { validateKeyboardNav } from "./keyboard-nav-validator";
+export type {
+  KbNavRule,
+  KbNavSeverity,
+  KbNavIssue,
+  KbNavResult,
+} from "./keyboard-nav-validator";
+
 // A11y Label Checker
 export { checkA11yLabels } from "./a11y-label-checker";
 export type {
