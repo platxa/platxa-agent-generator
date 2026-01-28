@@ -1069,5 +1069,32 @@ export type {
   PromptOptimizerState,
 } from "./prompt-optimizer";
 
+// Model Router
+export {
+  REASONING_MODEL,
+  CODE_MODEL,
+  FAST_MODEL,
+  DEFAULT_MODELS,
+  DEFAULT_ROUTING_RULES,
+  DEFAULT_ROUTER_CONFIG as DEFAULT_MODEL_ROUTER_CONFIG,
+  createRouterState,
+  getModel,
+  estimateCost,
+  routeTask as routeModelTask,
+  routeAndRecord,
+  getHistoryByType,
+  getTotalEstimatedCost,
+  getModelUsage,
+} from "./model-router";
+export type {
+  TaskType as ModelTaskType,
+  ModelSpec,
+  RoutingRule as ModelRoutingRule,
+  ModelRouterConfig,
+  RoutingDecision as ModelRoutingDecision,
+  RoutingRequest,
+  ModelRouterState,
+} from "./model-router";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
