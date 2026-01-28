@@ -138,6 +138,22 @@ export type {
   OrchestratorOptions,
 } from "./orchestrator-workers";
 
+// Odoo Docker Tester
+export {
+  DEFAULT_DOCKER_CONFIG,
+  generateDockerCommands,
+  runDockerThemeTest,
+} from "./odoo-docker-tester";
+export type {
+  OdooDockerConfig,
+  TestStep,
+  RenderCheck,
+  DockerTestResult,
+  CommandExecutor,
+  HttpFetcher,
+  DockerTestOptions,
+} from "./odoo-docker-tester";
+
 // Marketplace Metadata
 export { generateMarketplaceMetadata } from "./marketplace-metadata";
 export type {
