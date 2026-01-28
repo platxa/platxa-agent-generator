@@ -636,5 +636,30 @@ export type {
   ProgressStreamEvent,
 } from "./progress-streaming";
 
+// Rollback Recovery
+export {
+  resetStepCounter,
+  assessSeverity,
+  selectStrategy,
+  selectFallback,
+  generateSteps,
+  createRecoveryPlan,
+  createRollbackState,
+  setLastGoodState,
+  recordAttempt,
+  getFailedAttemptCount,
+  getLastSuccessfulRecovery,
+} from "./rollback-recovery";
+export type {
+  RecoveryStrategy,
+  FailureSeverity,
+  FailureContext,
+  RecoveryPlan,
+  RecoveryStep,
+  RecoveryResult,
+  RecoveryExecutor,
+  RollbackState,
+} from "./rollback-recovery";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
