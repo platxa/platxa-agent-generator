@@ -319,6 +319,14 @@ export type {
   IndexOptions,
 } from "./rag-pipeline";
 
+// A11y Label Checker
+export { checkA11yLabels } from "./a11y-label-checker";
+export type {
+  A11yIssueType,
+  A11yIssue,
+  A11yLabelResult,
+} from "./a11y-label-checker";
+
 // CSS Specificity Analyzer
 export {
   calculateSpecificity,
