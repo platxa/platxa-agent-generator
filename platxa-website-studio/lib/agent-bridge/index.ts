@@ -319,6 +319,16 @@ export type {
   IndexOptions,
 } from "./rag-pipeline";
 
+// Responsive Validator
+export { validateResponsive, DEFAULT_VIEWPORTS } from "./responsive-validator";
+export type {
+  Viewport,
+  ResponsiveRule,
+  ResponsiveSeverity,
+  ResponsiveIssue,
+  ResponsiveResult,
+} from "./responsive-validator";
+
 // Keyboard Navigation Validator
 export { validateKeyboardNav } from "./keyboard-nav-validator";
 export type {
