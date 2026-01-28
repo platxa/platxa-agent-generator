@@ -686,6 +686,28 @@ export type {
   ContextWindowState,
 } from "./context-window";
 
+// App Store Validator
+export {
+  validateLicense,
+  validateVersion,
+  validateMetadata,
+  validateDependencies,
+  validateIcon,
+  validateScreenshots,
+  validateDescription,
+  validatePricing,
+  validateSubmission,
+  VALID_LICENSES,
+  VALID_CATEGORIES,
+} from "./appstore-validator";
+export type {
+  ValidationSeverity,
+  ValidationIssue,
+  ManifestData,
+  SubmissionAssets,
+  ValidationResult,
+} from "./appstore-validator";
+
 // Theme Config Wizard
 export {
   toPythonClass,
