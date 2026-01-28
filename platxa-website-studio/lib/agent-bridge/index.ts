@@ -451,5 +451,34 @@ export type {
   ErrorHandler,
 } from "./error-pipeline";
 
+// Undo/Redo Stack
+export {
+  resetOperationCounter,
+  createStack,
+  pushOperation,
+  undoOperation,
+  redoOperation,
+  canUndoStack,
+  canRedoStack,
+  clearStack,
+  stackSize,
+  peekUndo,
+  peekRedo,
+  matchesShortcut,
+  getShortcutAction,
+  undoGroup,
+  redoGroup,
+  DEFAULT_MAX_DEPTH,
+  UNDO_SHORTCUT,
+  REDO_SHORTCUT,
+} from "./undo-redo-stack";
+export type {
+  EditOperationType,
+  EditOperation,
+  UndoRedoStack,
+  UndoRedoResult,
+  KeyboardShortcut,
+} from "./undo-redo-stack";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
