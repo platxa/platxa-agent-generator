@@ -686,6 +686,29 @@ export type {
   ContextWindowState,
 } from "./context-window";
 
+// Rate Limiter
+export {
+  DEFAULT_RATE_CONFIG,
+  createRateLimitState,
+  getCallsInWindow,
+  checkRateLimit,
+  recordApiCall,
+  getTotalTokens as getRateLimitTotalTokens,
+  getCostBreakdown,
+  getBudgetUtilization,
+  getRemainingBudget,
+  getAlerts,
+  resetRateWindows,
+} from "./rate-limiter";
+export type {
+  RateLimitConfig,
+  ApiCall,
+  BudgetAlert,
+  CostBreakdown,
+  RateLimitState,
+  RateLimitDecision,
+} from "./rate-limiter";
+
 // Telemetry
 export {
   resetTelemetryCounter,
@@ -853,6 +876,29 @@ export type {
   MigrationResult,
   BreakingChange,
 } from "./migration-generator";
+
+// I18n
+export {
+  DEFAULT_I18N_CONFIG,
+  createI18nState,
+  wrapWithTranslationMarker,
+  wrapPythonStrings,
+  wrapXmlStrings,
+  extractFromPython,
+  extractFromXml,
+  generatePoFile,
+  serializePoFile,
+  parsePoFile,
+  processI18n,
+} from "./i18n";
+export type {
+  TranslationEntry,
+  PoFile,
+  I18nConfig,
+  I18nState,
+  ExtractionResult,
+  I18nResult,
+} from "./i18n";
 
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
