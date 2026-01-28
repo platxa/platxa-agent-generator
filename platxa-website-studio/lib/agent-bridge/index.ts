@@ -138,6 +138,17 @@ export type {
   OrchestratorOptions,
 } from "./orchestrator-workers";
 
+// Design Analyzer
+export { analyzeDesignIntent } from "./design-analyzer";
+export type {
+  ColorIntent,
+  LayoutIntent,
+  MoodIntent,
+  TypographyIntent,
+  SpacingIntent,
+  DesignContext,
+} from "./design-analyzer";
+
 // SSE Stream
 export {
   resetEventCounter,
