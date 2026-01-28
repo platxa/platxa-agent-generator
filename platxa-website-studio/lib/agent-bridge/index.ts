@@ -550,5 +550,31 @@ export type {
   SwatchPanelData,
 } from "./color-swatch-panel";
 
+// Preference Memory
+export {
+  resetEntryCounter,
+  createMemory,
+  recordPreference,
+  recordRejection,
+  recordFavorite,
+  getPreference,
+  getPreferencesByCategory,
+  wasRejected,
+  getRejections,
+  getTopFavorites,
+  getStrongPreferences,
+  serializeMemory,
+  deserializeMemory,
+  mergeMemories,
+} from "./preference-memory";
+export type {
+  PreferenceCategory,
+  PreferenceEntry,
+  RejectedOption,
+  FavoritePattern,
+  PreferenceMemory,
+  SerializedMemory,
+} from "./preference-memory";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
