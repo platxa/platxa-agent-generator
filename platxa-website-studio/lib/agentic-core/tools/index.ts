@@ -19,3 +19,12 @@ export {
   type ReadFileOptions,
   type ReadFileResult,
 } from './read-file';
+
+export {
+  writeFileTool,
+  writeFileImpl,
+  yjsRegistry,
+  type WriteFileOptions,
+  type WriteFileResult,
+  type YjsDocManager,
+} from './write-file';

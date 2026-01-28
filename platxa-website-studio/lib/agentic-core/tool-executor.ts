@@ -23,6 +23,7 @@ import type {
 } from './agent-engine';
 import { searchCodebaseTool } from './tools/search-codebase';
 import { readFileTool } from './tools/read-file';
+import { writeFileTool } from './tools/write-file';
 
 // ============================================================================
 // Types
@@ -94,27 +95,10 @@ async function readFile(params: ToolParams): Promise<ToolResult> {
 
 /**
  * Default write_file tool
+ * Uses the production writeFileTool implementation with Yjs sync
  */
 async function writeFile(params: ToolParams): Promise<ToolResult> {
-  const startTime = Date.now();
-
-  try {
-    const content = params.options?.content as string || '';
-
-    return {
-      success: true,
-      data: { path: params.target, written: true, bytes: content.length },
-      duration: Date.now() - startTime,
-      toolName: 'write_file',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: (error as Error).message,
-      duration: Date.now() - startTime,
-      toolName: 'write_file',
-    };
-  }
+  return writeFileTool(params);
 }
 
 /**
