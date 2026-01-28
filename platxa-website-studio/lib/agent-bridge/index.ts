@@ -107,6 +107,22 @@ export type {
   AgentBridgeResult,
 } from "./agent-bridge";
 
+// Evaluator-Optimizer feedback loop
+export {
+  evaluate,
+  runFeedbackLoop,
+  DEFAULT_QUALITY_GATE,
+} from "./evaluator-optimizer";
+export type {
+  QualityGate,
+  EvaluationResult,
+  FeedbackIteration,
+  FeedbackLoopResult,
+  EvaluatorFn,
+  OptimizerFn,
+  FeedbackLoopOptions,
+} from "./evaluator-optimizer";
+
 // Orchestrator-Workers pattern
 export {
   decomposePage,
