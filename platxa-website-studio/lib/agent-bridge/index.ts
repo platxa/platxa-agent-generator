@@ -138,6 +138,29 @@ export type {
   OrchestratorOptions,
 } from "./orchestrator-workers";
 
+// Agent Cycle (Plan→Search→Read→Edit→Test)
+export {
+  CYCLE_PHASES,
+  createCycleContext,
+  isComplexRequest,
+  determinePhasesToSkip,
+  runAgentCycle,
+} from "./agent-cycle";
+export type {
+  CyclePhase,
+  PhaseStatus,
+  PhaseResult,
+  PlanOutput,
+  SearchOutput,
+  ReadOutput,
+  EditOutput,
+  TestOutput,
+  PhaseHandler,
+  AgentCycleConfig,
+  CycleContext,
+  AgentCycleResult,
+} from "./agent-cycle";
+
 // RAG Pipeline
 export {
   tokenize,
