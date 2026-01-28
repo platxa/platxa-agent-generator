@@ -31,3 +31,14 @@ export {
   type PlanGeneratorOptions,
   type PlanPromptTemplates,
 } from './plan-generator';
+
+export {
+  AgentToolExecutor,
+  createToolExecutor,
+  createToolExecutorWithTools,
+  type ToolResult,
+  type ToolFunction,
+  type ToolParams,
+  type ToolRegistration,
+  type ToolExecutorConfig,
+} from './tool-executor';
