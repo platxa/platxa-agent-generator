@@ -686,6 +686,31 @@ export type {
   ContextWindowState,
 } from "./context-window";
 
+// Platxa CLI
+export {
+  GENERATE_CMD,
+  PREVIEW_CMD,
+  DEPLOY_CMD,
+  TEST_CMD,
+  EXPORT_CMD,
+  ALL_COMMANDS,
+  parseArgs,
+  formatCommandHelp,
+  formatGlobalHelp,
+  createCli,
+  registerHandler,
+  runCli,
+} from "./platxa-cli";
+export type {
+  CliCommand,
+  ArgDef,
+  OptionDef,
+  ParsedArgs,
+  CommandResult,
+  CommandHandler,
+  CliConfig,
+} from "./platxa-cli";
+
 // App Store Validator
 export {
   validateLicense,
