@@ -900,5 +900,33 @@ export type {
   I18nResult,
 } from "./i18n";
 
+// Batch Generator
+export {
+  DEFAULT_BATCH_CONFIG,
+  createBatchState,
+  generateBrandScss,
+  generateBrandContext,
+  generatePageTemplate,
+  generatePageScss,
+  generateSnippetTemplate,
+  generateSnippetScss,
+  runWithConcurrency,
+  runBatch,
+  runBatchSync,
+} from "./batch-generator";
+export type {
+  BrandContext,
+  PageSpec,
+  SnippetSpec,
+  GeneratedPage,
+  GeneratedSnippet,
+  BatchConfig,
+  BatchRequest,
+  BatchResult,
+  BatchState,
+  PageGenerator,
+  SnippetGenerator,
+} from "./batch-generator";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
