@@ -22,3 +22,12 @@ export {
   type ToolExecutor,
   type LLMProvider,
 } from './agent-engine';
+
+export {
+  PlanGenerator,
+  createPlanGenerator,
+  type LLMPlanResponse,
+  type LLMFixResponse,
+  type PlanGeneratorOptions,
+  type PlanPromptTemplates,
+} from './plan-generator';
