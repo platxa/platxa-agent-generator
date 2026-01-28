@@ -686,6 +686,24 @@ export type {
   ContextWindowState,
 } from "./context-window";
 
+// Asset Optimizer
+export {
+  minifyScss,
+  optimizeImage,
+  subsetFont,
+  optimizeAssets,
+  DEFAULT_OPTIMIZER_CONFIG,
+} from "./asset-optimizer";
+export type {
+  OptimizationStats,
+  ScssMinifyResult,
+  ImageOptimizeResult,
+  FontSubsetResult,
+  AssetOptimizationResult,
+  OptimizerConfig,
+  AssetInput,
+} from "./asset-optimizer";
+
 // Migration Generator
 export {
   getVersionHops,
