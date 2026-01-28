@@ -319,6 +319,22 @@ export type {
   IndexOptions,
 } from "./rag-pipeline";
 
+// CSS Specificity Analyzer
+export {
+  calculateSpecificity,
+  compareSpecificity,
+  formatSpecificity,
+  maxNestingDepth,
+  analyzeSpecificity,
+  DEFAULT_THRESHOLDS,
+} from "./css-specificity";
+export type {
+  Specificity,
+  SpecificityIssue,
+  SpecificityResult,
+  SpecificityThresholds,
+} from "./css-specificity";
+
 // Semantic Validator
 export { validateSemantics } from "./semantic-validator";
 export type {
