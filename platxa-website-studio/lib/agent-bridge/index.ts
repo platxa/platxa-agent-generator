@@ -138,5 +138,20 @@ export type {
   OrchestratorOptions,
 } from "./orchestrator-workers";
 
+// RAG Pipeline
+export {
+  tokenize,
+  chunkFile,
+  indexProject,
+  queryIndex,
+  createRAGPipeline,
+} from "./rag-pipeline";
+export type {
+  CodeChunk,
+  RetrievalResult,
+  RAGQueryResult,
+  IndexOptions,
+} from "./rag-pipeline";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
