@@ -55,6 +55,10 @@ interface EditorState {
   diffOriginal: string | null;
   diffModified: string | null;
 
+  // Snippet selection (from preview click-to-select)
+  selectedSnippetId: string | null;
+  selectedSnippetElement: string | null;
+
   // Actions
   openTab: (tab: Omit<EditorTab, "isModified" | "isPinned">) => void;
   closeTab: (path: string) => void;
@@ -75,6 +79,8 @@ interface EditorState {
   setFontSize: (size: number) => void;
   showDiffView: (original: string, modified: string) => void;
   hideDiffView: () => void;
+  selectSnippet: (snippetId: string | null, element?: string | null) => void;
+  clearSnippetSelection: () => void;
 
   // Bulk operations for generated files
   openGeneratedFiles: (files: Array<{ path: string; content: string; language: string }>) => void;
@@ -121,6 +127,8 @@ export const useEditorStore = create<EditorState>()(
       showDiff: false,
       diffOriginal: null,
       diffModified: null,
+      selectedSnippetId: null,
+      selectedSnippetElement: null,
 
       // Actions
       openTab: (tab) =>
@@ -281,6 +289,12 @@ export const useEditorStore = create<EditorState>()(
           diffOriginal: null,
           diffModified: null,
         }),
+
+      selectSnippet: (snippetId, element = null) =>
+        set({ selectedSnippetId: snippetId, selectedSnippetElement: element }),
+
+      clearSnippetSelection: () =>
+        set({ selectedSnippetId: null, selectedSnippetElement: null }),
 
       // Bulk open generated files from AI
       openGeneratedFiles: (files) =>

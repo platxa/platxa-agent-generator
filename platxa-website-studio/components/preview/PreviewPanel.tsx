@@ -32,6 +32,7 @@ import { StreamingOverlay } from "./StreamingOverlay";
 import { HotReloadIndicator } from "./HotReloadIndicator";
 import { ElementInspector, useElementInspector } from "./ElementInspector";
 import { ZoomControls, ZoomIndicator, useZoom } from "./ZoomControls";
+import { SnippetSelector, SNIPPET_SELECT_SCRIPT } from "./SnippetSelector";
 
 type DeviceType = "mobile" | "tablet" | "desktop";
 type PreviewMode = "standalone" | "odoo";
@@ -387,6 +388,7 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
   </div>
   <script src="${bootstrapJs}"></script>
   ${jsContent ? `<script>${jsContent}</script>` : ""}
+  ${SNIPPET_SELECT_SCRIPT}
 </body>
 </html>
   `.trim();
@@ -402,6 +404,7 @@ export function PreviewPanel() {
   const [hasError, setHasError] = useState(false);
   const [iframeWidth, setIframeWidth] = useState(0);
 
+  const selectedSnippetId = useEditorStore((s) => s.selectedSnippetId);
   const { previewUrl, previewStatus, setPreviewStatus, isDeploying } = useSyncStore();
   const { odooUrl, odooStatus } = useProjectStore();
   const { fileContents, openTabs } = useEditorStore();
@@ -788,6 +791,14 @@ export function PreviewPanel() {
                 onClose={disableInspector}
               />
             )}
+
+            {/* Snippet click-to-select bridge */}
+            {previewMode === "standalone" && (
+              <SnippetSelector
+                iframeRef={iframeRef}
+                enabled={!inspectorEnabled}
+              />
+            )}
             </DeviceFrame>
           </PreviewErrorBoundary>
         </div>
@@ -809,6 +820,12 @@ export function PreviewPanel() {
             {/* Inspector indicator */}
             {previewMode === "standalone" && inspectorEnabled && (
               <span className="text-blue-500 text-xs">Inspector</span>
+            )}
+            {/* Selected snippet indicator */}
+            {previewMode === "standalone" && selectedSnippetId && (
+              <span className="text-purple-500 text-xs font-mono">
+                {selectedSnippetId}
+              </span>
             )}
             {/* Hot reload count */}
             {previewMode === "standalone" && hotReloadState.reloadCount > 0 && (
