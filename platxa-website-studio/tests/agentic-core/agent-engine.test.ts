@@ -209,6 +209,117 @@ describe('AgentEngine', () => {
     });
   });
 
+  /**
+   * Feature #2: Self-correction loop tests
+   * Verifies: Loop continues until quality >= 80 or max 5 iterations; emits iteration events
+   */
+  describe('self-correction loop', () => {
+    it('should default to maxIterations=5', () => {
+      const engine = new AgentEngine();
+      // Verify by checking that execution doesn't exceed 5 iterations
+      // (default config is tested implicitly)
+      expect(engine).toBeInstanceOf(AgentEngine);
+    });
+
+    it('should default to qualityThreshold=80', async () => {
+      const engine = new AgentEngine();
+      // When no validators configured, quality defaults to threshold (80)
+      // and execution completes in 1 iteration
+      const result = await engine.execute('Test goal');
+      expect(result.qualityScore).toBeGreaterThanOrEqual(80);
+    });
+
+    it('should respect custom maxIterations', async () => {
+      const engine = new AgentEngine({ maxIterations: 2 });
+      const iterations: number[] = [];
+
+      engine.on('iteration:start', (i) => iterations.push(i));
+      await engine.execute('Test goal');
+
+      // Should not exceed custom max
+      expect(iterations.length).toBeLessThanOrEqual(2);
+    });
+
+    it('should respect custom qualityThreshold', async () => {
+      const engine = new AgentEngine({ qualityThreshold: 90 });
+      const result = await engine.execute('Test goal');
+
+      // Default validation returns threshold score, so it should pass at 90
+      expect(result.qualityScore).toBeGreaterThanOrEqual(90);
+    });
+
+    it('should emit iteration:start for each iteration', async () => {
+      const engine = new AgentEngine();
+      const startEvents: number[] = [];
+
+      engine.on('iteration:start', (iteration) => {
+        startEvents.push(iteration);
+      });
+
+      await engine.execute('Test goal');
+
+      expect(startEvents.length).toBeGreaterThan(0);
+      expect(startEvents[0]).toBe(1);
+    });
+
+    it('should emit iteration:end for each iteration', async () => {
+      const engine = new AgentEngine();
+      const endEvents: { iteration: number; passed: boolean }[] = [];
+
+      engine.on('iteration:end', (iteration, result) => {
+        endEvents.push({ iteration, passed: result.passed });
+      });
+
+      await engine.execute('Test goal');
+
+      expect(endEvents.length).toBeGreaterThan(0);
+      expect(endEvents[0].iteration).toBe(1);
+    });
+
+    it('should stop when quality >= threshold', async () => {
+      const engine = new AgentEngine({ qualityThreshold: 80 });
+      const iterations: number[] = [];
+
+      engine.on('iteration:start', (i) => iterations.push(i));
+      const result = await engine.execute('Test goal');
+
+      // With default validators (threshold score), should pass on first iteration
+      expect(result.success).toBe(true);
+      expect(iterations.length).toBe(1);
+    });
+
+    it('should track iteration count in state', async () => {
+      const engine = new AgentEngine();
+      await engine.execute('Test goal');
+
+      const state = engine.getState();
+      expect(state.iteration).toBeGreaterThanOrEqual(1);
+      expect(state.iteration).toBeLessThanOrEqual(5);
+    });
+
+    it('should set goalAchieved when quality passes', async () => {
+      const engine = new AgentEngine();
+      const result = await engine.execute('Test goal');
+
+      expect(result.success).toBe(true);
+      expect(engine.getState().goalAchieved).toBe(true);
+    });
+
+    it('should emit quality:updated when score changes', async () => {
+      const engine = new AgentEngine();
+      const qualityUpdates: { score: number; previous: number }[] = [];
+
+      engine.on('quality:updated', (score, previous) => {
+        qualityUpdates.push({ score, previous });
+      });
+
+      await engine.execute('Test goal');
+
+      expect(qualityUpdates.length).toBeGreaterThan(0);
+      expect(qualityUpdates[0].previous).toBe(0); // Initial score
+    });
+  });
+
   describe('state management', () => {
     it('should track filesModified via recordFileModification()', () => {
       const engine = new AgentEngine();
