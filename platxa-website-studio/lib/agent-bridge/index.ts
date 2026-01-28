@@ -1096,5 +1096,24 @@ export type {
   ModelRouterState,
 } from "./model-router";
 
+// Observability Dashboard
+export {
+  DEFAULT_DASHBOARD_CONFIG,
+  createDashboardState,
+  recordGeneration as recordDashboardGeneration,
+  computeMetrics,
+  getRecordsByRange,
+  getRecordsByModel,
+  getErrors,
+  getRecentRecords,
+  computeWindowMetrics,
+} from "./observability-dashboard";
+export type {
+  GenerationRecord,
+  DashboardMetrics,
+  DashboardConfig,
+  DashboardState,
+} from "./observability-dashboard";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
