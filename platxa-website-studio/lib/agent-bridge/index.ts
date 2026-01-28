@@ -138,6 +138,25 @@ export type {
   OrchestratorOptions,
 } from "./orchestrator-workers";
 
+// Odoo Version Compatibility
+export {
+  SUPPORTED_VERSIONS,
+  adaptManifest,
+  adaptTemplate,
+  adaptScss,
+  adaptForVersion,
+  adaptForAllVersions,
+} from "./odoo-compat";
+export type {
+  OdooVersion,
+  VersionAdaptation,
+  ManifestAdaptation,
+  TemplateAdaptation,
+  ScssAdaptation,
+  VersionOutput,
+  ThemeDefinition,
+} from "./odoo-compat";
+
 // Odoo Docker Tester
 export {
   DEFAULT_DOCKER_CONFIG,
