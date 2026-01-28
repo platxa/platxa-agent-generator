@@ -533,5 +533,22 @@ export type {
   FontChangeResult,
 } from "./live-font-preview";
 
+// Color Swatch Panel
+export {
+  hexToRgb,
+  relativeLuminance,
+  contrastRatio,
+  getWcagLevel,
+  formatRatio,
+  evaluatePair,
+  generateSwatchPanel,
+} from "./color-swatch-panel";
+export type {
+  WcagLevel,
+  ColorSwatch,
+  ContrastPair,
+  SwatchPanelData,
+} from "./color-swatch-panel";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
