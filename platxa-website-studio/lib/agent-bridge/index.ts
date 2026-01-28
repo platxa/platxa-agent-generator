@@ -686,6 +686,24 @@ export type {
   ContextWindowState,
 } from "./context-window";
 
+// Preview Server
+export {
+  evaluateExpr,
+  processAttfValue,
+  renderQWeb,
+  compileScss,
+  createRegistry,
+  registerTemplate,
+  renderPreview,
+} from "./preview-server";
+export type {
+  QWebContext,
+  RenderResult,
+  RenderError,
+  TemplateRegistry,
+  PreviewConfig,
+} from "./preview-server";
+
 // Asset Optimizer
 export {
   minifyScss,
