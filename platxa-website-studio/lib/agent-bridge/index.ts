@@ -686,6 +686,25 @@ export type {
   ContextWindowState,
 } from "./context-window";
 
+// Theme Config Wizard
+export {
+  toPythonClass,
+  isValidHex,
+  validateConfig,
+  generateWizard,
+  DEFAULT_PALETTES,
+  DEFAULT_FONTS,
+  DEFAULT_LAYOUTS,
+} from "./theme-config-wizard";
+export type {
+  ColorPalette,
+  FontOption,
+  LayoutOption,
+  WizardConfig,
+  WizardOutput,
+  GeneratedFile,
+} from "./theme-config-wizard";
+
 // Preview Server
 export {
   evaluateExpr,
