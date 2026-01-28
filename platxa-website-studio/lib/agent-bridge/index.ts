@@ -138,6 +138,14 @@ export type {
   OrchestratorOptions,
 } from "./orchestrator-workers";
 
+// Odoo Module Packager
+export { packageOdooModule } from "./odoo-packager";
+export type {
+  PackagerInput,
+  PackagedFile,
+  PackagerResult,
+} from "./odoo-packager";
+
 // Self-Correction
 export {
   extractCorrections,
