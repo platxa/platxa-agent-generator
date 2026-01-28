@@ -1115,5 +1115,30 @@ export type {
   DashboardState,
 } from "./observability-dashboard";
 
+// Incremental Deploy (Tier 2)
+export {
+  hashContent,
+  buildFileEntries,
+  buildManifest,
+  computeDiff,
+  createDeployState,
+  deploy as deployIncremental,
+  getLastDeploy,
+  getDeployCount,
+  getSuccessRate as getDeploySuccessRate,
+} from "./incremental-deploy";
+export type {
+  DeployFileEntry,
+  FileManifest,
+  FileDiff,
+  DeployStep,
+  DeployStepStatus,
+  DeployResult,
+  OdooConnection,
+  DeployConfig,
+  DeployState,
+  XmlRpcAdapter,
+} from "./incremental-deploy";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
