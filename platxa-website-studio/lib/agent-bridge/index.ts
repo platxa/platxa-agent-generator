@@ -107,5 +107,20 @@ export type {
   AgentBridgeResult,
 } from "./agent-bridge";
 
+// Orchestrator-Workers pattern
+export {
+  decomposePage,
+  runWorkers,
+  orchestratePage,
+} from "./orchestrator-workers";
+export type {
+  SectionTask,
+  TaskStatus,
+  WorkerResult,
+  OrchestrationResult,
+  SectionWorkerFn,
+  OrchestratorOptions,
+} from "./orchestrator-workers";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
