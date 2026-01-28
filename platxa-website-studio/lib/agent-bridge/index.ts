@@ -1140,5 +1140,25 @@ export type {
   XmlRpcAdapter,
 } from "./incremental-deploy";
 
+// Theme Docs Generator (Tier 2)
+export {
+  generateReadme,
+  generateChangelog,
+  generateCustomizationGuide,
+  generateScreenshotIndex,
+  generateThemeDocs,
+} from "./theme-docs-generator";
+export type {
+  ThemeMeta,
+  ThemePage,
+  ThemeSnippet,
+  ThemeColorEntry,
+  ScreenshotAnnotation,
+  ChangelogEntry,
+  ThemeDocsInput,
+  GeneratedDoc,
+  DocsResult,
+} from "./theme-docs-generator";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
