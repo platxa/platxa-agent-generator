@@ -1186,5 +1186,33 @@ export type {
   ValidationError as SnippetValidationError,
 } from "./snippet-plugin";
 
+// OpenAPI Generator (Tier 2)
+export {
+  createApiDocState,
+  addServer,
+  addTag as addApiTag,
+  addSchema as addApiSchema,
+  addEndpoint,
+  generateOpenApiSpec,
+  generateOpenApiJson,
+  generateSwaggerHtml,
+  getEndpointsByTag,
+  getEndpointCount,
+  getSchemaCount as getApiSchemaCount,
+  getAllTags as getAllApiTags,
+} from "./openapi-generator";
+export type {
+  HttpMethod,
+  SchemaProperty,
+  SchemaDefinition as ApiSchemaDefinition,
+  EndpointParam,
+  EndpointResponse,
+  EndpointDef,
+  OpenApiInfo,
+  OpenApiServer,
+  OpenApiSpec,
+  ApiDocState,
+} from "./openapi-generator";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
