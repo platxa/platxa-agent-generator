@@ -319,6 +319,22 @@ export type {
   IndexOptions,
 } from "./rag-pipeline";
 
+// Section Reorder
+export {
+  normalizeSections,
+  moveSection,
+  getDragFeedback,
+  swapSections,
+  extractQWebSections,
+  reorderQWebTemplate,
+} from "./section-reorder";
+export type {
+  PageSection,
+  DragResult,
+  DragFeedback,
+  QWebSectionRef,
+} from "./section-reorder";
+
 // Responsive Validator
 export { validateResponsive, DEFAULT_VIEWPORTS } from "./responsive-validator";
 export type {
