@@ -138,6 +138,16 @@ export type {
   OrchestratorOptions,
 } from "./orchestrator-workers";
 
+// Marketplace Metadata
+export { generateMarketplaceMetadata } from "./marketplace-metadata";
+export type {
+  IconSpec,
+  ScreenshotSpec,
+  MarketplaceCategory,
+  MarketplaceMetadata,
+  MetadataInput,
+} from "./marketplace-metadata";
+
 // Odoo Module Packager
 export { packageOdooModule } from "./odoo-packager";
 export type {
