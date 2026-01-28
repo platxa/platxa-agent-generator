@@ -928,5 +928,23 @@ export type {
   SnippetGenerator,
 } from "./batch-generator";
 
+// Performance Budget
+export {
+  DEFAULT_BUDGET,
+  countSelectors,
+  getCssSize,
+  getFontFileCount,
+  getTotalAssetSize,
+  checkBudget,
+  formatBudgetReport,
+} from "./performance-budget";
+export type {
+  PerformanceBudget,
+  BudgetMetric,
+  BudgetViolation,
+  AssetEntry,
+  BudgetCheckResult,
+} from "./performance-budget";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
