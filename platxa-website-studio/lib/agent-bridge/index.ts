@@ -968,5 +968,31 @@ export type {
   VisualRegressionState,
 } from "./visual-regression";
 
+// Multi-Cursor Awareness
+export {
+  DEFAULT_CURSOR_CONFIG,
+  createMultiCursorState,
+  addCursor,
+  moveCursor,
+  setSelection,
+  clearSelection,
+  removeCursor,
+  markInactive,
+  getAllCursors,
+  getCursorsByOwner,
+  getCursorsInFile,
+  getActiveCursors,
+  hasSimultaneousCursors,
+  generateCursorCSS,
+} from "./multi-cursor";
+export type {
+  CursorPosition,
+  SelectionRange,
+  CursorOwner,
+  CursorState,
+  CursorConfig,
+  MultiCursorState,
+} from "./multi-cursor";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
