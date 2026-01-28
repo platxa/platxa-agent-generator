@@ -138,6 +138,21 @@ export type {
   OrchestratorOptions,
 } from "./orchestrator-workers";
 
+// Scaffolding Wizard
+export {
+  detectIndustry,
+  extractBusinessName,
+  extractFeatures,
+  toModuleName,
+  scaffoldProject,
+} from "./scaffolding-wizard";
+export type {
+  ExtractedBrand,
+  ScaffoldedPage,
+  ScaffoldedProject,
+  ProjectFeature,
+} from "./scaffolding-wizard";
+
 // Odoo XML-RPC Deploy
 export {
   authenticate,
