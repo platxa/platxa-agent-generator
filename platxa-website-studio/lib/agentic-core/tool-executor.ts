@@ -24,6 +24,7 @@ import type {
 import { searchCodebaseTool } from './tools/search-codebase';
 import { readFileTool } from './tools/read-file';
 import { writeFileTool } from './tools/write-file';
+import { editFileTool } from './tools/edit-file';
 
 // ============================================================================
 // Types
@@ -103,25 +104,10 @@ async function writeFile(params: ToolParams): Promise<ToolResult> {
 
 /**
  * Default edit_file tool
+ * Uses the production editFileTool with search/replace operations
  */
 async function editFile(params: ToolParams): Promise<ToolResult> {
-  const startTime = Date.now();
-
-  try {
-    return {
-      success: true,
-      data: { path: params.target, edited: true },
-      duration: Date.now() - startTime,
-      toolName: 'edit_file',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: (error as Error).message,
-      duration: Date.now() - startTime,
-      toolName: 'edit_file',
-    };
-  }
+  return editFileTool(params);
 }
 
 /**

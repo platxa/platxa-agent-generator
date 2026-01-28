@@ -28,3 +28,11 @@ export {
   type WriteFileResult,
   type YjsDocManager,
 } from './write-file';
+
+export {
+  editFileTool,
+  editFileImpl,
+  type EditFileOptions,
+  type EditFileResult,
+  type EditOperation,
+} from './edit-file';
