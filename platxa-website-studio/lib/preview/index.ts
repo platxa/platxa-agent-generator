@@ -120,3 +120,17 @@ export {
   type LiveCompileResult,
   type LiveCompilerOptions,
 } from "./live-scss-compiler";
+
+// HMR Preview manager for iframe communication and hot updates
+export {
+  OdooHMRPreview,
+  createHMRPreview,
+  createDebugHMRPreview,
+  type HMRUpdate,
+  type HMRUpdateType,
+  type UpdateQueueState,
+  type MessageType,
+  type BridgeMessage,
+  type MessageHandler,
+  type OdooHMRPreviewConfig,
+} from "./odoo-hmr-preview";
