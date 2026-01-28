@@ -138,6 +138,22 @@ export type {
   OrchestratorOptions,
 } from "./orchestrator-workers";
 
+// Odoo XML-RPC Deploy
+export {
+  authenticate,
+  callOdoo,
+  deployToOdoo,
+} from "./odoo-xmlrpc-deploy";
+export type {
+  OdooConnection,
+  DeployStepStatus,
+  DeployStep,
+  DeployResult,
+  XmlRpcCall,
+  FileUploader,
+  DeployOptions,
+} from "./odoo-xmlrpc-deploy";
+
 // Odoo Version Compatibility
 export {
   SUPPORTED_VERSIONS,
