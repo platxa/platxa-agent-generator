@@ -138,6 +138,21 @@ export type {
   OrchestratorOptions,
 } from "./orchestrator-workers";
 
+// Self-Correction
+export {
+  extractCorrections,
+  formatCorrectionsForPrompt,
+  runSelfCorrection,
+} from "./self-correction";
+export type {
+  CorrectionInstruction,
+  RegenerationInput,
+  RegenerateFn,
+  CorrectionAttempt,
+  SelfCorrectionResult,
+  SelfCorrectionOptions,
+} from "./self-correction";
+
 // Clarifying Questions
 export {
   analyzeAmbiguity,
