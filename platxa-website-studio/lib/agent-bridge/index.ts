@@ -576,5 +576,23 @@ export type {
   SerializedMemory,
 } from "./preference-memory";
 
+// Parallel Generator
+export {
+  sortByPriority,
+  runParallel,
+  createTasks,
+  DEFAULT_PARALLEL_CONFIG,
+} from "./parallel-generator";
+export type {
+  GenerationTask,
+  TaskExecutionStatus,
+  TaskResult,
+  ProgressEvent,
+  ParallelConfig,
+  ParallelResult,
+  SectionGeneratorFn,
+  ProgressCallback,
+} from "./parallel-generator";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
