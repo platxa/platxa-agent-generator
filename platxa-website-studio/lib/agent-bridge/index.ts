@@ -480,5 +480,35 @@ export type {
   KeyboardShortcut,
 } from "./undo-redo-stack";
 
+// AI Editing Indicators
+export {
+  DEFAULT_CLASSES,
+  PULSE_KEYFRAMES,
+  COMPLETE_KEYFRAMES,
+  ERROR_KEYFRAMES,
+  generateIndicatorCSS,
+  createIndicatorManager,
+  markEditing,
+  markCompleted,
+  markError,
+  markIdle,
+  removeIndicator,
+  resetAll,
+  clearAll,
+  getIndicator,
+  getIndicatorClass,
+  getEditingSections,
+  getCompletedSections,
+  getErrorSections,
+  getIndicatorSummary,
+} from "./ai-editing-indicators";
+export type {
+  IndicatorState,
+  SectionIndicator,
+  IndicatorClasses,
+  IndicatorManagerState,
+  KeyframesDefinition,
+} from "./ai-editing-indicators";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
