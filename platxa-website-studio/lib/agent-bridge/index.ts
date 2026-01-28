@@ -319,6 +319,20 @@ export type {
   IndexOptions,
 } from "./rag-pipeline";
 
+// Font Validator
+export {
+  validateFont,
+  validateFontPair,
+  getAvailableFonts,
+  getFontsByCategory,
+} from "./font-validator";
+export type {
+  FontCategory,
+  ValidatedFont,
+  FontValidationResult,
+  FontFetcher,
+} from "./font-validator";
+
 // Error Pipeline
 export {
   classifyError,
