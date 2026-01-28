@@ -661,5 +661,30 @@ export type {
   RollbackState,
 } from "./rollback-recovery";
 
+// Context Window Manager
+export {
+  estimateTokens,
+  createBudget,
+  computeScore,
+  sortByRelevance,
+  assembleContext,
+  createContextItem,
+  createContextWindow,
+  addItem,
+  removeItem,
+  updateRelevance,
+  assembleFromState,
+  getItemsByCategory,
+  getTotalTokens,
+  isOverBudget,
+} from "./context-window";
+export type {
+  ContextPriority,
+  ContextItem,
+  ContextBudget,
+  ContextAssembly,
+  ContextWindowState,
+} from "./context-window";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
