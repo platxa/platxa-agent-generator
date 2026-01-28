@@ -450,4 +450,120 @@ describe('AgentToolExecutor', () => {
       expect(tool).toBeUndefined();
     });
   });
+
+  describe('plan mode (read-only exploration)', () => {
+    const createPlanModeContext = (): AgentContext => ({
+      filesRead: new Map(),
+      searchResults: new Map(),
+      userPreferences: {},
+      odooContext: {},
+      planMode: true,
+    });
+
+    it('should disable write_file in plan mode via execute()', async () => {
+      const executor = new AgentToolExecutor();
+
+      await expect(
+        executor.execute('write', {
+          target: 'test.txt',
+          context: createPlanModeContext(),
+          content: 'test content',
+        })
+      ).rejects.toThrow('disabled in plan mode');
+    });
+
+    it('should disable edit_file in plan mode via execute()', async () => {
+      const executor = new AgentToolExecutor();
+
+      await expect(
+        executor.execute('edit', {
+          target: 'test.txt',
+          context: createPlanModeContext(),
+          operations: [{ search: 'a', replace: 'b' }],
+        })
+      ).rejects.toThrow('disabled in plan mode');
+    });
+
+    it('should disable write_file in plan mode via executeStep()', async () => {
+      const executor = new AgentToolExecutor();
+      const step = createMockStep('write', 'test.txt');
+
+      const result = await executor.executeStep(step, createPlanModeContext());
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('disabled in plan mode');
+      expect(result.toolName).toBe('write_file');
+    });
+
+    it('should disable edit_file in plan mode via executeStep()', async () => {
+      const executor = new AgentToolExecutor();
+      const step = createMockStep('edit', 'test.txt');
+
+      const result = await executor.executeStep(step, createPlanModeContext());
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('disabled in plan mode');
+      expect(result.toolName).toBe('edit_file');
+    });
+
+    it('should allow search in plan mode', async () => {
+      const executor = new AgentToolExecutor();
+      const step = createMockStep('search', '**/*.ts');
+
+      const result = await executor.executeStep(step, createPlanModeContext());
+
+      expect(result.success).toBe(true);
+      expect(result.toolName).toBe('search_codebase');
+    });
+
+    it('should allow read in plan mode', async () => {
+      const executor = new AgentToolExecutor();
+      const step = createMockStep('read', 'lib/agentic-core/tool-executor.ts');
+
+      const result = await executor.executeStep(step, createPlanModeContext());
+
+      expect(result.success).toBe(true);
+      expect(result.toolName).toBe('read_file');
+    });
+
+    it('should allow validate in plan mode', async () => {
+      const executor = new AgentToolExecutor();
+      const validQweb = '<templates><t t-name="test"><div/></t></templates>';
+
+      const result = await executor.execute('validate', {
+        target: validQweb,
+        context: createPlanModeContext(),
+        isContent: true,
+      });
+
+      expect(result).toBeDefined();
+    });
+
+    it('should allow compile in plan mode', async () => {
+      const executor = new AgentToolExecutor();
+      const scss = '.test { color: blue; }';
+
+      const result = await executor.execute('compile', {
+        target: scss,
+        context: createPlanModeContext(),
+        isContent: true,
+      });
+
+      expect(result).toBeDefined();
+    });
+
+    it('should allow write when planMode is false', async () => {
+      const executor = new AgentToolExecutor();
+      const normalContext = createMockContext(); // planMode undefined = allowed
+
+      // This should not throw (might fail for other reasons but not plan mode)
+      const result = await executor.execute('write', {
+        target: '.test-output/plan-mode-test.txt',
+        context: normalContext,
+        content: 'test',
+      });
+
+      expect(result).toBeDefined();
+    });
+  });
 });

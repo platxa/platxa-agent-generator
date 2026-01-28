@@ -99,6 +99,11 @@ export interface AgentContext {
   };
   /** Design tokens in use */
   designTokens?: Record<string, unknown>;
+  /**
+   * Plan mode flag - when true, disables write operations
+   * Used for read-only codebase exploration before generating plans
+   */
+  planMode?: boolean;
 }
 
 /** Validation result from quality gates */

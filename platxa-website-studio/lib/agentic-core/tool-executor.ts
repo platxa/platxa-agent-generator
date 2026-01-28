@@ -271,6 +271,14 @@ export class AgentToolExecutor implements ToolExecutor {
       options: params,
     };
 
+    // Check plan mode - disable write operations for read-only exploration
+    if (this.isWriteAction(action) && toolParams.context?.planMode) {
+      throw new Error(
+        `Action '${action}' is disabled in plan mode. ` +
+        'Plan mode allows read-only codebase exploration.'
+      );
+    }
+
     // Check cache first
     const cacheKey = this.getCacheKey(action, toolParams);
     if (this.config.cacheResults) {
@@ -324,6 +332,16 @@ export class AgentToolExecutor implements ToolExecutor {
    * Convenience method for AgentEngine integration
    */
   async executeStep(step: AgentPlanStep, context: AgentContext): Promise<ToolResult> {
+    // Check plan mode - disable write operations for read-only exploration
+    if (this.isWriteAction(step.action) && context?.planMode) {
+      return {
+        success: false,
+        error: `Action '${step.action}' is disabled in plan mode. Plan mode allows read-only codebase exploration.`,
+        duration: 0,
+        toolName: this.getToolNameForAction(step.action),
+      };
+    }
+
     const toolParams: ToolParams = {
       target: step.target,
       context,
@@ -393,6 +411,33 @@ export class AgentToolExecutor implements ToolExecutor {
   // --------------------------------------------------------------------------
   // Private Methods
   // --------------------------------------------------------------------------
+
+  /**
+   * Check if an action modifies the codebase
+   * Used to enforce plan mode read-only restrictions
+   */
+  private isWriteAction(action: AgentActionType): boolean {
+    const writeActions: AgentActionType[] = ['write', 'edit'];
+    return writeActions.includes(action);
+  }
+
+  /**
+   * Get the tool name for an action type
+   */
+  private getToolNameForAction(action: AgentActionType): string {
+    const toolNames: Record<AgentActionType, string> = {
+      search: 'search_codebase',
+      read: 'read_file',
+      write: 'write_file',
+      edit: 'edit_file',
+      validate: 'validate_qweb',
+      compile: 'compile_scss',
+      preview: 'preview_render',
+      test: 'test_odoo',
+      web_search: 'web_search',
+    };
+    return toolNames[action] || 'unknown';
+  }
 
   private async executeWithTimeout(
     handler: ToolFunction,
