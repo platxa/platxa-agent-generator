@@ -1018,5 +1018,31 @@ export type {
   GridOverlayState,
 } from "./grid-overlay";
 
+// Zoom Controls
+export {
+  DEFAULT_ZOOM_CONFIG,
+  createZoomState,
+  setZoom,
+  zoomIn,
+  zoomOut,
+  resetZoom,
+  setPreset,
+  snapToPreset,
+  calculateFitZoom,
+  fitToScreen,
+  setPanelSize,
+  setContentSize,
+  getScaleFactor,
+  canZoomIn,
+  canZoomOut,
+  getTransformCSS,
+  getZoomLabel,
+} from "./zoom-controls";
+export type {
+  ZoomConfig,
+  ViewportDimensions,
+  ZoomState,
+} from "./zoom-controls";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
