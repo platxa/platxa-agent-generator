@@ -25,6 +25,7 @@ import { searchCodebaseTool } from './tools/search-codebase';
 import { readFileTool } from './tools/read-file';
 import { writeFileTool } from './tools/write-file';
 import { editFileTool } from './tools/edit-file';
+import { validateQwebTool } from './tools/validate-qweb';
 
 // ============================================================================
 // Types
@@ -112,30 +113,10 @@ async function editFile(params: ToolParams): Promise<ToolResult> {
 
 /**
  * Default validate_qweb tool
+ * Uses the production validateQwebTool implementation
  */
 async function validateQweb(params: ToolParams): Promise<ToolResult> {
-  const startTime = Date.now();
-
-  try {
-    return {
-      success: true,
-      data: {
-        target: params.target,
-        valid: true,
-        errors: [],
-        warnings: [],
-      },
-      duration: Date.now() - startTime,
-      toolName: 'validate_qweb',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: (error as Error).message,
-      duration: Date.now() - startTime,
-      toolName: 'validate_qweb',
-    };
-  }
+  return validateQwebTool(params);
 }
 
 /**

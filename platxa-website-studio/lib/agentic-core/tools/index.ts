@@ -36,3 +36,11 @@ export {
   type EditFileResult,
   type EditOperation,
 } from './edit-file';
+
+export {
+  validateQwebTool,
+  validateQwebImpl,
+  type ValidateQwebOptions,
+  type ValidateQwebResult,
+  type ValidationIssue,
+} from './validate-qweb';
