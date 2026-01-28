@@ -946,5 +946,27 @@ export type {
   BudgetCheckResult,
 } from "./performance-budget";
 
+// Visual Regression
+export {
+  DEFAULT_VR_CONFIG,
+  createVRState,
+  captureBaseline,
+  getBaseline,
+  getBaselinePageIds,
+  removeBaseline,
+  comparePixels,
+  compareWithBaseline,
+  getHistory,
+  getPassRate,
+} from "./visual-regression";
+export type {
+  PixelData,
+  Baseline,
+  DiffResult,
+  ComparisonResult,
+  VisualRegressionConfig,
+  VisualRegressionState,
+} from "./visual-regression";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
