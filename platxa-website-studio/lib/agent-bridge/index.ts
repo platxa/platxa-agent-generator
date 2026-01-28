@@ -319,6 +319,14 @@ export type {
   IndexOptions,
 } from "./rag-pipeline";
 
+// Semantic Validator
+export { validateSemantics } from "./semantic-validator";
+export type {
+  SemanticSeverity,
+  SemanticIssue,
+  SemanticValidationResult,
+} from "./semantic-validator";
+
 // Color Harmony
 export {
   hexToHsl,
