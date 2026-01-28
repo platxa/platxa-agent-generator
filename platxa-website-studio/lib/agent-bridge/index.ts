@@ -1044,5 +1044,30 @@ export type {
   ZoomState,
 } from "./zoom-controls";
 
+// Prompt Optimizer
+export {
+  DEFAULT_OPTIMIZATION_RULES,
+  DEFAULT_OPTIMIZER_CONFIG,
+  createOptimizerState,
+  needsOptimization,
+  selectRules,
+  applyRules,
+  recordFeedback,
+  getLatestScore,
+  getImprovement,
+  getAttemptCount,
+  getAllOptimizations,
+  wasSuccessful,
+} from "./prompt-optimizer";
+export type {
+  QualityFeedback,
+  QualityIssueType,
+  QualityIssue,
+  PromptAttempt,
+  OptimizationRule,
+  PromptOptimizerConfig,
+  PromptOptimizerState,
+} from "./prompt-optimizer";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
