@@ -42,3 +42,15 @@ export {
   type ToolRegistration,
   type ToolExecutorConfig,
 } from './tool-executor';
+
+export {
+  ValidationEngine,
+  createValidationEngine,
+  type ValidatorResult,
+  type ValidationError,
+  type ValidationWarning,
+  type ValidatorFunction,
+  type ValidatorOptions,
+  type ValidationEngineConfig,
+  type ValidatorType,
+} from './validation-engine';
