@@ -138,6 +138,18 @@ export type {
   OrchestratorOptions,
 } from "./orchestrator-workers";
 
+// Clarifying Questions
+export {
+  analyzeAmbiguity,
+  needsClarification,
+  getClarifyingQuestions,
+} from "./clarifying-questions";
+export type {
+  AmbiguityDimension,
+  ClarifyingQuestion,
+  AmbiguityAnalysis,
+} from "./clarifying-questions";
+
 // Agent Cycle (Plan→Search→Read→Edit→Test)
 export {
   CYCLE_PHASES,
