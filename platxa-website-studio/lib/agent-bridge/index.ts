@@ -615,5 +615,26 @@ export type {
   BatchRoutingResult,
 } from "./task-router";
 
+// Progress Streaming
+export {
+  DEFAULT_PHASES,
+  createProgressState,
+  advancePhase,
+  failCurrentPhase,
+  skipPhase,
+  completeAll,
+  computeProgress,
+  estimateRemainingMs,
+  getProgressEvent,
+  getPhaseSummary,
+} from "./progress-streaming";
+export type {
+  PhaseName as StreamPhaseName,
+  PhaseStatus as StreamPhaseStatus,
+  Phase as StreamPhase,
+  ProgressState,
+  ProgressStreamEvent,
+} from "./progress-streaming";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
