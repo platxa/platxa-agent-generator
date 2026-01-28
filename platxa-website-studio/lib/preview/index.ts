@@ -96,3 +96,16 @@ export {
   type SourceMapEntry,
   type QWebSourceMap,
 } from "./qweb-source-map";
+
+// SCSS color variable updater for live palette editing
+export {
+  extractColorPalette,
+  updateColorVariable,
+  resolveColorToPalette,
+  applyColorChange,
+  ODOO_COLOR_VAR_PREFIX,
+  ODOO_PALETTE_SIZE,
+  CSS_VAR_TO_PALETTE,
+  type OdooColorPalette,
+  type ScssColorUpdateResult,
+} from "./scss-color-updater";
