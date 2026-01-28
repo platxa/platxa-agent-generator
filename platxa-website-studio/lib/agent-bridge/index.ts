@@ -1160,5 +1160,31 @@ export type {
   DocsResult,
 } from "./theme-docs-generator";
 
+// Snippet Plugin (Tier 2)
+export {
+  createPluginRegistry,
+  registerPlugin as registerSnippetPlugin,
+  unregisterPlugin as unregisterSnippetPlugin,
+  getPlugin as getSnippetPlugin,
+  listPlugins as listSnippetPlugins,
+  listPluginsByCategory as listSnippetPluginsByCategory,
+  getPluginCount as getSnippetPluginCount,
+  generateAiToolSchema,
+  generateAllToolSchemas,
+  generateSnippetQWeb as generatePluginSnippetQWeb,
+  generateSnippetScss as generatePluginSnippetScss,
+  validateValues as validateSnippetValues,
+  getDefaultValues as getSnippetDefaultValues,
+} from "./snippet-plugin";
+export type {
+  SnippetFieldDef,
+  SnippetPluginDef,
+  RegisteredPlugin,
+  AiToolParam,
+  AiToolSchema,
+  PluginRegistryState,
+  ValidationError as SnippetValidationError,
+} from "./snippet-plugin";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
