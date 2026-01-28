@@ -21,7 +21,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useSyncStore, useProjectStore, useEditorStore } from "@/lib/stores";
+import { useSyncStore, useProjectStore, useEditorStore, useChatStore } from "@/lib/stores";
 import { useStreamingPreviewSafe, QWebRuntime, detectSnippets, replaceImagesWithPlaceholders } from "@/lib/preview";
 import { usePreviewHotReload } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
@@ -33,6 +33,7 @@ import { HotReloadIndicator } from "./HotReloadIndicator";
 import { ElementInspector, useElementInspector } from "./ElementInspector";
 import { ZoomControls, ZoomIndicator, useZoom } from "./ZoomControls";
 import { SnippetSelector, SNIPPET_SELECT_SCRIPT } from "./SnippetSelector";
+import { SnippetContextMenu, SNIPPET_CONTEXT_SCRIPT } from "./SnippetContextMenu";
 
 type DeviceType = "mobile" | "tablet" | "desktop";
 type PreviewMode = "standalone" | "odoo";
@@ -389,6 +390,7 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
   <script src="${bootstrapJs}"></script>
   ${jsContent ? `<script>${jsContent}</script>` : ""}
   ${SNIPPET_SELECT_SCRIPT}
+  ${SNIPPET_CONTEXT_SCRIPT}
 </body>
 </html>
   `.trim();
@@ -405,6 +407,7 @@ export function PreviewPanel() {
   const [iframeWidth, setIframeWidth] = useState(0);
 
   const selectedSnippetId = useEditorStore((s) => s.selectedSnippetId);
+  const setInputValue = useChatStore((s) => s.setInputValue);
   const { previewUrl, previewStatus, setPreviewStatus, isDeploying } = useSyncStore();
   const { odooUrl, odooStatus } = useProjectStore();
   const { fileContents, openTabs } = useEditorStore();
@@ -547,6 +550,23 @@ export function PreviewPanel() {
       window.open(`${baseUrl}${currentPath}`, "_blank");
     }
   };
+
+  // Handle snippet context menu actions
+  const handleSnippetAction = useCallback(
+    (action: string, snippetId: string) => {
+      const prompts: Record<string, string> = {
+        regenerate: `Regenerate only the ${snippetId} section with a fresh design, keeping all other sections unchanged.`,
+        restyle: `Restyle the ${snippetId} section with different colors and spacing, keeping the same content structure.`,
+        duplicate: `Duplicate the ${snippetId} section with a variation below the original.`,
+        remove: `Remove the ${snippetId} section from the page.`,
+      };
+      const prompt = prompts[action];
+      if (prompt) {
+        setInputValue(prompt);
+      }
+    },
+    [setInputValue],
+  );
 
   const hasGeneratedFiles = Object.keys(fileContents).length > 0;
 
@@ -869,6 +889,11 @@ export function PreviewPanel() {
           </div>
         </div>
       </div>
+
+      {/* Snippet right-click context menu */}
+      {previewMode === "standalone" && (
+        <SnippetContextMenu onAction={handleSnippetAction} />
+      )}
     </TooltipProvider>
   );
 }

@@ -59,6 +59,12 @@ interface EditorState {
   selectedSnippetId: string | null;
   selectedSnippetElement: string | null;
 
+  // Snippet regeneration request
+  snippetRegenRequest: {
+    snippetId: string;
+    position: { x: number; y: number };
+  } | null;
+
   // Actions
   openTab: (tab: Omit<EditorTab, "isModified" | "isPinned">) => void;
   closeTab: (path: string) => void;
@@ -81,6 +87,8 @@ interface EditorState {
   hideDiffView: () => void;
   selectSnippet: (snippetId: string | null, element?: string | null) => void;
   clearSnippetSelection: () => void;
+  requestSnippetRegen: (snippetId: string, position: { x: number; y: number }) => void;
+  clearSnippetRegenRequest: () => void;
 
   // Bulk operations for generated files
   openGeneratedFiles: (files: Array<{ path: string; content: string; language: string }>) => void;
@@ -129,6 +137,7 @@ export const useEditorStore = create<EditorState>()(
       diffModified: null,
       selectedSnippetId: null,
       selectedSnippetElement: null,
+      snippetRegenRequest: null,
 
       // Actions
       openTab: (tab) =>
@@ -295,6 +304,12 @@ export const useEditorStore = create<EditorState>()(
 
       clearSnippetSelection: () =>
         set({ selectedSnippetId: null, selectedSnippetElement: null }),
+
+      requestSnippetRegen: (snippetId, position) =>
+        set({ snippetRegenRequest: { snippetId, position } }),
+
+      clearSnippetRegenRequest: () =>
+        set({ snippetRegenRequest: null }),
 
       // Bulk open generated files from AI
       openGeneratedFiles: (files) =>
