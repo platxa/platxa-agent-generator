@@ -686,5 +686,19 @@ export type {
   ContextWindowState,
 } from "./context-window";
 
+// Migration Generator
+export {
+  getVersionHops,
+  getBreakingChanges,
+  generateScript,
+  generateMigration,
+} from "./migration-generator";
+export type {
+  MigrationStep,
+  MigrationScript,
+  MigrationResult,
+  BreakingChange,
+} from "./migration-generator";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
