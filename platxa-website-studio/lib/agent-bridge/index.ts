@@ -994,5 +994,29 @@ export type {
   MultiCursorState,
 } from "./multi-cursor";
 
+// Grid Overlay
+export {
+  DEFAULT_GRID_CONFIG,
+  BOOTSTRAP_BREAKPOINTS,
+  createGridState,
+  toggleOverlay,
+  showOverlay,
+  hideOverlay,
+  setBreakpoint,
+  toggleBaseline,
+  setOpacity,
+  setColumns,
+  setGutter,
+  generateGridCSS,
+  generateGridHTML,
+  getGridSummary,
+  getBreakpointForWidth,
+} from "./grid-overlay";
+export type {
+  GridConfig,
+  BreakpointPreset,
+  GridOverlayState,
+} from "./grid-overlay";
+
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
