@@ -54,3 +54,11 @@ export {
   type ValidationEngineConfig,
   type ValidatorType,
 } from './validation-engine';
+
+export {
+  ErrorInjector,
+  createErrorInjector,
+  type InjectedError,
+  type ErrorContext,
+  type ErrorInjectorOptions,
+} from './error-injector';
