@@ -319,6 +319,28 @@ export type {
   IndexOptions,
 } from "./rag-pipeline";
 
+// Snapshot Timeline
+export {
+  resetSnapshotCounter,
+  createTimeline,
+  addSnapshot,
+  restoreSnapshot,
+  restoreById,
+  getCurrentSnapshot,
+  canUndo,
+  canRedo,
+  undo,
+  redo,
+  diffSnapshots,
+  getTimelineSummary,
+} from "./snapshot-timeline";
+export type {
+  Snapshot,
+  Timeline,
+  RestoreResult,
+  SnapshotDiff,
+} from "./snapshot-timeline";
+
 // Section Reorder
 export {
   normalizeSections,
