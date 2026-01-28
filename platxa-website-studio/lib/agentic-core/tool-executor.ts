@@ -26,6 +26,7 @@ import { readFileTool } from './tools/read-file';
 import { writeFileTool } from './tools/write-file';
 import { editFileTool } from './tools/edit-file';
 import { validateQwebTool } from './tools/validate-qweb';
+import { compileScssTool } from './tools/compile-scss';
 
 // ============================================================================
 // Types
@@ -121,30 +122,10 @@ async function validateQweb(params: ToolParams): Promise<ToolResult> {
 
 /**
  * Default compile_scss tool
+ * Uses the production compileScssTool implementation with Odoo imports
  */
 async function compileScss(params: ToolParams): Promise<ToolResult> {
-  const startTime = Date.now();
-
-  try {
-    return {
-      success: true,
-      data: {
-        target: params.target,
-        compiled: true,
-        css: '',
-        sourceMap: null,
-      },
-      duration: Date.now() - startTime,
-      toolName: 'compile_scss',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: (error as Error).message,
-      duration: Date.now() - startTime,
-      toolName: 'compile_scss',
-    };
-  }
+  return compileScssTool(params);
 }
 
 /**

@@ -44,3 +44,11 @@ export {
   type ValidateQwebResult,
   type ValidationIssue,
 } from './validate-qweb';
+
+export {
+  compileScssTool,
+  compileScssImpl,
+  type CompileScssOptions,
+  type CompileScssResult,
+  type ScssError,
+} from './compile-scss';
