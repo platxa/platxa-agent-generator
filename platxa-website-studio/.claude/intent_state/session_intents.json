@@ -1,32 +1,32 @@
 {
-  "session_id": "7ee0a636595d",
+  "session_id": "0220e14e3fd3",
   "stack": {
     "session": {
-      "id": "7ee0a636595d-233",
-      "text": "[Phase 1: Agentic Core] Feature #28: Implement intent classification using keyword matching + LLM fallback Criteria: Keywords: explore/options/what-if → plan; create/build/add → agent",
+      "id": "0220e14e3fd3-235",
+      "text": "[Phase 1: Agentic Core] Feature #30: Create mode-specific context preparation (plan: read-only, agent: full tools) Criteria: Plan mode disables write_file, edit_file tools; agent mode enables all",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769680917.7670865,
-      "updated_at": 1769680917.7670867,
+      "created_at": 1769681077.6593213,
+      "updated_at": 1769681077.6593215,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 28,
+        "feature_id": 30,
         "category": "Phase 1: Agentic Core"
       },
       "keywords": []
     },
     "task": {
-      "id": "7ee0a636595d-234",
-      "text": "Implement: Implement intent classification using keyword matching + LLM fallback",
+      "id": "0220e14e3fd3-236",
+      "text": "Implement: Create mode-specific context preparation (plan: read-only, agent: full tools)",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769680917.7757516,
-      "updated_at": 1769680917.7757518,
+      "created_at": 1769681077.6670365,
+      "updated_at": 1769681077.6670368,
       "completed_at": null,
-      "parent_id": "7ee0a636595d-233",
+      "parent_id": "0220e14e3fd3-235",
       "metadata": {},
       "keywords": []
     },
@@ -3425,9 +3425,38 @@
       "parent_id": "7ee0a636595d-233",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "0220e14e3fd3-235",
+      "text": "[Phase 1: Agentic Core] Feature #30: Create mode-specific context preparation (plan: read-only, agent: full tools) Criteria: Plan mode disables write_file, edit_file tools; agent mode enables all",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769681077.6593213,
+      "updated_at": 1769681077.6593215,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 30,
+        "category": "Phase 1: Agentic Core"
+      },
+      "keywords": []
+    },
+    {
+      "id": "0220e14e3fd3-236",
+      "text": "Implement: Create mode-specific context preparation (plan: read-only, agent: full tools)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769681077.6670365,
+      "updated_at": 1769681077.6670368,
+      "completed_at": null,
+      "parent_id": "0220e14e3fd3-235",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 234,
+  "intent_counter": 236,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769680917.7757566
+  "updated_at": 1769681077.6670408
 }

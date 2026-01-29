@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-30",
-  "title": "Implementation: Add color harmony validation ensuring palette follows comple...",
+  "title": "Implementation: Create mode-specific context preparation (plan: read-only, a...",
   "context": {
     "spec_id": "feature-30",
     "feature_id": "30",
     "dependencies": [],
     "metadata": {
-      "category": "Design Token Pipeline",
+      "category": "Phase 1: Agentic Core",
       "verification_criteria": {
         "type": "test",
-        "criteria": "Color palette validated for harmony type; disharmonious combinations flagged with suggestions",
+        "criteria": "Plan mode disables write_file, edit_file tools; agent mode enables all",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T12:45:19.979858"
+    "created_at": "2026-01-29T15:34:37.245887"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-30-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add color harmony validation ensuring palette follows complementary/analogous/triadic rules",
+      "description": "Review feature requirements: Create mode-specific context preparation (plan: read-only, agent: full tools)",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-30-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-30-3",
       "title": "Implement Feature",
-      "description": "Implement: Add color harmony validation ensuring palette follows complementary/analogous/triadic rules",
+      "description": "Implement: Create mode-specific context preparation (plan: read-only, agent: full tools)",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-30-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-30-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Color palette validated for harmony type; disharmonious combinations flagged with suggestions', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Plan mode disables write_file, edit_file tools; agent mode enables all', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "test",
-        "criteria": "Color palette validated for harmony type; disharmonious combinations flagged with suggestions",
+        "criteria": "Plan mode disables write_file, edit_file tools; agent mode enables all",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T12:45:19.979888",
+  "created_at": "2026-01-29T15:34:37.245926",
   "lsp_impact": {}
 }

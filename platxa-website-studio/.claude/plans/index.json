@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T15:31:57.296013",
+  "updated_at": "2026-01-29T15:34:37.246702",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -212,10 +212,10 @@
     },
     {
       "id": "plan-feature-30",
-      "title": "Implementation: Add color harmony validation ensuring palette follows comple...",
+      "title": "Implementation: Create mode-specific context preparation (plan: read-only, a...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T12:45:19.979888",
+      "created_at": "2026-01-29T15:34:37.245926",
       "constitution_check": true
     },
     {

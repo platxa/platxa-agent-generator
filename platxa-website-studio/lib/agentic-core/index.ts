@@ -83,3 +83,17 @@ export {
   type ModeRouterConfig,
   type LLMClassifier,
 } from './mode-router';
+
+export {
+  ContextBuilder,
+  createContextBuilder,
+  buildContextFromMessage,
+  buildPlanContext,
+  buildAgentContext,
+  PLAN_MODE_DISABLED_TOOLS,
+  PLAN_MODE_TOOLS,
+  AGENT_MODE_TOOLS,
+  ALL_TOOLS,
+  type ContextBuilderOptions,
+  type ContextBuildResult,
+} from './context-builder';
