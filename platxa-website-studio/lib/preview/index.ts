@@ -203,3 +203,19 @@ export {
   type ClickToSourceOptions,
   type ClickToSourceCallback,
 } from "./click-to-source";
+
+// RegenerateSection for triggering agent regeneration of selected snippets
+export {
+  RegenerateSectionController,
+  createRegenerateSection,
+  extractSectionHtml,
+  extractRegenerateContext,
+  createRegenerateBridge,
+  REGENERATE_SECTION_SCRIPT,
+  type RegenerateSectionContext,
+  type RegenerateRequest,
+  type RegenerateResult,
+  type RegenerateSectionOptions,
+  type RegenerateCallback,
+  type RegenerateResultCallback,
+} from "./regenerate-section";
