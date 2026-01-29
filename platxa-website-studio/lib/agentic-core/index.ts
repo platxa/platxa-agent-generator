@@ -165,3 +165,20 @@ export {
   type QuestionTemplate,
   type QuestionGeneratorConfig,
 } from './question-generator';
+
+export {
+  OptionGenerator,
+  createOptionGenerator,
+  generateOptions,
+  type EffortLevel,
+  type ApproachCategory,
+  type OptionPro,
+  type OptionCon,
+  type EffortEstimate,
+  type AffectedFile,
+  type DesignOption,
+  type OptionGenerationResult,
+  type OptionTemplate,
+  type OptionGeneratorConfig,
+  type GenerationContext,
+} from './option-generator';
