@@ -12,21 +12,21 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": 133,
+  "current_feature_id": 132,
   "session": {
-    "count": 31,
-    "last_started_at": "2026-01-29T08:52:03.222254Z",
+    "count": 30,
+    "last_started_at": "2026-01-29T08:43:34.492418Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 30,
+    "passed": 29,
     "failed": 0,
     "skipped": 0,
     "in_progress": 1,
     "paused": 0,
-    "pending": 172,
-    "completion_percentage": 14.8
+    "pending": 173,
+    "completion_percentage": 14.3
   },
   "categories": [
     {
@@ -64,7 +64,7 @@
     {
       "name": "Phase 5: Self-Debugging",
       "total": 37,
-      "passed": 4,
+      "passed": 3,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -4152,20 +4152,20 @@
       "verification": {
         "type": "test",
         "criteria": "Parses raw error into { type, file, line, message, context }",
-        "completed": true,
-        "evidence": "e6315f5",
-        "verified_at": "2026-01-29T08:51:55.752330Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/error-analyzer.ts",
-      "status": "passed",
+      "status": "in_progress",
       "status_reason": null,
       "started_at": "2026-01-29T08:43:34.492401Z",
-      "completed_at": "2026-01-29T08:51:55.756620Z",
-      "commit_hash": "e6315f5",
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4192,9 +4192,9 @@
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/error-analyzer.ts",
-      "status": "in_progress",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T08:52:03.222236Z",
+      "started_at": null,
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,

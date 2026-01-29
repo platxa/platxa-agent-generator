@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T14:13:46.189093",
+  "updated_at": "2026-01-29T14:22:14.758677",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -672,6 +672,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-28T11:48:30.509633",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-133",
+      "title": "Implementation: Implement file/line/column extraction from error messages",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-29T14:22:14.758123",
       "constitution_check": true
     }
   ]

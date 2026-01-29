@@ -310,3 +310,16 @@ export {
   type ErrorContext,
   type ErrorAnalyzerOptions,
 } from "./error-analyzer";
+
+// Error location extractor for file/line/column extraction
+export {
+  ErrorLocationExtractor,
+  createErrorLocationExtractor,
+  extractErrorLocation,
+  extractAllErrorLocations,
+  extractLocationForFormat,
+  hasErrorLocation,
+  formatErrorLocation,
+  type ErrorLocation,
+  type ErrorFormat,
+} from "./error-location-extractor";
