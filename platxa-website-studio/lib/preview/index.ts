@@ -156,3 +156,20 @@ export {
   type SourceMapperOptions,
   type ReverseLookupOptions,
 } from "./source-mapper";
+
+// Snippet attribution for unique instance IDs during QWeb generation
+export {
+  SnippetAttributor,
+  attributeSnippetIds,
+  detectSnippets as detectSnippetInstances,
+  ensureSnippetIds,
+  createTypedIdGenerator,
+  createUuidIdGenerator,
+  validateSnippetIds,
+  extractSnippetId,
+  extractSnippetType,
+  type SnippetIdGenerator,
+  type SnippetAttributionOptions,
+  type AttributionResult,
+  type DetectedSnippet,
+} from "./snippet-attribution";
