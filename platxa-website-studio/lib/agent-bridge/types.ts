@@ -128,6 +128,10 @@ export interface AccessibilityIssue {
   message: string;
   element?: string;
   suggestion?: string;
+  /** WCAG rule identifier */
+  rule?: string;
+  /** Suggested fix for this issue */
+  fix?: string;
 }
 
 export interface AccessibilityReport {
@@ -168,7 +172,9 @@ export type OdooSectionType =
   | "faq"
   | "stats"
   | "partners"
-  | "blog";
+  | "blog"
+  | "footer"
+  | "gallery";
 
 /** Maps Odoo section types to Odoo snippet IDs (s_section_name) */
 export const SECTION_SNIPPET_IDS: Record<OdooSectionType, string> = {
@@ -186,6 +192,8 @@ export const SECTION_SNIPPET_IDS: Record<OdooSectionType, string> = {
   stats: "s_stats",
   partners: "s_partners",
   blog: "s_blog",
+  footer: "s_footer",
+  gallery: "s_gallery",
 };
 
 /** Result of processing a single page section through the orchestrator */
@@ -194,6 +202,12 @@ export interface PageSectionResult {
   sectionType: OdooSectionType;
   /** Odoo snippet ID (e.g. "s_hero") */
   snippetId: string;
+  /** Generated HTML content */
+  html: string;
+  /** Generated SCSS styles */
+  scss: string;
+  /** Whether the section is valid */
+  isValid: boolean;
   /** Design analysis from FrontendOrchestrator */
   designAnalysis: DesignAnalysis | null;
   /** Theme CSS scoped to this section */
@@ -212,8 +226,14 @@ export interface PageSectionResult {
 export interface PageGenerationResult {
   /** Per-section results in page order */
   sections: PageSectionResult[];
+  /** Combined HTML for all sections */
+  combinedHtml: string;
+  /** Combined SCSS for all sections */
+  combinedScss: string;
   /** Combined theme CSS for all sections */
   combinedThemeCss: string;
+  /** Whether page generation is complete */
+  isComplete: boolean;
   /** Average accessibility score across sections */
   averageAccessibilityScore: number | null;
   /** Total processing duration in ms */

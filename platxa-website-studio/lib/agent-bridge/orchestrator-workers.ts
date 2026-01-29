@@ -75,11 +75,15 @@ const SECTION_PRIORITY: Record<OdooSectionType, number> = {
   testimonials: 4,
   pricing: 5,
   team: 6,
-  gallery: 7,
-  faq: 8,
-  contact: 9,
-  cta: 10,
-  footer: 11,
+  portfolio: 7,
+  gallery: 8,
+  stats: 9,
+  partners: 10,
+  blog: 11,
+  faq: 12,
+  contact: 13,
+  cta: 14,
+  footer: 15,
 };
 
 /**
@@ -213,6 +217,15 @@ export async function orchestratePage(
 
   const allSucceeded = workerResults.every((r) => r.status === "completed");
 
+  const totalDurationMs = Math.round(performance.now() - start);
+  const accessibilityScores = completedSections
+    .map((s) => s.accessibilityScore)
+    .filter((score): score is number => score !== null);
+  const averageAccessibilityScore =
+    accessibilityScores.length > 0
+      ? accessibilityScores.reduce((a, b) => a + b, 0) / accessibilityScores.length
+      : null;
+
   const page: PageGenerationResult = {
     sections: completedSections,
     combinedHtml: completedSections.map((s) => s.html).join("\n\n"),
@@ -220,7 +233,13 @@ export async function orchestratePage(
       .map((s) => s.scss)
       .filter(Boolean)
       .join("\n\n"),
+    combinedThemeCss: completedSections
+      .map((s) => s.themeCss)
+      .filter(Boolean)
+      .join("\n\n"),
     isComplete: allSucceeded,
+    averageAccessibilityScore,
+    totalDurationMs,
   };
 
   return {

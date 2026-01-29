@@ -17,6 +17,12 @@ const makeSection = (id = "s_hero"): PageSectionResult => ({
   html: `<section class="${id}">content</section>`,
   scss: `.${id} { padding: 2rem; }`,
   isValid: true,
+  designAnalysis: null,
+  themeCss: null,
+  accessibilityScore: 100,
+  accessibilityIssues: [],
+  success: true,
+  durationMs: 100,
 });
 
 const makeQuality = (

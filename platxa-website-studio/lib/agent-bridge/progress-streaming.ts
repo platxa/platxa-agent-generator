@@ -141,11 +141,12 @@ export function advancePhase(
 
   // Complete current active phase
   if (activeIndex >= 0 && activeIndex < phases.length) {
+    const activePhase = phases[activeIndex];
     phases[activeIndex] = {
-      ...phases[activeIndex],
+      ...activePhase,
       status: "completed",
       endedAt: now,
-      durationMs: phases[activeIndex].startedAt != null ? now - phases[activeIndex].startedAt : 0,
+      durationMs: activePhase.startedAt != null ? now - activePhase.startedAt : 0,
     };
   }
 

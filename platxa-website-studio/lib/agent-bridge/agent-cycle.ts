@@ -266,7 +266,7 @@ export async function runAgentCycle(
 
       results[phase] = result;
       context.phaseResults[phase] = result;
-      (context as Record<string, unknown>)[phase] = data;
+      (context as unknown as Record<string, unknown>)[phase] = data;
       phasesExecuted.push(phase);
       config.onPhaseComplete?.(result);
 

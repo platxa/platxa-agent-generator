@@ -61,6 +61,10 @@ export interface AgentBridgeInput {
 export interface AgentBridgeResult {
   /** Whether the orchestrator pipeline succeeded */
   success: boolean;
+  /** Generated HTML content */
+  html: string | null;
+  /** Generated SCSS styles */
+  scss: string | null;
   /** Enhanced design analysis from the frontend-agent's NLP analyzer */
   designAnalysis: DesignAnalysis | null;
   /** Generated theme CSS from the orchestrator's theme step */
@@ -141,6 +145,8 @@ export class AgentBridge {
 
       return {
         success: false,
+        html: null,
+        scss: null,
         designAnalysis: null,
         themeCss: null,
         accessibilityScore: null,
@@ -264,8 +270,12 @@ export class AgentBridge {
    * Extracts Odoo-relevant outputs and discards React-specific parts.
    */
   private mapResult(result: GenerationResult, durationMs: number): AgentBridgeResult {
+    // Cast to access properties that may exist on extended result types
+    const extendedResult = result as GenerationResult & { html?: string; scss?: string };
     return {
       success: result.success,
+      html: extendedResult.html ?? null,
+      scss: extendedResult.scss ?? null,
       designAnalysis: this.mapDesignAnalysis(result),
       themeCss: result.theme?.css ?? null,
       accessibilityScore: result.audit?.score ?? null,

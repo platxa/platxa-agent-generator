@@ -1047,7 +1047,7 @@ export type {
 // Prompt Optimizer
 export {
   DEFAULT_OPTIMIZATION_RULES,
-  DEFAULT_OPTIMIZER_CONFIG,
+  DEFAULT_OPTIMIZER_CONFIG as DEFAULT_PROMPT_OPTIMIZER_CONFIG,
   createOptimizerState,
   needsOptimization,
   selectRules,
@@ -1131,10 +1131,10 @@ export type {
   DeployFileEntry,
   FileManifest,
   FileDiff,
-  DeployStep,
-  DeployStepStatus,
-  DeployResult,
-  OdooConnection,
+  DeployStep as IncrementalDeployStep,
+  DeployStepStatus as IncrementalDeployStepStatus,
+  DeployResult as IncrementalDeployResult,
+  OdooConnection as IncrementalOdooConnection,
   DeployConfig,
   DeployState,
   XmlRpcAdapter,

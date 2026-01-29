@@ -13,6 +13,12 @@ const makeSection = (id = "s_hero"): PageSectionResult => ({
   html: `<section class="${id}">content</section>`,
   scss: `.${id} { padding: 2rem; }`,
   isValid: true,
+  designAnalysis: null,
+  themeCss: null,
+  accessibilityScore: 100,
+  accessibilityIssues: [],
+  success: true,
+  durationMs: 100,
 });
 
 const makeReport = (
@@ -42,7 +48,7 @@ describe("Self-Correction", () => {
     it("extracts accessibility corrections from issues", () => {
       const corrections = extractCorrections(makeReport(90, 60, 80, {
         issues: [
-          { rule: "color-contrast", message: "Low contrast ratio", severity: "error", element: "h1" },
+          { id: "a11y-1", criterion: "1.4.3", level: "AA", rule: "color-contrast", message: "Low contrast ratio", severity: "error", element: "h1" },
         ],
       }));
       expect(corrections.length).toBeGreaterThan(0);
@@ -76,8 +82,8 @@ describe("Self-Correction", () => {
     it("sorts by severity: critical first", () => {
       const corrections = extractCorrections(makeReport(50, 50, 30, {
         issues: [
-          { rule: "alt-text", message: "Missing alt", severity: "warning", element: "img" },
-          { rule: "contrast", message: "Low contrast", severity: "error", element: "p" },
+          { id: "a11y-2", criterion: "1.1.1", level: "A", rule: "alt-text", message: "Missing alt", severity: "warning", element: "img" },
+          { id: "a11y-3", criterion: "1.4.3", level: "AA", rule: "contrast", message: "Low contrast", severity: "error", element: "p" },
         ],
       }));
       expect(corrections[0].severity).toBe("critical");

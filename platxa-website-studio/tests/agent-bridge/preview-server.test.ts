@@ -8,7 +8,7 @@ import {
   registerTemplate,
   renderPreview,
 } from "@/lib/agent-bridge/preview-server";
-import type { QWebContext } from "@/lib/agent-bridge/preview-server";
+import type { QWebContext, RenderError } from "@/lib/agent-bridge/preview-server";
 
 describe("Preview Server", () => {
   describe("evaluateExpr", () => {
@@ -160,7 +160,7 @@ describe("Preview Server", () => {
     });
 
     it("reports error for missing t-call template", () => {
-      const errors: Array<{ type: string; message: string }> = [];
+      const errors: RenderError[] = [];
       const reg = createRegistry();
       renderQWeb('<t t-call="missing"/>', {}, reg, undefined, errors);
       expect(errors.length).toBeGreaterThan(0);
@@ -168,7 +168,7 @@ describe("Preview Server", () => {
     });
 
     it("handles non-iterable t-foreach gracefully", () => {
-      const errors: Array<{ type: string; message: string }> = [];
+      const errors: RenderError[] = [];
       renderQWeb(
         '<li t-foreach="items" t-as="x">text</li>',
         { items: "not-array" },

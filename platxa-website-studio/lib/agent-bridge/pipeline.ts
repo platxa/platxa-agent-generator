@@ -169,7 +169,10 @@ export class AgentPipeline {
     if (!this.bridge || sections.length === 0) {
       return {
         sections: [],
+        combinedHtml: "",
+        combinedScss: "",
         combinedThemeCss: "",
+        isComplete: true,
         averageAccessibilityScore: null,
         totalDurationMs: Date.now() - startTime,
       };
@@ -199,6 +202,9 @@ export class AgentPipeline {
       sectionResults.push({
         sectionType,
         snippetId,
+        html: result.html ?? "",
+        scss: result.scss ?? "",
+        isValid: result.success,
         designAnalysis: result.designAnalysis,
         themeCss: result.themeCss,
         accessibilityScore: result.accessibilityScore,
@@ -225,9 +231,18 @@ export class AgentPipeline {
 
     this.emitStatus("generating_theme", "All sections processed", 70);
 
+    const combinedHtml = sectionResults.map((s) => s.html).join("\n\n");
+    const combinedScss = sectionResults
+      .map((s) => s.scss)
+      .filter(Boolean)
+      .join("\n\n");
+
     return {
       sections: sectionResults,
+      combinedHtml,
+      combinedScss,
       combinedThemeCss,
+      isComplete: sectionResults.every((s) => s.success),
       averageAccessibilityScore,
       totalDurationMs: Date.now() - startTime,
     };

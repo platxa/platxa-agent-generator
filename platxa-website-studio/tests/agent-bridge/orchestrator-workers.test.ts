@@ -20,6 +20,12 @@ const createStubWorker = (delayMs = 5): SectionWorkerFn => async (task) => {
     html: `<section class="s_${task.sectionType}">content</section>`,
     scss: `.s_${task.sectionType} { padding: 2rem; }`,
     isValid: true,
+    designAnalysis: null,
+    themeCss: null,
+    accessibilityScore: 100,
+    accessibilityIssues: [],
+    success: true,
+    durationMs: delayMs,
   };
 };
 
@@ -90,6 +96,12 @@ describe("Orchestrator-Workers", () => {
           html: "<div/>",
           scss: "",
           isValid: true,
+          designAnalysis: null,
+          themeCss: null,
+          accessibilityScore: 100,
+          accessibilityIssues: [],
+          success: true,
+          durationMs: 10,
         };
       };
 
@@ -166,6 +178,12 @@ describe("Orchestrator-Workers", () => {
           html: `<section class="s_${task.sectionType}"/>`,
           scss: "",
           isValid: true,
+          designAnalysis: null,
+          themeCss: null,
+          accessibilityScore: 100,
+          accessibilityIssues: [],
+          success: true,
+          durationMs: 5,
         };
       };
 

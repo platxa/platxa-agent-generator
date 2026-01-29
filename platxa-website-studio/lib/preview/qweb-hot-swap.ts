@@ -96,10 +96,11 @@ function getUniqueSelector(el: Element): string | null {
       break;
     }
 
-    const parent = current.parentElement;
-    if (parent) {
-      const siblings = Array.from(parent.children).filter(
-        (child) => child.tagName === current!.tagName
+    const parentEl: Element | null = current.parentElement;
+    if (parentEl) {
+      const currentTagName = current.tagName;
+      const siblings = Array.from(parentEl.children).filter(
+        (child: Element) => child.tagName === currentTagName
       );
       if (siblings.length > 1) {
         const index = siblings.indexOf(current) + 1;
@@ -108,7 +109,7 @@ function getUniqueSelector(el: Element): string | null {
     }
 
     path.unshift(selector);
-    current = parent;
+    current = parentEl;
   }
 
   return path.length > 0 ? path.join(' > ') : null;
