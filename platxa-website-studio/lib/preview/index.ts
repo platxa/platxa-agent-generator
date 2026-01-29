@@ -232,3 +232,20 @@ export {
   type HMRMessageType,
   type HMRMessage,
 } from "./hmr-runtime";
+
+// Message Bridge for robust postMessage communication
+export {
+  ParentBridge,
+  IframeBridge,
+  createParentBridge,
+  createIframeBridge,
+  generateIframeBridgeScript,
+  IFRAME_BRIDGE_SCRIPT,
+  type BridgeMessage as GenericBridgeMessage,
+  type BridgeCommand,
+  type BridgeEvent,
+  type BridgeResponse,
+  type MessageHandler as GenericMessageHandler,
+  type ErrorHandler as BridgeErrorHandler,
+  type MessageBridgeConfig,
+} from "./message-bridge";
