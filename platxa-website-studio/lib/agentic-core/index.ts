@@ -195,3 +195,17 @@ export {
   type PlanPreviewConfig,
   type PreviewFormat,
 } from './plan-preview';
+
+export {
+  ApprovalWorkflow,
+  createApprovalWorkflow,
+  startApprovalWorkflow,
+  type ApprovalAction,
+  type WorkflowState,
+  type ActionButton,
+  type ModificationRequest,
+  type RefinementSession,
+  type WorkflowResult,
+  type WorkflowEvents,
+  type ApprovalWorkflowConfig,
+} from './approval-workflow';
