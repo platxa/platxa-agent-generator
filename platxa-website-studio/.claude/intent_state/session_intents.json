@@ -1,32 +1,32 @@
 {
-  "session_id": "a9cfb4e6efaf",
+  "session_id": "1ef9249d640d",
   "stack": {
     "session": {
-      "id": "a9cfb4e6efaf-309",
-      "text": "[Phase 4: Enhanced UI] Feature #115: Implement code block syntax highlighting in chat Criteria: Code blocks have language detection and appropriate highlighting",
+      "id": "1ef9249d640d-311",
+      "text": "[Phase 4: Enhanced UI] Feature #120: Create resizable panel system for chat/preview/editor Criteria: Drag handles between panels resize them; constraints prevent collapse",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769686948.682418,
-      "updated_at": 1769686948.682418,
+      "created_at": 1769687116.5011914,
+      "updated_at": 1769687116.5011916,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 115,
+        "feature_id": 120,
         "category": "Phase 4: Enhanced UI"
       },
       "keywords": []
     },
     "task": {
-      "id": "a9cfb4e6efaf-310",
-      "text": "Implement: Implement code block syntax highlighting in chat",
+      "id": "1ef9249d640d-312",
+      "text": "Implement: Create resizable panel system for chat/preview/editor",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769686948.6876488,
-      "updated_at": 1769686948.687649,
+      "created_at": 1769687116.5069165,
+      "updated_at": 1769687116.5069168,
       "completed_at": null,
-      "parent_id": "a9cfb4e6efaf-309",
+      "parent_id": "1ef9249d640d-311",
       "metadata": {},
       "keywords": []
     },
@@ -4527,9 +4527,38 @@
       "parent_id": "a9cfb4e6efaf-309",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "1ef9249d640d-311",
+      "text": "[Phase 4: Enhanced UI] Feature #120: Create resizable panel system for chat/preview/editor Criteria: Drag handles between panels resize them; constraints prevent collapse",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769687116.5011914,
+      "updated_at": 1769687116.5011916,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 120,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "1ef9249d640d-312",
+      "text": "Implement: Create resizable panel system for chat/preview/editor",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769687116.5069165,
+      "updated_at": 1769687116.5069168,
+      "completed_at": null,
+      "parent_id": "1ef9249d640d-311",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 310,
+  "intent_counter": 312,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769686948.6876519
+  "updated_at": 1769687116.5069203
 }
