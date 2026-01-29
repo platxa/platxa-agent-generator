@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T16:53:51.628156",
+  "updated_at": "2026-01-29T16:56:32.783263",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -452,10 +452,10 @@
     },
     {
       "id": "plan-feature-95",
-      "title": "Implementation: Add telemetry and analytics for generation quality tracking ...",
+      "title": "Implementation: Create AgentProgress component showing phase progression wit...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T15:21:36.827635",
+      "created_at": "2026-01-29T16:56:32.782441",
       "constitution_check": true
     },
     {
