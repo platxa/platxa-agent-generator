@@ -1,22 +1,22 @@
 {
-  "id": "plan-feature-67",
-  "title": "Implementation: Implement data-snippet-id attribution during QWeb generation",
+  "id": "plan-feature-127",
+  "title": "Implementation: Add QWeb validation error capture with template and directiv...",
   "context": {
-    "spec_id": "feature-67",
-    "feature_id": "67",
+    "spec_id": "feature-127",
+    "feature_id": "127",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 3: HMR Preview",
+      "category": "Phase 5: Self-Debugging",
       "verification_criteria": {
         "type": "test",
-        "criteria": "Every snippet wrapper has data-snippet-id attribute with unique ID",
+        "criteria": "Captures template name, line, directive type, error message",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-29T12:09:58.225063"
+    "created_at": "2026-01-29T14:05:17.698876"
   },
   "phases": [
     "research",
@@ -26,9 +26,9 @@
   ],
   "tasks": [
     {
-      "id": "task-67-1",
+      "id": "task-127-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Implement data-snippet-id attribution during QWeb generation",
+      "description": "Review feature requirements: Add QWeb validation error capture with template and directive info",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -38,7 +38,7 @@
       "completed_at": null
     },
     {
-      "id": "task-67-2",
+      "id": "task-127-2",
       "title": "Review Existing Code",
       "description": "Search for related code patterns and potential duplicates",
       "step_type": "setup",
@@ -50,9 +50,9 @@
       "completed_at": null
     },
     {
-      "id": "task-67-3",
+      "id": "task-127-3",
       "title": "Implement Feature",
-      "description": "Implement: Implement data-snippet-id attribution during QWeb generation",
+      "description": "Implement: Add QWeb validation error capture with template and directive info",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -62,7 +62,7 @@
       "completed_at": null
     },
     {
-      "id": "task-67-4",
+      "id": "task-127-4",
       "title": "Add Tests",
       "description": "Write unit tests for new functionality",
       "step_type": "test",
@@ -74,16 +74,16 @@
       "completed_at": null
     },
     {
-      "id": "task-67-5",
+      "id": "task-127-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Every snippet wrapper has data-snippet-id attribute with unique ID', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Captures template name, line, directive type, error message', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "test",
-        "criteria": "Every snippet wrapper has data-snippet-id attribute with unique ID",
+        "criteria": "Captures template name, line, directive type, error message",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -95,6 +95,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-29T12:09:58.225102",
+  "created_at": "2026-01-29T14:05:17.698895",
   "lsp_impact": {}
 }

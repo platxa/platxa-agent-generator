@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-91",
-  "title": "Implementation: Create unified Platxa CLI for generate, preview, deploy, tes...",
+  "title": "Implementation: Implement postMessage bridge between parent and iframe",
   "context": {
     "spec_id": "feature-91",
     "feature_id": "91",
     "dependencies": [],
     "metadata": {
-      "category": "Developer Experience",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
         "type": "test",
-        "criteria": "CLI commands: platxa generate, platxa preview, platxa deploy, platxa test, platxa export all functional",
+        "criteria": "Parent posts commands; iframe posts events; both handle errors gracefully",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T15:15:13.016989"
+    "created_at": "2026-01-29T12:32:42.037089"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-91-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create unified Platxa CLI for generate, preview, deploy, test, and export operations",
+      "description": "Review feature requirements: Implement postMessage bridge between parent and iframe",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -52,7 +52,7 @@
     {
       "id": "task-91-3",
       "title": "Implement Feature",
-      "description": "Implement: Create unified Platxa CLI for generate, preview, deploy, test, and export operations",
+      "description": "Implement: Implement postMessage bridge between parent and iframe",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -76,14 +76,14 @@
     {
       "id": "task-91-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'CLI commands: platxa generate, platxa preview, platxa deploy, platxa test, platxa export all functional', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Parent posts commands; iframe posts events; both handle errors gracefully', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "test",
-        "criteria": "CLI commands: platxa generate, platxa preview, platxa deploy, platxa test, platxa export all functional",
+        "criteria": "Parent posts commands; iframe posts events; both handle errors gracefully",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -95,6 +95,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T15:15:13.017040",
+  "created_at": "2026-01-29T12:32:42.037125",
   "lsp_impact": {}
 }

@@ -282,3 +282,17 @@ export {
   type LogInspectorOptions,
   type LogStats,
 } from "./log-inspector";
+
+// QWeb validation with structured error capture
+export {
+  QWebValidator,
+  createQWebValidator,
+  validateQWeb,
+  formatQWebError,
+  extractDirectiveType,
+  type QWebValidationError,
+  type QWebValidationResult,
+  type QWebValidatorOptions,
+  type QWebDirective,
+  type QWebErrorCode,
+} from "./qweb-validation";

@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T11:40:03.488974",
+  "updated_at": "2026-01-29T14:05:17.699176",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -132,10 +132,10 @@
     },
     {
       "id": "plan-feature-91",
-      "title": "Implementation: Create unified Platxa CLI for generate, preview, deploy, tes...",
+      "title": "Implementation: Implement postMessage bridge between parent and iframe",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T15:15:13.017040",
+      "created_at": "2026-01-29T12:32:42.037125",
       "constitution_check": true
     },
     {
@@ -188,10 +188,10 @@
     },
     {
       "id": "plan-feature-72",
-      "title": "Implementation: Implement capability-based task routing to specialized worke...",
+      "title": "Implementation: Create SelectMode toggle enabling visual element selection i...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T14:18:35.443026",
+      "created_at": "2026-01-29T12:15:46.758735",
       "constitution_check": true
     },
     {
@@ -292,18 +292,18 @@
     },
     {
       "id": "plan-feature-90",
-      "title": "Implementation: Add theme documentation generator producing README, screensh...",
+      "title": "Implementation: Create injected HMR runtime script for iframe communication",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T16:03:03.005300",
+      "created_at": "2026-01-29T12:29:37.775040",
       "constitution_check": true
     },
     {
       "id": "plan-feature-67",
-      "title": "Implementation: Implement multi-step agent cycle: Plan\u2192Search\u2192Read\u2192Edit\u2192Test...",
+      "title": "Implementation: Implement data-snippet-id attribution during QWeb generation",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T12:10:51.784561",
+      "created_at": "2026-01-29T12:09:58.225102",
       "constitution_check": true
     },
     {
@@ -328,6 +328,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-27T18:47:43.355790",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-125",
+      "title": "Implementation: Create LogInspector aggregating errors from SCSS, QWeb, Odoo...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-29T12:49:08.551839",
       "constitution_check": true
     },
     {
@@ -427,6 +435,14 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-127",
+      "title": "Implementation: Add QWeb validation error capture with template and directiv...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-29T14:05:17.698895",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-60",
       "title": "Implementation: Implement CSS injection without page reload using style tag ...",
       "progress": 0.0,
@@ -516,10 +532,10 @@
     },
     {
       "id": "plan-feature-93",
-      "title": "Implementation: Implement streaming SSE endpoint for real-time generation pr...",
+      "title": "Implementation: Create morphdom integration for efficient DOM diffing",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T12:32:58.610358",
+      "created_at": "2026-01-29T12:38:53.891297",
       "constitution_check": true
     },
     {
@@ -556,10 +572,10 @@
     },
     {
       "id": "plan-feature-74",
-      "title": "Implementation: Add rollback-on-failure with automatic recovery strategy sel...",
+      "title": "Implementation: Add click handler in iframe mapping clicks to source locatio...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T14:50:36.467558",
+      "created_at": "2026-01-29T12:22:17.484360",
       "constitution_check": true
     },
     {
@@ -571,11 +587,19 @@
       "constitution_check": true
     },
     {
-      "id": "plan-feature-66",
-      "title": "Implementation: Create RAG pipeline for existing theme codebase understandin...",
+      "id": "plan-feature-126",
+      "title": "Implementation: Implement SCSS compilation error capture with line numbers",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T12:06:01.493265",
+      "created_at": "2026-01-29T12:53:49.236800",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-66",
+      "title": "Implementation: Create SourceMapper building bidirectional DOM element to te...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-29T12:04:37.000136",
       "constitution_check": true
     },
     {
@@ -588,10 +612,10 @@
     },
     {
       "id": "plan-feature-83",
-      "title": "Implementation: Implement multi-Odoo-version compatibility layer supporting ...",
+      "title": "Implementation: Add 'Regenerate Section' button triggering agent for selecte...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T12:24:47.346539",
+      "created_at": "2026-01-29T12:25:17.670439",
       "constitution_check": true
     },
     {

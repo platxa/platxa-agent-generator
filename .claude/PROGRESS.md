@@ -1,6 +1,6 @@
 # Workflow Progress
 
-**Last Updated**: 2026-01-29T06:08:40.202099+00:00
+**Last Updated**: 2026-01-29T06:45:26.542704+00:00
 **Project**: platxa
 **Status**: SPEC_IDLE
 
@@ -8,18 +8,18 @@
 
 **BUILDING: Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases**
 
-Progress: 17/203 features (8%) → Next: #61 [Phase 3: HMR Preview] Add QWeb template hot-swapping...
+Progress: 20/203 features (9%) → Next: #72 [Phase 3: HMR Preview] Create SelectMode toggle enabl...
 
-Progress: [=>                  ] 8% (17/203)
+Progress: [=>                  ] 9% (20/203)
 
 ## Spec Workflow
 
 **Summary**: Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases
 
-- Passed: 17
+- Passed: 20
 - Failed: 0
 - Skipped: 0
-- Pending: 186
+- Pending: 183
 
 ---
 

@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-74",
-  "title": "Implementation: Add rollback-on-failure with automatic recovery strategy sel...",
+  "title": "Implementation: Add click handler in iframe mapping clicks to source locatio...",
   "context": {
     "spec_id": "feature-74",
     "feature_id": "74",
     "dependencies": [],
     "metadata": {
-      "category": "Agent Intelligence",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
         "type": "test",
-        "criteria": "Generation failure triggers automatic rollback to last-good state via git/Yjs history",
+        "criteria": "Click posts message to parent with elementId and bounding rect",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T14:50:36.467520"
+    "created_at": "2026-01-29T12:22:17.484286"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-74-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add rollback-on-failure with automatic recovery strategy selection",
+      "description": "Review feature requirements: Add click handler in iframe mapping clicks to source locations",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -52,7 +52,7 @@
     {
       "id": "task-74-3",
       "title": "Implement Feature",
-      "description": "Implement: Add rollback-on-failure with automatic recovery strategy selection",
+      "description": "Implement: Add click handler in iframe mapping clicks to source locations",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -76,14 +76,14 @@
     {
       "id": "task-74-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Generation failure triggers automatic rollback to last-good state via git/Yjs history', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Click posts message to parent with elementId and bounding rect', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "test",
-        "criteria": "Generation failure triggers automatic rollback to last-good state via git/Yjs history",
+        "criteria": "Click posts message to parent with elementId and bounding rect",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -95,6 +95,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T14:50:36.467558",
+  "created_at": "2026-01-29T12:22:17.484360",
   "lsp_impact": {}
 }

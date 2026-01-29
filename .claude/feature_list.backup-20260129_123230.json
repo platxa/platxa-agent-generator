@@ -12,21 +12,21 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": 127,
+  "current_feature_id": null,
   "session": {
-    "count": 29,
-    "last_started_at": "2026-01-29T08:35:06.949463Z",
+    "count": 24,
+    "last_started_at": "2026-01-29T06:58:56.278782Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 28,
+    "passed": 24,
     "failed": 0,
     "skipped": 0,
-    "in_progress": 1,
+    "in_progress": 0,
     "paused": 0,
-    "pending": 174,
-    "completion_percentage": 13.8
+    "pending": 179,
+    "completion_percentage": 11.8
   },
   "categories": [
     {
@@ -48,7 +48,7 @@
     {
       "name": "Phase 3: HMR Preview",
       "total": 36,
-      "passed": 11,
+      "passed": 9,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -64,7 +64,7 @@
     {
       "name": "Phase 5: Self-Debugging",
       "total": 37,
-      "passed": 2,
+      "passed": 0,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -2881,20 +2881,20 @@
       "verification": {
         "type": "test",
         "criteria": "Parent posts commands; iframe posts events; both handle errors gracefully",
-        "completed": true,
-        "evidence": "618ad47",
-        "verified_at": "2026-01-29T07:08:37.507331Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/lib/preview/hmr-preview-engine.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T07:02:30.895296Z",
-      "completed_at": "2026-01-29T07:08:37.511197Z",
-      "commit_hash": "618ad47",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -2943,20 +2943,20 @@
       "verification": {
         "type": "test",
         "criteria": "morphdom imported and configured with onBeforeElUpdated hook",
-        "completed": true,
-        "evidence": "9d7baea",
-        "verified_at": "2026-01-29T07:18:50.064443Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/lib/preview/iframe-runtime.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T07:08:42.803771Z",
-      "completed_at": "2026-01-29T07:18:50.068295Z",
-      "commit_hash": "9d7baea",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -3935,20 +3935,20 @@
       "verification": {
         "type": "test",
         "criteria": "Collects logs from all sources into unified stream",
-        "completed": true,
-        "evidence": "6aa2f1e",
-        "verified_at": "2026-01-29T07:23:30.373623Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/log-inspector.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T07:18:58.844704Z",
-      "completed_at": "2026-01-29T07:23:30.377494Z",
-      "commit_hash": "6aa2f1e",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -3966,20 +3966,20 @@
       "verification": {
         "type": "test",
         "criteria": "Captures dart-sass errors with file path, line, column, message",
-        "completed": true,
-        "evidence": "3efac3a",
-        "verified_at": "2026-01-29T08:34:55.894779Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "odoo-scss-docs"
       ],
       "file_path": "/lib/agentic-core/log-inspector.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T07:23:39.473210Z",
-      "completed_at": "2026-01-29T08:34:55.898207Z",
-      "commit_hash": "3efac3a",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4006,9 +4006,9 @@
         "odoo-qweb-docs"
       ],
       "file_path": "/lib/agentic-core/log-inspector.ts",
-      "status": "in_progress",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T08:35:06.949447Z",
+      "started_at": null,
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,
