@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T15:21:03.176819",
+  "updated_at": "2026-01-29T15:26:21.958164",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -180,10 +180,10 @@
     },
     {
       "id": "plan-feature-27",
-      "title": "Implementation: Add Google Fonts validation and fallback chain generation fo...",
+      "title": "Implementation: Create ModeRouter class detecting plan vs agent intent from ...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T12:43:23.807843",
+      "created_at": "2026-01-29T15:26:21.957345",
       "constitution_check": true
     },
     {

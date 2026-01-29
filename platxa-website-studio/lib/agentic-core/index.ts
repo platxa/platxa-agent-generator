@@ -72,3 +72,13 @@ export {
   type ReplanResult,
   type FixStrategy,
 } from './replanner';
+
+export {
+  ModeRouter,
+  createModeRouter,
+  classifyIntent,
+  type IntentMode,
+  type ConfidenceLevel,
+  type ClassificationResult,
+  type ModeRouterConfig,
+} from './mode-router';
