@@ -323,3 +323,18 @@ export {
   type ErrorLocation,
   type ErrorFormat,
 } from "./error-location-extractor";
+
+// Error pattern library with 50+ patterns for Odoo/QWeb/SCSS self-debugging
+export {
+  ErrorPatternLibrary,
+  createErrorPatternLibrary,
+  matchErrorPattern,
+  matchAllErrorPatterns,
+  getPatternCount,
+  ERROR_PATTERNS,
+  type ErrorPattern,
+  type ErrorCategory,
+  type ErrorSeverity,
+  type PatternMatch,
+  type PatternMatchOptions,
+} from "./error-pattern-library";
