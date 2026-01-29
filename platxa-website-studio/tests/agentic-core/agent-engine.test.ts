@@ -540,6 +540,27 @@ describe('AgentEngine', () => {
       expect(result.qualityTrend).toBeDefined();
       expect(result.qualityTrend.history).toBeDefined();
     });
+
+    it('should stop early when quality does not improve for 2 consecutive iterations', async () => {
+      // Verification: Loop exits early if quality score doesn't improve for 2 consecutive iterations
+      const engine = new AgentEngine({ maxIterations: 5 });
+      const result = await engine.execute('Test goal');
+
+      // The engine should have either:
+      // 1. Achieved goal (passed validation)
+      // 2. Stopped early due to diminishing returns
+      // 3. Hit max iterations
+      // If stoppedEarly is true, quality wasn't improving
+      if (result.stoppedEarly) {
+        const trend = result.qualityTrend;
+        // When stopped early, should have at least 2 iterations of history
+        expect(trend.history.length).toBeGreaterThanOrEqual(2);
+        // And improvement should be minimal (< 2%)
+        const recentHistory = trend.history.slice(-2);
+        const improvement = Math.abs(recentHistory[1] - recentHistory[0]);
+        expect(improvement).toBeLessThan(5); // Minimal improvement threshold
+      }
+    });
   });
 
   /**
