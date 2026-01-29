@@ -173,3 +173,19 @@ export {
   type AttributionResult,
   type DetectedSnippet,
 } from "./snippet-attribution";
+
+// SelectMode for visual element selection in preview
+export {
+  SelectModeController,
+  createSelectMode,
+  extractElementInfo,
+  generateSelector,
+  findSelectableAncestor,
+  createSelectModeBridge,
+  SELECT_MODE_SCRIPT,
+  type SelectModeState,
+  type SelectedElement,
+  type SelectionEvent,
+  type SelectModeOptions,
+  type SelectionCallback,
+} from "./select-mode";
