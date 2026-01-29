@@ -103,6 +103,56 @@ describe("ErrorPatternLibrary", () => {
       expect(match).not.toBeNull();
       expect(match!.pattern.id).toBe("qweb-deprecated-t-raw");
     });
+
+    // Feature #139: t-if, t-foreach, t-call, t-set specific patterns
+    it("matches t-if always true warning", () => {
+      const match = matchErrorPattern("t-if always evaluates to true: redundant condition");
+      expect(match).not.toBeNull();
+      expect(match!.pattern.id).toBe("qweb-t-if-always-true");
+    });
+
+    it("matches t-if comparison error", () => {
+      const match = matchErrorPattern("Invalid comparison in t-if: type mismatch");
+      expect(match).not.toBeNull();
+      expect(match!.pattern.id).toBe("qweb-t-if-comparison");
+    });
+
+    it("matches t-foreach not iterable error", () => {
+      const match = matchErrorPattern("t-foreach value is not iterable");
+      expect(match).not.toBeNull();
+      expect(match!.pattern.id).toBe("qweb-t-foreach-not-iterable");
+    });
+
+    it("matches t-foreach index error", () => {
+      const match = matchErrorPattern("Undefined loop index: item_index is undefined");
+      expect(match).not.toBeNull();
+      expect(match!.pattern.id).toBe("qweb-t-foreach-index");
+    });
+
+    it("matches circular t-call error", () => {
+      const match = matchErrorPattern("Circular t-call detected: infinite loop");
+      expect(match).not.toBeNull();
+      expect(match!.pattern.id).toBe("qweb-t-call-circular");
+    });
+
+    it("matches t-call-assets error", () => {
+      // Use string that matches t-call-assets pattern specifically (not generic "bundle not found")
+      const match = matchErrorPattern("t-call-assets invalid: missing asset reference");
+      expect(match).not.toBeNull();
+      expect(match!.pattern.id).toBe("qweb-t-call-assets");
+    });
+
+    it("matches t-set reserved variable warning", () => {
+      const match = matchErrorPattern("t-set overwriting reserved variable: request");
+      expect(match).not.toBeNull();
+      expect(match!.pattern.id).toBe("qweb-t-set-reserved");
+    });
+
+    it("matches t-set scope warning", () => {
+      const match = matchErrorPattern("t-set scope issue: variable not visible outside");
+      expect(match).not.toBeNull();
+      expect(match!.pattern.id).toBe("qweb-t-set-scope");
+    });
   });
 
   describe("QWeb syntax pattern matching", () => {
