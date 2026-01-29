@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T17:01:12.336547",
+  "updated_at": "2026-01-29T17:02:50.624842",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -616,6 +616,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-28T12:15:49.442698",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-102",
+      "title": "Implementation: Create VersionTimeline component in sidebar showing generati...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-29T17:02:50.624028",
       "constitution_check": true
     },
     {
