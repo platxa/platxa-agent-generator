@@ -30,12 +30,14 @@ export interface SSEEvent<T = unknown> {
   id: string;
 }
 
-/** Progress event data */
+/** Progress event data - emitted every 500ms during execution */
 export interface ProgressData {
   /** Current phase label */
   phase: string;
+  /** Current step description */
+  step: string;
   /** Progress percentage (0-100) */
-  percent: number;
+  percentage: number;
   /** Human-readable status message */
   message: string;
 }
@@ -182,9 +184,9 @@ export function createSSEEmitter(writer: SSEWriter) {
 
   return {
     /** Send a progress update */
-    progress(phase: string, percent: number, message: string): void {
+    progress(phase: string, step: string, percentage: number, message: string): void {
       if (closed) return;
-      const event = createSSEEvent<ProgressData>("progress", { phase, percent, message });
+      const event = createSSEEvent<ProgressData>("progress", { phase, step, percentage, message });
       writer(formatSSE(event));
     },
 
@@ -286,6 +288,105 @@ export function createSSEConsumer(handlers: SSEHandlers) {
           handlers.onDone?.(event.data as DoneData);
           break;
       }
+    },
+  };
+}
+
+// =============================================================================
+// Progress Interval Emitter (500ms)
+// =============================================================================
+
+/** Progress state for interval emission */
+export interface ProgressState {
+  phase: string;
+  step: string;
+  percentage: number;
+  message: string;
+}
+
+/** Default progress emission interval in milliseconds */
+export const PROGRESS_INTERVAL_MS = 500;
+
+/**
+ * Creates a progress emitter that streams updates every 500ms.
+ * Wraps an SSE emitter and provides state management for progress tracking.
+ */
+export function createProgressIntervalEmitter(writer: SSEWriter) {
+  const emitter = createSSEEmitter(writer);
+  let intervalId: ReturnType<typeof setInterval> | null = null;
+  let currentState: ProgressState = {
+    phase: "init",
+    step: "",
+    percentage: 0,
+    message: "Initializing...",
+  };
+
+  return {
+    /**
+     * Start emitting progress events every 500ms.
+     * Events contain { phase, step, percentage, message }.
+     */
+    start(): void {
+      if (intervalId) return; // Already running
+
+      // Emit immediately on start
+      emitter.progress(
+        currentState.phase,
+        currentState.step,
+        currentState.percentage,
+        currentState.message
+      );
+
+      // Then emit every 500ms
+      intervalId = setInterval(() => {
+        if (!emitter.isClosed()) {
+          emitter.progress(
+            currentState.phase,
+            currentState.step,
+            currentState.percentage,
+            currentState.message
+          );
+        }
+      }, PROGRESS_INTERVAL_MS);
+    },
+
+    /**
+     * Update the current progress state.
+     * Next interval emission will use these values.
+     */
+    update(state: Partial<ProgressState>): void {
+      currentState = { ...currentState, ...state };
+    },
+
+    /**
+     * Stop the interval emission.
+     */
+    stop(): void {
+      if (intervalId) {
+        clearInterval(intervalId);
+        intervalId = null;
+      }
+    },
+
+    /**
+     * Get the current progress state.
+     */
+    getState(): ProgressState {
+      return { ...currentState };
+    },
+
+    /**
+     * Get the underlying SSE emitter for other event types.
+     */
+    getEmitter() {
+      return emitter;
+    },
+
+    /**
+     * Check if interval emission is active.
+     */
+    isRunning(): boolean {
+      return intervalId !== null;
     },
   };
 }

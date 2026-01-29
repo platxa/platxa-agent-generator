@@ -71,7 +71,7 @@ describe("SSE Stream", () => {
     it("emits progress events", () => {
       const chunks: string[] = [];
       const emitter = createSSEEmitter((c) => chunks.push(c));
-      emitter.progress("generating", 50, "Halfway");
+      emitter.progress("generating", "step1", 50, "Halfway");
       expect(chunks).toHaveLength(1);
       expect(chunks[0]).toContain("event: progress");
       expect(chunks[0]).toContain("Halfway");
@@ -124,7 +124,7 @@ describe("SSE Stream", () => {
       const chunks: string[] = [];
       const emitter = createSSEEmitter((c) => chunks.push(c));
       emitter.done(0, 0, true);
-      emitter.progress("test", 0, "should not emit");
+      emitter.progress("test", "", 0, "should not emit");
       expect(chunks).toHaveLength(1);
     });
 
@@ -140,9 +140,9 @@ describe("SSE Stream", () => {
     it("dispatches progress events to handler", () => {
       const onProgress = vi.fn();
       const consumer = createSSEConsumer({ onProgress });
-      const event = createSSEEvent<ProgressData>("progress", { phase: "gen", percent: 75, message: "Almost" });
+      const event = createSSEEvent<ProgressData>("progress", { phase: "gen", step: "generating", percentage: 75, message: "Almost" });
       consumer.dispatch(event);
-      expect(onProgress).toHaveBeenCalledWith({ phase: "gen", percent: 75, message: "Almost" });
+      expect(onProgress).toHaveBeenCalledWith({ phase: "gen", step: "generating", percentage: 75, message: "Almost" });
     });
 
     it("dispatches token events to handler", () => {
@@ -171,9 +171,9 @@ describe("SSE Stream", () => {
     it("processes raw SSE strings end-to-end", () => {
       const onProgress = vi.fn();
       const consumer = createSSEConsumer({ onProgress });
-      const event = createSSEEvent<ProgressData>("progress", { phase: "init", percent: 0, message: "Starting" });
+      const event = createSSEEvent<ProgressData>("progress", { phase: "init", step: "", percentage: 0, message: "Starting" });
       consumer.processEvent(formatSSE(event));
-      expect(onProgress).toHaveBeenCalledWith({ phase: "init", percent: 0, message: "Starting" });
+      expect(onProgress).toHaveBeenCalledWith({ phase: "init", step: "", percentage: 0, message: "Starting" });
     });
 
     it("ignores events without handlers", () => {
