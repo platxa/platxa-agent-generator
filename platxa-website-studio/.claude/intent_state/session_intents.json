@@ -1,32 +1,32 @@
 {
-  "session_id": "7c5705980344",
+  "session_id": "cbf57ce314b8",
   "stack": {
     "session": {
-      "id": "7c5705980344-323",
-      "text": "[Phase 5: Self-Debugging] Feature #137: Add error context extraction (surrounding code lines) Criteria: Includes 5 lines before/after error line in context",
+      "id": "cbf57ce314b8-325",
+      "text": "[Phase 5: Self-Debugging] Feature #141: Create Odoo manifest error patterns Criteria: Patterns for: missing key, invalid syntax, bad dependency, wrong version",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769688500.0957382,
-      "updated_at": 1769688500.0957382,
+      "created_at": 1769688683.838176,
+      "updated_at": 1769688683.838176,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 137,
+        "feature_id": 141,
         "category": "Phase 5: Self-Debugging"
       },
       "keywords": []
     },
     "task": {
-      "id": "7c5705980344-324",
-      "text": "Implement: Add error context extraction (surrounding code lines)",
+      "id": "cbf57ce314b8-326",
+      "text": "Implement: Create Odoo manifest error patterns",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769688500.1008122,
-      "updated_at": 1769688500.1008122,
+      "created_at": 1769688683.843825,
+      "updated_at": 1769688683.8438253,
       "completed_at": null,
-      "parent_id": "7c5705980344-323",
+      "parent_id": "cbf57ce314b8-325",
       "metadata": {},
       "keywords": []
     },
@@ -4730,9 +4730,38 @@
       "parent_id": "7c5705980344-323",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "cbf57ce314b8-325",
+      "text": "[Phase 5: Self-Debugging] Feature #141: Create Odoo manifest error patterns Criteria: Patterns for: missing key, invalid syntax, bad dependency, wrong version",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769688683.838176,
+      "updated_at": 1769688683.838176,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 141,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "cbf57ce314b8-326",
+      "text": "Implement: Create Odoo manifest error patterns",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769688683.843825,
+      "updated_at": 1769688683.8438253,
+      "completed_at": null,
+      "parent_id": "cbf57ce314b8-325",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 324,
+  "intent_counter": 326,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769688500.1008148
+  "updated_at": 1769688683.8438292
 }
