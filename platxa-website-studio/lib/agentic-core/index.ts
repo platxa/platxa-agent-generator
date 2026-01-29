@@ -81,4 +81,5 @@ export {
   type ConfidenceLevel,
   type ClassificationResult,
   type ModeRouterConfig,
+  type LLMClassifier,
 } from './mode-router';

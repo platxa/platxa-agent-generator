@@ -38,16 +38,30 @@ export interface ClassificationResult {
   message: string;
 }
 
+/** LLM provider for fallback classification */
+export interface LLMClassifier {
+  /**
+   * Classify intent using LLM when keyword matching has low confidence
+   * @param message - User message to classify
+   * @returns Classification result or null if LLM unavailable
+   */
+  classifyIntent(message: string): Promise<{ mode: IntentMode; confidence: number } | null>;
+}
+
 /** Configuration for ModeRouter */
 export interface ModeRouterConfig {
   /** Default mode when confidence is low */
   defaultMode?: IntentMode;
   /** Minimum confidence score to use classification (0-1) */
   confidenceThreshold?: number;
+  /** Threshold below which LLM fallback is triggered (0-1) */
+  llmFallbackThreshold?: number;
   /** Custom plan patterns to add */
   customPlanPatterns?: RegExp[];
   /** Custom agent patterns to add */
   customAgentPatterns?: RegExp[];
+  /** Optional LLM classifier for fallback */
+  llmClassifier?: LLMClassifier;
 }
 
 // ============================================================================
@@ -187,17 +201,20 @@ const AGENT_PATTERNS: Array<{ pattern: RegExp; weight: number; name: string }> =
  * ```
  */
 export class ModeRouter {
-  private config: Required<ModeRouterConfig>;
+  private config: Required<Omit<ModeRouterConfig, 'llmClassifier'>> & { llmClassifier?: LLMClassifier };
   private planPatterns: Array<{ pattern: RegExp; weight: number; name: string }>;
   private agentPatterns: Array<{ pattern: RegExp; weight: number; name: string }>;
+  private llmClassifier?: LLMClassifier;
 
   constructor(config: ModeRouterConfig = {}) {
     this.config = {
       defaultMode: config.defaultMode ?? 'agent',
       confidenceThreshold: config.confidenceThreshold ?? 0.5,
+      llmFallbackThreshold: config.llmFallbackThreshold ?? 0.6,
       customPlanPatterns: config.customPlanPatterns ?? [],
       customAgentPatterns: config.customAgentPatterns ?? [],
     };
+    this.llmClassifier = config.llmClassifier;
 
     // Combine default patterns with custom patterns
     this.planPatterns = [
@@ -267,6 +284,58 @@ export class ModeRouter {
       matchedPatterns,
       message,
     };
+  }
+
+  /**
+   * Classify with LLM fallback for low-confidence results
+   *
+   * Uses keyword matching first, then falls back to LLM if:
+   * - Score is below llmFallbackThreshold
+   * - LLM classifier is configured
+   *
+   * Keywords: explore/options/what-if → plan; create/build/add → agent
+   */
+  async classifyWithFallback(message: string): Promise<ClassificationResult> {
+    // First try keyword matching
+    const keywordResult = this.classify(message);
+
+    // If confidence is high enough or no LLM available, return keyword result
+    if (keywordResult.score >= this.config.llmFallbackThreshold || !this.llmClassifier) {
+      return keywordResult;
+    }
+
+    // Try LLM fallback for low-confidence classifications
+    try {
+      const llmResult = await this.llmClassifier.classifyIntent(message);
+
+      if (llmResult && llmResult.confidence > keywordResult.score) {
+        return {
+          mode: llmResult.mode,
+          confidence: this.scoreToConfidence(llmResult.confidence),
+          score: llmResult.confidence,
+          matchedPatterns: [...keywordResult.matchedPatterns, 'llm_fallback'],
+          message,
+        };
+      }
+    } catch {
+      // LLM failed, use keyword result
+    }
+
+    return keywordResult;
+  }
+
+  /**
+   * Set or update the LLM classifier
+   */
+  setLLMClassifier(classifier: LLMClassifier): void {
+    this.llmClassifier = classifier;
+  }
+
+  /**
+   * Check if LLM fallback is available
+   */
+  hasLLMFallback(): boolean {
+    return this.llmClassifier !== undefined;
   }
 
   /**
@@ -362,3 +431,4 @@ export function classifyIntent(message: string): ClassificationResult {
 // ============================================================================
 
 export default ModeRouter;
+export type { LLMClassifier };

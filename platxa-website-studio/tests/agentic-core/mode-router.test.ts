@@ -5,13 +5,14 @@
  * Verification: Classifies 'what if' as plan, 'create X' as agent; 95% accuracy on test set
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   ModeRouter,
   createModeRouter,
   classifyIntent,
   type IntentMode,
   type ClassificationResult,
+  type LLMClassifier,
 } from '@/lib/agentic-core/mode-router';
 
 describe('ModeRouter', () => {
@@ -222,6 +223,157 @@ describe('ModeRouter', () => {
     it('handles multiline messages', () => {
       const result = router.classify('Create a new feature\nthat handles user authentication');
       expect(result.mode).toBe('agent');
+    });
+  });
+
+  // ==========================================================================
+  // Feature #28: LLM Fallback Tests
+  // ==========================================================================
+
+  describe('LLM fallback classification', () => {
+    it('uses keyword matching when confidence is high', async () => {
+      const mockLLM: LLMClassifier = {
+        classifyIntent: vi.fn().mockResolvedValue({ mode: 'agent', confidence: 0.9 }),
+      };
+
+      const router = new ModeRouter({ llmClassifier: mockLLM });
+      const result = await router.classifyWithFallback('What if we changed the approach?');
+
+      // High confidence keyword match, LLM not called
+      expect(result.mode).toBe('plan');
+      expect(mockLLM.classifyIntent).not.toHaveBeenCalled();
+    });
+
+    it('falls back to LLM when keyword confidence is low', async () => {
+      const mockLLM: LLMClassifier = {
+        classifyIntent: vi.fn().mockResolvedValue({ mode: 'plan', confidence: 0.85 }),
+      };
+
+      const router = new ModeRouter({
+        llmClassifier: mockLLM,
+        llmFallbackThreshold: 0.9, // High threshold to trigger fallback
+      });
+      const result = await router.classifyWithFallback('Hello there');
+
+      expect(mockLLM.classifyIntent).toHaveBeenCalledWith('Hello there');
+      expect(result.mode).toBe('plan');
+      expect(result.matchedPatterns).toContain('llm_fallback');
+    });
+
+    it('uses keyword result when LLM fails', async () => {
+      const mockLLM: LLMClassifier = {
+        classifyIntent: vi.fn().mockRejectedValue(new Error('LLM unavailable')),
+      };
+
+      const router = new ModeRouter({
+        llmClassifier: mockLLM,
+        llmFallbackThreshold: 0.9,
+      });
+      const result = await router.classifyWithFallback('Create a component');
+
+      expect(result.mode).toBe('agent');
+      expect(result.matchedPatterns).not.toContain('llm_fallback');
+    });
+
+    it('uses keyword result when LLM returns null', async () => {
+      const mockLLM: LLMClassifier = {
+        classifyIntent: vi.fn().mockResolvedValue(null),
+      };
+
+      const router = new ModeRouter({
+        llmClassifier: mockLLM,
+        llmFallbackThreshold: 0.9,
+      });
+      const result = await router.classifyWithFallback('Build something');
+
+      expect(result.mode).toBe('agent');
+    });
+
+    it('prefers higher confidence between keyword and LLM', async () => {
+      const mockLLM: LLMClassifier = {
+        classifyIntent: vi.fn().mockResolvedValue({ mode: 'agent', confidence: 0.4 }),
+      };
+
+      const router = new ModeRouter({
+        llmClassifier: mockLLM,
+        llmFallbackThreshold: 0.5,
+      });
+      // "options" has 0.65 weight, should win over LLM's 0.4
+      const result = await router.classifyWithFallback('What are the options?');
+
+      expect(result.mode).toBe('plan');
+      expect(result.matchedPatterns).not.toContain('llm_fallback');
+    });
+
+    it('setLLMClassifier updates the classifier', async () => {
+      const router = new ModeRouter();
+      expect(router.hasLLMFallback()).toBe(false);
+
+      const mockLLM: LLMClassifier = {
+        classifyIntent: vi.fn().mockResolvedValue({ mode: 'plan', confidence: 0.9 }),
+      };
+      router.setLLMClassifier(mockLLM);
+
+      expect(router.hasLLMFallback()).toBe(true);
+    });
+
+    it('works without LLM classifier configured', async () => {
+      const router = new ModeRouter();
+      const result = await router.classifyWithFallback('Create a new feature');
+
+      expect(result.mode).toBe('agent');
+      expect(router.hasLLMFallback()).toBe(false);
+    });
+  });
+
+  // ==========================================================================
+  // Feature #28 Verification: Keywords
+  // ==========================================================================
+
+  describe('Feature #28 verification: keyword matching + LLM fallback', () => {
+    const router = new ModeRouter();
+
+    it('explore → plan mode', () => {
+      expect(router.classify('Explore different options').mode).toBe('plan');
+      expect(router.classify('Let me explore this').mode).toBe('plan');
+    });
+
+    it('options → plan mode', () => {
+      expect(router.classify('What are the options?').mode).toBe('plan');
+      expect(router.classify('Show me options for this').mode).toBe('plan');
+    });
+
+    it('what-if → plan mode', () => {
+      expect(router.classify('What if we did it differently?').mode).toBe('plan');
+      expect(router.classify('What if this fails?').mode).toBe('plan');
+    });
+
+    it('create → agent mode', () => {
+      expect(router.classify('Create a new component').mode).toBe('agent');
+      expect(router.classify('Create the login page').mode).toBe('agent');
+    });
+
+    it('build → agent mode', () => {
+      expect(router.classify('Build a dashboard').mode).toBe('agent');
+      expect(router.classify('Build the API endpoint').mode).toBe('agent');
+    });
+
+    it('add → agent mode', () => {
+      expect(router.classify('Add a new feature').mode).toBe('agent');
+      expect(router.classify('Add error handling').mode).toBe('agent');
+    });
+
+    it('LLM fallback is available when configured', async () => {
+      const mockLLM: LLMClassifier = {
+        classifyIntent: vi.fn().mockResolvedValue({ mode: 'plan', confidence: 0.95 }),
+      };
+
+      const routerWithLLM = new ModeRouter({ llmClassifier: mockLLM });
+      expect(routerWithLLM.hasLLMFallback()).toBe(true);
+
+      // Test async classification
+      const result = await routerWithLLM.classifyWithFallback('ambiguous message');
+      expect(result).toBeDefined();
     });
   });
 

@@ -12,10 +12,10 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": null,
+  "current_feature_id": 28,
   "session": {
-    "count": 47,
-    "last_started_at": "2026-01-29T09:56:19.006074Z",
+    "count": 48,
+    "last_started_at": "2026-01-29T10:01:54.336228Z",
     "total_duration_minutes": 0
   },
   "stats": {
@@ -23,9 +23,9 @@
     "passed": 47,
     "failed": 0,
     "skipped": 0,
-    "in_progress": 0,
+    "in_progress": 1,
     "paused": 0,
-    "pending": 156,
+    "pending": 155,
     "completion_percentage": 23.2
   },
   "categories": [
@@ -937,9 +937,9 @@
         "lovable-modes"
       ],
       "file_path": "/lib/agentic-core/mode-router.ts",
-      "status": "pending",
+      "status": "in_progress",
       "status_reason": null,
-      "started_at": null,
+      "started_at": "2026-01-29T10:01:54.336211Z",
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,
