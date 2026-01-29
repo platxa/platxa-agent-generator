@@ -4,8 +4,13 @@ import {
   PHASE_LABELS,
   STEP_ANIMATIONS,
   getPhaseStatus,
+  calculateProgressPercentage,
+  calculateProgressWithPartial,
+  getProgressInfo,
+  getPhaseFromProgress,
   type AgentWorkflowPhase,
   type PhaseStatus,
+  type PlanStep,
 } from "@/components/chat/AgentProgress";
 
 describe("AgentProgress", () => {
@@ -175,6 +180,164 @@ describe("AgentProgress", () => {
       // Typical smooth transition is 200-500ms
       expect(STEP_ANIMATIONS.transitionDuration).toBeGreaterThanOrEqual(200);
       expect(STEP_ANIMATIONS.transitionDuration).toBeLessThanOrEqual(500);
+    });
+  });
+
+  describe("progress percentage based on plan step completion (Feature #100)", () => {
+    it("percentage updates as steps complete", () => {
+      // Feature #100: Percentage updates as steps complete
+      const steps: PlanStep[] = [
+        { id: "1", name: "Step 1", status: "completed" },
+        { id: "2", name: "Step 2", status: "completed" },
+        { id: "3", name: "Step 3", status: "pending" },
+        { id: "4", name: "Step 4", status: "pending" },
+      ];
+
+      const percentage = calculateProgressPercentage(steps);
+      expect(percentage).toBe(50); // 2/4 = 50%
+    });
+
+    it("shows 100% at finish", () => {
+      // Feature #100: 100% at finish
+      const steps: PlanStep[] = [
+        { id: "1", name: "Step 1", status: "completed" },
+        { id: "2", name: "Step 2", status: "completed" },
+        { id: "3", name: "Step 3", status: "completed" },
+      ];
+
+      const percentage = calculateProgressPercentage(steps);
+      expect(percentage).toBe(100);
+    });
+
+    it("shows 0% when no steps completed", () => {
+      const steps: PlanStep[] = [
+        { id: "1", name: "Step 1", status: "pending" },
+        { id: "2", name: "Step 2", status: "pending" },
+      ];
+
+      const percentage = calculateProgressPercentage(steps);
+      expect(percentage).toBe(0);
+    });
+
+    it("handles empty steps array", () => {
+      const percentage = calculateProgressPercentage([]);
+      expect(percentage).toBe(0);
+    });
+  });
+
+  describe("calculateProgressPercentage", () => {
+    it("calculates correct percentage for various completion levels", () => {
+      // 1/5 = 20%
+      expect(calculateProgressPercentage([
+        { id: "1", name: "S1", status: "completed" },
+        { id: "2", name: "S2", status: "pending" },
+        { id: "3", name: "S3", status: "pending" },
+        { id: "4", name: "S4", status: "pending" },
+        { id: "5", name: "S5", status: "pending" },
+      ])).toBe(20);
+
+      // 3/4 = 75%
+      expect(calculateProgressPercentage([
+        { id: "1", name: "S1", status: "completed" },
+        { id: "2", name: "S2", status: "completed" },
+        { id: "3", name: "S3", status: "completed" },
+        { id: "4", name: "S4", status: "pending" },
+      ])).toBe(75);
+    });
+
+    it("rounds percentages to integers", () => {
+      // 1/3 = 33.33...% → 33%
+      const percentage = calculateProgressPercentage([
+        { id: "1", name: "S1", status: "completed" },
+        { id: "2", name: "S2", status: "pending" },
+        { id: "3", name: "S3", status: "pending" },
+      ]);
+      expect(percentage).toBe(33);
+    });
+  });
+
+  describe("calculateProgressWithPartial", () => {
+    it("gives 50% credit for in-progress steps", () => {
+      const steps: PlanStep[] = [
+        { id: "1", name: "S1", status: "completed" },
+        { id: "2", name: "S2", status: "in_progress" },
+        { id: "3", name: "S3", status: "pending" },
+        { id: "4", name: "S4", status: "pending" },
+      ];
+
+      // (1 + 0.5) / 4 = 37.5% → 38%
+      const percentage = calculateProgressWithPartial(steps);
+      expect(percentage).toBe(38);
+    });
+
+    it("caps at 100%", () => {
+      const steps: PlanStep[] = [
+        { id: "1", name: "S1", status: "completed" },
+        { id: "2", name: "S2", status: "completed" },
+      ];
+
+      const percentage = calculateProgressWithPartial(steps);
+      expect(percentage).toBeLessThanOrEqual(100);
+    });
+  });
+
+  describe("getProgressInfo", () => {
+    it("returns complete progress info", () => {
+      const steps: PlanStep[] = [
+        { id: "1", name: "S1", status: "completed" },
+        { id: "2", name: "S2", status: "completed" },
+        { id: "3", name: "S3", status: "pending" },
+      ];
+
+      const info = getProgressInfo(steps);
+
+      expect(info.percentage).toBe(67); // 2/3 rounded
+      expect(info.completed).toBe(2);
+      expect(info.total).toBe(3);
+      expect(info.isComplete).toBe(false);
+    });
+
+    it("marks isComplete true when all steps done", () => {
+      const steps: PlanStep[] = [
+        { id: "1", name: "S1", status: "completed" },
+        { id: "2", name: "S2", status: "completed" },
+      ];
+
+      const info = getProgressInfo(steps);
+
+      expect(info.isComplete).toBe(true);
+      expect(info.percentage).toBe(100);
+    });
+
+    it("handles empty steps", () => {
+      const info = getProgressInfo([]);
+
+      expect(info.percentage).toBe(0);
+      expect(info.completed).toBe(0);
+      expect(info.total).toBe(0);
+      expect(info.isComplete).toBe(false);
+    });
+  });
+
+  describe("getPhaseFromProgress", () => {
+    it("returns planning at 0%", () => {
+      expect(getPhaseFromProgress(0)).toBe("planning");
+    });
+
+    it("returns generating at 1-49%", () => {
+      expect(getPhaseFromProgress(1)).toBe("generating");
+      expect(getPhaseFromProgress(25)).toBe("generating");
+      expect(getPhaseFromProgress(49)).toBe("generating");
+    });
+
+    it("returns validating at 50-99%", () => {
+      expect(getPhaseFromProgress(50)).toBe("validating");
+      expect(getPhaseFromProgress(75)).toBe("validating");
+      expect(getPhaseFromProgress(99)).toBe("validating");
+    });
+
+    it("returns complete at 100%", () => {
+      expect(getPhaseFromProgress(100)).toBe("complete");
     });
   });
 });

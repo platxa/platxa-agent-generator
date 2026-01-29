@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-100",
-  "title": "Implementation: Create comprehensive API documentation with OpenAPI spec for...",
+  "title": "Implementation: Add progress percentage based on plan step completion",
   "context": {
     "spec_id": "feature-100",
     "feature_id": "100",
     "dependencies": [],
     "metadata": {
-      "category": "Developer Experience",
+      "category": "Phase 4: Enhanced UI",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "OpenAPI 3.1 spec generated; Swagger UI available at /api/docs; all endpoints documented",
+        "type": "manual",
+        "criteria": "Percentage updates as steps complete; 100% at finish",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T16:07:15.604425"
+    "created_at": "2026-01-29T17:01:12.335683"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-100-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create comprehensive API documentation with OpenAPI spec for all Platxa endpoints",
+      "description": "Review feature requirements: Add progress percentage based on plan step completion",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-100-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-100-3",
       "title": "Implement Feature",
-      "description": "Implement: Create comprehensive API documentation with OpenAPI spec for all Platxa endpoints",
+      "description": "Implement: Add progress percentage based on plan step completion",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-100-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-100-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'OpenAPI 3.1 spec generated; Swagger UI available at /api/docs; all endpoints documented', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Percentage updates as steps complete; 100% at finish', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "OpenAPI 3.1 spec generated; Swagger UI available at /api/docs; all endpoints documented",
+        "type": "manual",
+        "criteria": "Percentage updates as steps complete; 100% at finish",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T16:07:15.604461",
+  "created_at": "2026-01-29T17:01:12.335725",
   "lsp_impact": {}
 }

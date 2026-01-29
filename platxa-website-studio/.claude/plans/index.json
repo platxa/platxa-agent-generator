@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T16:59:24.835976",
+  "updated_at": "2026-01-29T17:01:12.336547",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -684,10 +684,10 @@
     },
     {
       "id": "plan-feature-100",
-      "title": "Implementation: Create comprehensive API documentation with OpenAPI spec for...",
+      "title": "Implementation: Add progress percentage based on plan step completion",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T16:07:15.604461",
+      "created_at": "2026-01-29T17:01:12.335725",
       "constitution_check": true
     },
     {

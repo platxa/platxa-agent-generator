@@ -66,6 +66,94 @@ export function getPhaseStatus(
 }
 
 // =============================================================================
+// Progress Percentage Calculation (Feature #100)
+// =============================================================================
+
+/** Plan step status for progress tracking */
+export type PlanStepStatus = "pending" | "in_progress" | "completed" | "failed";
+
+/** Plan step for progress calculation */
+export interface PlanStep {
+  id: string;
+  name: string;
+  status: PlanStepStatus;
+}
+
+/**
+ * Calculates progress percentage based on completed plan steps.
+ * Returns 0-100 with updates as steps complete; 100% at finish.
+ *
+ * @param steps - Array of plan steps with status
+ * @returns Progress percentage (0-100)
+ */
+export function calculateProgressPercentage(steps: PlanStep[]): number {
+  if (steps.length === 0) return 0;
+
+  const completedCount = steps.filter((s) => s.status === "completed").length;
+  const percentage = Math.round((completedCount / steps.length) * 100);
+
+  return percentage;
+}
+
+/**
+ * Calculates progress percentage with partial credit for in-progress steps.
+ * In-progress steps count as 50% complete.
+ *
+ * @param steps - Array of plan steps with status
+ * @returns Progress percentage (0-100)
+ */
+export function calculateProgressWithPartial(steps: PlanStep[]): number {
+  if (steps.length === 0) return 0;
+
+  let progress = 0;
+  for (const step of steps) {
+    if (step.status === "completed") {
+      progress += 1;
+    } else if (step.status === "in_progress") {
+      progress += 0.5;
+    }
+  }
+
+  const percentage = Math.round((progress / steps.length) * 100);
+  return Math.min(percentage, 100);
+}
+
+/**
+ * Gets progress info including percentage and step counts.
+ *
+ * @param steps - Array of plan steps with status
+ * @returns Progress info object
+ */
+export function getProgressInfo(steps: PlanStep[]): {
+  percentage: number;
+  completed: number;
+  total: number;
+  isComplete: boolean;
+} {
+  const completed = steps.filter((s) => s.status === "completed").length;
+  const total = steps.length;
+  const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  return {
+    percentage,
+    completed,
+    total,
+    isComplete: completed === total && total > 0,
+  };
+}
+
+/**
+ * Gets the phase based on progress percentage.
+ * 0%: planning, 1-49%: generating, 50-99%: validating, 100%: complete
+ */
+export function getPhaseFromProgress(percentage: number): AgentWorkflowPhase {
+  if (percentage === 0) return "planning";
+  if (percentage < 50) return "generating";
+  if (percentage < 100) return "validating";
+  return "complete";
+}
+
+// =============================================================================
 // Animation Configuration
 // =============================================================================
 
@@ -274,6 +362,83 @@ export function AgentProgressCompact({ currentPhase, className }: AgentProgressP
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// =============================================================================
+// Progress Percentage Display Component
+// =============================================================================
+
+export interface ProgressPercentageProps {
+  /** Array of plan steps to calculate progress from */
+  steps: PlanStep[];
+  /** Whether to show step count (e.g., "3/5 steps") */
+  showStepCount?: boolean;
+  /** Optional className */
+  className?: string;
+}
+
+/**
+ * ProgressPercentage - Shows progress percentage based on plan step completion.
+ *
+ * Percentage updates as steps complete; shows 100% at finish.
+ *
+ * @example
+ * ```tsx
+ * <ProgressPercentage
+ *   steps={[
+ *     { id: "1", name: "Setup", status: "completed" },
+ *     { id: "2", name: "Build", status: "in_progress" },
+ *     { id: "3", name: "Test", status: "pending" },
+ *   ]}
+ * />
+ * ```
+ */
+export function ProgressPercentage({
+  steps,
+  showStepCount = false,
+  className,
+}: ProgressPercentageProps) {
+  const { percentage, completed, total, isComplete } = getProgressInfo(steps);
+
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-2",
+        className
+      )}
+      role="status"
+      aria-live="polite"
+      aria-label={`Progress: ${percentage}%`}
+    >
+      {/* Percentage badge */}
+      <span
+        className={cn(
+          "text-sm font-medium tabular-nums transition-colors duration-300",
+          isComplete ? "text-emerald-600 dark:text-emerald-400" : "text-primary"
+        )}
+      >
+        {percentage}%
+      </span>
+
+      {/* Optional step count */}
+      {showStepCount && total > 0 && (
+        <span className="text-xs text-muted-foreground">
+          ({completed}/{total} steps)
+        </span>
+      )}
+
+      {/* Progress bar */}
+      <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden min-w-[60px]">
+        <div
+          className={cn(
+            "h-full rounded-full transition-all duration-500 ease-out",
+            isComplete ? "bg-emerald-500" : "bg-primary"
+          )}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
     </div>
   );
 }
