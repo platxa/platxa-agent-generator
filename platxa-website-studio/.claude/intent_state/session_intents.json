@@ -1,32 +1,32 @@
 {
-  "session_id": "be34d77ad34a",
+  "session_id": "797edee97144",
   "stack": {
     "session": {
-      "id": "be34d77ad34a-305",
-      "text": "[Phase 4: Enhanced UI] Feature #109: Create AgentStatusBadge showing current mode (plan/agent) Criteria: Badge shows mode name with appropriate icon",
+      "id": "797edee97144-307",
+      "text": "[Phase 4: Enhanced UI] Feature #114: Create streaming message renderer with GitHub-flavored markdown Criteria: Markdown renders as it streams; supports headers, lists, code, links",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769686682.89458,
-      "updated_at": 1769686682.89458,
+      "created_at": 1769686808.075662,
+      "updated_at": 1769686808.0756621,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 109,
+        "feature_id": 114,
         "category": "Phase 4: Enhanced UI"
       },
       "keywords": []
     },
     "task": {
-      "id": "be34d77ad34a-306",
-      "text": "Implement: Create AgentStatusBadge showing current mode (plan/agent)",
+      "id": "797edee97144-308",
+      "text": "Implement: Create streaming message renderer with GitHub-flavored markdown",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769686682.9004452,
-      "updated_at": 1769686682.9004455,
+      "created_at": 1769686808.0807052,
+      "updated_at": 1769686808.0807056,
       "completed_at": null,
-      "parent_id": "be34d77ad34a-305",
+      "parent_id": "797edee97144-307",
       "metadata": {},
       "keywords": []
     },
@@ -4469,9 +4469,38 @@
       "parent_id": "be34d77ad34a-305",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "797edee97144-307",
+      "text": "[Phase 4: Enhanced UI] Feature #114: Create streaming message renderer with GitHub-flavored markdown Criteria: Markdown renders as it streams; supports headers, lists, code, links",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769686808.075662,
+      "updated_at": 1769686808.0756621,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 114,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "797edee97144-308",
+      "text": "Implement: Create streaming message renderer with GitHub-flavored markdown",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769686808.0807052,
+      "updated_at": 1769686808.0807056,
+      "completed_at": null,
+      "parent_id": "797edee97144-307",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 306,
+  "intent_counter": 308,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769686682.90045
+  "updated_at": 1769686808.0807078
 }

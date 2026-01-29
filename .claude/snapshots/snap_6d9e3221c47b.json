@@ -1,0 +1,16 @@
+{
+  "snapshot_id": "snap_6d9e3221c47b",
+  "created_at": 1769686739.3913586,
+  "scope": "full",
+  "description": "Pre-/clear checkpoint",
+  "components": {},
+  "total_tokens": 0,
+  "metadata": {
+    "created_by": "ContextSnapshotManager",
+    "component_versions": {
+      "isolation": "1.0",
+      "intents": "1.0",
+      "memory": "1.0"
+    }
+  }
+}
