@@ -219,3 +219,16 @@ export {
   type RegenerateCallback,
   type RegenerateResultCallback,
 } from "./regenerate-section";
+
+// HMR Runtime for iframe communication with __PLATXA_HMR__ global
+export {
+  generateHMRRuntimeScript,
+  HMR_RUNTIME_SCRIPT,
+  HMRRuntimeController,
+  createHMRRuntime,
+  createHMRRuntimeScript,
+  type PlatxaHMRRuntime,
+  type HMRRuntimeConfig,
+  type HMRMessageType,
+  type HMRMessage,
+} from "./hmr-runtime";
