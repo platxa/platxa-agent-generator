@@ -182,3 +182,16 @@ export {
   type OptionGeneratorConfig,
   type GenerationContext,
 } from './option-generator';
+
+export {
+  PlanPreviewGenerator,
+  createPlanPreviewGenerator,
+  generatePlanPreview,
+  generateOptionPreview,
+  type StepPreview,
+  type FilePreview,
+  type DurationEstimate,
+  type PlanPreview,
+  type PlanPreviewConfig,
+  type PreviewFormat,
+} from './plan-preview';
