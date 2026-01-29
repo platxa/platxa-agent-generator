@@ -1,32 +1,32 @@
 {
-  "session_id": "583ded407a5b",
+  "session_id": "981644e01b0e",
   "stack": {
     "session": {
-      "id": "583ded407a5b-301",
-      "text": "[Phase 4: Enhanced UI] Feature #103: Implement automatic snapshot capture after each successful generation Criteria: Git commit or file snapshot created after agent completes successfully",
+      "id": "981644e01b0e-303",
+      "text": "[Phase 4: Enhanced UI] Feature #105: Create one-click restore to previous version Criteria: Click version → confirmation → files restored → preview updated",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769686458.1322277,
-      "updated_at": 1769686458.132228,
+      "created_at": 1769686581.0141084,
+      "updated_at": 1769686581.0141087,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 103,
+        "feature_id": 105,
         "category": "Phase 4: Enhanced UI"
       },
       "keywords": []
     },
     "task": {
-      "id": "583ded407a5b-302",
-      "text": "Implement: Implement automatic snapshot capture after each successful generation",
+      "id": "981644e01b0e-304",
+      "text": "Implement: Create one-click restore to previous version",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769686458.1390228,
-      "updated_at": 1769686458.1390228,
+      "created_at": 1769686581.019974,
+      "updated_at": 1769686581.0199742,
       "completed_at": null,
-      "parent_id": "583ded407a5b-301",
+      "parent_id": "981644e01b0e-303",
       "metadata": {},
       "keywords": []
     },
@@ -4411,9 +4411,38 @@
       "parent_id": "583ded407a5b-301",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "981644e01b0e-303",
+      "text": "[Phase 4: Enhanced UI] Feature #105: Create one-click restore to previous version Criteria: Click version → confirmation → files restored → preview updated",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769686581.0141084,
+      "updated_at": 1769686581.0141087,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 105,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "981644e01b0e-304",
+      "text": "Implement: Create one-click restore to previous version",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769686581.019974,
+      "updated_at": 1769686581.0199742,
+      "completed_at": null,
+      "parent_id": "981644e01b0e-303",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 302,
+  "intent_counter": 304,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769686458.139028
+  "updated_at": 1769686581.019978
 }
