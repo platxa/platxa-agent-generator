@@ -1,32 +1,32 @@
 {
-  "session_id": "ee503391d699",
+  "session_id": "7c5705980344",
   "stack": {
     "session": {
-      "id": "ee503391d699-321",
-      "text": "[Phase 5: Self-Debugging] Feature #135: Create error categorization (syntax, reference, type, runtime, structure) Criteria: Each error assigned to category; category influences fix approach",
+      "id": "7c5705980344-323",
+      "text": "[Phase 5: Self-Debugging] Feature #137: Add error context extraction (surrounding code lines) Criteria: Includes 5 lines before/after error line in context",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769688276.4423046,
-      "updated_at": 1769688276.4423046,
+      "created_at": 1769688500.0957382,
+      "updated_at": 1769688500.0957382,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 135,
+        "feature_id": 137,
         "category": "Phase 5: Self-Debugging"
       },
       "keywords": []
     },
     "task": {
-      "id": "ee503391d699-322",
-      "text": "Implement: Create error categorization (syntax, reference, type, runtime, structure)",
+      "id": "7c5705980344-324",
+      "text": "Implement: Add error context extraction (surrounding code lines)",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769688276.4480193,
-      "updated_at": 1769688276.4480193,
+      "created_at": 1769688500.1008122,
+      "updated_at": 1769688500.1008122,
       "completed_at": null,
-      "parent_id": "ee503391d699-321",
+      "parent_id": "7c5705980344-323",
       "metadata": {},
       "keywords": []
     },
@@ -4701,9 +4701,38 @@
       "parent_id": "ee503391d699-321",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "7c5705980344-323",
+      "text": "[Phase 5: Self-Debugging] Feature #137: Add error context extraction (surrounding code lines) Criteria: Includes 5 lines before/after error line in context",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769688500.0957382,
+      "updated_at": 1769688500.0957382,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 137,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "7c5705980344-324",
+      "text": "Implement: Add error context extraction (surrounding code lines)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769688500.1008122,
+      "updated_at": 1769688500.1008122,
+      "completed_at": null,
+      "parent_id": "7c5705980344-323",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 322,
+  "intent_counter": 324,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769688276.448023
+  "updated_at": 1769688500.1008148
 }
