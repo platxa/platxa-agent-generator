@@ -61,3 +61,18 @@ export {
   type ViewportPreset,
   type ViewportSize,
 } from './preview-render';
+
+export {
+  inspectLogsTool,
+  inspectLogsImpl,
+  getLogInspector,
+  resetLogInspector,
+  setLogInspector,
+  getRecentLogs,
+  getAllErrors,
+  getLogsBySource,
+  hasErrors,
+  clearLogs,
+  type InspectLogsOptions,
+  type InspectLogsResult,
+} from './inspect-logs';

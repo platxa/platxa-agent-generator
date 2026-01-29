@@ -420,6 +420,7 @@ export class PlanGenerator implements LLMProvider {
       preview: 'preview',
       test: 'test',
       web_search: 'web_search',
+      inspect_logs: 'inspect_logs',
       // Common alternatives
       create: 'write',
       modify: 'edit',
@@ -429,6 +430,8 @@ export class PlanGenerator implements LLMProvider {
       render: 'preview',
       find: 'search',
       lookup: 'web_search',
+      logs: 'inspect_logs',
+      errors: 'inspect_logs',
     };
 
     return actionMap[action.toLowerCase()] || 'write';

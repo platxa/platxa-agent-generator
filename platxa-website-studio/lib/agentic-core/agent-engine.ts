@@ -34,7 +34,8 @@ export type AgentActionType =
   | 'compile'
   | 'preview'
   | 'test'
-  | 'web_search';
+  | 'web_search'
+  | 'inspect_logs';
 
 /** A single step in the agent's execution plan */
 export interface AgentPlanStep {

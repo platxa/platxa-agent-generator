@@ -28,6 +28,7 @@ import { editFileTool } from './tools/edit-file';
 import { validateQwebTool } from './tools/validate-qweb';
 import { compileScssTool } from './tools/compile-scss';
 import { previewRenderTool } from './tools/preview-render';
+import { inspectLogsTool } from './tools/inspect-logs';
 
 // ============================================================================
 // Types
@@ -160,6 +161,14 @@ async function previewRender(params: ToolParams): Promise<ToolResult> {
 }
 
 /**
+ * Default inspect_logs tool
+ * Feature #24: Aggregates errors from SCSS, QWeb, Odoo, and preview sources
+ */
+async function inspectLogs(params: ToolParams): Promise<ToolResult> {
+  return inspectLogsTool(params);
+}
+
+/**
  * Default test_odoo tool
  */
 async function testOdoo(params: ToolParams): Promise<ToolResult> {
@@ -228,6 +237,7 @@ const DEFAULT_ACTION_TOOLS: Record<AgentActionType, ToolFunction> = {
   preview: previewRender,
   test: testOdoo,
   web_search: webSearch,
+  inspect_logs: inspectLogs,
 };
 
 // ============================================================================
@@ -506,6 +516,7 @@ export class AgentToolExecutor implements ToolExecutor {
       preview: 'preview_render',
       test: 'test_odoo',
       web_search: 'web_search',
+      inspect_logs: 'inspect_logs',
     };
     return toolNames[action] || 'unknown';
   }

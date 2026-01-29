@@ -12,27 +12,27 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": 24,
+  "current_feature_id": 14,
   "session": {
-    "count": 45,
-    "last_started_at": "2026-01-29T09:46:07.584249Z",
+    "count": 43,
+    "last_started_at": "2026-01-29T09:40:43.727389Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 44,
+    "passed": 42,
     "failed": 0,
     "skipped": 0,
     "in_progress": 1,
     "paused": 0,
-    "pending": 158,
-    "completion_percentage": 21.7
+    "pending": 160,
+    "completion_percentage": 20.7
   },
   "categories": [
     {
       "name": "Phase 1: Agentic Core",
       "total": 35,
-      "passed": 21,
+      "passed": 19,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -493,20 +493,20 @@
       "verification": {
         "type": "test",
         "criteria": "Tools abort after timeout; return ToolTimeoutError with partial results if available",
-        "completed": true,
-        "evidence": "101285d",
-        "verified_at": "2026-01-29T09:42:26.977648Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "aws-agentic-patterns"
       ],
       "file_path": "/lib/agentic-core/tool-executor.ts",
-      "status": "passed",
+      "status": "in_progress",
       "status_reason": null,
       "started_at": "2026-01-29T09:40:43.727375Z",
-      "completed_at": "2026-01-29T09:42:26.987562Z",
-      "commit_hash": "101285d",
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -773,20 +773,20 @@
       "verification": {
         "type": "test",
         "criteria": "Returns screenshot URL and rendered HTML for specified page/viewport",
-        "completed": true,
-        "evidence": "c839007",
-        "verified_at": "2026-01-29T09:45:53.682504Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/tools/preview-render.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:42:40.513591Z",
-      "completed_at": "2026-01-29T09:45:53.693359Z",
-      "commit_hash": "c839007",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -813,9 +813,9 @@
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/tools/inspect-logs.ts",
-      "status": "in_progress",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:46:07.584234Z",
+      "started_at": null,
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,

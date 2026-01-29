@@ -1,5 +1,5 @@
 {
-  "schema_version": "3.0.0",
+  "schema_version": "1.0.0",
   "version": "1.0.0",
   "description": "Spec-driven feature tracking for autonomous coding sessions. Based on Anthropic autonomous-coding pattern.",
   "important_rules": [
@@ -12,27 +12,27 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": 24,
+  "current_feature_id": null,
   "session": {
-    "count": 45,
-    "last_started_at": "2026-01-29T09:46:07.584249Z",
+    "count": 32,
+    "last_started_at": "2026-01-29T08:58:13.424799Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 44,
+    "passed": 32,
     "failed": 0,
     "skipped": 0,
-    "in_progress": 1,
+    "in_progress": 0,
     "paused": 0,
-    "pending": 158,
-    "completion_percentage": 21.7
+    "pending": 171,
+    "completion_percentage": 15.8
   },
   "categories": [
     {
       "name": "Phase 1: Agentic Core",
       "total": 35,
-      "passed": 21,
+      "passed": 14,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -64,7 +64,7 @@
     {
       "name": "Phase 5: Self-Debugging",
       "total": 37,
-      "passed": 10,
+      "passed": 6,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -72,7 +72,7 @@
     {
       "name": "Phase 6: Integration",
       "total": 42,
-      "passed": 1,
+      "passed": 0,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -307,20 +307,20 @@
       "verification": {
         "type": "test",
         "criteria": "Events emitted every 500ms with { phase, step, percentage, message }",
-        "completed": true,
-        "evidence": "e67adb0",
-        "verified_at": "2026-01-29T09:33:22.176443Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/agent-engine.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:28:52.307342Z",
-      "completed_at": "2026-01-29T09:33:22.186701Z",
-      "commit_hash": "e67adb0",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -338,20 +338,20 @@
       "verification": {
         "type": "test",
         "criteria": "Loop exits early if quality score doesn't improve for 2 consecutive iterations",
-        "completed": true,
-        "evidence": "8bebe75",
-        "verified_at": "2026-01-29T09:35:41.403045Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "aws-agentic-patterns"
       ],
       "file_path": "/lib/agentic-core/agent-engine.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:33:34.640372Z",
-      "completed_at": "2026-01-29T09:35:41.412570Z",
-      "commit_hash": "8bebe75",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -369,20 +369,20 @@
       "verification": {
         "type": "test",
         "criteria": "finalize() returns { status, filesModified, qualityScore, iterations, summary, warnings }",
-        "completed": true,
-        "evidence": "dcff07f",
-        "verified_at": "2026-01-29T09:37:30.247611Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/agent-engine.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:36:07.886454Z",
-      "completed_at": "2026-01-29T09:37:30.257613Z",
-      "commit_hash": "dcff07f",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -431,20 +431,20 @@
       "verification": {
         "type": "test",
         "criteria": "Same tool call within 5 minutes returns cached result; cache key includes parameters",
-        "completed": true,
-        "evidence": "8b318a2",
-        "verified_at": "2026-01-29T09:39:13.709279Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "aws-agentic-patterns"
       ],
       "file_path": "/lib/agentic-core/tool-executor.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:37:43.378388Z",
-      "completed_at": "2026-01-29T09:39:13.725807Z",
-      "commit_hash": "8b318a2",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -462,20 +462,20 @@
       "verification": {
         "type": "test",
         "criteria": "Independent tools execute concurrently; dependent tools wait for prerequisites",
-        "completed": true,
-        "evidence": "ab0f3eb",
-        "verified_at": "2026-01-29T09:40:30.779796Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "aws-agentic-patterns"
       ],
       "file_path": "/lib/agentic-core/tool-executor.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:39:26.700860Z",
-      "completed_at": "2026-01-29T09:40:30.789209Z",
-      "commit_hash": "ab0f3eb",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -493,20 +493,20 @@
       "verification": {
         "type": "test",
         "criteria": "Tools abort after timeout; return ToolTimeoutError with partial results if available",
-        "completed": true,
-        "evidence": "101285d",
-        "verified_at": "2026-01-29T09:42:26.977648Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "aws-agentic-patterns"
       ],
       "file_path": "/lib/agentic-core/tool-executor.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:40:43.727375Z",
-      "completed_at": "2026-01-29T09:42:26.987562Z",
-      "commit_hash": "101285d",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -773,20 +773,20 @@
       "verification": {
         "type": "test",
         "criteria": "Returns screenshot URL and rendered HTML for specified page/viewport",
-        "completed": true,
-        "evidence": "c839007",
-        "verified_at": "2026-01-29T09:45:53.682504Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/tools/preview-render.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:42:40.513591Z",
-      "completed_at": "2026-01-29T09:45:53.693359Z",
-      "commit_hash": "c839007",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -813,9 +813,9 @@
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/tools/inspect-logs.ts",
-      "status": "in_progress",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:46:07.584234Z",
+      "started_at": null,
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,
@@ -927,7 +927,7 @@
       "rationale": "Hybrid approach balances speed (keywords) and accuracy (LLM)",
       "verification": {
         "type": "test",
-        "criteria": "Keywords: explore/options/what-if → plan; create/build/add → agent",
+        "criteria": "Keywords: explore/options/what-if \u2192 plan; create/build/add \u2192 agent",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -2105,7 +2105,7 @@
       "rationale": "Source mapping enables click-to-select and editor sync",
       "verification": {
         "type": "test",
-        "criteria": "Map: elementId → { path, startLine, endLine }; reverse lookup works",
+        "criteria": "Map: elementId \u2192 { path, startLine, endLine }; reverse lookup works",
         "completed": true,
         "evidence": "4cf5d1952c712081c295f086ae2ab52bbaa5f939",
         "verified_at": "2026-01-29T06:39:25.856575Z",
@@ -2195,7 +2195,7 @@
       "category": "Phase 3: HMR Preview",
       "subcategory": "Source Mapping",
       "priority": "high",
-      "rationale": "Lookup enables preview → code navigation",
+      "rationale": "Lookup enables preview \u2192 code navigation",
       "verification": {
         "type": "test",
         "criteria": "getSourceLocation(elementId) returns { path, startLine, endLine }",
@@ -2257,7 +2257,7 @@
       "category": "Phase 3: HMR Preview",
       "subcategory": "Source Mapping",
       "priority": "medium",
-      "rationale": "Code → preview navigation helps understand what code affects",
+      "rationale": "Code \u2192 preview navigation helps understand what code affects",
       "verification": {
         "type": "manual",
         "criteria": "Cursor in snippet code highlights corresponding preview section",
@@ -3004,7 +3004,7 @@
       "rationale": "Progress transparency reduces perceived wait time",
       "verification": {
         "type": "manual",
-        "criteria": "Shows phases: Planning ✓ → Generating ⏳ → Validating → Complete",
+        "criteria": "Shows phases: Planning \u2713 \u2192 Generating \u23f3 \u2192 Validating \u2192 Complete",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -3035,7 +3035,7 @@
       "rationale": "Animated progress provides satisfying feedback",
       "verification": {
         "type": "manual",
-        "criteria": "Steps animate from pending → running → complete with smooth transitions",
+        "criteria": "Steps animate from pending \u2192 running \u2192 complete with smooth transitions",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -3314,7 +3314,7 @@
       "rationale": "Easy restore encourages experimentation",
       "verification": {
         "type": "manual",
-        "criteria": "Click version → confirmation → files restored → preview updated",
+        "criteria": "Click version \u2192 confirmation \u2192 files restored \u2192 preview updated",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -4369,20 +4369,20 @@
       "verification": {
         "type": "test",
         "criteria": "Patterns for: missing closing tag, invalid expression, undefined variable",
-        "completed": true,
-        "evidence": "6d96314",
-        "verified_at": "2026-01-29T09:11:29.903162Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "odoo-qweb-docs"
       ],
       "file_path": "/lib/agentic-core/error-patterns.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:08:33.793108Z",
-      "completed_at": "2026-01-29T09:11:29.906902Z",
-      "commit_hash": "6d96314",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4400,20 +4400,20 @@
       "verification": {
         "type": "test",
         "criteria": "Patterns for: $var undefined, missing semicolon, unclosed bracket, bad import",
-        "completed": true,
-        "evidence": "d77bcef",
-        "verified_at": "2026-01-29T09:14:33.648118Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "odoo-scss-docs"
       ],
       "file_path": "/lib/agentic-core/error-patterns.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:11:36.580205Z",
-      "completed_at": "2026-01-29T09:14:33.651688Z",
-      "commit_hash": "d77bcef",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4555,20 +4555,20 @@
       "verification": {
         "type": "test",
         "criteria": "Generates fix based on error category and pattern match",
-        "completed": true,
-        "evidence": "d6dfc09",
-        "verified_at": "2026-01-29T09:17:48.305023Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/auto-fixer.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:14:38.889736Z",
-      "completed_at": "2026-01-29T09:17:48.308951Z",
-      "commit_hash": "d6dfc09",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4586,20 +4586,20 @@
       "verification": {
         "type": "test",
         "criteria": "Each pattern has fix template with variable substitution",
-        "completed": true,
-        "evidence": "62a5d0c",
-        "verified_at": "2026-01-29T09:20:06.794018Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/auto-fixer.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:17:57.925204Z",
-      "completed_at": "2026-01-29T09:20:06.804188Z",
-      "commit_hash": "62a5d0c",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4957,7 +4957,7 @@
       "rationale": "One-click navigation speeds up manual debugging",
       "verification": {
         "type": "manual",
-        "criteria": "Click error → opens file in editor → highlights error line",
+        "criteria": "Click error \u2192 opens file in editor \u2192 highlights error line",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -5238,20 +5238,20 @@
       "verification": {
         "type": "test",
         "criteria": "write_file and edit_file tools trigger Yjs doc.transact()",
-        "completed": true,
-        "evidence": "7a6f3bf",
-        "verified_at": "2026-01-29T09:28:28.991401Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "platxa-editor-sync"
       ],
       "file_path": "/lib/agentic-core/tools/write-file.ts",
-      "status": "passed",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T09:20:12.832389Z",
-      "completed_at": "2026-01-29T09:28:29.003282Z",
-      "commit_hash": "7a6f3bf",
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -5609,7 +5609,7 @@
       "rationale": "Progress feedback during deployment",
       "verification": {
         "type": "manual",
-        "criteria": "Shows: Packaging → Uploading → Installing → Verifying → Complete",
+        "criteria": "Shows: Packaging \u2192 Uploading \u2192 Installing \u2192 Verifying \u2192 Complete",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -5733,7 +5733,7 @@
       "rationale": "E2E tests ensure system works as integrated whole",
       "verification": {
         "type": "test",
-        "criteria": "Tests: full generation flow, plan→agent transition, error recovery",
+        "criteria": "Tests: full generation flow, plan\u2192agent transition, error recovery",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -5795,7 +5795,7 @@
       "rationale": "Integration tests verify component interactions",
       "verification": {
         "type": "test",
-        "criteria": "Tests: plan→agent handoff, mode switching, context preservation",
+        "criteria": "Tests: plan\u2192agent handoff, mode switching, context preservation",
         "completed": false,
         "evidence": null,
         "verified_at": null,

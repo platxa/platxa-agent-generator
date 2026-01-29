@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-10",
-  "title": "Implementation: Add agent status streaming to chat interface showing plan/se...",
+  "title": "Implementation: Create finalization logic producing AgentResult with success...",
   "context": {
     "spec_id": "feature-10",
     "feature_id": "10",
     "dependencies": [],
     "metadata": {
-      "category": "System Integration",
+      "category": "Phase 1: Agentic Core",
       "verification_criteria": {
-        "type": "manual",
-        "criteria": "Chat UI displays progress indicators for each agent phase with estimated progress",
+        "type": "test",
+        "criteria": "finalize() returns { status, filesModified, qualityScore, iterations, summary, warnings }",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-27T18:43:56.244355"
+    "created_at": "2026-01-29T15:06:10.168995"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-10-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add agent status streaming to chat interface showing plan/search/edit/test phases",
+      "description": "Review feature requirements: Create finalization logic producing AgentResult with success/warning/failure states and summary",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-10-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-10-3",
       "title": "Implement Feature",
-      "description": "Implement: Add agent status streaming to chat interface showing plan/search/edit/test phases",
+      "description": "Implement: Create finalization logic producing AgentResult with success/warning/failure states and summary",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-10-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-10-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Chat UI displays progress indicators for each agent phase with estimated progress', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'finalize() returns { status, filesModified, qualityScore, iterations, summary, warnings }', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "manual",
-        "criteria": "Chat UI displays progress indicators for each agent phase with estimated progress",
+        "type": "test",
+        "criteria": "finalize() returns { status, filesModified, qualityScore, iterations, summary, warnings }",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-27T18:43:56.244377",
+  "created_at": "2026-01-29T15:06:10.169027",
   "lsp_impact": {}
 }

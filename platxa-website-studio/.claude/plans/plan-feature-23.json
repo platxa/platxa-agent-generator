@@ -1,22 +1,22 @@
 {
-  "id": "plan-feature-9",
-  "title": "Implementation: Add iteration tracking with diminishing returns detection (q...",
+  "id": "plan-feature-23",
+  "title": "Implementation: Implement preview_render tool generating screenshot of curre...",
   "context": {
-    "spec_id": "feature-9",
-    "feature_id": "9",
+    "spec_id": "feature-23",
+    "feature_id": "23",
     "dependencies": [],
     "metadata": {
       "category": "Phase 1: Agentic Core",
       "verification_criteria": {
         "type": "test",
-        "criteria": "Loop exits early if quality score doesn't improve for 2 consecutive iterations",
+        "criteria": "Returns screenshot URL and rendered HTML for specified page/viewport",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-29T15:03:36.767071"
+    "created_at": "2026-01-29T15:12:42.633366"
   },
   "phases": [
     "research",
@@ -26,9 +26,9 @@
   ],
   "tasks": [
     {
-      "id": "task-9-1",
+      "id": "task-23-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add iteration tracking with diminishing returns detection (quality not improving = stop early)",
+      "description": "Review feature requirements: Implement preview_render tool generating screenshot of current theme state",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -41,7 +41,7 @@
       "skip_reason": null
     },
     {
-      "id": "task-9-2",
+      "id": "task-23-2",
       "title": "Review Existing Code",
       "description": "Search for related code patterns and potential duplicates",
       "step_type": "setup",
@@ -56,9 +56,9 @@
       "skip_reason": null
     },
     {
-      "id": "task-9-3",
+      "id": "task-23-3",
       "title": "Implement Feature",
-      "description": "Implement: Add iteration tracking with diminishing returns detection (quality not improving = stop early)",
+      "description": "Implement: Implement preview_render tool generating screenshot of current theme state",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -71,7 +71,7 @@
       "skip_reason": null
     },
     {
-      "id": "task-9-4",
+      "id": "task-23-4",
       "title": "Add Tests",
       "description": "Write unit tests for new functionality",
       "step_type": "test",
@@ -86,16 +86,16 @@
       "skip_reason": null
     },
     {
-      "id": "task-9-5",
+      "id": "task-23-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': \"Loop exits early if quality score doesn't improve for 2 consecutive iterations\", 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Returns screenshot URL and rendered HTML for specified page/viewport', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "test",
-        "criteria": "Loop exits early if quality score doesn't improve for 2 consecutive iterations",
+        "criteria": "Returns screenshot URL and rendered HTML for specified page/viewport",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-29T15:03:36.767098",
+  "created_at": "2026-01-29T15:12:42.633443",
   "lsp_impact": {}
 }
