@@ -338,3 +338,17 @@ export {
   type PatternMatch,
   type PatternMatchOptions,
 } from "./error-pattern-library";
+
+// AutoFixer for generating targeted fixes based on error patterns
+export {
+  AutoFixer,
+  createAutoFixer,
+  generateFixes,
+  getBestFix,
+  canAutoFix,
+  type FixContext,
+  type FixSuggestion,
+  type FixType,
+  type AutoFixResult,
+  type AutoFixerOptions,
+} from "./auto-fixer";
