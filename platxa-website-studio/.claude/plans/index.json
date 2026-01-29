@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T18:35:57.489146",
+  "updated_at": "2026-01-29T18:39:16.888207",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -472,6 +472,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T16:04:44.308154",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-170",
+      "title": "Implementation: Create conflict prevention for concurrent human/AI edits",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-29T18:39:16.887298",
       "constitution_check": true
     },
     {
