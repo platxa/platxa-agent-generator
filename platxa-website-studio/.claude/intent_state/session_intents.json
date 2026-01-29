@@ -1,32 +1,32 @@
 {
-  "session_id": "797edee97144",
+  "session_id": "a9cfb4e6efaf",
   "stack": {
     "session": {
-      "id": "797edee97144-307",
-      "text": "[Phase 4: Enhanced UI] Feature #114: Create streaming message renderer with GitHub-flavored markdown Criteria: Markdown renders as it streams; supports headers, lists, code, links",
+      "id": "a9cfb4e6efaf-309",
+      "text": "[Phase 4: Enhanced UI] Feature #115: Implement code block syntax highlighting in chat Criteria: Code blocks have language detection and appropriate highlighting",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769686808.075662,
-      "updated_at": 1769686808.0756621,
+      "created_at": 1769686948.682418,
+      "updated_at": 1769686948.682418,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 114,
+        "feature_id": 115,
         "category": "Phase 4: Enhanced UI"
       },
       "keywords": []
     },
     "task": {
-      "id": "797edee97144-308",
-      "text": "Implement: Create streaming message renderer with GitHub-flavored markdown",
+      "id": "a9cfb4e6efaf-310",
+      "text": "Implement: Implement code block syntax highlighting in chat",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769686808.0807052,
-      "updated_at": 1769686808.0807056,
+      "created_at": 1769686948.6876488,
+      "updated_at": 1769686948.687649,
       "completed_at": null,
-      "parent_id": "797edee97144-307",
+      "parent_id": "a9cfb4e6efaf-309",
       "metadata": {},
       "keywords": []
     },
@@ -4498,9 +4498,38 @@
       "parent_id": "797edee97144-307",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "a9cfb4e6efaf-309",
+      "text": "[Phase 4: Enhanced UI] Feature #115: Implement code block syntax highlighting in chat Criteria: Code blocks have language detection and appropriate highlighting",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769686948.682418,
+      "updated_at": 1769686948.682418,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 115,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "a9cfb4e6efaf-310",
+      "text": "Implement: Implement code block syntax highlighting in chat",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769686948.6876488,
+      "updated_at": 1769686948.687649,
+      "completed_at": null,
+      "parent_id": "a9cfb4e6efaf-309",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 308,
+  "intent_counter": 310,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769686808.0807078
+  "updated_at": 1769686948.6876519
 }
