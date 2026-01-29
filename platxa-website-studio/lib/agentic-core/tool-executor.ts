@@ -246,7 +246,7 @@ export class AgentToolExecutor implements ToolExecutor {
     this.config = {
       timeout: config.timeout ?? 30000,
       cacheResults: config.cacheResults ?? true,
-      cacheTTL: config.cacheTTL ?? 60000,
+      cacheTTL: config.cacheTTL ?? 300000, // 5-minute TTL (Feature #12)
       retryOnFailure: config.retryOnFailure ?? true,
       maxRetries: config.maxRetries ?? 2,
     };
@@ -461,7 +461,12 @@ export class AgentToolExecutor implements ToolExecutor {
   }
 
   private getCacheKey(action: AgentActionType, params: ToolParams): string {
-    return `${action}:${params.target}`;
+    // Feature #12: Cache key includes all parameters for accurate cache hits
+    const paramsHash = JSON.stringify({
+      target: params.target,
+      options: params.options,
+    });
+    return `${action}:${paramsHash}`;
   }
 
   private getFromCache(key: string): ToolResult | null {
