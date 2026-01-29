@@ -14,25 +14,25 @@
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
   "current_feature_id": null,
   "session": {
-    "count": 46,
-    "last_started_at": "2026-01-29T09:51:01.047519Z",
+    "count": 51,
+    "last_started_at": "2026-01-29T10:13:46.986956Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 46,
+    "passed": 51,
     "failed": 0,
     "skipped": 0,
     "in_progress": 0,
     "paused": 0,
-    "pending": 157,
-    "completion_percentage": 22.7
+    "pending": 152,
+    "completion_percentage": 25.1
   },
   "categories": [
     {
       "name": "Phase 1: Agentic Core",
       "total": 35,
-      "passed": 23,
+      "passed": 28,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -897,20 +897,20 @@
       "verification": {
         "type": "test",
         "criteria": "Classifies 'what if' as plan, 'create X' as agent; 95% accuracy on test set",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "05bd214",
+        "verified_at": "2026-01-29T09:59:40.185524Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-modes"
       ],
       "file_path": "/lib/agentic-core/mode-router.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T09:56:19.006057Z",
+      "completed_at": "2026-01-29T09:59:40.210068Z",
+      "commit_hash": "05bd214",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -928,20 +928,20 @@
       "verification": {
         "type": "test",
         "criteria": "Keywords: explore/options/what-if → plan; create/build/add → agent",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "7c72241",
+        "verified_at": "2026-01-29T10:04:27.569700Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-modes"
       ],
       "file_path": "/lib/agentic-core/mode-router.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T10:01:54.336211Z",
+      "completed_at": "2026-01-29T10:04:27.591888Z",
+      "commit_hash": "7c72241",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -990,20 +990,20 @@
       "verification": {
         "type": "test",
         "criteria": "Plan mode disables write_file, edit_file tools; agent mode enables all",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "6f292dc",
+        "verified_at": "2026-01-29T10:10:16.444393Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-modes"
       ],
       "file_path": "/lib/agentic-core/mode-router.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T10:04:34.274881Z",
+      "completed_at": "2026-01-29T10:10:16.469671Z",
+      "commit_hash": "6f292dc",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -1021,20 +1021,20 @@
       "verification": {
         "type": "test",
         "criteria": "Approved plan transfers to agent with selected option and full context",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "362970c",
+        "verified_at": "2026-01-29T10:13:38.658000Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-modes"
       ],
       "file_path": "/lib/agentic-core/mode-router.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T10:10:22.483789Z",
+      "completed_at": "2026-01-29T10:13:38.682206Z",
+      "commit_hash": "362970c",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -1052,20 +1052,20 @@
       "verification": {
         "type": "test",
         "criteria": "Context grows with each tool result; persists across iterations",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "cd7f2dd",
+        "verified_at": "2026-01-29T10:17:05.430378Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/context-manager.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T10:13:46.986937Z",
+      "completed_at": "2026-01-29T10:17:05.453809Z",
+      "commit_hash": "cd7f2dd",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,

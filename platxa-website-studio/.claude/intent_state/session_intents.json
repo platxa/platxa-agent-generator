@@ -1,32 +1,32 @@
 {
-  "session_id": "e20654a57879",
+  "session_id": "ca5324752be7",
   "stack": {
     "session": {
-      "id": "e20654a57879-239",
-      "text": "[Phase 1: Agentic Core] Feature #32: Create ContextManager tracking accumulated knowledge across agent steps Criteria: Context grows with each tool result; persists across iterations",
+      "id": "ca5324752be7-241",
+      "text": "[Phase 1: Agentic Core] Feature #33: Implement context pruning keeping total tokens under 80% of model limit Criteria: Prunes oldest/least-relevant items when approaching limit",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769681630.254164,
-      "updated_at": 1769681630.254164,
+      "created_at": 1769681836.6905782,
+      "updated_at": 1769681836.6905782,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 32,
+        "feature_id": 33,
         "category": "Phase 1: Agentic Core"
       },
       "keywords": []
     },
     "task": {
-      "id": "e20654a57879-240",
-      "text": "Implement: Create ContextManager tracking accumulated knowledge across agent steps",
+      "id": "ca5324752be7-242",
+      "text": "Implement: Implement context pruning keeping total tokens under 80% of model limit",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769681630.2625802,
-      "updated_at": 1769681630.2625804,
+      "created_at": 1769681836.699295,
+      "updated_at": 1769681836.6992953,
       "completed_at": null,
-      "parent_id": "e20654a57879-239",
+      "parent_id": "ca5324752be7-241",
       "metadata": {},
       "keywords": []
     },
@@ -3512,9 +3512,38 @@
       "parent_id": "e20654a57879-239",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "ca5324752be7-241",
+      "text": "[Phase 1: Agentic Core] Feature #33: Implement context pruning keeping total tokens under 80% of model limit Criteria: Prunes oldest/least-relevant items when approaching limit",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769681836.6905782,
+      "updated_at": 1769681836.6905782,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 33,
+        "category": "Phase 1: Agentic Core"
+      },
+      "keywords": []
+    },
+    {
+      "id": "ca5324752be7-242",
+      "text": "Implement: Implement context pruning keeping total tokens under 80% of model limit",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769681836.699295,
+      "updated_at": 1769681836.6992953,
+      "completed_at": null,
+      "parent_id": "ca5324752be7-241",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 240,
+  "intent_counter": 242,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769681630.2625878
+  "updated_at": 1769681836.6993005
 }

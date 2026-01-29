@@ -119,3 +119,14 @@ export {
   type ContextStats,
   type ContextManagerOptions,
 } from './context-manager';
+
+export {
+  ContextPruner,
+  createContextPruner,
+  createPrunerForModel,
+  MODEL_TOKEN_LIMITS,
+  type TokenEstimate,
+  type PruneStats,
+  type ContextPrunerConfig,
+  type PrunableItem,
+} from './context-pruner';
