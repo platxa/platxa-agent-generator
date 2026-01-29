@@ -249,3 +249,18 @@ export {
   type ErrorHandler as BridgeErrorHandler,
   type MessageBridgeConfig,
 } from "./message-bridge";
+
+// Morphdom integration for efficient DOM diffing with HMR support
+export {
+  MorphdomIntegration,
+  createMorphdom,
+  quickMorph,
+  morphWithDefaults,
+  createDefaultBeforeElUpdated,
+  createAttributePreservingHook,
+  combineBeforeElUpdatedHooks,
+  morphdom,
+  type MorphdomConfig,
+  type MorphResult,
+  type MorphCallback,
+} from "./morphdom-integration";
