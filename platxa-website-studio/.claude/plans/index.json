@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T18:17:43.994849",
+  "updated_at": "2026-01-29T18:20:44.613200",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -664,6 +664,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T14:50:15.133930",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-157",
+      "title": "Implementation: Create ErrorPanel component showing current issues in sideba...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-29T18:20:44.612370",
       "constitution_check": true
     },
     {
