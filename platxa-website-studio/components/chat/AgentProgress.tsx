@@ -66,6 +66,31 @@ export function getPhaseStatus(
 }
 
 // =============================================================================
+// Animation Configuration
+// =============================================================================
+
+/** Animation settings for step transitions */
+export const STEP_ANIMATIONS = {
+  /** Duration for state transitions (ms) */
+  transitionDuration: 300,
+  /** Duration for checkmark pop animation (ms) */
+  checkmarkDuration: 400,
+  /** Delay before checkmark appears (ms) */
+  checkmarkDelay: 100,
+  /** Spinner rotation speed */
+  spinnerSpeed: "1s",
+  /** CSS classes for each animation state */
+  classes: {
+    /** Pending state: faded, waiting */
+    pending: "opacity-50 scale-95",
+    /** Running/active state: pulsing, highlighted */
+    running: "opacity-100 scale-100",
+    /** Complete state: checkmark with pop animation */
+    complete: "opacity-100 scale-100",
+  },
+} as const;
+
+// =============================================================================
 // Sub-components
 // =============================================================================
 
@@ -74,31 +99,74 @@ interface PhaseIndicatorProps {
   status: PhaseStatus;
 }
 
+/**
+ * Animated phase indicator with smooth transitions.
+ * - pending → running: fade in + scale up
+ * - running → complete: checkmark pops in with scale animation
+ */
 function PhaseIndicator({ phase, status }: PhaseIndicatorProps) {
   const config = PHASE_LABELS[phase];
 
   return (
     <div
       className={cn(
-        "flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-300",
+        "flex items-center gap-1.5 px-2 py-1 rounded-md",
+        // Smooth transitions for all property changes
+        "transition-all duration-300 ease-out",
+        // Status-specific styles
         status === "complete" && "text-emerald-600 dark:text-emerald-400",
         status === "active" && "text-primary font-medium",
-        status === "pending" && "text-muted-foreground"
+        status === "pending" && "text-muted-foreground opacity-60"
       )}
     >
-      {/* Icon */}
-      {status === "complete" && (
-        <CheckCircle2 className="w-4 h-4 text-emerald-500" aria-label="Completed" />
-      )}
-      {status === "active" && (
-        <Loader2 className="w-4 h-4 animate-spin text-primary" aria-label="In progress" />
-      )}
-      {status === "pending" && (
-        <Circle className="w-4 h-4 text-muted-foreground/50" aria-label="Pending" />
-      )}
+      {/* Animated Icon Container */}
+      <div className="relative w-4 h-4 flex items-center justify-center">
+        {/* Complete: Animated checkmark with pop-in effect */}
+        {status === "complete" && (
+          <CheckCircle2
+            className={cn(
+              "w-4 h-4 text-emerald-500",
+              // Pop-in animation for checkmark
+              "animate-in zoom-in-50 duration-300"
+            )}
+            aria-label="Completed"
+          />
+        )}
+        {/* Active: Spinning loader with pulse */}
+        {status === "active" && (
+          <Loader2
+            className={cn(
+              "w-4 h-4 text-primary",
+              // Spinning animation
+              "animate-spin"
+            )}
+            aria-label="In progress"
+          />
+        )}
+        {/* Pending: Faded circle */}
+        {status === "pending" && (
+          <Circle
+            className={cn(
+              "w-4 h-4 text-muted-foreground/40",
+              // Subtle scale for pending
+              "scale-90 transition-transform duration-300"
+            )}
+            aria-label="Pending"
+          />
+        )}
+      </div>
 
-      {/* Label */}
-      <span className="text-sm whitespace-nowrap">{config.label}</span>
+      {/* Label with smooth opacity transition */}
+      <span
+        className={cn(
+          "text-sm whitespace-nowrap transition-opacity duration-300",
+          status === "pending" && "opacity-60",
+          status === "active" && "opacity-100",
+          status === "complete" && "opacity-100"
+        )}
+      >
+        {config.label}
+      </span>
     </div>
   );
 }

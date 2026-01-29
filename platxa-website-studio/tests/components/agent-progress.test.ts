@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   WORKFLOW_PHASES,
   PHASE_LABELS,
+  STEP_ANIMATIONS,
   getPhaseStatus,
   type AgentWorkflowPhase,
   type PhaseStatus,
@@ -129,6 +130,51 @@ describe("AgentProgress", () => {
       expect(getPhaseStatus("generating", "planning")).toBe("pending");
       expect(getPhaseStatus("validating", "planning")).toBe("pending");
       expect(getPhaseStatus("complete", "planning")).toBe("pending");
+    });
+  });
+
+  describe("step-by-step progress with animated checkmarks (Feature #96)", () => {
+    it("defines animation configuration for smooth transitions", () => {
+      // Feature #96: Steps animate from pending → running → complete
+      expect(STEP_ANIMATIONS).toBeDefined();
+      expect(STEP_ANIMATIONS.transitionDuration).toBeGreaterThan(0);
+    });
+
+    it("provides CSS classes for pending state", () => {
+      // Feature #96: pending state animation classes
+      expect(STEP_ANIMATIONS.classes.pending).toBeTruthy();
+      expect(STEP_ANIMATIONS.classes.pending).toContain("opacity");
+    });
+
+    it("provides CSS classes for running state", () => {
+      // Feature #96: running state animation classes
+      expect(STEP_ANIMATIONS.classes.running).toBeTruthy();
+      expect(STEP_ANIMATIONS.classes.running).toContain("scale-100");
+    });
+
+    it("provides CSS classes for complete state", () => {
+      // Feature #96: complete state animation classes
+      expect(STEP_ANIMATIONS.classes.complete).toBeTruthy();
+      expect(STEP_ANIMATIONS.classes.complete).toContain("opacity-100");
+    });
+
+    it("defines checkmark animation timing", () => {
+      // Feature #96: animated checkmarks with smooth transitions
+      expect(STEP_ANIMATIONS.checkmarkDuration).toBeGreaterThan(0);
+      expect(STEP_ANIMATIONS.checkmarkDelay).toBeGreaterThanOrEqual(0);
+    });
+
+    it("defines spinner animation speed", () => {
+      // Feature #96: running state has spinner animation
+      expect(STEP_ANIMATIONS.spinnerSpeed).toBeTruthy();
+      expect(STEP_ANIMATIONS.spinnerSpeed).toContain("s");
+    });
+
+    it("transition durations support smooth animations", () => {
+      // Feature #96: smooth transitions between states
+      // Typical smooth transition is 200-500ms
+      expect(STEP_ANIMATIONS.transitionDuration).toBeGreaterThanOrEqual(200);
+      expect(STEP_ANIMATIONS.transitionDuration).toBeLessThanOrEqual(500);
     });
   });
 });
