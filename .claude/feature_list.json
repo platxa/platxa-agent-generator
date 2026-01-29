@@ -12,21 +12,21 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": 173,
+  "current_feature_id": 174,
   "session": {
-    "count": 110,
-    "last_started_at": "2026-01-29T13:17:08.799640Z",
+    "count": 111,
+    "last_started_at": "2026-01-29T13:19:47.701161Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 109,
+    "passed": 110,
     "failed": 0,
     "skipped": 0,
     "in_progress": 1,
     "paused": 0,
-    "pending": 93,
-    "completion_percentage": 53.7
+    "pending": 92,
+    "completion_percentage": 54.2
   },
   "categories": [
     {
@@ -72,7 +72,7 @@
     {
       "name": "Phase 6: Integration",
       "total": 42,
-      "passed": 7,
+      "passed": 8,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -5424,20 +5424,20 @@
       "verification": {
         "type": "test",
         "criteria": "Preview fetches rendered HTML from sidecar's Odoo instance",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "6177234",
+        "verified_at": "2026-01-29T13:19:38.573303Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "odoo-sidecar"
       ],
       "file_path": "/lib/preview/hmr-preview-engine.ts",
-      "status": "in_progress",
+      "status": "passed",
       "status_reason": null,
       "started_at": "2026-01-29T13:17:08.799623Z",
-      "completed_at": null,
-      "commit_hash": null,
+      "completed_at": "2026-01-29T13:19:38.596356Z",
+      "commit_hash": "6177234",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -5464,9 +5464,9 @@
         "odoo-sidecar"
       ],
       "file_path": "/lib/agentic-core/tools/test-odoo.ts",
-      "status": "pending",
+      "status": "in_progress",
       "status_reason": null,
-      "started_at": null,
+      "started_at": "2026-01-29T13:19:47.701141Z",
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,

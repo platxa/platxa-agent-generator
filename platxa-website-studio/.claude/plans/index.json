@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T18:47:12.008465",
+  "updated_at": "2026-01-29T18:49:50.812567",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -1024,6 +1024,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T17:04:17.818504",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-174",
+      "title": "Implementation: Add module installation testing via sidecar",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-29T18:49:50.811671",
       "constitution_check": true
     },
     {
