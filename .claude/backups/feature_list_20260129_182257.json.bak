@@ -12,21 +12,21 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": null,
+  "current_feature_id": 157,
   "session": {
-    "count": 97,
-    "last_started_at": "2026-01-29T12:19:09.061103Z",
+    "count": 102,
+    "last_started_at": "2026-01-29T12:50:41.536363Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 97,
+    "passed": 101,
     "failed": 0,
     "skipped": 0,
-    "in_progress": 0,
+    "in_progress": 1,
     "paused": 0,
-    "pending": 106,
-    "completion_percentage": 47.8
+    "pending": 101,
+    "completion_percentage": 49.8
   },
   "categories": [
     {
@@ -64,7 +64,7 @@
     {
       "name": "Phase 5: Self-Debugging",
       "total": 37,
-      "passed": 19,
+      "passed": 23,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -4617,20 +4617,20 @@
       "verification": {
         "type": "test",
         "criteria": "Unknown errors sent to LLM with context; fix generated from response",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "d6398e7",
+        "verified_at": "2026-01-29T12:25:32.349580Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/auto-fixer.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T12:22:45.257084Z",
+      "completed_at": "2026-01-29T12:25:32.359408Z",
+      "commit_hash": "d6398e7",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4648,20 +4648,20 @@
       "verification": {
         "type": "test",
         "criteria": "Fix applied to temp copy; validated; only applied if validation passes",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "d35a142",
+        "verified_at": "2026-01-29T12:28:29.759649Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/auto-fixer.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T12:25:43.139587Z",
+      "completed_at": "2026-01-29T12:28:29.771516Z",
+      "commit_hash": "d35a142",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4772,20 +4772,20 @@
       "verification": {
         "type": "test",
         "criteria": "Same error retried up to 3 times with different approaches",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "1548f8c",
+        "verified_at": "2026-01-29T12:47:32.882019Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/auto-fixer.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T12:28:36.097802Z",
+      "completed_at": "2026-01-29T12:47:32.907125Z",
+      "commit_hash": "1548f8c",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4834,20 +4834,20 @@
       "verification": {
         "type": "manual",
         "criteria": "After 3 failed attempts, shows error to user with suggested manual fix",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "229edc9",
+        "verified_at": "2026-01-29T12:50:33.933673Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/auto-fixer.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T12:47:40.413285Z",
+      "completed_at": "2026-01-29T12:50:33.949021Z",
+      "commit_hash": "229edc9",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4936,9 +4936,9 @@
         "lovable-agent-mode"
       ],
       "file_path": "/components/sidebar/ErrorPanel.tsx",
-      "status": "pending",
+      "status": "in_progress",
       "status_reason": null,
-      "started_at": null,
+      "started_at": "2026-01-29T12:50:41.536347Z",
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,

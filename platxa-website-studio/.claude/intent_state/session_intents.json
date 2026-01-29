@@ -1,32 +1,32 @@
 {
-  "session_id": "e032e5944d93",
+  "session_id": "0ee2f00e0ec9",
   "stack": {
     "session": {
-      "id": "e032e5944d93-339",
-      "text": "[Phase 5: Self-Debugging] Feature #157: Create ErrorPanel component showing current issues in sidebar Criteria: Panel lists errors with severity icons; expandable details",
+      "id": "0ee2f00e0ec9-341",
+      "text": "[Phase 5: Self-Debugging] Feature #158: Implement error-to-source navigation (click to jump) Criteria: Click error → opens file in editor → highlights error line",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769691045.0887403,
-      "updated_at": 1769691045.0887406,
+      "created_at": 1769691189.475566,
+      "updated_at": 1769691189.4755661,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 157,
+        "feature_id": 158,
         "category": "Phase 5: Self-Debugging"
       },
       "keywords": []
     },
     "task": {
-      "id": "e032e5944d93-340",
-      "text": "Implement: Create ErrorPanel component showing current issues in sidebar",
+      "id": "0ee2f00e0ec9-342",
+      "text": "Implement: Implement error-to-source navigation (click to jump)",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769691045.0963356,
-      "updated_at": 1769691045.096336,
+      "created_at": 1769691189.4828286,
+      "updated_at": 1769691189.4828289,
       "completed_at": null,
-      "parent_id": "e032e5944d93-339",
+      "parent_id": "0ee2f00e0ec9-341",
       "metadata": {},
       "keywords": []
     },
@@ -4962,9 +4962,38 @@
       "parent_id": "e032e5944d93-339",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "0ee2f00e0ec9-341",
+      "text": "[Phase 5: Self-Debugging] Feature #158: Implement error-to-source navigation (click to jump) Criteria: Click error → opens file in editor → highlights error line",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769691189.475566,
+      "updated_at": 1769691189.4755661,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 158,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "0ee2f00e0ec9-342",
+      "text": "Implement: Implement error-to-source navigation (click to jump)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769691189.4828286,
+      "updated_at": 1769691189.4828289,
+      "completed_at": null,
+      "parent_id": "0ee2f00e0ec9-341",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 340,
+  "intent_counter": 342,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769691045.09634
+  "updated_at": 1769691189.482833
 }
