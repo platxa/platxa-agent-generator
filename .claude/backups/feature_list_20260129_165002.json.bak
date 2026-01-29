@@ -12,21 +12,21 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": 68,
+  "current_feature_id": 78,
   "session": {
-    "count": 69,
-    "last_started_at": "2026-01-29T11:09:25.631109Z",
+    "count": 74,
+    "last_started_at": "2026-01-29T11:19:08.926904Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 68,
+    "passed": 73,
     "failed": 0,
     "skipped": 0,
     "in_progress": 1,
     "paused": 0,
-    "pending": 134,
-    "completion_percentage": 33.5
+    "pending": 129,
+    "completion_percentage": 36.0
   },
   "categories": [
     {
@@ -48,7 +48,7 @@
     {
       "name": "Phase 3: HMR Preview",
       "total": 36,
-      "passed": 14,
+      "passed": 19,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -2168,20 +2168,20 @@
       "verification": {
         "type": "test",
         "criteria": "Clicking element reveals exact line numbers in source file",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "ec5235e",
+        "verified_at": "2026-01-29T11:11:25.038006Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/lib/preview/source-mapper.ts",
-      "status": "in_progress",
+      "status": "passed",
       "status_reason": null,
       "started_at": "2026-01-29T11:09:25.631092Z",
-      "completed_at": null,
-      "commit_hash": null,
+      "completed_at": "2026-01-29T11:11:25.051870Z",
+      "commit_hash": "ec5235e",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -2199,20 +2199,20 @@
       "verification": {
         "type": "test",
         "criteria": "getSourceLocation(elementId) returns { path, startLine, endLine }",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "747b5c4",
+        "verified_at": "2026-01-29T11:13:48.102323Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/lib/preview/source-mapper.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T11:11:30.965076Z",
+      "completed_at": "2026-01-29T11:13:48.128936Z",
+      "commit_hash": "747b5c4",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -2230,20 +2230,20 @@
       "verification": {
         "type": "manual",
         "criteria": "Preview click opens file in editor and highlights relevant lines",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "0ec378d",
+        "verified_at": "2026-01-29T11:16:42.517807Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/lib/preview/source-mapper.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T11:13:59.187607Z",
+      "completed_at": "2026-01-29T11:16:42.542937Z",
+      "commit_hash": "0ec378d",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -2323,20 +2323,20 @@
       "verification": {
         "type": "manual",
         "criteria": "Dashed outline appears on hover over snippet containers",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "4fa36f5",
+        "verified_at": "2026-01-29T11:17:58.104344Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/lib/preview/iframe-runtime.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T11:16:49.650538Z",
+      "completed_at": "2026-01-29T11:17:58.131288Z",
+      "commit_hash": "4fa36f5",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -2385,20 +2385,20 @@
       "verification": {
         "type": "test",
         "criteria": "Only one element selected at a time; new selection clears old",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "443263a",
+        "verified_at": "2026-01-29T11:19:02.514730Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/lib/preview/iframe-runtime.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T11:18:04.909720Z",
+      "completed_at": "2026-01-29T11:19:02.538173Z",
+      "commit_hash": "443263a",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -2487,9 +2487,9 @@
         "lovable-preview"
       ],
       "file_path": "/components/preview/FloatingEditor.tsx",
-      "status": "pending",
+      "status": "in_progress",
       "status_reason": null,
-      "started_at": null,
+      "started_at": "2026-01-29T11:19:08.926883Z",
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,

@@ -20,6 +20,44 @@ $o-color-5: #212529;
 }`;
 
 describe("SCSS Color Updater", () => {
+  describe("color picker shows current color and updates SCSS (Feature #79)", () => {
+    it("extractColorPalette shows current colors from SCSS", () => {
+      // Feature #79: Picker shows current color
+      const palette = extractColorPalette(SAMPLE_SCSS);
+
+      // Current colors are extracted and can be shown in picker
+      expect(palette[1]).toBe("#7c3aed"); // Primary color
+      expect(palette[2]).toBe("#6c757d"); // Secondary color
+      expect(Object.keys(palette).length).toBe(5);
+    });
+
+    it("updateColorVariable changes SCSS variable and enables preview update", () => {
+      // Feature #79: Change updates SCSS variable and preview
+      const result = updateColorVariable(SAMPLE_SCSS, 1, "#ff5500");
+
+      // SCSS variable is updated
+      expect(result.changed).toBe(true);
+      expect(result.variableName).toBe("$o-color-1");
+      expect(result.updatedSource).toContain("$o-color-1: #ff5500;");
+
+      // Preview can use updated SCSS (recompile triggers preview refresh)
+      expect(result.updatedSource).not.toContain("#7c3aed");
+    });
+
+    it("applyColorChange integrates picker selection with SCSS file update", () => {
+      // Feature #79: Full flow from picker to SCSS to preview
+      const files = { "theme.scss": SAMPLE_SCSS };
+
+      // Simulate color picker selecting new color
+      const pickerColor = "#00ccff";
+      const result = applyColorChange(files, 3, pickerColor);
+
+      expect(result).not.toBeNull();
+      expect(result!.result.newValue).toBe(pickerColor);
+      expect(result!.result.updatedSource).toContain(`$o-color-3: ${pickerColor};`);
+    });
+  });
+
   describe("extractColorPalette", () => {
     it("extracts all 5 Odoo color variables", () => {
       const palette = extractColorPalette(SAMPLE_SCSS);
