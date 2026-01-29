@@ -12,21 +12,21 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": 132,
+  "current_feature_id": 127,
   "session": {
-    "count": 30,
-    "last_started_at": "2026-01-29T08:43:34.492418Z",
+    "count": 29,
+    "last_started_at": "2026-01-29T08:35:06.949463Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 29,
+    "passed": 28,
     "failed": 0,
     "skipped": 0,
     "in_progress": 1,
     "paused": 0,
-    "pending": 173,
-    "completion_percentage": 14.3
+    "pending": 174,
+    "completion_percentage": 13.8
   },
   "categories": [
     {
@@ -64,7 +64,7 @@
     {
       "name": "Phase 5: Self-Debugging",
       "total": 37,
-      "passed": 3,
+      "passed": 2,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -3997,20 +3997,20 @@
       "verification": {
         "type": "test",
         "criteria": "Captures template name, line, directive type, error message",
-        "completed": true,
-        "evidence": "d3d70d9",
-        "verified_at": "2026-01-29T08:43:27.522668Z",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
         "requirements_addressed": []
       },
       "research_refs": [
         "odoo-qweb-docs"
       ],
       "file_path": "/lib/agentic-core/log-inspector.ts",
-      "status": "passed",
+      "status": "in_progress",
       "status_reason": null,
       "started_at": "2026-01-29T08:35:06.949447Z",
-      "completed_at": "2026-01-29T08:43:27.526420Z",
-      "commit_hash": "d3d70d9",
+      "completed_at": null,
+      "commit_hash": null,
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4161,9 +4161,9 @@
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/error-analyzer.ts",
-      "status": "in_progress",
+      "status": "pending",
       "status_reason": null,
-      "started_at": "2026-01-29T08:43:34.492401Z",
+      "started_at": null,
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,

@@ -296,3 +296,17 @@ export {
   type QWebDirective,
   type QWebErrorCode,
 } from "./qweb-validation";
+
+// Error analyzer for self-debugging
+export {
+  ErrorAnalyzer,
+  createErrorAnalyzer,
+  analyzeError,
+  analyzeErrorObject,
+  formatStructuredError,
+  isErrorMessage,
+  type StructuredError,
+  type ErrorType,
+  type ErrorContext,
+  type ErrorAnalyzerOptions,
+} from "./error-analyzer";

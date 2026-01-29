@@ -1,32 +1,32 @@
 {
-  "session_id": "160fa82d7692",
+  "session_id": "c42e7bf15cc3",
   "stack": {
     "session": {
-      "id": "160fa82d7692-195",
-      "text": "[Phase 5: Self-Debugging] Feature #127: Add QWeb validation error capture with template and directive info Criteria: Captures template name, line, directive type, error message",
+      "id": "c42e7bf15cc3-197",
+      "text": "[Phase 5: Self-Debugging] Feature #132: Create ErrorAnalyzer parsing error messages into structured format Criteria: Parses raw error into { type, file, line, message, context }",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769675723.8097098,
-      "updated_at": 1769675723.80971,
+      "created_at": 1769676232.4932191,
+      "updated_at": 1769676232.4932194,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 127,
+        "feature_id": 132,
         "category": "Phase 5: Self-Debugging"
       },
       "keywords": []
     },
     "task": {
-      "id": "160fa82d7692-196",
-      "text": "Implement: Add QWeb validation error capture with template and directive info",
+      "id": "c42e7bf15cc3-198",
+      "text": "Implement: Create ErrorAnalyzer parsing error messages into structured format",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769675723.8164594,
-      "updated_at": 1769675723.81646,
+      "created_at": 1769676232.4993095,
+      "updated_at": 1769676232.4993098,
       "completed_at": null,
-      "parent_id": "160fa82d7692-195",
+      "parent_id": "c42e7bf15cc3-197",
       "metadata": {},
       "keywords": []
     },
@@ -2874,9 +2874,38 @@
       "parent_id": "160fa82d7692-195",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "c42e7bf15cc3-197",
+      "text": "[Phase 5: Self-Debugging] Feature #132: Create ErrorAnalyzer parsing error messages into structured format Criteria: Parses raw error into { type, file, line, message, context }",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769676232.4932191,
+      "updated_at": 1769676232.4932194,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 132,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c42e7bf15cc3-198",
+      "text": "Implement: Create ErrorAnalyzer parsing error messages into structured format",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769676232.4993095,
+      "updated_at": 1769676232.4993098,
+      "completed_at": null,
+      "parent_id": "c42e7bf15cc3-197",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 196,
+  "intent_counter": 198,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769675723.8164659
+  "updated_at": 1769676232.499315
 }
