@@ -141,3 +141,17 @@ export {
   type PlanEngineConfig,
   type PlanEngineEvents,
 } from './plan-engine';
+
+export {
+  RequestAnalyzer,
+  createRequestAnalyzer,
+  analyzeRequest,
+  type IssueSeverity,
+  type IssueType,
+  type RequestIssue,
+  type VagueTermPattern,
+  type RequiredDetail,
+  type ConflictPattern,
+  type AnalysisResult,
+  type RequestAnalyzerConfig,
+} from './request-analyzer';
