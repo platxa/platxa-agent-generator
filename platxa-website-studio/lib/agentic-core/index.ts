@@ -155,3 +155,13 @@ export {
   type AnalysisResult,
   type RequestAnalyzerConfig,
 } from './request-analyzer';
+
+export {
+  ClarifyingQuestionGenerator,
+  createQuestionGenerator,
+  generateQuestions,
+  type ClarifyingQuestion,
+  type QuestionGenerationResult,
+  type QuestionTemplate,
+  type QuestionGeneratorConfig,
+} from './question-generator';
