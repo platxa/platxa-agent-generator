@@ -109,3 +109,13 @@ export {
   type HandoffResult,
   type HandoffOptions,
 } from './plan-handoff';
+
+export {
+  ContextManager,
+  createContextManager,
+  createContextManagerFrom,
+  type KnowledgeEntry,
+  type IterationSnapshot,
+  type ContextStats,
+  type ContextManagerOptions,
+} from './context-manager';
