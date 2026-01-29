@@ -1,32 +1,32 @@
 {
-  "session_id": "37daf599a20a",
+  "session_id": "c7ba11f54a56",
   "stack": {
     "session": {
-      "id": "37daf599a20a-313",
-      "text": "[Phase 5: Self-Debugging] Feature #128: Create Odoo sidecar log streaming for runtime errors Criteria: Streams Odoo server logs via WebSocket; filters relevant entries",
+      "id": "c7ba11f54a56-315",
+      "text": "[Phase 5: Self-Debugging] Feature #129: Implement preview iframe error capture (JS errors, failed loads) Criteria: Captures window.onerror and resource load failures in iframe",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769687255.5597084,
-      "updated_at": 1769687255.5597084,
+      "created_at": 1769687429.514627,
+      "updated_at": 1769687429.5146272,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 128,
+        "feature_id": 129,
         "category": "Phase 5: Self-Debugging"
       },
       "keywords": []
     },
     "task": {
-      "id": "37daf599a20a-314",
-      "text": "Implement: Create Odoo sidecar log streaming for runtime errors",
+      "id": "c7ba11f54a56-316",
+      "text": "Implement: Implement preview iframe error capture (JS errors, failed loads)",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769687255.5655224,
-      "updated_at": 1769687255.5655227,
+      "created_at": 1769687429.521306,
+      "updated_at": 1769687429.5213063,
       "completed_at": null,
-      "parent_id": "37daf599a20a-313",
+      "parent_id": "c7ba11f54a56-315",
       "metadata": {},
       "keywords": []
     },
@@ -4585,9 +4585,38 @@
       "parent_id": "37daf599a20a-313",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "c7ba11f54a56-315",
+      "text": "[Phase 5: Self-Debugging] Feature #129: Implement preview iframe error capture (JS errors, failed loads) Criteria: Captures window.onerror and resource load failures in iframe",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769687429.514627,
+      "updated_at": 1769687429.5146272,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 129,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c7ba11f54a56-316",
+      "text": "Implement: Implement preview iframe error capture (JS errors, failed loads)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769687429.521306,
+      "updated_at": 1769687429.5213063,
+      "completed_at": null,
+      "parent_id": "c7ba11f54a56-315",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 314,
+  "intent_counter": 316,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769687255.5655262
+  "updated_at": 1769687429.5213118
 }
