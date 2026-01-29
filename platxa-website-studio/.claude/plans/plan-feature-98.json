@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-98",
-  "title": "Implementation: Add internationalization support for generated themes with m...",
+  "title": "Implementation: Create file modification tracker listing changed files in re...",
   "context": {
     "spec_id": "feature-98",
     "feature_id": "98",
     "dependencies": [],
     "metadata": {
-      "category": "Developer Experience",
+      "category": "Phase 4: Enhanced UI",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Generated content uses Odoo _() translation markers; .po file template generated",
+        "type": "manual",
+        "criteria": "Collapsible list updates as files are modified; shows add/edit/delete status",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T15:28:55.114850"
+    "created_at": "2026-01-29T16:59:24.835009"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-98-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add internationalization support for generated themes with multi-language content structure",
+      "description": "Review feature requirements: Create file modification tracker listing changed files in real-time",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-98-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-98-3",
       "title": "Implement Feature",
-      "description": "Implement: Add internationalization support for generated themes with multi-language content structure",
+      "description": "Implement: Create file modification tracker listing changed files in real-time",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-98-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-98-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Generated content uses Odoo _() translation markers; .po file template generated', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Collapsible list updates as files are modified; shows add/edit/delete status', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Generated content uses Odoo _() translation markers; .po file template generated",
+        "type": "manual",
+        "criteria": "Collapsible list updates as files are modified; shows add/edit/delete status",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T15:28:55.114907",
+  "created_at": "2026-01-29T16:59:24.835050",
   "lsp_impact": {}
 }
