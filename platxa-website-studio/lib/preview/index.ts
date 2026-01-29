@@ -189,3 +189,17 @@ export {
   type SelectModeOptions,
   type SelectionCallback,
 } from "./select-mode";
+
+// ClickToSource for mapping iframe clicks to source locations
+export {
+  ClickToSourceController,
+  createClickToSource,
+  findSourceElement,
+  extractClickEvent,
+  checkModifierKey,
+  createClickToSourceBridge,
+  CLICK_TO_SOURCE_SCRIPT,
+  type ClickToSourceEvent,
+  type ClickToSourceOptions,
+  type ClickToSourceCallback,
+} from "./click-to-source";
