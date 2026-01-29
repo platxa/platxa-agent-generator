@@ -130,3 +130,14 @@ export {
   type ContextPrunerConfig,
   type PrunableItem,
 } from './context-pruner';
+
+export {
+  PlanEngine,
+  createPlanEngine,
+  type PlanQuery,
+  type Clarification,
+  type ExplorationResult,
+  type PlanEngineState,
+  type PlanEngineConfig,
+  type PlanEngineEvents,
+} from './plan-engine';
