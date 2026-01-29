@@ -649,5 +649,34 @@ describe('AgentEngine', () => {
         expect(result.summary).toContain('early');
       }
     });
+
+    it('should return all required fields: status, filesModified, qualityScore, iterations, summary, warnings', async () => {
+      // Verification: finalize() returns { status, filesModified, qualityScore, iterations, summary, warnings }
+      const engine = new AgentEngine();
+      const result = await engine.execute('Test goal');
+
+      // Verify all required fields exist
+      expect(result.status).toBeDefined();
+      expect(['success', 'warning', 'failure']).toContain(result.status);
+
+      expect(result.filesModified).toBeDefined();
+      expect(Array.isArray(result.filesModified)).toBe(true);
+
+      expect(result.qualityScore).toBeDefined();
+      expect(typeof result.qualityScore).toBe('number');
+      expect(result.qualityScore).toBeGreaterThanOrEqual(0);
+      expect(result.qualityScore).toBeLessThanOrEqual(100);
+
+      expect(result.iterations).toBeDefined();
+      expect(typeof result.iterations).toBe('number');
+      expect(result.iterations).toBeGreaterThanOrEqual(1);
+
+      expect(result.summary).toBeDefined();
+      expect(typeof result.summary).toBe('string');
+      expect(result.summary.length).toBeGreaterThan(0);
+
+      expect(result.warnings).toBeDefined();
+      expect(Array.isArray(result.warnings)).toBe(true);
+    });
   });
 });
