@@ -12,21 +12,21 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": 114,
+  "current_feature_id": 130,
   "session": {
-    "count": 86,
-    "last_started_at": "2026-01-29T11:40:05.444300Z",
+    "count": 91,
+    "last_started_at": "2026-01-29T11:52:38.104484Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 85,
+    "passed": 90,
     "failed": 0,
     "skipped": 0,
     "in_progress": 1,
     "paused": 0,
-    "pending": 117,
-    "completion_percentage": 41.9
+    "pending": 112,
+    "completion_percentage": 44.3
   },
   "categories": [
     {
@@ -56,7 +56,7 @@
     {
       "name": "Phase 4: Enhanced UI",
       "total": 30,
-      "passed": 8,
+      "passed": 11,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -64,7 +64,7 @@
     {
       "name": "Phase 5: Self-Debugging",
       "total": 37,
-      "passed": 10,
+      "passed": 12,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -3594,20 +3594,20 @@
       "verification": {
         "type": "manual",
         "criteria": "Markdown renders as it streams; supports headers, lists, code, links",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "7f3aa2c",
+        "verified_at": "2026-01-29T11:42:14.848373Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/components/chat/StreamingMessage.tsx",
-      "status": "in_progress",
+      "status": "passed",
       "status_reason": null,
       "started_at": "2026-01-29T11:40:05.444288Z",
-      "completed_at": null,
-      "commit_hash": null,
+      "completed_at": "2026-01-29T11:42:14.859164Z",
+      "commit_hash": "7f3aa2c",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -3625,20 +3625,20 @@
       "verification": {
         "type": "manual",
         "criteria": "Code blocks have language detection and appropriate highlighting",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "b19f94f",
+        "verified_at": "2026-01-29T11:45:03.958472Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/components/chat/CodeBlock.tsx",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T11:42:26.036039Z",
+      "completed_at": "2026-01-29T11:45:03.967916Z",
+      "commit_hash": "b19f94f",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -3780,20 +3780,20 @@
       "verification": {
         "type": "manual",
         "criteria": "Drag handles between panels resize them; constraints prevent collapse",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "a00bd68",
+        "verified_at": "2026-01-29T11:47:21.925575Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/components/layout/ResizablePanels.tsx",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T11:45:13.971935Z",
+      "completed_at": "2026-01-29T11:47:21.935870Z",
+      "commit_hash": "a00bd68",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4028,20 +4028,20 @@
       "verification": {
         "type": "test",
         "criteria": "Streams Odoo server logs via WebSocket; filters relevant entries",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "5155046",
+        "verified_at": "2026-01-29T11:50:19.949654Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "odoo-sidecar"
       ],
       "file_path": "/lib/agentic-core/log-inspector.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T11:47:32.877434Z",
+      "completed_at": "2026-01-29T11:50:19.962369Z",
+      "commit_hash": "5155046",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4059,20 +4059,20 @@
       "verification": {
         "type": "test",
         "criteria": "Captures window.onerror and resource load failures in iframe",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "603acb3",
+        "verified_at": "2026-01-29T11:52:30.214977Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/log-inspector.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T11:50:26.995729Z",
+      "completed_at": "2026-01-29T11:52:30.224667Z",
+      "commit_hash": "603acb3",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4099,9 +4099,9 @@
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/log-inspector.ts",
-      "status": "pending",
+      "status": "in_progress",
       "status_reason": null,
-      "started_at": null,
+      "started_at": "2026-01-29T11:52:38.104461Z",
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,
