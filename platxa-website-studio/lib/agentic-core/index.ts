@@ -97,3 +97,15 @@ export {
   type ContextBuilderOptions,
   type ContextBuildResult,
 } from './context-builder';
+
+export {
+  PlanHandoff,
+  createPlanHandoff,
+  handoffPlanToAgent,
+  handoffWithOptions,
+  type PlanOption,
+  type PlanApproval,
+  type PlanningContext,
+  type HandoffResult,
+  type HandoffOptions,
+} from './plan-handoff';

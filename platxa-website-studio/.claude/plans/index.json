@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T15:34:37.246702",
+  "updated_at": "2026-01-29T15:40:25.405456",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -392,6 +392,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-28T12:48:07.929038",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-31",
+      "title": "Implementation: Implement seamless handoff from plan mode approval to agent ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-29T15:40:25.404700",
       "constitution_check": true
     },
     {
