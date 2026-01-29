@@ -1,32 +1,32 @@
 {
-  "session_id": "c7ba11f54a56",
+  "session_id": "4f8000950d1f",
   "stack": {
     "session": {
-      "id": "c7ba11f54a56-315",
-      "text": "[Phase 5: Self-Debugging] Feature #129: Implement preview iframe error capture (JS errors, failed loads) Criteria: Captures window.onerror and resource load failures in iframe",
+      "id": "4f8000950d1f-317",
+      "text": "[Phase 5: Self-Debugging] Feature #130: Add build process error capture (missing files, import errors) Criteria: Captures file not found, import resolution, manifest errors",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769687429.514627,
-      "updated_at": 1769687429.5146272,
+      "created_at": 1769687560.6851864,
+      "updated_at": 1769687560.6851864,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 129,
+        "feature_id": 130,
         "category": "Phase 5: Self-Debugging"
       },
       "keywords": []
     },
     "task": {
-      "id": "c7ba11f54a56-316",
-      "text": "Implement: Implement preview iframe error capture (JS errors, failed loads)",
+      "id": "4f8000950d1f-318",
+      "text": "Implement: Add build process error capture (missing files, import errors)",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769687429.521306,
-      "updated_at": 1769687429.5213063,
+      "created_at": 1769687560.6905282,
+      "updated_at": 1769687560.6905282,
       "completed_at": null,
-      "parent_id": "c7ba11f54a56-315",
+      "parent_id": "4f8000950d1f-317",
       "metadata": {},
       "keywords": []
     },
@@ -4614,9 +4614,38 @@
       "parent_id": "c7ba11f54a56-315",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "4f8000950d1f-317",
+      "text": "[Phase 5: Self-Debugging] Feature #130: Add build process error capture (missing files, import errors) Criteria: Captures file not found, import resolution, manifest errors",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769687560.6851864,
+      "updated_at": 1769687560.6851864,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 130,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "4f8000950d1f-318",
+      "text": "Implement: Add build process error capture (missing files, import errors)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769687560.6905282,
+      "updated_at": 1769687560.6905282,
+      "completed_at": null,
+      "parent_id": "4f8000950d1f-317",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 316,
+  "intent_counter": 318,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769687429.5213118
+  "updated_at": 1769687560.6905308
 }
