@@ -83,6 +83,43 @@ describe("SelectModeController", () => {
       expect(controller.getState()).toBe("selecting");
     });
 
+    it("only one element selected at a time - new selection clears old (Feature #75)", () => {
+      controller.enable();
+
+      // Select first element
+      controller.select(mockElement);
+      expect(controller.getSelected()).toBe(mockElement);
+
+      // Select second element - should replace first
+      const secondElement: SelectedElement = {
+        snippetId: "snippet-1",
+        elementId: null,
+        tagName: "div",
+        className: "container",
+        bounds: new DOMRect(10, 20, 200, 300),
+        selector: '[data-snippet-id="snippet-1"]',
+      };
+      controller.select(secondElement);
+
+      // Only second element should be selected
+      expect(controller.getSelected()).toBe(secondElement);
+      expect(controller.getSelected()).not.toBe(mockElement);
+
+      // Select third element
+      const thirdElement: SelectedElement = {
+        snippetId: "snippet-2",
+        elementId: null,
+        tagName: "article",
+        className: "content",
+        bounds: new DOMRect(0, 0, 150, 150),
+        selector: '[data-snippet-id="snippet-2"]',
+      };
+      controller.select(thirdElement);
+
+      // Only third element should be selected
+      expect(controller.getSelected()).toBe(thirdElement);
+    });
+
     it("does not select when disabled", () => {
       controller.select(mockElement);
       expect(controller.getSelected()).toBeNull();

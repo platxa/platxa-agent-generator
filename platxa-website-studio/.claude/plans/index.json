@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T16:46:52.612512",
+  "updated_at": "2026-01-29T16:48:07.822506",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -132,10 +132,10 @@
     },
     {
       "id": "plan-feature-75",
-      "title": "Implementation: Implement context window management prioritizing relevant co...",
+      "title": "Implementation: Create selection state management supporting single element ...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T14:53:01.695466",
+      "created_at": "2026-01-29T16:48:07.821688",
       "constitution_check": true
     },
     {
