@@ -76,3 +76,15 @@ export {
   type InspectLogsOptions,
   type InspectLogsResult,
 } from './inspect-logs';
+
+export {
+  testOdooTool,
+  testOdooImpl,
+  isDockerAvailable,
+  checkDockerImages,
+  generateTestCommands,
+  type TestOdooOptions,
+  type TestOdooResult,
+  type TestStep,
+  type RenderCheck,
+} from './test-odoo';

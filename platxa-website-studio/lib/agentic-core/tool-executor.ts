@@ -29,6 +29,7 @@ import { validateQwebTool } from './tools/validate-qweb';
 import { compileScssTool } from './tools/compile-scss';
 import { previewRenderTool } from './tools/preview-render';
 import { inspectLogsTool } from './tools/inspect-logs';
+import { testOdooTool } from './tools/test-odoo';
 
 // ============================================================================
 // Types
@@ -170,30 +171,10 @@ async function inspectLogs(params: ToolParams): Promise<ToolResult> {
 
 /**
  * Default test_odoo tool
+ * Feature #26: Docker-based module installation and snippet testing
  */
 async function testOdoo(params: ToolParams): Promise<ToolResult> {
-  const startTime = Date.now();
-
-  try {
-    return {
-      success: true,
-      data: {
-        target: params.target,
-        passed: true,
-        tests: 0,
-        failures: 0,
-      },
-      duration: Date.now() - startTime,
-      toolName: 'test_odoo',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: (error as Error).message,
-      duration: Date.now() - startTime,
-      toolName: 'test_odoo',
-    };
-  }
+  return testOdooTool(params);
 }
 
 /**
