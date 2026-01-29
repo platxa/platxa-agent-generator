@@ -52,3 +52,12 @@ export {
   type CompileScssResult,
   type ScssError,
 } from './compile-scss';
+
+export {
+  previewRenderTool,
+  previewRenderImpl,
+  type PreviewRenderOptions,
+  type PreviewRenderResult,
+  type ViewportPreset,
+  type ViewportSize,
+} from './preview-render';

@@ -27,6 +27,7 @@ import { writeFileTool } from './tools/write-file';
 import { editFileTool } from './tools/edit-file';
 import { validateQwebTool } from './tools/validate-qweb';
 import { compileScssTool } from './tools/compile-scss';
+import { previewRenderTool } from './tools/preview-render';
 
 // ============================================================================
 // Types
@@ -152,29 +153,10 @@ async function compileScss(params: ToolParams): Promise<ToolResult> {
 
 /**
  * Default preview_render tool
+ * Feature #23: Returns screenshot URL and rendered HTML for specified page/viewport
  */
 async function previewRender(params: ToolParams): Promise<ToolResult> {
-  const startTime = Date.now();
-
-  try {
-    return {
-      success: true,
-      data: {
-        target: params.target,
-        html: '',
-        previewUrl: null,
-      },
-      duration: Date.now() - startTime,
-      toolName: 'preview_render',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: (error as Error).message,
-      duration: Date.now() - startTime,
-      toolName: 'preview_render',
-    };
-  }
+  return previewRenderTool(params);
 }
 
 /**
