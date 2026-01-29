@@ -598,6 +598,17 @@ export const ERROR_PATTERNS: ErrorPattern[] = [
     tags: ["syntax", "brace", "scss"],
   },
   {
+    id: "scss-unclosed-bracket",
+    name: "Unclosed square bracket",
+    category: "scss-syntax",
+    pattern: /unclosed.*bracket|missing.*\]|expected.*\]|unmatched.*\[/i,
+    description: "Square bracket is not closed in expression or selector",
+    fixTemplate: "Add the missing ] to close the bracket",
+    example: "Unclosed bracket in attribute selector [data-value",
+    severity: "error",
+    tags: ["syntax", "bracket", "scss"],
+  },
+  {
     id: "scss-invalid-selector",
     name: "Invalid CSS selector",
     category: "scss-syntax",

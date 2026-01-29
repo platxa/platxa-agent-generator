@@ -215,6 +215,12 @@ describe("ErrorPatternLibrary", () => {
       expect(match!.pattern.id).toBe("scss-missing-brace");
     });
 
+    it("matches unclosed bracket error", () => {
+      const match = matchErrorPattern("Unclosed bracket in attribute selector");
+      expect(match).not.toBeNull();
+      expect(match!.pattern.id).toBe("scss-unclosed-bracket");
+    });
+
     it("matches undefined mixin error", () => {
       const match = matchErrorPattern("Undefined mixin: button-style");
       expect(match).not.toBeNull();
