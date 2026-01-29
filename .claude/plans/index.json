@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "updated_at": "2026-01-28T17:45:49.726269",
+  "plans": [
+    {
+      "id": "plan-feature-2",
+      "title": "Implementation: Route generate_theme AI tool through frontend-agent Frontend...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-27T18:05:54.291221",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-3",
+      "title": "Implementation: Route generate_page AI tool through frontend-agent orchestra...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-27T18:16:12.143537",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-59",
+      "title": "Implementation: [Brand Overrides] brand.overrides field to override specific...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T14:35:01.972005",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-48",
+      "title": "Implementation: Implement click-to-select snippet mapping in preview iframe ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-27T18:54:41.212098",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-1",
+      "title": "Implementation: Create AgentEngine class with state management (goal, plan, ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T17:45:49.725676",
+      "constitution_check": true
+    }
+  ]
+}

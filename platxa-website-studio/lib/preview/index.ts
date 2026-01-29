@@ -134,3 +134,14 @@ export {
   type MessageHandler,
   type OdooHMRPreviewConfig,
 } from "./odoo-hmr-preview";
+
+// QWeb hot-swap with morphdom for DOM diffing
+export {
+  hotSwapHTML,
+  hotSwapIframeHTML,
+  createHotSwapper,
+  createIframeHotSwapper,
+  HTML_INJECT_SCRIPT,
+  type MorphdomOptions,
+  type HotSwapResult,
+} from "./qweb-hot-swap";

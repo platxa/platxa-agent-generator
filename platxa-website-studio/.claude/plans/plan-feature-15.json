@@ -1,0 +1,100 @@
+{
+  "id": "plan-feature-15",
+  "title": "Implementation: Create unified error pipeline from agent errors to chat UI w...",
+  "context": {
+    "spec_id": "feature-15",
+    "feature_id": "15",
+    "dependencies": [],
+    "metadata": {
+      "category": "System Integration",
+      "verification_criteria": {
+        "type": "test",
+        "criteria": "Agent errors display in chat with categorized type and suggested next action",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      }
+    },
+    "created_at": "2026-01-28T12:39:35.168490"
+  },
+  "phases": [
+    "research",
+    "design",
+    "implementation",
+    "testing"
+  ],
+  "tasks": [
+    {
+      "id": "task-15-1",
+      "title": "Analyze Requirements",
+      "description": "Review feature requirements: Create unified error pipeline from agent errors to chat UI with actionable suggestions",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 0,
+      "estimated_effort": "small",
+      "verification": "Requirements understood, approach identified",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-15-2",
+      "title": "Review Existing Code",
+      "description": "Search for related code patterns and potential duplicates",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 1,
+      "estimated_effort": "small",
+      "verification": "Existing patterns identified, no duplication",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-15-3",
+      "title": "Implement Feature",
+      "description": "Implement: Create unified error pipeline from agent errors to chat UI with actionable suggestions",
+      "step_type": "implement",
+      "status": "pending",
+      "order": 2,
+      "estimated_effort": "medium",
+      "verification": "Code complete and type-checked",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-15-4",
+      "title": "Add Tests",
+      "description": "Write unit tests for new functionality",
+      "step_type": "test",
+      "status": "pending",
+      "order": 3,
+      "estimated_effort": "small",
+      "verification": "Tests pass, coverage adequate",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-15-5",
+      "title": "Verify Acceptance Criteria",
+      "description": "Verify: {'type': 'test', 'criteria': 'Agent errors display in chat with categorized type and suggested next action', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "step_type": "test",
+      "status": "pending",
+      "order": 4,
+      "estimated_effort": "small",
+      "verification": {
+        "type": "test",
+        "criteria": "Agent errors display in chat with categorized type and suggested next action",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "files": [],
+      "completed_at": null
+    }
+  ],
+  "constitution_check": true,
+  "notes": "",
+  "created_at": "2026-01-28T12:39:35.168508",
+  "lsp_impact": {}
+}

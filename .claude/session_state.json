@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0",
+  "saved_at": "2026-01-29T11:38:40.213619",
+  "compression_state": {
+    "compression_count": 0,
+    "total_tokens_saved": 0,
+    "filter_count": 0,
+    "total_items_filtered": 0,
+    "saved_at": "2026-01-29T06:08:40.213548+00:00"
+  },
+  "rot_metrics": {
+    "rot_score": 0.0,
+    "stale_items": 0,
+    "obsolete_items": 0,
+    "total_items": 0
+  }
+}

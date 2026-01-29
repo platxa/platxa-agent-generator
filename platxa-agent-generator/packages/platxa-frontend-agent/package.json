@@ -1,0 +1,148 @@
+{
+  "name": "platxa-frontend-agent",
+  "version": "1.0.0",
+  "description": "AI-powered frontend design agent that generates beautiful, production-ready UI components",
+  "author": "DJ Patel — Founder & CEO, Platxa | https://platxa.com",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "sideEffects": [
+    "*.css"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs"
+    },
+    "./brand": {
+      "types": "./dist/lib/react-agent/brand/index.d.ts",
+      "import": "./dist/lib/react-agent/brand/index.mjs",
+      "require": "./dist/lib/react-agent/brand/index.cjs"
+    },
+    "./theme": {
+      "types": "./dist/lib/react-agent/theme/index.d.ts",
+      "import": "./dist/lib/react-agent/theme/index.mjs",
+      "require": "./dist/lib/react-agent/theme/index.cjs"
+    },
+    "./components": {
+      "types": "./dist/components/ui/index.d.ts",
+      "import": "./dist/components/ui/index.mjs",
+      "require": "./dist/components/ui/index.cjs"
+    },
+    "./styles": "./src/styles/globals.css",
+    "./cli/init": {
+      "types": "./dist/cli/init.d.ts",
+      "import": "./dist/cli/init.mjs",
+      "require": "./dist/cli/init.cjs"
+    },
+    "./cli/validate": {
+      "types": "./dist/cli/validate.d.ts",
+      "import": "./dist/cli/validate.mjs",
+      "require": "./dist/cli/validate.cjs"
+    },
+    "./cli/generate": {
+      "types": "./dist/cli/generate.d.ts",
+      "import": "./dist/cli/generate.mjs",
+      "require": "./dist/cli/generate.cjs"
+    }
+  },
+  "bin": {
+    "platxa-init": "./dist/cli/init.mjs",
+    "platxa-validate": "./dist/cli/validate.mjs",
+    "platxa-generate": "./dist/cli/generate.mjs",
+    "create-brand-kit": "./dist/cli/create-brand-kit.mjs",
+    "platxa-docs": "./dist/cli/docs.mjs"
+  },
+  "files": [
+    "dist",
+    "src/styles"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "lint:fix": "eslint src --ext .ts,.tsx --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+    "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:visual": "playwright test --update-snapshots",
+    "validate": "npm run typecheck && npm run lint && npm run test",
+    "validate:agents": "bash scripts/validate-agents.sh",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build",
+    "setup:tooling": "bash scripts/setup-tooling.sh",
+    "uninstall:tooling": "bash scripts/uninstall-tooling.sh",
+    "prepublishOnly": "npm run validate && npm run build"
+  },
+  "dependencies": {
+    "@radix-ui/react-accordion": "^1.2.2",
+    "@radix-ui/react-collapsible": "^1.1.2",
+    "@radix-ui/react-dialog": "^1.1.4",
+    "@radix-ui/react-dropdown-menu": "^2.1.4",
+    "@radix-ui/react-select": "^2.1.4",
+    "@radix-ui/react-slot": "^1.1.1",
+    "@radix-ui/react-tabs": "^1.1.2",
+    "@radix-ui/react-tooltip": "^1.1.6",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.15.0",
+    "lucide-react": "^0.469.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "tailwind-merge": "^2.6.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.2",
+    "@playwright/test": "^1.57.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "postcss": "^8.4.47",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.2.8",
+    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.19.1",
+    "@typescript-eslint/parser": "^8.19.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "@vitest/coverage-v8": "^2.1.8",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "eslint": "^9.17.0",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react": "^7.37.3",
+    "eslint-plugin-react-compiler": "19.1.0-rc.2",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "globals": "^17.0.0",
+    "jsdom": "^25.0.1",
+    "prettier": "^3.4.2",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.53.0",
+    "vite": "^6.0.7",
+    "vitest": "^2.1.8"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": false },
+    "react-dom": { "optional": false }
+  },
+  "optionalDependencies": {},
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

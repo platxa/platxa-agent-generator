@@ -1,0 +1,100 @@
+{
+  "id": "plan-feature-39",
+  "title": "Implementation: Create HTML semantic structure validator checking heading hi...",
+  "context": {
+    "spec_id": "feature-39",
+    "feature_id": "39",
+    "dependencies": [],
+    "metadata": {
+      "category": "Quality Assurance",
+      "verification_criteria": {
+        "type": "test",
+        "criteria": "Validates h1-h6 hierarchy (no skips), landmark roles (banner, main, contentinfo), and nav structure",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      }
+    },
+    "created_at": "2026-01-28T12:48:07.929016"
+  },
+  "phases": [
+    "research",
+    "design",
+    "implementation",
+    "testing"
+  ],
+  "tasks": [
+    {
+      "id": "task-39-1",
+      "title": "Analyze Requirements",
+      "description": "Review feature requirements: Create HTML semantic structure validator checking heading hierarchy and ARIA landmarks",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 0,
+      "estimated_effort": "small",
+      "verification": "Requirements understood, approach identified",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-39-2",
+      "title": "Review Existing Code",
+      "description": "Search for related code patterns and potential duplicates",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 1,
+      "estimated_effort": "small",
+      "verification": "Existing patterns identified, no duplication",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-39-3",
+      "title": "Implement Feature",
+      "description": "Implement: Create HTML semantic structure validator checking heading hierarchy and ARIA landmarks",
+      "step_type": "implement",
+      "status": "pending",
+      "order": 2,
+      "estimated_effort": "medium",
+      "verification": "Code complete and type-checked",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-39-4",
+      "title": "Add Tests",
+      "description": "Write unit tests for new functionality",
+      "step_type": "test",
+      "status": "pending",
+      "order": 3,
+      "estimated_effort": "small",
+      "verification": "Tests pass, coverage adequate",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-39-5",
+      "title": "Verify Acceptance Criteria",
+      "description": "Verify: {'type': 'test', 'criteria': 'Validates h1-h6 hierarchy (no skips), landmark roles (banner, main, contentinfo), and nav structure', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "step_type": "test",
+      "status": "pending",
+      "order": 4,
+      "estimated_effort": "small",
+      "verification": {
+        "type": "test",
+        "criteria": "Validates h1-h6 hierarchy (no skips), landmark roles (banner, main, contentinfo), and nav structure",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "files": [],
+      "completed_at": null
+    }
+  ],
+  "constitution_check": true,
+  "notes": "",
+  "created_at": "2026-01-28T12:48:07.929038",
+  "lsp_impact": {}
+}

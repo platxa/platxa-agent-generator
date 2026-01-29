@@ -1,0 +1,3346 @@
+{
+  "session_id": "9694e24dda93",
+  "stack": {
+    "session": {
+      "id": "6d009f3bca96-227",
+      "text": "[Build & Integration Features] Feature #145: [Stylelint Plugin] Stylelint rules for brand CSS Verification: CSS variable enforcement; Color format validation; Naming convention rules Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769072854.398666,
+      "updated_at": 1769072854.3986661,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 145,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    "task": {
+      "id": "6d009f3bca96-228",
+      "text": "Implement: [Stylelint Plugin] Stylelint rules for brand CSS Verification: CSS variable enforcement; Color format validation; Naming convention rules",
+      "level": "task",
+      "status": "completed",
+      "confidence": 1.0,
+      "created_at": 1769072854.4070687,
+      "updated_at": 1769073330.7577577,
+      "completed_at": 1769073330.7577574,
+      "parent_id": "6d009f3bca96-227",
+      "metadata": {},
+      "keywords": []
+    },
+    "step": null
+  },
+  "history": [
+    {
+      "id": "15694a01bac6-1",
+      "text": "[Testing] Feature #14: Implement test Generator agent that converts plans to Playwright/Cypress code Criteria: Generated tests execute successfully against target UI",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768900061.3223226,
+      "updated_at": 1768900061.3223236,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 14,
+        "category": "Testing"
+      },
+      "keywords": []
+    },
+    {
+      "id": "15694a01bac6-2",
+      "text": "Implement: Implement test Generator agent that converts plans to Playwright/Cypress code",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768900061.3609674,
+      "updated_at": 1768900061.3609679,
+      "completed_at": null,
+      "parent_id": "15694a01bac6-1",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "5553bb8409b1-3",
+      "text": "[Core System Features] Feature #3: [Brand Kit Interface] Standard interface (BrandKitExport) that all brand kits must implement Verification: TypeScript interface exported for brand kit authors; Clear documentation of required vs optional fields; Validation against interface at load time Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768915738.1774678,
+      "updated_at": 1768915738.1774678,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 3,
+        "category": "Core System Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "5553bb8409b1-4",
+      "text": "Implement: [Brand Kit Interface] Standard interface (BrandKitExport) that all brand kits must implement Verification: TypeScript interface exported for brand kit authors; Clear documentation of required vs optional fields; Validation against interface at load time",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768915738.1831033,
+      "updated_at": 1768915738.1831036,
+      "completed_at": null,
+      "parent_id": "5553bb8409b1-3",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "7ea7ae27e847-5",
+      "text": "[Core System Features] Feature #4: [Dynamic Import System] Lazy loading of brand kits using dynamic imports to avoid bundle bloat Verification: Brand kit code is NOT in main bundle; Dynamic import() used for brand kit loading; Separate chunk created for brand kit Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768916036.039299,
+      "updated_at": 1768916036.0392992,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 4,
+        "category": "Core System Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "7ea7ae27e847-6",
+      "text": "Implement: [Dynamic Import System] Lazy loading of brand kits using dynamic imports to avoid bundle bloat Verification: Brand kit code is NOT in main bundle; Dynamic import() used for brand kit loading; Separate chunk created for brand kit",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768916036.0448344,
+      "updated_at": 1768916036.0448344,
+      "completed_at": null,
+      "parent_id": "7ea7ae27e847-5",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "252f073bd31f-7",
+      "text": "[Core System Features] Feature #5: [Token Normalization] Adapter layer that normalizes brand kit tokens to internal format Verification: Brand kit tokens converted to internal DesignTokens format; Missing optional tokens filled with defaults; Consistent token structure regardless of source Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768916204.9101675,
+      "updated_at": 1768916204.9101677,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 5,
+        "category": "Core System Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "252f073bd31f-8",
+      "text": "Implement: [Token Normalization] Adapter layer that normalizes brand kit tokens to internal format Verification: Brand kit tokens converted to internal DesignTokens format; Missing optional tokens filled with defaults; Consistent token structure regardless of source",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768916204.91635,
+      "updated_at": 1768916204.9163501,
+      "completed_at": null,
+      "parent_id": "252f073bd31f-7",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "cc01576aefcd-9",
+      "text": "[Core System Features] Feature #6: [Backward Compatibility] Existing code using built-in theming works without modification Verification: No breaking changes to existing API; Existing theme presets continue to work; No required configuration changes for existing projects Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768916495.1133335,
+      "updated_at": 1768916495.1133335,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 6,
+        "category": "Core System Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "cc01576aefcd-10",
+      "text": "Implement: [Backward Compatibility] Existing code using built-in theming works without modification Verification: No breaking changes to existing API; Existing theme presets continue to work; No required configuration changes for existing projects",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768916495.1189525,
+      "updated_at": 1768916495.118953,
+      "completed_at": null,
+      "parent_id": "cc01576aefcd-9",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "5f40aa86449c-11",
+      "text": "[Configuration Features] Feature #7: [Config File Support] Support frontend.config.ts, .js, .json, .mjs formats Verification: TypeScript config file supported; JavaScript config file supported; JSON config file supported; ESM config file supported Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768916651.0019195,
+      "updated_at": 1768916651.0019197,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 7,
+        "category": "Configuration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "5f40aa86449c-12",
+      "text": "Implement: [Config File Support] Support frontend.config.ts, .js, .json, .mjs formats Verification: TypeScript config file supported; JavaScript config file supported; JSON config file supported; ESM config file supported",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768916651.0075862,
+      "updated_at": 1768916651.0075865,
+      "completed_at": null,
+      "parent_id": "5f40aa86449c-11",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "a3d7fe19a3e7-13",
+      "text": "[Configuration Features] Feature #8: [defineFrontendConfig Helper] Type-safe configuration helper function with IntelliSense Verification: Helper function exported; Full TypeScript types provided; IntelliSense works in all major editors Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768916957.6556482,
+      "updated_at": 1768916957.6556492,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 8,
+        "category": "Configuration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "a3d7fe19a3e7-14",
+      "text": "Implement: [defineFrontendConfig Helper] Type-safe configuration helper function with IntelliSense Verification: Helper function exported; Full TypeScript types provided; IntelliSense works in all major editors",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768916957.6614318,
+      "updated_at": 1768916957.661432,
+      "completed_at": null,
+      "parent_id": "a3d7fe19a3e7-13",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "01f9af59aca4-15",
+      "text": "[Configuration Features] Feature #9: [Brand Package Specification] brand.package field to specify brand kit package name Verification: brand.package accepts npm package names; Package name validated at build time; Clear error if package not found Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768917078.8221443,
+      "updated_at": 1768917078.8221445,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 9,
+        "category": "Configuration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "01f9af59aca4-16",
+      "text": "Implement: [Brand Package Specification] brand.package field to specify brand kit package name Verification: brand.package accepts npm package names; Package name validated at build time; Clear error if package not found",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768917078.8694935,
+      "updated_at": 1768917078.8694942,
+      "completed_at": null,
+      "parent_id": "01f9af59aca4-15",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "df00ee41ec1c-17",
+      "text": "[Configuration Features] Feature #10: [Theme Preset Selection] theme.preset field to select built-in presets (default, blue, green, violet) Verification: All 4 built-in presets selectable; Type-safe preset names; Invalid preset name shows error Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768917235.192543,
+      "updated_at": 1768917235.1925433,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 10,
+        "category": "Configuration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "df00ee41ec1c-18",
+      "text": "Implement: [Theme Preset Selection] theme.preset field to select built-in presets (default, blue, green, violet) Verification: All 4 built-in presets selectable; Type-safe preset names; Invalid preset name shows error",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768917235.200387,
+      "updated_at": 1768917235.2003875,
+      "completed_at": null,
+      "parent_id": "df00ee41ec1c-17",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "19e4b82a4886-19",
+      "text": "[Configuration Features] Feature #11: [Custom Theme Options] theme.custom field for creating themes from hue/saturation Verification: Custom hue value accepted (0-360); Saturation level accepted (low/medium/high); OKLCH toggle supported Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768975231.0463712,
+      "updated_at": 1768975231.0463717,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 11,
+        "category": "Configuration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "19e4b82a4886-20",
+      "text": "Implement: [Custom Theme Options] theme.custom field for creating themes from hue/saturation Verification: Custom hue value accepted (0-360); Saturation level accepted (low/medium/high); OKLCH toggle supported",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768975231.0953217,
+      "updated_at": 1768975231.095322,
+      "completed_at": null,
+      "parent_id": "19e4b82a4886-19",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "edb3db64555e-21",
+      "text": "[Configuration Features] Feature #12: [Zero-Config Default] Works out-of-box with no config file (uses default preset) Verification: No config file required to start; Default preset applied automatically; No errors when config file missing Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768975395.236869,
+      "updated_at": 1768975395.2368693,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 12,
+        "category": "Configuration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "edb3db64555e-22",
+      "text": "Implement: [Zero-Config Default] Works out-of-box with no config file (uses default preset) Verification: No config file required to start; Default preset applied automatically; No errors when config file missing",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768975395.2433197,
+      "updated_at": 1768975395.2433202,
+      "completed_at": null,
+      "parent_id": "edb3db64555e-21",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "7ca3d36ce768-23",
+      "text": "[Brand Kit Interface Features] Feature #13: [Meta Information] Brand kit must export meta with name, version, description Verification: meta.name required; meta.version required (semver); meta.description optional Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768975723.1432824,
+      "updated_at": 1768975723.1432827,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 13,
+        "category": "Brand Kit Interface Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "7ca3d36ce768-24",
+      "text": "Implement: [Meta Information] Brand kit must export meta with name, version, description Verification: meta.name required; meta.version required (semver); meta.description optional",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768975723.151304,
+      "updated_at": 1768975723.1513042,
+      "completed_at": null,
+      "parent_id": "7ca3d36ce768-23",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "c10fba87ace4-25",
+      "text": "[Brand Kit Interface Features] Feature #14: [Color Primitives] Brand kit must export 12-step color scales (primary, accent, neutral) Verification: 12-step scale for primary color; 12-step scale for accent color; 12-step scale for neutral color Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768975790.1450202,
+      "updated_at": 1768975790.1450205,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 14,
+        "category": "Brand Kit Interface Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c10fba87ace4-26",
+      "text": "Implement: [Color Primitives] Brand kit must export 12-step color scales (primary, accent, neutral) Verification: 12-step scale for primary color; 12-step scale for accent color; 12-step scale for neutral color",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768975790.1511722,
+      "updated_at": 1768975790.1511726,
+      "completed_at": null,
+      "parent_id": "c10fba87ace4-25",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "cf8665127d15-27",
+      "text": "[Brand Kit Interface Features] Feature #15: [Semantic Colors] Brand kit must export semantic color mappings (background, foreground, etc.) Verification: background, foreground defined; primary, primaryForeground defined; All shadcn/ui semantic colors supported Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768975849.6073706,
+      "updated_at": 1768975849.6073706,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 15,
+        "category": "Brand Kit Interface Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "cf8665127d15-28",
+      "text": "Implement: [Semantic Colors] Brand kit must export semantic color mappings (background, foreground, etc.) Verification: background, foreground defined; primary, primaryForeground defined; All shadcn/ui semantic colors supported",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768975849.613487,
+      "updated_at": 1768975849.6134877,
+      "completed_at": null,
+      "parent_id": "cf8665127d15-27",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "30e57cfce0a6-29",
+      "text": "[Brand Kit Interface Features] Feature #16: [Light Theme Colors] Brand kit must export light mode semantic colors Verification: Complete light theme colors; Colors optimized for light backgrounds; Contrast ratios meet WCAG AA Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976025.502587,
+      "updated_at": 1768976025.5025873,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 16,
+        "category": "Brand Kit Interface Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "30e57cfce0a6-30",
+      "text": "Implement: [Light Theme Colors] Brand kit must export light mode semantic colors Verification: Complete light theme colors; Colors optimized for light backgrounds; Contrast ratios meet WCAG AA",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976025.5104702,
+      "updated_at": 1768976025.5104706,
+      "completed_at": null,
+      "parent_id": "30e57cfce0a6-29",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "2527b4d8417a-31",
+      "text": "[Brand Kit Interface Features] Feature #17: [Dark Theme Colors] Brand kit must export dark mode semantic colors Verification: Complete dark theme colors; Colors optimized for dark backgrounds; Contrast ratios meet WCAG AA Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976102.0729246,
+      "updated_at": 1768976102.0729249,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 17,
+        "category": "Brand Kit Interface Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "2527b4d8417a-32",
+      "text": "Implement: [Dark Theme Colors] Brand kit must export dark mode semantic colors Verification: Complete dark theme colors; Colors optimized for dark backgrounds; Contrast ratios meet WCAG AA",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976102.1273375,
+      "updated_at": 1768976102.1273377,
+      "completed_at": null,
+      "parent_id": "2527b4d8417a-31",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "9528f76fc22d-33",
+      "text": "[Brand Kit Interface Features] Feature #18: [Typography Scale] Brand kit must export typography (font families, sizes, weights, line heights) Verification: Font families (sans, mono, optional display); Font sizes (xs to 9xl); Font weights (100-900); Line heights for each size Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976151.8547266,
+      "updated_at": 1768976151.854727,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 18,
+        "category": "Brand Kit Interface Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "9528f76fc22d-34",
+      "text": "Implement: [Typography Scale] Brand kit must export typography (font families, sizes, weights, line heights) Verification: Font families (sans, mono, optional display); Font sizes (xs to 9xl); Font weights (100-900); Line heights for each size",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976151.8607316,
+      "updated_at": 1768976151.860732,
+      "completed_at": null,
+      "parent_id": "9528f76fc22d-33",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "486e996112c0-35",
+      "text": "[Brand Kit Interface Features] Feature #19: [Spacing Scale] Brand kit must export spacing scale (8px grid or custom) Verification: Complete spacing scale (0-96); Consistent grid system; Rem-based values Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976227.6436927,
+      "updated_at": 1768976227.6436927,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 19,
+        "category": "Brand Kit Interface Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "486e996112c0-36",
+      "text": "Implement: [Spacing Scale] Brand kit must export spacing scale (8px grid or custom) Verification: Complete spacing scale (0-96); Consistent grid system; Rem-based values",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976227.6492178,
+      "updated_at": 1768976227.649218,
+      "completed_at": null,
+      "parent_id": "486e996112c0-35",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "2a81f7366904-37",
+      "text": "[Brand Kit Interface Features] Feature #20: [Radius Scale] Brand kit must export border radius scale Verification: Radius values (none to full); Consistent naming (sm, md, lg, etc.); Default radius specified Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976293.8393042,
+      "updated_at": 1768976293.8393044,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 20,
+        "category": "Brand Kit Interface Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "2a81f7366904-38",
+      "text": "Implement: [Radius Scale] Brand kit must export border radius scale Verification: Radius values (none to full); Consistent naming (sm, md, lg, etc.); Default radius specified",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976293.8468583,
+      "updated_at": 1768976293.8468583,
+      "completed_at": null,
+      "parent_id": "2a81f7366904-37",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "af132f9a3961-39",
+      "text": "[Brand Kit Interface Features] Feature #21: [Shadow Scale] Brand kit must export shadow/elevation scale Verification: Shadow levels (sm to 2xl); Inner shadow supported; None option available Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976336.432358,
+      "updated_at": 1768976336.432358,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 21,
+        "category": "Brand Kit Interface Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "af132f9a3961-40",
+      "text": "Implement: [Shadow Scale] Brand kit must export shadow/elevation scale Verification: Shadow levels (sm to 2xl); Inner shadow supported; None option available",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976336.437978,
+      "updated_at": 1768976336.4379783,
+      "completed_at": null,
+      "parent_id": "af132f9a3961-39",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "495346d2bb01-41",
+      "text": "[Loading & Resolution Features] Feature #22: [NPM Package Loading] Load brand kit from NPM package name (e.g., @platxa/brand-kit) Verification: Standard npm package names work; Scoped packages work (@org/name); Package must be installed Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976378.038133,
+      "updated_at": 1768976378.0381331,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 22,
+        "category": "Loading & Resolution Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "495346d2bb01-42",
+      "text": "Implement: [NPM Package Loading] Load brand kit from NPM package name (e.g., @platxa/brand-kit) Verification: Standard npm package names work; Scoped packages work (@org/name); Package must be installed",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976378.0437622,
+      "updated_at": 1768976378.0437622,
+      "completed_at": null,
+      "parent_id": "495346d2bb01-41",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "0fb77c06f650-43",
+      "text": "[Loading & Resolution Features] Feature #23: [Build-Time Resolution] Resolve brand kit at build time (Vite/Webpack plugin) Verification: Brand kit resolved during build; CSS generated at build time; No runtime resolution overhead Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976415.953482,
+      "updated_at": 1768976415.9534822,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 23,
+        "category": "Loading & Resolution Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "0fb77c06f650-44",
+      "text": "Implement: [Build-Time Resolution] Resolve brand kit at build time (Vite/Webpack plugin) Verification: Brand kit resolved during build; CSS generated at build time; No runtime resolution overhead",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976415.9595659,
+      "updated_at": 1768976415.9595659,
+      "completed_at": null,
+      "parent_id": "0fb77c06f650-43",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "f633b65ed355-45",
+      "text": "[Loading & Resolution Features] Feature #24: [Error Recovery] Graceful error handling when brand kit fails to load Verification: App doesn't crash on load failure; Fallback to default theme; Error logged with details Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976469.1652732,
+      "updated_at": 1768976469.1652734,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 24,
+        "category": "Loading & Resolution Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "f633b65ed355-46",
+      "text": "Implement: [Error Recovery] Graceful error handling when brand kit fails to load Verification: App doesn't crash on load failure; Fallback to default theme; Error logged with details",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976469.1709902,
+      "updated_at": 1768976469.1709907,
+      "completed_at": null,
+      "parent_id": "f633b65ed355-45",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "988b73ef0d44-47",
+      "text": "[Theme Integration Features] Feature #25: [CSS Variable Generation] Generate CSS custom properties from brand tokens Verification: All semantic colors as CSS vars; Spacing as CSS vars; Typography as CSS vars Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976505.807455,
+      "updated_at": 1768976505.8074553,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 25,
+        "category": "Theme Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "988b73ef0d44-48",
+      "text": "Implement: [CSS Variable Generation] Generate CSS custom properties from brand tokens Verification: All semantic colors as CSS vars; Spacing as CSS vars; Typography as CSS vars",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976505.8127081,
+      "updated_at": 1768976505.8127084,
+      "completed_at": null,
+      "parent_id": "988b73ef0d44-47",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "5fdff27c61f3-49",
+      "text": "[Theme Integration Features] Feature #26: [Tailwind @theme Generation] Generate Tailwind v4 @theme directive from brand tokens Verification: @theme block generated; Colors mapped to Tailwind format; Compatible with Tailwind v4 Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976540.111287,
+      "updated_at": 1768976540.1112874,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 26,
+        "category": "Theme Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "5fdff27c61f3-50",
+      "text": "Implement: [Tailwind @theme Generation] Generate Tailwind v4 @theme directive from brand tokens Verification: @theme block generated; Colors mapped to Tailwind format; Compatible with Tailwind v4",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976540.119832,
+      "updated_at": 1768976540.1198323,
+      "completed_at": null,
+      "parent_id": "5fdff27c61f3-49",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "17d690fac3eb-51",
+      "text": "[Theme Integration Features] Feature #27: [Dark Mode CSS Generation] Generate dark mode CSS overrides from brand themes Verification: .dark selector generated; All colors overridden for dark mode; Media query fallback available Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976574.8784935,
+      "updated_at": 1768976574.8784938,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 27,
+        "category": "Theme Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "17d690fac3eb-52",
+      "text": "Implement: [Dark Mode CSS Generation] Generate dark mode CSS overrides from brand themes Verification: .dark selector generated; All colors overridden for dark mode; Media query fallback available",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976574.9307053,
+      "updated_at": 1768976574.9307055,
+      "completed_at": null,
+      "parent_id": "17d690fac3eb-51",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "9d3d24da3e35-53",
+      "text": "[Theme Integration Features] Feature #28: [Theme Switching Script] Generate JavaScript for theme switching (light/dark/system) Verification: Light/dark/system modes supported; Preference persisted to localStorage; System preference respected Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976603.907027,
+      "updated_at": 1768976603.9070272,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 28,
+        "category": "Theme Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "9d3d24da3e35-54",
+      "text": "Implement: [Theme Switching Script] Generate JavaScript for theme switching (light/dark/system) Verification: Light/dark/system modes supported; Preference persisted to localStorage; System preference respected",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768976603.9137895,
+      "updated_at": 1768976603.9137897,
+      "completed_at": null,
+      "parent_id": "9d3d24da3e35-53",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "d4de30577753-55",
+      "text": "[Theme Integration Features] Feature #29: [OKLCH Color Support] Support OKLCH color space in brand tokens Verification: OKLCH values parsed correctly; OKLCH output generated; Fallback for older browsers Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977029.5097382,
+      "updated_at": 1768977029.5097384,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 29,
+        "category": "Theme Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "d4de30577753-56",
+      "text": "Implement: [OKLCH Color Support] Support OKLCH color space in brand tokens Verification: OKLCH values parsed correctly; OKLCH output generated; Fallback for older browsers",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977029.5498698,
+      "updated_at": 1768977029.5498705,
+      "completed_at": null,
+      "parent_id": "d4de30577753-55",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "7cb117926bb9-57",
+      "text": "[Theme Integration Features] Feature #30: [HSL Color Support] Support HSL color format (backward compatibility) Verification: HSL values parsed correctly; HSL output supported; Interop with OKLCH Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977077.921349,
+      "updated_at": 1768977077.9213493,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 30,
+        "category": "Theme Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "7cb117926bb9-58",
+      "text": "Implement: [HSL Color Support] Support HSL color format (backward compatibility) Verification: HSL values parsed correctly; HSL output supported; Interop with OKLCH",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977077.9290621,
+      "updated_at": 1768977077.9290633,
+      "completed_at": null,
+      "parent_id": "7cb117926bb9-57",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "a7819c507b9e-59",
+      "text": "[Developer Experience Features] Feature #31: [TypeScript Types] Full TypeScript support with exported types Verification: All interfaces exported; Strict mode compatible; No implicit any Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977116.6512473,
+      "updated_at": 1768977116.6512475,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 31,
+        "category": "Developer Experience Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "a7819c507b9e-60",
+      "text": "Implement: [TypeScript Types] Full TypeScript support with exported types Verification: All interfaces exported; Strict mode compatible; No implicit any",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977116.6588027,
+      "updated_at": 1768977116.658803,
+      "completed_at": null,
+      "parent_id": "a7819c507b9e-59",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "6cb03c839010-61",
+      "text": "[Developer Experience Features] Feature #32: [IntelliSense Support] Config file IntelliSense in VSCode/editors Verification: Autocomplete for config fields; Type hints shown; Validation errors inline Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977155.6955879,
+      "updated_at": 1768977155.695588,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 32,
+        "category": "Developer Experience Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "6cb03c839010-62",
+      "text": "Implement: [IntelliSense Support] Config file IntelliSense in VSCode/editors Verification: Autocomplete for config fields; Type hints shown; Validation errors inline",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977155.7040393,
+      "updated_at": 1768977155.7040396,
+      "completed_at": null,
+      "parent_id": "6cb03c839010-61",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "43d5712ed64d-63",
+      "text": "[Developer Experience Features] Feature #33: [useBrand Hook] React hook to access current brand information Verification: Returns brand name, version; Returns whether brand is loaded; Updates on brand change Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977190.6203606,
+      "updated_at": 1768977190.6203609,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 33,
+        "category": "Developer Experience Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "43d5712ed64d-64",
+      "text": "Implement: [useBrand Hook] React hook to access current brand information Verification: Returns brand name, version; Returns whether brand is loaded; Updates on brand change",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977190.6284575,
+      "updated_at": 1768977190.6284578,
+      "completed_at": null,
+      "parent_id": "43d5712ed64d-63",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "f7ecd0c9b291-65",
+      "text": "[Developer Experience Features] Feature #34: [useTheme Hook] React hook to access current theme tokens Verification: Returns all theme tokens; Returns current mode (light/dark); setMode function available Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977448.7487228,
+      "updated_at": 1768977448.748723,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 34,
+        "category": "Developer Experience Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "f7ecd0c9b291-66",
+      "text": "Implement: [useTheme Hook] React hook to access current theme tokens Verification: Returns all theme tokens; Returns current mode (light/dark); setMode function available",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977448.7675006,
+      "updated_at": 1768977448.767501,
+      "completed_at": null,
+      "parent_id": "f7ecd0c9b291-65",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "7ebe5b79ab7f-67",
+      "text": "[Developer Experience Features] Feature #35: [Error Messages] Clear, actionable error messages for misconfigurations Verification: Specific error messages; Suggestions for fixing; Link to documentation Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977692.7681472,
+      "updated_at": 1768977692.7681475,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 35,
+        "category": "Developer Experience Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "7ebe5b79ab7f-68",
+      "text": "Implement: [Error Messages] Clear, actionable error messages for misconfigurations Verification: Specific error messages; Suggestions for fixing; Link to documentation",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977692.8048532,
+      "updated_at": 1768977692.8048534,
+      "completed_at": null,
+      "parent_id": "7ebe5b79ab7f-67",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "f96856615518-69",
+      "text": "[Validation & Security Features] Feature #36: [Schema Validation] Validate brand kit exports against JSON schema Verification: JSON schema defined; Validation at load time; Clear error for invalid Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977769.9775534,
+      "updated_at": 1768977769.9775534,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 36,
+        "category": "Validation & Security Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "f96856615518-70",
+      "text": "Implement: [Schema Validation] Validate brand kit exports against JSON schema Verification: JSON schema defined; Validation at load time; Clear error for invalid",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977769.982973,
+      "updated_at": 1768977769.9829733,
+      "completed_at": null,
+      "parent_id": "f96856615518-69",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "2ca5e4c4c82e-71",
+      "text": "[Validation & Security Features] Feature #37: [Required Fields Check] Verify all required fields are present in brand kit Verification: Required fields list defined; Missing fields reported; Error before theme generation Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977820.027264,
+      "updated_at": 1768977820.027264,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 37,
+        "category": "Validation & Security Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "2ca5e4c4c82e-72",
+      "text": "Implement: [Required Fields Check] Verify all required fields are present in brand kit Verification: Required fields list defined; Missing fields reported; Error before theme generation",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977820.0321531,
+      "updated_at": 1768977820.0321531,
+      "completed_at": null,
+      "parent_id": "2ca5e4c4c82e-71",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "1e858e61fc3b-73",
+      "text": "[Validation & Security Features] Feature #38: [Type Validation] Runtime type checking of brand kit exports Verification: Types checked at runtime; Type errors reported; Helpful type error messages Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977870.9323308,
+      "updated_at": 1768977870.932331,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 38,
+        "category": "Validation & Security Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "1e858e61fc3b-74",
+      "text": "Implement: [Type Validation] Runtime type checking of brand kit exports Verification: Types checked at runtime; Type errors reported; Helpful type error messages",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977870.9375331,
+      "updated_at": 1768977870.9375334,
+      "completed_at": null,
+      "parent_id": "1e858e61fc3b-73",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "5a6f0d8249ad-75",
+      "text": "[Validation & Security Features] Feature #39: [CSS Injection Prevention] Sanitize brand kit CSS to prevent XSS Verification: CSS values sanitized; Script injection blocked; URL values validated Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977918.6113677,
+      "updated_at": 1768977918.6113677,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 39,
+        "category": "Validation & Security Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "5a6f0d8249ad-76",
+      "text": "Implement: [CSS Injection Prevention] Sanitize brand kit CSS to prevent XSS Verification: CSS values sanitized; Script injection blocked; URL values validated",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768977918.6165462,
+      "updated_at": 1768977918.6165464,
+      "completed_at": null,
+      "parent_id": "5a6f0d8249ad-75",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "54ce96bd6d08-77",
+      "text": "[Performance Features] Feature #40: [Lazy Loading] Load brand kit only when needed (dynamic import) Verification: Import only when specified; No eager loading; Chunk separated Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978132.2254918,
+      "updated_at": 1768978132.2254918,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 40,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "54ce96bd6d08-78",
+      "text": "Implement: [Lazy Loading] Load brand kit only when needed (dynamic import) Verification: Import only when specified; No eager loading; Chunk separated",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978132.2306983,
+      "updated_at": 1768978132.2306983,
+      "completed_at": null,
+      "parent_id": "54ce96bd6d08-77",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "f82716385ec9-79",
+      "text": "[Performance Features] Feature #41: [Code Splitting] Separate brand kit code from main bundle Verification: Brand kit in separate chunk; Main bundle unchanged; Async loading supported Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978194.807252,
+      "updated_at": 1768978194.807252,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 41,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "f82716385ec9-80",
+      "text": "Implement: [Code Splitting] Separate brand kit code from main bundle Verification: Brand kit in separate chunk; Main bundle unchanged; Async loading supported",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978194.8135364,
+      "updated_at": 1768978194.8135364,
+      "completed_at": null,
+      "parent_id": "f82716385ec9-79",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "54b384d97835-81",
+      "text": "[Performance Features] Feature #42: [Zero Runtime Overhead] No runtime overhead when using built-in theming Verification: No brand loading code in default path; Same performance as v0; No additional JS for default Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978331.4052792,
+      "updated_at": 1768978331.4052794,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 42,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "54b384d97835-82",
+      "text": "Implement: [Zero Runtime Overhead] No runtime overhead when using built-in theming Verification: No brand loading code in default path; Same performance as v0; No additional JS for default",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978331.440273,
+      "updated_at": 1768978331.4402735,
+      "completed_at": null,
+      "parent_id": "54b384d97835-81",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "9635e9322eaf-83",
+      "text": "[Performance Features] Feature #43: [Build-Time Processing] Process brand tokens at build time, not runtime Verification: CSS generated at build; No runtime token processing; Static CSS output Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978413.130486,
+      "updated_at": 1768978413.130486,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 43,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "9635e9322eaf-84",
+      "text": "Implement: [Build-Time Processing] Process brand tokens at build time, not runtime Verification: CSS generated at build; No runtime token processing; Static CSS output",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978413.1405764,
+      "updated_at": 1768978413.1405768,
+      "completed_at": null,
+      "parent_id": "9635e9322eaf-83",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "ed44330672f9-85",
+      "text": "[Performance Features] Feature #44: [CSS Variable Performance] Use CSS variables for instant theme switching Verification: All tokens as CSS vars; Mode switch is CSS-only; No JS for color changes Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978612.2563424,
+      "updated_at": 1768978612.2563424,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 44,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "ed44330672f9-86",
+      "text": "Implement: [CSS Variable Performance] Use CSS variables for instant theme switching Verification: All tokens as CSS vars; Mode switch is CSS-only; No JS for color changes",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978612.2622414,
+      "updated_at": 1768978612.2622416,
+      "completed_at": null,
+      "parent_id": "ed44330672f9-85",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "19d9806192a3-87",
+      "text": "[Extensibility Features] Feature #45: [Custom Brand Kit Creation] Documentation and tools to create custom brand kits Verification: Step-by-step guide; Template provided; Example brand kit Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978687.8881845,
+      "updated_at": 1768978687.8881848,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 45,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "19d9806192a3-88",
+      "text": "Implement: [Custom Brand Kit Creation] Documentation and tools to create custom brand kits Verification: Step-by-step guide; Template provided; Example brand kit",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978687.897294,
+      "updated_at": 1768978687.8972945,
+      "completed_at": null,
+      "parent_id": "19d9806192a3-87",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "1b3ab5a7c606-89",
+      "text": "[Extensibility Features] Feature #46: [Brand Kit Template] Starter template for creating new brand kits Verification: Package.json template; TypeScript types included; Example tokens included Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978836.6608982,
+      "updated_at": 1768978836.6608984,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 46,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "1b3ab5a7c606-90",
+      "text": "Implement: [Brand Kit Template] Starter template for creating new brand kits Verification: Package.json template; TypeScript types included; Example tokens included",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978836.7050142,
+      "updated_at": 1768978836.7050145,
+      "completed_at": null,
+      "parent_id": "1b3ab5a7c606-89",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "27cec8a87ad2-91",
+      "text": "[Build & Integration Features] Feature #47: [Vite Plugin] Vite plugin for brand kit resolution and CSS injection Verification: Config file auto-loaded; CSS injected at build; HMR supported Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978995.3341513,
+      "updated_at": 1768978995.3341513,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 47,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "27cec8a87ad2-92",
+      "text": "Implement: [Vite Plugin] Vite plugin for brand kit resolution and CSS injection Verification: Config file auto-loaded; CSS injected at build; HMR supported",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768978995.3776648,
+      "updated_at": 1768978995.377665,
+      "completed_at": null,
+      "parent_id": "27cec8a87ad2-91",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "4dcb83d42fce-93",
+      "text": "[Build & Integration Features] Feature #48: [Package Manager Support] Support npm, pnpm, yarn, bun Verification: npm install works; pnpm install works; yarn add works; bun add works Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768979209.268255,
+      "updated_at": 1768979209.2682552,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 48,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "4dcb83d42fce-94",
+      "text": "Implement: [Package Manager Support] Support npm, pnpm, yarn, bun Verification: npm install works; pnpm install works; yarn add works; bun add works",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768979209.2739325,
+      "updated_at": 1768979209.2739327,
+      "completed_at": null,
+      "parent_id": "4dcb83d42fce-93",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "285060102154-95",
+      "text": "[Documentation & AI Features] Feature #49: [Getting Started Guide] Quick start documentation for basic setup Verification: 5-minute quickstart; Copy-paste examples; All scenarios covered Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768979267.7999454,
+      "updated_at": 1768979267.7999458,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 49,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "285060102154-96",
+      "text": "Implement: [Getting Started Guide] Quick start documentation for basic setup Verification: 5-minute quickstart; Copy-paste examples; All scenarios covered",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768979267.84194,
+      "updated_at": 1768979267.8419402,
+      "completed_at": null,
+      "parent_id": "285060102154-95",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "6d31dd640875-97",
+      "text": "[Documentation & AI Features] Feature #50: [Brand Kit Creation Guide] Step-by-step guide to create custom brand kits Verification: Complete walkthrough; Token specification guide; Publishing guide Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768979514.5026813,
+      "updated_at": 1768979514.5026813,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 50,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "6d31dd640875-98",
+      "text": "Implement: [Brand Kit Creation Guide] Step-by-step guide to create custom brand kits Verification: Complete walkthrough; Token specification guide; Publishing guide",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768979514.558198,
+      "updated_at": 1768979514.558198,
+      "completed_at": null,
+      "parent_id": "6d31dd640875-97",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "a316e235bd95-99",
+      "text": "[Documentation & AI Features] Feature #51: [API Reference] Complete API documentation with examples Verification: All exports documented; TypeScript types explained; Code examples for each Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768979834.0242677,
+      "updated_at": 1768979834.0242682,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 51,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "a316e235bd95-100",
+      "text": "Implement: [API Reference] Complete API documentation with examples Verification: All exports documented; TypeScript types explained; Code examples for each",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768979834.0850818,
+      "updated_at": 1768979834.085082,
+      "completed_at": null,
+      "parent_id": "a316e235bd95-99",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "490ebf425ecd-101",
+      "text": "[Documentation & AI Features] Feature #52: [Configuration Reference] Comprehensive config file documentation Verification: All options documented; Default values listed; Example configurations Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768980031.4425857,
+      "updated_at": 1768980031.442586,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 52,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "490ebf425ecd-102",
+      "text": "Implement: [Configuration Reference] Comprehensive config file documentation Verification: All options documented; Default values listed; Example configurations",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768980031.449326,
+      "updated_at": 1768980031.4493263,
+      "completed_at": null,
+      "parent_id": "490ebf425ecd-101",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "26d53093d389-103",
+      "text": "[Documentation & AI Features] Feature #53: [Example Projects] Example projects for each scenario Verification: Default theme example; Platxa brand example; Custom brand example Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768980106.1267471,
+      "updated_at": 1768980106.1267474,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 53,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "26d53093d389-104",
+      "text": "Implement: [Example Projects] Example projects for each scenario Verification: Default theme example; Platxa brand example; Custom brand example",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768980106.170373,
+      "updated_at": 1768980106.1703732,
+      "completed_at": null,
+      "parent_id": "26d53093d389-103",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "9a87ef28ae99-105",
+      "text": "[Documentation & AI Features] Feature #54: [AI Component Awareness] Component generator respects active brand Verification: Generated components use brand tokens; Color choices match brand palette; Typography follows brand Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768980169.5005305,
+      "updated_at": 1768980169.5005307,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 54,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "9a87ef28ae99-106",
+      "text": "Implement: [AI Component Awareness] Component generator respects active brand Verification: Generated components use brand tokens; Color choices match brand palette; Typography follows brand",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768980169.5087457,
+      "updated_at": 1768980169.5087461,
+      "completed_at": null,
+      "parent_id": "9a87ef28ae99-105",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "c549ff799594-107",
+      "text": "[Documentation & AI Features] Feature #55: [AI Brand Context Injection] Inject brand tokens into AI prompts Verification: Brand tokens in system prompt; Color palette available to AI; Typography available to AI Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768980298.2771,
+      "updated_at": 1768980298.2771003,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 55,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c549ff799594-108",
+      "text": "Implement: [AI Brand Context Injection] Inject brand tokens into AI prompts Verification: Brand tokens in system prompt; Color palette available to AI; Typography available to AI",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768980298.326304,
+      "updated_at": 1768980298.3263042,
+      "completed_at": null,
+      "parent_id": "c549ff799594-107",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "ee00e72ce0d7-109",
+      "text": "[Core System Features] Feature #56: [Multi-Brand Support] Support for multiple brand kit packages (platxa, custom, etc.) Verification: Any npm package following BrandKitExport interface works; @platxa/brand-kit is just one option; Custom brand kits work without special handling Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768984306.6042078,
+      "updated_at": 1768984306.6042082,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 56,
+        "category": "Core System Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "ee00e72ce0d7-110",
+      "text": "Implement: [Multi-Brand Support] Support for multiple brand kit packages (platxa, custom, etc.) Verification: Any npm package following BrandKitExport interface works; @platxa/brand-kit is just one option; Custom brand kits work without special handling",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768984306.6498466,
+      "updated_at": 1768984306.6498466,
+      "completed_at": null,
+      "parent_id": "ee00e72ce0d7-109",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "260301b64acc-111",
+      "text": "[Core System Features] Feature #57: [Brand Fallback Chain] Graceful fallback: brand \u2192 preset \u2192 default when loading fails Verification: If brand kit fails to load, falls back to preset; If preset not specified, falls back to default; Error logged but app continues working Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768984464.2407532,
+      "updated_at": 1768984464.2407532,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 57,
+        "category": "Core System Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "260301b64acc-112",
+      "text": "Implement: [Brand Fallback Chain] Graceful fallback: brand \u2192 preset \u2192 default when loading fails Verification: If brand kit fails to load, falls back to preset; If preset not specified, falls back to default; Error logged but app continues working",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768984464.2849042,
+      "updated_at": 1768984464.2849045,
+      "completed_at": null,
+      "parent_id": "260301b64acc-111",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "408c99eaebb1-113",
+      "text": "[Core System Features] Feature #58: [Brand Context Provider] React context for accessing brand information throughout app Verification: BrandProvider component available; useBrand hook returns current brand info; Components can react to brand changes Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768984669.1011848,
+      "updated_at": 1768984669.101185,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 58,
+        "category": "Core System Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "408c99eaebb1-114",
+      "text": "Implement: [Brand Context Provider] React context for accessing brand information throughout app Verification: BrandProvider component available; useBrand hook returns current brand info; Components can react to brand changes",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768984669.1575978,
+      "updated_at": 1768984669.157598,
+      "completed_at": null,
+      "parent_id": "408c99eaebb1-113",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "17a61f8a9fbf-115",
+      "text": "[Validation & Security Features] Feature #83: [Size Limit Check] Warn if brand kit exceeds size threshold Verification: Size threshold configurable; Warning for large brand kits; Size breakdown provided Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768991289.2326722,
+      "updated_at": 1768991289.2326725,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 83,
+        "category": "Validation & Security Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "17a61f8a9fbf-116",
+      "text": "Implement: [Size Limit Check] Warn if brand kit exceeds size threshold Verification: Size threshold configurable; Warning for large brand kits; Size breakdown provided",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768991289.2426302,
+      "updated_at": 1768991289.2426305,
+      "completed_at": null,
+      "parent_id": "17a61f8a9fbf-115",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "c7c1bc29979b-117",
+      "text": "[Validation & Security Features] Feature #84: [Circular Reference Check] Detect circular token references Verification: Circular refs detected; Reference chain shown; Error before infinite loop Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768991428.2171304,
+      "updated_at": 1768991428.2171314,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 84,
+        "category": "Validation & Security Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c7c1bc29979b-118",
+      "text": "Implement: [Circular Reference Check] Detect circular token references Verification: Circular refs detected; Reference chain shown; Error before infinite loop",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768991428.2236462,
+      "updated_at": 1768991428.2236464,
+      "completed_at": null,
+      "parent_id": "c7c1bc29979b-117",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "9fdb826d9256-119",
+      "text": "[Validation & Security Features] Feature #85: [Safe Dynamic Import] Whitelist allowed brand kit packages Verification: Optional allowlist config; Block non-allowed packages; Warning for unknown packages Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768991662.4789948,
+      "updated_at": 1768991662.478995,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 85,
+        "category": "Validation & Security Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "9fdb826d9256-120",
+      "text": "Implement: [Safe Dynamic Import] Whitelist allowed brand kit packages Verification: Optional allowlist config; Block non-allowed packages; Warning for unknown packages",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768991662.4855137,
+      "updated_at": 1768991662.485514,
+      "completed_at": null,
+      "parent_id": "9fdb826d9256-119",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "a67121de808d-121",
+      "text": "[Performance Features] Feature #86: [Minimal Re-renders] Minimize React re-renders on theme changes Verification: Context value memoized; Shallow comparison used; Only affected components re-render Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768991797.4094656,
+      "updated_at": 1768991797.4094656,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 86,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "a67121de808d-122",
+      "text": "Implement: [Minimal Re-renders] Minimize React re-renders on theme changes Verification: Context value memoized; Shallow comparison used; Only affected components re-render",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768991797.4537864,
+      "updated_at": 1768991797.4537866,
+      "completed_at": null,
+      "parent_id": "a67121de808d-121",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "e2b550440b15-123",
+      "text": "[Performance Features] Feature #87: [Token Memoization] Memoize computed token values Verification: Computed values cached; Cache invalidated correctly; Memory efficient Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768991925.3435364,
+      "updated_at": 1768991925.3435364,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 87,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "e2b550440b15-124",
+      "text": "Implement: [Token Memoization] Memoize computed token values Verification: Computed values cached; Cache invalidated correctly; Memory efficient",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768991925.3902907,
+      "updated_at": 1768991925.390291,
+      "completed_at": null,
+      "parent_id": "e2b550440b15-123",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "2770d9bb4b6c-125",
+      "text": "[Performance Features] Feature #88: [SSR Support] Server-side rendering support without hydration mismatch Verification: No hydration mismatch; Theme mode SSR safe; CSS available on server Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992054.9267328,
+      "updated_at": 1768992054.9267328,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 88,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "2770d9bb4b6c-126",
+      "text": "Implement: [SSR Support] Server-side rendering support without hydration mismatch Verification: No hydration mismatch; Theme mode SSR safe; CSS available on server",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992054.9703403,
+      "updated_at": 1768992054.970341,
+      "completed_at": null,
+      "parent_id": "2770d9bb4b6c-125",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "6016bd69d21d-127",
+      "text": "[Performance Features] Feature #89: [Static Generation] Support for static site generation (SSG) Verification: Tokens available at build; Static CSS generated; No client JS required Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992293.226872,
+      "updated_at": 1768992293.226872,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 89,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "6016bd69d21d-128",
+      "text": "Implement: [Static Generation] Support for static site generation (SSG) Verification: Tokens available at build; Static CSS generated; No client JS required",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992293.2341387,
+      "updated_at": 1768992293.234139,
+      "completed_at": null,
+      "parent_id": "6016bd69d21d-127",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "121b62b9eae8-129",
+      "text": "[Performance Features] Feature #90: [Bundle Size Reporting] Report brand kit impact on bundle size Verification: Size delta shown; Per-module breakdown; Historical comparison Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992478.4821553,
+      "updated_at": 1768992478.4821556,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 90,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "121b62b9eae8-130",
+      "text": "Implement: [Bundle Size Reporting] Report brand kit impact on bundle size Verification: Size delta shown; Per-module breakdown; Historical comparison",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992478.5223608,
+      "updated_at": 1768992478.522361,
+      "completed_at": null,
+      "parent_id": "121b62b9eae8-129",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "32ffa829c874-131",
+      "text": "[Extensibility Features] Feature #91: [extendBrand Helper] Helper to extend existing brand kit with overrides Verification: Deep merge of tokens; Type-safe overrides; Preserves unmodified tokens Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992653.0755074,
+      "updated_at": 1768992653.0755076,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 91,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "32ffa829c874-132",
+      "text": "Implement: [extendBrand Helper] Helper to extend existing brand kit with overrides Verification: Deep merge of tokens; Type-safe overrides; Preserves unmodified tokens",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992653.3156817,
+      "updated_at": 1768992653.315682,
+      "completed_at": null,
+      "parent_id": "32ffa829c874-131",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "754c8598cf42-133",
+      "text": "[Extensibility Features] Feature #92: [Brand Kit Inheritance] Brand kit can extend another brand kit Verification: extends field in brand kit; Parent tokens inherited; Child overrides parent Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992992.1767411,
+      "updated_at": 1768992992.1767411,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 92,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "754c8598cf42-134",
+      "text": "Implement: [Brand Kit Inheritance] Brand kit can extend another brand kit Verification: extends field in brand kit; Parent tokens inherited; Child overrides parent",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768992992.1820948,
+      "updated_at": 1768992992.1820948,
+      "completed_at": null,
+      "parent_id": "754c8598cf42-133",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "86ae44e62dc8-135",
+      "text": "[Extensibility Features] Feature #93: [Partial Brand Kits] Support brand kits that only override specific tokens Verification: Partial tokens allowed; Merged with base; Type support for partial Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993158.9952521,
+      "updated_at": 1768993158.9952521,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 93,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "86ae44e62dc8-136",
+      "text": "Implement: [Partial Brand Kits] Support brand kits that only override specific tokens Verification: Partial tokens allowed; Merged with base; Type support for partial",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993159.000986,
+      "updated_at": 1768993159.0009863,
+      "completed_at": null,
+      "parent_id": "86ae44e62dc8-135",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "705b92205691-137",
+      "text": "[Build & Integration Features] Feature #94: [Next.js Integration] First-class Next.js App Router support Verification: App Router compatible; Server Components work; Metadata API support Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993338.7693996,
+      "updated_at": 1768993338.7694,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 94,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "705b92205691-138",
+      "text": "Implement: [Next.js Integration] First-class Next.js App Router support Verification: App Router compatible; Server Components work; Metadata API support",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993338.774872,
+      "updated_at": 1768993338.7748723,
+      "completed_at": null,
+      "parent_id": "705b92205691-137",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "e76fc2409d36-139",
+      "text": "[Build & Integration Features] Feature #95: [Tailwind Plugin] Tailwind plugin for brand token integration Verification: Tailwind v4 compatible; @theme directive support; Custom color utilities Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993492.703081,
+      "updated_at": 1768993492.703081,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 95,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "e76fc2409d36-140",
+      "text": "Implement: [Tailwind Plugin] Tailwind plugin for brand token integration Verification: Tailwind v4 compatible; @theme directive support; Custom color utilities",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993492.7089398,
+      "updated_at": 1768993492.70894,
+      "completed_at": null,
+      "parent_id": "e76fc2409d36-139",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "c9aeda3674a0-141",
+      "text": "[Build & Integration Features] Feature #96: [Monorepo Support] Support for brand kits in monorepos Verification: Workspace protocol support; Relative path resolution; pnpm/yarn workspaces Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993720.9926624,
+      "updated_at": 1768993720.9926624,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 96,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c9aeda3674a0-142",
+      "text": "Implement: [Monorepo Support] Support for brand kits in monorepos Verification: Workspace protocol support; Relative path resolution; pnpm/yarn workspaces",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993721.0064435,
+      "updated_at": 1768993721.0064437,
+      "completed_at": null,
+      "parent_id": "c9aeda3674a0-141",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "72723f2f4fcf-143",
+      "text": "[Documentation & AI Features] Feature #97: [Migration Guide] Guide for migrating existing projects Verification: Version upgrade guide; Breaking changes listed; Codemods if needed Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993947.860322,
+      "updated_at": 1768993947.8603222,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 97,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "72723f2f4fcf-144",
+      "text": "Implement: [Migration Guide] Guide for migrating existing projects Verification: Version upgrade guide; Breaking changes listed; Codemods if needed",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768993947.8660724,
+      "updated_at": 1768993947.8660727,
+      "completed_at": null,
+      "parent_id": "72723f2f4fcf-143",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "cd87207b61f0-145",
+      "text": "[Documentation & AI Features] Feature #98: [Best Practices Guide] Recommended patterns and anti-patterns Verification: Do's and don'ts; Performance tips; Accessibility guidelines Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768994219.845409,
+      "updated_at": 1768994219.8454094,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 98,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "cd87207b61f0-146",
+      "text": "Implement: [Best Practices Guide] Recommended patterns and anti-patterns Verification: Do's and don'ts; Performance tips; Accessibility guidelines",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768994219.8531096,
+      "updated_at": 1768994219.8531098,
+      "completed_at": null,
+      "parent_id": "cd87207b61f0-145",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "ac6fb8d2cff6-147",
+      "text": "[Documentation & AI Features] Feature #99: [Troubleshooting Guide] Common issues and solutions Verification: FAQ section; Error message index; Debug techniques Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768994598.1758573,
+      "updated_at": 1768994598.1758573,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 99,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "ac6fb8d2cff6-148",
+      "text": "Implement: [Troubleshooting Guide] Common issues and solutions Verification: FAQ section; Error message index; Debug techniques",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768994598.1820269,
+      "updated_at": 1768994598.182027,
+      "completed_at": null,
+      "parent_id": "ac6fb8d2cff6-147",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "fd94e1cea72e-149",
+      "text": "[Documentation & AI Features] Feature #100: [AI Color Suggestions] AI suggests colors that match brand palette Verification: Colors from brand palette used; Semantic colors preferred; Contrast requirements met Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768994837.046369,
+      "updated_at": 1768994837.046369,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 100,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "fd94e1cea72e-150",
+      "text": "Implement: [AI Color Suggestions] AI suggests colors that match brand palette Verification: Colors from brand palette used; Semantic colors preferred; Contrast requirements met",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768994837.0530176,
+      "updated_at": 1768994837.0530179,
+      "completed_at": null,
+      "parent_id": "fd94e1cea72e-149",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "5bab39d6eb0a-151",
+      "text": "[Documentation & AI Features] Feature #101: [AI Brand Validation] AI validates generated components against brand Verification: Brand compliance checked; Off-brand elements flagged; Suggestions for fixes Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768995150.5762827,
+      "updated_at": 1768995150.5762827,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 101,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "5bab39d6eb0a-152",
+      "text": "Implement: [AI Brand Validation] AI validates generated components against brand Verification: Brand compliance checked; Off-brand elements flagged; Suggestions for fixes",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768995150.5851204,
+      "updated_at": 1768995150.5851207,
+      "completed_at": null,
+      "parent_id": "5bab39d6eb0a-151",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "fa36a3dcb90b-153",
+      "text": "[Documentation & AI Features] Feature #102: [Claude Skill for Brand] Claude Code skill for brand kit operations Verification: Skill file created; Brand operations supported; Token reference included Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768995348.6833332,
+      "updated_at": 1768995348.6833334,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 102,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "fa36a3dcb90b-154",
+      "text": "Implement: [Claude Skill for Brand] Claude Code skill for brand kit operations Verification: Skill file created; Brand operations supported; Token reference included",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768995348.6959062,
+      "updated_at": 1768995348.6959066,
+      "completed_at": null,
+      "parent_id": "fa36a3dcb90b-153",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "18fe8953c9a6-155",
+      "text": "[Core System Features] Feature #103: [Brand Hot Reloading] Development-time hot reloading when brand config changes Verification: Config file changes trigger brand reload; No full page refresh needed; CSS variables update instantly Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768995476.427187,
+      "updated_at": 1768995476.4271872,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 103,
+        "category": "Core System Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "18fe8953c9a6-156",
+      "text": "Implement: [Brand Hot Reloading] Development-time hot reloading when brand config changes Verification: Config file changes trigger brand reload; No full page refresh needed; CSS variables update instantly",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768995476.4330626,
+      "updated_at": 1768995476.433063,
+      "completed_at": null,
+      "parent_id": "18fe8953c9a6-155",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "d12fbf55b23c-157",
+      "text": "[Configuration Features] Feature #104: [Config Inheritance] extends field to inherit from another config file Verification: extends field accepts path to base config; Child config overrides parent values; Deep merge of nested objects Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768995704.2730396,
+      "updated_at": 1768995704.2730398,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 104,
+        "category": "Configuration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "d12fbf55b23c-158",
+      "text": "Implement: [Config Inheritance] extends field to inherit from another config file Verification: extends field accepts path to base config; Child config overrides parent values; Deep merge of nested objects",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768995704.2788782,
+      "updated_at": 1768995704.2788785,
+      "completed_at": null,
+      "parent_id": "d12fbf55b23c-157",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "2a03bb33f0cb-159",
+      "text": "[Configuration Features] Feature #105: [Runtime Config Override] API to override config at runtime for testing Verification: setConfig() function available; Config changes trigger re-render; Original config restorable Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768995949.9639862,
+      "updated_at": 1768995949.9639864,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 105,
+        "category": "Configuration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "2a03bb33f0cb-160",
+      "text": "Implement: [Runtime Config Override] API to override config at runtime for testing Verification: setConfig() function available; Config changes trigger re-render; Original config restorable",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768995949.969727,
+      "updated_at": 1768995949.9697273,
+      "completed_at": null,
+      "parent_id": "2a03bb33f0cb-159",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "6fefa9d2a5db-161",
+      "text": "[Brand Kit Interface Features] Feature #106: [Component Tokens] Brand kit can export component-specific tokens (button, card, input) Verification: Component tokens optional; Button, card, input tokens supported; Custom component tokens allowed Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768996308.8939838,
+      "updated_at": 1768996308.8939838,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 106,
+        "category": "Brand Kit Interface Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "6fefa9d2a5db-162",
+      "text": "Implement: [Component Tokens] Brand kit can export component-specific tokens (button, card, input) Verification: Component tokens optional; Button, card, input tokens supported; Custom component tokens allowed",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768996308.9000218,
+      "updated_at": 1768996308.900022,
+      "completed_at": null,
+      "parent_id": "6fefa9d2a5db-161",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "08f03fe8e6dd-163",
+      "text": "[Brand Kit Interface Features] Feature #107: [Animation Presets] Brand kit can export brand-specific animation presets Verification: Animation presets optional; Spring configs supported; Duration/easing presets supported Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768996957.6344633,
+      "updated_at": 1768996957.6344633,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 107,
+        "category": "Brand Kit Interface Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "08f03fe8e6dd-164",
+      "text": "Implement: [Animation Presets] Brand kit can export brand-specific animation presets Verification: Animation presets optional; Spring configs supported; Duration/easing presets supported",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768996957.640846,
+      "updated_at": 1768996957.6408463,
+      "completed_at": null,
+      "parent_id": "08f03fe8e6dd-163",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "fbd0276f70e9-165",
+      "text": "[Loading & Resolution Features] Feature #108: [URL Loading] Load brand kit from remote URL (enterprise/CDN) Verification: HTTPS URLs supported; CORS handled correctly; Caching of remote brand kits Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768997147.5109594,
+      "updated_at": 1768997147.5109596,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 108,
+        "category": "Loading & Resolution Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "fbd0276f70e9-166",
+      "text": "Implement: [URL Loading] Load brand kit from remote URL (enterprise/CDN) Verification: HTTPS URLs supported; CORS handled correctly; Caching of remote brand kits",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768997147.5246303,
+      "updated_at": 1768997147.5246305,
+      "completed_at": null,
+      "parent_id": "fbd0276f70e9-165",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "51f3d1e0b53b-167",
+      "text": "[Loading & Resolution Features] Feature #109: [Runtime Resolution] Optionally resolve brand kit at runtime for dynamic scenarios Verification: Optional runtime loading; Loading state exposed; Error handling for failed loads Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768997620.7768078,
+      "updated_at": 1768997620.776808,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 109,
+        "category": "Loading & Resolution Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "51f3d1e0b53b-168",
+      "text": "Implement: [Runtime Resolution] Optionally resolve brand kit at runtime for dynamic scenarios Verification: Optional runtime loading; Loading state exposed; Error handling for failed loads",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768997620.782585,
+      "updated_at": 1768997620.7825851,
+      "completed_at": null,
+      "parent_id": "51f3d1e0b53b-167",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "c0377ac761a2-169",
+      "text": "[Loading & Resolution Features] Feature #110: [Dependency Resolution] Automatically resolve brand kit peer dependencies Verification: Peer deps checked at load time; Warning for missing peers; Suggestions for installation Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768997853.601951,
+      "updated_at": 1768997853.6019511,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 110,
+        "category": "Loading & Resolution Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c0377ac761a2-170",
+      "text": "Implement: [Dependency Resolution] Automatically resolve brand kit peer dependencies Verification: Peer deps checked at load time; Warning for missing peers; Suggestions for installation",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768997853.6079714,
+      "updated_at": 1768997853.6079717,
+      "completed_at": null,
+      "parent_id": "c0377ac761a2-169",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "8cc4ea2e8c59-171",
+      "text": "[Loading & Resolution Features] Feature #111: [Preloading] Option to preload brand kit before first render Verification: preloadBrand() function available; Can be called in app initialization; Prevents flash of unstyled content Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768998219.6256251,
+      "updated_at": 1768998219.6256254,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 111,
+        "category": "Loading & Resolution Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "8cc4ea2e8c59-172",
+      "text": "Implement: [Preloading] Option to preload brand kit before first render Verification: preloadBrand() function available; Can be called in app initialization; Prevents flash of unstyled content",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768998219.631765,
+      "updated_at": 1768998219.6317654,
+      "completed_at": null,
+      "parent_id": "8cc4ea2e8c59-171",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "2f63135940fc-173",
+      "text": "[Loading & Resolution Features] Feature #112: [Bundle Analysis] Report brand kit size impact in build output Verification: Brand kit chunk size reported; Comparison to default theme size; Suggestions for optimization Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768998579.2638524,
+      "updated_at": 1768998579.2638526,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 112,
+        "category": "Loading & Resolution Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "2f63135940fc-174",
+      "text": "Implement: [Bundle Analysis] Report brand kit size impact in build output Verification: Brand kit chunk size reported; Comparison to default theme size; Suggestions for optimization",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768998579.269893,
+      "updated_at": 1768998579.2698932,
+      "completed_at": null,
+      "parent_id": "2f63135940fc-173",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "5871f70c16c9-175",
+      "text": "[Theme Integration Features] Feature #113: [60-30-10 Rule Validation] Validate color distribution follows 60-30-10 rule Verification: Color distribution analyzed; Warnings for imbalanced distribution; Suggestions for improvement Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768998813.0362384,
+      "updated_at": 1768998813.0362387,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 113,
+        "category": "Theme Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "5871f70c16c9-176",
+      "text": "Implement: [60-30-10 Rule Validation] Validate color distribution follows 60-30-10 rule Verification: Color distribution analyzed; Warnings for imbalanced distribution; Suggestions for improvement",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768998813.0434527,
+      "updated_at": 1768998813.043453,
+      "completed_at": null,
+      "parent_id": "5871f70c16c9-175",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "2c5130e0a0ed-177",
+      "text": "[Theme Integration Features] Feature #114: [Theme Preview Generator] Generate preview images of theme colors Verification: Color palette image generated; Component preview generated; Light/dark comparison Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768999065.4303215,
+      "updated_at": 1768999065.4303215,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 114,
+        "category": "Theme Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "2c5130e0a0ed-178",
+      "text": "Implement: [Theme Preview Generator] Generate preview images of theme colors Verification: Color palette image generated; Component preview generated; Light/dark comparison",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768999065.4361577,
+      "updated_at": 1768999065.436158,
+      "completed_at": null,
+      "parent_id": "2c5130e0a0ed-177",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "cf33a850a227-179",
+      "text": "[Theme Integration Features] Feature #115: [CSS-in-JS Integration] Support for styled-components/Emotion token injection Verification: ThemeProvider export available; Theme object compatible format; TypeScript types provided Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768999551.0610607,
+      "updated_at": 1768999551.0610607,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 115,
+        "category": "Theme Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "cf33a850a227-180",
+      "text": "Implement: [CSS-in-JS Integration] Support for styled-components/Emotion token injection Verification: ThemeProvider export available; Theme object compatible format; TypeScript types provided",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1768999551.0671396,
+      "updated_at": 1768999551.0671399,
+      "completed_at": null,
+      "parent_id": "cf33a850a227-179",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "1aa06c99212c-181",
+      "text": "[Validation & Security Features] Feature #121: [Duplicate Token Check] Warn about duplicate token definitions Verification: Duplicate names detected; Warning with locations; Suggestion for resolution Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769001507.9986858,
+      "updated_at": 1769001507.9986863,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 121,
+        "category": "Validation & Security Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "1aa06c99212c-182",
+      "text": "Implement: [Duplicate Token Check] Warn about duplicate token definitions Verification: Duplicate names detected; Warning with locations; Suggestion for resolution",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769001508.0036104,
+      "updated_at": 1769001508.0036106,
+      "completed_at": null,
+      "parent_id": "1aa06c99212c-181",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "4e7b071a5e6e-183",
+      "text": "[Validation & Security Features] Feature #122: [Content Security Policy] Generate CSP headers for brand kit resources Verification: CSP directives generated; External URLs included; Nonce support for inline Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769001727.5700312,
+      "updated_at": 1769001727.5700312,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 122,
+        "category": "Validation & Security Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "4e7b071a5e6e-184",
+      "text": "Implement: [Content Security Policy] Generate CSP headers for brand kit resources Verification: CSP directives generated; External URLs included; Nonce support for inline",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769001727.5751674,
+      "updated_at": 1769001727.5751677,
+      "completed_at": null,
+      "parent_id": "4e7b071a5e6e-183",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "4642e9ab50e1-185",
+      "text": "[Validation & Security Features] Feature #123: [Audit Logging] Log brand kit loading events for debugging Verification: Load events logged; Error events logged; Configurable log level Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769001904.904277,
+      "updated_at": 1769001904.904277,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 123,
+        "category": "Validation & Security Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "4642e9ab50e1-186",
+      "text": "Implement: [Audit Logging] Log brand kit loading events for debugging Verification: Load events logged; Error events logged; Configurable log level",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769001904.908821,
+      "updated_at": 1769001904.9088213,
+      "completed_at": null,
+      "parent_id": "4642e9ab50e1-185",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "d1d693a2a0d0-187",
+      "text": "[Performance Features] Feature #124: [Selective Loading] Load only needed parts of brand kit (colors only, etc.) Verification: Partial imports supported; Unused parts tree-shaken; Granular export structure Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769002150.8143642,
+      "updated_at": 1769002150.8143644,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 124,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "d1d693a2a0d0-188",
+      "text": "Implement: [Selective Loading] Load only needed parts of brand kit (colors only, etc.) Verification: Partial imports supported; Unused parts tree-shaken; Granular export structure",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769002150.819608,
+      "updated_at": 1769002150.819608,
+      "completed_at": null,
+      "parent_id": "d1d693a2a0d0-187",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "52f00d375817-189",
+      "text": "[Performance Features] Feature #125: [Prefetch Hints] Generate prefetch hints for brand kit resources Verification: Link prefetch generated; Priority hints set; Configurable prefetch Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769002354.5883071,
+      "updated_at": 1769002354.5883074,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 125,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "52f00d375817-190",
+      "text": "Implement: [Prefetch Hints] Generate prefetch hints for brand kit resources Verification: Link prefetch generated; Priority hints set; Configurable prefetch",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769002354.595072,
+      "updated_at": 1769002354.5950723,
+      "completed_at": null,
+      "parent_id": "52f00d375817-189",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "1155edef733e-191",
+      "text": "[Performance Features] Feature #126: [Critical CSS Extraction] Extract critical brand CSS for above-fold content Verification: Critical CSS identified; Inlined in HTML head; Rest loaded async Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769002632.9423954,
+      "updated_at": 1769002632.9423957,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 126,
+        "category": "Performance Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "1155edef733e-192",
+      "text": "Implement: [Critical CSS Extraction] Extract critical brand CSS for above-fold content Verification: Critical CSS identified; Inlined in HTML head; Rest loaded async",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769002632.9494448,
+      "updated_at": 1769002632.949445,
+      "completed_at": null,
+      "parent_id": "1155edef733e-191",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "d78ba594c482-193",
+      "text": "[Extensibility Features] Feature #127: [mergeBrands Helper] Helper to merge multiple brand kits Verification: Multiple brand inputs; Configurable merge strategy; Conflict resolution Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769002893.0850706,
+      "updated_at": 1769002893.0850706,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 127,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "d78ba594c482-194",
+      "text": "Implement: [mergeBrands Helper] Helper to merge multiple brand kits Verification: Multiple brand inputs; Configurable merge strategy; Conflict resolution",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769002893.091336,
+      "updated_at": 1769002893.0913363,
+      "completed_at": null,
+      "parent_id": "d78ba594c482-193",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "c7693f3676d2-195",
+      "text": "[Extensibility Features] Feature #128: [Plugin System] Plugin architecture for brand kit transformations Verification: Plugin interface defined; Transform hooks available; Plugin chain execution Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769003222.5448394,
+      "updated_at": 1769003222.5448394,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 128,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c7693f3676d2-196",
+      "text": "Implement: [Plugin System] Plugin architecture for brand kit transformations Verification: Plugin interface defined; Transform hooks available; Plugin chain execution",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769003222.5508182,
+      "updated_at": 1769003222.5508184,
+      "completed_at": null,
+      "parent_id": "c7693f3676d2-195",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "f60b9a0105ae-197",
+      "text": "[Extensibility Features] Feature #129: [Token Transformer] Custom token transformation pipeline Verification: Transform functions; Pipeline composition; Async transforms supported Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769003393.9536936,
+      "updated_at": 1769003393.9536939,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 129,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "f60b9a0105ae-198",
+      "text": "Implement: [Token Transformer] Custom token transformation pipeline Verification: Transform functions; Pipeline composition; Async transforms supported",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769003393.9607723,
+      "updated_at": 1769003393.9607725,
+      "completed_at": null,
+      "parent_id": "f60b9a0105ae-197",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "14d59d44d9b0-199",
+      "text": "[Extensibility Features] Feature #130: [Theme Composer] Compose themes from multiple token sources Verification: Multiple sources combined; Layer ordering; Selective composition Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769003886.3709617,
+      "updated_at": 1769003886.370962,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 130,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "14d59d44d9b0-200",
+      "text": "Implement: [Theme Composer] Compose themes from multiple token sources Verification: Multiple sources combined; Layer ordering; Selective composition",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769003886.3770227,
+      "updated_at": 1769003886.377023,
+      "completed_at": null,
+      "parent_id": "14d59d44d9b0-199",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "6b6e237cdc4c-201",
+      "text": "[Extensibility Features] Feature #131: [Multi-Tenant Brands] Support for multiple brands in single application Verification: Multiple brands loaded; Context per brand; Isolated styling Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769004301.6641047,
+      "updated_at": 1769004301.6641047,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 131,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "6b6e237cdc4c-202",
+      "text": "Implement: [Multi-Tenant Brands] Support for multiple brands in single application Verification: Multiple brands loaded; Context per brand; Isolated styling",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769004301.6700826,
+      "updated_at": 1769004301.6700826,
+      "completed_at": null,
+      "parent_id": "6b6e237cdc4c-201",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "59c9e4642c3e-203",
+      "text": "[Extensibility Features] Feature #132: [Brand Switching API] Runtime API to switch between multiple brands Verification: setBrand() function; Smooth transition; State preserved Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769004759.9919775,
+      "updated_at": 1769004759.9919777,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 132,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "59c9e4642c3e-204",
+      "text": "Implement: [Brand Switching API] Runtime API to switch between multiple brands Verification: setBrand() function; Smooth transition; State preserved",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769004759.9976087,
+      "updated_at": 1769004759.997609,
+      "completed_at": null,
+      "parent_id": "59c9e4642c3e-203",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "e3901e2fb71b-205",
+      "text": "[Extensibility Features] Feature #133: [Brand Events] Event system for brand load/change/error events Verification: onBrandLoad event; onBrandChange event; onBrandError event Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769004989.305255,
+      "updated_at": 1769004989.305255,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 133,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "e3901e2fb71b-206",
+      "text": "Implement: [Brand Events] Event system for brand load/change/error events Verification: onBrandLoad event; onBrandChange event; onBrandError event",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769004989.3111253,
+      "updated_at": 1769004989.3111255,
+      "completed_at": null,
+      "parent_id": "e3901e2fb71b-205",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "47804036883e-207",
+      "text": "[Build & Integration Features] Feature #134: [Webpack Plugin] Webpack plugin for brand kit resolution Verification: Webpack 5 compatible; Same features as Vite; CRA compatible Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769005158.0925143,
+      "updated_at": 1769005158.0925143,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 134,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "47804036883e-208",
+      "text": "Implement: [Webpack Plugin] Webpack plugin for brand kit resolution Verification: Webpack 5 compatible; Same features as Vite; CRA compatible",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769005158.0982068,
+      "updated_at": 1769005158.0982068,
+      "completed_at": null,
+      "parent_id": "47804036883e-207",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "24cd542e9ef3-209",
+      "text": "[Build & Integration Features] Feature #135: [Remix Integration] Remix framework integration Verification: Loader support; Action support; Streaming compatible Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769005502.8258114,
+      "updated_at": 1769005502.8258114,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 135,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "24cd542e9ef3-210",
+      "text": "Implement: [Remix Integration] Remix framework integration Verification: Loader support; Action support; Streaming compatible",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769005502.832056,
+      "updated_at": 1769005502.8320563,
+      "completed_at": null,
+      "parent_id": "24cd542e9ef3-209",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "d5ebef575cf5-211",
+      "text": "[Build & Integration Features] Feature #136: [Astro Integration] Astro framework integration Verification: Astro plugin; Island architecture support; Static build support Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769005765.1543036,
+      "updated_at": 1769005765.1543038,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 136,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "d5ebef575cf5-212",
+      "text": "Implement: [Astro Integration] Astro framework integration Verification: Astro plugin; Island architecture support; Static build support",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769005765.1613648,
+      "updated_at": 1769005765.161365,
+      "completed_at": null,
+      "parent_id": "d5ebef575cf5-211",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "b068ad2f1e48-213",
+      "text": "[Build & Integration Features] Feature #137: [PostCSS Plugin] PostCSS plugin for brand token processing Verification: Token transformation; Custom property injection; Theme variant generation Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769005988.5840588,
+      "updated_at": 1769005988.5840592,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 137,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "b068ad2f1e48-214",
+      "text": "Implement: [PostCSS Plugin] PostCSS plugin for brand token processing Verification: Token transformation; Custom property injection; Theme variant generation",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769005988.5898347,
+      "updated_at": 1769005988.589835,
+      "completed_at": null,
+      "parent_id": "b068ad2f1e48-213",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "f6d43393c51a-215",
+      "text": "[Build & Integration Features] Feature #139: [CI/CD Integration] GitHub Actions for brand kit validation Verification: Action available; Validates on PR; Reports in PR comments Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769064774.4147203,
+      "updated_at": 1769064774.4147203,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 139,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "f6d43393c51a-216",
+      "text": "Implement: [CI/CD Integration] GitHub Actions for brand kit validation Verification: Action available; Validates on PR; Reports in PR comments",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769064774.421233,
+      "updated_at": 1769064774.4212332,
+      "completed_at": null,
+      "parent_id": "f6d43393c51a-215",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "2ed8cd68e9c6-217",
+      "text": "[Documentation & AI Features] Feature #140: [Video Tutorials] Video walkthroughs for key features Verification: Setup walkthrough; Custom brand creation; Advanced features Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769065015.8386486,
+      "updated_at": 1769065015.8386488,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 140,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "2ed8cd68e9c6-218",
+      "text": "Implement: [Video Tutorials] Video walkthroughs for key features Verification: Setup walkthrough; Custom brand creation; Advanced features",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769065015.8438163,
+      "updated_at": 1769065015.8438163,
+      "completed_at": null,
+      "parent_id": "2ed8cd68e9c6-217",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "f2581ba18dbd-219",
+      "text": "[Documentation & AI Features] Feature #141: [Brand Guidelines AI] AI generates brand usage guidelines Verification: Usage guidelines generated; Do's and don'ts; Example applications Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769065239.162678,
+      "updated_at": 1769065239.162678,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 141,
+        "category": "Documentation & AI Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "f2581ba18dbd-220",
+      "text": "Implement: [Brand Guidelines AI] AI generates brand usage guidelines Verification: Usage guidelines generated; Do's and don'ts; Example applications",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769065239.1670475,
+      "updated_at": 1769065239.1670477,
+      "completed_at": null,
+      "parent_id": "f2581ba18dbd-219",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "1338b43d3bb0-221",
+      "text": "[Theme Integration Features] Feature #142: [Sass Variable Export] Export brand tokens as Sass variables for legacy projects Verification: Sass variables file generated; Maps and functions included; Compatible with Sass 1.x Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769070240.591306,
+      "updated_at": 1769070240.591306,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 142,
+        "category": "Theme Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "1338b43d3bb0-222",
+      "text": "Implement: [Sass Variable Export] Export brand tokens as Sass variables for legacy projects Verification: Sass variables file generated; Maps and functions included; Compatible with Sass 1.x",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769070240.59572,
+      "updated_at": 1769070240.5957203,
+      "completed_at": null,
+      "parent_id": "1338b43d3bb0-221",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "60a29ce3c5d5-223",
+      "text": "[Developer Experience Features] Feature #143: [DevTools Integration] Browser devtools panel for brand inspection Verification: Brand info in devtools; Token explorer; Theme mode toggle Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769071479.178903,
+      "updated_at": 1769071479.178903,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 143,
+        "category": "Developer Experience Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "60a29ce3c5d5-224",
+      "text": "Implement: [DevTools Integration] Browser devtools panel for brand inspection Verification: Brand info in devtools; Token explorer; Theme mode toggle",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769071479.1842256,
+      "updated_at": 1769071479.1842258,
+      "completed_at": null,
+      "parent_id": "60a29ce3c5d5-223",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "c6566a7be80c-225",
+      "text": "[Extensibility Features] Feature #144: [Custom Adapters] Allow custom adapters for non-standard brand kits Verification: Adapter interface defined; Custom adapters registered; Fallback to default adapter Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769072026.605599,
+      "updated_at": 1769072026.605599,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 144,
+        "category": "Extensibility Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c6566a7be80c-226",
+      "text": "Implement: [Custom Adapters] Allow custom adapters for non-standard brand kits Verification: Adapter interface defined; Custom adapters registered; Fallback to default adapter",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769072026.6127102,
+      "updated_at": 1769072026.6127105,
+      "completed_at": null,
+      "parent_id": "c6566a7be80c-225",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "6d009f3bca96-227",
+      "text": "[Build & Integration Features] Feature #145: [Stylelint Plugin] Stylelint rules for brand CSS Verification: CSS variable enforcement; Color format validation; Naming convention rules Criteria: Manual verification required",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769072854.398666,
+      "updated_at": 1769072854.3986661,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 145,
+        "category": "Build & Integration Features"
+      },
+      "keywords": []
+    },
+    {
+      "id": "6d009f3bca96-228",
+      "text": "Implement: [Stylelint Plugin] Stylelint rules for brand CSS Verification: CSS variable enforcement; Color format validation; Naming convention rules",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769072854.4070687,
+      "updated_at": 1769072854.407069,
+      "completed_at": null,
+      "parent_id": "6d009f3bca96-227",
+      "metadata": {},
+      "keywords": []
+    }
+  ],
+  "intent_counter": 228,
+  "created_at": 1768900061.32227,
+  "updated_at": 1769073330.7577605
+}

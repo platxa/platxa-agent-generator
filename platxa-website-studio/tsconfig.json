@@ -18,7 +18,9 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@platxa/frontend-agent": ["../packages/platxa-frontend-agent/src"],
+      "@platxa/frontend-agent/*": ["../packages/platxa-frontend-agent/src/*"]
     },
     "target": "ES2022"
   },

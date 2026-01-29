@@ -1,0 +1,292 @@
+{
+  "metadata": {
+    "generated_at": "2026-01-13T12:00:00Z",
+    "generator": "claude-opus-4-5",
+    "project": "monaco-editor-integrator",
+    "version": "1.0.0",
+    "total_features": 35
+  },
+  "summary": "Production-grade Monaco Editor + y-monaco + Yjs integration agent for Claude Code CLI",
+  "features": [
+    {
+      "id": 1,
+      "category": "Core Types",
+      "description": "Create TypeScript type definitions for project detection (ProjectType, PackageManager, BuildTool)",
+      "verification": "Types compile without errors, exported from src/types/index.ts",
+      "priority": "P0",
+      "dependencies": []
+    },
+    {
+      "id": 2,
+      "category": "Core Types",
+      "description": "Create TypeScript interfaces for Monaco configuration (EditorOptions, ThemeConfig, LanguageConfig)",
+      "verification": "Types compile without errors, match Monaco Editor API",
+      "priority": "P0",
+      "dependencies": [1]
+    },
+    {
+      "id": 3,
+      "category": "Core Types",
+      "description": "Create TypeScript interfaces for Yjs integration (YjsProviderConfig, MonacoBindingOptions, AwarenessState)",
+      "verification": "Types compile without errors, match Yjs/y-monaco API",
+      "priority": "P0",
+      "dependencies": [1]
+    },
+    {
+      "id": 4,
+      "category": "Core Types",
+      "description": "Create TypeScript interfaces for agent output (IntegrationReport, ValidationResult, GeneratedFile)",
+      "verification": "Types compile without errors, exported from src/types/index.ts",
+      "priority": "P0",
+      "dependencies": [1]
+    },
+    {
+      "id": 5,
+      "category": "Project Detection",
+      "description": "Implement detectPackageManager() utility to identify npm/pnpm/yarn from lockfiles",
+      "verification": "Unit tests pass for all package managers, handles missing lockfiles",
+      "priority": "P0",
+      "dependencies": [1]
+    },
+    {
+      "id": 6,
+      "category": "Project Detection",
+      "description": "Implement detectBuildTool() utility to identify Next.js/Vite/CRA/Webpack from config files",
+      "verification": "Unit tests pass for all build tools, handles unknown projects",
+      "priority": "P0",
+      "dependencies": [1]
+    },
+    {
+      "id": 7,
+      "category": "Project Detection",
+      "description": "Implement detectReactVersion() utility to parse React version from package.json",
+      "verification": "Unit tests pass, returns null for non-React projects",
+      "priority": "P1",
+      "dependencies": [5]
+    },
+    {
+      "id": 8,
+      "category": "Project Detection",
+      "description": "Implement detectExistingMonaco() utility to check for existing Monaco/Yjs dependencies",
+      "verification": "Unit tests pass, identifies version conflicts",
+      "priority": "P1",
+      "dependencies": [5]
+    },
+    {
+      "id": 9,
+      "category": "Config Generation",
+      "description": "Create Next.js config generator with MonacoWebpackPlugin setup",
+      "verification": "Generated config is valid JavaScript, includes all required settings",
+      "priority": "P0",
+      "dependencies": [6]
+    },
+    {
+      "id": 10,
+      "category": "Config Generation",
+      "description": "Create Vite config generator with monaco-editor plugin setup",
+      "verification": "Generated config is valid TypeScript, includes optimizeDeps",
+      "priority": "P0",
+      "dependencies": [6]
+    },
+    {
+      "id": 11,
+      "category": "Config Generation",
+      "description": "Create CSP headers generator for Monaco worker requirements",
+      "verification": "Generated CSP includes worker-src, script-src with wasm-unsafe-eval",
+      "priority": "P1",
+      "dependencies": [6]
+    },
+    {
+      "id": 12,
+      "category": "Templates",
+      "description": "Create MonacoEditor.tsx component template with Yjs binding",
+      "verification": "Template compiles, includes 'use client' directive, proper cleanup",
+      "priority": "P0",
+      "dependencies": [2, 3]
+    },
+    {
+      "id": 13,
+      "category": "Templates",
+      "description": "Create YjsProvider.tsx context template with WebSocket connection management",
+      "verification": "Template compiles, handles connection/disconnection, exposes awareness",
+      "priority": "P0",
+      "dependencies": [3]
+    },
+    {
+      "id": 14,
+      "category": "Templates",
+      "description": "Create useYjsDocument.ts hook template for per-file document management",
+      "verification": "Template compiles, properly manages Y.Doc lifecycle",
+      "priority": "P0",
+      "dependencies": [3]
+    },
+    {
+      "id": 15,
+      "category": "Templates",
+      "description": "Create useMonacoBinding.ts hook template for editor-Yjs connection",
+      "verification": "Template compiles, properly cleans up MonacoBinding on unmount",
+      "priority": "P0",
+      "dependencies": [3]
+    },
+    {
+      "id": 16,
+      "category": "Templates",
+      "description": "Create editorOptions.ts config template with production defaults",
+      "verification": "Template compiles, includes accessibility options",
+      "priority": "P0",
+      "dependencies": [2]
+    },
+    {
+      "id": 17,
+      "category": "Templates",
+      "description": "Create theme.ts template with dark/light theme definitions",
+      "verification": "Template compiles, themes are valid Monaco theme objects",
+      "priority": "P1",
+      "dependencies": [2]
+    },
+    {
+      "id": 18,
+      "category": "Templates",
+      "description": "Create languages.ts template with file extension to language mapping",
+      "verification": "Template compiles, covers Python/XML/JS/TS/JSON/CSS/MD",
+      "priority": "P1",
+      "dependencies": [2]
+    },
+    {
+      "id": 19,
+      "category": "Error Handling",
+      "description": "Create WebSocket connection error handling template with retry logic",
+      "verification": "Template includes exponential backoff, max retries, error callbacks",
+      "priority": "P0",
+      "dependencies": [13]
+    },
+    {
+      "id": 20,
+      "category": "Error Handling",
+      "description": "Create Monaco loading error boundary component template",
+      "verification": "Template renders fallback UI, reports errors, allows retry",
+      "priority": "P0",
+      "dependencies": [12]
+    },
+    {
+      "id": 21,
+      "category": "Error Handling",
+      "description": "Create Yjs sync conflict resolution template",
+      "verification": "Template handles CRDT merge conflicts gracefully",
+      "priority": "P1",
+      "dependencies": [14]
+    },
+    {
+      "id": 22,
+      "category": "Performance",
+      "description": "Create lazy loading wrapper for Monaco Editor component",
+      "verification": "Template uses dynamic import, shows skeleton during load",
+      "priority": "P0",
+      "dependencies": [12]
+    },
+    {
+      "id": 23,
+      "category": "Performance",
+      "description": "Document bundle size optimization strategies",
+      "verification": "Documentation covers language subsetting, feature removal, code splitting",
+      "priority": "P1",
+      "dependencies": [9, 10]
+    },
+    {
+      "id": 24,
+      "category": "Performance",
+      "description": "Create large file handling utilities with size limits and warnings",
+      "verification": "Utility detects files >1MB, provides user warnings",
+      "priority": "P1",
+      "dependencies": [4]
+    },
+    {
+      "id": 25,
+      "category": "Agent Enhancement",
+      "description": "Add WebSocket connection failure example to agent definition",
+      "verification": "Agent includes example with retry logic and user feedback",
+      "priority": "P0",
+      "dependencies": [19]
+    },
+    {
+      "id": 26,
+      "category": "Agent Enhancement",
+      "description": "Add failure case templates to agent Output Format section",
+      "verification": "Agent includes FAILURE output template with error details",
+      "priority": "P0",
+      "dependencies": [4]
+    },
+    {
+      "id": 27,
+      "category": "Agent Enhancement",
+      "description": "Add performance considerations section to agent definition",
+      "verification": "Agent documents bundle size, lazy loading, large file handling",
+      "priority": "P0",
+      "dependencies": [23, 24]
+    },
+    {
+      "id": 28,
+      "category": "Agent Enhancement",
+      "description": "Add rate limits and WebSocket connection management to agent",
+      "verification": "Agent documents connection limits, reconnection strategies",
+      "priority": "P1",
+      "dependencies": [19]
+    },
+    {
+      "id": 29,
+      "category": "Slash Command",
+      "description": "Create /monaco-setup slash command for agent invocation",
+      "verification": "Command file exists in .claude/commands/, follows spec format",
+      "priority": "P0",
+      "dependencies": []
+    },
+    {
+      "id": 30,
+      "category": "Documentation",
+      "description": "Create README.md with quick start, installation, and usage examples",
+      "verification": "README includes all sections, commands are accurate",
+      "priority": "P0",
+      "dependencies": []
+    },
+    {
+      "id": 31,
+      "category": "Documentation",
+      "description": "Create ARCHITECTURE.md documenting package structure and design decisions",
+      "verification": "Document covers all directories, explains design rationale",
+      "priority": "P1",
+      "dependencies": []
+    },
+    {
+      "id": 32,
+      "category": "Documentation",
+      "description": "Create TROUBLESHOOTING.md with common issues and solutions",
+      "verification": "Document covers SSR errors, worker issues, bundle size, Yjs sync",
+      "priority": "P1",
+      "dependencies": []
+    },
+    {
+      "id": 33,
+      "category": "Testing",
+      "description": "Create unit tests for project detection utilities",
+      "verification": "Tests cover all package managers and build tools, achieve >80% coverage",
+      "priority": "P0",
+      "dependencies": [5, 6, 7, 8]
+    },
+    {
+      "id": 34,
+      "category": "Testing",
+      "description": "Create unit tests for config generators",
+      "verification": "Tests verify generated configs are valid, achieve >80% coverage",
+      "priority": "P0",
+      "dependencies": [9, 10, 11]
+    },
+    {
+      "id": 35,
+      "category": "Final Validation",
+      "description": "Run full validation suite and verify quality score >= 8.0",
+      "verification": "pnpm typecheck passes, pnpm lint passes, quality score >= 8.0",
+      "priority": "P0",
+      "dependencies": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34]
+    }
+  ]
+}

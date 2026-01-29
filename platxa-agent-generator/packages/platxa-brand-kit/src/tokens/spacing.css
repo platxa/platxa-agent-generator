@@ -1,0 +1,111 @@
+/**
+ * Platxa Design Tokens - Spacing
+ *
+ * Based on 8px grid system with 4px fine adjustments.
+ * Consistent spacing creates visual rhythm and hierarchy.
+ *
+ * @platxa/brand-kit
+ * DJ Patel | Founder & CEO @ Platxa
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════════════════
+   * SPACING SCALE
+   * Base unit: 8px
+   * Fine adjustments: 4px increments
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --space-0:   0;
+  --space-px:  1px;
+  --space-0-5: 0.125rem;   /* 2px */
+  --space-1:   0.25rem;    /* 4px  - Fine adjustment */
+  --space-1-5: 0.375rem;   /* 6px */
+  --space-2:   0.5rem;     /* 8px  - Base unit ★ */
+  --space-2-5: 0.625rem;   /* 10px */
+  --space-3:   0.75rem;    /* 12px - 1.5x base */
+  --space-3-5: 0.875rem;   /* 14px */
+  --space-4:   1rem;       /* 16px - 2x base ★ */
+  --space-5:   1.25rem;    /* 20px */
+  --space-6:   1.5rem;     /* 24px - 3x base ★ */
+  --space-7:   1.75rem;    /* 28px */
+  --space-8:   2rem;       /* 32px - 4x base ★ */
+  --space-9:   2.25rem;    /* 36px */
+  --space-10:  2.5rem;     /* 40px - 5x base */
+  --space-11:  2.75rem;    /* 44px */
+  --space-12:  3rem;       /* 48px - 6x base ★ */
+  --space-14:  3.5rem;     /* 56px - 7x base */
+  --space-16:  4rem;       /* 64px - 8x base ★ */
+  --space-20:  5rem;       /* 80px - 10x base */
+  --space-24:  6rem;       /* 96px - 12x base ★ */
+  --space-28:  7rem;       /* 112px */
+  --space-32:  8rem;       /* 128px - 16x base */
+  --space-36:  9rem;       /* 144px */
+  --space-40:  10rem;      /* 160px - 20x base */
+  --space-44:  11rem;      /* 176px */
+  --space-48:  12rem;      /* 192px - 24x base */
+  --space-52:  13rem;      /* 208px */
+  --space-56:  14rem;      /* 224px */
+  --space-60:  15rem;      /* 240px */
+  --space-64:  16rem;      /* 256px - 32x base */
+  --space-72:  18rem;      /* 288px */
+  --space-80:  20rem;      /* 320px */
+  --space-96:  24rem;      /* 384px */
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * SEMANTIC SPACING
+   * Named tokens for common use cases
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Component internal spacing */
+  --spacing-xs:     var(--space-1);    /* 4px  - Tight */
+  --spacing-sm:     var(--space-2);    /* 8px  - Compact */
+  --spacing-md:     var(--space-4);    /* 16px - Default */
+  --spacing-lg:     var(--space-6);    /* 24px - Relaxed */
+  --spacing-xl:     var(--space-8);    /* 32px - Spacious */
+  --spacing-2xl:    var(--space-12);   /* 48px - Very spacious */
+  --spacing-3xl:    var(--space-16);   /* 64px - Maximum */
+
+  /* Gap between elements */
+  --gap-xs:         var(--space-1);    /* 4px */
+  --gap-sm:         var(--space-2);    /* 8px */
+  --gap-md:         var(--space-4);    /* 16px */
+  --gap-lg:         var(--space-6);    /* 24px */
+  --gap-xl:         var(--space-8);    /* 32px */
+
+  /* Section spacing */
+  --section-sm:     var(--space-12);   /* 48px */
+  --section-md:     var(--space-16);   /* 64px */
+  --section-lg:     var(--space-24);   /* 96px */
+  --section-xl:     var(--space-32);   /* 128px */
+
+  /* Container padding */
+  --container-padding-sm: var(--space-4);   /* 16px */
+  --container-padding-md: var(--space-6);   /* 24px */
+  --container-padding-lg: var(--space-8);   /* 32px */
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * BORDER RADIUS
+   * Rounded corners for UI elements
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --radius-none:    0;
+  --radius-sm:      0.125rem;   /* 2px */
+  --radius-default: 0.25rem;    /* 4px */
+  --radius-md:      0.375rem;   /* 6px */
+  --radius-lg:      0.5rem;     /* 8px */
+  --radius-xl:      0.75rem;    /* 12px */
+  --radius-2xl:     1rem;       /* 16px */
+  --radius-3xl:     1.5rem;     /* 24px */
+  --radius-full:    9999px;     /* Pill shape */
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * CONTAINER WIDTHS
+   * Max-width constraints for content
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --container-sm:   640px;
+  --container-md:   768px;
+  --container-lg:   1024px;
+  --container-xl:   1280px;
+  --container-2xl:  1536px;
+}

@@ -1,0 +1,150 @@
+# =============================================================================
+# Brand Kit Validation - GitHub Actions Workflow
+# =============================================================================
+#
+# Validates brand kit configurations on pull requests:
+# - Schema validation for ThemeConfig objects
+# - Color accessibility checks (WCAG contrast ratios)
+# - Token completeness verification
+# - Dark mode consistency checks
+#
+# Reports validation results as PR comments with detailed feedback.
+# =============================================================================
+
+name: Brand Kit Validation
+
+on:
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "packages/platxa-frontend-agent/src/**/*.ts"
+      - "packages/platxa-frontend-agent/src/**/*.tsx"
+      - "**/brand-kit*.json"
+      - "**/theme*.json"
+      - "**/tokens*.json"
+
+  # Allow manual trigger
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate:
+    name: Validate Brand Kits
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: packages/platxa-frontend-agent
+
+      - name: Run brand kit validation
+        id: validate
+        run: |
+          # Run validation script and capture output
+          set +e
+          OUTPUT=$(npx tsx scripts/validate-brand-kit.ts --ci 2>&1)
+          EXIT_CODE=$?
+          set -e
+
+          # Save output for PR comment
+          echo "validation_output<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          # Save exit code
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+          # Print output to logs
+          echo "$OUTPUT"
+
+          # Don't fail yet - we'll handle in the comment step
+          exit 0
+        working-directory: packages/platxa-frontend-agent
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `${{ steps.validate.outputs.validation_output }}`;
+            const exitCode = parseInt('${{ steps.validate.outputs.exit_code }}', 10);
+
+            // Determine status emoji and header
+            const status = exitCode === 0 ? '✅' : '❌';
+            const statusText = exitCode === 0 ? 'Passed' : 'Failed';
+
+            // Build comment body
+            const body = `## ${status} Brand Kit Validation ${statusText}
+
+            <details>
+            <summary>Validation Results</summary>
+
+            \`\`\`
+            ${output}
+            \`\`\`
+
+            </details>
+
+            ${exitCode === 0
+              ? '**All brand kit validations passed!** Your theme configuration meets all requirements.'
+              : '**Some validations failed.** Please review the details above and fix the issues before merging.'}
+
+            ---
+            <sub>🎨 Platxa Brand Kit Validator | [Documentation](https://github.com/anthropics/platxa-agent-generator)</sub>
+            `;
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Brand Kit Validation')
+            );
+
+            if (botComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+      - name: Fail if validation failed
+        if: steps.validate.outputs.exit_code != '0'
+        run: |
+          echo "Brand kit validation failed. See PR comment for details."
+          exit 1

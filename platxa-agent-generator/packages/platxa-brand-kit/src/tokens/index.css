@@ -1,0 +1,36 @@
+/**
+ * Platxa Design Tokens - Combined Entry Point
+ *
+ * Single import for all design tokens.
+ *
+ * Usage:
+ * ```css
+ * @import "@platxa/brand-kit";
+ * ```
+ *
+ * Or in JavaScript/TypeScript:
+ * ```ts
+ * import "@platxa/brand-kit";
+ * ```
+ *
+ * @platxa/brand-kit
+ * DJ Patel | Founder & CEO @ Platxa
+ */
+
+/* Primitive tokens - Base color scales */
+@import "./primitives.css";
+
+/* Semantic tokens - Purpose-based mappings */
+@import "./semantic.css";
+
+/* Typography tokens - Fonts, sizes, spacing */
+@import "./typography.css";
+
+/* Spacing tokens - 8px grid system */
+@import "./spacing.css";
+
+/* Component tokens - UI element specific */
+@import "./components.css";
+
+/* Effects tokens - Shadows, gradients, animations */
+@import "./effects.css";

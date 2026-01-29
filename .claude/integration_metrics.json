@@ -1,0 +1,1664 @@
+{
+  "integrator_stats": {
+    "todo_sync": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          0.02457998925819993,
+          0.01329503720626235,
+          0.009968000085791573,
+          0.010666000889614224,
+          0.009501000022282824,
+          0.011001000530086458,
+          0.016340000001946464,
+          0.01331700332229957
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.009231996955350041,
+          0.0065699859987944365,
+          0.00943400664255023,
+          0.005420995876193047,
+          0.005161000444786623,
+          0.003651000042736996,
+          0.004195000656181946,
+          0.003934997948817909,
+          0.008458999218419194,
+          0.005862999387318268,
+          0.004284000169718638,
+          0.004741999873658642,
+          0.007508999260608107,
+          0.0056390017562080175,
+          0.005642003088723868,
+          0.004699999408330768
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          0.019647006411105394,
+          0.018548998923506588,
+          0.013165001291781664,
+          0.014057000953471288,
+          0.01513600000180304,
+          0.052254999900469556,
+          0.019813000108115375,
+          0.01905899989651516,
+          0.021537001885008067,
+          0.021272000594763085,
+          0.022815998818259686
+        ]
+      }
+    },
+    "prompt_engineering": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          0.41447600233368576,
+          0.17684698104858398,
+          0.1420779999534716,
+          0.13167900033295155,
+          0.1395899998897221,
+          0.11774000086006708,
+          0.17069499881472439,
+          0.17746099911164492
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.6089970120228827,
+          0.18693800666369498,
+          0.6019799620844424,
+          0.1182690029963851,
+          0.3928510000150709,
+          0.08616500008429284,
+          0.3413800004636869,
+          0.07855899821151979,
+          0.5752180004492402,
+          0.07929599814815447,
+          0.4018059989903122,
+          0.12253100067027844,
+          0.5192629978409968,
+          0.16320299982908182,
+          0.4878670006291941,
+          0.11120199633296579
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          0.02620398299768567,
+          0.02254399805678986,
+          0.009993000276153907,
+          0.010474999726284295,
+          0.012040000001434237,
+          0.027239999326411635,
+          0.023474996851291507,
+          0.019430997781455517,
+          0.020748000679304823,
+          0.03302500044810586,
+          0.016981997760012746
+        ]
+      }
+    },
+    "clarification": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          0.7933460001368076,
+          0.783778028562665,
+          0.4385960000945488,
+          0.4538730026979465,
+          0.5054510002082679,
+          0.5238019984972198,
+          0.7429079996654764,
+          0.6757709998055361
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.033885007724165916,
+          0.040579005144536495,
+          0.03681797534227371,
+          0.02811098238453269,
+          0.02752799991867505,
+          0.02790100006677676,
+          0.026501002139411867,
+          0.019122999219689518,
+          0.03887899947585538,
+          0.03369499972905032,
+          0.02391499947407283,
+          0.024222998035838827,
+          0.03159500192850828,
+          0.03239299985580146,
+          0.030917995900381356,
+          0.03460999869275838
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          0.017780985217541456,
+          0.00961499972618185,
+          0.013387998478719965,
+          0.01734100078465417,
+          0.017985999875236303,
+          0.026391997380414978,
+          0.029274000553414226,
+          0.021271000150591135,
+          0.032013998861657456,
+          0.01894799788715318,
+          0.027019999834010378
+        ]
+      }
+    },
+    "specification": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          0.14322399511002004,
+          0.11007103603333235,
+          0.05294700031299726,
+          0.0455189983767923,
+          0.07721799920545891,
+          0.08296300075016916,
+          0.13187500007916242,
+          0.10007300443248823
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.026669004000723362,
+          0.019625993445515633,
+          0.019225000869482756,
+          0.016645004507154226,
+          0.008691999937582295,
+          0.009262999810744077,
+          0.0183810007001739,
+          0.008715000149095431,
+          0.017727001250023022,
+          0.021661002392647788,
+          0.009000999853014946,
+          0.008876002539182082,
+          0.02485699951648712,
+          0.019150997104588896,
+          0.017239995941054076,
+          0.01255699316971004
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          0.013040960766375065,
+          0.006251000741031021,
+          0.009267998393625021,
+          0.007970000297063962,
+          0.008793998858891428,
+          0.010652998753357679,
+          0.01983599941013381,
+          0.018715996702667326,
+          0.020092000340810046,
+          0.026929999876301736,
+          0.012157001037849113
+        ]
+      }
+    },
+    "context_engineering": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          12080.227572994772,
+          12346.74945595907,
+          12357.442069000172,
+          10899.898865001887,
+          11672.891362999508,
+          9583.398252001643,
+          13296.452195998427,
+          10675.306891003856
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.06315700011327863,
+          0.057814992032945156,
+          0.04516198532655835,
+          0.04553701728582382,
+          0.035449000279186293,
+          0.03272300000389805,
+          0.03027300044777803,
+          0.030652998248115182,
+          0.038611000491073355,
+          0.04424500002642162,
+          0.03251999805797823,
+          0.034079999750247225,
+          0.060127997130621225,
+          0.04532099774223752,
+          0.04575099592329934,
+          0.050638998800422996
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          173.74369595199823,
+          105.61867300202721,
+          102.45805299928179,
+          105.20831699977862,
+          118.36484199739061,
+          176.64838699784013,
+          157.87136099970667,
+          152.58552299928851,
+          158.1923949997872,
+          151.75376800107188,
+          166.0921229995438
+        ]
+      }
+    },
+    "planning": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          0.903680018382147,
+          8.605484035797417,
+          0.7308019999072712,
+          0.844727001094725,
+          0.8089389993983787,
+          1.0586479984340258,
+          1.2385029986035079,
+          2.637211000546813
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.24461798602715135,
+          0.34887201036326587,
+          0.2100340207107365,
+          0.22176298080012202,
+          0.14475899979515816,
+          0.1417559997207718,
+          0.1481360013713129,
+          0.13881699851481244,
+          0.270609998551663,
+          0.17986100283451378,
+          0.13865299843018875,
+          0.1412269994034432,
+          0.25517600079183467,
+          0.20794100055354647,
+          0.20692600082838908,
+          0.22729599731974304
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          0.010769988875836134,
+          0.006463000318035483,
+          0.016044999938458204,
+          0.017846999980974942,
+          0.007251001079566777,
+          0.0088319975475315,
+          0.00843399902805686,
+          0.008917002560338005,
+          0.00932400143938139,
+          0.009039002179633826,
+          0.009194001904688776
+        ]
+      }
+    },
+    "consistency": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          0.04447999526746571,
+          0.05073897773399949,
+          0.028960000236111227,
+          0.027592002879828215,
+          0.029982002160977572,
+          0.059126999985892326,
+          0.04173300112597644,
+          0.06244800169952214
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.020715000573545694,
+          0.02208599471487105,
+          0.018960970919579268,
+          0.037582998629659414,
+          0.008412000170210376,
+          0.008752000212552957,
+          0.007771999662509188,
+          0.008689999958733097,
+          0.009121002221945673,
+          0.015232999430736527,
+          0.007137001375667751,
+          0.0079809979069978,
+          0.010450999980093911,
+          0.011955002264585346,
+          0.010188996384385973,
+          0.010853000276256353
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          0.057165976613759995,
+          0.0310180002998095,
+          0.03263400139985606,
+          0.03240299702156335,
+          0.052598999900510535,
+          0.048120000428752974,
+          0.043071999243693426,
+          0.054041000112192705,
+          0.05108700133860111,
+          0.04510100188781507,
+          0.045729000703431666
+        ]
+      }
+    },
+    "parallelization": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          0.028623995603993535,
+          0.04365399945527315,
+          0.009711999609862687,
+          0.016128000424942,
+          0.016312002117047086,
+          0.017456000932725146,
+          0.03820100027951412,
+          0.02871300239348784
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.04497799091041088,
+          0.025515008019283414,
+          0.021731015294790268,
+          0.03893399843946099,
+          0.016817999949125806,
+          0.017752000076143304,
+          0.0148920007632114,
+          0.010530999134061858,
+          0.01862800127128139,
+          0.030905001040082425,
+          0.011042000551242381,
+          0.009973002306651324,
+          0.021947002096567303,
+          0.021808999008499086,
+          0.02633300027810037,
+          0.018308004655409604
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          0.034258991945534945,
+          0.011921001714654267,
+          0.012124000932089984,
+          0.011858999641845003,
+          0.030800998501945287,
+          0.023165001039160416,
+          0.022758998966310173,
+          0.025422999897273257,
+          0.022760999854654074,
+          0.021091997041366994,
+          0.02357300036237575
+        ]
+      }
+    },
+    "language_agents": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          0.01826399238780141,
+          0.023660017177462578,
+          0.02790300004562596,
+          0.015039000572869554,
+          0.013599001249531284,
+          0.025207998987752944,
+          0.043955998989986256,
+          0.02804699761327356
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          4.776460002176464,
+          5.754797020927072,
+          3.772817028220743,
+          2.916393044870347,
+          1.4827740001237544,
+          1.8328020000808465,
+          1.7650959998718463,
+          1.512343002104899,
+          1.6800610028440133,
+          1.9258890024502762,
+          1.9462700001895428,
+          1.6869870014488697,
+          2.606627000204753,
+          2.3509970014856663,
+          2.023016000748612,
+          2.0092790000489913
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          2.949686022475362,
+          1.7135590023826808,
+          1.5109809974092059,
+          1.7867259994091,
+          2.0890439991489984,
+          3.042758999072248,
+          2.19510099850595,
+          2.3958720012160484,
+          2.2163870016811416,
+          3.052568998100469,
+          2.864698999474058
+        ]
+      }
+    },
+    "lsp": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          47.939451003912836,
+          38.287475996185094,
+          19.01061299986395,
+          214.0627119988494,
+          17.19149299970013,
+          14.564222998160403,
+          16.45118400119827,
+          26.900075004959945
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.036237004678696394,
+          0.03534200368449092,
+          0.056199030950665474,
+          0.029049988370388746,
+          0.0297020001198689,
+          0.02963899987662444,
+          0.02809999932651408,
+          0.023699001758359373,
+          0.027196001610718668,
+          0.05112799772177823,
+          0.041043000237550586,
+          0.04323300163378008,
+          0.029226001061033458,
+          0.029619000997627154,
+          0.03608100087149069,
+          0.03226599801564589
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          4.767348000314087,
+          3.2172309984161984,
+          3.396982003323501,
+          3.392606999113923,
+          4.106145002879202,
+          4.594991001795279,
+          7.111941999028204,
+          4.931232000672026,
+          4.722767000203021,
+          6.694462001178181,
+          4.726528000901453
+        ]
+      }
+    },
+    "semantic_search": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          6152.1404499944765,
+          6333.613837021403,
+          7297.376946999975,
+          5432.008179999684,
+          6393.2612870012235,
+          5220.279029999801,
+          6760.890143003053,
+          5299.405062003643
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.0192949955817312,
+          0.01800799509510398,
+          0.02467801095917821,
+          0.019907020032405853,
+          0.01594500008650357,
+          0.023988000066310633,
+          0.018434999219607562,
+          0.009549003152642399,
+          0.018217000615550205,
+          0.0192299994523637,
+          0.017903999832924455,
+          0.01282399898627773,
+          0.021087998902658,
+          0.02044600114459172,
+          0.020498002413660288,
+          0.019730003259610385
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          0.022690976038575172,
+          0.009822997526498511,
+          0.008261002221843228,
+          0.008373001037398353,
+          0.029667000490007922,
+          0.02251299883937463,
+          0.01820299803512171,
+          0.02098800177918747,
+          0.019568997231544927,
+          0.02188399957958609,
+          0.021761999960290268
+        ]
+      }
+    },
+    "duplicate_detection": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          0.02016901271417737,
+          0.026249035727232695,
+          0.02326300000277115,
+          0.026430996513227,
+          0.017590999050298706,
+          0.01678600165178068,
+          0.03448799907346256,
+          0.020244995539542288
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.013340992154553533,
+          0.012586999218910933,
+          0.022202031686902046,
+          0.007466005627065897,
+          0.007018999895080924,
+          0.00815700013845344,
+          0.00610799907008186,
+          0.004671997885452583,
+          0.008281000191345811,
+          0.006085003406042233,
+          0.008228998922277242,
+          0.01036500179907307,
+          0.010519997886149213,
+          0.008382001396967098,
+          0.009490002412348986,
+          0.007863003702368587
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          0.018671969883143902,
+          0.009108000085689127,
+          0.008792001608526334,
+          0.008968003385234624,
+          0.022045998775865883,
+          0.05527999746846035,
+          0.022399999579647556,
+          0.012861000868724659,
+          0.013944998499937356,
+          0.013740998838329688,
+          0.013810000382363796
+        ]
+      }
+    },
+    "quality_gates": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          0.377954012947157,
+          0.23542396957054734,
+          0.22654799977317452,
+          0.14814099995419383,
+          0.19622100080596283,
+          0.1703870002529584,
+          0.2879309977288358,
+          0.20266500359866768
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.015049998182803392,
+          0.016072997823357582,
+          0.015568977687507868,
+          0.008489005267620087,
+          0.006485000085376669,
+          0.010567999652266735,
+          0.007572001777589321,
+          0.00654299947200343,
+          0.008216000423999503,
+          0.006342001142911613,
+          0.006656002369709313,
+          0.014654000551672652,
+          0.010027000826084986,
+          0.011096999514847994,
+          0.008989001798909158,
+          0.008339004125446081
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          0.22984296083450317,
+          0.10148100045626052,
+          0.08089900074992329,
+          0.09641899669077247,
+          0.15033399904496036,
+          0.18809000175679103,
+          0.18232299771625549,
+          0.11641899982350878,
+          0.12179600162198767,
+          0.6627469992963597,
+          0.1278550007555168
+        ]
+      }
+    },
+    "debugging": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          0.9745910065248609,
+          0.9448190103285015,
+          0.6439369999498012,
+          0.6709650006087031,
+          0.719546002073912,
+          0.5708319986297283,
+          0.9262669991585426,
+          0.871236996317748
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.022083986550569534,
+          0.021065992768853903,
+          0.022360007278621197,
+          0.023164961021393538,
+          0.013592999948741635,
+          0.016294000033667544,
+          0.015888999769231305,
+          0.01383299968438223,
+          0.01661200076341629,
+          0.018026999896392226,
+          0.02080899866996333,
+          0.023919998056953773,
+          0.025690998882055283,
+          0.02356499680900015,
+          0.030019000405445695,
+          0.021510000806301832
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          0.021544983610510826,
+          0.009752002370078117,
+          0.00914499833015725,
+          0.00918099976843223,
+          0.028954997105756775,
+          0.02171300002373755,
+          0.032615997042739764,
+          0.018839000404113904,
+          0.015661000361433253,
+          0.020681000023614615,
+          0.01470200004405342
+        ]
+      }
+    },
+    "memory": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          13.315662974491715,
+          5.775128025561571,
+          0.3797240001404134,
+          1.751259002048755,
+          2.131950997863896,
+          1.602480002475204,
+          2.9810899977746885,
+          2.0503339983406477
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.021168001694604754,
+          0.017009006114676595,
+          0.018403981812298298,
+          0.018065038602799177,
+          0.010087000191560946,
+          0.008997999884741148,
+          0.010024999937741086,
+          0.0084509993030224,
+          0.015174999134615064,
+          0.02430300082778558,
+          0.010635998478392139,
+          0.020998002582928166,
+          0.020543000573525205,
+          0.014795998140471056,
+          0.027599999157246202,
+          0.01416500163031742
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          19.77558300131932,
+          11.231536002014764,
+          7.982603001437383,
+          7.605877999594668,
+          11.761341000237735,
+          10.981137998896884,
+          18.825606002792483,
+          10.983071999362437,
+          14.202250000380445,
+          16.99364999876707,
+          11.332049998600269
+        ]
+      }
+    },
+    "long_term_memory": {
+      "on_feature_start": {
+        "success": 8,
+        "failure": 0,
+        "latencies": [
+          0.008354982128366828,
+          0.016775971744209528,
+          0.0052099999265919905,
+          0.012090000382158905,
+          0.009446001058677211,
+          0.006132999260444194,
+          0.018080001609632745,
+          0.01888399856397882
+        ]
+      },
+      "get_feature_context": {
+        "success": 16,
+        "failure": 0,
+        "latencies": [
+          0.013028999092057347,
+          0.0058600271586328745,
+          0.006406975444406271,
+          0.006503018084913492,
+          0.004753999746753834,
+          0.00443499993707519,
+          0.005637000867864117,
+          0.004450997948879376,
+          0.004992001777281985,
+          0.005268000677460805,
+          0.004745001206174493,
+          0.007714999810559675,
+          0.012709999282378703,
+          0.007385999197140336,
+          0.008653005352243781,
+          0.006285998097155243
+        ]
+      },
+      "on_feature_complete": {
+        "success": 11,
+        "failure": 0,
+        "latencies": [
+          10.94732095953077,
+          3.854540998872835,
+          2.8519839979708195,
+          2.7062039989687037,
+          4.020280000986531,
+          4.525587002717657,
+          4.825584001082461,
+          4.623845001333393,
+          4.260324996721465,
+          3.8260000001173466,
+          3.5567220002121758
+        ]
+      }
+    }
+  },
+  "feature_stats": {
+    "1": {
+      "todo_sync": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "prompt_engineering": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "clarification": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "specification": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "context_engineering": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "planning": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "consistency": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "parallelization": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "language_agents": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "lsp": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "semantic_search": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "duplicate_detection": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "quality_gates": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "debugging": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "memory": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      },
+      "long_term_memory": {
+        "on_feature_start": 4,
+        "get_feature_context": 8,
+        "on_feature_complete": 1
+      }
+    },
+    "58": {
+      "todo_sync": {
+        "on_feature_complete": 1
+      },
+      "prompt_engineering": {
+        "on_feature_complete": 1
+      },
+      "clarification": {
+        "on_feature_complete": 1
+      },
+      "specification": {
+        "on_feature_complete": 1
+      },
+      "context_engineering": {
+        "on_feature_complete": 1
+      },
+      "planning": {
+        "on_feature_complete": 1
+      },
+      "consistency": {
+        "on_feature_complete": 1
+      },
+      "parallelization": {
+        "on_feature_complete": 1
+      },
+      "language_agents": {
+        "on_feature_complete": 1
+      },
+      "lsp": {
+        "on_feature_complete": 1
+      },
+      "semantic_search": {
+        "on_feature_complete": 1
+      },
+      "duplicate_detection": {
+        "on_feature_complete": 1
+      },
+      "quality_gates": {
+        "on_feature_complete": 1
+      },
+      "debugging": {
+        "on_feature_complete": 1
+      },
+      "memory": {
+        "on_feature_complete": 1
+      },
+      "long_term_memory": {
+        "on_feature_complete": 1
+      }
+    },
+    "59": {
+      "todo_sync": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "prompt_engineering": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "clarification": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "specification": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "context_engineering": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "planning": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "consistency": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "parallelization": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "language_agents": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "lsp": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "semantic_search": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "duplicate_detection": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "quality_gates": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "debugging": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "memory": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "long_term_memory": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      }
+    },
+    "2": {
+      "todo_sync": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "prompt_engineering": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "clarification": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "specification": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "context_engineering": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "planning": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "consistency": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "parallelization": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "language_agents": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "lsp": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "semantic_search": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "duplicate_detection": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "quality_gates": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "debugging": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "memory": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "long_term_memory": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      }
+    },
+    "3": {
+      "todo_sync": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "prompt_engineering": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "clarification": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "specification": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "context_engineering": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "planning": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "consistency": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "parallelization": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "language_agents": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "lsp": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "semantic_search": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "duplicate_detection": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "quality_gates": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "debugging": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "memory": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      },
+      "long_term_memory": {
+        "on_feature_start": 1,
+        "get_feature_context": 2,
+        "on_feature_complete": 1
+      }
+    },
+    "4": {
+      "todo_sync": {
+        "on_feature_complete": 1
+      },
+      "prompt_engineering": {
+        "on_feature_complete": 1
+      },
+      "clarification": {
+        "on_feature_complete": 1
+      },
+      "specification": {
+        "on_feature_complete": 1
+      },
+      "context_engineering": {
+        "on_feature_complete": 1
+      },
+      "planning": {
+        "on_feature_complete": 1
+      },
+      "consistency": {
+        "on_feature_complete": 1
+      },
+      "parallelization": {
+        "on_feature_complete": 1
+      },
+      "language_agents": {
+        "on_feature_complete": 1
+      },
+      "lsp": {
+        "on_feature_complete": 1
+      },
+      "semantic_search": {
+        "on_feature_complete": 1
+      },
+      "duplicate_detection": {
+        "on_feature_complete": 1
+      },
+      "quality_gates": {
+        "on_feature_complete": 1
+      },
+      "debugging": {
+        "on_feature_complete": 1
+      },
+      "memory": {
+        "on_feature_complete": 1
+      },
+      "long_term_memory": {
+        "on_feature_complete": 1
+      }
+    },
+    "5": {
+      "todo_sync": {
+        "on_feature_complete": 1
+      },
+      "prompt_engineering": {
+        "on_feature_complete": 1
+      },
+      "clarification": {
+        "on_feature_complete": 1
+      },
+      "specification": {
+        "on_feature_complete": 1
+      },
+      "context_engineering": {
+        "on_feature_complete": 1
+      },
+      "planning": {
+        "on_feature_complete": 1
+      },
+      "consistency": {
+        "on_feature_complete": 1
+      },
+      "parallelization": {
+        "on_feature_complete": 1
+      },
+      "language_agents": {
+        "on_feature_complete": 1
+      },
+      "lsp": {
+        "on_feature_complete": 1
+      },
+      "semantic_search": {
+        "on_feature_complete": 1
+      },
+      "duplicate_detection": {
+        "on_feature_complete": 1
+      },
+      "quality_gates": {
+        "on_feature_complete": 1
+      },
+      "debugging": {
+        "on_feature_complete": 1
+      },
+      "memory": {
+        "on_feature_complete": 1
+      },
+      "long_term_memory": {
+        "on_feature_complete": 1
+      }
+    },
+    "7": {
+      "todo_sync": {
+        "on_feature_complete": 1
+      },
+      "prompt_engineering": {
+        "on_feature_complete": 1
+      },
+      "clarification": {
+        "on_feature_complete": 1
+      },
+      "specification": {
+        "on_feature_complete": 1
+      },
+      "context_engineering": {
+        "on_feature_complete": 1
+      },
+      "planning": {
+        "on_feature_complete": 1
+      },
+      "consistency": {
+        "on_feature_complete": 1
+      },
+      "parallelization": {
+        "on_feature_complete": 1
+      },
+      "language_agents": {
+        "on_feature_complete": 1
+      },
+      "lsp": {
+        "on_feature_complete": 1
+      },
+      "semantic_search": {
+        "on_feature_complete": 1
+      },
+      "duplicate_detection": {
+        "on_feature_complete": 1
+      },
+      "quality_gates": {
+        "on_feature_complete": 1
+      },
+      "debugging": {
+        "on_feature_complete": 1
+      },
+      "memory": {
+        "on_feature_complete": 1
+      },
+      "long_term_memory": {
+        "on_feature_complete": 1
+      }
+    },
+    "8": {
+      "todo_sync": {
+        "on_feature_complete": 1
+      },
+      "prompt_engineering": {
+        "on_feature_complete": 1
+      },
+      "clarification": {
+        "on_feature_complete": 1
+      },
+      "specification": {
+        "on_feature_complete": 1
+      },
+      "context_engineering": {
+        "on_feature_complete": 1
+      },
+      "planning": {
+        "on_feature_complete": 1
+      },
+      "consistency": {
+        "on_feature_complete": 1
+      },
+      "parallelization": {
+        "on_feature_complete": 1
+      },
+      "language_agents": {
+        "on_feature_complete": 1
+      },
+      "lsp": {
+        "on_feature_complete": 1
+      },
+      "semantic_search": {
+        "on_feature_complete": 1
+      },
+      "duplicate_detection": {
+        "on_feature_complete": 1
+      },
+      "quality_gates": {
+        "on_feature_complete": 1
+      },
+      "debugging": {
+        "on_feature_complete": 1
+      },
+      "memory": {
+        "on_feature_complete": 1
+      },
+      "long_term_memory": {
+        "on_feature_complete": 1
+      }
+    },
+    "9": {
+      "todo_sync": {
+        "on_feature_complete": 1
+      },
+      "prompt_engineering": {
+        "on_feature_complete": 1
+      },
+      "clarification": {
+        "on_feature_complete": 1
+      },
+      "specification": {
+        "on_feature_complete": 1
+      },
+      "context_engineering": {
+        "on_feature_complete": 1
+      },
+      "planning": {
+        "on_feature_complete": 1
+      },
+      "consistency": {
+        "on_feature_complete": 1
+      },
+      "parallelization": {
+        "on_feature_complete": 1
+      },
+      "language_agents": {
+        "on_feature_complete": 1
+      },
+      "lsp": {
+        "on_feature_complete": 1
+      },
+      "semantic_search": {
+        "on_feature_complete": 1
+      },
+      "duplicate_detection": {
+        "on_feature_complete": 1
+      },
+      "quality_gates": {
+        "on_feature_complete": 1
+      },
+      "debugging": {
+        "on_feature_complete": 1
+      },
+      "memory": {
+        "on_feature_complete": 1
+      },
+      "long_term_memory": {
+        "on_feature_complete": 1
+      }
+    },
+    "10": {
+      "todo_sync": {
+        "on_feature_complete": 1
+      },
+      "prompt_engineering": {
+        "on_feature_complete": 1
+      },
+      "clarification": {
+        "on_feature_complete": 1
+      },
+      "specification": {
+        "on_feature_complete": 1
+      },
+      "context_engineering": {
+        "on_feature_complete": 1
+      },
+      "planning": {
+        "on_feature_complete": 1
+      },
+      "consistency": {
+        "on_feature_complete": 1
+      },
+      "parallelization": {
+        "on_feature_complete": 1
+      },
+      "language_agents": {
+        "on_feature_complete": 1
+      },
+      "lsp": {
+        "on_feature_complete": 1
+      },
+      "semantic_search": {
+        "on_feature_complete": 1
+      },
+      "duplicate_detection": {
+        "on_feature_complete": 1
+      },
+      "quality_gates": {
+        "on_feature_complete": 1
+      },
+      "debugging": {
+        "on_feature_complete": 1
+      },
+      "memory": {
+        "on_feature_complete": 1
+      },
+      "long_term_memory": {
+        "on_feature_complete": 1
+      }
+    },
+    "36": {
+      "todo_sync": {
+        "on_feature_complete": 1
+      },
+      "prompt_engineering": {
+        "on_feature_complete": 1
+      },
+      "clarification": {
+        "on_feature_complete": 1
+      },
+      "specification": {
+        "on_feature_complete": 1
+      },
+      "context_engineering": {
+        "on_feature_complete": 1
+      },
+      "planning": {
+        "on_feature_complete": 1
+      },
+      "consistency": {
+        "on_feature_complete": 1
+      },
+      "parallelization": {
+        "on_feature_complete": 1
+      },
+      "language_agents": {
+        "on_feature_complete": 1
+      },
+      "lsp": {
+        "on_feature_complete": 1
+      },
+      "semantic_search": {
+        "on_feature_complete": 1
+      },
+      "duplicate_detection": {
+        "on_feature_complete": 1
+      },
+      "quality_gates": {
+        "on_feature_complete": 1
+      },
+      "debugging": {
+        "on_feature_complete": 1
+      },
+      "memory": {
+        "on_feature_complete": 1
+      },
+      "long_term_memory": {
+        "on_feature_complete": 1
+      }
+    },
+    "48": {
+      "todo_sync": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "prompt_engineering": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "clarification": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "specification": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "context_engineering": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "planning": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "consistency": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "parallelization": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "language_agents": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "lsp": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "semantic_search": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "duplicate_detection": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "quality_gates": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "debugging": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "memory": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      },
+      "long_term_memory": {
+        "on_feature_start": 1,
+        "get_feature_context": 2
+      }
+    }
+  }
+}

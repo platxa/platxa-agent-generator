@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0.0",
+  "project_name": "dashboard-sidebar-demo",
+  "project_path": "/home/riya/ai-workspace/platxa/dashboard-sidebar-demo",
+  "initialized_at": "2026-01-22T17:14:35.563708",
+  "active": {
+    "id": "research_20260122_171435_b513",
+    "query": "Deep analysis of Platxa Frontend Agent architecture, implemented features (#139-145), and systematic evaluation of the agent-orchestrator pattern",
+    "status": "planning",
+    "plan": {
+      "subtopics": [],
+      "search_queries": [
+        {
+          "id": "query_20260122_171435_1c5d",
+          "query": "Deep analysis of Platxa Frontend Agent architecture, implemented features (#139-145), and systematic evaluation of the agent-orchestrator pattern",
+          "purpose": "Main research query",
+          "completed": false,
+          "results_count": 0
+        }
+      ],
+      "max_sources": 15,
+      "depth": 3
+    },
+    "progress": {
+      "sources_planned": 15,
+      "sources_completed": 0,
+      "current_query_index": 0,
+      "quality_score": 0.0
+    },
+    "findings": [],
+    "synthesis": null,
+    "features_generated": false,
+    "features_count": 0,
+    "created_at": "2026-01-22T17:14:35.567246",
+    "paused_at": null,
+    "completed_at": null
+  },
+  "paused": [],
+  "completed": [],
+  "total_completed": 0,
+  "total_features_generated": 0
+}

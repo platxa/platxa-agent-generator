@@ -17,6 +17,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './'),
+      '@platxa/frontend-agent': path.resolve(__dirname, '../packages/platxa-frontend-agent/src'),
     },
   },
 });

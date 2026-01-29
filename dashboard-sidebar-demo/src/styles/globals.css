@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+/**
+ * PLATXA BRAND KIT INTEGRATION
+ * Dashboard Sidebar Demo
+ *
+ * Imports official @platxa/brand-kit tokens
+ * @platxa/brand-kit
+ */
+
+/* Import Brand Kit (Single Source of Truth) */
+@import "@platxa/brand-kit";
+@import "@platxa/brand-kit/themes";
+
+/* Local Extensions for Dashboard */
+@layer base {
+  :root {
+    /* Sidebar specific tokens */
+    --sidebar-width: 280px;
+    --sidebar-collapsed-width: 72px;
+    --sidebar-transition: 300ms;
+
+    /* Dashboard feedback colors */
+    --destructive: oklch(0.55 0.22 25);
+    --destructive-foreground: white;
+    --success: oklch(0.65 0.18 145);
+    --success-foreground: white;
+
+    --radius: 0.5rem;
+  }
+}
+
+/* Tailwind v4 @theme Mapping */
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+
+  /* Sidebar colors */
+  --color-sidebar: var(--gray-2);
+  --color-sidebar-foreground: var(--gray-12);
+  --color-sidebar-accent: var(--purple-3);
+  --color-sidebar-accent-foreground: var(--purple-11);
+  --color-sidebar-border: var(--gray-4);
+
+  /* Purple scale for direct access */
+  --color-purple-3: var(--purple-3);
+  --color-purple-9: var(--purple-9);
+  --color-purple-10: var(--purple-10);
+  --color-purple-11: var(--purple-11);
+
+  /* Teal scale */
+  --color-teal-3: var(--teal-3);
+  --color-teal-9: var(--teal-9);
+
+  /* Border radius */
+  --radius-sm: calc(var(--radius) - 0.125rem);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 0.25rem);
+
+  /* Typography */
+  --font-sans: "Inter", system-ui, sans-serif;
+
+  /* Animations */
+  --animate-sidebar: sidebar-expand 0.3s ease-out;
+}
+
+@keyframes sidebar-expand {
+  from { width: var(--sidebar-collapsed-width); }
+  to { width: var(--sidebar-width); }
+}
+
+/* Base Styles */
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}

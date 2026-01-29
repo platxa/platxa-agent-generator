@@ -1,0 +1,100 @@
+{
+  "id": "plan-feature-106",
+  "title": "Implementation: [Component Tokens] Brand kit can export component-specific t...",
+  "context": {
+    "spec_id": "feature-106",
+    "feature_id": "106",
+    "dependencies": [],
+    "metadata": {
+      "category": "Brand Kit Interface Features",
+      "verification_criteria": {
+        "type": "manual",
+        "criteria": "Manual verification required",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      }
+    },
+    "created_at": "2026-01-21T17:21:42.422248"
+  },
+  "phases": [
+    "research",
+    "design",
+    "implementation",
+    "testing"
+  ],
+  "tasks": [
+    {
+      "id": "task-106-1",
+      "title": "Analyze Requirements",
+      "description": "Review feature requirements: [Component Tokens] Brand kit can export component-specific tokens (button, card, input) Verification: Component tokens optional; Button, card, input tokens supported; Custom component tokens allowed",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 0,
+      "estimated_effort": "small",
+      "verification": "Requirements understood, approach identified",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-106-2",
+      "title": "Review Existing Code",
+      "description": "Search for related code patterns and potential duplicates",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 1,
+      "estimated_effort": "small",
+      "verification": "Existing patterns identified, no duplication",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-106-3",
+      "title": "Implement Feature",
+      "description": "Implement: [Component Tokens] Brand kit can export component-specific tokens (button, card, input) Verification: Component tokens optional; Button, card, input tokens supported; Custom component tokens allowed",
+      "step_type": "implement",
+      "status": "pending",
+      "order": 2,
+      "estimated_effort": "medium",
+      "verification": "Code complete and type-checked",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-106-4",
+      "title": "Add Tests",
+      "description": "Write unit tests for new functionality",
+      "step_type": "test",
+      "status": "pending",
+      "order": 3,
+      "estimated_effort": "small",
+      "verification": "Tests pass, coverage adequate",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-106-5",
+      "title": "Verify Acceptance Criteria",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Manual verification required', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "step_type": "test",
+      "status": "pending",
+      "order": 4,
+      "estimated_effort": "small",
+      "verification": {
+        "type": "manual",
+        "criteria": "Manual verification required",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "files": [],
+      "completed_at": null
+    }
+  ],
+  "constitution_check": true,
+  "notes": "",
+  "created_at": "2026-01-21T17:21:42.422296",
+  "lsp_impact": {}
+}

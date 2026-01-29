@@ -1,0 +1,646 @@
+{
+  "version": "1.0",
+  "updated_at": "2026-01-29T11:40:03.488974",
+  "plans": [
+    {
+      "id": "plan-feature-98",
+      "title": "Implementation: Add internationalization support for generated themes with m...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:28:55.114907",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-2",
+      "title": "Implementation: Implement 5-iteration self-correction loop with quality thre...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T17:50:04.539094",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-6",
+      "title": "Implementation: Add error injection system feeding validation failures back ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T17:59:29.769142",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-89",
+      "title": "Implementation: Implement incremental theme update pushing only changed file...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:59:17.546459",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-11",
+      "title": "Implementation: Create ToolExecutor base class with common execution pattern...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T18:05:37.570445",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-17",
+      "title": "Implementation: Implement search_codebase tool using ripgrep for fast text s...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T18:13:01.515938",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-53",
+      "title": "Implementation: Add drag-and-drop section reordering in preview with live po...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T13:47:57.713836",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-61",
+      "title": "Implementation: Add QWeb template hot-swapping using morphdom for DOM diffin...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-29T11:40:03.488641",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-46",
+      "title": "Implementation: Implement visual regression baseline capture and pixel-level...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:40:25.410170",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-76",
+      "title": "Implementation: Create prompt optimization module that improves prompts base...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:50:41.504105",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-41",
+      "title": "Implementation: Add image alt-text and ARIA label completeness checker for a...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:53:14.894870",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-80",
+      "title": "Implementation: Implement Odoo marketplace metadata generator producing icon...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:20:18.460668",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-4",
+      "title": "Implementation: Create step execution dispatcher routing plan steps to appro...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T17:54:04.043930",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-20",
+      "title": "Implementation: Create edit_file tool with search/replace operations for tar...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T18:32:03.401512",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-22",
+      "title": "Implementation: Create compile_scss tool using dart-sass with Odoo variable ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T18:43:04.645294",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-75",
+      "title": "Implementation: Implement context window management prioritizing relevant co...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T14:53:01.695466",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-91",
+      "title": "Implementation: Create unified Platxa CLI for generate, preview, deploy, tes...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:15:13.017040",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-50",
+      "title": "Implementation: Add floating style editor panel for colors, fonts, and spaci...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T11:51:42.315786",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-42",
+      "title": "Implementation: Create keyboard navigation validator for interactive snippet...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:56:37.512334",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-65",
+      "title": "Implementation: Add Evaluator-Optimizer feedback loop for iterative quality ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:03:43.109480",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-27",
+      "title": "Implementation: Add Google Fonts validation and fallback chain generation fo...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:43:23.807843",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-97",
+      "title": "Implementation: Create plugin architecture for custom snippet types beyond t...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T16:05:16.068427",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-30",
+      "title": "Implementation: Add color harmony validation ensuring palette follows comple...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:45:19.979888",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-72",
+      "title": "Implementation: Implement capability-based task routing to specialized worke...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T14:18:35.443026",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-19",
+      "title": "Implementation: Implement write_file tool with automatic Yjs document sync f...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T18:27:46.867085",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-88",
+      "title": "Implementation: Create Odoo App Store submission validator checking all mark...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:10:30.218464",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-8",
+      "title": "Implementation: Implement AI awareness protocol in editor-sync to show AI ed...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-27T18:34:59.192432",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-68",
+      "title": "Implementation: Add clarifying question generation before ambiguous or under...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:13:28.080520",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-3",
+      "title": "Implementation: Add plan generation phase using LLM with structured JSON out...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T17:51:21.665557",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-92",
+      "title": "Implementation: Add project scaffolding wizard generating full project from ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:29:49.387908",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-18",
+      "title": "Implementation: Create read_file tool with optional line range support for f...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T18:23:43.898539",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-64",
+      "title": "Implementation: Implement Orchestrator-Workers pattern with task decompositi...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:01:18.760547",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-14",
+      "title": "Implementation: Add design-analyzer module to pre-generation context buildin...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:35:21.124161",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-51",
+      "title": "Implementation: Implement direct color picker changes mapping to SCSS variab...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T11:54:09.897999",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-84",
+      "title": "Implementation: Add theme asset optimizer minifying SCSS, optimizing images,...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T14:59:49.839558",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-9",
+      "title": "Implementation: Create project config bridge syncing Zustand store state wit...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-27T18:39:08.156440",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-90",
+      "title": "Implementation: Add theme documentation generator producing README, screensh...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T16:03:03.005300",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-67",
+      "title": "Implementation: Implement multi-step agent cycle: Plan\u2192Search\u2192Read\u2192Edit\u2192Test...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:10:51.784561",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-78",
+      "title": "Implementation: Implement agent observability dashboard tracking latency, qu...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:55:03.381559",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-59",
+      "title": "Implementation: Create OdooHMRPreview class managing iframe communication an...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T18:51:30.513227",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-36",
+      "title": "Implementation: Add SCSS compilation validator using dart-sass to catch synt...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-27T18:47:43.355790",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-39",
+      "title": "Implementation: Create HTML semantic structure validator checking heading hi...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:48:07.929038",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-54",
+      "title": "Implementation: Implement responsive preview toggle with accurate mobile/tab...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T11:56:49.600036",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-56",
+      "title": "Implementation: Add snapshot/version timeline with visual thumbnails for eac...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T13:51:31.236654",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-62",
+      "title": "Implementation: Add layout grid overlay toggle for alignment verification in...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:46:01.975550",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-7",
+      "title": "Implementation: Create re-planning logic that incorporates error context to ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T18:02:23.583060",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-95",
+      "title": "Implementation: Add telemetry and analytics for generation quality tracking ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:21:36.827635",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-57",
+      "title": "Implementation: Implement undo/redo stack for visual edits with keyboard sho...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T13:56:05.907231",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-94",
+      "title": "Implementation: Create development mode with hot-reload across website-studi...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:18:55.221821",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-40",
+      "title": "Implementation: Implement CSS specificity analyzer flagging overly complex s...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:50:21.607425",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-5",
+      "title": "Implementation: Implement validation phase aggregating QWeb, SCSS, accessibi...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T17:56:33.041352",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-86",
+      "title": "Implementation: Implement theme preview server simulating Odoo QWeb renderin...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:04:42.470673",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-99",
+      "title": "Implementation: Implement batch generation for multiple pages and snippets w...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:32:50.202393",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-60",
+      "title": "Implementation: Implement CSS injection without page reload using style tag ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T18:58:06.641880",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-81",
+      "title": "Implementation: Add automated theme testing against Odoo Docker instance for...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:22:34.396322",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-73",
+      "title": "Implementation: Create agent progress streaming with phase indicators and es...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T14:47:52.787964",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-69",
+      "title": "Implementation: Implement self-correction from quality gate feedback with au...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:15:49.442698",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-58",
+      "title": "Implementation: Create AI editing indicators with pulsing highlights showing...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T14:01:57.126752",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-10",
+      "title": "Implementation: Add agent status streaming to chat interface showing plan/se...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-27T18:43:56.244377",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-21",
+      "title": "Implementation: Implement validate_qweb tool checking XML syntax, t-directiv...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T18:35:18.831806",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-77",
+      "title": "Implementation: Add multi-model routing using different LLMs for different t...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:52:57.036537",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-55",
+      "title": "Implementation: Implement read-only codebase exploration in plan mode (no wr...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T18:47:46.720450",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-71",
+      "title": "Implementation: Add parallel worker execution for independent section genera...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T14:16:01.566856",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-52",
+      "title": "Implementation: Create section-level regeneration allowing users to regenera...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T11:40:42.034300",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-93",
+      "title": "Implementation: Implement streaming SSE endpoint for real-time generation pr...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:32:58.610358",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-100",
+      "title": "Implementation: Create comprehensive API documentation with OpenAPI spec for...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T16:07:15.604461",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-70",
+      "title": "Implementation: Create agent memory for cross-session learning of user prefe...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T14:11:29.807423",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-43",
+      "title": "Implementation: Implement responsive layout validator detecting horizontal o...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T13:44:38.363181",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-79",
+      "title": "Implementation: Create complete Odoo module packager producing installable t...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:18:10.804992",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-74",
+      "title": "Implementation: Add rollback-on-failure with automatic recovery strategy sel...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T14:50:36.467558",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-63",
+      "title": "Implementation: Implement zoom controls for preview panel (25%-200%) with fi...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:48:14.553200",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-66",
+      "title": "Implementation: Create RAG pipeline for existing theme codebase understandin...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:06:01.493265",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-85",
+      "title": "Implementation: Create one-click deploy to Odoo instance via XML-RPC module ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:27:40.186904",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-83",
+      "title": "Implementation: Implement multi-Odoo-version compatibility layer supporting ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:24:47.346539",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-82",
+      "title": "Implementation: Create theme upgrade migration script generator for version-...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T14:55:41.395239",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-96",
+      "title": "Implementation: Implement rate limiting and cost tracking for AI API calls w...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:23:55.005299",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-44",
+      "title": "Implementation: Add performance budget checker for CSS size, selector count,...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:37:28.851113",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-87",
+      "title": "Implementation: Add theme configuration wizard generating install options fo...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T15:07:28.432903",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-15",
+      "title": "Implementation: Create unified error pipeline from agent errors to chat UI w...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T12:39:35.168508",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-49",
+      "title": "Implementation: Create DOM-to-source bidirectional mapping for QWeb template...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-28T11:48:30.509633",
+      "constitution_check": true
+    }
+  ]
+}

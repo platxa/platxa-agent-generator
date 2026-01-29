@@ -1,0 +1,177 @@
+/**
+ * Platxa Design Tokens - Effects
+ *
+ * Gradients, shadows, and visual effects for the Platxa brand.
+ *
+ * @platxa/brand-kit
+ * DJ Patel | Founder & CEO @ Platxa
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════════════════
+   * GRADIENTS - Brand gradient effects
+   * Inspired by the logo's purple-to-teal color flow
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Primary brand gradient (purple to teal) */
+  --gradient-brand: linear-gradient(
+    135deg,
+    var(--purple-9) 0%,
+    var(--teal-9) 100%
+  );
+
+  /* Subtle brand gradient for backgrounds */
+  --gradient-brand-subtle: linear-gradient(
+    135deg,
+    var(--purple-3) 0%,
+    var(--teal-3) 100%
+  );
+
+  /* Primary gradient (purple shades) */
+  --gradient-primary: linear-gradient(
+    135deg,
+    var(--purple-8) 0%,
+    var(--purple-10) 100%
+  );
+
+  /* Accent gradient (teal shades) */
+  --gradient-accent: linear-gradient(
+    135deg,
+    var(--teal-8) 0%,
+    var(--teal-10) 100%
+  );
+
+  /* Radial glow effect */
+  --gradient-glow-purple: radial-gradient(
+    circle at center,
+    var(--purple-a4) 0%,
+    transparent 70%
+  );
+
+  --gradient-glow-teal: radial-gradient(
+    circle at center,
+    var(--teal-a4) 0%,
+    transparent 70%
+  );
+
+  /* Mesh gradient background */
+  --gradient-mesh:
+    radial-gradient(at 40% 20%, var(--purple-a3) 0px, transparent 50%),
+    radial-gradient(at 80% 0%, var(--teal-a3) 0px, transparent 50%),
+    radial-gradient(at 0% 50%, var(--purple-a2) 0px, transparent 50%),
+    radial-gradient(at 80% 50%, var(--teal-a2) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, var(--purple-a3) 0px, transparent 50%),
+    radial-gradient(at 80% 100%, var(--teal-a2) 0px, transparent 50%);
+
+  /* Text gradient (for gradient text effect) */
+  --gradient-text: linear-gradient(
+    90deg,
+    var(--purple-9) 0%,
+    var(--teal-9) 100%
+  );
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * SHADOWS - Elevation system
+   * Purple-tinted shadows for brand consistency
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Shadow colors */
+  --shadow-color: var(--gray-a3);
+  --shadow-color-strong: var(--gray-a5);
+
+  /* Elevation levels */
+  --shadow-xs: 0 1px 2px 0 var(--shadow-color);
+
+  --shadow-sm:
+    0 1px 3px 0 var(--shadow-color),
+    0 1px 2px -1px var(--shadow-color);
+
+  --shadow-md:
+    0 4px 6px -1px var(--shadow-color),
+    0 2px 4px -2px var(--shadow-color);
+
+  --shadow-lg:
+    0 10px 15px -3px var(--shadow-color),
+    0 4px 6px -4px var(--shadow-color);
+
+  --shadow-xl:
+    0 20px 25px -5px var(--shadow-color),
+    0 8px 10px -6px var(--shadow-color);
+
+  --shadow-2xl: 0 25px 50px -12px var(--shadow-color-strong);
+
+  --shadow-inner: inset 0 2px 4px 0 var(--shadow-color);
+
+  --shadow-none: 0 0 #0000;
+
+  /* Colored shadows for emphasis */
+  --shadow-primary:
+    0 4px 14px 0 var(--purple-a4),
+    0 2px 6px -1px var(--purple-a3);
+
+  --shadow-accent:
+    0 4px 14px 0 var(--teal-a4),
+    0 2px 6px -1px var(--teal-a3);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * BLUR - Backdrop effects
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --blur-none: blur(0);
+  --blur-sm: blur(4px);
+  --blur-md: blur(8px);
+  --blur-lg: blur(12px);
+  --blur-xl: blur(16px);
+  --blur-2xl: blur(24px);
+  --blur-3xl: blur(40px);
+
+  /* Glass effect */
+  --glass-bg: var(--gray-a2);
+  --glass-blur: var(--blur-lg);
+  --glass-border: var(--gray-a3);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * ANIMATIONS - Timing and easing
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Durations */
+  --duration-instant: 0ms;
+  --duration-fast: 100ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --duration-slower: 500ms;
+
+  /* Easing curves */
+  --ease-linear: linear;
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+
+  /* Common transitions */
+  --transition-colors: color, background-color, border-color, text-decoration-color, fill, stroke;
+  --transition-opacity: opacity;
+  --transition-shadow: box-shadow;
+  --transition-transform: transform;
+  --transition-all: all;
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * Z-INDEX - Stacking layers
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --z-auto: auto;
+  --z-0: 0;
+  --z-10: 10;
+  --z-20: 20;
+  --z-30: 30;
+  --z-40: 40;
+  --z-50: 50;
+  --z-dropdown: 1000;
+  --z-sticky: 1100;
+  --z-fixed: 1200;
+  --z-modal-backdrop: 1300;
+  --z-modal: 1400;
+  --z-popover: 1500;
+  --z-tooltip: 1600;
+}

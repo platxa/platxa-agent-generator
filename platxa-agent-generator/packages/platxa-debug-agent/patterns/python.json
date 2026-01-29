@@ -1,0 +1,804 @@
+{
+  "$schema": "./schema.json",
+  "name": "Python Bug Patterns",
+  "description": "Common bug patterns for Python codebases",
+  "version": "1.0.0",
+  "patterns": [
+    {
+      "id": "mutable-default",
+      "language": "python",
+      "message": "Mutable default argument - use None and initialize inside function",
+      "severity": "error",
+      "category": "logic",
+      "tags": ["mutable", "default-argument", "function"],
+      "ast_pattern": {
+        "type": "FunctionDef",
+        "selector": "FunctionDef > arguments > defaults > (List | Dict | Set)"
+      },
+      "fix_template": {
+        "type": "replace",
+        "template": "{{param}}=None",
+        "placeholders": {
+          "param": {
+            "description": "Parameter name",
+            "source": "matched_node"
+          }
+        },
+        "confidence": 0.95
+      },
+      "documentation": {
+        "description": "Mutable default arguments (lists, dicts, sets) are shared between all function calls, causing unexpected mutations.",
+        "rationale": "Use None as default and create a new mutable object inside the function.",
+        "examples": [
+          {
+            "bad": "def append_to(item, target=[]):\n    target.append(item)\n    return target",
+            "good": "def append_to(item, target=None):\n    if target is None:\n        target = []\n    target.append(item)\n    return target",
+            "explanation": "With mutable default, all calls share the same list. Using None creates a new list each time."
+          }
+        ],
+        "references": [
+          "https://docs.python-guide.org/writing/gotchas/#mutable-default-arguments"
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "bare-except-clause",
+      "language": "python",
+      "message": "Bare except clause catches all exceptions including KeyboardInterrupt and SystemExit",
+      "severity": "warning",
+      "category": "error-handling",
+      "tags": ["exception", "error-handling", "best-practice"],
+      "ast_pattern": {
+        "type": "ExceptHandler",
+        "properties": {
+          "type": null
+        }
+      },
+      "fix_template": {
+        "type": "replace",
+        "template": "except Exception as {{var}}:",
+        "placeholders": {
+          "var": {
+            "description": "Exception variable name",
+            "source": "user_input"
+          }
+        },
+        "confidence": 0.9
+      },
+      "documentation": {
+        "description": "Using bare 'except:' catches all exceptions including SystemExit and KeyboardInterrupt, making it impossible to terminate the program gracefully.",
+        "rationale": "Always specify the exception type to catch. Use 'except Exception' to catch most exceptions while allowing system exits.",
+        "examples": [
+          {
+            "bad": "try:\n    risky_operation()\nexcept:\n    pass",
+            "good": "try:\n    risky_operation()\nexcept Exception as e:\n    logger.error(f'Operation failed: {e}')",
+            "explanation": "The specific exception type allows proper error handling and doesn't catch system signals."
+          }
+        ],
+        "references": [
+          "https://docs.python.org/3/tutorial/errors.html"
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "type-mismatch",
+      "language": "python",
+      "message": "Type annotation mismatch - value doesn't match declared type",
+      "severity": "error",
+      "category": "type-safety",
+      "tags": ["typing", "type-annotation", "mypy"],
+      "ast_pattern": {
+        "type": "AnnAssign",
+        "selector": "AnnAssign[value]"
+      },
+      "fix_template": {
+        "type": "replace",
+        "template": "{{name}}: {{correct_type}} = {{value}}",
+        "placeholders": {
+          "name": {
+            "description": "Variable name",
+            "source": "matched_node"
+          },
+          "correct_type": {
+            "description": "Correct type annotation",
+            "source": "user_input"
+          },
+          "value": {
+            "description": "The assigned value",
+            "source": "matched_node"
+          }
+        },
+        "confidence": 0.7
+      },
+      "documentation": {
+        "description": "Type annotations that don't match the actual value type create runtime errors that type checkers should catch.",
+        "rationale": "Ensure type annotations accurately reflect the values being assigned.",
+        "examples": [
+          {
+            "bad": "count: int = \"5\"",
+            "good": "count: int = 5",
+            "explanation": "The string '5' doesn't match the int annotation."
+          }
+        ]
+      },
+      "conditions": {
+        "min_language_version": "3.5"
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "import-error",
+      "language": "python",
+      "message": "Potential import error - circular import or missing module",
+      "severity": "error",
+      "category": "error-handling",
+      "tags": ["import", "module", "circular"],
+      "ast_pattern": {
+        "type": "Import",
+        "selector": "Import, ImportFrom"
+      },
+      "fix_template": {
+        "type": "refactor",
+        "template": "# Move import inside function to break circular dependency\ndef {{func}}():\n    from {{module}} import {{name}}\n    {{body}}",
+        "placeholders": {
+          "func": {
+            "description": "Function name",
+            "source": "context"
+          },
+          "module": {
+            "description": "Module name",
+            "source": "matched_node"
+          },
+          "name": {
+            "description": "Imported name",
+            "source": "matched_node"
+          },
+          "body": {
+            "description": "Function body",
+            "source": "context"
+          }
+        },
+        "confidence": 0.5
+      },
+      "documentation": {
+        "description": "Circular imports or missing modules cause ImportError at runtime.",
+        "rationale": "Structure modules to avoid circular dependencies. Use lazy imports when necessary.",
+        "examples": [
+          {
+            "bad": "# module_a.py\nfrom module_b import func_b\n\n# module_b.py\nfrom module_a import func_a",
+            "good": "# module_a.py\ndef func_a():\n    from module_b import func_b\n    return func_b()",
+            "explanation": "Moving the import inside the function breaks the circular dependency."
+          }
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "indent-error",
+      "language": "python",
+      "message": "Inconsistent indentation - mixing tabs and spaces",
+      "severity": "error",
+      "category": "style",
+      "tags": ["indentation", "whitespace", "tabs", "spaces"],
+      "ast_pattern": {
+        "type": "Module",
+        "selector": "Module"
+      },
+      "fix_template": {
+        "type": "refactor",
+        "template": "{{code_with_spaces}}",
+        "placeholders": {
+          "code_with_spaces": {
+            "description": "Code with consistent 4-space indentation",
+            "source": "context"
+          }
+        },
+        "confidence": 0.95
+      },
+      "documentation": {
+        "description": "Python 3 doesn't allow mixing tabs and spaces for indentation, causing IndentationError.",
+        "rationale": "Use consistent indentation (PEP 8 recommends 4 spaces).",
+        "examples": [
+          {
+            "bad": "def foo():\n\tif True:\n        pass  # mixed tabs and spaces",
+            "good": "def foo():\n    if True:\n        pass  # consistent 4 spaces",
+            "explanation": "Use 4 spaces consistently throughout the codebase."
+          }
+        ],
+        "references": [
+          "https://peps.python.org/pep-0008/#indentation"
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "none-return",
+      "language": "python",
+      "message": "Function may return None unexpectedly - missing return statement in branch",
+      "severity": "warning",
+      "category": "logic",
+      "tags": ["return", "none", "function"],
+      "ast_pattern": {
+        "type": "FunctionDef",
+        "selector": "FunctionDef:has(If):not(:has(Return[value]))"
+      },
+      "fix_template": {
+        "type": "insert_after",
+        "template": "    return {{default}}",
+        "placeholders": {
+          "default": {
+            "description": "Default return value",
+            "source": "user_input"
+          }
+        },
+        "confidence": 0.7
+      },
+      "documentation": {
+        "description": "Functions that don't explicitly return a value in all branches implicitly return None.",
+        "rationale": "Explicitly return values in all code paths to avoid unexpected None values.",
+        "examples": [
+          {
+            "bad": "def get_value(data):\n    if data:\n        return data['value']",
+            "good": "def get_value(data):\n    if data:\n        return data['value']\n    return None  # or raise an exception",
+            "explanation": "Without explicit return, calling get_value(None) returns None implicitly."
+          }
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "attribute-error",
+      "language": "python",
+      "message": "Potential AttributeError - accessing attribute that may not exist",
+      "severity": "warning",
+      "category": "null-safety",
+      "tags": ["attribute", "none", "hasattr"],
+      "ast_pattern": {
+        "type": "Attribute",
+        "selector": "Attribute"
+      },
+      "fix_template": {
+        "type": "replace",
+        "template": "getattr({{obj}}, '{{attr}}', {{default}})",
+        "placeholders": {
+          "obj": {
+            "description": "Object being accessed",
+            "source": "matched_node"
+          },
+          "attr": {
+            "description": "Attribute name",
+            "source": "matched_node"
+          },
+          "default": {
+            "description": "Default value if attribute missing",
+            "source": "user_input"
+          }
+        },
+        "confidence": 0.6
+      },
+      "documentation": {
+        "description": "Accessing attributes on objects that might be None or might not have the attribute causes AttributeError.",
+        "rationale": "Use getattr() with a default, hasattr() check, or optional access patterns.",
+        "examples": [
+          {
+            "bad": "name = user.profile.name",
+            "good": "name = getattr(getattr(user, 'profile', None), 'name', 'Unknown')",
+            "explanation": "Using getattr with defaults handles missing attributes gracefully."
+          }
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "key-error",
+      "language": "python",
+      "message": "Potential KeyError - dict access without checking key exists",
+      "severity": "warning",
+      "category": "null-safety",
+      "tags": ["dict", "key", "get"],
+      "ast_pattern": {
+        "type": "Subscript",
+        "selector": "Subscript[value.type='Name']"
+      },
+      "fix_template": {
+        "type": "replace",
+        "template": "{{dict}}.get({{key}}, {{default}})",
+        "placeholders": {
+          "dict": {
+            "description": "Dictionary being accessed",
+            "source": "matched_node"
+          },
+          "key": {
+            "description": "Key being accessed",
+            "source": "matched_node"
+          },
+          "default": {
+            "description": "Default value if key missing",
+            "source": "user_input"
+          }
+        },
+        "confidence": 0.7
+      },
+      "documentation": {
+        "description": "Accessing dictionary keys that don't exist raises KeyError.",
+        "rationale": "Use .get() with a default value, or check 'in' before accessing.",
+        "examples": [
+          {
+            "bad": "value = data['key']",
+            "good": "value = data.get('key', default_value)",
+            "explanation": "Using .get() returns the default instead of raising KeyError."
+          }
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "index-error",
+      "language": "python",
+      "message": "Potential IndexError - list access without bounds check",
+      "severity": "warning",
+      "category": "null-safety",
+      "tags": ["list", "index", "bounds"],
+      "ast_pattern": {
+        "type": "Subscript",
+        "selector": "Subscript[slice.type='Constant']"
+      },
+      "fix_template": {
+        "type": "replace",
+        "template": "{{list}}[{{index}}] if len({{list}}) > {{index}} else {{default}}",
+        "placeholders": {
+          "list": {
+            "description": "List being accessed",
+            "source": "matched_node"
+          },
+          "index": {
+            "description": "Index being accessed",
+            "source": "matched_node"
+          },
+          "default": {
+            "description": "Default value if index out of bounds",
+            "source": "user_input"
+          }
+        },
+        "confidence": 0.6
+      },
+      "documentation": {
+        "description": "Accessing list indices that don't exist raises IndexError.",
+        "rationale": "Check list length before accessing by index, or use try/except.",
+        "examples": [
+          {
+            "bad": "first = items[0]",
+            "good": "first = items[0] if items else None",
+            "explanation": "Check if list is non-empty before accessing first element."
+          }
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "unpacking-error",
+      "language": "python",
+      "message": "Potential ValueError - wrong number of values to unpack",
+      "severity": "warning",
+      "category": "logic",
+      "tags": ["unpacking", "tuple", "assignment"],
+      "ast_pattern": {
+        "type": "Assign",
+        "selector": "Assign[targets.0.type='Tuple']"
+      },
+      "fix_template": {
+        "type": "replace",
+        "template": "{{vars}} = {{expr}} if len({{expr}}) == {{count}} else {{defaults}}",
+        "placeholders": {
+          "vars": {
+            "description": "Variables to unpack into",
+            "source": "matched_node"
+          },
+          "expr": {
+            "description": "Expression being unpacked",
+            "source": "matched_node"
+          },
+          "count": {
+            "description": "Expected number of values",
+            "source": "context"
+          },
+          "defaults": {
+            "description": "Default values tuple",
+            "source": "user_input"
+          }
+        },
+        "confidence": 0.5
+      },
+      "documentation": {
+        "description": "Unpacking a sequence with the wrong number of elements raises ValueError.",
+        "rationale": "Verify sequence length before unpacking, or use star expressions.",
+        "examples": [
+          {
+            "bad": "a, b, c = get_values()  # might return 2 values",
+            "good": "values = get_values()\na, b, c = values if len(values) == 3 else (values[0], values[1], None)",
+            "explanation": "Handle cases where the returned sequence has unexpected length."
+          }
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "name-shadowing",
+      "language": "python",
+      "message": "Shadowing builtin name - may cause unexpected behavior",
+      "severity": "warning",
+      "category": "style",
+      "tags": ["builtin", "shadowing", "naming"],
+      "ast_pattern": {
+        "type": "Name",
+        "properties": {
+          "id": "list|dict|set|str|int|float|bool|type|id|input|open|file|format|filter|map|sum|min|max|len|range|print"
+        }
+      },
+      "fix_template": {
+        "type": "replace",
+        "template": "{{new_name}}",
+        "placeholders": {
+          "new_name": {
+            "description": "New non-shadowing name",
+            "source": "user_input"
+          }
+        },
+        "confidence": 0.8
+      },
+      "documentation": {
+        "description": "Using builtin names as variables shadows the builtins, making them inaccessible.",
+        "rationale": "Use descriptive names that don't conflict with Python builtins.",
+        "examples": [
+          {
+            "bad": "list = [1, 2, 3]\ndict = {'a': 1}",
+            "good": "items = [1, 2, 3]\nmapping = {'a': 1}",
+            "explanation": "After shadowing, you can't use list() or dict() constructors."
+          }
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "comparison-to-none",
+      "language": "python",
+      "message": "Use 'is None' instead of '== None' for None comparison",
+      "severity": "hint",
+      "category": "style",
+      "tags": ["none", "comparison", "identity"],
+      "ast_pattern": {
+        "type": "Compare",
+        "selector": "Compare[ops.0.type='Eq'][comparators.0.type='Constant'][comparators.0.value=null]"
+      },
+      "fix_template": {
+        "type": "replace",
+        "template": "{{expr}} is None",
+        "placeholders": {
+          "expr": {
+            "description": "Expression being compared",
+            "source": "matched_node"
+          }
+        },
+        "confidence": 0.95
+      },
+      "documentation": {
+        "description": "None is a singleton, so identity comparison (is) is preferred over equality (==).",
+        "rationale": "Using 'is None' is faster and more explicit about checking identity.",
+        "examples": [
+          {
+            "bad": "if value == None:",
+            "good": "if value is None:",
+            "explanation": "'is' checks identity, which is correct for the None singleton."
+          }
+        ],
+        "references": [
+          "https://peps.python.org/pep-0008/#programming-recommendations"
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "assert-tuple",
+      "language": "python",
+      "message": "Assert with tuple is always true - did you mean 'assert x, msg'?",
+      "severity": "error",
+      "category": "logic",
+      "tags": ["assert", "tuple", "bug"],
+      "ast_pattern": {
+        "type": "Assert",
+        "selector": "Assert[test.type='Tuple']"
+      },
+      "fix_template": {
+        "type": "replace",
+        "template": "assert {{condition}}, {{message}}",
+        "placeholders": {
+          "condition": {
+            "description": "Condition to assert",
+            "source": "matched_node"
+          },
+          "message": {
+            "description": "Error message",
+            "source": "matched_node"
+          }
+        },
+        "confidence": 0.95
+      },
+      "documentation": {
+        "description": "assert (condition, message) creates a non-empty tuple which is always truthy. Use assert condition, message instead.",
+        "rationale": "Parentheses around the assertion create a tuple literal, not a function call.",
+        "examples": [
+          {
+            "bad": "assert(x > 0, 'x must be positive')",
+            "good": "assert x > 0, 'x must be positive'",
+            "explanation": "The parenthesized version asserts a tuple, which is always True."
+          }
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "global-statement",
+      "language": "python",
+      "message": "Avoid global statement - use function parameters or class attributes instead",
+      "severity": "warning",
+      "category": "style",
+      "tags": ["global", "state", "best-practice"],
+      "ast_pattern": {
+        "type": "Global",
+        "selector": "Global"
+      },
+      "fix_template": {
+        "type": "refactor",
+        "template": "# Pass as parameter instead\ndef {{func}}({{param}}):\n    {{body}}",
+        "placeholders": {
+          "func": {
+            "description": "Function name",
+            "source": "context"
+          },
+          "param": {
+            "description": "Parameter name (former global)",
+            "source": "matched_node"
+          },
+          "body": {
+            "description": "Function body",
+            "source": "context"
+          }
+        },
+        "confidence": 0.6
+      },
+      "documentation": {
+        "description": "Global variables make code harder to test, debug, and reason about.",
+        "rationale": "Prefer passing values as parameters or using class attributes for shared state.",
+        "examples": [
+          {
+            "bad": "counter = 0\ndef increment():\n    global counter\n    counter += 1",
+            "good": "class Counter:\n    def __init__(self):\n        self.value = 0\n    def increment(self):\n        self.value += 1",
+            "explanation": "Encapsulating state in a class makes the code more maintainable."
+          }
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "file-not-closed",
+      "language": "python",
+      "message": "File opened without context manager - resource may not be properly closed",
+      "severity": "warning",
+      "category": "resource-management",
+      "tags": ["file", "resource", "context-manager"],
+      "ast_pattern": {
+        "type": "Call",
+        "properties": {
+          "func_name": "open"
+        },
+        "context": {
+          "in_function": true
+        }
+      },
+      "fix_template": {
+        "type": "wrap",
+        "template": "with {{call}} as {{var}}:\n    {{body}}",
+        "placeholders": {
+          "call": {
+            "description": "The open() call",
+            "source": "matched_node"
+          },
+          "var": {
+            "description": "File handle variable",
+            "source": "context"
+          },
+          "body": {
+            "description": "Code using the file",
+            "source": "context"
+          }
+        },
+        "confidence": 0.85
+      },
+      "documentation": {
+        "description": "Opening files without a context manager may leave file handles open if exceptions occur.",
+        "rationale": "The 'with' statement ensures files are properly closed even if exceptions are raised.",
+        "examples": [
+          {
+            "bad": "f = open('file.txt')\ndata = f.read()\nf.close()",
+            "good": "with open('file.txt') as f:\n    data = f.read()",
+            "explanation": "The context manager guarantees the file is closed, even if read() raises an exception."
+          }
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "string-format-percent",
+      "language": "python",
+      "message": "Using % formatting - consider f-strings for readability",
+      "severity": "hint",
+      "category": "style",
+      "tags": ["string", "formatting", "f-string"],
+      "ast_pattern": {
+        "type": "BinOp",
+        "properties": {
+          "op": "Mod",
+          "left_type": "Str"
+        }
+      },
+      "fix_template": {
+        "type": "replace",
+        "template": "f\"{{template}}\"",
+        "placeholders": {
+          "template": {
+            "description": "F-string template",
+            "source": "context"
+          }
+        },
+        "confidence": 0.6
+      },
+      "documentation": {
+        "description": "The % formatting style is older and less readable than f-strings.",
+        "rationale": "F-strings (Python 3.6+) are more readable and often faster.",
+        "examples": [
+          {
+            "bad": "message = 'Hello, %s!' % name",
+            "good": "message = f'Hello, {name}!'",
+            "explanation": "F-strings are more readable with inline variable references."
+          }
+        ]
+      },
+      "conditions": {
+        "min_language_version": "3.6"
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "unused-variable",
+      "language": "python",
+      "message": "Variable assigned but never used - consider using underscore prefix",
+      "severity": "info",
+      "category": "style",
+      "tags": ["unused", "variable", "style"],
+      "ast_pattern": {
+        "type": "Name",
+        "context": {
+          "parent_type": "Assign"
+        }
+      },
+      "fix_template": {
+        "type": "replace",
+        "template": "_{{name}}",
+        "placeholders": {
+          "name": {
+            "description": "Variable name",
+            "source": "matched_node"
+          }
+        },
+        "confidence": 0.7
+      },
+      "documentation": {
+        "description": "Variables that are assigned but never used clutter the code. Convention is to prefix with underscore.",
+        "rationale": "Using underscore prefix signals intentional non-use to readers and linters.",
+        "examples": [
+          {
+            "bad": "index, value = enumerate_result",
+            "good": "_index, value = enumerate_result",
+            "explanation": "The underscore prefix indicates index is intentionally unused."
+          }
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    },
+    {
+      "id": "broad-exception",
+      "language": "python",
+      "message": "Catching too broad exception - be more specific",
+      "severity": "warning",
+      "category": "error-handling",
+      "tags": ["exception", "error-handling", "specific"],
+      "ast_pattern": {
+        "type": "ExceptHandler",
+        "selector": "ExceptHandler[type.id='Exception']"
+      },
+      "fix_template": {
+        "type": "replace",
+        "template": "except {{specific_exception}} as {{var}}:",
+        "placeholders": {
+          "specific_exception": {
+            "description": "Specific exception type",
+            "source": "user_input"
+          },
+          "var": {
+            "description": "Exception variable",
+            "source": "matched_node"
+          }
+        },
+        "confidence": 0.6
+      },
+      "documentation": {
+        "description": "Catching Exception catches almost everything, potentially hiding bugs.",
+        "rationale": "Catch specific exceptions to handle only expected errors.",
+        "examples": [
+          {
+            "bad": "try:\n    value = int(input())\nexcept Exception:\n    value = 0",
+            "good": "try:\n    value = int(input())\nexcept ValueError:\n    value = 0",
+            "explanation": "Catching ValueError specifically handles the expected error without masking others."
+          }
+        ]
+      },
+      "metadata": {
+        "version": "1.0.0",
+        "author": "Platxa"
+      }
+    }
+  ]
+}

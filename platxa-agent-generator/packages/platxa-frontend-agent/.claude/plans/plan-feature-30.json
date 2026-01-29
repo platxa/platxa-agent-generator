@@ -1,0 +1,100 @@
+{
+  "id": "plan-feature-30",
+  "title": "Implementation: [HSL Color Support] Support HSL color format (backward compa...",
+  "context": {
+    "spec_id": "feature-30",
+    "feature_id": "30",
+    "dependencies": [],
+    "metadata": {
+      "category": "Theme Integration Features",
+      "verification_criteria": {
+        "type": "manual",
+        "criteria": "Manual verification required",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      }
+    },
+    "created_at": "2026-01-21T12:01:10.394751"
+  },
+  "phases": [
+    "research",
+    "design",
+    "implementation",
+    "testing"
+  ],
+  "tasks": [
+    {
+      "id": "task-30-1",
+      "title": "Analyze Requirements",
+      "description": "Review feature requirements: [HSL Color Support] Support HSL color format (backward compatibility) Verification: HSL values parsed correctly; HSL output supported; Interop with OKLCH",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 0,
+      "estimated_effort": "small",
+      "verification": "Requirements understood, approach identified",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-30-2",
+      "title": "Review Existing Code",
+      "description": "Search for related code patterns and potential duplicates",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 1,
+      "estimated_effort": "small",
+      "verification": "Existing patterns identified, no duplication",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-30-3",
+      "title": "Implement Feature",
+      "description": "Implement: [HSL Color Support] Support HSL color format (backward compatibility) Verification: HSL values parsed correctly; HSL output supported; Interop with OKLCH",
+      "step_type": "implement",
+      "status": "pending",
+      "order": 2,
+      "estimated_effort": "medium",
+      "verification": "Code complete and type-checked",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-30-4",
+      "title": "Add Tests",
+      "description": "Write unit tests for new functionality",
+      "step_type": "test",
+      "status": "pending",
+      "order": 3,
+      "estimated_effort": "small",
+      "verification": "Tests pass, coverage adequate",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-30-5",
+      "title": "Verify Acceptance Criteria",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Manual verification required', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "step_type": "test",
+      "status": "pending",
+      "order": 4,
+      "estimated_effort": "small",
+      "verification": {
+        "type": "manual",
+        "criteria": "Manual verification required",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "files": [],
+      "completed_at": null
+    }
+  ],
+  "constitution_check": true,
+  "notes": "",
+  "created_at": "2026-01-21T12:01:10.394798",
+  "lsp_impact": {}
+}

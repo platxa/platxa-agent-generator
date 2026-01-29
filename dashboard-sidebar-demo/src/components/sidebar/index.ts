@@ -1,0 +1,6 @@
+export { DashboardSidebar } from "./dashboard-sidebar"
+export { NavItem } from "./nav-item"
+export { NavSection } from "./nav-section"
+export type { DashboardSidebarProps } from "./dashboard-sidebar"
+export type { NavItemProps } from "./nav-item"
+export type { NavSectionProps } from "./nav-section"

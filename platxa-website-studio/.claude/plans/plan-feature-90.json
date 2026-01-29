@@ -1,0 +1,100 @@
+{
+  "id": "plan-feature-90",
+  "title": "Implementation: Add theme documentation generator producing README, screensh...",
+  "context": {
+    "spec_id": "feature-90",
+    "feature_id": "90",
+    "dependencies": [],
+    "metadata": {
+      "category": "Odoo Deployment",
+      "verification_criteria": {
+        "type": "test",
+        "criteria": "Generates: README.md, CHANGELOG.md, screenshots with annotations, customization guide",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      }
+    },
+    "created_at": "2026-01-28T16:03:03.005254"
+  },
+  "phases": [
+    "research",
+    "design",
+    "implementation",
+    "testing"
+  ],
+  "tasks": [
+    {
+      "id": "task-90-1",
+      "title": "Analyze Requirements",
+      "description": "Review feature requirements: Add theme documentation generator producing README, screenshots, and usage guide",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 0,
+      "estimated_effort": "small",
+      "verification": "Requirements understood, approach identified",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-90-2",
+      "title": "Review Existing Code",
+      "description": "Search for related code patterns and potential duplicates",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 1,
+      "estimated_effort": "small",
+      "verification": "Existing patterns identified, no duplication",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-90-3",
+      "title": "Implement Feature",
+      "description": "Implement: Add theme documentation generator producing README, screenshots, and usage guide",
+      "step_type": "implement",
+      "status": "pending",
+      "order": 2,
+      "estimated_effort": "medium",
+      "verification": "Code complete and type-checked",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-90-4",
+      "title": "Add Tests",
+      "description": "Write unit tests for new functionality",
+      "step_type": "test",
+      "status": "pending",
+      "order": 3,
+      "estimated_effort": "small",
+      "verification": "Tests pass, coverage adequate",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-90-5",
+      "title": "Verify Acceptance Criteria",
+      "description": "Verify: {'type': 'test', 'criteria': 'Generates: README.md, CHANGELOG.md, screenshots with annotations, customization guide', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "step_type": "test",
+      "status": "pending",
+      "order": 4,
+      "estimated_effort": "small",
+      "verification": {
+        "type": "test",
+        "criteria": "Generates: README.md, CHANGELOG.md, screenshots with annotations, customization guide",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "files": [],
+      "completed_at": null
+    }
+  ],
+  "constitution_check": true,
+  "notes": "",
+  "created_at": "2026-01-28T16:03:03.005300",
+  "lsp_impact": {}
+}

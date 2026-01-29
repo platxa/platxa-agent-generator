@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
   // Enable React strict mode for better development experience
@@ -20,6 +21,15 @@ const nextConfig: NextConfig = {
       test: /\.ttf$/,
       type: "asset/resource",
     });
+
+    // Resolve @platxa/frontend-agent to the source package
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "@platxa/frontend-agent": path.resolve(
+        __dirname,
+        "../packages/platxa-frontend-agent/src",
+      ),
+    };
 
     return config;
   },

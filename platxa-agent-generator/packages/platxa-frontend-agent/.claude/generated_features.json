@@ -1,0 +1,1269 @@
+{
+  "schema_version": "1.0.0",
+  "source": "research-agent",
+  "research_session": {
+    "id": "research_20260110_164506_e5d0",
+    "query": "Building a cutting-edge frontend design agent: Latest tools, techniques, AI-powered UI generation, design systems, and systematic approaches for creating beautiful, attractive frontend designs",
+    "completed_at": "2026-01-10T17:05:00.917462",
+    "sources_analyzed": 13,
+    "quality_score": 9.123076923076923
+  },
+  "summary": "Building a cutting-edge frontend design agent: Latest tools, techniques, AI-powered UI generation, design systems, and systematic approaches for creating beautiful, attractive frontend designs",
+  "categories": [
+    {
+      "name": "AI Features",
+      "count": 5
+    },
+    {
+      "name": "Accessibility",
+      "count": 7
+    },
+    {
+      "name": "Animation",
+      "count": 8
+    },
+    {
+      "name": "Component Generation",
+      "count": 5
+    },
+    {
+      "name": "Component Library",
+      "count": 11
+    },
+    {
+      "name": "Core Architecture",
+      "count": 6
+    },
+    {
+      "name": "Design System",
+      "count": 8
+    },
+    {
+      "name": "Developer Experience",
+      "count": 2
+    },
+    {
+      "name": "Modern CSS",
+      "count": 6
+    },
+    {
+      "name": "Page Sections",
+      "count": 8
+    },
+    {
+      "name": "Performance",
+      "count": 4
+    },
+    {
+      "name": "Prompting System",
+      "count": 4
+    },
+    {
+      "name": "Quality",
+      "count": 6
+    },
+    {
+      "name": "Theming",
+      "count": 5
+    }
+  ],
+  "features": [
+    {
+      "id": 1,
+      "description": "Create orchestrator agent that analyzes UI requests and decomposes into subtasks",
+      "category": "Core Architecture",
+      "priority": "high",
+      "rationale": "Orchestrator-Workers pattern recommended by Anthropic for dynamic task decomposition",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent correctly identifies component types, layout requirements, and styling needs from natural language"
+      },
+      "research_refs": [
+        "source_7"
+      ]
+    },
+    {
+      "id": 2,
+      "description": "Implement design analyzer worker that extracts visual requirements from descriptions",
+      "category": "Core Architecture",
+      "priority": "high",
+      "rationale": "Specialized workers handle focused analysis tasks",
+      "verification": {
+        "type": "manual",
+        "criteria": "Worker identifies colors, typography, spacing, and layout from user input"
+      },
+      "research_refs": [
+        "source_7"
+      ]
+    },
+    {
+      "id": 3,
+      "description": "Create component generator worker for React/TypeScript output",
+      "category": "Core Architecture",
+      "priority": "high",
+      "rationale": "v0.dev approach - generate React + TypeScript as standard",
+      "verification": {
+        "type": "manual",
+        "criteria": "Generates valid React 18 TypeScript components"
+      },
+      "research_refs": [
+        "source_1",
+        "source_2"
+      ]
+    },
+    {
+      "id": 4,
+      "description": "Implement animation worker using Framer Motion patterns",
+      "category": "Core Architecture",
+      "priority": "medium",
+      "rationale": "Framer Motion is standard for React animations",
+      "verification": {
+        "type": "manual",
+        "criteria": "Adds appropriate micro-interactions to components"
+      },
+      "research_refs": [
+        "source_8"
+      ]
+    },
+    {
+      "id": 5,
+      "description": "Create theme worker for design token management",
+      "category": "Core Architecture",
+      "priority": "high",
+      "rationale": "Tailwind v4 CSS-first theming is modern approach",
+      "verification": {
+        "type": "manual",
+        "criteria": "Generates consistent CSS variables and theme configuration"
+      },
+      "research_refs": [
+        "source_6",
+        "source_10"
+      ]
+    },
+    {
+      "id": 6,
+      "description": "Implement accessibility auditor worker for WCAG compliance",
+      "category": "Core Architecture",
+      "priority": "high",
+      "rationale": "WCAG 2.2 compliance is legal requirement in 2025-2026",
+      "verification": {
+        "type": "manual",
+        "criteria": "Validates contrast ratios, keyboard nav, ARIA labels"
+      },
+      "research_refs": [
+        "source_11"
+      ]
+    },
+    {
+      "id": 7,
+      "description": "Build six-element prompt template system for component generation",
+      "category": "Prompting System",
+      "priority": "high",
+      "rationale": "Structured prompts yield 3x better code quality",
+      "verification": {
+        "type": "manual",
+        "criteria": "Prompts include framework, purpose, props, styling, a11y, edge cases"
+      },
+      "research_refs": [
+        "source_4"
+      ]
+    },
+    {
+      "id": 8,
+      "description": "Implement incremental prompting strategy (skeleton \u2192 state \u2192 styling)",
+      "category": "Prompting System",
+      "priority": "high",
+      "rationale": "Iterative prompting yields better results than all-at-once",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent breaks complex components into sequential generation steps"
+      },
+      "research_refs": [
+        "source_4"
+      ]
+    },
+    {
+      "id": 9,
+      "description": "Create role-based prompt prefixes for expert-level output",
+      "category": "Prompting System",
+      "priority": "medium",
+      "rationale": "Role-based prompting improves output quality",
+      "verification": {
+        "type": "manual",
+        "criteria": "Prompts use Act as senior React developer pattern"
+      },
+      "research_refs": [
+        "source_4"
+      ]
+    },
+    {
+      "id": 10,
+      "description": "Build pattern reference system for consistent code style",
+      "category": "Prompting System",
+      "priority": "medium",
+      "rationale": "Referencing patterns ensures consistency",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent references existing project patterns in prompts"
+      },
+      "research_refs": [
+        "source_4"
+      ]
+    },
+    {
+      "id": 11,
+      "description": "Implement shadcn/ui component generation with CVA variants",
+      "category": "Component Generation",
+      "priority": "high",
+      "rationale": "CVA is standard for shadcn/ui variant management",
+      "verification": {
+        "type": "manual",
+        "criteria": "Components use cva() for variant styling"
+      },
+      "research_refs": [
+        "source_2"
+      ]
+    },
+    {
+      "id": 12,
+      "description": "Create Radix UI primitive integration for headless components",
+      "category": "Component Generation",
+      "priority": "high",
+      "rationale": "Radix handles accessibility, keyboard nav, ARIA",
+      "verification": {
+        "type": "manual",
+        "criteria": "Complex components use Radix primitives for behavior"
+      },
+      "research_refs": [
+        "source_2",
+        "source_3"
+      ]
+    },
+    {
+      "id": 13,
+      "description": "Build cn() utility integration for class composition",
+      "category": "Component Generation",
+      "priority": "high",
+      "rationale": "cn() prevents Tailwind class conflicts",
+      "verification": {
+        "type": "manual",
+        "criteria": "All className props use cn() utility"
+      },
+      "research_refs": [
+        "source_2"
+      ]
+    },
+    {
+      "id": 14,
+      "description": "Implement ref forwarding pattern for all components",
+      "category": "Component Generation",
+      "priority": "medium",
+      "rationale": "Ref forwarding required for react-hook-form integration",
+      "verification": {
+        "type": "manual",
+        "criteria": "Components forward refs for form library integration"
+      },
+      "research_refs": [
+        "source_2"
+      ]
+    },
+    {
+      "id": 15,
+      "description": "Create atomic component templates (atoms, molecules, organisms)",
+      "category": "Component Generation",
+      "priority": "medium",
+      "rationale": "Atomic Design provides clear component hierarchy",
+      "verification": {
+        "type": "manual",
+        "criteria": "Generated folder structure follows atomic design"
+      },
+      "research_refs": [
+        "source_12"
+      ]
+    },
+    {
+      "id": 16,
+      "description": "Implement Tailwind v4 @theme directive for design tokens",
+      "category": "Design System",
+      "priority": "high",
+      "rationale": "CSS-first configuration is Tailwind v4 standard",
+      "verification": {
+        "type": "manual",
+        "criteria": "Tokens defined via @theme in CSS, exposed as variables"
+      },
+      "research_refs": [
+        "source_6"
+      ]
+    },
+    {
+      "id": 17,
+      "description": "Create 60-30-10 color rule enforcement system",
+      "category": "Design System",
+      "priority": "high",
+      "rationale": "60-30-10 rule creates visually balanced designs",
+      "verification": {
+        "type": "manual",
+        "criteria": "Generated UIs follow 60% primary, 30% secondary, 10% accent"
+      },
+      "research_refs": [
+        "source_5"
+      ]
+    },
+    {
+      "id": 18,
+      "description": "Build OKLCH color palette generator",
+      "category": "Design System",
+      "priority": "medium",
+      "rationale": "Tailwind v4 uses OKLCH for more vivid colors",
+      "verification": {
+        "type": "manual",
+        "criteria": "Colors use oklch() for P3 wide gamut support"
+      },
+      "research_refs": [
+        "source_6"
+      ]
+    },
+    {
+      "id": 19,
+      "description": "Implement typography scale system (3 sizes, hierarchy)",
+      "category": "Design System",
+      "priority": "high",
+      "rationale": "3 distinct text sizes create clear hierarchy",
+      "verification": {
+        "type": "manual",
+        "criteria": "UIs use consistent 3-level type hierarchy"
+      },
+      "research_refs": [
+        "source_5"
+      ]
+    },
+    {
+      "id": 20,
+      "description": "Create line height calculator (1.125-1.2x font size)",
+      "category": "Design System",
+      "priority": "medium",
+      "rationale": "Optimal line height for readability",
+      "verification": {
+        "type": "manual",
+        "criteria": "Leading is 112.5-120% of font size"
+      },
+      "research_refs": [
+        "source_5"
+      ]
+    },
+    {
+      "id": 21,
+      "description": "Build line length validator (40-60 characters)",
+      "category": "Design System",
+      "priority": "medium",
+      "rationale": "40-60 chars optimal for reading",
+      "verification": {
+        "type": "manual",
+        "criteria": "Text containers constrained to optimal width"
+      },
+      "research_refs": [
+        "source_5"
+      ]
+    },
+    {
+      "id": 22,
+      "description": "Implement 8px spacing grid system",
+      "category": "Design System",
+      "priority": "high",
+      "rationale": "Consistent spacing grid creates harmony",
+      "verification": {
+        "type": "manual",
+        "criteria": "All spacing multiples of 8px or 4px"
+      },
+      "research_refs": [
+        "source_5"
+      ]
+    },
+    {
+      "id": 23,
+      "description": "Create monochromatic palette generator for elegant themes",
+      "category": "Design System",
+      "priority": "medium",
+      "rationale": "Monochromatic palettes most accessible and elegant",
+      "verification": {
+        "type": "manual",
+        "criteria": "Can generate tints/shades of single hue"
+      },
+      "research_refs": [
+        "source_5"
+      ]
+    },
+    {
+      "id": 24,
+      "description": "Build CSS variables theming system (--primary, --background, etc.)",
+      "category": "Theming",
+      "priority": "high",
+      "rationale": "CSS variables enable runtime theming",
+      "verification": {
+        "type": "manual",
+        "criteria": "All colors use semantic CSS variables"
+      },
+      "research_refs": [
+        "source_2",
+        "source_10"
+      ]
+    },
+    {
+      "id": 25,
+      "description": "Implement dark mode with semantic tokens",
+      "category": "Theming",
+      "priority": "high",
+      "rationale": "Semantic tokens simplify dark mode implementation",
+      "verification": {
+        "type": "manual",
+        "criteria": "Dark mode swaps variable values, not class names"
+      },
+      "research_refs": [
+        "source_10"
+      ]
+    },
+    {
+      "id": 26,
+      "description": "Create FOWT prevention system (theme before hydration)",
+      "category": "Theming",
+      "priority": "medium",
+      "rationale": "Prevents flash of wrong theme on load",
+      "verification": {
+        "type": "manual",
+        "criteria": "Theme applied via head script before React hydration"
+      },
+      "research_refs": [
+        "source_10"
+      ]
+    },
+    {
+      "id": 27,
+      "description": "Build theme persistence with localStorage",
+      "category": "Theming",
+      "priority": "medium",
+      "rationale": "User preference should be remembered",
+      "verification": {
+        "type": "manual",
+        "criteria": "Theme preference persists across sessions"
+      },
+      "research_refs": [
+        "source_10"
+      ]
+    },
+    {
+      "id": 28,
+      "description": "Implement system preference detection (prefers-color-scheme)",
+      "category": "Theming",
+      "priority": "medium",
+      "rationale": "Dark mode is user expectation in 2025",
+      "verification": {
+        "type": "manual",
+        "criteria": "Respects OS dark mode setting by default"
+      },
+      "research_refs": [
+        "source_10"
+      ]
+    },
+    {
+      "id": 29,
+      "description": "Create contrast validation system (4.5:1 minimum)",
+      "category": "Accessibility",
+      "priority": "high",
+      "rationale": "Low contrast is #1 accessibility failure",
+      "verification": {
+        "type": "manual",
+        "criteria": "All text passes WCAG AA contrast ratio"
+      },
+      "research_refs": [
+        "source_11"
+      ]
+    },
+    {
+      "id": 30,
+      "description": "Implement focus indicator system (two-color pattern)",
+      "category": "Accessibility",
+      "priority": "high",
+      "rationale": "WCAG 2.2 Focus Appearance requirement",
+      "verification": {
+        "type": "manual",
+        "criteria": "Focus rings have 3:1 contrast, visible on all backgrounds"
+      },
+      "research_refs": [
+        "source_11"
+      ]
+    },
+    {
+      "id": 31,
+      "description": "Build keyboard navigation for all interactive elements",
+      "category": "Accessibility",
+      "priority": "high",
+      "rationale": "Keyboard operability is core WCAG requirement",
+      "verification": {
+        "type": "manual",
+        "criteria": "All buttons, links, inputs keyboard operable"
+      },
+      "research_refs": [
+        "source_11"
+      ]
+    },
+    {
+      "id": 32,
+      "description": "Create ARIA label generator for icons and buttons",
+      "category": "Accessibility",
+      "priority": "high",
+      "rationale": "Screen readers need text alternatives",
+      "verification": {
+        "type": "manual",
+        "criteria": "Icon buttons have aria-label or sr-only text"
+      },
+      "research_refs": [
+        "source_11"
+      ]
+    },
+    {
+      "id": 33,
+      "description": "Implement focus trap for modals and dialogs",
+      "category": "Accessibility",
+      "priority": "medium",
+      "rationale": "Focus management for accessible modals",
+      "verification": {
+        "type": "manual",
+        "criteria": "Modal focus cycles within dialog"
+      },
+      "research_refs": [
+        "source_11"
+      ]
+    },
+    {
+      "id": 34,
+      "description": "Build skip link for keyboard navigation",
+      "category": "Accessibility",
+      "priority": "medium",
+      "rationale": "Helps keyboard users skip navigation",
+      "verification": {
+        "type": "manual",
+        "criteria": "Skip to main content link present"
+      },
+      "research_refs": [
+        "source_11"
+      ]
+    },
+    {
+      "id": 35,
+      "description": "Create reduced motion respecting animations",
+      "category": "Accessibility",
+      "priority": "medium",
+      "rationale": "Some users experience motion sickness",
+      "verification": {
+        "type": "manual",
+        "criteria": "Animations disabled when prefers-reduced-motion"
+      },
+      "research_refs": [
+        "source_11"
+      ]
+    },
+    {
+      "id": 36,
+      "description": "Implement whileHover animations for interactive elements",
+      "category": "Animation",
+      "priority": "high",
+      "rationale": "Hover states provide interaction feedback",
+      "verification": {
+        "type": "manual",
+        "criteria": "Buttons and cards have hover effects"
+      },
+      "research_refs": [
+        "source_8"
+      ]
+    },
+    {
+      "id": 37,
+      "description": "Create whileTap animations for click feedback",
+      "category": "Animation",
+      "priority": "high",
+      "rationale": "Tap feedback improves perceived responsiveness",
+      "verification": {
+        "type": "manual",
+        "criteria": "Buttons scale down on click"
+      },
+      "research_refs": [
+        "source_8"
+      ]
+    },
+    {
+      "id": 38,
+      "description": "Build AnimatePresence for mount/unmount transitions",
+      "category": "Animation",
+      "priority": "high",
+      "rationale": "Exit animations prevent jarring removal",
+      "verification": {
+        "type": "manual",
+        "criteria": "Elements animate in and out smoothly"
+      },
+      "research_refs": [
+        "source_8"
+      ]
+    },
+    {
+      "id": 39,
+      "description": "Implement spring physics for natural motion",
+      "category": "Animation",
+      "priority": "medium",
+      "rationale": "Spring physics creates realistic motion",
+      "verification": {
+        "type": "manual",
+        "criteria": "Animations use spring() not linear timing"
+      },
+      "research_refs": [
+        "source_8"
+      ]
+    },
+    {
+      "id": 40,
+      "description": "Create layout animation system for position changes",
+      "category": "Animation",
+      "priority": "medium",
+      "rationale": "Layout animations for reorder, resize",
+      "verification": {
+        "type": "manual",
+        "criteria": "List reorders animate smoothly"
+      },
+      "research_refs": [
+        "source_8"
+      ]
+    },
+    {
+      "id": 41,
+      "description": "Build shared layout animations with layoutId",
+      "category": "Animation",
+      "priority": "medium",
+      "rationale": "Coordinated animations across components",
+      "verification": {
+        "type": "manual",
+        "criteria": "Elements morph between states"
+      },
+      "research_refs": [
+        "source_8"
+      ]
+    },
+    {
+      "id": 42,
+      "description": "Implement propagation pattern for parent-child animations",
+      "category": "Animation",
+      "priority": "medium",
+      "rationale": "Variants flow from parent to children",
+      "verification": {
+        "type": "manual",
+        "criteria": "Card hover affects child elements"
+      },
+      "research_refs": [
+        "source_8"
+      ]
+    },
+    {
+      "id": 43,
+      "description": "Create stagger animation for lists",
+      "category": "Animation",
+      "priority": "medium",
+      "rationale": "Stagger creates visual interest",
+      "verification": {
+        "type": "manual",
+        "criteria": "List items animate in sequence"
+      },
+      "research_refs": [
+        "source_8"
+      ]
+    },
+    {
+      "id": 44,
+      "description": "Build container query support (@container, @sm, @lg)",
+      "category": "Modern CSS",
+      "priority": "high",
+      "rationale": "True component-based responsive design",
+      "verification": {
+        "type": "manual",
+        "criteria": "Components respond to parent size"
+      },
+      "research_refs": [
+        "source_9"
+      ]
+    },
+    {
+      "id": 45,
+      "description": "Implement :has() selector for parent-based styling",
+      "category": "Modern CSS",
+      "priority": "medium",
+      "rationale": "Revolutionary CSS capability for complex styling",
+      "verification": {
+        "type": "manual",
+        "criteria": "Parent styles based on child content"
+      },
+      "research_refs": [
+        "source_9"
+      ]
+    },
+    {
+      "id": 46,
+      "description": "Create gradient utilities (linear, radial, conic)",
+      "category": "Modern CSS",
+      "priority": "medium",
+      "rationale": "Tailwind v4 expanded gradient support",
+      "verification": {
+        "type": "manual",
+        "criteria": "Supports bg-linear-45, bg-radial, bg-conic"
+      },
+      "research_refs": [
+        "source_6"
+      ]
+    },
+    {
+      "id": 47,
+      "description": "Build @starting-style for entry animations",
+      "category": "Modern CSS",
+      "priority": "low",
+      "rationale": "CSS-only mount animations",
+      "verification": {
+        "type": "manual",
+        "criteria": "Elements animate on first display without JS"
+      },
+      "research_refs": [
+        "source_6"
+      ]
+    },
+    {
+      "id": 48,
+      "description": "Implement View Transitions API support",
+      "category": "Modern CSS",
+      "priority": "low",
+      "rationale": "Smooth page-to-page transitions",
+      "verification": {
+        "type": "manual",
+        "criteria": "Page transitions use View Transitions"
+      },
+      "research_refs": [
+        "source_9"
+      ]
+    },
+    {
+      "id": 49,
+      "description": "Create 3D transform utilities (perspective, rotate-x/y/z)",
+      "category": "Modern CSS",
+      "priority": "low",
+      "rationale": "Tailwind v4 3D transform support",
+      "verification": {
+        "type": "manual",
+        "criteria": "Cards can have 3D flip effects"
+      },
+      "research_refs": [
+        "source_6"
+      ]
+    },
+    {
+      "id": 50,
+      "description": "Build button component generator with all variants",
+      "category": "Component Library",
+      "priority": "high",
+      "rationale": "Buttons are foundational atoms",
+      "verification": {
+        "type": "manual",
+        "criteria": "Generates primary, secondary, outline, ghost, link variants"
+      },
+      "research_refs": [
+        "source_2"
+      ]
+    },
+    {
+      "id": 51,
+      "description": "Create input component generator with validation states",
+      "category": "Component Library",
+      "priority": "high",
+      "rationale": "Form inputs are core UI elements",
+      "verification": {
+        "type": "manual",
+        "criteria": "Inputs show error, success, disabled states"
+      },
+      "research_refs": [
+        "source_2"
+      ]
+    },
+    {
+      "id": 52,
+      "description": "Implement card component with hover effects",
+      "category": "Component Library",
+      "priority": "high",
+      "rationale": "Cards are common UI pattern",
+      "verification": {
+        "type": "manual",
+        "criteria": "Cards have shadow, hover lift, optional image"
+      },
+      "research_refs": [
+        "source_1"
+      ]
+    },
+    {
+      "id": 53,
+      "description": "Build modal/dialog component with focus trap",
+      "category": "Component Library",
+      "priority": "high",
+      "rationale": "Modals require complex accessibility",
+      "verification": {
+        "type": "manual",
+        "criteria": "Modal manages focus, has backdrop, animations"
+      },
+      "research_refs": [
+        "source_2",
+        "source_8"
+      ]
+    },
+    {
+      "id": 54,
+      "description": "Create navigation component with responsive menu",
+      "category": "Component Library",
+      "priority": "high",
+      "rationale": "Navigation is present on most pages",
+      "verification": {
+        "type": "manual",
+        "criteria": "Nav collapses to hamburger on mobile"
+      },
+      "research_refs": [
+        "source_1"
+      ]
+    },
+    {
+      "id": 55,
+      "description": "Implement form component with react-hook-form + zod",
+      "category": "Component Library",
+      "priority": "high",
+      "rationale": "shadcn/ui form pattern",
+      "verification": {
+        "type": "manual",
+        "criteria": "Form has validation, error messages, submit handling"
+      },
+      "research_refs": [
+        "source_2"
+      ]
+    },
+    {
+      "id": 56,
+      "description": "Build dropdown/select component with Radix",
+      "category": "Component Library",
+      "priority": "medium",
+      "rationale": "Radix Select provides accessibility",
+      "verification": {
+        "type": "manual",
+        "criteria": "Select supports keyboard nav, custom styling"
+      },
+      "research_refs": [
+        "source_2"
+      ]
+    },
+    {
+      "id": 57,
+      "description": "Create tabs component with keyboard navigation",
+      "category": "Component Library",
+      "priority": "medium",
+      "rationale": "Radix Tabs handles keyboard nav",
+      "verification": {
+        "type": "manual",
+        "criteria": "Arrow keys navigate tabs"
+      },
+      "research_refs": [
+        "source_2"
+      ]
+    },
+    {
+      "id": 58,
+      "description": "Implement accordion component with animations",
+      "category": "Component Library",
+      "priority": "medium",
+      "rationale": "Common FAQ/content pattern",
+      "verification": {
+        "type": "manual",
+        "criteria": "Accordion expands/collapses smoothly"
+      },
+      "research_refs": [
+        "source_2",
+        "source_8"
+      ]
+    },
+    {
+      "id": 59,
+      "description": "Build toast/notification system with AnimatePresence",
+      "category": "Component Library",
+      "priority": "medium",
+      "rationale": "Feedback notifications need animations",
+      "verification": {
+        "type": "manual",
+        "criteria": "Toasts slide in/out, auto dismiss"
+      },
+      "research_refs": [
+        "source_8"
+      ]
+    },
+    {
+      "id": 60,
+      "description": "Create tooltip component with hover delay",
+      "category": "Component Library",
+      "priority": "medium",
+      "rationale": "Tooltips provide contextual help",
+      "verification": {
+        "type": "manual",
+        "criteria": "Tooltip appears on hover with delay"
+      },
+      "research_refs": [
+        "source_2"
+      ]
+    },
+    {
+      "id": 61,
+      "description": "Implement hero section generator with text + CTA",
+      "category": "Page Sections",
+      "priority": "high",
+      "rationale": "Hero sections are common landing page pattern",
+      "verification": {
+        "type": "manual",
+        "criteria": "Hero has headline, subhead, buttons, optional image"
+      },
+      "research_refs": [
+        "source_1"
+      ]
+    },
+    {
+      "id": 62,
+      "description": "Build feature grid generator with icons",
+      "category": "Page Sections",
+      "priority": "medium",
+      "rationale": "Feature grids showcase product benefits",
+      "verification": {
+        "type": "manual",
+        "criteria": "Grid of feature cards with icons and descriptions"
+      },
+      "research_refs": [
+        "source_1"
+      ]
+    },
+    {
+      "id": 63,
+      "description": "Create pricing table generator with tiers",
+      "category": "Page Sections",
+      "priority": "medium",
+      "rationale": "Pricing tables are common SaaS pattern",
+      "verification": {
+        "type": "manual",
+        "criteria": "Pricing cards with features, CTAs, popular badge"
+      },
+      "research_refs": [
+        "source_1"
+      ]
+    },
+    {
+      "id": 64,
+      "description": "Implement testimonial carousel generator",
+      "category": "Page Sections",
+      "priority": "medium",
+      "rationale": "Social proof sections increase conversion",
+      "verification": {
+        "type": "manual",
+        "criteria": "Carousel with quotes, avatars, names"
+      },
+      "research_refs": [
+        "source_1"
+      ]
+    },
+    {
+      "id": 65,
+      "description": "Build footer generator with links and social icons",
+      "category": "Page Sections",
+      "priority": "medium",
+      "rationale": "Footers are present on every page",
+      "verification": {
+        "type": "manual",
+        "criteria": "Footer has columns, links, copyright, socials"
+      },
+      "research_refs": [
+        "source_1"
+      ]
+    },
+    {
+      "id": 66,
+      "description": "Create dashboard layout generator with sidebar",
+      "category": "Page Sections",
+      "priority": "high",
+      "rationale": "Dashboard layouts are v0.dev specialty",
+      "verification": {
+        "type": "manual",
+        "criteria": "Layout has collapsible sidebar, header, main content"
+      },
+      "research_refs": [
+        "source_1"
+      ]
+    },
+    {
+      "id": 67,
+      "description": "Implement data table generator with sorting/filtering",
+      "category": "Page Sections",
+      "priority": "medium",
+      "rationale": "TanStack Table integration pattern",
+      "verification": {
+        "type": "manual",
+        "criteria": "Table supports sort, filter, pagination"
+      },
+      "research_refs": [
+        "source_2"
+      ]
+    },
+    {
+      "id": 68,
+      "description": "Build login/signup form generator",
+      "category": "Page Sections",
+      "priority": "high",
+      "rationale": "Auth screens are common requirement",
+      "verification": {
+        "type": "manual",
+        "criteria": "Auth forms with validation, OAuth buttons"
+      },
+      "research_refs": [
+        "source_1"
+      ]
+    },
+    {
+      "id": 69,
+      "description": "Create image upload analyzer for mockup-to-code",
+      "category": "AI Features",
+      "priority": "high",
+      "rationale": "v0.dev supports image upload for reference",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent can analyze uploaded design images"
+      },
+      "research_refs": [
+        "source_1"
+      ]
+    },
+    {
+      "id": 70,
+      "description": "Implement design critique system for iterative refinement",
+      "category": "AI Features",
+      "priority": "medium",
+      "rationale": "Evaluator-Optimizer pattern for quality",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent can evaluate and suggest improvements"
+      },
+      "research_refs": [
+        "source_7"
+      ]
+    },
+    {
+      "id": 71,
+      "description": "Build component similarity search for pattern matching",
+      "category": "AI Features",
+      "priority": "medium",
+      "rationale": "Reference patterns ensure consistency",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent finds similar existing components"
+      },
+      "research_refs": [
+        "source_4"
+      ]
+    },
+    {
+      "id": 72,
+      "description": "Create AutoFix post-processor for code quality",
+      "category": "AI Features",
+      "priority": "medium",
+      "rationale": "v0.dev uses AutoFix for quality",
+      "verification": {
+        "type": "manual",
+        "criteria": "Generated code passes lint, type checks"
+      },
+      "research_refs": [
+        "source_1"
+      ]
+    },
+    {
+      "id": 73,
+      "description": "Implement context window management for large projects",
+      "category": "AI Features",
+      "priority": "medium",
+      "rationale": "512K context windows available",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent handles projects with many files"
+      },
+      "research_refs": [
+        "source_1",
+        "source_7"
+      ]
+    },
+    {
+      "id": 74,
+      "description": "Build INP performance optimization checks",
+      "category": "Performance",
+      "priority": "medium",
+      "rationale": "INP is new Core Web Vital",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent warns about interactions > 200ms"
+      },
+      "research_refs": [
+        "source_13"
+      ]
+    },
+    {
+      "id": 75,
+      "description": "Create bundle size analyzer for component output",
+      "category": "Performance",
+      "priority": "low",
+      "rationale": "Smaller bundles = better performance",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent estimates component bundle impact"
+      },
+      "research_refs": [
+        "source_13"
+      ]
+    },
+    {
+      "id": 76,
+      "description": "Implement lazy loading patterns for images and components",
+      "category": "Performance",
+      "priority": "medium",
+      "rationale": "Lazy loading improves initial load",
+      "verification": {
+        "type": "manual",
+        "criteria": "Images use loading=lazy, components use dynamic import"
+      },
+      "research_refs": [
+        "source_13"
+      ]
+    },
+    {
+      "id": 77,
+      "description": "Build React Compiler optimization awareness",
+      "category": "Performance",
+      "priority": "low",
+      "rationale": "React Compiler handles memoization automatically",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent knows useMemo/useCallback often unnecessary"
+      },
+      "research_refs": [
+        "source_13"
+      ]
+    },
+    {
+      "id": 78,
+      "description": "Create quality scoring system for generated components",
+      "category": "Quality",
+      "priority": "high",
+      "rationale": "Quality gates ensure minimum standards",
+      "verification": {
+        "type": "manual",
+        "criteria": "Components scored on a11y, design, code quality"
+      },
+      "research_refs": [
+        "source_7"
+      ]
+    },
+    {
+      "id": 79,
+      "description": "Implement design system consistency checker",
+      "category": "Quality",
+      "priority": "medium",
+      "rationale": "Consistency is key to good design",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent validates token usage, spacing consistency"
+      },
+      "research_refs": [
+        "source_5"
+      ]
+    },
+    {
+      "id": 80,
+      "description": "Build TypeScript strict mode enforcement",
+      "category": "Quality",
+      "priority": "high",
+      "rationale": "TypeScript is 2026 standard",
+      "verification": {
+        "type": "manual",
+        "criteria": "No any types, all props typed"
+      },
+      "research_refs": [
+        "source_13"
+      ]
+    },
+    {
+      "id": 81,
+      "description": "Create component documentation generator",
+      "category": "Quality",
+      "priority": "medium",
+      "rationale": "Documentation aids maintainability",
+      "verification": {
+        "type": "manual",
+        "criteria": "Components include JSDoc, usage examples"
+      },
+      "research_refs": [
+        "source_4"
+      ]
+    },
+    {
+      "id": 82,
+      "description": "Implement Storybook story generator",
+      "category": "Quality",
+      "priority": "low",
+      "rationale": "Stories document component states",
+      "verification": {
+        "type": "manual",
+        "criteria": "Components have Storybook stories"
+      },
+      "research_refs": [
+        "source_12"
+      ]
+    },
+    {
+      "id": 83,
+      "description": "Build visual regression test setup",
+      "category": "Quality",
+      "priority": "low",
+      "rationale": "Visual tests catch UI regressions",
+      "verification": {
+        "type": "manual",
+        "criteria": "Components have snapshot tests"
+      },
+      "research_refs": [
+        "source_12"
+      ]
+    },
+    {
+      "id": 84,
+      "description": "Create responsive breakpoint preview system",
+      "category": "Developer Experience",
+      "priority": "medium",
+      "rationale": "Preview responsive behavior before commit",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent shows component at different breakpoints"
+      },
+      "research_refs": [
+        "source_9"
+      ]
+    },
+    {
+      "id": 85,
+      "description": "Implement live preview with hot reload",
+      "category": "Developer Experience",
+      "priority": "medium",
+      "rationale": "Fast iteration improves productivity",
+      "verification": {
+        "type": "manual",
+        "criteria": "Changes reflect immediately in preview"
+      },
+      "research_refs": [
+        "source_1"
+      ]
+    }
+  ]
+}

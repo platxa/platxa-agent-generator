@@ -1,0 +1,158 @@
+/**
+ * Platxa Design Tokens - Typography
+ *
+ * Font Families:
+ * - Inter: Primary UI font (body, headings, labels)
+ * - JetBrains Mono: Code and monospace content
+ *
+ * Scale: Based on 1rem = 16px with modular scale
+ *
+ * @platxa/brand-kit
+ * DJ Patel | Founder & CEO @ Platxa
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════════════════
+   * FONT FAMILIES
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Primary UI font - Inter */
+  --font-sans: "Inter", "SF Pro Display", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Code/Terminal font - JetBrains Mono */
+  --font-mono: "JetBrains Mono", "SF Mono", "Fira Code", "Fira Mono",
+    "Roboto Mono", Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+
+  /* Display font (for large headings) */
+  --font-display: "Inter", var(--font-sans);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * FONT SIZES
+   * Base: 1rem = 16px
+   * Scale: ~1.25 (Major Third)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Text sizes */
+  --text-xs:   0.75rem;    /* 12px */
+  --text-sm:   0.875rem;   /* 14px */
+  --text-base: 1rem;       /* 16px */
+  --text-lg:   1.125rem;   /* 18px */
+  --text-xl:   1.25rem;    /* 20px */
+
+  /* Heading sizes */
+  --text-2xl:  1.5rem;     /* 24px */
+  --text-3xl:  1.875rem;   /* 30px */
+  --text-4xl:  2.25rem;    /* 36px */
+  --text-5xl:  3rem;       /* 48px */
+  --text-6xl:  3.75rem;    /* 60px */
+  --text-7xl:  4.5rem;     /* 72px */
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * FONT WEIGHTS
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --font-thin:       100;
+  --font-extralight: 200;
+  --font-light:      300;
+  --font-normal:     400;
+  --font-medium:     500;
+  --font-semibold:   600;
+  --font-bold:       700;
+  --font-extrabold:  800;
+  --font-black:      900;
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * LINE HEIGHTS
+   * Optimized for readability
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --leading-none:    1;
+  --leading-tight:   1.25;
+  --leading-snug:    1.375;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.625;
+  --leading-loose:   2;
+
+  /* Specific line heights */
+  --leading-heading: 1.2;      /* Headings */
+  --leading-body:    1.6;      /* Body text */
+  --leading-code:    1.7;      /* Code blocks */
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * LETTER SPACING (Tracking)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --tracking-tighter: -0.05em;
+  --tracking-tight:   -0.025em;
+  --tracking-normal:  0;
+  --tracking-wide:    0.025em;
+  --tracking-wider:   0.05em;
+  --tracking-widest:  0.1em;
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * TYPOGRAPHY PRESETS
+   * Combines size, weight, line-height, tracking
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Headings */
+  --heading-xl-size:     var(--text-5xl);
+  --heading-xl-weight:   var(--font-bold);
+  --heading-xl-leading:  var(--leading-tight);
+  --heading-xl-tracking: var(--tracking-tight);
+
+  --heading-lg-size:     var(--text-4xl);
+  --heading-lg-weight:   var(--font-bold);
+  --heading-lg-leading:  var(--leading-tight);
+  --heading-lg-tracking: var(--tracking-tight);
+
+  --heading-md-size:     var(--text-2xl);
+  --heading-md-weight:   var(--font-semibold);
+  --heading-md-leading:  var(--leading-snug);
+  --heading-md-tracking: var(--tracking-normal);
+
+  --heading-sm-size:     var(--text-xl);
+  --heading-sm-weight:   var(--font-semibold);
+  --heading-sm-leading:  var(--leading-snug);
+  --heading-sm-tracking: var(--tracking-normal);
+
+  /* Body text */
+  --body-lg-size:     var(--text-lg);
+  --body-lg-weight:   var(--font-normal);
+  --body-lg-leading:  var(--leading-relaxed);
+
+  --body-md-size:     var(--text-base);
+  --body-md-weight:   var(--font-normal);
+  --body-md-leading:  var(--leading-normal);
+
+  --body-sm-size:     var(--text-sm);
+  --body-sm-weight:   var(--font-normal);
+  --body-sm-leading:  var(--leading-normal);
+
+  /* Labels and captions */
+  --label-size:       var(--text-sm);
+  --label-weight:     var(--font-medium);
+  --label-leading:    var(--leading-none);
+  --label-tracking:   var(--tracking-wide);
+
+  --caption-size:     var(--text-xs);
+  --caption-weight:   var(--font-normal);
+  --caption-leading:  var(--leading-normal);
+
+  /* Code */
+  --code-size:        var(--text-sm);
+  --code-weight:      var(--font-normal);
+  --code-leading:     var(--leading-code);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * PARAGRAPH SETTINGS
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* Optimal line length (40-60 characters) */
+  --prose-width:      65ch;
+  --prose-width-wide: 80ch;
+
+  /* Paragraph spacing */
+  --paragraph-spacing: 1.5em;
+}

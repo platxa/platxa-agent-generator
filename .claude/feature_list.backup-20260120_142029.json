@@ -1,0 +1,1570 @@
+{
+  "schema_version": "1.0.0",
+  "version": "1.0.0",
+  "description": "Spec-driven feature tracking for autonomous coding sessions. Based on Anthropic autonomous-coding pattern.",
+  "important_rules": [
+    "NEVER remove features from this list - only update status",
+    "NEVER mark a feature as 'passed' without end-to-end verification",
+    "NEVER modify feature descriptions after generation",
+    "Work on ONE feature at a time until it passes or is marked failed",
+    "Always leave code in merge-ready state before ending session"
+  ],
+  "generated_at": "2026-01-19T13:08:14.928360Z",
+  "spec_source": ".claude/generated_features.json",
+  "summary": "Front-end AI agents: analysis of AI agents for front-end development",
+  "current_feature_id": 7,
+  "session": {
+    "count": 6,
+    "last_started_at": "2026-01-20T08:49:59.700490Z",
+    "total_duration_minutes": 0
+  },
+  "stats": {
+    "total": 50,
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "in_progress": 1,
+    "paused": 0,
+    "pending": 44,
+    "completion_percentage": 10.0
+  },
+  "categories": [
+    {
+      "name": "Core Architecture",
+      "total": 10,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "UI Generation",
+      "total": 11,
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Prompt Engineering",
+      "total": 3,
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Quality Assurance",
+      "total": 8,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Testing",
+      "total": 4,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Design-to-Code",
+      "total": 4,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Security",
+      "total": 3,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "UI/UX",
+      "total": 3,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    },
+    {
+      "name": "Operations",
+      "total": 4,
+      "passed": 0,
+      "failed": 0,
+      "skipped": 0,
+      "paused": 0
+    }
+  ],
+  "features": [
+    {
+      "id": 1,
+      "description": "Set up base agent orchestration framework with ReAct pattern (reason-act loops)",
+      "category": "Core Architecture",
+      "priority": "high",
+      "rationale": "ReAct is foundational pattern for most AI agents, enabling iterative problem-solving",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent can alternate between reasoning and action steps",
+        "completed": true,
+        "evidence": "Commit b9f7a00 in platxa-agent-generator repo. 29/29 tests passing.",
+        "verified_at": "2026-01-19T13:17:15.620615Z",
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4",
+        "source_5"
+      ],
+      "status": "passed",
+      "status_reason": null,
+      "started_at": "2026-01-19T13:08:27.534548Z",
+      "completed_at": "2026-01-19T13:17:15.624948Z",
+      "commit_hash": "verified-20260119-184715",
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 2,
+      "description": "Implement multi-agent coordinator/supervisor pattern for task distribution",
+      "category": "Core Architecture",
+      "priority": "high",
+      "rationale": "Multi-agent systems are the 2026 standard, replacing monolithic agents",
+      "verification": {
+        "type": "manual",
+        "criteria": "Coordinator can route tasks to specialized sub-agents",
+        "completed": true,
+        "evidence": "fe17ad9",
+        "verified_at": "2026-01-20T08:46:39.048021Z",
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4",
+        "source_5"
+      ],
+      "status": "passed",
+      "status_reason": null,
+      "started_at": "2026-01-19T13:17:31.645419Z",
+      "completed_at": "2026-01-20T08:46:39.054418Z",
+      "commit_hash": "fe17ad9",
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 3,
+      "description": "Create declarative UI component vocabulary/schema for constrained generation",
+      "category": "UI Generation",
+      "priority": "high",
+      "rationale": "Declarative UI balances flexibility and maintainability vs open-ended HTML",
+      "verification": {
+        "type": "manual",
+        "criteria": "Schema defines all allowed UI component types and properties",
+        "completed": true,
+        "evidence": "57ea6c9",
+        "verified_at": "2026-01-20T08:48:00.634840Z",
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "passed",
+      "status_reason": null,
+      "started_at": "2026-01-20T08:47:31.821873Z",
+      "completed_at": "2026-01-20T08:48:00.639917Z",
+      "commit_hash": "57ea6c9",
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 4,
+      "description": "Build component mapping layer to translate agent output to React/Vue/Svelte",
+      "category": "UI Generation",
+      "priority": "high",
+      "rationale": "A2UI pattern separates structure from implementation for framework portability",
+      "verification": {
+        "type": "test",
+        "criteria": "Agent JSON output renders correctly in target framework",
+        "completed": true,
+        "evidence": "6093608",
+        "verified_at": "2026-01-20T08:48:45.440241Z",
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2",
+        "source_4"
+      ],
+      "status": "passed",
+      "status_reason": null,
+      "started_at": "2026-01-20T08:48:17.233655Z",
+      "completed_at": "2026-01-20T08:48:45.444948Z",
+      "commit_hash": "6093608",
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 5,
+      "description": "Implement streaming UI renderer for progressive component display",
+      "category": "UI Generation",
+      "priority": "medium",
+      "rationale": "Flat component lists optimized for LLM streaming improve UX",
+      "verification": {
+        "type": "manual",
+        "criteria": "Components render progressively as LLM streams output",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 6,
+      "description": "Create pattern library system for storing reusable UI patterns (forms, data grids, etc.)",
+      "category": "Prompt Engineering",
+      "priority": "high",
+      "rationale": "Pattern libraries dramatically improve AI generation quality",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent can reference and apply stored patterns",
+        "completed": true,
+        "evidence": "72840e2",
+        "verified_at": "2026-01-20T08:49:45.884381Z",
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_10"
+      ],
+      "status": "passed",
+      "status_reason": null,
+      "started_at": "2026-01-20T08:49:16.314915Z",
+      "completed_at": "2026-01-20T08:49:45.891337Z",
+      "commit_hash": "72840e2",
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 7,
+      "description": "Build design system documentation injector for providing context to agent",
+      "category": "Prompt Engineering",
+      "priority": "high",
+      "rationale": "Context-aware generation produces code matching existing conventions",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent outputs follow injected design system rules",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_10"
+      ],
+      "status": "in_progress",
+      "status_reason": null,
+      "started_at": "2026-01-20T08:49:59.700443Z",
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 8,
+      "description": "Implement structured prompt templates with UI/UX specification fields",
+      "category": "Prompt Engineering",
+      "priority": "medium",
+      "rationale": "Structured prompts with explicit UI specs improve generation accuracy",
+      "verification": {
+        "type": "manual",
+        "criteria": "Templates include typography, colors, spacing, states fields",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_10"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 9,
+      "description": "Create code style enforcement module (Airbnb, StandardJS, custom)",
+      "category": "Quality Assurance",
+      "priority": "high",
+      "rationale": "Explicit coding standards reduce maintainability issues",
+      "verification": {
+        "type": "test",
+        "criteria": "Generated code passes configured linter rules",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_9",
+        "source_10"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 10,
+      "description": "Build automated code review gate for AI-generated code",
+      "category": "Quality Assurance",
+      "priority": "high",
+      "rationale": "Mandatory review catches security flaws and inconsistencies",
+      "verification": {
+        "type": "test",
+        "criteria": "Code review agent identifies common issues before merge",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_9"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 11,
+      "description": "Implement code duplication detector to prevent copy-paste patterns",
+      "category": "Quality Assurance",
+      "priority": "medium",
+      "rationale": "AI tends to duplicate code; detection prevents 8x increase in duplication",
+      "verification": {
+        "type": "test",
+        "criteria": "Duplicated blocks >5 lines are flagged",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_9"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 12,
+      "description": "Create cyclomatic complexity analyzer with thresholds",
+      "category": "Quality Assurance",
+      "priority": "medium",
+      "rationale": "LLM code has higher complexity; monitoring prevents maintenance issues",
+      "verification": {
+        "type": "test",
+        "criteria": "Functions exceeding complexity threshold are flagged",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_9"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 13,
+      "description": "Build test Planner agent that creates test plans from UI specifications",
+      "category": "Testing",
+      "priority": "high",
+      "rationale": "Playwright model: Planner creates structured test plans",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent produces Markdown test plan from component spec",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_7"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 14,
+      "description": "Implement test Generator agent that converts plans to Playwright/Cypress code",
+      "category": "Testing",
+      "priority": "high",
+      "rationale": "Playwright model: Generator produces runnable test code",
+      "verification": {
+        "type": "test",
+        "criteria": "Generated tests execute successfully against target UI",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_7"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 15,
+      "description": "Create test Healer agent that auto-fixes broken selectors",
+      "category": "Testing",
+      "priority": "medium",
+      "rationale": "Self-healing tests reduce maintenance burden",
+      "verification": {
+        "type": "test",
+        "criteria": "Broken selector tests are automatically repaired",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_7"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 16,
+      "description": "Build MCP server for browser automation and testing integration",
+      "category": "Testing",
+      "priority": "medium",
+      "rationale": "MCP is standard protocol for AI tool integration (10k+ servers)",
+      "verification": {
+        "type": "manual",
+        "criteria": "MCP server exposes browser control tools to agents",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_7",
+        "source_11"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 17,
+      "description": "Implement screenshot-to-component converter using vision model",
+      "category": "Design-to-Code",
+      "priority": "high",
+      "rationale": "Design-to-code tools achieve 95%+ accuracy",
+      "verification": {
+        "type": "manual",
+        "criteria": "Screenshot produces editable component with 90%+ fidelity",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_8"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 18,
+      "description": "Create Figma plugin adapter for importing designs as agent context",
+      "category": "Design-to-Code",
+      "priority": "medium",
+      "rationale": "Figma integration streamlines design-to-code workflow",
+      "verification": {
+        "type": "manual",
+        "criteria": "Figma designs convert to structured component specs",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_8"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 19,
+      "description": "Build component detection and extraction module for UI analysis",
+      "category": "Design-to-Code",
+      "priority": "medium",
+      "rationale": "Component detection enables accurate UI reconstruction",
+      "verification": {
+        "type": "test",
+        "criteria": "Detects buttons, inputs, cards, layouts from screenshots",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_8"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 20,
+      "description": "Implement style extraction module (colors, typography, spacing)",
+      "category": "Design-to-Code",
+      "priority": "medium",
+      "rationale": "Style fidelity is key to design-to-code accuracy",
+      "verification": {
+        "type": "test",
+        "criteria": "Extracted styles match source design within tolerance",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_8"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 21,
+      "description": "Create reflection/self-feedback mechanism for generation quality improvement",
+      "category": "Core Architecture",
+      "priority": "medium",
+      "rationale": "Reflection pattern improves output quality through self-evaluation",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent evaluates and refines its own output before finalizing",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 22,
+      "description": "Build long-term memory store for agent context persistence",
+      "category": "Core Architecture",
+      "priority": "medium",
+      "rationale": "Long-term memory enables agents to learn from past experiences",
+      "verification": {
+        "type": "test",
+        "criteria": "Agent recalls context from previous sessions",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 23,
+      "description": "Implement human override and intervention points in agent workflow",
+      "category": "Core Architecture",
+      "priority": "high",
+      "rationale": "Human override is critical for production safety",
+      "verification": {
+        "type": "manual",
+        "criteria": "Users can pause, modify, and redirect agent actions",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 24,
+      "description": "Create transparency layer showing agent reasoning and decisions",
+      "category": "Core Architecture",
+      "priority": "medium",
+      "rationale": "Transparency builds trust and enables debugging",
+      "verification": {
+        "type": "manual",
+        "criteria": "UI displays agent thought process and rationale",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 25,
+      "description": "Build reversibility system for undoing agent actions",
+      "category": "Core Architecture",
+      "priority": "medium",
+      "rationale": "Reversibility is key for safe production deployments",
+      "verification": {
+        "type": "test",
+        "criteria": "Any agent action can be rolled back",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_5"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 26,
+      "description": "Implement Tailwind CSS utility generation for responsive layouts",
+      "category": "UI Generation",
+      "priority": "high",
+      "rationale": "Tailwind is standard for AI-generated responsive UIs",
+      "verification": {
+        "type": "test",
+        "criteria": "Generated layouts are mobile-responsive",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2",
+        "source_3"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 27,
+      "description": "Create shadcn/ui component integration for accessible primitives",
+      "category": "UI Generation",
+      "priority": "medium",
+      "rationale": "v0 uses shadcn/ui for consistent, accessible theming",
+      "verification": {
+        "type": "test",
+        "criteria": "Generated components use shadcn/ui with proper accessibility",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 28,
+      "description": "Build interaction state generator (hover, empty, loading, error states)",
+      "category": "UI Generation",
+      "priority": "medium",
+      "rationale": "Complete state handling is key quality indicator",
+      "verification": {
+        "type": "test",
+        "criteria": "Components include all required interaction states",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_10"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 29,
+      "description": "Implement accessibility checker for WCAG compliance",
+      "category": "Quality Assurance",
+      "priority": "high",
+      "rationale": "Accessibility must be enforced, not optional",
+      "verification": {
+        "type": "test",
+        "criteria": "Generated UI passes axe-core accessibility tests",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_10"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 30,
+      "description": "Create security scanner for common front-end vulnerabilities (XSS, etc.)",
+      "category": "Security",
+      "priority": "high",
+      "rationale": "AI code can introduce security vulnerabilities",
+      "verification": {
+        "type": "test",
+        "criteria": "XSS and injection vulnerabilities are detected",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_9",
+        "source_11"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 31,
+      "description": "Build input validation generator for form components",
+      "category": "Security",
+      "priority": "high",
+      "rationale": "Proper input handling prevents security issues",
+      "verification": {
+        "type": "test",
+        "criteria": "Forms include proper client-side validation",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_9"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 32,
+      "description": "Implement API integration scaffolding with error handling",
+      "category": "UI Generation",
+      "priority": "medium",
+      "rationale": "v0 generates real data connections but backend is separate",
+      "verification": {
+        "type": "test",
+        "criteria": "API calls include loading, error, and success states",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 33,
+      "description": "Create semantic codebase indexer for context-aware suggestions",
+      "category": "Core Architecture",
+      "priority": "high",
+      "rationale": "Windsurf model: semantic mapping improves multi-file understanding",
+      "verification": {
+        "type": "test",
+        "criteria": "Agent suggestions align with existing codebase patterns",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_6"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 34,
+      "description": "Build multi-file change coordinator for atomic updates",
+      "category": "Core Architecture",
+      "priority": "high",
+      "rationale": "Modern agents make coordinated multi-file changes",
+      "verification": {
+        "type": "test",
+        "criteria": "Related changes across files are applied atomically",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_6"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 35,
+      "description": "Implement TypeScript type generation for component props",
+      "category": "UI Generation",
+      "priority": "medium",
+      "rationale": "TypeScript typing is standard for quality code",
+      "verification": {
+        "type": "test",
+        "criteria": "Components have proper TypeScript interfaces",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_10"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 36,
+      "description": "Create component documentation generator (JSDoc/TSDoc)",
+      "category": "Quality Assurance",
+      "priority": "low",
+      "rationale": "Documentation helps maintainability of AI code",
+      "verification": {
+        "type": "test",
+        "criteria": "Generated components include proper documentation",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_9"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 37,
+      "description": "Build refactoring suggester to prevent code duplication",
+      "category": "Quality Assurance",
+      "priority": "medium",
+      "rationale": "Counter AI tendency to generate new code vs refactor",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent suggests refactoring over duplication",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_9"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 38,
+      "description": "Implement architectural coherence validator",
+      "category": "Quality Assurance",
+      "priority": "medium",
+      "rationale": "LLMs prioritize local correctness over global coherence",
+      "verification": {
+        "type": "test",
+        "criteria": "Generated code matches existing architecture patterns",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_9"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 39,
+      "description": "Create vibe coding interface for conversational iteration",
+      "category": "UI/UX",
+      "priority": "medium",
+      "rationale": "Vibe coding is mainstream 2025 interaction pattern",
+      "verification": {
+        "type": "manual",
+        "criteria": "Users can iterate on UI through natural conversation",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_11"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 40,
+      "description": "Build real-time preview system for generated components",
+      "category": "UI/UX",
+      "priority": "high",
+      "rationale": "Immediate visual feedback is key to v0-like experience",
+      "verification": {
+        "type": "manual",
+        "criteria": "Components render live as they are generated",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 41,
+      "description": "Implement variant generation for A/B testing options",
+      "category": "UI Generation",
+      "priority": "low",
+      "rationale": "Multiple options help users choose best design",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent produces multiple UI variants for comparison",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 42,
+      "description": "Create agent telemetry and observability system",
+      "category": "Operations",
+      "priority": "medium",
+      "rationale": "Long-running agents need debugging and monitoring",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent actions are logged and monitorable",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_11"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 43,
+      "description": "Build cost tracking for LLM API usage",
+      "category": "Operations",
+      "priority": "medium",
+      "rationale": "Credit burn is common concern with AI tools",
+      "verification": {
+        "type": "test",
+        "criteria": "Token usage and costs are tracked per operation",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 44,
+      "description": "Implement rate limiting and quota management",
+      "category": "Operations",
+      "priority": "medium",
+      "rationale": "Prevent unexpected cost overruns",
+      "verification": {
+        "type": "test",
+        "criteria": "Usage stays within configured limits",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 45,
+      "description": "Create agent guardrails for safety constraints",
+      "category": "Security",
+      "priority": "high",
+      "rationale": "Safety guardrails are critical for production",
+      "verification": {
+        "type": "test",
+        "criteria": "Agents cannot perform disallowed actions",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_11"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 46,
+      "description": "Build component export system (copy to clipboard, download, Git commit)",
+      "category": "UI/UX",
+      "priority": "medium",
+      "rationale": "Easy export integrates with developer workflow",
+      "verification": {
+        "type": "manual",
+        "criteria": "Users can export generated code in multiple formats",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 47,
+      "description": "Implement framework-agnostic component specification format",
+      "category": "Core Architecture",
+      "priority": "high",
+      "rationale": "Framework portability increases adoption",
+      "verification": {
+        "type": "test",
+        "criteria": "Spec can be rendered to React, Vue, or Svelte",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2",
+        "source_4"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 48,
+      "description": "Create layout auto-generation for common page types (dashboard, landing, settings)",
+      "category": "UI Generation",
+      "priority": "medium",
+      "rationale": "v0 excels at standard page patterns",
+      "verification": {
+        "type": "manual",
+        "criteria": "Standard page layouts generate with appropriate structure",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 49,
+      "description": "Build dark mode theme generation capability",
+      "category": "UI Generation",
+      "priority": "low",
+      "rationale": "Theme support is expected in modern UIs",
+      "verification": {
+        "type": "test",
+        "criteria": "Components support both light and dark themes",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_2"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    },
+    {
+      "id": 50,
+      "description": "Implement live user interaction analysis for UX improvement suggestions",
+      "category": "Operations",
+      "priority": "low",
+      "rationale": "Future trend: AI-driven design feedback loops",
+      "verification": {
+        "type": "manual",
+        "criteria": "Agent suggests UX improvements based on usage patterns",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "research_refs": [
+        "source_11"
+      ],
+      "status": "pending",
+      "status_reason": null,
+      "started_at": null,
+      "completed_at": null,
+      "commit_hash": null,
+      "parallelizable": false,
+      "depends_on": [],
+      "parallel_group": null,
+      "spec_refs": [],
+      "clarifications": [],
+      "addressed_requirements": []
+    }
+  ],
+  "spec_config": {
+    "source_of_truth": "ask",
+    "format": "auto",
+    "verification_level": "manual"
+  }
+}

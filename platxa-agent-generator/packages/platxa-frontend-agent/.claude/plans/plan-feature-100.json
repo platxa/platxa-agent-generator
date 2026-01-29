@@ -1,0 +1,100 @@
+{
+  "id": "plan-feature-100",
+  "title": "Implementation: [AI Color Suggestions] AI suggests colors that match brand p...",
+  "context": {
+    "spec_id": "feature-100",
+    "feature_id": "100",
+    "dependencies": [],
+    "metadata": {
+      "category": "Documentation & AI Features",
+      "verification_criteria": {
+        "type": "manual",
+        "criteria": "Manual verification required",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      }
+    },
+    "created_at": "2026-01-21T16:57:09.889499"
+  },
+  "phases": [
+    "research",
+    "design",
+    "implementation",
+    "testing"
+  ],
+  "tasks": [
+    {
+      "id": "task-100-1",
+      "title": "Analyze Requirements",
+      "description": "Review feature requirements: [AI Color Suggestions] AI suggests colors that match brand palette Verification: Colors from brand palette used; Semantic colors preferred; Contrast requirements met",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 0,
+      "estimated_effort": "small",
+      "verification": "Requirements understood, approach identified",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-100-2",
+      "title": "Review Existing Code",
+      "description": "Search for related code patterns and potential duplicates",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 1,
+      "estimated_effort": "small",
+      "verification": "Existing patterns identified, no duplication",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-100-3",
+      "title": "Implement Feature",
+      "description": "Implement: [AI Color Suggestions] AI suggests colors that match brand palette Verification: Colors from brand palette used; Semantic colors preferred; Contrast requirements met",
+      "step_type": "implement",
+      "status": "pending",
+      "order": 2,
+      "estimated_effort": "medium",
+      "verification": "Code complete and type-checked",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-100-4",
+      "title": "Add Tests",
+      "description": "Write unit tests for new functionality",
+      "step_type": "test",
+      "status": "pending",
+      "order": 3,
+      "estimated_effort": "small",
+      "verification": "Tests pass, coverage adequate",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-100-5",
+      "title": "Verify Acceptance Criteria",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Manual verification required', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "step_type": "test",
+      "status": "pending",
+      "order": 4,
+      "estimated_effort": "small",
+      "verification": {
+        "type": "manual",
+        "criteria": "Manual verification required",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "files": [],
+      "completed_at": null
+    }
+  ],
+  "constitution_check": true,
+  "notes": "",
+  "created_at": "2026-01-21T16:57:09.889555",
+  "lsp_impact": {}
+}

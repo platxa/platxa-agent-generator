@@ -1,0 +1,248 @@
+/**
+ * Platxa Design Tokens - Primitive Colors
+ *
+ * OKLCH Color Space: oklch(Lightness Chroma Hue)
+ * - Lightness: 0-1 (0% to 100%)
+ * - Chroma: 0-0.4 (saturation intensity)
+ * - Hue: 0-360 (color wheel angle)
+ *
+ * 12-Step Scale (Radix-inspired):
+ * - Steps 1-2:  App/subtle backgrounds
+ * - Steps 3-5:  UI element backgrounds
+ * - Steps 6-8:  Borders and separators
+ * - Step 9:     Solid backgrounds (brand color)
+ * - Step 10:    Hovered solid backgrounds
+ * - Steps 11-12: High-contrast text
+ *
+ * @platxa/brand-kit
+ * DJ Patel | Founder & CEO @ Platxa
+ */
+
+:root {
+  /* ═══════════════════════════════════════════════════════════════════
+   * PURPLE - Primary Brand Color
+   * Brand Color: Step 9 = oklch(0.50 0.22 295) = #8B35A8
+   * Hue: 295° (Magenta-Purple)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* App backgrounds */
+  --purple-1:  oklch(0.99 0.005 295);   /* Near white with purple tint */
+  --purple-2:  oklch(0.97 0.015 295);   /* Subtle purple background */
+
+  /* UI element backgrounds */
+  --purple-3:  oklch(0.93 0.04 295);    /* Hover background */
+  --purple-4:  oklch(0.88 0.07 295);    /* Active background */
+  --purple-5:  oklch(0.82 0.10 295);    /* Selected background */
+
+  /* Borders and separators */
+  --purple-6:  oklch(0.75 0.13 295);    /* Subtle border */
+  --purple-7:  oklch(0.67 0.16 295);    /* Default border */
+  --purple-8:  oklch(0.58 0.19 295);    /* Strong border */
+
+  /* Solid backgrounds */
+  --purple-9:  oklch(0.50 0.22 295);    /* ★ Brand color - Primary */
+  --purple-10: oklch(0.45 0.21 295);    /* Hovered state */
+
+  /* Text colors */
+  --purple-11: oklch(0.35 0.18 295);    /* Low-contrast text */
+  --purple-12: oklch(0.22 0.12 295);    /* High-contrast text */
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * PURPLE ALPHA - Semi-transparent variants
+   * For overlays, shadows, and layered effects
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --purple-a1:  oklch(0.50 0.22 295 / 0.02);
+  --purple-a2:  oklch(0.50 0.22 295 / 0.04);
+  --purple-a3:  oklch(0.50 0.22 295 / 0.08);
+  --purple-a4:  oklch(0.50 0.22 295 / 0.12);
+  --purple-a5:  oklch(0.50 0.22 295 / 0.18);
+  --purple-a6:  oklch(0.50 0.22 295 / 0.26);
+  --purple-a7:  oklch(0.50 0.22 295 / 0.36);
+  --purple-a8:  oklch(0.50 0.22 295 / 0.48);
+  --purple-a9:  oklch(0.50 0.22 295 / 0.64);
+  --purple-a10: oklch(0.50 0.22 295 / 0.72);
+  --purple-a11: oklch(0.50 0.22 295 / 0.84);
+  --purple-a12: oklch(0.50 0.22 295 / 0.94);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * TEAL - Accent Brand Color
+   * Brand Color: Step 9 = oklch(0.72 0.14 185) = #2ECCC4
+   * Hue: 185° (Cyan-Teal)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* App backgrounds */
+  --teal-1:  oklch(0.99 0.005 185);    /* Near white with teal tint */
+  --teal-2:  oklch(0.97 0.02 185);     /* Subtle teal background */
+
+  /* UI element backgrounds */
+  --teal-3:  oklch(0.94 0.04 185);     /* Hover background */
+  --teal-4:  oklch(0.90 0.06 185);     /* Active background */
+  --teal-5:  oklch(0.85 0.08 185);     /* Selected background */
+
+  /* Borders and separators */
+  --teal-6:  oklch(0.80 0.10 185);     /* Subtle border */
+  --teal-7:  oklch(0.76 0.12 185);     /* Default border */
+  --teal-8:  oklch(0.74 0.13 185);     /* Strong border */
+
+  /* Solid backgrounds */
+  --teal-9:  oklch(0.72 0.14 185);     /* ★ Brand accent - Teal */
+  --teal-10: oklch(0.67 0.13 185);     /* Hovered state */
+
+  /* Text colors */
+  --teal-11: oklch(0.45 0.10 185);     /* Low-contrast text */
+  --teal-12: oklch(0.28 0.08 185);     /* High-contrast text */
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * TEAL ALPHA - Semi-transparent variants
+   * For overlays, shadows, and layered effects
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --teal-a1:  oklch(0.72 0.14 185 / 0.02);
+  --teal-a2:  oklch(0.72 0.14 185 / 0.04);
+  --teal-a3:  oklch(0.72 0.14 185 / 0.08);
+  --teal-a4:  oklch(0.72 0.14 185 / 0.12);
+  --teal-a5:  oklch(0.72 0.14 185 / 0.18);
+  --teal-a6:  oklch(0.72 0.14 185 / 0.26);
+  --teal-a7:  oklch(0.72 0.14 185 / 0.36);
+  --teal-a8:  oklch(0.72 0.14 185 / 0.48);
+  --teal-a9:  oklch(0.72 0.14 185 / 0.64);
+  --teal-a10: oklch(0.72 0.14 185 / 0.72);
+  --teal-a11: oklch(0.72 0.14 185 / 0.84);
+  --teal-a12: oklch(0.72 0.14 185 / 0.94);
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * GRAY - Neutral with Purple Tint
+   * Sophisticated grays that harmonize with the brand
+   * Hue: 285° (subtle purple undertone)
+   * Chroma: 0.002-0.006 (barely perceptible)
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  /* App backgrounds */
+  --gray-1:  oklch(0.99 0.002 285);     /* App background */
+  --gray-2:  oklch(0.97 0.003 285);     /* Subtle background */
+
+  /* UI element backgrounds */
+  --gray-3:  oklch(0.94 0.004 285);     /* Hover background */
+  --gray-4:  oklch(0.90 0.004 285);     /* Active background */
+  --gray-5:  oklch(0.85 0.005 285);     /* Selected background */
+
+  /* Borders and separators */
+  --gray-6:  oklch(0.80 0.005 285);     /* Subtle border */
+  --gray-7:  oklch(0.72 0.005 285);     /* Default border */
+  --gray-8:  oklch(0.62 0.006 285);     /* Strong border */
+
+  /* Solid backgrounds */
+  --gray-9:  oklch(0.50 0.006 285);     /* Solid gray */
+  --gray-10: oklch(0.44 0.006 285);     /* Hovered state */
+
+  /* Text colors */
+  --gray-11: oklch(0.32 0.005 285);     /* Secondary text */
+  --gray-12: oklch(0.12 0.006 285);     /* Primary text */
+
+  /* ═══════════════════════════════════════════════════════════════════
+   * GRAY ALPHA - Semi-transparent variants
+   * For overlays, shadows, and layered effects
+   * ═══════════════════════════════════════════════════════════════════ */
+
+  --gray-a1:  oklch(0.12 0.006 285 / 0.02);
+  --gray-a2:  oklch(0.12 0.006 285 / 0.04);
+  --gray-a3:  oklch(0.12 0.006 285 / 0.08);
+  --gray-a4:  oklch(0.12 0.006 285 / 0.12);
+  --gray-a5:  oklch(0.12 0.006 285 / 0.18);
+  --gray-a6:  oklch(0.12 0.006 285 / 0.26);
+  --gray-a7:  oklch(0.12 0.006 285 / 0.36);
+  --gray-a8:  oklch(0.12 0.006 285 / 0.48);
+  --gray-a9:  oklch(0.12 0.006 285 / 0.64);
+  --gray-a10: oklch(0.12 0.006 285 / 0.72);
+  --gray-a11: oklch(0.12 0.006 285 / 0.84);
+  --gray-a12: oklch(0.12 0.006 285 / 0.94);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+ * HEX FALLBACKS - For browsers without OKLCH support
+ * ═══════════════════════════════════════════════════════════════════════ */
+
+@supports not (color: oklch(0.5 0.2 295)) {
+  :root {
+    --purple-1:  #FDFBFE;
+    --purple-2:  #F9F5FB;
+    --purple-3:  #F0E5F5;
+    --purple-4:  #E4D1ED;
+    --purple-5:  #D5BBE3;
+    --purple-6:  #C3A0D6;
+    --purple-7:  #AD83C6;
+    --purple-8:  #9662B4;
+    --purple-9:  #8B35A8;  /* Brand color */
+    --purple-10: #7A2E95;
+    --purple-11: #5E2473;
+    --purple-12: #3D1850;
+
+    --purple-a1:  rgba(139, 53, 168, 0.02);
+    --purple-a2:  rgba(139, 53, 168, 0.04);
+    --purple-a3:  rgba(139, 53, 168, 0.08);
+    --purple-a4:  rgba(139, 53, 168, 0.12);
+    --purple-a5:  rgba(139, 53, 168, 0.18);
+    --purple-a6:  rgba(139, 53, 168, 0.26);
+    --purple-a7:  rgba(139, 53, 168, 0.36);
+    --purple-a8:  rgba(139, 53, 168, 0.48);
+    --purple-a9:  rgba(139, 53, 168, 0.64);
+    --purple-a10: rgba(139, 53, 168, 0.72);
+    --purple-a11: rgba(139, 53, 168, 0.84);
+    --purple-a12: rgba(139, 53, 168, 0.94);
+
+    /* Teal fallbacks */
+    --teal-1:  #F7FEFE;
+    --teal-2:  #EFFCFB;
+    --teal-3:  #E0F7F6;
+    --teal-4:  #CDF1EF;
+    --teal-5:  #B5E9E6;
+    --teal-6:  #98DFDC;
+    --teal-7:  #78D5D1;
+    --teal-8:  #54CCC7;
+    --teal-9:  #2ECCC4;  /* Brand accent */
+    --teal-10: #26B5AE;
+    --teal-11: #1A7A76;
+    --teal-12: #0F4D4A;
+
+    --teal-a1:  rgba(46, 204, 196, 0.02);
+    --teal-a2:  rgba(46, 204, 196, 0.04);
+    --teal-a3:  rgba(46, 204, 196, 0.08);
+    --teal-a4:  rgba(46, 204, 196, 0.12);
+    --teal-a5:  rgba(46, 204, 196, 0.18);
+    --teal-a6:  rgba(46, 204, 196, 0.26);
+    --teal-a7:  rgba(46, 204, 196, 0.36);
+    --teal-a8:  rgba(46, 204, 196, 0.48);
+    --teal-a9:  rgba(46, 204, 196, 0.64);
+    --teal-a10: rgba(46, 204, 196, 0.72);
+    --teal-a11: rgba(46, 204, 196, 0.84);
+    --teal-a12: rgba(46, 204, 196, 0.94);
+
+    /* Gray fallbacks (with subtle purple tint) */
+    --gray-1:  #FCFCFD;
+    --gray-2:  #F8F8FA;
+    --gray-3:  #F0F0F3;
+    --gray-4:  #E6E6EA;
+    --gray-5:  #DADADF;
+    --gray-6:  #CCCCD2;
+    --gray-7:  #B8B8BF;
+    --gray-8:  #9C9CA5;
+    --gray-9:  #7E7E88;
+    --gray-10: #6E6E78;
+    --gray-11: #4F4F58;
+    --gray-12: #1C1C21;
+
+    --gray-a1:  rgba(28, 28, 33, 0.02);
+    --gray-a2:  rgba(28, 28, 33, 0.04);
+    --gray-a3:  rgba(28, 28, 33, 0.08);
+    --gray-a4:  rgba(28, 28, 33, 0.12);
+    --gray-a5:  rgba(28, 28, 33, 0.18);
+    --gray-a6:  rgba(28, 28, 33, 0.26);
+    --gray-a7:  rgba(28, 28, 33, 0.36);
+    --gray-a8:  rgba(28, 28, 33, 0.48);
+    --gray-a9:  rgba(28, 28, 33, 0.64);
+    --gray-a10: rgba(28, 28, 33, 0.72);
+    --gray-a11: rgba(28, 28, 33, 0.84);
+    --gray-a12: rgba(28, 28, 33, 0.94);
+  }
+}

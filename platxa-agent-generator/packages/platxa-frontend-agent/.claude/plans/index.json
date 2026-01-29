@@ -1,0 +1,910 @@
+{
+  "version": "1.0",
+  "updated_at": "2026-01-22T14:37:28.438260",
+  "plans": [
+    {
+      "id": "plan-feature-108",
+      "title": "Implementation: [URL Loading] Load brand kit from remote URL (enterprise/CDN...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:35:40.676335",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-98",
+      "title": "Implementation: [Best Practices Guide] Recommended patterns and anti-pattern...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:46:52.722563",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-6",
+      "title": "Implementation: [Backward Compatibility] Existing code using built-in themin...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-20T19:11:27.149470",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-124",
+      "title": "Implementation: [Selective Loading] Load only needed parts of brand kit (col...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T18:59:04.136001",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-89",
+      "title": "Implementation: [Static Generation] Support for static site generation (SSG)...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:14:46.286336",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-11",
+      "title": "Implementation: [Custom Theme Options] theme.custom field for creating theme...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:30:21.948259",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-17",
+      "title": "Implementation: [Dark Theme Colors] Brand kit must export dark mode semantic...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:44:51.978403",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-53",
+      "title": "Implementation: [Example Projects] Example projects for each scenario Verifi...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:51:34.842363",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-114",
+      "title": "Implementation: [Theme Preview Generator] Generate preview images of theme c...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T18:07:38.600888",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-110",
+      "title": "Implementation: [Dependency Resolution] Automatically resolve brand kit peer...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:47:25.075593",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-46",
+      "title": "Implementation: [Brand Kit Template] Starter template for creating new brand...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:30:24.602668",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-41",
+      "title": "Implementation: [Code Splitting] Separate brand kit code from main bundle Ve...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:19:42.050008",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-34",
+      "title": "Implementation: [useTheme Hook] React hook to access current theme tokens Ve...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:07:16.838254",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-4",
+      "title": "Implementation: [Dynamic Import System] Lazy loading of brand kits using dyn...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-20T19:03:49.657178",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-105",
+      "title": "Implementation: [Runtime Config Override] API to override config at runtime ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:15:43.151196",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-20",
+      "title": "Implementation: [Radius Scale] Brand kit must export border radius scale Ver...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:48:08.088325",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-28",
+      "title": "Implementation: [Theme Switching Script] Generate JavaScript for theme switc...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:53:18.207994",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-22",
+      "title": "Implementation: [NPM Package Loading] Load brand kit from NPM package name (...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:49:28.695955",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-37",
+      "title": "Implementation: [Required Fields Check] Verify all required fields are prese...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:13:28.987148",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-91",
+      "title": "Implementation: [extendBrand Helper] Helper to extend existing brand kit wit...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:20:46.291745",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-50",
+      "title": "Implementation: [Brand Kit Creation Guide] Step-by-step guide to create cust...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:41:01.848647",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-42",
+      "title": "Implementation: [Zero Runtime Overhead] No runtime overhead when using built...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:22:00.507956",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-135",
+      "title": "Implementation: [Remix Integration] Remix framework integration Verification...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T19:54:56.415005",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-139",
+      "title": "Implementation: [CI/CD Integration] GitHub Actions for brand kit validation ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T12:22:48.365470",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-16",
+      "title": "Implementation: [Light Theme Colors] Brand kit must export light mode semant...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:43:35.944094",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-27",
+      "title": "Implementation: [Dark Mode CSS Generation] Generate dark mode CSS overrides ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:52:49.374358",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-24",
+      "title": "Implementation: [Error Recovery] Graceful error handling when brand kit fail...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:51:00.213236",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-97",
+      "title": "Implementation: [Migration Guide] Guide for migrating existing projects Veri...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:42:20.624384",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-30",
+      "title": "Implementation: [HSL Color Support] Support HSL color format (backward compa...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:01:10.394798",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-19",
+      "title": "Implementation: [Spacing Scale] Brand kit must export spacing scale (8px gri...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:47:02.006696",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-88",
+      "title": "Implementation: [SSR Support] Server-side rendering support without hydratio...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:10:47.287510",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-8",
+      "title": "Implementation: [defineFrontendConfig Helper] Type-safe configuration helper...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-20T19:19:11.910687",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-106",
+      "title": "Implementation: [Component Tokens] Brand kit can export component-specific t...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:21:42.422296",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-3",
+      "title": "Implementation: [Brand Kit Interface] Standard interface (BrandKitExport) th...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-20T18:58:50.392261",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-140",
+      "title": "Implementation: [Video Tutorials] Video walkthroughs for key features Verifi...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T12:26:49.032289",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-13",
+      "title": "Implementation: [Meta Information] Brand kit must export meta with name, ver...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:38:33.977184",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-92",
+      "title": "Implementation: [Brand Kit Inheritance] Brand kit can extend another brand k...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:26:25.493032",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-18",
+      "title": "Implementation: [Typography Scale] Brand kit must export typography (font fa...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:45:46.387011",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-14",
+      "title": "Implementation: [Color Primitives] Brand kit must export 12-step color scale...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:39:40.619231",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-51",
+      "title": "Implementation: [API Reference] Complete API documentation with examples Ver...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:46:29.990735",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-143",
+      "title": "Implementation: [DevTools Integration] Browser devtools panel for brand insp...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T14:14:33.743140",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-123",
+      "title": "Implementation: [Audit Logging] Log brand kit loading events for debugging V...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T18:54:58.971483",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-45",
+      "title": "Implementation: [Custom Brand Kit Creation] Documentation and tools to creat...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:27:55.844664",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-84",
+      "title": "Implementation: [Circular Reference Check] Detect circular token references ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:00:21.802747",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-9",
+      "title": "Implementation: [Brand Package Specification] brand.package field to specify...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-20T19:21:12.983278",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-90",
+      "title": "Implementation: [Bundle Size Reporting] Report brand kit impact on bundle si...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:17:51.821920",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-36",
+      "title": "Implementation: [Schema Validation] Validate brand kit exports against JSON ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:12:42.287959",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-125",
+      "title": "Implementation: [Prefetch Hints] Generate prefetch hints for brand kit resou...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T19:02:27.958722",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-101",
+      "title": "Implementation: [AI Brand Validation] AI validates generated components agai...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:02:23.336817",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-130",
+      "title": "Implementation: [Theme Composer] Compose themes from multiple token sources ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T19:27:59.895291",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-111",
+      "title": "Implementation: [Preloading] Option to preload brand kit before first render...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:53:31.625495",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-39",
+      "title": "Implementation: [CSS Injection Prevention] Sanitize brand kit CSS to prevent...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:15:07.177850",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-131",
+      "title": "Implementation: [Multi-Tenant Brands] Support for multiple brands in single ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T19:34:54.787714",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-115",
+      "title": "Implementation: [CSS-in-JS Integration] Support for styled-components/Emotio...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T18:15:44.827524",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-31",
+      "title": "Implementation: [TypeScript Types] Full TypeScript support with exported typ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:01:48.702516",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-54",
+      "title": "Implementation: [AI Component Awareness] Component generator respects active...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:52:36.707074",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-38",
+      "title": "Implementation: [Type Validation] Runtime type checking of brand kit exports...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:14:19.999708",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-56",
+      "title": "Implementation: [Multi-Brand Support] Support for multiple brand kit package...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T14:01:39.374431",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-7",
+      "title": "Implementation: [Config File Support] Support frontend.config.ts, .js, .json...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-20T19:14:04.928266",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-48",
+      "title": "Implementation: [Package Manager Support] Support npm, pnpm, yarn, bun Verif...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:36:41.360805",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-122",
+      "title": "Implementation: [Content Security Policy] Generate CSP headers for brand kit...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T18:52:01.314520",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-95",
+      "title": "Implementation: [Tailwind Plugin] Tailwind plugin for brand token integratio...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:34:46.764893",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-23",
+      "title": "Implementation: [Build-Time Resolution] Resolve brand kit at build time (Vit...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:50:06.780479",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-142",
+      "title": "Implementation: [Sass Variable Export] Export brand tokens as Sass variables...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T13:53:54.718541",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-32",
+      "title": "Implementation: [IntelliSense Support] Config file IntelliSense in VSCode/ed...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:02:27.266915",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-113",
+      "title": "Implementation: [60-30-10 Rule Validation] Validate color distribution follo...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T18:03:26.929098",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-12",
+      "title": "Implementation: [Zero-Config Default] Works out-of-box with no config file (...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:33:05.131920",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-145",
+      "title": "Implementation: [Stylelint Plugin] Stylelint rules for brand CSS Verificatio...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T14:37:28.437868",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-57",
+      "title": "Implementation: [Brand Fallback Chain] Graceful fallback: brand \u2192 preset \u2192 d...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T14:04:13.781216",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-33",
+      "title": "Implementation: [useBrand Hook] React hook to access current brand informati...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:03:03.061178",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-94",
+      "title": "Implementation: [Next.js Integration] First-class Next.js App Router support...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:32:11.372716",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-40",
+      "title": "Implementation: [Lazy Loading] Load brand kit only when needed (dynamic impo...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:18:41.056889",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-132",
+      "title": "Implementation: [Brand Switching API] Runtime API to switch between multiple...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T19:42:33.454477",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-26",
+      "title": "Implementation: [Tailwind @theme Generation] Generate Tailwind v4 @theme dir...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:52:14.389541",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-5",
+      "title": "Implementation: [Token Normalization] Adapter layer that normalizes brand ki...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-20T19:06:37.455649",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-86",
+      "title": "Implementation: [Minimal Re-renders] Minimize React re-renders on theme chan...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:06:30.806327",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-99",
+      "title": "Implementation: [Troubleshooting Guide] Common issues and solutions Verifica...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:53:11.480520",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-127",
+      "title": "Implementation: [mergeBrands Helper] Helper to merge multiple brand kits Ver...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T19:11:26.815465",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-104",
+      "title": "Implementation: [Config Inheritance] extends field to inherit from another c...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:11:35.487578",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-47",
+      "title": "Implementation: [Vite Plugin] Vite plugin for brand kit resolution and CSS i...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:32:52.497483",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-102",
+      "title": "Implementation: [Claude Skill for Brand] Claude Code skill for brand kit ope...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:05:41.684271",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-58",
+      "title": "Implementation: [Brand Context Provider] React context for accessing brand i...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T14:07:42.149715",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-144",
+      "title": "Implementation: [Custom Adapters] Allow custom adapters for non-standard bra...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T14:23:39.892329",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-112",
+      "title": "Implementation: [Bundle Analysis] Report brand kit size impact in build outp...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:59:33.020649",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-10",
+      "title": "Implementation: [Theme Preset Selection] theme.preset field to select built-...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-20T19:23:48.822346",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-21",
+      "title": "Implementation: [Shadow Scale] Brand kit must export shadow/elevation scale ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:48:47.334307",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-134",
+      "title": "Implementation: [Webpack Plugin] Webpack plugin for brand kit resolution Ver...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T19:49:11.602123",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-55",
+      "title": "Implementation: [AI Brand Context Injection] Inject brand tokens into AI pro...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:54:49.822813",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-107",
+      "title": "Implementation: [Animation Presets] Brand kit can export brand-specific anim...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:32:31.455848",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-52",
+      "title": "Implementation: [Configuration Reference] Comprehensive config file document...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:50:22.422754",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-93",
+      "title": "Implementation: [Partial Brand Kits] Support brand kits that only override s...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:29:12.072032",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-100",
+      "title": "Implementation: [AI Color Suggestions] AI suggests colors that match brand p...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:57:09.889555",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-43",
+      "title": "Implementation: [Build-Time Processing] Process brand tokens at build time, ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:23:21.188918",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-126",
+      "title": "Implementation: [Critical CSS Extraction] Extract critical brand CSS for abo...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T19:07:06.551111",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-25",
+      "title": "Implementation: [CSS Variable Generation] Generate CSS custom properties fro...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:51:36.683339",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-85",
+      "title": "Implementation: [Safe Dynamic Import] Whitelist allowed brand kit packages V...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:04:16.834647",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-137",
+      "title": "Implementation: [PostCSS Plugin] PostCSS plugin for brand token processing V...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T20:03:00.579653",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-83",
+      "title": "Implementation: [Size Limit Check] Warn if brand kit exceeds size threshold ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T15:58:02.142020",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-129",
+      "title": "Implementation: [Token Transformer] Custom token transformation pipeline Ver...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T19:19:47.391291",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-29",
+      "title": "Implementation: [OKLCH Color Support] Support OKLCH color space in brand tok...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:00:17.720867",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-35",
+      "title": "Implementation: [Error Messages] Clear, actionable error messages for miscon...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:11:21.446465",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-96",
+      "title": "Implementation: [Monorepo Support] Support for brand kits in monorepos Verif...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:38:33.907342",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-109",
+      "title": "Implementation: [Runtime Resolution] Optionally resolve brand kit at runtime...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:43:30.507590",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-128",
+      "title": "Implementation: [Plugin System] Plugin architecture for brand kit transforma...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T19:16:55.773303",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-44",
+      "title": "Implementation: [CSS Variable Performance] Use CSS variables for instant the...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:26:44.041182",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-141",
+      "title": "Implementation: [Brand Guidelines AI] AI generates brand usage guidelines Ve...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-22T12:30:32.227317",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-87",
+      "title": "Implementation: [Token Memoization] Memoize computed token values Verificati...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T16:08:38.889108",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-103",
+      "title": "Implementation: [Brand Hot Reloading] Development-time hot reloading when br...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T17:07:49.538598",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-15",
+      "title": "Implementation: [Semantic Colors] Brand kit must export semantic color mappi...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T11:40:43.803113",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-121",
+      "title": "Implementation: [Duplicate Token Check] Warn about duplicate token definitio...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T18:48:21.544340",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-49",
+      "title": "Implementation: [Getting Started Guide] Quick start documentation for basic ...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T12:37:37.598250",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-133",
+      "title": "Implementation: [Brand Events] Event system for brand load/change/error even...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T19:46:22.908012",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-136",
+      "title": "Implementation: [Astro Integration] Astro framework integration Verification...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-21T19:59:18.520314",
+      "constitution_check": true
+    }
+  ]
+}

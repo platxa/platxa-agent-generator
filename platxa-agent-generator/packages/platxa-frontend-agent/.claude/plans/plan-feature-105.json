@@ -1,0 +1,100 @@
+{
+  "id": "plan-feature-105",
+  "title": "Implementation: [Runtime Config Override] API to override config at runtime ...",
+  "context": {
+    "spec_id": "feature-105",
+    "feature_id": "105",
+    "dependencies": [],
+    "metadata": {
+      "category": "Configuration Features",
+      "verification_criteria": {
+        "type": "manual",
+        "criteria": "Manual verification required",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      }
+    },
+    "created_at": "2026-01-21T17:15:43.151135"
+  },
+  "phases": [
+    "research",
+    "design",
+    "implementation",
+    "testing"
+  ],
+  "tasks": [
+    {
+      "id": "task-105-1",
+      "title": "Analyze Requirements",
+      "description": "Review feature requirements: [Runtime Config Override] API to override config at runtime for testing Verification: setConfig() function available; Config changes trigger re-render; Original config restorable",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 0,
+      "estimated_effort": "small",
+      "verification": "Requirements understood, approach identified",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-105-2",
+      "title": "Review Existing Code",
+      "description": "Search for related code patterns and potential duplicates",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 1,
+      "estimated_effort": "small",
+      "verification": "Existing patterns identified, no duplication",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-105-3",
+      "title": "Implement Feature",
+      "description": "Implement: [Runtime Config Override] API to override config at runtime for testing Verification: setConfig() function available; Config changes trigger re-render; Original config restorable",
+      "step_type": "implement",
+      "status": "pending",
+      "order": 2,
+      "estimated_effort": "medium",
+      "verification": "Code complete and type-checked",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-105-4",
+      "title": "Add Tests",
+      "description": "Write unit tests for new functionality",
+      "step_type": "test",
+      "status": "pending",
+      "order": 3,
+      "estimated_effort": "small",
+      "verification": "Tests pass, coverage adequate",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-105-5",
+      "title": "Verify Acceptance Criteria",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Manual verification required', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "step_type": "test",
+      "status": "pending",
+      "order": 4,
+      "estimated_effort": "small",
+      "verification": {
+        "type": "manual",
+        "criteria": "Manual verification required",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "files": [],
+      "completed_at": null
+    }
+  ],
+  "constitution_check": true,
+  "notes": "",
+  "created_at": "2026-01-21T17:15:43.151196",
+  "lsp_impact": {}
+}

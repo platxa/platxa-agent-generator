@@ -1,0 +1,100 @@
+{
+  "id": "plan-feature-104",
+  "title": "Implementation: [Config Inheritance] extends field to inherit from another c...",
+  "context": {
+    "spec_id": "feature-104",
+    "feature_id": "104",
+    "dependencies": [],
+    "metadata": {
+      "category": "Configuration Features",
+      "verification_criteria": {
+        "type": "manual",
+        "criteria": "Manual verification required",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      }
+    },
+    "created_at": "2026-01-21T17:11:35.487514"
+  },
+  "phases": [
+    "research",
+    "design",
+    "implementation",
+    "testing"
+  ],
+  "tasks": [
+    {
+      "id": "task-104-1",
+      "title": "Analyze Requirements",
+      "description": "Review feature requirements: [Config Inheritance] extends field to inherit from another config file Verification: extends field accepts path to base config; Child config overrides parent values; Deep merge of nested objects",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 0,
+      "estimated_effort": "small",
+      "verification": "Requirements understood, approach identified",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-104-2",
+      "title": "Review Existing Code",
+      "description": "Search for related code patterns and potential duplicates",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 1,
+      "estimated_effort": "small",
+      "verification": "Existing patterns identified, no duplication",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-104-3",
+      "title": "Implement Feature",
+      "description": "Implement: [Config Inheritance] extends field to inherit from another config file Verification: extends field accepts path to base config; Child config overrides parent values; Deep merge of nested objects",
+      "step_type": "implement",
+      "status": "pending",
+      "order": 2,
+      "estimated_effort": "medium",
+      "verification": "Code complete and type-checked",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-104-4",
+      "title": "Add Tests",
+      "description": "Write unit tests for new functionality",
+      "step_type": "test",
+      "status": "pending",
+      "order": 3,
+      "estimated_effort": "small",
+      "verification": "Tests pass, coverage adequate",
+      "files": [],
+      "completed_at": null
+    },
+    {
+      "id": "task-104-5",
+      "title": "Verify Acceptance Criteria",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Manual verification required', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "step_type": "test",
+      "status": "pending",
+      "order": 4,
+      "estimated_effort": "small",
+      "verification": {
+        "type": "manual",
+        "criteria": "Manual verification required",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "files": [],
+      "completed_at": null
+    }
+  ],
+  "constitution_check": true,
+  "notes": "",
+  "created_at": "2026-01-21T17:11:35.487578",
+  "lsp_impact": {}
+}
