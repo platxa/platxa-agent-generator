@@ -1,32 +1,32 @@
 {
-  "session_id": "981644e01b0e",
+  "session_id": "be34d77ad34a",
   "stack": {
     "session": {
-      "id": "981644e01b0e-303",
-      "text": "[Phase 4: Enhanced UI] Feature #105: Create one-click restore to previous version Criteria: Click version → confirmation → files restored → preview updated",
+      "id": "be34d77ad34a-305",
+      "text": "[Phase 4: Enhanced UI] Feature #109: Create AgentStatusBadge showing current mode (plan/agent) Criteria: Badge shows mode name with appropriate icon",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769686581.0141084,
-      "updated_at": 1769686581.0141087,
+      "created_at": 1769686682.89458,
+      "updated_at": 1769686682.89458,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 105,
+        "feature_id": 109,
         "category": "Phase 4: Enhanced UI"
       },
       "keywords": []
     },
     "task": {
-      "id": "981644e01b0e-304",
-      "text": "Implement: Create one-click restore to previous version",
+      "id": "be34d77ad34a-306",
+      "text": "Implement: Create AgentStatusBadge showing current mode (plan/agent)",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769686581.019974,
-      "updated_at": 1769686581.0199742,
+      "created_at": 1769686682.9004452,
+      "updated_at": 1769686682.9004455,
       "completed_at": null,
-      "parent_id": "981644e01b0e-303",
+      "parent_id": "be34d77ad34a-305",
       "metadata": {},
       "keywords": []
     },
@@ -4440,9 +4440,38 @@
       "parent_id": "981644e01b0e-303",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "be34d77ad34a-305",
+      "text": "[Phase 4: Enhanced UI] Feature #109: Create AgentStatusBadge showing current mode (plan/agent) Criteria: Badge shows mode name with appropriate icon",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769686682.89458,
+      "updated_at": 1769686682.89458,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 109,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "be34d77ad34a-306",
+      "text": "Implement: Create AgentStatusBadge showing current mode (plan/agent)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769686682.9004452,
+      "updated_at": 1769686682.9004455,
+      "completed_at": null,
+      "parent_id": "be34d77ad34a-305",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 304,
+  "intent_counter": 306,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769686581.019978
+  "updated_at": 1769686682.90045
 }

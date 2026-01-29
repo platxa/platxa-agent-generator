@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T17:06:20.704881",
+  "updated_at": "2026-01-29T17:08:02.558204",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -792,6 +792,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T16:58:06.211071",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-109",
+      "title": "Implementation: Create AgentStatusBadge showing current mode (plan/agent)",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-29T17:08:02.557663",
       "constitution_check": true
     },
     {
