@@ -297,6 +297,11 @@ export async function editFileTool(params: ToolParams): Promise<ToolResult> {
       encoding: params.options?.encoding as BufferEncoding,
     };
 
+    // Enable Yjs sync by default for real-time collaboration (matches write_file behavior)
+    if (options.docId === undefined) {
+      options.docId = options.path;
+    }
+
     const result = await editFileImpl(options);
 
     return {

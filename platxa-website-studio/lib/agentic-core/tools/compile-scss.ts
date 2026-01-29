@@ -15,6 +15,7 @@ import { readFile, writeFile } from 'fs/promises';
 import { existsSync, mkdirSync } from 'fs';
 import { resolve, dirname, isAbsolute, basename, join } from 'path';
 import type { ToolParams, ToolResult } from '../tool-executor';
+import { yjsRegistry } from './write-file';
 
 // ============================================================================
 // Types
@@ -383,10 +384,16 @@ export async function compileScssImpl(options: CompileScssOptions): Promise<Comp
       }
 
       await writeFile(outputPath, result.css, 'utf-8');
+      // Sync CSS output to Yjs for real-time collaboration
+      yjsRegistry.updateDoc(outputPath, result.css);
 
       // Write source map if generated
       if (result.sourceMap && options.sourceMap) {
-        await writeFile(`${outputPath}.map`, JSON.stringify(result.sourceMap), 'utf-8');
+        const sourceMapPath = `${outputPath}.map`;
+        const sourceMapContent = JSON.stringify(result.sourceMap);
+        await writeFile(sourceMapPath, sourceMapContent, 'utf-8');
+        // Sync source map to Yjs
+        yjsRegistry.updateDoc(sourceMapPath, sourceMapContent);
       }
     }
 
