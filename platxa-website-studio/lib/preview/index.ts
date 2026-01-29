@@ -92,9 +92,11 @@ export {
 export {
   annotateTemplateSource,
   buildSourceMap,
+  getSourceLocation,
   SOURCE_MAP_CLICK_SCRIPT,
   type SourceMapEntry,
   type QWebSourceMap,
+  type SourceLocation as QWebSourceLocation,
 } from "./qweb-source-map";
 
 // SCSS color variable updater for live palette editing
@@ -352,3 +354,15 @@ export {
   type AutoFixResult,
   type AutoFixerOptions,
 } from "./auto-fixer";
+
+// Preview Source Navigator for preview-to-editor navigation
+export {
+  PreviewSourceNavigator,
+  createPreviewSourceNavigator,
+  navigateToSource,
+  createEditorIntegration,
+  type SourceNavigateEvent,
+  type EditorIntegration,
+  type SourceNavigatorConfig,
+  type NavigationResult,
+} from "./preview-source-navigator";

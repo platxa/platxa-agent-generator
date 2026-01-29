@@ -1,32 +1,32 @@
 {
-  "session_id": "93c652f8f371",
+  "session_id": "4b406dcb71d1",
   "stack": {
     "session": {
-      "id": "93c652f8f371-275",
-      "text": "[Phase 3: HMR Preview] Feature #68: Add line-level source tracking for QWeb templates Criteria: Clicking element reveals exact line numbers in source file",
+      "id": "4b406dcb71d1-277",
+      "text": "[Phase 3: HMR Preview] Feature #70: Implement editor highlight from preview selection Criteria: Preview click opens file in editor and highlights relevant lines",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769684969.0982075,
-      "updated_at": 1769684969.0982075,
+      "created_at": 1769685242.549141,
+      "updated_at": 1769685242.549141,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 68,
+        "feature_id": 70,
         "category": "Phase 3: HMR Preview"
       },
       "keywords": []
     },
     "task": {
-      "id": "93c652f8f371-276",
-      "text": "Implement: Add line-level source tracking for QWeb templates",
+      "id": "4b406dcb71d1-278",
+      "text": "Implement: Implement editor highlight from preview selection",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769684969.105759,
-      "updated_at": 1769684969.1057591,
+      "created_at": 1769685242.5565314,
+      "updated_at": 1769685242.5565314,
       "completed_at": null,
-      "parent_id": "93c652f8f371-275",
+      "parent_id": "4b406dcb71d1-277",
       "metadata": {},
       "keywords": []
     },
@@ -4034,9 +4034,38 @@
       "parent_id": "93c652f8f371-275",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "4b406dcb71d1-277",
+      "text": "[Phase 3: HMR Preview] Feature #70: Implement editor highlight from preview selection Criteria: Preview click opens file in editor and highlights relevant lines",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769685242.549141,
+      "updated_at": 1769685242.549141,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 70,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "4b406dcb71d1-278",
+      "text": "Implement: Implement editor highlight from preview selection",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769685242.5565314,
+      "updated_at": 1769685242.5565314,
+      "completed_at": null,
+      "parent_id": "4b406dcb71d1-277",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 276,
+  "intent_counter": 278,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769684969.1057637
+  "updated_at": 1769685242.5565352
 }

@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-70",
-  "title": "Implementation: Create agent memory for cross-session learning of user prefe...",
+  "title": "Implementation: Implement editor highlight from preview selection",
   "context": {
     "spec_id": "feature-70",
     "feature_id": "70",
     "dependencies": [],
     "metadata": {
-      "category": "Agent Intelligence",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Agent remembers user's style preferences, rejected options, and favorite patterns across sessions",
+        "type": "manual",
+        "criteria": "Preview click opens file in editor and highlights relevant lines",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T14:11:29.807392"
+    "created_at": "2026-01-29T16:44:02.111304"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-70-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create agent memory for cross-session learning of user preferences and common patterns",
+      "description": "Review feature requirements: Implement editor highlight from preview selection",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-70-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-70-3",
       "title": "Implement Feature",
-      "description": "Implement: Create agent memory for cross-session learning of user preferences and common patterns",
+      "description": "Implement: Implement editor highlight from preview selection",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-70-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-70-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': \"Agent remembers user's style preferences, rejected options, and favorite patterns across sessions\", 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Preview click opens file in editor and highlights relevant lines', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Agent remembers user's style preferences, rejected options, and favorite patterns across sessions",
+        "type": "manual",
+        "criteria": "Preview click opens file in editor and highlights relevant lines",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T14:11:29.807423",
+  "created_at": "2026-01-29T16:44:02.111344",
   "lsp_impact": {}
 }
