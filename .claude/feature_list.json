@@ -12,21 +12,21 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": 85,
+  "current_feature_id": 92,
   "session": {
-    "count": 76,
-    "last_started_at": "2026-01-29T11:21:17.409467Z",
+    "count": 77,
+    "last_started_at": "2026-01-29T11:23:48.614969Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 75,
+    "passed": 76,
     "failed": 0,
     "skipped": 0,
     "in_progress": 1,
     "paused": 0,
-    "pending": 127,
-    "completion_percentage": 36.9
+    "pending": 126,
+    "completion_percentage": 37.4
   },
   "categories": [
     {
@@ -48,7 +48,7 @@
     {
       "name": "Phase 3: HMR Preview",
       "total": 36,
-      "passed": 21,
+      "passed": 22,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -2695,20 +2695,20 @@
       "verification": {
         "type": "manual",
         "criteria": "Toggle buttons resize iframe to 1024px, 768px, 375px widths",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "59c4757",
+        "verified_at": "2026-01-29T11:23:41.997348Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/components/preview/ViewportToggle.tsx",
-      "status": "in_progress",
+      "status": "passed",
       "status_reason": null,
       "started_at": "2026-01-29T11:21:17.409450Z",
-      "completed_at": null,
-      "commit_hash": null,
+      "completed_at": "2026-01-29T11:23:42.028190Z",
+      "commit_hash": "59c4757",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -2921,9 +2921,9 @@
         "lovable-preview"
       ],
       "file_path": "/lib/preview/iframe-runtime.ts",
-      "status": "pending",
+      "status": "in_progress",
       "status_reason": null,
-      "started_at": null,
+      "started_at": "2026-01-29T11:23:48.614953Z",
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,

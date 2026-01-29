@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-92",
-  "title": "Implementation: Add project scaffolding wizard generating full project from ...",
+  "title": "Implementation: Add CSS for selection mode styling (hover, selected, flash)",
   "context": {
     "spec_id": "feature-92",
     "feature_id": "92",
     "dependencies": [],
     "metadata": {
-      "category": "Developer Experience",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
         "type": "manual",
-        "criteria": "Single prompt generates complete theme with 5+ pages and brand",
+        "criteria": "Hover: dashed outline; Selected: solid outline + label; Updated: flash animation",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T12:29:49.387882"
+    "created_at": "2026-01-29T16:53:51.627384"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-92-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add project scaffolding wizard generating full project from single natural language prompt",
+      "description": "Review feature requirements: Add CSS for selection mode styling (hover, selected, flash)",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-92-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-92-3",
       "title": "Implement Feature",
-      "description": "Implement: Add project scaffolding wizard generating full project from single natural language prompt",
+      "description": "Implement: Add CSS for selection mode styling (hover, selected, flash)",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-92-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-92-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Single prompt generates complete theme with 5+ pages and brand', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Hover: dashed outline; Selected: solid outline + label; Updated: flash animation', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "manual",
-        "criteria": "Single prompt generates complete theme with 5+ pages and brand",
+        "criteria": "Hover: dashed outline; Selected: solid outline + label; Updated: flash animation",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T12:29:49.387908",
+  "created_at": "2026-01-29T16:53:51.627415",
   "lsp_impact": {}
 }

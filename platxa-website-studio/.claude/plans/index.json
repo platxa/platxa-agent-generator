@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T16:51:20.438369",
+  "updated_at": "2026-01-29T16:53:51.628156",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -292,10 +292,10 @@
     },
     {
       "id": "plan-feature-92",
-      "title": "Implementation: Add project scaffolding wizard generating full project from ...",
+      "title": "Implementation: Add CSS for selection mode styling (hover, selected, flash)",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T12:29:49.387908",
+      "created_at": "2026-01-29T16:53:51.627415",
       "constitution_check": true
     },
     {

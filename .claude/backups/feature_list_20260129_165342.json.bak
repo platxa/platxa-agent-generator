@@ -12,21 +12,21 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": 70,
+  "current_feature_id": 85,
   "session": {
-    "count": 71,
-    "last_started_at": "2026-01-29T11:13:59.187624Z",
+    "count": 76,
+    "last_started_at": "2026-01-29T11:21:17.409467Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 70,
+    "passed": 75,
     "failed": 0,
     "skipped": 0,
     "in_progress": 1,
     "paused": 0,
-    "pending": 132,
-    "completion_percentage": 34.5
+    "pending": 127,
+    "completion_percentage": 36.9
   },
   "categories": [
     {
@@ -48,7 +48,7 @@
     {
       "name": "Phase 3: HMR Preview",
       "total": 36,
-      "passed": 16,
+      "passed": 21,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -2230,20 +2230,20 @@
       "verification": {
         "type": "manual",
         "criteria": "Preview click opens file in editor and highlights relevant lines",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "0ec378d",
+        "verified_at": "2026-01-29T11:16:42.517807Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/lib/preview/source-mapper.ts",
-      "status": "in_progress",
+      "status": "passed",
       "status_reason": null,
       "started_at": "2026-01-29T11:13:59.187607Z",
-      "completed_at": null,
-      "commit_hash": null,
+      "completed_at": "2026-01-29T11:16:42.542937Z",
+      "commit_hash": "0ec378d",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -2323,20 +2323,20 @@
       "verification": {
         "type": "manual",
         "criteria": "Dashed outline appears on hover over snippet containers",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "4fa36f5",
+        "verified_at": "2026-01-29T11:17:58.104344Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/lib/preview/iframe-runtime.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T11:16:49.650538Z",
+      "completed_at": "2026-01-29T11:17:58.131288Z",
+      "commit_hash": "4fa36f5",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -2385,20 +2385,20 @@
       "verification": {
         "type": "test",
         "criteria": "Only one element selected at a time; new selection clears old",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "443263a",
+        "verified_at": "2026-01-29T11:19:02.514730Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/lib/preview/iframe-runtime.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T11:18:04.909720Z",
+      "completed_at": "2026-01-29T11:19:02.538173Z",
+      "commit_hash": "443263a",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -2478,20 +2478,20 @@
       "verification": {
         "type": "manual",
         "criteria": "Panel appears near selected element with style controls",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "5f68f76",
+        "verified_at": "2026-01-29T11:20:02.190018Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/components/preview/FloatingEditor.tsx",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T11:19:08.926883Z",
+      "completed_at": "2026-01-29T11:20:02.216500Z",
+      "commit_hash": "5f68f76",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -2509,20 +2509,20 @@
       "verification": {
         "type": "manual",
         "criteria": "Picker shows current color; change updates SCSS variable and preview",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "1430b4d",
+        "verified_at": "2026-01-29T11:21:10.813989Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-preview"
       ],
       "file_path": "/components/preview/FloatingEditor.tsx",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T11:20:08.664551Z",
+      "completed_at": "2026-01-29T11:21:10.844611Z",
+      "commit_hash": "1430b4d",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -2704,9 +2704,9 @@
         "lovable-preview"
       ],
       "file_path": "/components/preview/ViewportToggle.tsx",
-      "status": "pending",
+      "status": "in_progress",
       "status_reason": null,
-      "started_at": null,
+      "started_at": "2026-01-29T11:21:17.409450Z",
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,

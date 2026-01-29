@@ -498,6 +498,38 @@ describe("SELECT_MODE_SCRIPT", () => {
     expect(SELECT_MODE_SCRIPT).toContain("platxa-select-selected");
   });
 
+  describe("CSS for selection mode styling (Feature #92)", () => {
+    it("hover state uses dashed outline", () => {
+      // Feature #92: Hover shows dashed outline
+      expect(SELECT_MODE_SCRIPT).toMatch(/\.platxa-select-hover\s*\{[^}]*outline:\s*2px\s+dashed/);
+    });
+
+    it("selected state uses solid outline", () => {
+      // Feature #92: Selected shows solid outline
+      expect(SELECT_MODE_SCRIPT).toMatch(/\.platxa-select-selected\s*\{[^}]*outline:\s*2px\s+solid/);
+    });
+
+    it("selected state shows label via ::after pseudo-element", () => {
+      // Feature #92: Selected shows label
+      expect(SELECT_MODE_SCRIPT).toContain("platxa-select-selected::after");
+      expect(SELECT_MODE_SCRIPT).toContain("content: attr(data-snippet-id)");
+      // Label styling
+      expect(SELECT_MODE_SCRIPT).toMatch(/\.platxa-select-selected::after\s*\{[^}]*font-size:\s*10px/);
+      expect(SELECT_MODE_SCRIPT).toMatch(/\.platxa-select-selected::after\s*\{[^}]*font-family:\s*monospace/);
+    });
+
+    it("updated elements flash with animation", () => {
+      // Feature #92: Updated elements flash with animation
+      expect(SELECT_MODE_SCRIPT).toContain("@keyframes platxa-flash");
+      expect(SELECT_MODE_SCRIPT).toContain("platxa-select-flash");
+      // Verify animation properties
+      expect(SELECT_MODE_SCRIPT).toMatch(/\.platxa-select-flash\s*\{[^}]*animation:\s*platxa-flash\s+0\.6s/);
+      // Verify keyframe has color transition (0% -> 100%)
+      expect(SELECT_MODE_SCRIPT).toContain("0% { background-color:");
+      expect(SELECT_MODE_SCRIPT).toContain("100% { background-color: transparent");
+    });
+  });
+
   it("handles postMessage communication", () => {
     expect(SELECT_MODE_SCRIPT).toContain("postMessage");
     expect(SELECT_MODE_SCRIPT).toContain("platxa:select-mode-enable");

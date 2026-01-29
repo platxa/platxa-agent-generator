@@ -1,32 +1,32 @@
 {
-  "session_id": "62d3f8a9d3fd",
+  "session_id": "190c1efda569",
   "stack": {
     "session": {
-      "id": "62d3f8a9d3fd-287",
-      "text": "[Phase 3: HMR Preview] Feature #85: Create viewport toggle for desktop/tablet/mobile preview Criteria: Toggle buttons resize iframe to 1024px, 768px, 375px widths",
+      "id": "190c1efda569-289",
+      "text": "[Phase 3: HMR Preview] Feature #92: Add CSS for selection mode styling (hover, selected, flash) Criteria: Hover: dashed outline; Selected: solid outline + label; Updated: flash animation",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769685680.956254,
-      "updated_at": 1769685680.956254,
+      "created_at": 1769685832.1767886,
+      "updated_at": 1769685832.1767886,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 85,
+        "feature_id": 92,
         "category": "Phase 3: HMR Preview"
       },
       "keywords": []
     },
     "task": {
-      "id": "62d3f8a9d3fd-288",
-      "text": "Implement: Create viewport toggle for desktop/tablet/mobile preview",
+      "id": "190c1efda569-290",
+      "text": "Implement: Add CSS for selection mode styling (hover, selected, flash)",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769685680.9643574,
-      "updated_at": 1769685680.9643576,
+      "created_at": 1769685832.184688,
+      "updated_at": 1769685832.1846883,
       "completed_at": null,
-      "parent_id": "62d3f8a9d3fd-287",
+      "parent_id": "190c1efda569-289",
       "metadata": {},
       "keywords": []
     },
@@ -4208,9 +4208,38 @@
       "parent_id": "62d3f8a9d3fd-287",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "190c1efda569-289",
+      "text": "[Phase 3: HMR Preview] Feature #92: Add CSS for selection mode styling (hover, selected, flash) Criteria: Hover: dashed outline; Selected: solid outline + label; Updated: flash animation",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769685832.1767886,
+      "updated_at": 1769685832.1767886,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 92,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "190c1efda569-290",
+      "text": "Implement: Add CSS for selection mode styling (hover, selected, flash)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769685832.184688,
+      "updated_at": 1769685832.1846883,
+      "completed_at": null,
+      "parent_id": "190c1efda569-289",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 288,
+  "intent_counter": 290,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769685680.964361
+  "updated_at": 1769685832.184692
 }
