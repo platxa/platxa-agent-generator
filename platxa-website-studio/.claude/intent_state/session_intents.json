@@ -1,32 +1,32 @@
 {
-  "session_id": "cbf57ce314b8",
+  "session_id": "204147d6434d",
   "stack": {
     "session": {
-      "id": "cbf57ce314b8-325",
-      "text": "[Phase 5: Self-Debugging] Feature #141: Create Odoo manifest error patterns Criteria: Patterns for: missing key, invalid syntax, bad dependency, wrong version",
+      "id": "204147d6434d-335",
+      "text": "[Phase 5: Self-Debugging] Feature #152: Implement retry logic with max 3 attempts per error Criteria: Same error retried up to 3 times with different approaches",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769688683.838176,
-      "updated_at": 1769688683.838176,
+      "created_at": 1769689718.7449098,
+      "updated_at": 1769689718.7449098,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 141,
+        "feature_id": 152,
         "category": "Phase 5: Self-Debugging"
       },
       "keywords": []
     },
     "task": {
-      "id": "cbf57ce314b8-326",
-      "text": "Implement: Create Odoo manifest error patterns",
+      "id": "204147d6434d-336",
+      "text": "Implement: Implement retry logic with max 3 attempts per error",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769688683.843825,
-      "updated_at": 1769688683.8438253,
+      "created_at": 1769689718.7527692,
+      "updated_at": 1769689718.7527692,
       "completed_at": null,
-      "parent_id": "cbf57ce314b8-325",
+      "parent_id": "204147d6434d-335",
       "metadata": {},
       "keywords": []
     },
@@ -4759,9 +4759,154 @@
       "parent_id": "cbf57ce314b8-325",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "bda0af335b8c-327",
+      "text": "[Phase 5: Self-Debugging] Feature #142: Implement snippet structure error patterns Criteria: Patterns for: missing oe_structure, invalid s_ prefix, bad data attributes",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769688851.636527,
+      "updated_at": 1769688851.636527,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 142,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "bda0af335b8c-328",
+      "text": "Implement: Implement snippet structure error patterns",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769688851.643307,
+      "updated_at": 1769688851.6433072,
+      "completed_at": null,
+      "parent_id": "bda0af335b8c-327",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "80c472a1e34d-329",
+      "text": "[Phase 5: Self-Debugging] Feature #144: Create pattern matching engine with fuzzy matching support Criteria: Matches patterns with minor variations in wording or formatting",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769689151.6208787,
+      "updated_at": 1769689151.620879,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 144,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "80c472a1e34d-330",
+      "text": "Implement: Create pattern matching engine with fuzzy matching support",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769689151.625921,
+      "updated_at": 1769689151.6259212,
+      "completed_at": null,
+      "parent_id": "80c472a1e34d-329",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "a8e13f28f432-331",
+      "text": "[Phase 5: Self-Debugging] Feature #147: Add LLM-based fix generation for novel errors without patterns Criteria: Unknown errors sent to LLM with context; fix generated from response",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769689367.8066876,
+      "updated_at": 1769689367.8066878,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 147,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "a8e13f28f432-332",
+      "text": "Implement: Add LLM-based fix generation for novel errors without patterns",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769689367.8149786,
+      "updated_at": 1769689367.8149788,
+      "completed_at": null,
+      "parent_id": "a8e13f28f432-331",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "7275070dd623-333",
+      "text": "[Phase 5: Self-Debugging] Feature #148: Create fix validation testing fix before applying permanently Criteria: Fix applied to temp copy; validated; only applied if validation passes",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769689545.7821145,
+      "updated_at": 1769689545.7821147,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 148,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "7275070dd623-334",
+      "text": "Implement: Create fix validation testing fix before applying permanently",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769689545.7878113,
+      "updated_at": 1769689545.7878115,
+      "completed_at": null,
+      "parent_id": "7275070dd623-333",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "204147d6434d-335",
+      "text": "[Phase 5: Self-Debugging] Feature #152: Implement retry logic with max 3 attempts per error Criteria: Same error retried up to 3 times with different approaches",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769689718.7449098,
+      "updated_at": 1769689718.7449098,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 152,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "204147d6434d-336",
+      "text": "Implement: Implement retry logic with max 3 attempts per error",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769689718.7527692,
+      "updated_at": 1769689718.7527692,
+      "completed_at": null,
+      "parent_id": "204147d6434d-335",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 326,
+  "intent_counter": 336,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769688683.8438292
+  "updated_at": 1769689718.752774
 }

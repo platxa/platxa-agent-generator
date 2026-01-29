@@ -14,19 +14,19 @@
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
   "current_feature_id": null,
   "session": {
-    "count": 94,
-    "last_started_at": "2026-01-29T12:08:17.581334Z",
+    "count": 96,
+    "last_started_at": "2026-01-29T12:14:08.492827Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 94,
+    "passed": 96,
     "failed": 0,
     "skipped": 0,
     "in_progress": 0,
     "paused": 0,
-    "pending": 109,
-    "completion_percentage": 46.3
+    "pending": 107,
+    "completion_percentage": 47.3
   },
   "categories": [
     {
@@ -64,7 +64,7 @@
     {
       "name": "Phase 5: Self-Debugging",
       "total": 37,
-      "passed": 16,
+      "passed": 18,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -4431,20 +4431,20 @@
       "verification": {
         "type": "test",
         "criteria": "Patterns for: missing key, invalid syntax, bad dependency, wrong version",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "3fb94f4",
+        "verified_at": "2026-01-29T12:14:02.497980Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "odoo-manifest-docs"
       ],
       "file_path": "/lib/agentic-core/error-patterns.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T12:11:21.259306Z",
+      "completed_at": "2026-01-29T12:14:02.507658Z",
+      "commit_hash": "3fb94f4",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4462,20 +4462,20 @@
       "verification": {
         "type": "test",
         "criteria": "Patterns for: missing oe_structure, invalid s_ prefix, bad data attributes",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "6b5d3ae",
+        "verified_at": "2026-01-29T12:19:02.978598Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "odoo-snippet-docs"
       ],
       "file_path": "/lib/agentic-core/error-patterns.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T12:14:08.492812Z",
+      "completed_at": "2026-01-29T12:19:02.988183Z",
+      "commit_hash": "6b5d3ae",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,

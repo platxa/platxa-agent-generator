@@ -12,21 +12,21 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": null,
+  "current_feature_id": 142,
   "session": {
-    "count": 93,
-    "last_started_at": "2026-01-29T12:04:33.898877Z",
+    "count": 96,
+    "last_started_at": "2026-01-29T12:14:08.492827Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 93,
+    "passed": 95,
     "failed": 0,
     "skipped": 0,
-    "in_progress": 0,
+    "in_progress": 1,
     "paused": 0,
-    "pending": 110,
-    "completion_percentage": 45.8
+    "pending": 107,
+    "completion_percentage": 46.8
   },
   "categories": [
     {
@@ -64,7 +64,7 @@
     {
       "name": "Phase 5: Self-Debugging",
       "total": 37,
-      "passed": 15,
+      "passed": 17,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -4307,20 +4307,20 @@
       "verification": {
         "type": "test",
         "criteria": "Includes 5 lines before/after error line in context",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "2f73f3e",
+        "verified_at": "2026-01-29T12:11:15.242711Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/lib/agentic-core/error-analyzer.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T12:08:17.581322Z",
+      "completed_at": "2026-01-29T12:11:15.255033Z",
+      "commit_hash": "2f73f3e",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4431,20 +4431,20 @@
       "verification": {
         "type": "test",
         "criteria": "Patterns for: missing key, invalid syntax, bad dependency, wrong version",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "3fb94f4",
+        "verified_at": "2026-01-29T12:14:02.497980Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "odoo-manifest-docs"
       ],
       "file_path": "/lib/agentic-core/error-patterns.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T12:11:21.259306Z",
+      "completed_at": "2026-01-29T12:14:02.507658Z",
+      "commit_hash": "3fb94f4",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -4471,9 +4471,9 @@
         "odoo-snippet-docs"
       ],
       "file_path": "/lib/agentic-core/error-patterns.ts",
-      "status": "pending",
+      "status": "in_progress",
       "status_reason": null,
-      "started_at": null,
+      "started_at": "2026-01-29T12:14:08.492812Z",
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,
