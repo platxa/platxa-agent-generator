@@ -12,14 +12,36 @@ import * as sass from "sass";
 // Types
 // =============================================================================
 
+/** Structured SCSS compilation error with location information */
+export interface ScssCompileError {
+  /** Human-readable error message (without location info) */
+  message: string;
+  /** Full error message including location context */
+  fullMessage: string;
+  /** File path where the error occurred */
+  file: string | null;
+  /** Line number (1-based) */
+  line: number | null;
+  /** Column number (1-based) */
+  column: number | null;
+  /** End line number (1-based) if span available */
+  endLine?: number | null;
+  /** End column number (1-based) if span available */
+  endColumn?: number | null;
+  /** Sass stack trace */
+  stack: string | null;
+}
+
 /** Result of a live SCSS compilation */
 export interface LiveCompileResult {
   /** Whether compilation succeeded */
   success: boolean;
   /** Compiled CSS (null on failure) */
   css: string | null;
-  /** Error message (null on success) */
+  /** Error message (null on success) - kept for backwards compatibility */
   error: string | null;
+  /** Structured error information with line/column (null on success) */
+  compileError: ScssCompileError | null;
   /** Compilation duration in milliseconds */
   durationMs: number;
   /** Source file path */
@@ -39,8 +61,70 @@ export interface LiveCompilerOptions {
 // =============================================================================
 
 /**
+ * Parses a sass.Exception into a structured ScssCompileError.
+ * Extracts file path, line, column, and message from the exception.
+ */
+export function parseSassException(
+  err: unknown,
+  defaultFile: string
+): ScssCompileError {
+  // Check if it's a sass Exception with span info
+  if (isSassException(err)) {
+    const span = err.span;
+    return {
+      message: err.sassMessage || err.message,
+      fullMessage: err.message,
+      file: span?.url?.pathname || span?.url?.href || defaultFile,
+      // Convert from 0-based to 1-based line/column numbers
+      line: span?.start?.line != null ? span.start.line + 1 : null,
+      column: span?.start?.column != null ? span.start.column + 1 : null,
+      endLine: span?.end?.line != null ? span.end.line + 1 : null,
+      endColumn: span?.end?.column != null ? span.end.column + 1 : null,
+      stack: err.sassStack || null,
+    };
+  }
+
+  // Fallback for regular errors or unknown types
+  const message = err instanceof Error ? err.message : String(err);
+
+  // Try to parse line/column from error message (e.g., "Error: expected...\\n   ╷\\n1  │ ...")
+  const lineMatch = message.match(/^.*?:(\d+):(\d+):/);
+
+  return {
+    message,
+    fullMessage: message,
+    file: defaultFile,
+    line: lineMatch ? parseInt(lineMatch[1], 10) : null,
+    column: lineMatch ? parseInt(lineMatch[2], 10) : null,
+    stack: err instanceof Error ? err.stack || null : null,
+  };
+}
+
+/**
+ * Type guard to check if an error is a sass.Exception with span info.
+ */
+function isSassException(err: unknown): err is sass.Exception {
+  return (
+    err instanceof Error &&
+    "sassMessage" in err &&
+    "span" in err
+  );
+}
+
+/**
+ * Formats an ScssCompileError into a human-readable string.
+ */
+export function formatScssError(error: ScssCompileError): string {
+  const location = error.line != null
+    ? `${error.file || "unknown"}:${error.line}${error.column != null ? `:${error.column}` : ""}`
+    : error.file || "unknown";
+
+  return `[SCSS Error] ${location}\n${error.message}`;
+}
+
+/**
  * Compiles SCSS source to CSS using dart-sass.
- * Returns the result with timing information.
+ * Returns the result with timing and structured error information.
  */
 export function compileScssToCSS(
   source: string,
@@ -60,17 +144,19 @@ export function compileScssToCSS(
       success: true,
       css: result.css,
       error: null,
+      compileError: null,
       durationMs,
       file,
     };
   } catch (err) {
     const durationMs = Math.round((performance.now() - start) * 100) / 100;
-    const message = err instanceof Error ? err.message : String(err);
+    const compileError = parseSassException(err, file);
 
     return {
       success: false,
       css: null,
-      error: message,
+      error: compileError.fullMessage,
+      compileError,
       durationMs,
       file,
     };
@@ -100,6 +186,7 @@ export function compileAllScss(
       success: true,
       css: "",
       error: null,
+      compileError: null,
       durationMs: 0,
       file: "(none)",
     };

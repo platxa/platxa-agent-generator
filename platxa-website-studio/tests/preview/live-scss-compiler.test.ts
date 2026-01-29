@@ -4,7 +4,10 @@ import {
   compileAllScss,
   injectCSSToIframe,
   createLiveCompiler,
+  parseSassException,
+  formatScssError,
   CSS_INJECT_SCRIPT,
+  type ScssCompileError,
 } from "@/lib/preview/live-scss-compiler";
 
 describe("Live SCSS Compiler", () => {
@@ -51,6 +54,98 @@ describe("Live SCSS Compiler", () => {
     it("includes file name in result", () => {
       const result = compileScssToCSS(".x{}", "theme.scss");
       expect(result.file).toBe("theme.scss");
+    });
+
+    it("returns null compileError on success", () => {
+      const result = compileScssToCSS(".test { color: red; }");
+      expect(result.success).toBe(true);
+      expect(result.compileError).toBeNull();
+    });
+
+    it("returns structured compileError on failure", () => {
+      const result = compileScssToCSS("{{ broken }}", "theme.scss");
+      expect(result.success).toBe(false);
+      expect(result.compileError).not.toBeNull();
+      expect(result.compileError!.message).toBeTruthy();
+      expect(result.compileError!.fullMessage).toBeTruthy();
+    });
+
+    it("captures line number in compileError", () => {
+      // Create SCSS with error on a specific line
+      const scss = `.valid { color: red; }
+.also-valid { color: blue; }
+.broken { color: $undefined-variable; }`;
+      const result = compileScssToCSS(scss, "test.scss");
+
+      expect(result.success).toBe(false);
+      expect(result.compileError).not.toBeNull();
+      expect(result.compileError!.line).toBe(3); // Error is on line 3
+    });
+
+    it("captures column number in compileError", () => {
+      const scss = ".test { color: $undefined; }";
+      const result = compileScssToCSS(scss, "test.scss");
+
+      expect(result.success).toBe(false);
+      expect(result.compileError).not.toBeNull();
+      expect(result.compileError!.column).toBeGreaterThan(0);
+    });
+
+    it("captures file path in compileError", () => {
+      const result = compileScssToCSS("{{ broken }}", "my-theme.scss");
+
+      expect(result.success).toBe(false);
+      expect(result.compileError).not.toBeNull();
+      // File should be either the provided name or from span
+      expect(result.compileError!.file).toBeTruthy();
+    });
+  });
+
+  describe("structured error capture", () => {
+    it("captures undefined variable error with location", () => {
+      const scss = `$color: red;
+.test {
+  background: $undefined-var;
+}`;
+      const result = compileScssToCSS(scss, "variables.scss");
+
+      expect(result.success).toBe(false);
+      expect(result.compileError).not.toBeNull();
+      expect(result.compileError!.message.toLowerCase()).toContain("undefined");
+      expect(result.compileError!.line).toBe(3);
+    });
+
+    it("captures syntax error with location", () => {
+      const scss = `.test {
+  color: red
+  background: blue;
+}`;
+      const result = compileScssToCSS(scss, "syntax.scss");
+
+      expect(result.success).toBe(false);
+      expect(result.compileError).not.toBeNull();
+      expect(result.compileError!.line).toBeGreaterThan(0);
+    });
+
+    it("captures mixin error with location", () => {
+      const scss = `@include undefined-mixin();`;
+      const result = compileScssToCSS(scss, "mixin.scss");
+
+      expect(result.success).toBe(false);
+      expect(result.compileError).not.toBeNull();
+      expect(result.compileError!.message).toContain("mixin");
+      expect(result.compileError!.line).toBe(1);
+    });
+
+    it("error message does not include location prefix (clean message)", () => {
+      const result = compileScssToCSS("$x: $undefined;", "test.scss");
+
+      expect(result.success).toBe(false);
+      expect(result.compileError).not.toBeNull();
+      // sassMessage should be cleaner than fullMessage
+      expect(result.compileError!.message.length).toBeLessThanOrEqual(
+        result.compileError!.fullMessage.length
+      );
     });
   });
 
@@ -168,6 +263,154 @@ describe("Live SCSS Compiler", () => {
       vi.advanceTimersByTime(200);
 
       expect(onCompile).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("parseSassException", () => {
+    it("parses regular Error to ScssCompileError", () => {
+      const error = new Error("Something went wrong");
+      const result = parseSassException(error, "fallback.scss");
+
+      expect(result.message).toBe("Something went wrong");
+      expect(result.fullMessage).toBe("Something went wrong");
+      expect(result.file).toBe("fallback.scss");
+      expect(result.stack).toBeTruthy();
+    });
+
+    it("parses string error", () => {
+      const result = parseSassException("Simple error string", "test.scss");
+
+      expect(result.message).toBe("Simple error string");
+      expect(result.file).toBe("test.scss");
+    });
+
+    it("uses default file when provided", () => {
+      const result = parseSassException(new Error("test"), "default.scss");
+      expect(result.file).toBe("default.scss");
+    });
+
+    it("extracts location from actual sass compilation error", () => {
+      // Trigger a real sass error to test extraction
+      const sassResult = compileScssToCSS("$x: $undefined;", "real.scss");
+      expect(sassResult.compileError).not.toBeNull();
+      expect(sassResult.compileError!.line).toBe(1);
+      expect(sassResult.compileError!.column).toBeGreaterThan(0);
+    });
+  });
+
+  describe("formatScssError", () => {
+    it("formats error with file and line", () => {
+      const error: ScssCompileError = {
+        message: "Undefined variable",
+        fullMessage: "Error: Undefined variable",
+        file: "theme.scss",
+        line: 42,
+        column: 10,
+        stack: null,
+      };
+
+      const formatted = formatScssError(error);
+
+      expect(formatted).toContain("[SCSS Error]");
+      expect(formatted).toContain("theme.scss");
+      expect(formatted).toContain("42");
+      expect(formatted).toContain("10");
+      expect(formatted).toContain("Undefined variable");
+    });
+
+    it("formats error without column", () => {
+      const error: ScssCompileError = {
+        message: "Syntax error",
+        fullMessage: "Error: Syntax error",
+        file: "broken.scss",
+        line: 15,
+        column: null,
+        stack: null,
+      };
+
+      const formatted = formatScssError(error);
+
+      expect(formatted).toContain("broken.scss:15");
+      expect(formatted).not.toContain(":15:");
+    });
+
+    it("formats error without line", () => {
+      const error: ScssCompileError = {
+        message: "Unknown error",
+        fullMessage: "Error: Unknown error",
+        file: "file.scss",
+        line: null,
+        column: null,
+        stack: null,
+      };
+
+      const formatted = formatScssError(error);
+
+      expect(formatted).toContain("file.scss");
+      expect(formatted).toContain("Unknown error");
+    });
+
+    it("handles null file", () => {
+      const error: ScssCompileError = {
+        message: "Error message",
+        fullMessage: "Error: Error message",
+        file: null,
+        line: null,
+        column: null,
+        stack: null,
+      };
+
+      const formatted = formatScssError(error);
+
+      expect(formatted).toContain("unknown");
+      expect(formatted).toContain("Error message");
+    });
+  });
+
+  describe("verification: captures dart-sass errors with file path, line, column, message", () => {
+    it("captures all error components from dart-sass", () => {
+      const scss = `// Line 1: comment
+// Line 2: another comment
+.selector {
+  color: $nonexistent-variable;
+}`;
+      const result = compileScssToCSS(scss, "verification.scss");
+
+      expect(result.success).toBe(false);
+      expect(result.compileError).not.toBeNull();
+
+      const err = result.compileError!;
+
+      // File path captured
+      expect(err.file).toBeTruthy();
+
+      // Line number captured (should be line 4 where the error is)
+      expect(err.line).toBe(4);
+
+      // Column number captured
+      expect(err.column).toBeGreaterThan(0);
+
+      // Message captured
+      expect(err.message).toBeTruthy();
+      expect(err.message.toLowerCase()).toContain("undefined");
+    });
+
+    it("provides both clean message and full message", () => {
+      const result = compileScssToCSS("$x: $y;", "test.scss");
+
+      expect(result.success).toBe(false);
+      expect(result.compileError).not.toBeNull();
+
+      // message should be the clean error without location cruft
+      expect(result.compileError!.message).toBeTruthy();
+
+      // fullMessage includes location context
+      expect(result.compileError!.fullMessage).toBeTruthy();
+
+      // fullMessage should be >= message length (includes more context)
+      expect(result.compileError!.fullMessage.length).toBeGreaterThanOrEqual(
+        result.compileError!.message.length
+      );
     });
   });
 });

@@ -116,9 +116,12 @@ export {
   compileAllScss,
   injectCSSToIframe,
   createLiveCompiler,
+  parseSassException,
+  formatScssError,
   CSS_INJECT_SCRIPT,
   type LiveCompileResult,
   type LiveCompilerOptions,
+  type ScssCompileError,
 } from "./live-scss-compiler";
 
 // HMR Preview manager for iframe communication and hot updates
