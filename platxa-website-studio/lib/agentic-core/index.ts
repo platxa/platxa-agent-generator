@@ -108,6 +108,7 @@ export {
   type PlanningContext,
   type HandoffResult,
   type HandoffOptions,
+  type ExecutionBundle,
 } from './plan-handoff';
 
 export {

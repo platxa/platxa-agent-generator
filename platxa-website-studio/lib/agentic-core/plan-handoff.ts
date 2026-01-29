@@ -102,6 +102,35 @@ export interface HandoffOptions {
   deepCopyContext?: boolean;
   /** Additional context to merge */
   additionalContext?: Partial<AgentContext>;
+  /** Prepare steps for execution (reset status to pending) */
+  prepareStepsForExecution?: boolean;
+}
+
+/** Execution bundle with everything needed for agent execution */
+export interface ExecutionBundle {
+  /** Agent context with full plan context */
+  context: AgentContext;
+  /** Plan with steps ready for execution */
+  plan: AgentPlan;
+  /** Steps prepared for execution */
+  steps: AgentPlanStep[];
+  /** Files from planning that may be referenced */
+  filesFromPlanning: Map<string, string>;
+  /** Execution metadata */
+  execution: {
+    /** Selected option ID */
+    optionId: string;
+    /** Total steps to execute */
+    totalSteps: number;
+    /** Estimated complexity */
+    complexity?: number;
+    /** Risk level */
+    riskLevel?: 'low' | 'medium' | 'high';
+    /** Files that will be affected */
+    affectedFiles: string[];
+    /** Handoff timestamp */
+    handoffAt: Date;
+  };
 }
 
 // ============================================================================
@@ -291,6 +320,135 @@ export class PlanHandoff {
     }
 
     return modified;
+  }
+
+  /**
+   * Create an execution bundle with everything needed for agent execution
+   *
+   * This is the key method for Feature #43 - ensures agent receives full plan context
+   * and can execute selected option steps.
+   */
+  createExecutionBundle(params: {
+    planningContext: PlanningContext;
+    options: PlanOption[];
+    approval: PlanApproval;
+    handoffOptions?: HandoffOptions;
+  }): ExecutionBundle {
+    const handoffResult = this.execute(params);
+    const selectedOption = handoffResult.selectedOption!;
+
+    // Prepare steps for execution
+    const preparedSteps = this.prepareStepsForExecution(handoffResult.plan.steps);
+
+    return {
+      context: handoffResult.context,
+      plan: {
+        ...handoffResult.plan,
+        steps: preparedSteps,
+      },
+      steps: preparedSteps,
+      filesFromPlanning: params.planningContext.filesRead,
+      execution: {
+        optionId: params.approval.selectedOptionId,
+        totalSteps: preparedSteps.length,
+        complexity: selectedOption.complexity,
+        riskLevel: selectedOption.riskLevel,
+        affectedFiles: selectedOption.affectedFiles ?? [],
+        handoffAt: handoffResult.metadata.handoffAt,
+      },
+    };
+  }
+
+  /**
+   * Prepare steps for execution (reset status to pending)
+   */
+  prepareStepsForExecution(steps: AgentPlanStep[]): AgentPlanStep[] {
+    return steps.map(step => ({
+      ...step,
+      status: 'pending' as const,
+      startedAt: undefined,
+      completedAt: undefined,
+      result: undefined,
+      error: undefined,
+    }));
+  }
+
+  /**
+   * Get the full plan context that will be passed to the agent
+   */
+  getFullPlanContext(planningContext: PlanningContext): {
+    filesRead: [string, string][];
+    searchResults: [string, unknown[]][];
+    classification: PlanningContext['classification'];
+    userPreferences: Record<string, unknown>;
+    odooContext: PlanningContext['odooContext'];
+    goal: string;
+    workspaceRoot: string;
+  } {
+    return {
+      filesRead: Array.from(planningContext.filesRead.entries()),
+      searchResults: Array.from(planningContext.searchResults.entries()),
+      classification: planningContext.classification,
+      userPreferences: planningContext.userPreferences ?? {},
+      odooContext: planningContext.odooContext,
+      goal: planningContext.goal,
+      workspaceRoot: planningContext.workspaceRoot,
+    };
+  }
+
+  /**
+   * Verify that context is fully preserved in handoff result
+   */
+  verifyContextPreservation(
+    planningContext: PlanningContext,
+    result: HandoffResult
+  ): { preserved: boolean; missing: string[] } {
+    const missing: string[] = [];
+
+    // Check filesRead
+    if (planningContext.filesRead.size > 0) {
+      if (!result.context.filesRead || result.context.filesRead.size === 0) {
+        missing.push('filesRead');
+      } else {
+        for (const [key] of planningContext.filesRead) {
+          if (!result.context.filesRead.has(key)) {
+            missing.push(`filesRead:${key}`);
+          }
+        }
+      }
+    }
+
+    // Check searchResults
+    if (planningContext.searchResults.size > 0) {
+      if (!result.context.searchResults || result.context.searchResults.size === 0) {
+        missing.push('searchResults');
+      }
+    }
+
+    // Check userPreferences
+    if (planningContext.userPreferences) {
+      if (!result.context.userPreferences) {
+        missing.push('userPreferences');
+      } else {
+        for (const key of Object.keys(planningContext.userPreferences)) {
+          if (!(key in result.context.userPreferences)) {
+            missing.push(`userPreferences:${key}`);
+          }
+        }
+      }
+    }
+
+    // Check odooContext
+    if (planningContext.odooContext) {
+      if (!result.context.odooContext) {
+        missing.push('odooContext');
+      }
+    }
+
+    return {
+      preserved: missing.length === 0,
+      missing,
+    };
   }
 
   /**

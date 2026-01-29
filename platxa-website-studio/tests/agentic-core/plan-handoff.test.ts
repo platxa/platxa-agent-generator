@@ -595,4 +595,235 @@ describe('PlanHandoff', () => {
       expect(result.metadata.preservedContextKeys).toContain('classification');
     });
   });
+
+  // ==========================================================================
+  // Feature #43: Full Plan Context and Step Execution
+  // ==========================================================================
+
+  describe('Feature #43: Agent receives full plan context and executes selected option steps', () => {
+    describe('full plan context preservation', () => {
+      it('agent receives all files read during planning', () => {
+        const handoff = new PlanHandoff();
+        const planningContext = createTestPlanningContext();
+        const options = createTestOptions();
+        const approval: PlanApproval = {
+          selectedOptionId: 'opt-quick',
+          approvedAt: new Date(),
+        };
+
+        const result = handoff.execute({ planningContext, options, approval });
+
+        // Agent context should have all files from planning
+        expect(result.context.filesRead).toBeDefined();
+        expect(result.context.filesRead.size).toBe(planningContext.filesRead.size);
+        for (const [path, content] of planningContext.filesRead) {
+          expect(result.context.filesRead.get(path)).toBe(content);
+        }
+      });
+
+      it('agent receives all search results from planning', () => {
+        const handoff = new PlanHandoff();
+        const planningContext = createTestPlanningContext();
+        const options = createTestOptions();
+        const approval: PlanApproval = {
+          selectedOptionId: 'opt-quick',
+          approvedAt: new Date(),
+        };
+
+        const result = handoff.execute({ planningContext, options, approval });
+
+        // Agent context should have all search results
+        expect(result.context.searchResults).toBeDefined();
+        expect(result.context.searchResults.size).toBe(planningContext.searchResults.size);
+      });
+
+      it('agent receives user preferences from planning', () => {
+        const handoff = new PlanHandoff();
+        const planningContext = createTestPlanningContext();
+        const options = createTestOptions();
+        const approval: PlanApproval = {
+          selectedOptionId: 'opt-quick',
+          approvedAt: new Date(),
+        };
+
+        const result = handoff.execute({ planningContext, options, approval });
+
+        expect(result.context.userPreferences).toBeDefined();
+        expect(result.context.userPreferences).toEqual(planningContext.userPreferences);
+      });
+
+      it('agent receives odoo context from planning', () => {
+        const handoff = new PlanHandoff();
+        const planningContext = createTestPlanningContext();
+        const options = createTestOptions();
+        const approval: PlanApproval = {
+          selectedOptionId: 'opt-quick',
+          approvedAt: new Date(),
+        };
+
+        const result = handoff.execute({ planningContext, options, approval });
+
+        expect(result.context.odooContext).toBeDefined();
+        expect(result.context.odooContext?.version).toBe('17.0');
+        expect(result.context.odooContext?.modules).toContain('website');
+      });
+
+      it('verifyContextPreservation confirms all context is preserved', () => {
+        const handoff = new PlanHandoff();
+        const planningContext = createTestPlanningContext();
+        const options = createTestOptions();
+        const approval: PlanApproval = {
+          selectedOptionId: 'opt-quick',
+          approvedAt: new Date(),
+        };
+
+        const result = handoff.execute({ planningContext, options, approval });
+        const verification = handoff.verifyContextPreservation(planningContext, result);
+
+        expect(verification.preserved).toBe(true);
+        expect(verification.missing).toHaveLength(0);
+      });
+
+      it('getFullPlanContext extracts all context for agent', () => {
+        const handoff = new PlanHandoff();
+        const planningContext = createTestPlanningContext();
+
+        const fullContext = handoff.getFullPlanContext(planningContext);
+
+        expect(fullContext.filesRead.length).toBe(2);
+        expect(fullContext.searchResults.length).toBe(1);
+        expect(fullContext.goal).toBe('Add a hero section to the homepage');
+        expect(fullContext.classification?.mode).toBe('plan');
+        expect(fullContext.odooContext?.version).toBe('17.0');
+      });
+    });
+
+    describe('selected option step execution', () => {
+      it('selected option steps are included in result', () => {
+        const handoff = new PlanHandoff();
+        const planningContext = createTestPlanningContext();
+        const options = createTestOptions();
+        const approval: PlanApproval = {
+          selectedOptionId: 'opt-quick',
+          approvedAt: new Date(),
+        };
+
+        const result = handoff.execute({ planningContext, options, approval });
+
+        expect(result.plan.steps).toBeDefined();
+        expect(result.plan.steps.length).toBeGreaterThan(0);
+      });
+
+      it('prepareStepsForExecution resets step status to pending', () => {
+        const handoff = new PlanHandoff();
+        const steps = [
+          { id: 's1', action: 'read_file' as const, target: 'a.xml', rationale: 'r', status: 'completed' as const, result: 'done' },
+          { id: 's2', action: 'edit_file' as const, target: 'b.xml', rationale: 'r', status: 'failed' as const, error: 'err' },
+        ];
+
+        const prepared = handoff.prepareStepsForExecution(steps);
+
+        expect(prepared[0].status).toBe('pending');
+        expect(prepared[1].status).toBe('pending');
+        expect(prepared[0].result).toBeUndefined();
+        expect(prepared[1].error).toBeUndefined();
+      });
+
+      it('createExecutionBundle provides everything for agent execution', () => {
+        const handoff = new PlanHandoff();
+        const planningContext = createTestPlanningContext();
+        const options = createTestOptions();
+        const approval: PlanApproval = {
+          selectedOptionId: 'opt-full',
+          approvedAt: new Date(),
+        };
+
+        const bundle = handoff.createExecutionBundle({ planningContext, options, approval });
+
+        // Context is preserved
+        expect(bundle.context.filesRead.size).toBe(planningContext.filesRead.size);
+        expect(bundle.context.planMode).toBe(false);
+
+        // Steps are ready for execution
+        expect(bundle.steps.length).toBeGreaterThan(0);
+        expect(bundle.steps.every(s => s.status === 'pending')).toBe(true);
+
+        // Execution metadata is complete
+        expect(bundle.execution.optionId).toBe('opt-full');
+        expect(bundle.execution.totalSteps).toBe(bundle.steps.length);
+        expect(bundle.execution.riskLevel).toBe('medium');
+        expect(bundle.execution.affectedFiles).toContain('templates/homepage.xml');
+      });
+
+      it('execution bundle includes files from planning', () => {
+        const handoff = new PlanHandoff();
+        const planningContext = createTestPlanningContext();
+        const options = createTestOptions();
+        const approval: PlanApproval = {
+          selectedOptionId: 'opt-quick',
+          approvedAt: new Date(),
+        };
+
+        const bundle = handoff.createExecutionBundle({ planningContext, options, approval });
+
+        expect(bundle.filesFromPlanning).toBeDefined();
+        expect(bundle.filesFromPlanning.size).toBe(planningContext.filesRead.size);
+        expect(bundle.filesFromPlanning.get('templates/main.xml')).toBe('<template>content</template>');
+      });
+
+      it('plan in execution bundle has steps prepared for execution', () => {
+        const handoff = new PlanHandoff();
+        const planningContext = createTestPlanningContext();
+        const options = createTestOptions();
+        const approval: PlanApproval = {
+          selectedOptionId: 'opt-quick',
+          approvedAt: new Date(),
+        };
+
+        const bundle = handoff.createExecutionBundle({ planningContext, options, approval });
+
+        // Plan steps should all be pending
+        for (const step of bundle.plan.steps) {
+          expect(step.status).toBe('pending');
+        }
+      });
+    });
+
+    describe('step execution readiness', () => {
+      it('steps have correct structure for execution', () => {
+        const handoff = new PlanHandoff();
+        const planningContext = createTestPlanningContext();
+        const options = createTestOptions();
+        const approval: PlanApproval = {
+          selectedOptionId: 'opt-quick',
+          approvedAt: new Date(),
+        };
+
+        const bundle = handoff.createExecutionBundle({ planningContext, options, approval });
+
+        for (const step of bundle.steps) {
+          expect(step.id).toBeDefined();
+          expect(step.action).toBeDefined();
+          expect(step.target).toBeDefined();
+          expect(step.rationale).toBeDefined();
+          expect(step.status).toBe('pending');
+        }
+      });
+
+      it('total steps matches plan steps', () => {
+        const handoff = new PlanHandoff();
+        const planningContext = createTestPlanningContext();
+        const options = createTestOptions();
+        const approval: PlanApproval = {
+          selectedOptionId: 'opt-quick',
+          approvedAt: new Date(),
+        };
+
+        const bundle = handoff.createExecutionBundle({ planningContext, options, approval });
+
+        expect(bundle.execution.totalSteps).toBe(bundle.plan.steps.length);
+        expect(bundle.execution.totalSteps).toBe(bundle.steps.length);
+      });
+    });
+  });
 });
