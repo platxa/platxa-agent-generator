@@ -402,6 +402,73 @@ export class AgentToolExecutor implements ToolExecutor {
   }
 
   /**
+   * Feature #13: Execute multiple independent tools in parallel using Promise.all
+   * Independent tools execute concurrently; results returned in same order as input
+   */
+  async executeParallel(
+    operations: Array<{ action: AgentActionType; params: Record<string, unknown> }>
+  ): Promise<unknown[]> {
+    // Execute all operations concurrently
+    const promises = operations.map(op => this.execute(op.action, op.params));
+    return Promise.all(promises);
+  }
+
+  /**
+   * Feature #13: Execute tools with dependency ordering
+   * Independent tools run in parallel; dependent tools wait for prerequisites
+   * @param operations Array of operations with optional dependencies
+   * @returns Results in operation order
+   */
+  async executeWithDependencies(
+    operations: Array<{
+      id: string;
+      action: AgentActionType;
+      params: Record<string, unknown>;
+      dependsOn?: string[];
+    }>
+  ): Promise<Map<string, unknown>> {
+    const results = new Map<string, unknown>();
+    const completed = new Set<string>();
+
+    // Build dependency graph
+    const pending = [...operations];
+
+    while (pending.length > 0) {
+      // Find operations ready to execute (no unmet dependencies)
+      const ready = pending.filter(op => {
+        if (!op.dependsOn || op.dependsOn.length === 0) return true;
+        return op.dependsOn.every(dep => completed.has(dep));
+      });
+
+      if (ready.length === 0 && pending.length > 0) {
+        throw new Error('Circular dependency detected in tool operations');
+      }
+
+      // Execute ready operations in parallel
+      const readyPromises = ready.map(async op => {
+        const result = await this.execute(op.action, op.params);
+        return { id: op.id, result };
+      });
+
+      const readyResults = await Promise.all(readyPromises);
+
+      // Record results and mark as completed
+      for (const { id, result } of readyResults) {
+        results.set(id, result);
+        completed.add(id);
+      }
+
+      // Remove completed operations from pending
+      for (const op of ready) {
+        const idx = pending.indexOf(op);
+        if (idx >= 0) pending.splice(idx, 1);
+      }
+    }
+
+    return results;
+  }
+
+  /**
    * Get tool for specific action (for testing)
    */
   getToolForAction(action: AgentActionType): ToolFunction | undefined {
