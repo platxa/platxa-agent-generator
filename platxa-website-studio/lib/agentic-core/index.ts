@@ -210,3 +210,16 @@ export {
   type WorkflowEvents,
   type ApprovalWorkflowConfig,
 } from './approval-workflow';
+
+export {
+  CheckpointManager,
+  createCheckpointManager,
+  createPreExecutionCheckpoint,
+  type CheckpointType,
+  type Checkpoint,
+  type CheckpointResult,
+  type RollbackResult,
+  type YjsDocument,
+  type YjsProvider,
+  type CheckpointManagerConfig,
+} from './checkpoint-manager';
