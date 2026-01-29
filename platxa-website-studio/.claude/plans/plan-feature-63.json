@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-63",
-  "title": "Implementation: Implement zoom controls for preview panel (25%-200%) with fi...",
+  "title": "Implementation: Implement scroll position preservation during HMR updates",
   "context": {
     "spec_id": "feature-63",
     "feature_id": "63",
     "dependencies": [],
     "metadata": {
-      "category": "Visual Editing",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
-        "type": "manual",
-        "criteria": "Zoom slider with presets (25, 50, 75, 100, 150, 200%) and fit-to-screen auto-zoom",
+        "type": "test",
+        "criteria": "Scroll position restored after DOM morph",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T15:48:14.553157"
+    "created_at": "2026-01-29T16:34:03.701334"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-63-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Implement zoom controls for preview panel (25%-200%) with fit-to-screen option",
+      "description": "Review feature requirements: Implement scroll position preservation during HMR updates",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-63-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-63-3",
       "title": "Implement Feature",
-      "description": "Implement: Implement zoom controls for preview panel (25%-200%) with fit-to-screen option",
+      "description": "Implement: Implement scroll position preservation during HMR updates",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-63-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-63-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Zoom slider with presets (25, 50, 75, 100, 150, 200%) and fit-to-screen auto-zoom', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Scroll position restored after DOM morph', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "manual",
-        "criteria": "Zoom slider with presets (25, 50, 75, 100, 150, 200%) and fit-to-screen auto-zoom",
+        "type": "test",
+        "criteria": "Scroll position restored after DOM morph",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T15:48:14.553200",
+  "created_at": "2026-01-29T16:34:03.701375",
   "lsp_impact": {}
 }

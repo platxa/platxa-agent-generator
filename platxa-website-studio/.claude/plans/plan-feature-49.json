@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-49",
-  "title": "Implementation: Create DOM-to-source bidirectional mapping for QWeb template...",
+  "title": "Implementation: Create PlanModeIndicator component showing current mode with...",
   "context": {
     "spec_id": "feature-49",
     "feature_id": "49",
     "dependencies": [],
     "metadata": {
-      "category": "Visual Editing",
+      "category": "Phase 2: Plan Mode",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Each DOM element maps to QWeb template line; clicking code highlights corresponding preview element",
+        "type": "manual",
+        "criteria": "Shows 'Plan Mode' with thinking icon or 'Agent Mode' with robot icon",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T11:48:30.509608"
+    "created_at": "2026-01-29T16:20:50.534401"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-49-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create DOM-to-source bidirectional mapping for QWeb template elements",
+      "description": "Review feature requirements: Create PlanModeIndicator component showing current mode with icon",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-49-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-49-3",
       "title": "Implement Feature",
-      "description": "Implement: Create DOM-to-source bidirectional mapping for QWeb template elements",
+      "description": "Implement: Create PlanModeIndicator component showing current mode with icon",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-49-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-49-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Each DOM element maps to QWeb template line; clicking code highlights corresponding preview element', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': \"Shows 'Plan Mode' with thinking icon or 'Agent Mode' with robot icon\", 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Each DOM element maps to QWeb template line; clicking code highlights corresponding preview element",
+        "type": "manual",
+        "criteria": "Shows 'Plan Mode' with thinking icon or 'Agent Mode' with robot icon",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T11:48:30.509633",
+  "created_at": "2026-01-29T16:20:50.534433",
   "lsp_impact": {}
 }

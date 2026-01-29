@@ -18,12 +18,24 @@ export interface SourceMapEntry {
   file: string;
   /** 1-based line number in the source file */
   line: number;
+  /** 1-based end line number (closing tag line) */
+  endLine?: number;
   /** Optional column */
   column?: number;
   /** The QWeb tag name (e.g. "section", "div", "t") */
   tagName: string;
   /** Snippet ID if this element is inside a snippet */
   snippetId?: string;
+}
+
+/** Source location returned by getSourceLocation */
+export interface SourceLocation {
+  /** Source file path */
+  path: string;
+  /** 1-based start line number */
+  startLine: number;
+  /** 1-based end line number */
+  endLine: number;
 }
 
 /** Complete source map for a rendered page */
@@ -54,7 +66,11 @@ export function annotateTemplateSource(
 
   // Regex to match opening HTML tags (not closing, not comments, not self-closing processed separately)
   const openTagRegex = /^(\s*)<([a-zA-Z][\w.-]*)(\s[^>]*)?(\/?)>/;
+  // Regex to match closing tags
+  const closeTagRegex = /<\/([a-zA-Z][\w.-]*)>/g;
 
+  // Stack to track open tags for endLine calculation
+  const tagStack: Array<{ entryIndex: number; tagName: string }> = [];
   let entryIndex = 0;
 
   for (let i = 0; i < lines.length; i++) {
@@ -65,6 +81,7 @@ export function annotateTemplateSource(
     if (match) {
       const [fullMatch, indent, tagName, attrs = "", selfClose] = match;
       const selectorId = `src-${entryIndex}`;
+      const isSelfClosing = selfClose === "/" || line.includes("/>");
 
       // Extract snippet ID if present
       let snippetId: string | undefined;
@@ -73,13 +90,20 @@ export function annotateTemplateSource(
         snippetId = snippetMatch[1] || snippetMatch[2];
       }
 
-      entries.push({
+      const entry: SourceMapEntry = {
         domSelector: `[data-source-id="${selectorId}"]`,
         file,
         line: lineNum,
+        endLine: isSelfClosing ? lineNum : undefined, // Self-closing tags end on same line
         tagName,
         snippetId,
-      });
+      };
+      entries.push(entry);
+
+      // Track non-self-closing tags for endLine
+      if (!isSelfClosing) {
+        tagStack.push({ entryIndex, tagName });
+      }
 
       // Inject data attributes into the tag
       const injection = ` data-source-id="${selectorId}" data-source-line="${lineNum}" data-source-file="${file}"`;
@@ -88,6 +112,28 @@ export function annotateTemplateSource(
       entryIndex++;
     } else {
       annotatedLines.push(line);
+    }
+
+    // Check for closing tags to set endLine
+    let closeMatch;
+    while ((closeMatch = closeTagRegex.exec(line)) !== null) {
+      const closingTagName = closeMatch[1];
+      // Find matching open tag (search from top of stack)
+      for (let j = tagStack.length - 1; j >= 0; j--) {
+        if (tagStack[j].tagName === closingTagName) {
+          entries[tagStack[j].entryIndex].endLine = lineNum;
+          tagStack.splice(j, 1);
+          break;
+        }
+      }
+    }
+  }
+
+  // Set endLine for unclosed tags (end of file)
+  const totalLines = lines.length;
+  for (const remaining of tagStack) {
+    if (entries[remaining.entryIndex].endLine === undefined) {
+      entries[remaining.entryIndex].endLine = totalLines;
     }
   }
 
@@ -125,6 +171,46 @@ export function buildSourceMap(entries: SourceMapEntry[]): QWebSourceMap {
     findDom(file: string, line: number) {
       return byFileLine.get(`${file}:${line}`) || [];
     },
+  };
+}
+
+// =============================================================================
+// Source Location Lookup
+// =============================================================================
+
+/**
+ * Get source location for a DOM element by its source ID.
+ *
+ * Feature #69: Returns { path, startLine, endLine } for element selection.
+ *
+ * @param elementId - The data-source-id value (e.g., "src-0")
+ * @param sourceMap - The QWebSourceMap containing entries
+ * @returns SourceLocation or null if not found
+ *
+ * @example
+ * ```typescript
+ * const { entries } = annotateTemplateSource(source, 'template.xml');
+ * const map = buildSourceMap(entries);
+ * const location = getSourceLocation('src-0', map);
+ * // { path: 'template.xml', startLine: 1, endLine: 5 }
+ * ```
+ */
+export function getSourceLocation(
+  elementId: string,
+  sourceMap: QWebSourceMap
+): SourceLocation | null {
+  // Build selector from elementId
+  const selector = `[data-source-id="${elementId}"]`;
+  const entry = sourceMap.findSource(selector);
+
+  if (!entry) {
+    return null;
+  }
+
+  return {
+    path: entry.file,
+    startLine: entry.line,
+    endLine: entry.endLine ?? entry.line, // Default to same line if no endLine
   };
 }
 

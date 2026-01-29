@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-41",
-  "title": "Implementation: Add image alt-text and ARIA label completeness checker for a...",
+  "title": "Implementation: Add detailed plan preview showing execution steps and affect...",
   "context": {
     "spec_id": "feature-41",
     "feature_id": "41",
     "dependencies": [],
     "metadata": {
-      "category": "Quality Assurance",
+      "category": "Phase 2: Plan Mode",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "All img tags have alt attributes; all interactive elements have aria-label or visible text",
+        "type": "manual",
+        "criteria": "Preview shows numbered steps, file paths, estimated duration",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T12:53:14.894817"
+    "created_at": "2026-01-29T16:08:39.566318"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-41-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add image alt-text and ARIA label completeness checker for all interactive elements",
+      "description": "Review feature requirements: Add detailed plan preview showing execution steps and affected files",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-41-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-41-3",
       "title": "Implement Feature",
-      "description": "Implement: Add image alt-text and ARIA label completeness checker for all interactive elements",
+      "description": "Implement: Add detailed plan preview showing execution steps and affected files",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-41-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-41-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'All img tags have alt attributes; all interactive elements have aria-label or visible text', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Preview shows numbered steps, file paths, estimated duration', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "All img tags have alt attributes; all interactive elements have aria-label or visible text",
+        "type": "manual",
+        "criteria": "Preview shows numbered steps, file paths, estimated duration",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T12:53:14.894870",
+  "created_at": "2026-01-29T16:08:39.566362",
   "lsp_impact": {}
 }

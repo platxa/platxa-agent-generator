@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-42",
-  "title": "Implementation: Create keyboard navigation validator for interactive snippet...",
+  "title": "Implementation: Create plan approval workflow with approve/modify/cancel act...",
   "context": {
     "spec_id": "feature-42",
     "feature_id": "42",
     "dependencies": [],
     "metadata": {
-      "category": "Quality Assurance",
+      "category": "Phase 2: Plan Mode",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Interactive elements have tabindex, focus styles, and keyboard event handlers where needed",
+        "type": "manual",
+        "criteria": "Three clear buttons; modify opens refinement; cancel aborts",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T12:56:37.512292"
+    "created_at": "2026-01-29T16:12:28.180458"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-42-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create keyboard navigation validator for interactive snippets (buttons, forms, menus)",
+      "description": "Review feature requirements: Create plan approval workflow with approve/modify/cancel actions",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-42-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-42-3",
       "title": "Implement Feature",
-      "description": "Implement: Create keyboard navigation validator for interactive snippets (buttons, forms, menus)",
+      "description": "Implement: Create plan approval workflow with approve/modify/cancel actions",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-42-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-42-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Interactive elements have tabindex, focus styles, and keyboard event handlers where needed', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Three clear buttons; modify opens refinement; cancel aborts', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Interactive elements have tabindex, focus styles, and keyboard event handlers where needed",
+        "type": "manual",
+        "criteria": "Three clear buttons; modify opens refinement; cancel aborts",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T12:56:37.512334",
+  "created_at": "2026-01-29T16:12:28.180505",
   "lsp_impact": {}
 }

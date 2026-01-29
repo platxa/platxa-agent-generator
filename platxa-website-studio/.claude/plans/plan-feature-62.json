@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-62",
-  "title": "Implementation: Add layout grid overlay toggle for alignment verification in...",
+  "title": "Implementation: Create batched update system debouncing rapid changes for pe...",
   "context": {
     "spec_id": "feature-62",
     "feature_id": "62",
     "dependencies": [],
     "metadata": {
-      "category": "Visual Editing",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
-        "type": "manual",
-        "criteria": "Toggle shows 12-column Bootstrap grid overlay on preview with gutter visualization",
+        "type": "test",
+        "criteria": "Multiple changes within 50ms batched into single DOM update",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T15:46:01.975513"
+    "created_at": "2026-01-29T16:31:32.451789"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-62-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add layout grid overlay toggle for alignment verification in preview",
+      "description": "Review feature requirements: Create batched update system debouncing rapid changes for performance",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-62-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-62-3",
       "title": "Implement Feature",
-      "description": "Implement: Add layout grid overlay toggle for alignment verification in preview",
+      "description": "Implement: Create batched update system debouncing rapid changes for performance",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-62-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-62-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Toggle shows 12-column Bootstrap grid overlay on preview with gutter visualization', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Multiple changes within 50ms batched into single DOM update', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "manual",
-        "criteria": "Toggle shows 12-column Bootstrap grid overlay on preview with gutter visualization",
+        "type": "test",
+        "criteria": "Multiple changes within 50ms batched into single DOM update",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T15:46:01.975550",
+  "created_at": "2026-01-29T16:31:32.451828",
   "lsp_impact": {}
 }

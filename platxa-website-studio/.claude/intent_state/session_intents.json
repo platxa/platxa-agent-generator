@@ -1,32 +1,32 @@
 {
-  "session_id": "2a5e1ae587c1",
+  "session_id": "93c652f8f371",
   "stack": {
     "session": {
-      "id": "2a5e1ae587c1-245",
-      "text": "[Phase 2: Plan Mode] Feature #37: Implement request analysis detecting ambiguity and missing information Criteria: Identifies vague terms, missing details, conflicting requirements",
+      "id": "93c652f8f371-275",
+      "text": "[Phase 3: HMR Preview] Feature #68: Add line-level source tracking for QWeb templates Criteria: Clicking element reveals exact line numbers in source file",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769682248.513203,
-      "updated_at": 1769682248.5132031,
+      "created_at": 1769684969.0982075,
+      "updated_at": 1769684969.0982075,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 37,
-        "category": "Phase 2: Plan Mode"
+        "feature_id": 68,
+        "category": "Phase 3: HMR Preview"
       },
       "keywords": []
     },
     "task": {
-      "id": "2a5e1ae587c1-246",
-      "text": "Implement: Implement request analysis detecting ambiguity and missing information",
+      "id": "93c652f8f371-276",
+      "text": "Implement: Add line-level source tracking for QWeb templates",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769682248.521375,
-      "updated_at": 1769682248.5213752,
+      "created_at": 1769684969.105759,
+      "updated_at": 1769684969.1057591,
       "completed_at": null,
-      "parent_id": "2a5e1ae587c1-245",
+      "parent_id": "93c652f8f371-275",
       "metadata": {},
       "keywords": []
     },
@@ -3599,9 +3599,444 @@
       "parent_id": "2a5e1ae587c1-245",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "da44b28b6fdc-247",
+      "text": "[Phase 2: Plan Mode] Feature #38: Add clarifying question generator for ambiguous requests (1-3 focused questions) Criteria: Generates specific questions; avoids yes/no; focuses on actionable info",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769682622.4617996,
+      "updated_at": 1769682622.4617996,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 38,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "da44b28b6fdc-248",
+      "text": "Implement: Add clarifying question generator for ambiguous requests (1-3 focused questions)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769682622.4711378,
+      "updated_at": 1769682622.471138,
+      "completed_at": null,
+      "parent_id": "da44b28b6fdc-247",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "676e5d585844-249",
+      "text": "[Phase 2: Plan Mode] Feature #39: Create option generator producing 2-4 design approaches with trade-offs Criteria: Each option has name, description, pros, cons, effort, files affected",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769682884.8033864,
+      "updated_at": 1769682884.8033867,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 39,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "676e5d585844-250",
+      "text": "Implement: Create option generator producing 2-4 design approaches with trade-offs",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769682884.8127882,
+      "updated_at": 1769682884.8127885,
+      "completed_at": null,
+      "parent_id": "676e5d585844-249",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "d1ddfad8780f-251",
+      "text": "[Phase 2: Plan Mode] Feature #41: Add detailed plan preview showing execution steps and affected files Criteria: Preview shows numbered steps, file paths, estimated duration",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769683120.012249,
+      "updated_at": 1769683120.0122497,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 41,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "d1ddfad8780f-252",
+      "text": "Implement: Add detailed plan preview showing execution steps and affected files",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769683120.0295177,
+      "updated_at": 1769683120.0295184,
+      "completed_at": null,
+      "parent_id": "d1ddfad8780f-251",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "c0ac46c92562-253",
+      "text": "[Phase 2: Plan Mode] Feature #42: Create plan approval workflow with approve/modify/cancel actions Criteria: Three clear buttons; modify opens refinement; cancel aborts",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769683348.5959346,
+      "updated_at": 1769683348.5959346,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 42,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c0ac46c92562-254",
+      "text": "Implement: Create plan approval workflow with approve/modify/cancel actions",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769683348.6031332,
+      "updated_at": 1769683348.6031334,
+      "completed_at": null,
+      "parent_id": "c0ac46c92562-253",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "bd9b52c5fadc-255",
+      "text": "[Phase 2: Plan Mode] Feature #43: Implement plan-to-agent handoff preserving selected option and context Criteria: Agent receives full plan context; executes selected option steps",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769683558.6372163,
+      "updated_at": 1769683558.6372166,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 43,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "bd9b52c5fadc-256",
+      "text": "Implement: Implement plan-to-agent handoff preserving selected option and context",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769683558.6462018,
+      "updated_at": 1769683558.646202,
+      "completed_at": null,
+      "parent_id": "bd9b52c5fadc-255",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "3b4e7037fac8-257",
+      "text": "[Phase 2: Plan Mode] Feature #44: Create DesignOption TypeScript interface with all required fields Criteria: Interface includes: id, name, description, pros[], cons[], effort, files[]",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769683727.523106,
+      "updated_at": 1769683727.5231063,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 44,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "3b4e7037fac8-258",
+      "text": "Implement: Create DesignOption TypeScript interface with all required fields",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769683727.531306,
+      "updated_at": 1769683727.5313063,
+      "completed_at": null,
+      "parent_id": "3b4e7037fac8-257",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "6588f2076b71-259",
+      "text": "[Phase 2: Plan Mode] Feature #49: Create PlanModeIndicator component showing current mode with icon Criteria: Shows 'Plan Mode' with thinking icon or 'Agent Mode' with robot icon",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769683850.9536548,
+      "updated_at": 1769683850.953655,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 49,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "6588f2076b71-260",
+      "text": "Implement: Create PlanModeIndicator component showing current mode with icon",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769683850.9611835,
+      "updated_at": 1769683850.9611838,
+      "completed_at": null,
+      "parent_id": "6588f2076b71-259",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "fd203f1b10de-261",
+      "text": "[Phase 2: Plan Mode] Feature #50: Implement OptionCard component with expandable pros/cons details Criteria: Card shows name, description; expand reveals pros/cons/files",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769683989.6479847,
+      "updated_at": 1769683989.647985,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 50,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "fd203f1b10de-262",
+      "text": "Implement: Implement OptionCard component with expandable pros/cons details",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769683989.658599,
+      "updated_at": 1769683989.6585994,
+      "completed_at": null,
+      "parent_id": "fd203f1b10de-261",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "40a424b3f032-263",
+      "text": "[Phase 2: Plan Mode] Feature #51: Add PlanPreview component showing numbered execution steps Criteria: Shows steps 1-N with action, target, and rationale",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684101.7684114,
+      "updated_at": 1769684101.7684116,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 51,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "40a424b3f032-264",
+      "text": "Implement: Add PlanPreview component showing numbered execution steps",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684101.7756374,
+      "updated_at": 1769684101.7756379,
+      "completed_at": null,
+      "parent_id": "40a424b3f032-263",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "5b5272112ed9-265",
+      "text": "[Phase 2: Plan Mode] Feature #52: Create ClarificationPrompt component for asking questions Criteria: Shows questions with input fields or multiple choice where appropriate",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684228.9670923,
+      "updated_at": 1769684228.9670923,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 52,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "5b5272112ed9-266",
+      "text": "Implement: Create ClarificationPrompt component for asking questions",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684228.9757373,
+      "updated_at": 1769684228.9757376,
+      "completed_at": null,
+      "parent_id": "5b5272112ed9-265",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "db4485e9dde5-267",
+      "text": "[Phase 2: Plan Mode] Feature #57: Add rollback preparation creating checkpoint before agent execution Criteria: Git commit or Yjs snapshot created before agent starts",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684345.3879068,
+      "updated_at": 1769684345.387907,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 57,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "db4485e9dde5-268",
+      "text": "Implement: Add rollback preparation creating checkpoint before agent execution",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684345.3954964,
+      "updated_at": 1769684345.3954966,
+      "completed_at": null,
+      "parent_id": "db4485e9dde5-267",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "bdd95e53cbd2-269",
+      "text": "[Phase 3: HMR Preview] Feature #62: Create batched update system debouncing rapid changes for performance Criteria: Multiple changes within 50ms batched into single DOM update",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684492.8794463,
+      "updated_at": 1769684492.8794465,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 62,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "bdd95e53cbd2-270",
+      "text": "Implement: Create batched update system debouncing rapid changes for performance",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684492.8875182,
+      "updated_at": 1769684492.8875184,
+      "completed_at": null,
+      "parent_id": "bdd95e53cbd2-269",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "0db1279c6e2b-271",
+      "text": "[Phase 3: HMR Preview] Feature #63: Implement scroll position preservation during HMR updates Criteria: Scroll position restored after DOM morph",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684644.1640873,
+      "updated_at": 1769684644.1640875,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 63,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "0db1279c6e2b-272",
+      "text": "Implement: Implement scroll position preservation during HMR updates",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684644.171447,
+      "updated_at": 1769684644.1714473,
+      "completed_at": null,
+      "parent_id": "0db1279c6e2b-271",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "cd5a12baabdb-273",
+      "text": "[Phase 3: HMR Preview] Feature #64: Add form input state preservation during morphdom updates Criteria: Active input elements excluded from morph; values preserved",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684791.7031672,
+      "updated_at": 1769684791.7031674,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 64,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "cd5a12baabdb-274",
+      "text": "Implement: Add form input state preservation during morphdom updates",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684791.7127473,
+      "updated_at": 1769684791.7127476,
+      "completed_at": null,
+      "parent_id": "cd5a12baabdb-273",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "93c652f8f371-275",
+      "text": "[Phase 3: HMR Preview] Feature #68: Add line-level source tracking for QWeb templates Criteria: Clicking element reveals exact line numbers in source file",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684969.0982075,
+      "updated_at": 1769684969.0982075,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 68,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "93c652f8f371-276",
+      "text": "Implement: Add line-level source tracking for QWeb templates",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769684969.105759,
+      "updated_at": 1769684969.1057591,
+      "completed_at": null,
+      "parent_id": "93c652f8f371-275",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 246,
+  "intent_counter": 276,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769682248.52138
+  "updated_at": 1769684969.1057637
 }

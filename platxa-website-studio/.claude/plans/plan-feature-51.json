@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-51",
-  "title": "Implementation: Implement direct color picker changes mapping to SCSS variab...",
+  "title": "Implementation: Add PlanPreview component showing numbered execution steps",
   "context": {
     "spec_id": "feature-51",
     "feature_id": "51",
     "dependencies": [],
     "metadata": {
-      "category": "Visual Editing",
+      "category": "Phase 2: Plan Mode",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Color picker change updates $o-color-palettes SCSS variable and live-reloads preview",
+        "type": "manual",
+        "criteria": "Shows steps 1-N with action, target, and rationale",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T11:54:09.897951"
+    "created_at": "2026-01-29T16:25:01.284473"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-51-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Implement direct color picker changes mapping to SCSS variable live updates",
+      "description": "Review feature requirements: Add PlanPreview component showing numbered execution steps",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-51-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-51-3",
       "title": "Implement Feature",
-      "description": "Implement: Implement direct color picker changes mapping to SCSS variable live updates",
+      "description": "Implement: Add PlanPreview component showing numbered execution steps",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-51-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-51-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Color picker change updates $o-color-palettes SCSS variable and live-reloads preview', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Shows steps 1-N with action, target, and rationale', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Color picker change updates $o-color-palettes SCSS variable and live-reloads preview",
+        "type": "manual",
+        "criteria": "Shows steps 1-N with action, target, and rationale",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T11:54:09.897999",
+  "created_at": "2026-01-29T16:25:01.284530",
   "lsp_impact": {}
 }

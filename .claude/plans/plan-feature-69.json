@@ -1,22 +1,22 @@
 {
-  "id": "plan-feature-44",
-  "title": "Implementation: Create DesignOption TypeScript interface with all required f...",
+  "id": "plan-feature-69",
+  "title": "Implementation: Create source location lookup from DOM element selection",
   "context": {
-    "spec_id": "feature-44",
-    "feature_id": "44",
+    "spec_id": "feature-69",
+    "feature_id": "69",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 2: Plan Mode",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
         "type": "test",
-        "criteria": "Interface includes: id, name, description, pros[], cons[], effort, files[]",
+        "criteria": "getSourceLocation(elementId) returns { path, startLine, endLine }",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-29T16:18:47.125700"
+    "created_at": "2026-01-29T16:41:37.094283"
   },
   "phases": [
     "research",
@@ -26,9 +26,9 @@
   ],
   "tasks": [
     {
-      "id": "task-44-1",
+      "id": "task-69-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create DesignOption TypeScript interface with all required fields",
+      "description": "Review feature requirements: Create source location lookup from DOM element selection",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -41,7 +41,7 @@
       "skip_reason": null
     },
     {
-      "id": "task-44-2",
+      "id": "task-69-2",
       "title": "Review Existing Code",
       "description": "Search for related code patterns and potential duplicates",
       "step_type": "setup",
@@ -56,9 +56,9 @@
       "skip_reason": null
     },
     {
-      "id": "task-44-3",
+      "id": "task-69-3",
       "title": "Implement Feature",
-      "description": "Implement: Create DesignOption TypeScript interface with all required fields",
+      "description": "Implement: Create source location lookup from DOM element selection",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -71,7 +71,7 @@
       "skip_reason": null
     },
     {
-      "id": "task-44-4",
+      "id": "task-69-4",
       "title": "Add Tests",
       "description": "Write unit tests for new functionality",
       "step_type": "test",
@@ -86,16 +86,16 @@
       "skip_reason": null
     },
     {
-      "id": "task-44-5",
+      "id": "task-69-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Interface includes: id, name, description, pros[], cons[], effort, files[]', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'getSourceLocation(elementId) returns { path, startLine, endLine }', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "test",
-        "criteria": "Interface includes: id, name, description, pros[], cons[], effort, files[]",
+        "criteria": "getSourceLocation(elementId) returns { path, startLine, endLine }",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-29T16:18:47.125738",
+  "created_at": "2026-01-29T16:41:37.094310",
   "lsp_impact": {}
 }
