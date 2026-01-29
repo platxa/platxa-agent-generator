@@ -145,3 +145,14 @@ export {
   type MorphdomOptions,
   type HotSwapResult,
 } from "./qweb-hot-swap";
+
+// SourceMapper for bidirectional DOM element ↔ template line mapping
+export {
+  SourceMapper,
+  createSourceMap,
+  createMultiFileSourceMap,
+  type SourceLocation,
+  type ElementMapping,
+  type SourceMapperOptions,
+  type ReverseLookupOptions,
+} from "./source-mapper";
