@@ -41,6 +41,28 @@ export interface ToolResult {
   toolName: string;
 }
 
+/**
+ * Feature #14: Tool timeout error with optional partial results
+ * Thrown when a tool execution exceeds its configured timeout
+ */
+export class ToolTimeoutError extends Error {
+  readonly toolName: string;
+  readonly timeoutMs: number;
+  readonly partialResult?: Partial<ToolResult>;
+
+  constructor(
+    toolName: string,
+    timeoutMs: number,
+    partialResult?: Partial<ToolResult>
+  ) {
+    super(`Tool '${toolName}' timed out after ${timeoutMs}ms`);
+    this.name = 'ToolTimeoutError';
+    this.toolName = toolName;
+    this.timeoutMs = timeoutMs;
+    this.partialResult = partialResult;
+  }
+}
+
 /** Tool function signature */
 export type ToolFunction = (
   params: ToolParams
@@ -300,7 +322,7 @@ export class AgentToolExecutor implements ToolExecutor {
 
     while (attempts <= this.config.maxRetries) {
       try {
-        result = await this.executeWithTimeout(handler, toolParams);
+        result = await this.executeWithTimeout(handler, toolParams, action);
 
         if (result.success || !this.config.retryOnFailure) {
           break;
@@ -358,7 +380,7 @@ export class AgentToolExecutor implements ToolExecutor {
       };
     }
 
-    return this.executeWithTimeout(handler, toolParams);
+    return this.executeWithTimeout(handler, toolParams, step.action);
   }
 
   /**
@@ -508,11 +530,16 @@ export class AgentToolExecutor implements ToolExecutor {
 
   private async executeWithTimeout(
     handler: ToolFunction,
-    params: ToolParams
+    params: ToolParams,
+    toolName: string = 'unknown'
   ): Promise<ToolResult> {
     return new Promise((resolve, reject) => {
+      let partialResult: Partial<ToolResult> | undefined;
+      const startTime = Date.now();
+
       const timeoutId = setTimeout(() => {
-        reject(new Error(`Tool execution timed out after ${this.config.timeout}ms`));
+        // Feature #14: Return ToolTimeoutError with partial results if available
+        reject(new ToolTimeoutError(toolName, this.config.timeout, partialResult));
       }, this.config.timeout);
 
       handler(params)
@@ -522,6 +549,13 @@ export class AgentToolExecutor implements ToolExecutor {
         })
         .catch((error) => {
           clearTimeout(timeoutId);
+          // Capture partial result info for timeout scenarios
+          partialResult = {
+            toolName,
+            duration: Date.now() - startTime,
+            success: false,
+            error: error.message,
+          };
           reject(error);
         });
     });
