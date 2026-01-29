@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-73",
-  "title": "Implementation: Create agent progress streaming with phase indicators and es...",
+  "title": "Implementation: Implement hover outline on selectable elements in select mod...",
   "context": {
     "spec_id": "feature-73",
     "feature_id": "73",
     "dependencies": [],
     "metadata": {
-      "category": "Agent Intelligence",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
         "type": "manual",
-        "criteria": "Chat shows progress bar with phase labels (Planning 20%, Generating 60%, Validating 90%)",
+        "criteria": "Dashed outline appears on hover over snippet containers",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T14:47:52.787936"
+    "created_at": "2026-01-29T16:46:52.611498"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-73-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create agent progress streaming with phase indicators and estimated completion time",
+      "description": "Review feature requirements: Implement hover outline on selectable elements in select mode",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-73-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-73-3",
       "title": "Implement Feature",
-      "description": "Implement: Create agent progress streaming with phase indicators and estimated completion time",
+      "description": "Implement: Implement hover outline on selectable elements in select mode",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-73-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-73-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Chat shows progress bar with phase labels (Planning 20%, Generating 60%, Validating 90%)', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Dashed outline appears on hover over snippet containers', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "manual",
-        "criteria": "Chat shows progress bar with phase labels (Planning 20%, Generating 60%, Validating 90%)",
+        "criteria": "Dashed outline appears on hover over snippet containers",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T14:47:52.787964",
+  "created_at": "2026-01-29T16:46:52.611543",
   "lsp_impact": {}
 }

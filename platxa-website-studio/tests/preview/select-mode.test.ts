@@ -449,6 +449,14 @@ describe("SELECT_MODE_SCRIPT", () => {
     expect(SELECT_MODE_SCRIPT).toContain("outline");
   });
 
+  it("shows dashed outline on hover over snippet containers (Feature #73)", () => {
+    // Feature #73 verification: Dashed outline appears on hover
+    expect(SELECT_MODE_SCRIPT).toContain("dashed");
+    expect(SELECT_MODE_SCRIPT).toContain("platxa-select-hover");
+    // Verify the hover style applies dashed outline
+    expect(SELECT_MODE_SCRIPT).toMatch(/\.platxa-select-hover\s*\{[^}]*dashed/);
+  });
+
   it("includes selected highlight styles", () => {
     expect(SELECT_MODE_SCRIPT).toContain("platxa-select-selected");
   });

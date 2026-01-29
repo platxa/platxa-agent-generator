@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T16:44:02.112143",
+  "updated_at": "2026-01-29T16:46:52.612512",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -604,10 +604,10 @@
     },
     {
       "id": "plan-feature-73",
-      "title": "Implementation: Create agent progress streaming with phase indicators and es...",
+      "title": "Implementation: Implement hover outline on selectable elements in select mod...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T14:47:52.787964",
+      "created_at": "2026-01-29T16:46:52.611543",
       "constitution_check": true
     },
     {
