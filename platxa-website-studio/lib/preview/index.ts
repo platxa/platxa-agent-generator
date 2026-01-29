@@ -264,3 +264,18 @@ export {
   type MorphResult,
   type MorphCallback,
 } from "./morphdom-integration";
+
+// LogInspector for unified error/log aggregation
+export {
+  LogInspector,
+  LogStream,
+  createLogInspector,
+  createConsoleLogInspector,
+  parseErrorToLogEntry,
+  type LogEntry,
+  type LogSeverity,
+  type LogSource,
+  type LogFilter,
+  type LogInspectorOptions,
+  type LogStats,
+} from "./log-inspector";
