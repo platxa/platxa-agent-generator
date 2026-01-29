@@ -74,23 +74,34 @@ export interface AffectedFile {
   linesChanged?: number;
 }
 
-/** A design option with full trade-off analysis */
+/**
+ * A design option with full trade-off analysis
+ *
+ * Feature #44 Required Fields:
+ * - id: Unique identifier for the option
+ * - name: Display name for the option
+ * - description: Full description of what the option does
+ * - pros[]: List of advantages (OptionPro[])
+ * - cons[]: List of disadvantages (OptionCon[])
+ * - effort: Effort estimation (EffortEstimate)
+ * - files[]: Files that will be affected (AffectedFile[])
+ */
 export interface DesignOption {
-  /** Unique identifier */
+  /** Unique identifier (Feature #44: required) */
   id: string;
-  /** Display name */
+  /** Display name (Feature #44: required) */
   name: string;
-  /** Full description */
+  /** Full description (Feature #44: required) */
   description: string;
   /** Approach category */
   category: ApproachCategory;
-  /** List of advantages */
+  /** List of advantages (Feature #44: required as pros[]) */
   pros: OptionPro[];
-  /** List of disadvantages */
+  /** List of disadvantages (Feature #44: required as cons[]) */
   cons: OptionCon[];
-  /** Effort estimation */
+  /** Effort estimation (Feature #44: required) */
   effort: EffortEstimate;
-  /** Files that will be affected */
+  /** Files that will be affected (Feature #44: required as files[]) */
   filesAffected: AffectedFile[];
   /** The execution plan */
   plan: AgentPlan;
