@@ -19,6 +19,7 @@ import {
   type CoordinatorEvent,
   type CoordinatorTask,
   type ActionDefinition,
+  type SubAgent,
 } from "../coordinator"
 
 // ============================================================================
@@ -51,6 +52,16 @@ const designAction = createMockAction("analyze_design", true)
 const codeAction = createMockAction("generate_code", true)
 const testAction = createMockAction("run_tests", true)
 const failAction = createMockAction("fail_action", false)
+
+// Action that throws an exception (for testing onError hook)
+const throwingAction: ActionDefinition = {
+  name: "throwing_action",
+  description: "Action that throws an error",
+  parameters: {},
+  execute: async () => {
+    throw new Error("Intentional test error")
+  },
+}
 
 // Create mock sub-agents with different capabilities
 const createDesignAgent = () =>
@@ -87,6 +98,16 @@ const createFailingAgent = () =>
     capabilities: [createCapability("fail", "Fail", "Always fails", ["fail"])],
     maxConcurrency: 1,
     actions: [failAction],
+  })
+
+// Agent that throws exceptions (for testing onError hook)
+const createThrowingAgent = () =>
+  createSubAgent({
+    id: "throwing-agent",
+    name: "Throwing Agent",
+    capabilities: [createCapability("throw", "Throw", "Always throws", ["throw"])],
+    maxConcurrency: 1,
+    actions: [throwingAction],
   })
 
 // Helper to create a task input (without id, createdAt, retryCount which are added by dispatch)
@@ -358,6 +379,84 @@ describe("Coordinator", () => {
       expect(lowResult.success).toBe(true)
       expect(highResult.success).toBe(true)
     })
+
+    it("should use least-busy distribution", async () => {
+      const coordinator = new Coordinator({
+        id: "test-coordinator",
+        name: "Test Coordinator",
+        distributionStrategy: "least-busy",
+      })
+
+      coordinator.registerAgent(createDesignAgent())
+      coordinator.registerAgent(createCodeGenAgent())
+      coordinator.registerAgent(createTestAgent())
+
+      // Dispatch multiple tasks - should prefer agents with fewer active tasks
+      const task1 = createTaskInput("task1")
+      const task2 = createTaskInput("task2")
+      const task3 = createTaskInput("task3")
+
+      const result1 = await coordinator.dispatch(task1)
+      const result2 = await coordinator.dispatch(task2)
+      const result3 = await coordinator.dispatch(task3)
+
+      // All should succeed
+      expect(result1.success).toBe(true)
+      expect(result2.success).toBe(true)
+      expect(result3.success).toBe(true)
+
+      // Verify agents were selected (least-busy prefers idle agents)
+      expect(result1.agentId).toBeDefined()
+      expect(result2.agentId).toBeDefined()
+      expect(result3.agentId).toBeDefined()
+    })
+
+    it("should use random distribution", async () => {
+      const coordinator = new Coordinator({
+        id: "test-coordinator",
+        name: "Test Coordinator",
+        distributionStrategy: "random",
+      })
+
+      coordinator.registerAgent(createDesignAgent())
+      coordinator.registerAgent(createCodeGenAgent())
+      coordinator.registerAgent(createTestAgent())
+
+      // Dispatch multiple tasks - random distribution
+      const results: string[] = []
+      for (let i = 0; i < 10; i++) {
+        const task = createTaskInput(`task${i}`)
+        const result = await coordinator.dispatch(task)
+        expect(result.success).toBe(true)
+        results.push(result.agentId)
+      }
+
+      // All tasks should have been handled by valid agents
+      const validAgents = new Set(["design-analyzer", "code-generator", "test-runner"])
+      results.forEach((agentId) => {
+        expect(validAgents.has(agentId)).toBe(true)
+      })
+    })
+
+    it("should respect preferred agent when specified", async () => {
+      const coordinator = new Coordinator({
+        id: "test-coordinator",
+        name: "Test Coordinator",
+        distributionStrategy: "round-robin",
+      })
+
+      coordinator.registerAgent(createDesignAgent())
+      coordinator.registerAgent(createCodeGenAgent())
+
+      const taskInput = {
+        ...createTaskInput("preferred-test"),
+        preferredAgentId: "code-generator",
+      }
+      const result = await coordinator.dispatch(taskInput)
+
+      expect(result.success).toBe(true)
+      expect(result.agentId).toBe("code-generator")
+    })
   })
 
   describe("result aggregation", () => {
@@ -415,6 +514,94 @@ describe("Coordinator", () => {
       expect(result.stats.totalTasks).toBe(2)
       expect(result.stats.successfulTasks).toBeGreaterThanOrEqual(0)
       expect(result.totalExecutionTimeMs).toBeGreaterThanOrEqual(0)
+    })
+
+    it("should use vote aggregation strategy", async () => {
+      const coordinator = new Coordinator({
+        id: "test-coordinator",
+        name: "Test Coordinator",
+        aggregationStrategy: "vote",
+      })
+
+      coordinator.registerAgent(createDesignAgent())
+      coordinator.registerAgent(createCodeGenAgent())
+
+      const taskInput = createTaskInput("vote-test")
+      const result = await coordinator.dispatchToAll(taskInput)
+
+      expect(result.strategy).toBe("vote")
+      expect(result.summary).toContain("Vote result:")
+      expect(result.stats.totalTasks).toBeGreaterThanOrEqual(1)
+    })
+
+    it("should use all-required aggregation strategy - all succeed", async () => {
+      const coordinator = new Coordinator({
+        id: "test-coordinator",
+        name: "Test Coordinator",
+        aggregationStrategy: "all-required",
+      })
+
+      coordinator.registerAgent(createDesignAgent())
+      coordinator.registerAgent(createCodeGenAgent())
+
+      const taskInput = createTaskInput("all-required-test")
+      const result = await coordinator.dispatchToAll(taskInput)
+
+      expect(result.strategy).toBe("all-required")
+      expect(result.success).toBe(true)
+      expect(result.summary).toContain("completed successfully")
+    })
+
+    it("should use all-required aggregation strategy - some fail", async () => {
+      const coordinator = new Coordinator({
+        id: "test-coordinator",
+        name: "Test Coordinator",
+        aggregationStrategy: "all-required",
+      })
+
+      coordinator.registerAgent(createDesignAgent())
+      coordinator.registerAgent(createFailingAgent())
+
+      const taskInput = createTaskInput("all-required-fail", undefined)
+      const result = await coordinator.dispatchToAll(taskInput)
+
+      expect(result.strategy).toBe("all-required")
+      // Result depends on which agents handled the task
+      expect(result.stats).toBeDefined()
+    })
+
+    it("should use best-score aggregation strategy", async () => {
+      const coordinator = new Coordinator({
+        id: "test-coordinator",
+        name: "Test Coordinator",
+        aggregationStrategy: "best-score",
+      })
+
+      coordinator.registerAgent(createDesignAgent())
+      coordinator.registerAgent(createCodeGenAgent())
+
+      const taskInput = createTaskInput("best-score-test")
+      const result = await coordinator.dispatchToAll(taskInput)
+
+      expect(result.strategy).toBe("best-score")
+      expect(result.stats).toBeDefined()
+    })
+
+    it("should handle empty results in aggregation", async () => {
+      const coordinator = new Coordinator({
+        id: "test-coordinator",
+        name: "Test Coordinator",
+        aggregationStrategy: "merge",
+      })
+
+      // No agents that can handle the task
+      coordinator.registerAgent(createDesignAgent())
+
+      const taskInput = createTaskInput("impossible", ["non-existent-capability"])
+      const result = await coordinator.dispatchToAll(taskInput)
+
+      expect(result.success).toBe(false)
+      expect(result.results).toHaveLength(0)
     })
   })
 
@@ -550,6 +737,133 @@ describe("Coordinator", () => {
       // Should have retry events
       const retryEvents = events.filter((e) => e.type === "task_retried")
       expect(retryEvents.length).toBeLessThanOrEqual(2)
+    })
+
+    it("should call onError hook when agent execute throws directly", async () => {
+      const onError = vi.fn()
+      const coordinator = new Coordinator({
+        id: "test-coordinator",
+        name: "Test Coordinator",
+        maxRetries: 0,
+      })
+
+      // Create a mock agent that throws directly in execute()
+      // bypassing the ReActAgent's internal error handling
+      const directThrowAgent: SubAgent = {
+        getConfig: () => ({
+          id: "direct-throw-agent",
+          name: "Direct Throw Agent",
+          capabilities: [createCapability("direct-throw", "Direct Throw", "Throws directly", ["direct-throw"])],
+          maxConcurrency: 1,
+          taskTimeoutMs: 60000,
+          enabled: true,
+        }),
+        execute: async () => {
+          throw new Error("Direct throw from agent execute")
+        },
+        canHandle: () => true,
+        getStatus: () => "idle" as const,
+        enable: () => {},
+        disable: () => {},
+      }
+
+      coordinator.setHooks({ onError })
+      coordinator.registerAgent(directThrowAgent)
+
+      const taskInput = { ...createTaskInput("direct-throw", ["direct-throw"]), maxRetries: 0 }
+      await coordinator.dispatch(taskInput)
+
+      expect(onError).toHaveBeenCalled()
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({ message: "Direct throw from agent execute" }),
+        expect.objectContaining({ agentId: "direct-throw-agent" })
+      )
+    })
+
+    it("should handle unregister of non-existent agent", () => {
+      const coordinator = new Coordinator({
+        id: "test-coordinator",
+        name: "Test Coordinator",
+      })
+
+      expect(() => coordinator.unregisterAgent("non-existent")).toThrow(
+        'Agent with ID "non-existent" is not registered'
+      )
+    })
+
+    it("should handle task timeout", async () => {
+      // Create a slow agent that takes longer than timeout
+      const slowAction: ActionDefinition = {
+        name: "slow_action",
+        description: "Slow action that times out",
+        parameters: {},
+        execute: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 500))
+          return { success: true, output: "done" }
+        },
+      }
+
+      const slowAgent = createSubAgent({
+        id: "slow-agent",
+        name: "Slow Agent",
+        capabilities: [createCapability("slow", "Slow", "Slow capability", ["slow"])],
+        maxConcurrency: 1,
+        actions: [slowAction],
+      })
+
+      const coordinator = new Coordinator({
+        id: "test-coordinator",
+        name: "Test Coordinator",
+        defaultTaskTimeoutMs: 50, // Very short timeout
+        maxRetries: 0,
+      })
+
+      coordinator.registerAgent(slowAgent)
+
+      const taskInput = { ...createTaskInput("slow", ["slow"]), maxRetries: 0 }
+      const result = await coordinator.dispatch(taskInput)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain("timed out")
+    })
+
+    it("should handle beforeExecute hook blocking execution", async () => {
+      const coordinator = new Coordinator({
+        id: "test-coordinator",
+        name: "Test Coordinator",
+      })
+
+      coordinator.setHooks({
+        beforeExecute: async () => false, // Block all executions
+      })
+      coordinator.registerAgent(createDesignAgent())
+
+      const taskInput = createTaskInput("blocked")
+      const result = await coordinator.dispatch(taskInput)
+
+      expect(result.success).toBe(false)
+      expect(result.error).toContain("blocked by beforeExecute hook")
+    })
+
+    it("should handle event callback errors gracefully", async () => {
+      const coordinator = new Coordinator({
+        id: "test-coordinator",
+        name: "Test Coordinator",
+        verbose: false, // Suppress error logs in test
+      })
+
+      // Register a callback that throws
+      coordinator.on(() => {
+        throw new Error("Callback error")
+      })
+
+      coordinator.registerAgent(createDesignAgent())
+
+      // Should not throw even if callback throws
+      const taskInput = createTaskInput("test")
+      const result = await coordinator.dispatch(taskInput)
+
+      expect(result.success).toBe(true)
     })
   })
 
