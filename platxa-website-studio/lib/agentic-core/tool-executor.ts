@@ -95,12 +95,32 @@ export interface ToolExecutorConfig {
   cacheResults?: boolean;
   /** Cache TTL in ms */
   cacheTTL?: number;
-  /** Retry failed operations */
+  /** Retry failed operations with exponential backoff */
   retryOnFailure?: boolean;
-  /** Max retries */
+  /** Max retry attempts (default: 3) */
   maxRetries?: number;
+  /** Base delay for exponential backoff in ms (default: 1000) */
+  baseDelayMs?: number;
+  /** Backoff multiplier (default: 2 for exponential) */
+  backoffMultiplier?: number;
+  /** Maximum delay cap in ms (default: 30000) */
+  maxDelayMs?: number;
+  /** Add jitter to prevent thundering herd (default: true) */
+  useJitter?: boolean;
   /** Maximum cache entries before LRU eviction */
   maxCacheEntries?: number;
+}
+
+/** Retry attempt information */
+export interface RetryAttempt {
+  /** Attempt number (1-indexed) */
+  attempt: number;
+  /** Delay before this attempt in ms */
+  delayMs: number;
+  /** Error from previous attempt */
+  error?: string;
+  /** Timestamp of attempt */
+  timestamp: number;
 }
 
 /** Memoization statistics */
@@ -295,7 +315,11 @@ export class AgentToolExecutor implements ToolExecutor {
       cacheResults: config.cacheResults ?? true,
       cacheTTL: config.cacheTTL ?? 300000, // 5-minute TTL (Feature #12)
       retryOnFailure: config.retryOnFailure ?? true,
-      maxRetries: config.maxRetries ?? 2,
+      maxRetries: config.maxRetries ?? 3, // Feature #15: 3 attempts total
+      baseDelayMs: config.baseDelayMs ?? 1000, // Feature #15: 1s base delay
+      backoffMultiplier: config.backoffMultiplier ?? 2, // Feature #15: exponential (1s, 2s, 4s)
+      maxDelayMs: config.maxDelayMs ?? 30000, // Cap at 30s
+      useJitter: config.useJitter ?? true, // Prevent thundering herd
       maxCacheEntries: config.maxCacheEntries ?? 500,
     };
 
@@ -347,25 +371,46 @@ export class AgentToolExecutor implements ToolExecutor {
       throw new Error(`No tool registered for action: ${action}`);
     }
 
-    // Execute with timeout and retry
+    // Execute with timeout and exponential backoff retry (Feature #15)
     let result: ToolResult;
     let attempts = 0;
+    let lastError: Error | null = null;
 
-    while (attempts <= this.config.maxRetries) {
+    while (attempts < this.config.maxRetries) {
       try {
+        // Apply backoff delay before retry (not on first attempt)
+        if (attempts > 0 && this.config.retryOnFailure) {
+          const delayMs = this.calculateBackoffDelay(attempts);
+          await this.sleep(delayMs);
+        }
+
         result = await this.executeWithTimeout(handler, toolParams, action);
 
-        if (result.success || !this.config.retryOnFailure) {
+        if (result.success) {
           break;
         }
 
+        // Tool returned failure (not exception) - retry if enabled
+        if (!this.config.retryOnFailure) {
+          break;
+        }
+
+        lastError = new Error(result.error || `Tool ${action} failed`);
         attempts++;
       } catch (error) {
+        lastError = error as Error;
+        attempts++;
+
+        // Don't retry on final attempt
         if (attempts >= this.config.maxRetries) {
           throw error;
         }
-        attempts++;
       }
+    }
+
+    // If we exhausted retries with failures, throw the last error
+    if (!result! || (!result!.success && attempts >= this.config.maxRetries)) {
+      throw lastError || new Error(`Tool ${action} failed after ${attempts} attempts`);
     }
 
     // Cache successful results (only memoizable actions)
@@ -744,6 +789,48 @@ export class AgentToolExecutor implements ToolExecutor {
     } catch {
       return 1024; // Default estimate
     }
+  }
+
+  /**
+   * Calculate exponential backoff delay for retry attempt
+   * Feature #15: Implements 1s, 2s, 4s delays (base * 2^attempt)
+   *
+   * @param attempt - Current attempt number (1-indexed, first retry is attempt 1)
+   * @returns Delay in milliseconds
+   */
+  private calculateBackoffDelay(attempt: number): number {
+    // Exponential: baseDelay * (multiplier ^ (attempt - 1))
+    // attempt 1: 1000 * 2^0 = 1000ms (1s)
+    // attempt 2: 1000 * 2^1 = 2000ms (2s)
+    // attempt 3: 1000 * 2^2 = 4000ms (4s)
+    const exponentialDelay = this.config.baseDelayMs *
+      Math.pow(this.config.backoffMultiplier, attempt - 1);
+
+    // Cap at maximum delay
+    const cappedDelay = Math.min(exponentialDelay, this.config.maxDelayMs);
+
+    // Add jitter (±25%) to prevent thundering herd
+    if (this.config.useJitter) {
+      const jitterRange = cappedDelay * 0.25;
+      const jitter = (Math.random() * 2 - 1) * jitterRange;
+      return Math.max(0, Math.round(cappedDelay + jitter));
+    }
+
+    return cappedDelay;
+  }
+
+  /**
+   * Get the delay that would be used for a specific retry attempt (for testing/observability)
+   */
+  getRetryDelay(attempt: number): number {
+    return this.calculateBackoffDelay(attempt);
+  }
+
+  /**
+   * Sleep for specified duration
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 

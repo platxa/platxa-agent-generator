@@ -345,11 +345,13 @@ describe('AgentToolExecutor', () => {
     });
   });
 
-  describe('retry behavior', () => {
+  describe('retry behavior with exponential backoff (Feature #15)', () => {
     it('should retry on failure when enabled', async () => {
       const executor = new AgentToolExecutor({
         retryOnFailure: true,
-        maxRetries: 2,
+        maxRetries: 3,
+        baseDelayMs: 10, // Use short delays for testing
+        useJitter: false,
       });
 
       let callCount = 0;
@@ -380,6 +382,187 @@ describe('AgentToolExecutor', () => {
 
       expect(result).toEqual({ recovered: true });
       expect(flakyHandler).toHaveBeenCalledTimes(2);
+    });
+
+    it('should calculate exponential backoff delays correctly', () => {
+      const executor = new AgentToolExecutor({
+        baseDelayMs: 1000,
+        backoffMultiplier: 2,
+        useJitter: false, // Disable jitter for deterministic testing
+      });
+
+      // attempt 1: 1000 * 2^0 = 1000ms (1s)
+      expect(executor.getRetryDelay(1)).toBe(1000);
+      // attempt 2: 1000 * 2^1 = 2000ms (2s)
+      expect(executor.getRetryDelay(2)).toBe(2000);
+      // attempt 3: 1000 * 2^2 = 4000ms (4s)
+      expect(executor.getRetryDelay(3)).toBe(4000);
+    });
+
+    it('should cap delay at maxDelayMs', () => {
+      const executor = new AgentToolExecutor({
+        baseDelayMs: 1000,
+        backoffMultiplier: 2,
+        maxDelayMs: 3000,
+        useJitter: false,
+      });
+
+      // attempt 3 would be 4000ms but capped at 3000ms
+      expect(executor.getRetryDelay(3)).toBe(3000);
+      // attempt 10 would be huge but capped at 3000ms
+      expect(executor.getRetryDelay(10)).toBe(3000);
+    });
+
+    it('should add jitter when enabled', () => {
+      const executor = new AgentToolExecutor({
+        baseDelayMs: 1000,
+        backoffMultiplier: 2,
+        useJitter: true,
+      });
+
+      // With jitter, delay should be within ±25% of base
+      const delays = Array.from({ length: 10 }, () => executor.getRetryDelay(1));
+      const minExpected = 750; // 1000 - 25%
+      const maxExpected = 1250; // 1000 + 25%
+
+      delays.forEach(delay => {
+        expect(delay).toBeGreaterThanOrEqual(minExpected);
+        expect(delay).toBeLessThanOrEqual(maxExpected);
+      });
+
+      // Verify there's actual variation (not all same value)
+      const uniqueDelays = new Set(delays);
+      expect(uniqueDelays.size).toBeGreaterThan(1);
+    });
+
+    it('should give up after maxRetries attempts', async () => {
+      const executor = new AgentToolExecutor({
+        retryOnFailure: true,
+        maxRetries: 3,
+        baseDelayMs: 10,
+        useJitter: false,
+      });
+
+      const alwaysFailHandler = vi.fn().mockResolvedValue({
+        success: false,
+        error: 'Persistent failure',
+        duration: 5,
+        toolName: 'failing',
+      });
+
+      executor.setToolHandler('search', alwaysFailHandler);
+
+      await expect(
+        executor.execute('search', {
+          target: 'test',
+          context: createMockContext(),
+        })
+      ).rejects.toThrow('Persistent failure');
+
+      // Should be called exactly maxRetries times
+      expect(alwaysFailHandler).toHaveBeenCalledTimes(3);
+    });
+
+    it('should apply delays between retries', async () => {
+      const executor = new AgentToolExecutor({
+        retryOnFailure: true,
+        maxRetries: 3,
+        baseDelayMs: 50, // 50ms base for faster test
+        backoffMultiplier: 2,
+        useJitter: false,
+      });
+
+      let callCount = 0;
+      const timestamps: number[] = [];
+
+      const flakyHandler = vi.fn().mockImplementation(async () => {
+        timestamps.push(Date.now());
+        callCount++;
+        if (callCount < 3) {
+          return {
+            success: false,
+            error: 'Temporary failure',
+            duration: 5,
+            toolName: 'flaky',
+          };
+        }
+        return {
+          success: true,
+          data: { recovered: true },
+          duration: 5,
+          toolName: 'flaky',
+        };
+      });
+
+      executor.setToolHandler('search', flakyHandler);
+
+      await executor.execute('search', {
+        target: 'test',
+        context: createMockContext(),
+      });
+
+      // Verify delays between attempts (with some tolerance)
+      // First retry delay: 50ms (base * 2^0)
+      const delay1 = timestamps[1] - timestamps[0];
+      expect(delay1).toBeGreaterThanOrEqual(40); // Allow some timing variance
+
+      // Second retry delay: 100ms (base * 2^1)
+      const delay2 = timestamps[2] - timestamps[1];
+      expect(delay2).toBeGreaterThanOrEqual(80);
+    });
+
+    it('should not apply delay on first attempt', async () => {
+      const executor = new AgentToolExecutor({
+        retryOnFailure: true,
+        maxRetries: 3,
+        baseDelayMs: 1000, // Would be noticeable if applied
+        useJitter: false,
+      });
+
+      const successHandler = vi.fn().mockResolvedValue({
+        success: true,
+        data: { immediate: true },
+        duration: 5,
+        toolName: 'fast',
+      });
+
+      executor.setToolHandler('search', successHandler);
+
+      const start = Date.now();
+      await executor.execute('search', {
+        target: 'test',
+        context: createMockContext(),
+      });
+      const elapsed = Date.now() - start;
+
+      // Should complete almost immediately (well under 1000ms base delay)
+      expect(elapsed).toBeLessThan(500);
+    });
+
+    it('should not retry when retryOnFailure is disabled', async () => {
+      const executor = new AgentToolExecutor({
+        retryOnFailure: false,
+        maxRetries: 3,
+      });
+
+      const failingHandler = vi.fn().mockResolvedValue({
+        success: false,
+        error: 'Failure',
+        duration: 5,
+        toolName: 'failing',
+      });
+
+      executor.setToolHandler('search', failingHandler);
+
+      await expect(
+        executor.execute('search', {
+          target: 'test',
+          context: createMockContext(),
+        })
+      ).rejects.toThrow('Failure');
+
+      // Should only be called once
+      expect(failingHandler).toHaveBeenCalledTimes(1);
     });
   });
 
