@@ -529,3 +529,28 @@ export {
   type ButtonConfig,
   type PresetButtonConfig,
 } from "./zoom-controls";
+
+// Preview Error Boundary for error handling with fallback UI
+export {
+  PreviewErrorBoundary,
+  createPreviewErrorBoundary,
+  PREVIEW_ERROR_SCRIPT,
+  ERROR_MESSAGES,
+  SUGGESTED_ACTIONS,
+  categorizeError,
+  determineSeverity,
+  isRecoverable,
+  createPreviewError,
+  getFallbackUIConfig,
+  formatErrorMessage,
+  formatErrorForLog,
+  type ErrorSeverity,
+  type ErrorCategory,
+  type PreviewError,
+  type ErrorBoundaryState,
+  type ErrorBoundaryOptions,
+  type FallbackUIConfig,
+  type ErrorCallback,
+  type RecoveryCallback,
+  type StateChangeCallback as ErrorStateChangeCallback,
+} from "./preview-error-boundary";
