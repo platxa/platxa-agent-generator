@@ -576,3 +576,17 @@ export {
   type ToolChangeCallback,
   type ToolCompleteCallback,
 } from "./tool-indicator";
+
+// ETA Calculator for estimated time remaining
+export {
+  ETACalculator,
+  createETACalculator,
+  formatDuration as formatETADuration,
+  formatTime as formatETATime,
+  roundForDisplay,
+  type StepTiming,
+  type ETAState,
+  type ETACalculatorOptions,
+  type ETADisplay,
+  type ETAUpdateCallback,
+} from "./eta-calculator";
