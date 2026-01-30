@@ -45,6 +45,9 @@ export {
   type ToolExecutorConfig,
   type MemoizationStats,
   type RetryAttempt,
+  type ToolAnalyticsEntry,
+  type ToolAggregateStats,
+  type AnalyticsSummary,
 } from './tool-executor';
 
 export {

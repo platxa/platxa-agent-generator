@@ -972,4 +972,305 @@ describe('AgentToolExecutor', () => {
       expect(result).toBeDefined();
     });
   });
+
+  describe('analytics tracking (Feature #16)', () => {
+    it('should log tool calls to analytics', async () => {
+      const executor = new AgentToolExecutor({ cacheResults: false });
+      const customSearch = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: ['a', 'b'] },
+        duration: 50,
+        toolName: 'search_codebase',
+      });
+      executor.setToolHandler('search', customSearch);
+
+      await executor.execute('search', {
+        target: 'test-query',
+        context: createMockContext(),
+      });
+
+      const analytics = executor.getAnalytics();
+      expect(analytics.length).toBe(1);
+      expect(analytics[0].tool).toBe('search_codebase');
+      expect(analytics[0].action).toBe('search');
+      expect(analytics[0].success).toBe(true);
+      expect(analytics[0].cached).toBe(false);
+      expect(analytics[0].duration).toBeGreaterThanOrEqual(0);
+      expect(analytics[0].tokens).toBeGreaterThan(0);
+      expect(analytics[0].timestamp).toBeGreaterThan(0);
+    });
+
+    it('should log cache hits with zero tokens', async () => {
+      const executor = new AgentToolExecutor({ cacheResults: true });
+      const customSearch = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: ['a'] },
+        duration: 10,
+        toolName: 'search_codebase',
+      });
+      executor.setToolHandler('search', customSearch);
+
+      // First call - cache miss
+      await executor.execute('search', {
+        target: 'query',
+        context: createMockContext(),
+      });
+
+      // Second call - cache hit
+      await executor.execute('search', {
+        target: 'query',
+        context: createMockContext(),
+      });
+
+      const analytics = executor.getAnalytics();
+      expect(analytics.length).toBe(2);
+
+      // First entry - not cached
+      expect(analytics[0].cached).toBe(false);
+      expect(analytics[0].tokens).toBeGreaterThan(0);
+
+      // Second entry - cached, zero tokens
+      expect(analytics[1].cached).toBe(true);
+      expect(analytics[1].tokens).toBe(0);
+    });
+
+    it('should log failed tool calls', async () => {
+      const executor = new AgentToolExecutor({ retryOnFailure: false });
+      const failingHandler = vi.fn().mockResolvedValue({
+        success: false,
+        error: 'Tool failed',
+        duration: 5,
+        toolName: 'failing_tool',
+      });
+      executor.setToolHandler('search', failingHandler);
+
+      await expect(
+        executor.execute('search', {
+          target: 'test',
+          context: createMockContext(),
+        })
+      ).rejects.toThrow();
+
+      const analytics = executor.getAnalytics();
+      expect(analytics.length).toBe(1);
+      expect(analytics[0].success).toBe(false);
+      expect(analytics[0].error).toBe('Tool failed');
+    });
+
+    it('should track retry attempts', async () => {
+      const executor = new AgentToolExecutor({
+        retryOnFailure: true,
+        maxRetries: 3,
+        baseDelayMs: 10,
+        useJitter: false,
+      });
+
+      let callCount = 0;
+      const flakyHandler = vi.fn().mockImplementation(async () => {
+        callCount++;
+        if (callCount < 3) {
+          return {
+            success: false,
+            error: 'Temporary failure',
+            duration: 5,
+            toolName: 'flaky',
+          };
+        }
+        return {
+          success: true,
+          data: { recovered: true },
+          duration: 5,
+          toolName: 'flaky',
+        };
+      });
+
+      executor.setToolHandler('search', flakyHandler);
+
+      await executor.execute('search', {
+        target: 'test',
+        context: createMockContext(),
+      });
+
+      const analytics = executor.getAnalytics();
+      expect(analytics.length).toBe(1);
+      expect(analytics[0].retryAttempts).toBe(3); // Total attempts including final success
+      expect(analytics[0].success).toBe(true);
+    });
+
+    it('should provide aggregated analytics summary', async () => {
+      const executor = new AgentToolExecutor({ cacheResults: false });
+
+      // Use handlers that return data for token estimation
+      const searchHandler = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: ['result1', 'result2', 'result3'] },
+        duration: 100,
+        toolName: 'search_codebase',
+      });
+      const readHandler = vi.fn().mockResolvedValue({
+        success: true,
+        data: { content: 'file content here' },
+        duration: 50,
+        toolName: 'read_file',
+      });
+
+      executor.setToolHandler('search', searchHandler);
+      executor.setToolHandler('read', readHandler);
+
+      // Execute multiple tools
+      await executor.execute('search', { target: 'q1', context: createMockContext() });
+      await executor.execute('search', { target: 'q2', context: createMockContext() });
+      await executor.execute('read', { target: 'file.ts', context: createMockContext() });
+
+      const summary = executor.getAnalyticsSummary();
+
+      expect(summary.totalCalls).toBe(3);
+      expect(summary.totalSuccesses).toBe(3);
+      expect(summary.totalFailures).toBe(0);
+      expect(summary.overallSuccessRate).toBe(1);
+      // Duration can be 0 for instant mock executions - verify it's tracked (non-negative)
+      expect(summary.totalDuration).toBeGreaterThanOrEqual(0);
+      // Tokens should be estimated from result data size
+      expect(summary.totalTokens).toBeGreaterThan(0);
+
+      // Per-tool breakdown
+      expect(summary.byTool.size).toBe(2);
+
+      const searchStats = summary.byTool.get('search_codebase');
+      expect(searchStats).toBeDefined();
+      expect(searchStats!.invocations).toBe(2);
+      expect(searchStats!.successes).toBe(2);
+      expect(searchStats!.successRate).toBe(1);
+
+      const readStats = summary.byTool.get('read_file');
+      expect(readStats).toBeDefined();
+      expect(readStats!.invocations).toBe(1);
+    });
+
+    it('should calculate percentile latencies correctly', async () => {
+      const executor = new AgentToolExecutor({ cacheResults: false });
+
+      // Create handler that adds actual delays to produce measurable durations
+      let callIndex = 0;
+      const delays = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]; // ms delays
+      const variedHandler = vi.fn().mockImplementation(async () => {
+        const delay = delays[callIndex++ % delays.length];
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return {
+          success: true,
+          data: { index: callIndex },
+          duration: delay,
+          toolName: 'search_codebase',
+        };
+      });
+
+      executor.setToolHandler('search', variedHandler);
+
+      // Execute 10 times with actual delays
+      for (let i = 0; i < 10; i++) {
+        await executor.execute('search', { target: `q${i}`, context: createMockContext() });
+      }
+
+      const summary = executor.getAnalyticsSummary();
+      const stats = summary.byTool.get('search_codebase');
+
+      expect(stats).toBeDefined();
+      // With actual delays, durations should be > 0
+      expect(stats!.p50Duration).toBeGreaterThan(0);
+      expect(stats!.p95Duration).toBeGreaterThanOrEqual(stats!.p50Duration);
+      expect(stats!.p99Duration).toBeGreaterThanOrEqual(stats!.p95Duration);
+      // Verify ordering: min <= p50 <= p95 <= p99 <= max
+      expect(stats!.minDuration).toBeLessThanOrEqual(stats!.p50Duration);
+      expect(stats!.maxDuration).toBeGreaterThanOrEqual(stats!.p99Duration);
+    });
+
+    it('should track cache hits in aggregated stats', async () => {
+      const executor = new AgentToolExecutor({ cacheResults: true });
+      const searchHandler = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [] },
+        duration: 50,
+        toolName: 'search_codebase',
+      });
+      executor.setToolHandler('search', searchHandler);
+
+      // First call - miss
+      await executor.execute('search', { target: 'q', context: createMockContext() });
+      // Second call - hit
+      await executor.execute('search', { target: 'q', context: createMockContext() });
+      // Third call - hit
+      await executor.execute('search', { target: 'q', context: createMockContext() });
+
+      const summary = executor.getAnalyticsSummary();
+      const stats = summary.byTool.get('search_codebase');
+
+      expect(stats!.cacheHits).toBe(2);
+      expect(stats!.invocations).toBe(3);
+    });
+
+    it('should clear analytics', async () => {
+      const executor = new AgentToolExecutor({ cacheResults: false });
+      const searchHandler = vi.fn().mockResolvedValue({
+        success: true,
+        data: {},
+        duration: 10,
+        toolName: 'search_codebase',
+      });
+      executor.setToolHandler('search', searchHandler);
+
+      await executor.execute('search', { target: 'q', context: createMockContext() });
+
+      expect(executor.getAnalytics().length).toBe(1);
+
+      executor.clearAnalytics();
+
+      expect(executor.getAnalytics().length).toBe(0);
+    });
+
+    it('should handle empty analytics gracefully', () => {
+      const executor = new AgentToolExecutor();
+
+      const analytics = executor.getAnalytics();
+      expect(analytics).toEqual([]);
+
+      const summary = executor.getAnalyticsSummary();
+      expect(summary.totalCalls).toBe(0);
+      expect(summary.overallSuccessRate).toBe(0);
+      expect(summary.byTool.size).toBe(0);
+      expect(summary.timeRange.start).toBe(0);
+      expect(summary.timeRange.end).toBe(0);
+    });
+
+    it('should record time range correctly', async () => {
+      const executor = new AgentToolExecutor({ cacheResults: false });
+      const searchHandler = vi.fn().mockResolvedValue({
+        success: true,
+        data: {},
+        duration: 10,
+        toolName: 'search_codebase',
+      });
+      executor.setToolHandler('search', searchHandler);
+
+      const beforeTime = Date.now();
+      await executor.execute('search', { target: 'q1', context: createMockContext() });
+      await executor.execute('search', { target: 'q2', context: createMockContext() });
+      const afterTime = Date.now();
+
+      const summary = executor.getAnalyticsSummary();
+
+      expect(summary.timeRange.start).toBeGreaterThanOrEqual(beforeTime);
+      expect(summary.timeRange.end).toBeLessThanOrEqual(afterTime + 100); // Allow some buffer
+      expect(summary.timeRange.end).toBeGreaterThanOrEqual(summary.timeRange.start);
+    });
+
+    it('should return copy of analytics array (not internal reference)', () => {
+      const executor = new AgentToolExecutor();
+
+      const analytics1 = executor.getAnalytics();
+      const analytics2 = executor.getAnalytics();
+
+      // Should be different array instances
+      expect(analytics1).not.toBe(analytics2);
+    });
+  });
 });

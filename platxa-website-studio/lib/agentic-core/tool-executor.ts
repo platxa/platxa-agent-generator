@@ -123,6 +123,88 @@ export interface RetryAttempt {
   timestamp: number;
 }
 
+// ============================================================================
+// Tool Analytics (Feature #16)
+// ============================================================================
+
+/** Individual tool call analytics entry */
+export interface ToolAnalyticsEntry {
+  /** Tool name */
+  tool: string;
+  /** Action type */
+  action: AgentActionType;
+  /** Execution duration in ms */
+  duration: number;
+  /** Estimated token cost (input + output) */
+  tokens: number;
+  /** Whether call succeeded */
+  success: boolean;
+  /** Error message if failed */
+  error?: string;
+  /** Timestamp of call */
+  timestamp: number;
+  /** Number of retry attempts */
+  retryAttempts: number;
+  /** Whether result was from cache */
+  cached: boolean;
+}
+
+/** Aggregated analytics for a single tool */
+export interface ToolAggregateStats {
+  /** Tool name */
+  tool: string;
+  /** Total invocation count */
+  invocations: number;
+  /** Successful invocations */
+  successes: number;
+  /** Failed invocations */
+  failures: number;
+  /** Success rate (0-1) */
+  successRate: number;
+  /** Total duration across all calls (ms) */
+  totalDuration: number;
+  /** Average duration per call (ms) */
+  avgDuration: number;
+  /** Min duration (ms) */
+  minDuration: number;
+  /** Max duration (ms) */
+  maxDuration: number;
+  /** P50 latency (ms) */
+  p50Duration: number;
+  /** P95 latency (ms) */
+  p95Duration: number;
+  /** P99 latency (ms) */
+  p99Duration: number;
+  /** Total token cost */
+  totalTokens: number;
+  /** Average tokens per call */
+  avgTokens: number;
+  /** Total retry attempts */
+  totalRetries: number;
+  /** Cache hit count */
+  cacheHits: number;
+}
+
+/** Overall analytics summary */
+export interface AnalyticsSummary {
+  /** Total calls across all tools */
+  totalCalls: number;
+  /** Total successes */
+  totalSuccesses: number;
+  /** Total failures */
+  totalFailures: number;
+  /** Overall success rate */
+  overallSuccessRate: number;
+  /** Total duration (ms) */
+  totalDuration: number;
+  /** Total tokens used */
+  totalTokens: number;
+  /** Per-tool breakdown */
+  byTool: Map<string, ToolAggregateStats>;
+  /** Time range */
+  timeRange: { start: number; end: number };
+}
+
 /** Memoization statistics */
 export interface MemoizationStats {
   /** Total cache hits */
@@ -309,6 +391,10 @@ export class AgentToolExecutor implements ToolExecutor {
   // Monotonic counter for deterministic LRU ordering (Date.now() can be same within ms)
   private accessCounter: number = 0;
 
+  // Analytics store (Feature #16)
+  private analyticsLog: ToolAnalyticsEntry[] = [];
+  private maxAnalyticsEntries: number = 10000;
+
   constructor(config: ToolExecutorConfig = {}) {
     this.config = {
       timeout: config.timeout ?? 30000,
@@ -337,6 +423,9 @@ export class AgentToolExecutor implements ToolExecutor {
     action: AgentActionType,
     params: Record<string, unknown>
   ): Promise<unknown> {
+    const startTime = Date.now();
+    const toolName = this.getToolNameForAction(action);
+
     const toolParams: ToolParams = {
       target: params.target as string,
       context: params.context as AgentContext,
@@ -360,6 +449,19 @@ export class AgentToolExecutor implements ToolExecutor {
       if (cached) {
         this.cacheHits++;
         this.bytesSaved += cached.sizeBytes;
+
+        // Feature #16: Log cache hit to analytics
+        this.recordAnalytics({
+          tool: toolName,
+          action,
+          duration: Date.now() - startTime,
+          tokens: 0, // No tokens used for cache hit
+          success: true,
+          timestamp: startTime,
+          retryAttempts: 0,
+          cached: true,
+        });
+
         return cached.result.data;
       }
       this.cacheMisses++;
@@ -373,14 +475,16 @@ export class AgentToolExecutor implements ToolExecutor {
 
     // Execute with timeout and exponential backoff retry (Feature #15)
     let result: ToolResult;
-    let attempts = 0;
+    let retryCount = 0; // Tracks failures for backoff calculation
+    let totalAttempts = 0; // Tracks total invocations for analytics
     let lastError: Error | null = null;
 
-    while (attempts < this.config.maxRetries) {
+    while (retryCount < this.config.maxRetries) {
+      totalAttempts++;
       try {
         // Apply backoff delay before retry (not on first attempt)
-        if (attempts > 0 && this.config.retryOnFailure) {
-          const delayMs = this.calculateBackoffDelay(attempts);
+        if (retryCount > 0 && this.config.retryOnFailure) {
+          const delayMs = this.calculateBackoffDelay(retryCount);
           await this.sleep(delayMs);
         }
 
@@ -396,22 +500,58 @@ export class AgentToolExecutor implements ToolExecutor {
         }
 
         lastError = new Error(result.error || `Tool ${action} failed`);
-        attempts++;
+        retryCount++;
       } catch (error) {
         lastError = error as Error;
-        attempts++;
+        retryCount++;
 
-        // Don't retry on final attempt
-        if (attempts >= this.config.maxRetries) {
+        // Don't retry on final attempt - record analytics before throwing
+        if (retryCount >= this.config.maxRetries) {
+          this.recordAnalytics({
+            tool: toolName,
+            action,
+            duration: Date.now() - startTime,
+            tokens: 0,
+            success: false,
+            error: (error as Error).message,
+            timestamp: startTime,
+            retryAttempts: totalAttempts,
+            cached: false,
+          });
           throw error;
         }
       }
     }
 
-    // If we exhausted retries with failures, throw the last error
-    if (!result! || (!result!.success && attempts >= this.config.maxRetries)) {
-      throw lastError || new Error(`Tool ${action} failed after ${attempts} attempts`);
+    // If we exhausted retries with failures, record and throw
+    if (!result! || (!result!.success && retryCount >= this.config.maxRetries)) {
+      this.recordAnalytics({
+        tool: toolName,
+        action,
+        duration: Date.now() - startTime,
+        tokens: result! ? this.estimateTokens(result!) : 0,
+        success: false,
+        error: result?.error || lastError?.message || 'Unknown error',
+        timestamp: startTime,
+        retryAttempts: totalAttempts,
+        cached: false,
+      });
+      throw lastError || new Error(`Tool ${action} failed after ${totalAttempts} attempts`);
     }
+
+    // Feature #16: Log execution to analytics (non-cached)
+    const executionDuration = Date.now() - startTime;
+    this.recordAnalytics({
+      tool: toolName,
+      action,
+      duration: executionDuration,
+      tokens: this.estimateTokens(result!),
+      success: result!.success,
+      error: result!.error,
+      timestamp: startTime,
+      retryAttempts: totalAttempts,
+      cached: false,
+    });
 
     // Cache successful results (only memoizable actions)
     if (result!.success && this.config.cacheResults && isMemoizable) {
@@ -792,6 +932,19 @@ export class AgentToolExecutor implements ToolExecutor {
   }
 
   /**
+   * Estimate token cost for a tool result
+   * Feature #16: Rough estimate based on result size (4 chars ≈ 1 token)
+   */
+  private estimateTokens(result: ToolResult): number {
+    try {
+      const jsonStr = JSON.stringify(result);
+      return Math.ceil(jsonStr.length / 4);
+    } catch {
+      return 100; // Default estimate
+    }
+  }
+
+  /**
    * Calculate exponential backoff delay for retry attempt
    * Feature #15: Implements 1s, 2s, 4s delays (base * 2^attempt)
    *
@@ -831,6 +984,123 @@ export class AgentToolExecutor implements ToolExecutor {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // --------------------------------------------------------------------------
+  // Analytics Methods (Feature #16)
+  // --------------------------------------------------------------------------
+
+  /**
+   * Record a tool call to the analytics log
+   */
+  private recordAnalytics(entry: ToolAnalyticsEntry): void {
+    this.analyticsLog.push(entry);
+
+    // Prune oldest entries if log exceeds max size
+    while (this.analyticsLog.length > this.maxAnalyticsEntries) {
+      this.analyticsLog.shift();
+    }
+  }
+
+  /**
+   * Get raw analytics log
+   */
+  getAnalytics(): ToolAnalyticsEntry[] {
+    return [...this.analyticsLog];
+  }
+
+  /**
+   * Get aggregated analytics summary
+   */
+  getAnalyticsSummary(): AnalyticsSummary {
+    const byTool = new Map<string, ToolAggregateStats>();
+
+    let totalCalls = 0;
+    let totalSuccesses = 0;
+    let totalFailures = 0;
+    let totalDuration = 0;
+    let totalTokens = 0;
+    let startTime = Infinity;
+    let endTime = 0;
+
+    // Group entries by tool
+    const entriesByTool = new Map<string, ToolAnalyticsEntry[]>();
+    for (const entry of this.analyticsLog) {
+      const existing = entriesByTool.get(entry.tool) || [];
+      existing.push(entry);
+      entriesByTool.set(entry.tool, existing);
+
+      // Track overall stats
+      totalCalls++;
+      if (entry.success) totalSuccesses++;
+      else totalFailures++;
+      totalDuration += entry.duration;
+      totalTokens += entry.tokens;
+      startTime = Math.min(startTime, entry.timestamp);
+      endTime = Math.max(endTime, entry.timestamp + entry.duration);
+    }
+
+    // Calculate per-tool aggregates
+    for (const [tool, entries] of entriesByTool) {
+      const durations = entries.map(e => e.duration).sort((a, b) => a - b);
+      const successes = entries.filter(e => e.success).length;
+      const failures = entries.filter(e => !e.success).length;
+      const toolTotalDuration = entries.reduce((sum, e) => sum + e.duration, 0);
+      const toolTotalTokens = entries.reduce((sum, e) => sum + e.tokens, 0);
+      const toolTotalRetries = entries.reduce((sum, e) => sum + e.retryAttempts, 0);
+      const cacheHits = entries.filter(e => e.cached).length;
+
+      const stats: ToolAggregateStats = {
+        tool,
+        invocations: entries.length,
+        successes,
+        failures,
+        successRate: entries.length > 0 ? successes / entries.length : 0,
+        totalDuration: toolTotalDuration,
+        avgDuration: entries.length > 0 ? toolTotalDuration / entries.length : 0,
+        minDuration: durations[0] || 0,
+        maxDuration: durations[durations.length - 1] || 0,
+        p50Duration: this.percentile(durations, 50),
+        p95Duration: this.percentile(durations, 95),
+        p99Duration: this.percentile(durations, 99),
+        totalTokens: toolTotalTokens,
+        avgTokens: entries.length > 0 ? toolTotalTokens / entries.length : 0,
+        totalRetries: toolTotalRetries,
+        cacheHits,
+      };
+
+      byTool.set(tool, stats);
+    }
+
+    return {
+      totalCalls,
+      totalSuccesses,
+      totalFailures,
+      overallSuccessRate: totalCalls > 0 ? totalSuccesses / totalCalls : 0,
+      totalDuration,
+      totalTokens,
+      byTool,
+      timeRange: {
+        start: startTime === Infinity ? 0 : startTime,
+        end: endTime,
+      },
+    };
+  }
+
+  /**
+   * Calculate percentile from sorted array
+   */
+  private percentile(sortedValues: number[], p: number): number {
+    if (sortedValues.length === 0) return 0;
+    const index = Math.ceil((p / 100) * sortedValues.length) - 1;
+    return sortedValues[Math.max(0, Math.min(index, sortedValues.length - 1))];
+  }
+
+  /**
+   * Clear all analytics data
+   */
+  clearAnalytics(): void {
+    this.analyticsLog = [];
   }
 }
 

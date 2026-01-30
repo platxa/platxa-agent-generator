@@ -1,22 +1,22 @@
 {
-  "id": "plan-feature-15",
-  "title": "Implementation: Implement tool error recovery with exponential backoff retry...",
+  "id": "plan-feature-16",
+  "title": "Implementation: Add tool usage analytics tracking invocation count, latency,...",
   "context": {
-    "spec_id": "feature-15",
-    "feature_id": "15",
+    "spec_id": "feature-16",
+    "feature_id": "16",
     "dependencies": [],
     "metadata": {
       "category": "Phase 1: Agentic Core",
       "verification_criteria": {
         "type": "test",
-        "criteria": "Failed tools retry with 1s, 2s, 4s delays; give up after 3 attempts",
+        "criteria": "Each tool call logs { tool, duration, tokens, success } to analytics store",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-30T14:13:12.492074"
+    "created_at": "2026-01-30T14:37:08.211491"
   },
   "phases": [
     "research",
@@ -26,9 +26,9 @@
   ],
   "tasks": [
     {
-      "id": "task-15-1",
+      "id": "task-16-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Implement tool error recovery with exponential backoff retry (max 3 attempts)",
+      "description": "Review feature requirements: Add tool usage analytics tracking invocation count, latency, and token cost per tool",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -41,7 +41,7 @@
       "skip_reason": null
     },
     {
-      "id": "task-15-2",
+      "id": "task-16-2",
       "title": "Review Existing Code",
       "description": "Search for related code patterns and potential duplicates",
       "step_type": "setup",
@@ -56,9 +56,9 @@
       "skip_reason": null
     },
     {
-      "id": "task-15-3",
+      "id": "task-16-3",
       "title": "Implement Feature",
-      "description": "Implement: Implement tool error recovery with exponential backoff retry (max 3 attempts)",
+      "description": "Implement: Add tool usage analytics tracking invocation count, latency, and token cost per tool",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -71,7 +71,7 @@
       "skip_reason": null
     },
     {
-      "id": "task-15-4",
+      "id": "task-16-4",
       "title": "Add Tests",
       "description": "Write unit tests for new functionality",
       "step_type": "test",
@@ -86,16 +86,16 @@
       "skip_reason": null
     },
     {
-      "id": "task-15-5",
+      "id": "task-16-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Failed tools retry with 1s, 2s, 4s delays; give up after 3 attempts', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Each tool call logs { tool, duration, tokens, success } to analytics store', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "test",
-        "criteria": "Failed tools retry with 1s, 2s, 4s delays; give up after 3 attempts",
+        "criteria": "Each tool call logs { tool, duration, tokens, success } to analytics store",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-30T14:13:12.492105",
+  "created_at": "2026-01-30T14:37:08.211514",
   "lsp_impact": {}
 }
