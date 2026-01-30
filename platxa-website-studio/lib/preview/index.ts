@@ -1140,3 +1140,28 @@ export {
   type BatchStats,
   type MultiFixBatcherOptions,
 } from "./multi-fix-batcher";
+
+// Fix Explainer for User Transparency
+export {
+  FixExplainer,
+  createFixExplainer,
+  EXPLANATION_TEMPLATES,
+  generateExplanationId,
+  interpolate,
+  extractCaptures,
+  categorizeError as categorizeErrorForExplanation,
+  determineSeverity as determineSeverityForExplanation,
+  findMatchingTemplate,
+  buildVariableMap,
+  formatLocation,
+  generateGenericExplanation,
+  type ExplanationCategory,
+  type ExplanationSeverity,
+  type ProblemExplanation,
+  type SolutionExplanation,
+  type FixExplanation,
+  type ExplainableError,
+  type ExplainableFix,
+  type ExplanationTemplate,
+  type FixExplainerOptions,
+} from "./fix-explainer";
