@@ -30,6 +30,7 @@ import { compileScssTool } from './tools/compile-scss';
 import { previewRenderTool } from './tools/preview-render';
 import { inspectLogsTool } from './tools/inspect-logs';
 import { testOdooTool } from './tools/test-odoo';
+import { webSearchTool } from './tools/web-search';
 
 // ============================================================================
 // Types
@@ -324,28 +325,10 @@ async function testOdoo(params: ToolParams): Promise<ToolResult> {
 
 /**
  * Default web_search tool
+ * Feature #25: Fetches Odoo documentation and examples with site: filtering
  */
 async function webSearch(params: ToolParams): Promise<ToolResult> {
-  const startTime = Date.now();
-
-  try {
-    return {
-      success: true,
-      data: {
-        query: params.target,
-        results: [],
-      },
-      duration: Date.now() - startTime,
-      toolName: 'web_search',
-    };
-  } catch (error) {
-    return {
-      success: false,
-      error: (error as Error).message,
-      duration: Date.now() - startTime,
-      toolName: 'web_search',
-    };
-  }
+  return webSearchTool(params);
 }
 
 // ============================================================================

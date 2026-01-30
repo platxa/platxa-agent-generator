@@ -88,3 +88,13 @@ export {
   type TestStep,
   type RenderCheck,
 } from './test-odoo';
+
+export {
+  webSearchTool,
+  webSearchImpl,
+  clearSearchCache,
+  getSearchCacheStats,
+  type WebSearchOptions,
+  type WebSearchResult,
+  type SearchResult,
+} from './web-search';
