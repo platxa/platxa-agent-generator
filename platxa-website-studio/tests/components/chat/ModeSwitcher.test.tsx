@@ -396,3 +396,127 @@ describe("useAgentMode hook", () => {
     expect(result.current.mode).toBe("plan");
   });
 });
+
+// =============================================================================
+// Feature #53 Verification Tests
+// =============================================================================
+
+describe("Feature #53 verification: Toggle button switches between plan/agent; persists until changed", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  describe("toggle button switches between plan/agent", () => {
+    it("switches from plan to agent on single click", () => {
+      const onModeChange = vi.fn();
+      render(<ModeSwitcher defaultMode="plan" onModeChange={onModeChange} />);
+
+      const toggle = screen.getByRole("switch");
+      expect(screen.getByText("Plan")).toBeInTheDocument();
+
+      fireEvent.click(toggle);
+
+      expect(screen.getByText("Agent")).toBeInTheDocument();
+      expect(onModeChange).toHaveBeenCalledWith("agent");
+    });
+
+    it("switches from agent to plan on single click", () => {
+      const onModeChange = vi.fn();
+      render(<ModeSwitcher defaultMode="agent" onModeChange={onModeChange} />);
+
+      const toggle = screen.getByRole("switch");
+      expect(screen.getByText("Agent")).toBeInTheDocument();
+
+      fireEvent.click(toggle);
+
+      expect(screen.getByText("Plan")).toBeInTheDocument();
+      expect(onModeChange).toHaveBeenCalledWith("plan");
+    });
+
+    it("alternates correctly on repeated clicks", () => {
+      render(<ModeSwitcher defaultMode="plan" />);
+
+      const toggle = screen.getByRole("switch");
+
+      // plan -> agent
+      fireEvent.click(toggle);
+      expect(screen.getByText("Agent")).toBeInTheDocument();
+
+      // agent -> plan
+      fireEvent.click(toggle);
+      expect(screen.getByText("Plan")).toBeInTheDocument();
+
+      // plan -> agent
+      fireEvent.click(toggle);
+      expect(screen.getByText("Agent")).toBeInTheDocument();
+    });
+  });
+
+  describe("persists until changed", () => {
+    it("persists mode change to localStorage immediately", () => {
+      const { result } = renderHook(() => useAgentMode("plan"));
+
+      expect(localStorage.getItem("platxa-agent-mode")).toBeNull();
+
+      act(() => {
+        result.current.setMode("agent");
+      });
+
+      expect(localStorage.getItem("platxa-agent-mode")).toBe("agent");
+    });
+
+    it("restored mode persists across hook re-initialization", () => {
+      // First hook instance sets mode
+      const { result: result1, unmount } = renderHook(() => useAgentMode("plan"));
+
+      act(() => {
+        result1.current.setMode("agent");
+      });
+
+      unmount();
+
+      // Second hook instance should restore the persisted mode
+      const { result: result2 } = renderHook(() => useAgentMode("plan"));
+
+      expect(result2.current.mode).toBe("agent");
+      expect(result2.current.isAgentMode).toBe(true);
+    });
+
+    it("persisted mode remains until explicitly changed", () => {
+      localStorage.setItem("platxa-agent-mode", "agent");
+
+      const { result } = renderHook(() => useAgentMode("plan"));
+
+      // Mode persists from storage
+      expect(result.current.mode).toBe("agent");
+
+      // Toggle changes it
+      act(() => {
+        result.current.toggleMode();
+      });
+
+      expect(result.current.mode).toBe("plan");
+      expect(localStorage.getItem("platxa-agent-mode")).toBe("plan");
+
+      // New value persists
+      const { result: result2 } = renderHook(() => useAgentMode("agent"));
+      expect(result2.current.mode).toBe("plan");
+    });
+
+    it("toggle via hook persists to localStorage", () => {
+      const { result } = renderHook(() => useAgentMode("plan"));
+
+      act(() => {
+        result.current.toggleMode();
+      });
+
+      expect(localStorage.getItem("platxa-agent-mode")).toBe("agent");
+
+      act(() => {
+        result.current.toggleMode();
+      });
+
+      expect(localStorage.getItem("platxa-agent-mode")).toBe("plan");
+    });
+  });
+});
