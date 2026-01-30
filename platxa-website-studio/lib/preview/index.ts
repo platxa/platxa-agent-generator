@@ -667,3 +667,25 @@ export {
   type StateChangeCallback as DiffStateChangeCallback,
   type FileSelectCallback,
 } from "./version-diff-view";
+
+// Tool Usage Indicator for chat message chips
+export {
+  ToolUsageIndicator,
+  createToolUsageIndicator,
+  TOOL_LABELS,
+  getToolLabel,
+  formatCount,
+  formatDuration as formatUsageDuration,
+  generateChipLabel,
+  generateShortLabel,
+  truncatePath,
+  calculateSuccessRate,
+  type ToolType,
+  type ToolUsage,
+  type AggregatedUsage,
+  type UsageChip,
+  type MessageUsageSummary,
+  type ToolUsageIndicatorOptions,
+  type ToolLabelConfig,
+  type StateChangeCallback as UsageStateChangeCallback,
+} from "./tool-usage-indicator";
