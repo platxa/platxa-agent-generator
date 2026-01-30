@@ -22,6 +22,8 @@ import {
   type ScoringWeights,
   type IndustryVertical,
   type IndustryPreset,
+  type ComplexityMetrics,
+  type ComplexityFactor,
 } from '../../lib/agentic-core/option-generator';
 import type { PlanOption } from '../../lib/agentic-core/plan-handoff';
 
@@ -1284,6 +1286,259 @@ describe('OptionGenerator', () => {
 
         // Minimal approach should not have industry prefix
         expect(minimal?.name).toBe('Minimal Approach');
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Feature #46: Effort Estimation Based on File Count
+  // ==========================================================================
+
+  describe('effort estimation (Feature #46)', () => {
+    describe('file count categories (verification)', () => {
+      it('low effort: <5 files results in trivial/small', () => {
+        const context: GenerationContext = {
+          request: 'Update a single component',
+          relevantFiles: ['file1.xml', 'file2.xml', 'file3.xml'], // 3 files < 5
+        };
+
+        const result = generator.generate(context);
+        const minimal = result.options.find(o => o.category === 'minimal');
+        const standard = result.options.find(o => o.category === 'standard');
+
+        // Minimal with <5 files should be trivial
+        expect(minimal?.effort.level).toBe('trivial');
+        // Standard with <5 files should be small
+        expect(standard?.effort.level).toBe('small');
+
+        // Verify complexity metrics category
+        expect(minimal?.effort.complexityMetrics?.fileCountCategory).toBe('low');
+      });
+
+      it('medium effort: 5-15 files results in medium/large', () => {
+        const files = Array.from({ length: 8 }, (_, i) => `file${i}.xml`);
+        const context: GenerationContext = {
+          request: 'Refactor multiple components',
+          relevantFiles: files, // 8 files, 5-15 range
+        };
+
+        const result = generator.generate(context);
+        const minimal = result.options.find(o => o.category === 'minimal');
+        const standard = result.options.find(o => o.category === 'standard');
+
+        // With 8 files, minimal (0.5x) = 4 files -> low
+        // Standard (1.0x) = 8 files -> medium
+        expect(standard?.effort.level).toBe('medium');
+        expect(standard?.effort.complexityMetrics?.fileCountCategory).toBe('medium');
+      });
+
+      it('high effort: >15 files results in large/complex', () => {
+        const files = Array.from({ length: 20 }, (_, i) => `file${i}.xml`);
+        const context: GenerationContext = {
+          request: 'Complete system overhaul',
+          relevantFiles: files, // 20 files > 15
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        // Standard with >15 files should be complex
+        expect(standard?.effort.level).toBe('complex');
+        expect(standard?.effort.complexityMetrics?.fileCountCategory).toBe('high');
+      });
+
+      it('boundary: exactly 5 files is medium', () => {
+        const files = Array.from({ length: 5 }, (_, i) => `file${i}.xml`);
+        const context: GenerationContext = {
+          request: 'Update components',
+          relevantFiles: files,
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        expect(standard?.effort.complexityMetrics?.fileCountCategory).toBe('medium');
+      });
+
+      it('boundary: exactly 15 files is still medium', () => {
+        const files = Array.from({ length: 15 }, (_, i) => `file${i}.xml`);
+        const context: GenerationContext = {
+          request: 'Update components',
+          relevantFiles: files,
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        expect(standard?.effort.complexityMetrics?.fileCountCategory).toBe('medium');
+      });
+
+      it('boundary: 16 files is high', () => {
+        const files = Array.from({ length: 16 }, (_, i) => `file${i}.xml`);
+        const context: GenerationContext = {
+          request: 'Large scale update',
+          relevantFiles: files,
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        expect(standard?.effort.complexityMetrics?.fileCountCategory).toBe('high');
+      });
+    });
+
+    describe('complexity metrics', () => {
+      it('includes complexity metrics in effort estimate', () => {
+        const context: GenerationContext = {
+          request: 'Add a feature',
+          relevantFiles: ['test.xml', 'style.scss'],
+        };
+
+        const result = generator.generate(context);
+        const option = result.options[0];
+
+        expect(option.effort.complexityMetrics).toBeDefined();
+        expect(option.effort.complexityMetrics?.fileCount).toBeDefined();
+        expect(option.effort.complexityMetrics?.complexityScore).toBeDefined();
+        expect(option.effort.complexityMetrics?.fileCountCategory).toBeDefined();
+        expect(option.effort.complexityMetrics?.factors).toBeDefined();
+      });
+
+      it('complexity score is 0-100', () => {
+        const context: GenerationContext = {
+          request: 'Test complexity score',
+          relevantFiles: ['a.xml', 'b.scss', 'c.ts', 'd.py'],
+        };
+
+        const result = generator.generate(context);
+
+        for (const option of result.options) {
+          const score = option.effort.complexityMetrics?.complexityScore ?? 0;
+          expect(score).toBeGreaterThanOrEqual(0);
+          expect(score).toBeLessThanOrEqual(100);
+        }
+      });
+
+      it('includes file count factor', () => {
+        const context: GenerationContext = {
+          request: 'Test factors',
+          relevantFiles: ['test.xml'],
+        };
+
+        const result = generator.generate(context);
+        const metrics = result.options[0].effort.complexityMetrics;
+
+        const fileCountFactor = metrics?.factors.find(f => f.name === 'File Count');
+        expect(fileCountFactor).toBeDefined();
+        expect(fileCountFactor?.weight).toBeGreaterThanOrEqual(0);
+        expect(fileCountFactor?.weight).toBeLessThanOrEqual(1);
+      });
+
+      it('includes approach complexity factor', () => {
+        const context: GenerationContext = {
+          request: 'Test factors',
+          relevantFiles: ['test.xml'],
+        };
+
+        const result = generator.generate(context);
+        const metrics = result.options[0].effort.complexityMetrics;
+
+        const approachFactor = metrics?.factors.find(f => f.name === 'Approach Complexity');
+        expect(approachFactor).toBeDefined();
+      });
+
+      it('includes integration complexity factor', () => {
+        const context: GenerationContext = {
+          request: 'Test factors',
+          relevantFiles: ['test.xml', 'style.scss', 'script.ts'],
+        };
+
+        const result = generator.generate(context);
+        const metrics = result.options[0].effort.complexityMetrics;
+
+        const integrationFactor = metrics?.factors.find(f => f.name === 'Integration Complexity');
+        expect(integrationFactor).toBeDefined();
+        expect(integrationFactor?.description).toContain('3 different file types');
+      });
+
+      it('higher file count increases complexity score', () => {
+        const lowContext: GenerationContext = {
+          request: 'Small change',
+          relevantFiles: ['a.xml'],
+        };
+
+        const highContext: GenerationContext = {
+          request: 'Big change',
+          relevantFiles: Array.from({ length: 15 }, (_, i) => `file${i}.xml`),
+        };
+
+        const lowResult = generator.generate(lowContext);
+        const highResult = generator.generate(highContext);
+
+        const lowScore = lowResult.options[0].effort.complexityMetrics?.complexityScore ?? 0;
+        const highScore = highResult.options[0].effort.complexityMetrics?.complexityScore ?? 0;
+
+        expect(highScore).toBeGreaterThan(lowScore);
+      });
+
+      it('more file types increase integration complexity', () => {
+        const singleTypeContext: GenerationContext = {
+          request: 'Single type',
+          relevantFiles: ['a.xml', 'b.xml', 'c.xml'],
+        };
+
+        const multiTypeContext: GenerationContext = {
+          request: 'Multi type',
+          relevantFiles: ['a.xml', 'b.scss', 'c.ts'],
+        };
+
+        const singleResult = generator.generate(singleTypeContext);
+        const multiResult = generator.generate(multiTypeContext);
+
+        const singleIntegration = singleResult.options[0].effort.complexityMetrics?.factors
+          .find(f => f.name === 'Integration Complexity')?.weight ?? 0;
+        const multiIntegration = multiResult.options[0].effort.complexityMetrics?.factors
+          .find(f => f.name === 'Integration Complexity')?.weight ?? 0;
+
+        expect(multiIntegration).toBeGreaterThan(singleIntegration);
+      });
+    });
+
+    describe('effort level assignment', () => {
+      it('minimal approach gets lower effort than comprehensive', () => {
+        const context: GenerationContext = {
+          request: 'Build a complete dashboard with all features',
+          relevantFiles: Array.from({ length: 10 }, (_, i) => `file${i}.xml`),
+        };
+
+        const result = generator.generate(context);
+        const minimal = result.options.find(o => o.category === 'minimal');
+        const comprehensive = result.options.find(o => o.category === 'comprehensive');
+
+        if (minimal && comprehensive) {
+          const effortOrder: Record<EffortLevel, number> = {
+            trivial: 1, small: 2, medium: 3, large: 4, complex: 5,
+          };
+
+          expect(effortOrder[minimal.effort.level]).toBeLessThan(
+            effortOrder[comprehensive.effort.level]
+          );
+        }
+      });
+
+      it('template multiplier affects file count calculation', () => {
+        const context: GenerationContext = {
+          request: 'Build something',
+          relevantFiles: Array.from({ length: 6 }, (_, i) => `file${i}.xml`),
+        };
+
+        const result = generator.generate(context);
+        const minimal = result.options.find(o => o.category === 'minimal');
+        const comprehensive = result.options.find(o => o.category === 'comprehensive');
+
+        // Minimal (0.5x): 6 * 0.5 = 3 files -> low
+        // Comprehensive (2.0x): 6 * 2 = 12 files -> medium
+        expect(minimal?.effort.fileCount).toBeLessThan(comprehensive?.effort.fileCount ?? 0);
       });
     });
   });

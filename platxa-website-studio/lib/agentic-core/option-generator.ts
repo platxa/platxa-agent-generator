@@ -60,6 +60,37 @@ export interface EffortEstimate {
   complexityFactors?: string[];
   /** Dependencies required */
   dependencies?: string[];
+  /** Complexity metrics (Feature #46) */
+  complexityMetrics?: ComplexityMetrics;
+}
+
+/**
+ * Complexity metrics for effort estimation (Feature #46)
+ *
+ * Verification: Effort based on file count and complexity
+ * - low (<5 files)
+ * - medium (5-15 files)
+ * - high (>15 files)
+ */
+export interface ComplexityMetrics {
+  /** Raw file count */
+  fileCount: number;
+  /** Complexity score (0-100) */
+  complexityScore: number;
+  /** File count category */
+  fileCountCategory: 'low' | 'medium' | 'high';
+  /** Factors contributing to complexity */
+  factors: ComplexityFactor[];
+}
+
+/** Individual complexity factor */
+export interface ComplexityFactor {
+  /** Factor name */
+  name: string;
+  /** Weight (0-1) */
+  weight: number;
+  /** Description */
+  description: string;
 }
 
 /** File that will be affected by the option */
@@ -1182,7 +1213,12 @@ export class OptionGenerator {
   }
 
   /**
-   * Calculate effort estimate
+   * Calculate effort estimate (Feature #46: file-count based)
+   *
+   * Verification thresholds:
+   * - low (<5 files) → trivial/small
+   * - medium (5-15 files) → medium/large
+   * - high (>15 files) → complex
    */
   private calculateEffort(
     template: OptionTemplate,
@@ -1191,26 +1227,128 @@ export class OptionGenerator {
     const baseFiles = context.relevantFiles?.length ?? 1;
     const fileCount = Math.ceil(baseFiles * template.effortMultiplier);
 
-    // Determine effort level based on multiplier
-    let level: EffortLevel;
-    if (template.effortMultiplier <= 0.5) {
-      level = 'trivial';
-    } else if (template.effortMultiplier <= 0.8) {
-      level = 'small';
-    } else if (template.effortMultiplier <= 1.2) {
-      level = 'medium';
-    } else if (template.effortMultiplier <= 1.8) {
-      level = 'large';
-    } else {
-      level = 'complex';
-    }
+    // Calculate complexity metrics
+    const complexityMetrics = this.calculateComplexityMetrics(fileCount, template, context);
+
+    // Determine effort level based on file count (Feature #46)
+    const level = this.calculateEffortLevel(fileCount, template);
 
     return {
       level,
       fileCount,
       linesOfCode: fileCount * 50 * template.effortMultiplier,
       complexityFactors: this.getComplexityFactors(template),
+      complexityMetrics,
     };
+  }
+
+  /**
+   * Calculate effort level based on file count (Feature #46)
+   *
+   * Thresholds per verification criteria:
+   * - low (<5 files): trivial or small
+   * - medium (5-15 files): medium or large
+   * - high (>15 files): complex
+   */
+  private calculateEffortLevel(fileCount: number, template: OptionTemplate): EffortLevel {
+    // Get file count category
+    const category = this.getFileCountCategory(fileCount);
+
+    // Map category to effort level, adjusted by template complexity
+    if (category === 'low') {
+      // <5 files: trivial for minimal, small for others
+      return template.category === 'minimal' ? 'trivial' : 'small';
+    } else if (category === 'medium') {
+      // 5-15 files: medium for minimal/standard, large for comprehensive
+      return template.category === 'comprehensive' ? 'large' : 'medium';
+    } else {
+      // >15 files: large for minimal, complex for others
+      return template.category === 'minimal' ? 'large' : 'complex';
+    }
+  }
+
+  /**
+   * Get file count category (Feature #46)
+   *
+   * - low: <5 files
+   * - medium: 5-15 files
+   * - high: >15 files
+   */
+  private getFileCountCategory(fileCount: number): 'low' | 'medium' | 'high' {
+    if (fileCount < 5) return 'low';
+    if (fileCount <= 15) return 'medium';
+    return 'high';
+  }
+
+  /**
+   * Calculate complexity metrics (Feature #46)
+   */
+  private calculateComplexityMetrics(
+    fileCount: number,
+    template: OptionTemplate,
+    context: GenerationContext
+  ): ComplexityMetrics {
+    const factors: ComplexityFactor[] = [];
+
+    // Factor 1: File count complexity
+    const fileCountWeight = Math.min(1, fileCount / 20);
+    factors.push({
+      name: 'File Count',
+      weight: fileCountWeight,
+      description: `${fileCount} files affected`,
+    });
+
+    // Factor 2: Template complexity
+    const templateWeight = template.effortMultiplier / 2;
+    factors.push({
+      name: 'Approach Complexity',
+      weight: Math.min(1, templateWeight),
+      description: `${template.category} approach (${template.effortMultiplier}x multiplier)`,
+    });
+
+    // Factor 3: Integration complexity (based on file diversity)
+    const uniqueExtensions = this.countUniqueExtensions(context.relevantFiles ?? []);
+    const integrationWeight = Math.min(1, uniqueExtensions / 5);
+    factors.push({
+      name: 'Integration Complexity',
+      weight: integrationWeight,
+      description: `${uniqueExtensions} different file types`,
+    });
+
+    // Factor 4: Analysis issues (if available)
+    const issueCount = context.analysis?.issues.length ?? 0;
+    if (issueCount > 0) {
+      const issueWeight = Math.min(1, issueCount / 10);
+      factors.push({
+        name: 'Issue Complexity',
+        weight: issueWeight,
+        description: `${issueCount} issues to address`,
+      });
+    }
+
+    // Calculate overall complexity score (0-100)
+    const totalWeight = factors.reduce((sum, f) => sum + f.weight, 0);
+    const avgWeight = factors.length > 0 ? totalWeight / factors.length : 0;
+    const complexityScore = Math.round(avgWeight * 100);
+
+    return {
+      fileCount,
+      complexityScore,
+      fileCountCategory: this.getFileCountCategory(fileCount),
+      factors,
+    };
+  }
+
+  /**
+   * Count unique file extensions
+   */
+  private countUniqueExtensions(files: string[]): number {
+    const extensions = new Set<string>();
+    for (const file of files) {
+      const ext = file.split('.').pop()?.toLowerCase() ?? '';
+      if (ext) extensions.add(ext);
+    }
+    return extensions.size;
   }
 
   /**
