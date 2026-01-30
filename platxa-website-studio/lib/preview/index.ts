@@ -1110,3 +1110,33 @@ export {
   type FixForScoring,
   type FixConfidenceScorerOptions,
 } from "./fix-confidence-scorer";
+
+// Multi-Fix Batching for Related Errors
+export {
+  MultiFixBatcher,
+  createMultiFixBatcher,
+  DEFAULT_MIN_CONFIDENCE,
+  DEFAULT_MAX_GROUP_SIZE,
+  RELATION_PRIORITY,
+  generateId as generateBatchId,
+  isSameFile,
+  isSameCause,
+  isSameType,
+  isCascading,
+  messageSimilarity,
+  detectRelation,
+  detectAllRelations,
+  detectFixConflict,
+  sortFixesByDependency,
+  groupErrors,
+  createBatchedFix,
+  type RelationType,
+  type BatchableError,
+  type BatchableFix,
+  type ErrorRelation,
+  type ErrorGroup,
+  type BatchedFix,
+  type BatchResult,
+  type BatchStats,
+  type MultiFixBatcherOptions,
+} from "./multi-fix-batcher";
