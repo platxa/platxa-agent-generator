@@ -75,6 +75,35 @@ export interface AffectedFile {
 }
 
 /**
+ * Option score breakdown (Feature #40)
+ * Shows individual factors that contribute to the overall score
+ */
+export interface OptionScoreBreakdown {
+  /** Effort score (0-1, lower effort = higher score) */
+  effort: number;
+  /** Quality score (0-1, more pros/fewer cons = higher score) */
+  quality: number;
+  /** Risk score (0-1, lower risk = higher score) */
+  risk: number;
+  /** Combined weighted score (0-100) */
+  total: number;
+  /** Rank among options (1 = best) */
+  rank?: number;
+}
+
+/**
+ * Scoring weights for option ranking
+ */
+export interface ScoringWeights {
+  /** Weight for effort factor (default: 0.3) */
+  effort: number;
+  /** Weight for quality factor (default: 0.4) */
+  quality: number;
+  /** Weight for risk factor (default: 0.3) */
+  risk: number;
+}
+
+/**
  * A design option with full trade-off analysis
  *
  * Feature #44 Required Fields:
@@ -85,6 +114,9 @@ export interface AffectedFile {
  * - cons[]: List of disadvantages (OptionCon[])
  * - effort: Effort estimation (EffortEstimate)
  * - files[]: Files that will be affected (AffectedFile[])
+ *
+ * Feature #40 Scoring Fields:
+ * - score: OptionScoreBreakdown with effort/quality/risk factors
  */
 export interface DesignOption {
   /** Unique identifier (Feature #44: required) */
@@ -111,6 +143,8 @@ export interface DesignOption {
   recommended?: boolean;
   /** Additional notes */
   notes?: string;
+  /** Score breakdown (Feature #40) */
+  score?: OptionScoreBreakdown;
 }
 
 /** Generation result */
@@ -311,23 +345,193 @@ export class OptionGenerator {
   }
 
   // ==========================================================================
+  // Scoring (Feature #40)
+  // ==========================================================================
+
+  /**
+   * Default scoring weights
+   *
+   * Quality is weighted highest (0.45) because balanced approaches
+   * with good pros/cons trade-offs are typically preferred.
+   * Effort (0.25) and risk (0.30) are secondary factors.
+   */
+  private static readonly DEFAULT_WEIGHTS: ScoringWeights = {
+    effort: 0.25,
+    quality: 0.45,
+    risk: 0.30,
+  };
+
+  /**
+   * Score a single option based on effort, quality, and risk
+   */
+  scoreOption(option: DesignOption, weights?: Partial<ScoringWeights>): OptionScoreBreakdown {
+    const w: ScoringWeights = {
+      ...OptionGenerator.DEFAULT_WEIGHTS,
+      ...weights,
+    };
+
+    // Calculate effort score (lower effort = higher score)
+    const effortScore = this.calculateEffortScore(option.effort);
+
+    // Calculate quality score (more pros, fewer cons = higher score)
+    const qualityScore = this.calculateQualityScore(option.pros, option.cons);
+
+    // Calculate risk score (lower risk = higher score)
+    const riskScore = this.calculateRiskScore(option.riskLevel, option.effort);
+
+    // Calculate weighted total (0-100 scale)
+    const total = Math.round(
+      (effortScore * w.effort + qualityScore * w.quality + riskScore * w.risk) * 100
+    );
+
+    return {
+      effort: Math.round(effortScore * 100) / 100,
+      quality: Math.round(qualityScore * 100) / 100,
+      risk: Math.round(riskScore * 100) / 100,
+      total,
+    };
+  }
+
+  /**
+   * Score all options and assign ranks
+   */
+  scoreOptions(
+    options: DesignOption[],
+    weights?: Partial<ScoringWeights>
+  ): DesignOption[] {
+    // Score each option
+    const scored = options.map(option => ({
+      ...option,
+      score: this.scoreOption(option, weights),
+    }));
+
+    // Sort by total score descending
+    scored.sort((a, b) => (b.score?.total ?? 0) - (a.score?.total ?? 0));
+
+    // Assign ranks
+    scored.forEach((option, index) => {
+      if (option.score) {
+        option.score.rank = index + 1;
+      }
+    });
+
+    return scored;
+  }
+
+  /**
+   * Calculate effort score (0-1, lower effort = higher score)
+   *
+   * Scores are calibrated so that:
+   * - trivial/small/medium are relatively close (0.9/0.8/0.7)
+   * - large/complex have more significant penalties
+   * This ensures "standard" (medium effort) isn't overly penalized vs "minimal" (trivial)
+   */
+  private calculateEffortScore(effort: EffortEstimate): number {
+    // Effort level to base score - calibrated for balanced recommendations
+    const levelScores: Record<EffortLevel, number> = {
+      trivial: 0.9,
+      small: 0.8,
+      medium: 0.7,
+      large: 0.5,
+      complex: 0.3,
+    };
+
+    let score = levelScores[effort.level];
+
+    // Adjust for file count (more files = slightly lower score)
+    const fileCountPenalty = Math.min(0.15, effort.fileCount * 0.02);
+    score -= fileCountPenalty;
+
+    // Adjust for complexity factors
+    const complexityPenalty = Math.min(0.1, (effort.complexityFactors?.length ?? 0) * 0.025);
+    score -= complexityPenalty;
+
+    return Math.max(0, Math.min(1, score));
+  }
+
+  /**
+   * Calculate quality score (0-1, more pros/fewer cons = higher score)
+   */
+  private calculateQualityScore(pros: OptionPro[], cons: OptionCon[]): number {
+    // Weight pros by impact
+    const proWeights = { low: 0.5, medium: 1.0, high: 1.5 };
+    const proScore = pros.reduce(
+      (sum, pro) => sum + proWeights[pro.impact],
+      0
+    );
+
+    // Weight cons by severity
+    const conWeights = { low: 0.3, medium: 0.7, high: 1.2 };
+    const conScore = cons.reduce(
+      (sum, con) => sum + conWeights[con.severity],
+      0
+    );
+
+    // Calculate net quality (normalized to 0-1)
+    // Baseline: 3 pros at medium = 3.0, 1 con at medium = 0.7 => net = 2.3
+    const netScore = proScore - conScore;
+
+    // Normalize: -3 to +5 range mapped to 0 to 1
+    const normalized = (netScore + 3) / 8;
+
+    return Math.max(0, Math.min(1, normalized));
+  }
+
+  /**
+   * Calculate risk score (0-1, lower risk = higher score)
+   */
+  private calculateRiskScore(
+    riskLevel: 'low' | 'medium' | 'high',
+    effort: EffortEstimate
+  ): number {
+    // Base score from risk level
+    const riskScores: Record<'low' | 'medium' | 'high', number> = {
+      low: 0.95,
+      medium: 0.65,
+      high: 0.3,
+    };
+
+    let score = riskScores[riskLevel];
+
+    // Adjust for dependencies (more dependencies = higher risk)
+    const dependencyPenalty = Math.min(0.15, (effort.dependencies?.length ?? 0) * 0.05);
+    score -= dependencyPenalty;
+
+    // Complex efforts have inherent risk
+    if (effort.level === 'complex') {
+      score -= 0.1;
+    }
+
+    return Math.max(0, Math.min(1, score));
+  }
+
+  // ==========================================================================
   // Main Generation
   // ==========================================================================
 
   /**
    * Generate design options from context
+   *
+   * Feature #40: Options are scored and sorted by recommendation score.
+   * The recommended option is the highest-scoring one.
    */
-  generate(context: GenerationContext): OptionGenerationResult {
+  generate(
+    context: GenerationContext,
+    scoringWeights?: Partial<ScoringWeights>
+  ): OptionGenerationResult {
     // Determine which templates to use
     const templatesToUse = this.selectTemplates(context);
 
     // Generate options from templates
-    const options = templatesToUse.map((template, index) =>
+    const rawOptions = templatesToUse.map((template, index) =>
       this.generateOption(template, context, index)
     );
 
-    // Determine recommended option
-    const recommendedId = this.selectRecommendation(options, context);
+    // Score and sort options (Feature #40)
+    const options = this.scoreOptions(rawOptions, scoringWeights);
+
+    // Recommended option is the highest-scoring one (rank 1)
+    const recommendedId = options[0]?.id ?? rawOptions[0]?.id;
 
     // Mark recommended
     for (const option of options) {
@@ -772,13 +976,14 @@ export class OptionGenerator {
   // ==========================================================================
 
   /**
-   * Generate summary of all options
+   * Generate summary of all options (includes scores per Feature #40)
    */
   private generateSummary(options: DesignOption[]): string {
     const optionSummaries = options.map(opt => {
       const proCount = opt.pros.length;
       const conCount = opt.cons.length;
-      return `${opt.name}: ${opt.effort.level} effort, ${proCount} pros, ${conCount} cons`;
+      const scoreInfo = opt.score ? ` [score: ${opt.score.total}]` : '';
+      return `${opt.name}: ${opt.effort.level} effort, ${proCount} pros, ${conCount} cons${scoreInfo}`;
     });
 
     return optionSummaries.join('; ');

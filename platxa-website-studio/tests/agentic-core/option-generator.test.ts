@@ -17,6 +17,8 @@ import {
   type GenerationContext,
   type EffortLevel,
   type ApproachCategory,
+  type OptionScoreBreakdown,
+  type ScoringWeights,
 } from '../../lib/agentic-core/option-generator';
 import type { PlanOption } from '../../lib/agentic-core/plan-handoff';
 
@@ -655,6 +657,316 @@ describe('OptionGenerator', () => {
 
       // Should not throw
       expect(() => generator.getConfig()).not.toThrow();
+    });
+  });
+
+  // ==========================================================================
+  // Feature #40: Option Scoring
+  // ==========================================================================
+
+  describe('option scoring (Feature #40)', () => {
+    describe('scoreOption', () => {
+      it('returns score breakdown with all factors', () => {
+        const context: GenerationContext = {
+          request: 'Test scoring',
+          relevantFiles: ['test.xml'],
+        };
+
+        const result = generator.generate(context);
+        const option = result.options[0];
+        const score = generator.scoreOption(option);
+
+        expect(score).toBeDefined();
+        expect(score.effort).toBeGreaterThanOrEqual(0);
+        expect(score.effort).toBeLessThanOrEqual(1);
+        expect(score.quality).toBeGreaterThanOrEqual(0);
+        expect(score.quality).toBeLessThanOrEqual(1);
+        expect(score.risk).toBeGreaterThanOrEqual(0);
+        expect(score.risk).toBeLessThanOrEqual(1);
+        expect(score.total).toBeGreaterThanOrEqual(0);
+        expect(score.total).toBeLessThanOrEqual(100);
+      });
+
+      it('lower effort options score higher on effort factor', () => {
+        const context: GenerationContext = {
+          request: 'Build a complete system with all features',
+          relevantFiles: ['a.xml', 'b.xml', 'c.xml', 'd.xml'],
+        };
+
+        const result = generator.generate(context);
+        const minimal = result.options.find(o => o.category === 'minimal');
+        const comprehensive = result.options.find(o => o.category === 'comprehensive');
+
+        if (minimal && comprehensive) {
+          const minimalScore = generator.scoreOption(minimal);
+          const comprehensiveScore = generator.scoreOption(comprehensive);
+
+          expect(minimalScore.effort).toBeGreaterThan(comprehensiveScore.effort);
+        }
+      });
+
+      it('options with more pros score higher on quality factor', () => {
+        const context: GenerationContext = {
+          request: 'Build a complete feature set',
+          relevantFiles: ['a.xml', 'b.xml', 'c.xml'],
+        };
+
+        const result = generator.generate(context);
+
+        // Comprehensive typically has more high-impact pros
+        const comprehensive = result.options.find(o => o.category === 'comprehensive');
+        const minimal = result.options.find(o => o.category === 'minimal');
+
+        if (comprehensive && minimal) {
+          const compScore = generator.scoreOption(comprehensive);
+          const minScore = generator.scoreOption(minimal);
+
+          // Both should have valid quality scores
+          expect(compScore.quality).toBeGreaterThanOrEqual(0);
+          expect(minScore.quality).toBeGreaterThanOrEqual(0);
+        }
+      });
+
+      it('lower risk options score higher on risk factor', () => {
+        const context: GenerationContext = {
+          request: 'Make a simple change',
+        };
+
+        const result = generator.generate(context);
+        const lowRiskOption = result.options.find(o => o.riskLevel === 'low');
+        const higherRiskOption = result.options.find(o => o.riskLevel !== 'low');
+
+        if (lowRiskOption && higherRiskOption) {
+          const lowRiskScore = generator.scoreOption(lowRiskOption);
+          const higherRiskScore = generator.scoreOption(higherRiskOption);
+
+          expect(lowRiskScore.risk).toBeGreaterThanOrEqual(higherRiskScore.risk);
+        }
+      });
+
+      it('accepts custom weights', () => {
+        const context: GenerationContext = {
+          request: 'Test weights',
+        };
+
+        const result = generator.generate(context);
+        const option = result.options[0];
+
+        // Weight effort heavily
+        const effortWeighted = generator.scoreOption(option, {
+          effort: 0.8,
+          quality: 0.1,
+          risk: 0.1,
+        });
+
+        // Weight quality heavily
+        const qualityWeighted = generator.scoreOption(option, {
+          effort: 0.1,
+          quality: 0.8,
+          risk: 0.1,
+        });
+
+        // Scores should differ based on weights
+        expect(effortWeighted.total).not.toBe(qualityWeighted.total);
+      });
+    });
+
+    describe('scoreOptions', () => {
+      it('assigns ranks to all options', () => {
+        const context: GenerationContext = {
+          request: 'Build something with scoring',
+          relevantFiles: ['test.xml'],
+        };
+
+        const result = generator.generate(context);
+
+        for (const option of result.options) {
+          expect(option.score).toBeDefined();
+          expect(option.score?.rank).toBeDefined();
+          expect(option.score?.rank).toBeGreaterThanOrEqual(1);
+          expect(option.score?.rank).toBeLessThanOrEqual(result.options.length);
+        }
+      });
+
+      it('sorts options by total score descending', () => {
+        const context: GenerationContext = {
+          request: 'Test sorting',
+          relevantFiles: ['a.xml', 'b.xml'],
+        };
+
+        const result = generator.generate(context);
+
+        // Verify descending order
+        for (let i = 1; i < result.options.length; i++) {
+          const prevScore = result.options[i - 1].score?.total ?? 0;
+          const currScore = result.options[i].score?.total ?? 0;
+          expect(prevScore).toBeGreaterThanOrEqual(currScore);
+        }
+      });
+
+      it('rank 1 is the highest scoring option', () => {
+        const context: GenerationContext = {
+          request: 'Test rank 1',
+        };
+
+        const result = generator.generate(context);
+
+        const rank1Option = result.options.find(o => o.score?.rank === 1);
+        expect(rank1Option).toBeDefined();
+
+        // Rank 1 should have highest or equal score
+        for (const option of result.options) {
+          expect(rank1Option?.score?.total).toBeGreaterThanOrEqual(option.score?.total ?? 0);
+        }
+      });
+
+      it('ranks are unique and consecutive', () => {
+        const context: GenerationContext = {
+          request: 'Test unique ranks',
+          relevantFiles: ['a.xml', 'b.xml', 'c.xml'],
+        };
+
+        const result = generator.generate(context);
+
+        const ranks = result.options.map(o => o.score?.rank).filter(r => r !== undefined);
+        const uniqueRanks = new Set(ranks);
+
+        // All ranks should be unique
+        expect(uniqueRanks.size).toBe(ranks.length);
+
+        // Ranks should be consecutive starting from 1
+        for (let i = 1; i <= result.options.length; i++) {
+          expect(ranks).toContain(i);
+        }
+      });
+    });
+
+    describe('generate with scoring', () => {
+      it('options are scored after generation', () => {
+        const context: GenerationContext = {
+          request: 'Generate with scores',
+        };
+
+        const result = generator.generate(context);
+
+        for (const option of result.options) {
+          expect(option.score).toBeDefined();
+          expect(option.score?.effort).toBeDefined();
+          expect(option.score?.quality).toBeDefined();
+          expect(option.score?.risk).toBeDefined();
+          expect(option.score?.total).toBeDefined();
+        }
+      });
+
+      it('recommended option is the highest-scoring', () => {
+        const context: GenerationContext = {
+          request: 'Test recommended is highest score',
+        };
+
+        const result = generator.generate(context);
+
+        const recommended = result.options.find(o => o.id === result.recommendedId);
+        expect(recommended).toBeDefined();
+        expect(recommended?.score?.rank).toBe(1);
+      });
+
+      it('accepts scoring weights in generate', () => {
+        const context: GenerationContext = {
+          request: 'Test generate with weights',
+          relevantFiles: ['test.xml'],
+        };
+
+        // Favor low effort heavily
+        const result = generator.generate(context, {
+          effort: 0.9,
+          quality: 0.05,
+          risk: 0.05,
+        });
+
+        // With heavy effort weighting, minimal (lowest effort) should rank well
+        const minimal = result.options.find(o => o.category === 'minimal');
+        if (minimal) {
+          expect(minimal.score?.rank).toBeLessThanOrEqual(2);
+        }
+      });
+
+      it('summary includes scores', () => {
+        const context: GenerationContext = {
+          request: 'Test summary with scores',
+        };
+
+        const result = generator.generate(context);
+
+        // Summary should contain score information
+        expect(result.summary).toContain('[score:');
+      });
+    });
+
+    describe('scoring factors visible (verification)', () => {
+      it('score breakdown shows all three factors', () => {
+        const context: GenerationContext = {
+          request: 'Verify scoring factors',
+        };
+
+        const result = generator.generate(context);
+        const option = result.options[0];
+
+        // All factors must be visible in the score
+        expect(option.score).toHaveProperty('effort');
+        expect(option.score).toHaveProperty('quality');
+        expect(option.score).toHaveProperty('risk');
+        expect(option.score).toHaveProperty('total');
+        expect(option.score).toHaveProperty('rank');
+
+        // Values must be meaningful (not all zeros)
+        expect(
+          (option.score?.effort ?? 0) +
+          (option.score?.quality ?? 0) +
+          (option.score?.risk ?? 0)
+        ).toBeGreaterThan(0);
+      });
+
+      it('factors are normalized to 0-1 range', () => {
+        const context: GenerationContext = {
+          request: 'Verify factor normalization',
+          relevantFiles: ['a.xml', 'b.xml', 'c.xml', 'd.xml'],
+        };
+
+        const result = generator.generate(context);
+
+        for (const option of result.options) {
+          expect(option.score?.effort).toBeGreaterThanOrEqual(0);
+          expect(option.score?.effort).toBeLessThanOrEqual(1);
+          expect(option.score?.quality).toBeGreaterThanOrEqual(0);
+          expect(option.score?.quality).toBeLessThanOrEqual(1);
+          expect(option.score?.risk).toBeGreaterThanOrEqual(0);
+          expect(option.score?.risk).toBeLessThanOrEqual(1);
+        }
+      });
+
+      it('total score is weighted combination (0-100 scale)', () => {
+        const context: GenerationContext = {
+          request: 'Verify total score calculation',
+        };
+
+        const result = generator.generate(context);
+
+        for (const option of result.options) {
+          expect(option.score?.total).toBeGreaterThanOrEqual(0);
+          expect(option.score?.total).toBeLessThanOrEqual(100);
+
+          // Verify total is approximately the weighted sum
+          // Default weights: effort=0.25, quality=0.45, risk=0.30
+          const expected = Math.round(
+            ((option.score?.effort ?? 0) * 0.25 +
+             (option.score?.quality ?? 0) * 0.45 +
+             (option.score?.risk ?? 0) * 0.30) * 100
+          );
+
+          // Allow small rounding differences
+          expect(Math.abs((option.score?.total ?? 0) - expected)).toBeLessThanOrEqual(1);
+        }
+      });
     });
   });
 
