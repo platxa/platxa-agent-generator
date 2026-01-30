@@ -460,3 +460,22 @@ export {
   type SpacingChangeCallback,
   type DragCallback,
 } from "./spacing-controls";
+
+// Edit in Code button for jumping to source in editor
+export {
+  EditInCodeButton,
+  createEditInCodeButton,
+  EDIT_IN_CODE_SCRIPT,
+  DEFAULT_LABEL,
+  DEFAULT_TOOLTIP,
+  DEFAULT_SHORTCUT,
+  type SourceLocation as EditSourceLocation,
+  type SelectedElementSource,
+  type ButtonState,
+  type EditInCodeButtonOptions,
+  type EditInCodeButtonState,
+  type EditInCodeClickEvent,
+  type ClickCallback as EditClickCallback,
+  type NavigationCallback as EditNavigationCallback,
+  type StateChangeCallback as EditStateChangeCallback,
+} from "./edit-in-code-button";
