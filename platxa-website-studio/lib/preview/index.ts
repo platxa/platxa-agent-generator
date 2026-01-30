@@ -479,3 +479,28 @@ export {
   type NavigationCallback as EditNavigationCallback,
   type StateChangeCallback as EditStateChangeCallback,
 } from "./edit-in-code-button";
+
+// Device Frame for device visualization around preview
+export {
+  DeviceFrame,
+  createDeviceFrame,
+  ALL_DEVICES,
+  IPHONE_DEVICES,
+  IPAD_DEVICES,
+  MACBOOK_DEVICES,
+  DESKTOP_DEVICES,
+  DEFAULT_DEVICE,
+  getDevice,
+  getDevicesByCategory,
+  getScreenDimensions,
+  getFrameDimensions,
+  calculateFitScale,
+  type DeviceCategory,
+  type DeviceOrientation,
+  type DeviceColor,
+  type DeviceDefinition,
+  type DeviceFrameState,
+  type DeviceFrameOptions,
+  type FrameStyles,
+  type DeviceChangeCallback,
+} from "./device-frame";
