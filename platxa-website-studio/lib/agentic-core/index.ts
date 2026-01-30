@@ -133,6 +133,20 @@ export {
 } from './context-pruner';
 
 export {
+  CrossRequestCache,
+  getCrossRequestCache,
+  withCrossRequestCache,
+  type CacheEntryType,
+  type FileMetadata,
+  type CacheEntry,
+  type CacheStats,
+  type CrossRequestCacheConfig,
+  type FileChangeEvent,
+  type CacheableManager,
+  type CachedManager,
+} from './cross-request-cache';
+
+export {
   PlanEngine,
   createPlanEngine,
   type PlanQuery,
