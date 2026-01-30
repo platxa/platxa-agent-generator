@@ -366,3 +366,17 @@ export {
   type SourceNavigatorConfig,
   type NavigationResult,
 } from "./preview-source-navigator";
+
+// Cursor Highlight Bridge for editor cursor to preview element highlighting
+export {
+  CursorHighlightBridge,
+  createCursorHighlightBridge,
+  CURSOR_HIGHLIGHT_SCRIPT,
+  type CursorPosition,
+  type CursorHighlightBridgeOptions,
+  type CursorHighlightState,
+  type HighlightStateCallback,
+  type HighlightRequest,
+  type UseCursorHighlightOptions,
+  type UseCursorHighlightReturn,
+} from "./cursor-highlight-bridge";
