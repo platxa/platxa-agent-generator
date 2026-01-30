@@ -1165,3 +1165,28 @@ export {
   type ExplanationTemplate,
   type FixExplainerOptions,
 } from "./fix-explainer";
+
+// Exponential Backoff Strategy for Repeated Failures
+export {
+  ExponentialBackoff,
+  RetryStrategy,
+  createExponentialBackoff,
+  createRetryStrategy,
+  createVerificationRetryStrategy,
+  retry,
+  DEFAULT_CONFIG as BACKOFF_DEFAULT_CONFIG,
+  DELAY_SEQUENCES,
+  calculateDelay,
+  addJitter,
+  createDelay,
+  calculateTotalDelay,
+  getDelaySequence,
+  createRetryState,
+  isRetryableError,
+  type BackoffType,
+  type AttemptResult,
+  type RetryState,
+  type RetryResult,
+  type BackoffConfig,
+  type RetryOptions,
+} from "./exponential-backoff";
