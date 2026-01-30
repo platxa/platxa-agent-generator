@@ -543,7 +543,7 @@ export function validateConfig(config: FrontendConfig): ConfigValidationResult {
   }
 
   // Validate brand package format
-  if (config.brand?.package) {
+  if (config.brand?.package !== undefined) {
     const pkg = config.brand.package
     if (typeof pkg !== "string") {
       details.push({
@@ -593,9 +593,10 @@ export function validateConfig(config: FrontendConfig): ConfigValidationResult {
             message: "Environment config must be an object",
             suggestion: `Set environments.${envName} to a partial FrontendConfig`,
           })
+          continue // Skip further validation for invalid env config
         }
-        // Validate nested environments are not allowed
-        if (envConfig && "environments" in envConfig) {
+        // Validate nested environments are not allowed (safe - envConfig is object)
+        if ("environments" in envConfig) {
           details.push({
             field: `environments.${envName}.environments`,
             message: "Nested environments are not supported",
