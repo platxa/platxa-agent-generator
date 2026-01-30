@@ -12,6 +12,7 @@ import {
   OptionGenerator,
   createOptionGenerator,
   generateOptions,
+  INDUSTRY_PRESETS,
   type DesignOption,
   type OptionGenerationResult,
   type GenerationContext,
@@ -19,6 +20,8 @@ import {
   type ApproachCategory,
   type OptionScoreBreakdown,
   type ScoringWeights,
+  type IndustryVertical,
+  type IndustryPreset,
 } from '../../lib/agentic-core/option-generator';
 import type { PlanOption } from '../../lib/agentic-core/plan-handoff';
 
@@ -966,6 +969,321 @@ describe('OptionGenerator', () => {
           // Allow small rounding differences
           expect(Math.abs((option.score?.total ?? 0) - expected)).toBeLessThanOrEqual(1);
         }
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Feature #45: Industry-Aware Option Generation
+  // ==========================================================================
+
+  describe('industry-aware option generation (Feature #45)', () => {
+    describe('detectIndustry', () => {
+      it('detects restaurant industry from food keywords', () => {
+        const context: GenerationContext = {
+          request: 'Create a menu page for our restaurant with food photos',
+        };
+
+        const industry = generator.detectIndustry(context);
+        expect(industry).toBe('restaurant');
+      });
+
+      it('detects legal industry from law keywords', () => {
+        const context: GenerationContext = {
+          request: 'Build a professional page for our law firm attorneys',
+        };
+
+        const industry = generator.detectIndustry(context);
+        expect(industry).toBe('legal');
+      });
+
+      it('detects retail industry from shop keywords', () => {
+        const context: GenerationContext = {
+          request: 'Add a product catalog with checkout for our ecommerce store',
+        };
+
+        const industry = generator.detectIndustry(context);
+        expect(industry).toBe('retail');
+      });
+
+      it('detects healthcare industry from medical keywords', () => {
+        const context: GenerationContext = {
+          request: 'Create an appointment booking page for our medical clinic',
+        };
+
+        const industry = generator.detectIndustry(context);
+        expect(industry).toBe('healthcare');
+      });
+
+      it('returns general for non-specific requests', () => {
+        const context: GenerationContext = {
+          request: 'Add a hero section to the homepage',
+        };
+
+        const industry = generator.detectIndustry(context);
+        expect(industry).toBe('general');
+      });
+
+      it('uses explicit industry from context if provided', () => {
+        const context: GenerationContext = {
+          request: 'Add a contact form',
+          industry: 'nonprofit',
+        };
+
+        const industry = generator.detectIndustry(context);
+        expect(industry).toBe('nonprofit');
+      });
+
+      it('considers domain context for detection', () => {
+        const context: GenerationContext = {
+          request: 'Add a landing page',
+          domain: 'real estate property listings',
+        };
+
+        const industry = generator.detectIndustry(context);
+        expect(industry).toBe('realestate');
+      });
+    });
+
+    describe('getIndustryPreset', () => {
+      it('returns preset for valid industry', () => {
+        const preset = generator.getIndustryPreset('restaurant');
+
+        expect(preset.vertical).toBe('restaurant');
+        expect(preset.name).toBe('Restaurant & Hospitality');
+        expect(preset.designTone).toBe('friendly');
+        expect(preset.keywords.length).toBeGreaterThan(0);
+      });
+
+      it('returns general preset for unknown industry', () => {
+        const preset = generator.getIndustryPreset('general');
+
+        expect(preset.vertical).toBe('general');
+        expect(preset.designTone).toBe('professional');
+      });
+    });
+
+    describe('industry presets', () => {
+      it('all verticals have complete presets', () => {
+        const verticals: IndustryVertical[] = [
+          'restaurant', 'retail', 'healthcare', 'legal', 'education',
+          'manufacturing', 'services', 'realestate', 'nonprofit', 'general',
+        ];
+
+        for (const vertical of verticals) {
+          const preset = INDUSTRY_PRESETS[vertical];
+
+          expect(preset).toBeDefined();
+          expect(preset.vertical).toBe(vertical);
+          expect(preset.name).toBeDefined();
+          expect(preset.designTone).toBeDefined();
+          expect(preset.odooModules).toBeDefined();
+          expect(Array.isArray(preset.odooModules)).toBe(true);
+        }
+      });
+
+      it('non-general presets have keywords', () => {
+        for (const [vertical, preset] of Object.entries(INDUSTRY_PRESETS)) {
+          if (vertical !== 'general') {
+            expect(preset.keywords.length).toBeGreaterThan(0);
+          }
+        }
+      });
+
+      it('non-general presets have industry pros', () => {
+        for (const [vertical, preset] of Object.entries(INDUSTRY_PRESETS)) {
+          if (vertical !== 'general') {
+            expect(preset.industryPros.length).toBeGreaterThan(0);
+          }
+        }
+      });
+    });
+
+    describe('restaurant requests get food-specific options (verification)', () => {
+      it('restaurant options have food-related pros', () => {
+        const context: GenerationContext = {
+          request: 'Create a menu page for our restaurant with reservations',
+          relevantFiles: ['templates/menu.xml'],
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        expect(standard).toBeDefined();
+
+        // Should have food-specific pros
+        const hasFoodPro = standard?.pros.some(
+          p => p.category === 'food-ux' || p.category === 'appetite-appeal'
+        );
+        expect(hasFoodPro).toBe(true);
+      });
+
+      it('restaurant options have appropriate naming', () => {
+        const context: GenerationContext = {
+          request: 'Build a dining reservation system for our bistro',
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        expect(standard?.name).toContain('Restaurant');
+      });
+
+      it('restaurant options have friendly tone in description', () => {
+        const context: GenerationContext = {
+          request: 'Create a menu showcase for our cafe',
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        expect(standard?.description).toContain('warm and inviting');
+      });
+    });
+
+    describe('legal requests get formal options (verification)', () => {
+      it('legal options have authority/credibility pros', () => {
+        const context: GenerationContext = {
+          request: 'Build a professional website for our law firm practice areas',
+          relevantFiles: ['templates/practice-areas.xml'],
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        expect(standard).toBeDefined();
+
+        // Should have legal-specific pros
+        const hasLegalPro = standard?.pros.some(
+          p => p.category === 'authority' || p.category === 'credibility'
+        );
+        expect(hasLegalPro).toBe(true);
+      });
+
+      it('legal options have appropriate naming', () => {
+        const context: GenerationContext = {
+          request: 'Create attorney profiles for our litigation practice',
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        expect(standard?.name).toContain('Legal');
+      });
+
+      it('legal options have formal tone in description', () => {
+        const context: GenerationContext = {
+          request: 'Build a case study page for our law firm',
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        expect(standard?.description).toContain('professional and authoritative');
+      });
+
+      it('comprehensive legal options include formal-tone cons', () => {
+        const context: GenerationContext = {
+          request: 'Build a complete legal services portal for attorneys',
+          relevantFiles: ['a.xml', 'b.xml', 'c.xml', 'd.xml'],
+        };
+
+        const result = generator.generate(context);
+        const comprehensive = result.options.find(o => o.category === 'comprehensive');
+
+        if (comprehensive) {
+          const hasFormalCon = comprehensive.cons.some(
+            c => c.category === 'formal-tone'
+          );
+          expect(hasFormalCon).toBe(true);
+        }
+      });
+    });
+
+    describe('other industry verticals', () => {
+      it('healthcare options have trust/accessibility pros', () => {
+        const context: GenerationContext = {
+          request: 'Create a patient portal for our medical clinic',
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        const hasHealthcarePro = standard?.pros.some(
+          p => p.category === 'trust' || p.category === 'accessibility'
+        );
+        expect(hasHealthcarePro).toBe(true);
+      });
+
+      it('retail options have conversion/shopping-ux pros', () => {
+        const context: GenerationContext = {
+          request: 'Build a product catalog with shopping cart',
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        const hasRetailPro = standard?.pros.some(
+          p => p.category === 'conversion' || p.category === 'shopping-ux'
+        );
+        expect(hasRetailPro).toBe(true);
+      });
+
+      it('education options have learning-ux/engagement pros', () => {
+        const context: GenerationContext = {
+          request: 'Create a course enrollment page for our academy',
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        const hasEducationPro = standard?.pros.some(
+          p => p.category === 'learning-ux' || p.category === 'engagement'
+        );
+        expect(hasEducationPro).toBe(true);
+      });
+
+      it('nonprofit options have emotion/donation-ux pros', () => {
+        const context: GenerationContext = {
+          request: 'Build a donation page for our charity foundation',
+        };
+
+        const result = generator.generate(context);
+        const standard = result.options.find(o => o.category === 'standard');
+
+        const hasNonprofitPro = standard?.pros.some(
+          p => p.category === 'emotion' || p.category === 'donation-ux'
+        );
+        expect(hasNonprofitPro).toBe(true);
+      });
+    });
+
+    describe('minimal options remain generic', () => {
+      it('minimal options do not have industry-specific pros', () => {
+        const context: GenerationContext = {
+          request: 'Create a menu for our restaurant',
+        };
+
+        const result = generator.generate(context);
+        const minimal = result.options.find(o => o.category === 'minimal');
+
+        // Minimal should only have default pros, not industry-specific
+        const hasIndustryPro = minimal?.pros.some(
+          p => p.category === 'food-ux' || p.category === 'appetite-appeal'
+        );
+        expect(hasIndustryPro).toBeFalsy();
+      });
+
+      it('minimal options keep simple naming', () => {
+        const context: GenerationContext = {
+          request: 'Build a page for our law firm',
+        };
+
+        const result = generator.generate(context);
+        const minimal = result.options.find(o => o.category === 'minimal');
+
+        // Minimal approach should not have industry prefix
+        expect(minimal?.name).toBe('Minimal Approach');
       });
     });
   });

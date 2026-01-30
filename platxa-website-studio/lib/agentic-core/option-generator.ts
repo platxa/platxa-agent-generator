@@ -206,7 +206,293 @@ export interface GenerationContext {
   relevantFiles?: string[];
   /** Domain context */
   domain?: string;
+  /** Industry vertical (Feature #45) */
+  industry?: IndustryVertical;
 }
+
+// ============================================================================
+// Industry Verticals (Feature #45)
+// ============================================================================
+
+/**
+ * Odoo industry verticals for industry-aware option generation
+ *
+ * Feature #45: Implement industry-aware option generation leveraging Odoo vertical presets
+ * Verification: Restaurant requests get food-specific options; law gets formal options
+ */
+export type IndustryVertical =
+  | 'restaurant'    // Food service, hospitality
+  | 'retail'        // E-commerce, shops
+  | 'healthcare'    // Medical, clinics
+  | 'legal'         // Law firms, attorneys
+  | 'education'     // Schools, courses
+  | 'manufacturing' // Production, inventory
+  | 'services'      // Professional services
+  | 'realestate'    // Property, real estate
+  | 'nonprofit'     // Charities, NGOs
+  | 'general';      // Default/undetected
+
+/** Industry-specific configuration preset */
+export interface IndustryPreset {
+  /** Industry vertical identifier */
+  vertical: IndustryVertical;
+  /** Display name */
+  name: string;
+  /** Keywords for detection */
+  keywords: string[];
+  /** Industry-specific pros to add */
+  industryPros: Omit<OptionPro, 'text'>[];
+  /** Industry-specific pro text templates */
+  proTexts: Record<string, string[]>;
+  /** Industry-specific con considerations */
+  industryCons: Omit<OptionCon, 'text'>[];
+  /** Con text templates */
+  conTexts: Record<string, string[]>;
+  /** Odoo modules commonly used */
+  odooModules: string[];
+  /** Design tone (formal, casual, professional, etc.) */
+  designTone: 'formal' | 'casual' | 'professional' | 'friendly' | 'elegant';
+}
+
+/** Industry presets for Odoo verticals */
+export const INDUSTRY_PRESETS: Record<IndustryVertical, IndustryPreset> = {
+  restaurant: {
+    vertical: 'restaurant',
+    name: 'Restaurant & Hospitality',
+    keywords: [
+      'restaurant', 'food', 'menu', 'dining', 'reservation', 'table',
+      'cuisine', 'chef', 'kitchen', 'order', 'dish', 'meal', 'cafe',
+      'bistro', 'bar', 'hospitality', 'catering', 'takeout', 'delivery',
+    ],
+    industryPros: [
+      { impact: 'high', category: 'food-ux' },
+      { impact: 'medium', category: 'appetite-appeal' },
+    ],
+    proTexts: {
+      'food-ux': ['Appetizing food presentation', 'Menu-focused user flow', 'Easy ordering experience'],
+      'appetite-appeal': ['Visually appetizing design', 'Food photography optimized', 'Hunger-inducing aesthetics'],
+    },
+    industryCons: [
+      { severity: 'low', category: 'menu-updates' },
+    ],
+    conTexts: {
+      'menu-updates': ['Requires frequent menu updates', 'Seasonal content changes needed', 'Price updates management'],
+    },
+    odooModules: ['pos_restaurant', 'website_sale', 'website'],
+    designTone: 'friendly',
+  },
+  retail: {
+    vertical: 'retail',
+    name: 'Retail & E-commerce',
+    keywords: [
+      'shop', 'store', 'product', 'cart', 'checkout', 'ecommerce',
+      'catalog', 'inventory', 'sale', 'price', 'buy', 'purchase',
+      'retail', 'merchandise', 'customer', 'shipping',
+    ],
+    industryPros: [
+      { impact: 'high', category: 'conversion' },
+      { impact: 'medium', category: 'shopping-ux' },
+    ],
+    proTexts: {
+      'conversion': ['Conversion-optimized design', 'Clear call-to-action placement', 'Streamlined checkout flow'],
+      'shopping-ux': ['Intuitive product browsing', 'Easy cart management', 'Smooth purchase journey'],
+    },
+    industryCons: [
+      { severity: 'low', category: 'inventory-sync' },
+    ],
+    conTexts: {
+      'inventory-sync': ['Inventory sync considerations', 'Stock level display needed', 'Multi-warehouse complexity'],
+    },
+    odooModules: ['website_sale', 'stock', 'sale'],
+    designTone: 'professional',
+  },
+  healthcare: {
+    vertical: 'healthcare',
+    name: 'Healthcare & Medical',
+    keywords: [
+      'health', 'medical', 'clinic', 'doctor', 'patient', 'appointment',
+      'hospital', 'care', 'therapy', 'treatment', 'wellness', 'dental',
+      'pharmacy', 'diagnosis', 'healthcare',
+    ],
+    industryPros: [
+      { impact: 'high', category: 'trust' },
+      { impact: 'high', category: 'accessibility' },
+    ],
+    proTexts: {
+      'trust': ['Professional trust-building design', 'Clean clinical aesthetic', 'Credibility-focused layout'],
+      'accessibility': ['WCAG compliant accessibility', 'Easy appointment booking', 'Clear medical information display'],
+    },
+    industryCons: [
+      { severity: 'medium', category: 'compliance' },
+    ],
+    conTexts: {
+      'compliance': ['HIPAA considerations may apply', 'Medical disclaimer requirements', 'Privacy compliance needed'],
+    },
+    odooModules: ['website', 'calendar', 'hr'],
+    designTone: 'professional',
+  },
+  legal: {
+    vertical: 'legal',
+    name: 'Legal & Law Firms',
+    keywords: [
+      'law', 'legal', 'attorney', 'lawyer', 'firm', 'court', 'case',
+      'litigation', 'contract', 'counsel', 'practice', 'consultation',
+      'barrister', 'solicitor', 'paralegal',
+    ],
+    industryPros: [
+      { impact: 'high', category: 'authority' },
+      { impact: 'high', category: 'credibility' },
+    ],
+    proTexts: {
+      'authority': ['Authoritative professional presence', 'Formal trustworthy design', 'Distinguished firm branding'],
+      'credibility': ['Credibility-first approach', 'Professional expertise showcase', 'Trust-building testimonials'],
+    },
+    industryCons: [
+      { severity: 'medium', category: 'formal-tone' },
+    ],
+    conTexts: {
+      'formal-tone': ['Requires formal tone throughout', 'Legal disclaimer integration', 'Conservative design constraints'],
+    },
+    odooModules: ['website', 'crm', 'project'],
+    designTone: 'formal',
+  },
+  education: {
+    vertical: 'education',
+    name: 'Education & Learning',
+    keywords: [
+      'education', 'school', 'course', 'learn', 'student', 'teacher',
+      'class', 'training', 'tutor', 'academy', 'university', 'college',
+      'curriculum', 'lesson', 'enrollment',
+    ],
+    industryPros: [
+      { impact: 'high', category: 'learning-ux' },
+      { impact: 'medium', category: 'engagement' },
+    ],
+    proTexts: {
+      'learning-ux': ['Learning-optimized interface', 'Clear course navigation', 'Progress tracking display'],
+      'engagement': ['Engaging educational content', 'Interactive learning elements', 'Student-friendly design'],
+    },
+    industryCons: [
+      { severity: 'low', category: 'content-structure' },
+    ],
+    conTexts: {
+      'content-structure': ['Complex content organization', 'Multi-level navigation needed', 'Student portal integration'],
+    },
+    odooModules: ['website', 'website_slides', 'survey'],
+    designTone: 'friendly',
+  },
+  manufacturing: {
+    vertical: 'manufacturing',
+    name: 'Manufacturing & Production',
+    keywords: [
+      'manufacturing', 'production', 'factory', 'industrial', 'machinery',
+      'assembly', 'warehouse', 'inventory', 'supply', 'parts', 'equipment',
+      'quality', 'process', 'automation',
+    ],
+    industryPros: [
+      { impact: 'high', category: 'efficiency' },
+      { impact: 'medium', category: 'b2b-focus' },
+    ],
+    proTexts: {
+      'efficiency': ['Efficiency-focused design', 'Quick access to specifications', 'Streamlined inquiry process'],
+      'b2b-focus': ['B2B-oriented presentation', 'Technical documentation display', 'Bulk ordering support'],
+    },
+    industryCons: [
+      { severity: 'low', category: 'technical-content' },
+    ],
+    conTexts: {
+      'technical-content': ['Technical content management', 'Specification sheet integration', 'CAD/document handling'],
+    },
+    odooModules: ['website', 'mrp', 'stock', 'purchase'],
+    designTone: 'professional',
+  },
+  services: {
+    vertical: 'services',
+    name: 'Professional Services',
+    keywords: [
+      'service', 'consulting', 'agency', 'freelance', 'professional',
+      'expert', 'specialist', 'advisor', 'consultant', 'firm', 'studio',
+      'portfolio', 'project', 'client',
+    ],
+    industryPros: [
+      { impact: 'high', category: 'portfolio' },
+      { impact: 'medium', category: 'lead-gen' },
+    ],
+    proTexts: {
+      'portfolio': ['Portfolio-centric design', 'Case study showcase', 'Work samples display'],
+      'lead-gen': ['Lead generation optimized', 'Clear service presentation', 'Easy contact flow'],
+    },
+    industryCons: [
+      { severity: 'low', category: 'content-updates' },
+    ],
+    conTexts: {
+      'content-updates': ['Regular portfolio updates needed', 'Case study content creation', 'Testimonial management'],
+    },
+    odooModules: ['website', 'crm', 'project', 'hr_timesheet'],
+    designTone: 'professional',
+  },
+  realestate: {
+    vertical: 'realestate',
+    name: 'Real Estate & Property',
+    keywords: [
+      'realestate', 'property', 'real estate', 'house', 'apartment', 'rent',
+      'lease', 'listing', 'agent', 'broker', 'mortgage', 'home', 'building',
+      'commercial', 'residential',
+    ],
+    industryPros: [
+      { impact: 'high', category: 'visual-appeal' },
+      { impact: 'high', category: 'search-ux' },
+    ],
+    proTexts: {
+      'visual-appeal': ['Stunning property visuals', 'Gallery-focused design', 'Virtual tour ready'],
+      'search-ux': ['Advanced property search', 'Map-integrated listings', 'Filter-friendly interface'],
+    },
+    industryCons: [
+      { severity: 'medium', category: 'listing-mgmt' },
+    ],
+    conTexts: {
+      'listing-mgmt': ['Complex listing management', 'MLS integration considerations', 'Image optimization needed'],
+    },
+    odooModules: ['website', 'crm', 'sale'],
+    designTone: 'elegant',
+  },
+  nonprofit: {
+    vertical: 'nonprofit',
+    name: 'Nonprofit & Charity',
+    keywords: [
+      'nonprofit', 'charity', 'donation', 'volunteer', 'cause', 'foundation',
+      'ngo', 'mission', 'impact', 'community', 'giving', 'fundraising',
+      'campaign', 'awareness',
+    ],
+    industryPros: [
+      { impact: 'high', category: 'emotion' },
+      { impact: 'high', category: 'donation-ux' },
+    ],
+    proTexts: {
+      'emotion': ['Emotionally compelling design', 'Story-driven presentation', 'Impact visualization'],
+      'donation-ux': ['Frictionless donation flow', 'Multiple giving options', 'Recurring donation support'],
+    },
+    industryCons: [
+      { severity: 'low', category: 'transparency' },
+    ],
+    conTexts: {
+      'transparency': ['Transparency reporting needed', 'Impact metrics display', 'Donor recognition management'],
+    },
+    odooModules: ['website', 'crm', 'account'],
+    designTone: 'friendly',
+  },
+  general: {
+    vertical: 'general',
+    name: 'General Business',
+    keywords: [],
+    industryPros: [],
+    proTexts: {},
+    industryCons: [],
+    conTexts: {},
+    odooModules: ['website'],
+    designTone: 'professional',
+  },
+};
 
 // ============================================================================
 // Default Templates
@@ -506,6 +792,90 @@ export class OptionGenerator {
   }
 
   // ==========================================================================
+  // Industry Detection (Feature #45)
+  // ==========================================================================
+
+  /**
+   * Detect industry vertical from request text and context
+   *
+   * Feature #45: Industry-aware option generation leveraging Odoo vertical presets
+   *
+   * Uses strict word-boundary matching to avoid false positives
+   * (e.g., "homepage" should NOT match "home" for real estate)
+   */
+  detectIndustry(context: GenerationContext): IndustryVertical {
+    // If explicitly provided, use that
+    if (context.industry) {
+      return context.industry;
+    }
+
+    // Combine request and domain for detection
+    const text = `${context.request} ${context.domain ?? ''}`.toLowerCase();
+
+    // Score each vertical by keyword matches (word-boundary only)
+    let bestMatch: IndustryVertical = 'general';
+    let bestScore = 0;
+
+    for (const [vertical, preset] of Object.entries(INDUSTRY_PRESETS)) {
+      if (vertical === 'general') continue;
+
+      let score = 0;
+      for (const keyword of preset.keywords) {
+        // ONLY count word-boundary matches to avoid false positives
+        // e.g., "homepage" should NOT match "home" keyword
+        const wordBoundary = new RegExp(`\\b${this.escapeRegex(keyword)}\\b`, 'i');
+        if (wordBoundary.test(text)) {
+          // Multi-word keywords (like "real estate") score higher
+          score += keyword.includes(' ') ? 3 : 2;
+        }
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = vertical as IndustryVertical;
+      }
+    }
+
+    return bestMatch;
+  }
+
+  /**
+   * Escape special regex characters in a string
+   */
+  private escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
+   * Get industry preset for a vertical
+   */
+  getIndustryPreset(vertical: IndustryVertical): IndustryPreset {
+    return INDUSTRY_PRESETS[vertical] ?? INDUSTRY_PRESETS.general;
+  }
+
+  /**
+   * Get industry-specific pro texts merged with defaults
+   */
+  private getIndustryProTexts(vertical: IndustryVertical): Record<string, string[]> {
+    const preset = this.getIndustryPreset(vertical);
+    return {
+      ...PRO_TEXTS,
+      ...preset.proTexts,
+    };
+  }
+
+  /**
+   * Get industry-specific con texts merged with defaults
+   */
+  private getIndustryConTexts(vertical: IndustryVertical): Record<string, string[]> {
+    const preset = this.getIndustryPreset(vertical);
+    return {
+      ...CON_TEXTS,
+      ...preset.conTexts,
+    };
+  }
+
+  // ==========================================================================
   // Main Generation
   // ==========================================================================
 
@@ -513,6 +883,7 @@ export class OptionGenerator {
    * Generate design options from context
    *
    * Feature #40: Options are scored and sorted by recommendation score.
+   * Feature #45: Options include industry-specific pros/cons based on detected vertical.
    * The recommended option is the highest-scoring one.
    */
   generate(
@@ -676,27 +1047,77 @@ export class OptionGenerator {
   }
 
   /**
-   * Generate option name
+   * Generate option name (Feature #45: industry-aware naming)
    */
   private generateName(template: OptionTemplate, context: GenerationContext): string {
-    // Could be customized based on context
+    const industry = this.detectIndustry(context);
+
+    // Add industry prefix for non-general verticals
+    if (industry !== 'general') {
+      const preset = this.getIndustryPreset(industry);
+      const industryNames: Record<IndustryVertical, string> = {
+        restaurant: 'Restaurant',
+        retail: 'E-commerce',
+        healthcare: 'Healthcare',
+        legal: 'Legal',
+        education: 'Education',
+        manufacturing: 'Industrial',
+        services: 'Professional',
+        realestate: 'Real Estate',
+        nonprofit: 'Nonprofit',
+        general: '',
+      };
+
+      const industryPrefix = industryNames[industry];
+      if (industryPrefix && template.category !== 'minimal') {
+        return `${industryPrefix} ${template.namePattern}`;
+      }
+    }
+
     return template.namePattern;
   }
 
   /**
-   * Generate option description
+   * Generate option description (Feature #45: industry-aware descriptions)
    */
   private generateDescription(template: OptionTemplate, context: GenerationContext): string {
-    // Could be customized based on context
+    const industry = this.detectIndustry(context);
+
+    if (industry !== 'general') {
+      const preset = this.getIndustryPreset(industry);
+      const toneDescriptors: Record<typeof preset.designTone, string> = {
+        formal: 'professional and authoritative',
+        casual: 'approachable and engaging',
+        professional: 'polished and business-focused',
+        friendly: 'warm and inviting',
+        elegant: 'sophisticated and refined',
+      };
+
+      const toneDesc = toneDescriptors[preset.designTone];
+
+      // Customize description based on category and industry
+      if (template.category === 'standard') {
+        return `Balanced ${toneDesc} solution optimized for ${preset.name.toLowerCase()}`;
+      }
+      if (template.category === 'comprehensive') {
+        return `Full-featured ${toneDesc} solution with complete ${preset.name.toLowerCase()} capabilities`;
+      }
+    }
+
     return template.descriptionPattern;
   }
 
   /**
-   * Generate pros for an option
+   * Generate pros for an option (Feature #45: industry-aware)
    */
   private generatePros(template: OptionTemplate, context: GenerationContext): OptionPro[] {
-    return template.defaultPros.map(defaultPro => {
-      const texts = PRO_TEXTS[defaultPro.category ?? 'balance'] ?? ['Advantage'];
+    const industry = this.detectIndustry(context);
+    const preset = this.getIndustryPreset(industry);
+    const proTexts = this.getIndustryProTexts(industry);
+
+    // Start with template defaults
+    const pros: OptionPro[] = template.defaultPros.map(defaultPro => {
+      const texts = proTexts[defaultPro.category ?? 'balance'] ?? ['Advantage'];
       const text = texts[Math.floor(Math.random() * texts.length)];
 
       return {
@@ -705,14 +1126,35 @@ export class OptionGenerator {
         category: defaultPro.category,
       };
     });
+
+    // Add industry-specific pros for standard and comprehensive approaches
+    if (industry !== 'general' && (template.category === 'standard' || template.category === 'comprehensive')) {
+      for (const industryPro of preset.industryPros) {
+        const texts = proTexts[industryPro.category ?? 'fit'] ?? ['Industry-optimized'];
+        const text = texts[Math.floor(Math.random() * texts.length)];
+
+        pros.push({
+          text,
+          impact: industryPro.impact,
+          category: industryPro.category,
+        });
+      }
+    }
+
+    return pros;
   }
 
   /**
-   * Generate cons for an option
+   * Generate cons for an option (Feature #45: industry-aware)
    */
   private generateCons(template: OptionTemplate, context: GenerationContext): OptionCon[] {
-    return template.defaultCons.map(defaultCon => {
-      const texts = CON_TEXTS[defaultCon.category ?? 'complexity'] ?? ['Disadvantage'];
+    const industry = this.detectIndustry(context);
+    const preset = this.getIndustryPreset(industry);
+    const conTexts = this.getIndustryConTexts(industry);
+
+    // Start with template defaults
+    const cons: OptionCon[] = template.defaultCons.map(defaultCon => {
+      const texts = conTexts[defaultCon.category ?? 'complexity'] ?? ['Disadvantage'];
       const text = texts[Math.floor(Math.random() * texts.length)];
 
       return {
@@ -721,6 +1163,22 @@ export class OptionGenerator {
         category: defaultCon.category,
       };
     });
+
+    // Add industry-specific cons for comprehensive approach (more considerations)
+    if (industry !== 'general' && template.category === 'comprehensive') {
+      for (const industryCon of preset.industryCons) {
+        const texts = conTexts[industryCon.category ?? 'complexity'] ?? ['Industry consideration'];
+        const text = texts[Math.floor(Math.random() * texts.length)];
+
+        cons.push({
+          text,
+          severity: industryCon.severity,
+          category: industryCon.category,
+        });
+      }
+    }
+
+    return cons;
   }
 
   /**
