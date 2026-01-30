@@ -13,6 +13,9 @@ import {
   createOptionGenerator,
   generateOptions,
   INDUSTRY_PRESETS,
+  OptionComparisonView,
+  createComparisonView,
+  compareOptions,
   type DesignOption,
   type OptionGenerationResult,
   type GenerationContext,
@@ -24,6 +27,8 @@ import {
   type IndustryPreset,
   type ComplexityMetrics,
   type ComplexityFactor,
+  type ComparisonTable,
+  type ComparisonRow,
 } from '../../lib/agentic-core/option-generator';
 import type { PlanOption } from '../../lib/agentic-core/plan-handoff';
 
@@ -1539,6 +1544,326 @@ describe('OptionGenerator', () => {
         // Minimal (0.5x): 6 * 0.5 = 3 files -> low
         // Comprehensive (2.0x): 6 * 2 = 12 files -> medium
         expect(minimal?.effort.fileCount).toBeLessThan(comprehensive?.effort.fileCount ?? 0);
+      });
+    });
+  });
+
+  // ==========================================================================
+  // Feature #48: Option Comparison View
+  // ==========================================================================
+
+  describe('option comparison view (Feature #48)', () => {
+    let options: DesignOption[];
+
+    beforeEach(() => {
+      const context: GenerationContext = {
+        request: 'Build a complete feature',
+        relevantFiles: ['a.xml', 'b.scss', 'c.ts'],
+      };
+      const result = generator.generate(context);
+      options = result.options;
+    });
+
+    describe('generateTable', () => {
+      it('creates table with options as columns', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        expect(table.columns.length).toBe(options.length);
+        expect(table.columns[0].id).toBe(options[0].id);
+        expect(table.columns[0].name).toBe(options[0].name);
+      });
+
+      it('marks recommended column', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        const recommendedCol = table.columns.find(c => c.recommended);
+        expect(recommendedCol).toBeDefined();
+      });
+
+      it('creates rows for pros/cons/effort', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        const prosRow = table.rows.find(r => r.label === 'Pros');
+        const consRow = table.rows.find(r => r.label === 'Cons');
+        const effortRow = table.rows.find(r => r.label === 'Effort');
+
+        expect(prosRow).toBeDefined();
+        expect(prosRow?.category).toBe('pros');
+        expect(consRow).toBeDefined();
+        expect(consRow?.category).toBe('cons');
+        expect(effortRow).toBeDefined();
+        expect(effortRow?.category).toBe('effort');
+      });
+
+      it('includes category and description rows', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        const categoryRow = table.rows.find(r => r.label === 'Category');
+        const descRow = table.rows.find(r => r.label === 'Description');
+
+        expect(categoryRow).toBeDefined();
+        expect(descRow).toBeDefined();
+      });
+
+      it('includes score row by default', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        const scoreRow = table.rows.find(r => r.label === 'Score');
+        expect(scoreRow).toBeDefined();
+        expect(scoreRow?.category).toBe('score');
+      });
+
+      it('includes risk row by default', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        const riskRow = table.rows.find(r => r.label === 'Risk');
+        expect(riskRow).toBeDefined();
+        expect(riskRow?.category).toBe('risk');
+      });
+
+      it('excludes files row by default', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        const filesRow = table.rows.find(r => r.label === 'Files');
+        expect(filesRow).toBeUndefined();
+      });
+
+      it('includes files row when configured', () => {
+        const view = new OptionComparisonView(options, { includeFiles: true });
+        const table = view.generateTable();
+
+        const filesRow = table.rows.find(r => r.label === 'Files');
+        expect(filesRow).toBeDefined();
+      });
+
+      it('includes summary row with recommendation', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        expect(table.summary).toBeDefined();
+        expect(table.summary?.label).toBe('Recommendation');
+      });
+    });
+
+    describe('row values', () => {
+      it('pros row has values for each option', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        const prosRow = table.rows.find(r => r.label === 'Pros')!;
+        for (const col of table.columns) {
+          expect(prosRow.values[col.id]).toBeDefined();
+          expect(Array.isArray(prosRow.values[col.id])).toBe(true);
+        }
+      });
+
+      it('cons row has values for each option', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        const consRow = table.rows.find(r => r.label === 'Cons')!;
+        for (const col of table.columns) {
+          expect(consRow.values[col.id]).toBeDefined();
+        }
+      });
+
+      it('effort row shows level and file count', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        const effortRow = table.rows.find(r => r.label === 'Effort')!;
+        for (const col of table.columns) {
+          const value = effortRow.values[col.id] as string;
+          expect(value).toContain('files');
+        }
+      });
+
+      it('score row shows total and rank', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        const scoreRow = table.rows.find(r => r.label === 'Score')!;
+        for (const col of table.columns) {
+          const value = scoreRow.values[col.id] as string;
+          expect(value).toContain('/100');
+        }
+      });
+
+      it('limits items per cell based on config', () => {
+        const view = new OptionComparisonView(options, { maxItemsPerCell: 2 });
+        const table = view.generateTable();
+
+        const prosRow = table.rows.find(r => r.label === 'Pros')!;
+        for (const col of table.columns) {
+          const pros = prosRow.values[col.id] as string[];
+          // Should have max 2 items + optional "+N more"
+          expect(pros.filter(p => !p.startsWith('+')).length).toBeLessThanOrEqual(2);
+        }
+      });
+    });
+
+    describe('toMarkdown', () => {
+      it('generates valid markdown table', () => {
+        const view = new OptionComparisonView(options);
+        const markdown = view.toMarkdown();
+
+        expect(markdown).toContain('|');
+        expect(markdown).toContain('---');
+        expect(markdown).toContain('Pros');
+        expect(markdown).toContain('Cons');
+        expect(markdown).toContain('Effort');
+      });
+
+      it('marks recommended option with star', () => {
+        const view = new OptionComparisonView(options);
+        const markdown = view.toMarkdown();
+
+        expect(markdown).toContain('⭐');
+      });
+
+      it('includes all option names in header', () => {
+        const view = new OptionComparisonView(options);
+        const markdown = view.toMarkdown();
+
+        for (const opt of options) {
+          expect(markdown).toContain(opt.name);
+        }
+      });
+    });
+
+    describe('toText', () => {
+      it('generates plain text table', () => {
+        const view = new OptionComparisonView(options);
+        const text = view.toText();
+
+        expect(text).toContain('Attribute');
+        expect(text).toContain('=');
+        expect(text).toContain('Pros');
+        expect(text).toContain('Cons');
+      });
+
+      it('includes all options', () => {
+        const view = new OptionComparisonView(options);
+        const text = view.toText();
+
+        for (const opt of options) {
+          expect(text).toContain(opt.name);
+        }
+      });
+    });
+
+    describe('toJSON', () => {
+      it('returns ComparisonTable structure', () => {
+        const view = new OptionComparisonView(options);
+        const json = view.toJSON();
+
+        expect(json.columns).toBeDefined();
+        expect(json.rows).toBeDefined();
+        expect(Array.isArray(json.columns)).toBe(true);
+        expect(Array.isArray(json.rows)).toBe(true);
+      });
+    });
+
+    describe('factory functions', () => {
+      it('createComparisonView creates instance', () => {
+        const view = createComparisonView(options);
+        expect(view).toBeInstanceOf(OptionComparisonView);
+      });
+
+      it('createComparisonView accepts config', () => {
+        const view = createComparisonView(options, { includeFiles: true });
+        const table = view.generateTable();
+        const filesRow = table.rows.find(r => r.label === 'Files');
+        expect(filesRow).toBeDefined();
+      });
+
+      it('compareOptions returns markdown', () => {
+        const markdown = compareOptions(options);
+        expect(typeof markdown).toBe('string');
+        expect(markdown).toContain('|');
+        expect(markdown).toContain('Pros');
+      });
+    });
+
+    describe('verification: table view with options as columns; pros/cons/effort as rows', () => {
+      it('options are columns in the table', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        // Each option should be a column
+        expect(table.columns.length).toBe(options.length);
+        for (let i = 0; i < options.length; i++) {
+          expect(table.columns[i].id).toBe(options[i].id);
+        }
+      });
+
+      it('pros are a row in the table', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        const prosRow = table.rows.find(r => r.label === 'Pros');
+        expect(prosRow).toBeDefined();
+
+        // Each column should have pros values
+        for (const col of table.columns) {
+          expect(prosRow?.values[col.id]).toBeDefined();
+        }
+      });
+
+      it('cons are a row in the table', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        const consRow = table.rows.find(r => r.label === 'Cons');
+        expect(consRow).toBeDefined();
+
+        // Each column should have cons values
+        for (const col of table.columns) {
+          expect(consRow?.values[col.id]).toBeDefined();
+        }
+      });
+
+      it('effort is a row in the table', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        const effortRow = table.rows.find(r => r.label === 'Effort');
+        expect(effortRow).toBeDefined();
+
+        // Each column should have effort values
+        for (const col of table.columns) {
+          expect(effortRow?.values[col.id]).toBeDefined();
+        }
+      });
+
+      it('complete table structure verification', () => {
+        const view = new OptionComparisonView(options);
+        const table = view.generateTable();
+
+        // Columns = options
+        expect(table.columns.length).toBeGreaterThanOrEqual(2);
+        expect(table.columns.every(c => c.id && c.name)).toBe(true);
+
+        // Required rows exist
+        const requiredRows = ['Category', 'Description', 'Pros', 'Cons', 'Effort'];
+        for (const rowLabel of requiredRows) {
+          const row = table.rows.find(r => r.label === rowLabel);
+          expect(row).toBeDefined();
+        }
+
+        // Each row has values for all columns
+        for (const row of table.rows) {
+          for (const col of table.columns) {
+            expect(row.values[col.id]).toBeDefined();
+          }
+        }
       });
     });
   });

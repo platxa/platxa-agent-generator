@@ -1691,6 +1691,405 @@ export function generateOptions(
 }
 
 // ============================================================================
+// Option Comparison View (Feature #48)
+// ============================================================================
+
+/**
+ * A row in the comparison table
+ */
+export interface ComparisonRow {
+  /** Row label (e.g., "Pros", "Cons", "Effort") */
+  label: string;
+  /** Row category for grouping */
+  category: 'info' | 'pros' | 'cons' | 'effort' | 'risk' | 'score';
+  /** Values for each option (keyed by option ID) */
+  values: Record<string, string | string[]>;
+}
+
+/**
+ * Comparison table structure
+ *
+ * Feature #48: Table view with options as columns; pros/cons/effort as rows
+ */
+export interface ComparisonTable {
+  /** Column headers (option names) */
+  columns: Array<{
+    id: string;
+    name: string;
+    recommended: boolean;
+  }>;
+  /** Rows of comparison data */
+  rows: ComparisonRow[];
+  /** Summary row */
+  summary?: ComparisonRow;
+}
+
+/**
+ * Comparison view configuration
+ */
+export interface ComparisonViewConfig {
+  /** Include score row */
+  includeScore?: boolean;
+  /** Include risk row */
+  includeRisk?: boolean;
+  /** Include files row */
+  includeFiles?: boolean;
+  /** Maximum items to show per cell */
+  maxItemsPerCell?: number;
+}
+
+/**
+ * OptionComparisonView - Renders options side-by-side for comparison
+ *
+ * Feature #48: Implement option comparison view showing side-by-side trade-offs
+ * Verification: Table view with options as columns; pros/cons/effort as rows
+ *
+ * @example
+ * ```typescript
+ * const view = new OptionComparisonView(options);
+ * const table = view.generateTable();
+ * console.log(view.toMarkdown());
+ * ```
+ */
+export class OptionComparisonView {
+  private options: DesignOption[];
+  private config: Required<ComparisonViewConfig>;
+
+  constructor(options: DesignOption[], config: ComparisonViewConfig = {}) {
+    this.options = options;
+    this.config = {
+      includeScore: config.includeScore ?? true,
+      includeRisk: config.includeRisk ?? true,
+      includeFiles: config.includeFiles ?? false,
+      maxItemsPerCell: config.maxItemsPerCell ?? 3,
+    };
+  }
+
+  /**
+   * Generate the comparison table structure
+   */
+  generateTable(): ComparisonTable {
+    const columns = this.options.map(opt => ({
+      id: opt.id,
+      name: opt.name,
+      recommended: opt.recommended ?? false,
+    }));
+
+    const rows: ComparisonRow[] = [];
+
+    // Category row
+    rows.push(this.createCategoryRow());
+
+    // Description row
+    rows.push(this.createDescriptionRow());
+
+    // Pros rows
+    rows.push(this.createProsRow());
+
+    // Cons rows
+    rows.push(this.createConsRow());
+
+    // Effort row
+    rows.push(this.createEffortRow());
+
+    // Risk row (optional)
+    if (this.config.includeRisk) {
+      rows.push(this.createRiskRow());
+    }
+
+    // Files row (optional)
+    if (this.config.includeFiles) {
+      rows.push(this.createFilesRow());
+    }
+
+    // Score row (optional)
+    if (this.config.includeScore) {
+      rows.push(this.createScoreRow());
+    }
+
+    return {
+      columns,
+      rows,
+      summary: this.createSummaryRow(),
+    };
+  }
+
+  /**
+   * Create category row
+   */
+  private createCategoryRow(): ComparisonRow {
+    const values: Record<string, string> = {};
+    for (const opt of this.options) {
+      values[opt.id] = opt.category;
+    }
+    return { label: 'Category', category: 'info', values };
+  }
+
+  /**
+   * Create description row
+   */
+  private createDescriptionRow(): ComparisonRow {
+    const values: Record<string, string> = {};
+    for (const opt of this.options) {
+      values[opt.id] = opt.description;
+    }
+    return { label: 'Description', category: 'info', values };
+  }
+
+  /**
+   * Create pros row
+   */
+  private createProsRow(): ComparisonRow {
+    const values: Record<string, string[]> = {};
+    for (const opt of this.options) {
+      const pros = opt.pros
+        .slice(0, this.config.maxItemsPerCell)
+        .map(p => `${this.impactIcon(p.impact)} ${p.text}`);
+      if (opt.pros.length > this.config.maxItemsPerCell) {
+        pros.push(`+${opt.pros.length - this.config.maxItemsPerCell} more`);
+      }
+      values[opt.id] = pros;
+    }
+    return { label: 'Pros', category: 'pros', values };
+  }
+
+  /**
+   * Create cons row
+   */
+  private createConsRow(): ComparisonRow {
+    const values: Record<string, string[]> = {};
+    for (const opt of this.options) {
+      const cons = opt.cons
+        .slice(0, this.config.maxItemsPerCell)
+        .map(c => `${this.severityIcon(c.severity)} ${c.text}`);
+      if (opt.cons.length > this.config.maxItemsPerCell) {
+        cons.push(`+${opt.cons.length - this.config.maxItemsPerCell} more`);
+      }
+      values[opt.id] = cons.length > 0 ? cons : ['None'];
+    }
+    return { label: 'Cons', category: 'cons', values };
+  }
+
+  /**
+   * Create effort row
+   */
+  private createEffortRow(): ComparisonRow {
+    const values: Record<string, string> = {};
+    for (const opt of this.options) {
+      const effort = opt.effort;
+      const category = effort.complexityMetrics?.fileCountCategory ?? 'low';
+      values[opt.id] = `${this.effortIcon(effort.level)} ${effort.level} (${effort.fileCount} files, ${category})`;
+    }
+    return { label: 'Effort', category: 'effort', values };
+  }
+
+  /**
+   * Create risk row
+   */
+  private createRiskRow(): ComparisonRow {
+    const values: Record<string, string> = {};
+    for (const opt of this.options) {
+      values[opt.id] = `${this.riskIcon(opt.riskLevel)} ${opt.riskLevel}`;
+    }
+    return { label: 'Risk', category: 'risk', values };
+  }
+
+  /**
+   * Create files row
+   */
+  private createFilesRow(): ComparisonRow {
+    const values: Record<string, string[]> = {};
+    for (const opt of this.options) {
+      const files = opt.filesAffected
+        .slice(0, this.config.maxItemsPerCell)
+        .map(f => `${f.changeType}: ${f.path.split('/').pop()}`);
+      if (opt.filesAffected.length > this.config.maxItemsPerCell) {
+        files.push(`+${opt.filesAffected.length - this.config.maxItemsPerCell} more`);
+      }
+      values[opt.id] = files;
+    }
+    return { label: 'Files', category: 'info', values };
+  }
+
+  /**
+   * Create score row
+   */
+  private createScoreRow(): ComparisonRow {
+    const values: Record<string, string> = {};
+    for (const opt of this.options) {
+      if (opt.score) {
+        const rankIcon = opt.score.rank === 1 ? '🏆' : `#${opt.score.rank}`;
+        values[opt.id] = `${rankIcon} ${opt.score.total}/100`;
+      } else {
+        values[opt.id] = 'N/A';
+      }
+    }
+    return { label: 'Score', category: 'score', values };
+  }
+
+  /**
+   * Create summary row
+   */
+  private createSummaryRow(): ComparisonRow {
+    const values: Record<string, string> = {};
+    for (const opt of this.options) {
+      if (opt.recommended) {
+        values[opt.id] = '⭐ Recommended';
+      } else {
+        values[opt.id] = '';
+      }
+    }
+    return { label: 'Recommendation', category: 'info', values };
+  }
+
+  /**
+   * Convert to markdown table
+   */
+  toMarkdown(): string {
+    const table = this.generateTable();
+    const lines: string[] = [];
+
+    // Header row
+    const headers = ['Attribute', ...table.columns.map(c =>
+      c.recommended ? `**${c.name}** ⭐` : c.name
+    )];
+    lines.push(`| ${headers.join(' | ')} |`);
+
+    // Separator row
+    lines.push(`| ${headers.map(() => '---').join(' | ')} |`);
+
+    // Data rows
+    for (const row of table.rows) {
+      const cells = [row.label];
+      for (const col of table.columns) {
+        const value = row.values[col.id];
+        if (Array.isArray(value)) {
+          cells.push(value.join('<br>'));
+        } else {
+          cells.push(value ?? '');
+        }
+      }
+      lines.push(`| ${cells.join(' | ')} |`);
+    }
+
+    // Summary row
+    if (table.summary) {
+      const cells = [table.summary.label];
+      for (const col of table.columns) {
+        cells.push(table.summary.values[col.id] as string ?? '');
+      }
+      lines.push(`| ${cells.join(' | ')} |`);
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Convert to plain text table
+   */
+  toText(): string {
+    const table = this.generateTable();
+    const lines: string[] = [];
+
+    // Calculate column widths
+    const colWidths: number[] = [15]; // Label column
+    for (const col of table.columns) {
+      colWidths.push(Math.max(20, col.name.length + 2));
+    }
+
+    // Header
+    const headerLine = this.padRow(['Attribute', ...table.columns.map(c => c.name)], colWidths);
+    lines.push(headerLine);
+    lines.push('='.repeat(headerLine.length));
+
+    // Data rows
+    for (const row of table.rows) {
+      const cells = [row.label];
+      for (const col of table.columns) {
+        const value = row.values[col.id];
+        if (Array.isArray(value)) {
+          cells.push(value.slice(0, 2).join(', ') + (value.length > 2 ? '...' : ''));
+        } else {
+          cells.push(value ?? '');
+        }
+      }
+      lines.push(this.padRow(cells, colWidths));
+    }
+
+    return lines.join('\n');
+  }
+
+  /**
+   * Convert to JSON (for programmatic use)
+   */
+  toJSON(): ComparisonTable {
+    return this.generateTable();
+  }
+
+  /**
+   * Pad row cells to column widths
+   */
+  private padRow(cells: string[], widths: number[]): string {
+    return cells.map((cell, i) => cell.padEnd(widths[i] ?? 20)).join(' | ');
+  }
+
+  /**
+   * Impact icon
+   */
+  private impactIcon(impact: 'low' | 'medium' | 'high'): string {
+    const icons = { low: '○', medium: '◐', high: '●' };
+    return icons[impact];
+  }
+
+  /**
+   * Severity icon
+   */
+  private severityIcon(severity: 'low' | 'medium' | 'high'): string {
+    const icons = { low: '⚪', medium: '🟡', high: '🔴' };
+    return icons[severity];
+  }
+
+  /**
+   * Effort icon
+   */
+  private effortIcon(level: EffortLevel): string {
+    const icons: Record<EffortLevel, string> = {
+      trivial: '🟢',
+      small: '🟢',
+      medium: '🟡',
+      large: '🟠',
+      complex: '🔴',
+    };
+    return icons[level];
+  }
+
+  /**
+   * Risk icon
+   */
+  private riskIcon(risk: 'low' | 'medium' | 'high'): string {
+    const icons = { low: '🟢', medium: '🟡', high: '🔴' };
+    return icons[risk];
+  }
+}
+
+/**
+ * Create comparison view from options
+ */
+export function createComparisonView(
+  options: DesignOption[],
+  config?: ComparisonViewConfig
+): OptionComparisonView {
+  return new OptionComparisonView(options, config);
+}
+
+/**
+ * Quick compare function returning markdown
+ */
+export function compareOptions(options: DesignOption[]): string {
+  return new OptionComparisonView(options).toMarkdown();
+}
+
+// ============================================================================
 // Exports
 // ============================================================================
 
