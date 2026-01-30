@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-29T18:49:50.812567",
+  "updated_at": "2026-01-30T12:09:12.161202",
   "plans": [
     {
       "id": "plan-feature-98",
@@ -160,6 +160,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T16:48:07.821688",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-184",
+      "title": "Implementation: Implement unit tests for all tools",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T12:09:12.160379",
       "constitution_check": true
     },
     {
@@ -475,6 +483,14 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-177",
+      "title": "Implementation: Create deploy trigger from agent completion",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-29T18:53:27.555201",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-39",
       "title": "Implementation: Create option generator producing 2-4 design approaches with...",
       "progress": 0.0,
@@ -496,6 +512,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T17:12:28.360629",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-183",
+      "title": "Implementation: Create end-to-end test suite for agent workflows",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T12:03:55.839051",
       "constitution_check": true
     },
     {
@@ -739,6 +763,14 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-178",
+      "title": "Implementation: Implement pre-deploy validation checklist",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-29T18:57:12.115536",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-73",
       "title": "Implementation: Implement hover outline on selectable elements in select mod...",
       "progress": 0.0,
@@ -760,6 +792,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-28T12:15:49.442698",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-181",
+      "title": "Implementation: Implement rollback on deployment failure",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T11:49:14.692056",
       "constitution_check": true
     },
     {

@@ -1,0 +1,115 @@
+{
+  "id": "plan-feature-184",
+  "title": "Implementation: Implement unit tests for all tools",
+  "context": {
+    "spec_id": "feature-184",
+    "feature_id": "184",
+    "dependencies": [],
+    "metadata": {
+      "category": "Phase 6: Integration",
+      "verification_criteria": {
+        "type": "test",
+        "criteria": "Each tool has tests for: success case, error handling, edge cases",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      }
+    },
+    "created_at": "2026-01-30T12:09:12.160317"
+  },
+  "phases": [
+    "research",
+    "design",
+    "implementation",
+    "testing"
+  ],
+  "tasks": [
+    {
+      "id": "task-184-1",
+      "title": "Analyze Requirements",
+      "description": "Review feature requirements: Implement unit tests for all tools",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 0,
+      "estimated_effort": "small",
+      "verification": "Requirements understood, approach identified",
+      "files": [],
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
+    },
+    {
+      "id": "task-184-2",
+      "title": "Review Existing Code",
+      "description": "Search for related code patterns and potential duplicates",
+      "step_type": "setup",
+      "status": "pending",
+      "order": 1,
+      "estimated_effort": "small",
+      "verification": "Existing patterns identified, no duplication",
+      "files": [],
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
+    },
+    {
+      "id": "task-184-3",
+      "title": "Implement Feature",
+      "description": "Implement: Implement unit tests for all tools",
+      "step_type": "implement",
+      "status": "pending",
+      "order": 2,
+      "estimated_effort": "medium",
+      "verification": "Code complete and type-checked",
+      "files": [],
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
+    },
+    {
+      "id": "task-184-4",
+      "title": "Add Tests",
+      "description": "Write unit tests for new functionality",
+      "step_type": "test",
+      "status": "pending",
+      "order": 3,
+      "estimated_effort": "small",
+      "verification": "Tests pass, coverage adequate",
+      "files": [],
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
+    },
+    {
+      "id": "task-184-5",
+      "title": "Verify Acceptance Criteria",
+      "description": "Verify: {'type': 'test', 'criteria': 'Each tool has tests for: success case, error handling, edge cases', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "step_type": "test",
+      "status": "pending",
+      "order": 4,
+      "estimated_effort": "small",
+      "verification": {
+        "type": "test",
+        "criteria": "Each tool has tests for: success case, error handling, edge cases",
+        "completed": false,
+        "evidence": null,
+        "verified_at": null,
+        "requirements_addressed": []
+      },
+      "files": [],
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
+    }
+  ],
+  "constitution_check": true,
+  "notes": "",
+  "created_at": "2026-01-30T12:09:12.160379",
+  "lsp_impact": {}
+}

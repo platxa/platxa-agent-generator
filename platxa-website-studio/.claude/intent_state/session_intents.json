@@ -1,32 +1,32 @@
 {
-  "session_id": "ea633e2ab2f7",
+  "session_id": "e5abfa2faf9e",
   "stack": {
     "session": {
-      "id": "ea633e2ab2f7-357",
-      "text": "[Phase 6: Integration] Feature #174: Add module installation testing via sidecar Criteria: test_odoo tool installs module on sidecar; reports success/failure",
+      "id": "e5abfa2faf9e-367",
+      "text": "[Phase 6: Integration] Feature #184: Implement unit tests for all tools Criteria: Each tool has tests for: success case, error handling, edge cases",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769692791.3132293,
-      "updated_at": 1769692791.3132293,
+      "created_at": 1769755152.6778035,
+      "updated_at": 1769755152.6778035,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 174,
+        "feature_id": 184,
         "category": "Phase 6: Integration"
       },
       "keywords": []
     },
     "task": {
-      "id": "ea633e2ab2f7-358",
-      "text": "Implement: Add module installation testing via sidecar",
+      "id": "e5abfa2faf9e-368",
+      "text": "Implement: Implement unit tests for all tools",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769692791.3210132,
-      "updated_at": 1769692791.3210135,
+      "created_at": 1769755152.6857188,
+      "updated_at": 1769755152.685719,
       "completed_at": null,
-      "parent_id": "ea633e2ab2f7-357",
+      "parent_id": "e5abfa2faf9e-367",
       "metadata": {},
       "keywords": []
     },
@@ -5223,9 +5223,154 @@
       "parent_id": "ea633e2ab2f7-357",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "a88c9f47397d-359",
+      "text": "[Phase 6: Integration] Feature #177: Create deploy trigger from agent completion Criteria: 'Deploy' button appears after successful generation; triggers deployment flow",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769693008.0903337,
+      "updated_at": 1769693008.0903337,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 177,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "a88c9f47397d-360",
+      "text": "Implement: Create deploy trigger from agent completion",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769693008.1004593,
+      "updated_at": 1769693008.1004596,
+      "completed_at": null,
+      "parent_id": "a88c9f47397d-359",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "70dde85fa786-361",
+      "text": "[Phase 6: Integration] Feature #178: Implement pre-deploy validation checklist Criteria: Validates: manifest correct, all files exist, QWeb valid, SCSS compiles",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769693232.6653786,
+      "updated_at": 1769693232.6653788,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 178,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "70dde85fa786-362",
+      "text": "Implement: Implement pre-deploy validation checklist",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769693232.6783311,
+      "updated_at": 1769693232.6783316,
+      "completed_at": null,
+      "parent_id": "70dde85fa786-361",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "e2f541d1ef50-363",
+      "text": "[Phase 6: Integration] Feature #181: Implement rollback on deployment failure Criteria: Failed deployment triggers uninstall; previous version restored if available",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769753955.2029266,
+      "updated_at": 1769753955.2029269,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 181,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "e2f541d1ef50-364",
+      "text": "Implement: Implement rollback on deployment failure",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769753955.2103958,
+      "updated_at": 1769753955.210396,
+      "completed_at": null,
+      "parent_id": "e2f541d1ef50-363",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "5b50b97983c5-365",
+      "text": "[Phase 6: Integration] Feature #183: Create end-to-end test suite for agent workflows Criteria: Tests: full generation flow, plan→agent transition, error recovery",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769754836.3781137,
+      "updated_at": 1769754836.378114,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 183,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "5b50b97983c5-366",
+      "text": "Implement: Create end-to-end test suite for agent workflows",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769754836.3881662,
+      "updated_at": 1769754836.3881664,
+      "completed_at": null,
+      "parent_id": "5b50b97983c5-365",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "e5abfa2faf9e-367",
+      "text": "[Phase 6: Integration] Feature #184: Implement unit tests for all tools Criteria: Each tool has tests for: success case, error handling, edge cases",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769755152.6778035,
+      "updated_at": 1769755152.6778035,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 184,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "e5abfa2faf9e-368",
+      "text": "Implement: Implement unit tests for all tools",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769755152.6857188,
+      "updated_at": 1769755152.685719,
+      "completed_at": null,
+      "parent_id": "e5abfa2faf9e-367",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 358,
+  "intent_counter": 368,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769692791.3210168
+  "updated_at": 1769755152.6857245
 }

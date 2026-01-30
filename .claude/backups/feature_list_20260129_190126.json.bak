@@ -12,21 +12,21 @@
   "generated_at": "2026-01-28T12:15:34.493996Z",
   "spec_source": "/home/riya/ai-workspace/platxa/.claude/lovable_parity_features.json",
   "summary": "Lovable.dev-like AI website generation system for Odoo - 203 features across 6 phases",
-  "current_feature_id": null,
+  "current_feature_id": 178,
   "session": {
-    "count": 108,
-    "last_started_at": "2026-01-29T13:09:13.793737Z",
+    "count": 113,
+    "last_started_at": "2026-01-29T13:27:09.033907Z",
     "total_duration_minutes": 0
   },
   "stats": {
     "total": 203,
-    "passed": 108,
+    "passed": 112,
     "failed": 0,
     "skipped": 0,
-    "in_progress": 0,
+    "in_progress": 1,
     "paused": 0,
-    "pending": 95,
-    "completion_percentage": 53.2
+    "pending": 90,
+    "completion_percentage": 55.2
   },
   "categories": [
     {
@@ -72,7 +72,7 @@
     {
       "name": "Phase 6: Integration",
       "total": 42,
-      "passed": 6,
+      "passed": 10,
       "failed": 0,
       "skipped": 0,
       "paused": 0
@@ -5393,20 +5393,20 @@
       "verification": {
         "type": "test",
         "criteria": "Agent verifies sidecar responding before Odoo-dependent operations",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "52afe40",
+        "verified_at": "2026-01-29T13:17:00.400341Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "odoo-sidecar"
       ],
       "file_path": "/lib/agentic-core/tools/test-odoo.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T13:12:53.583860Z",
+      "completed_at": "2026-01-29T13:17:00.420368Z",
+      "commit_hash": "52afe40",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -5424,20 +5424,20 @@
       "verification": {
         "type": "test",
         "criteria": "Preview fetches rendered HTML from sidecar's Odoo instance",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "6177234",
+        "verified_at": "2026-01-29T13:19:38.573303Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "odoo-sidecar"
       ],
       "file_path": "/lib/preview/hmr-preview-engine.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T13:17:08.799623Z",
+      "completed_at": "2026-01-29T13:19:38.596356Z",
+      "commit_hash": "6177234",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -5455,20 +5455,20 @@
       "verification": {
         "type": "test",
         "criteria": "test_odoo tool installs module on sidecar; reports success/failure",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "9d9649c",
+        "verified_at": "2026-01-29T13:23:16.488693Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "odoo-sidecar"
       ],
       "file_path": "/lib/agentic-core/tools/test-odoo.ts",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T13:19:47.701141Z",
+      "completed_at": "2026-01-29T13:23:16.511574Z",
+      "commit_hash": "9d9649c",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -5548,20 +5548,20 @@
       "verification": {
         "type": "manual",
         "criteria": "'Deploy' button appears after successful generation; triggers deployment flow",
-        "completed": false,
-        "evidence": null,
-        "verified_at": null,
+        "completed": true,
+        "evidence": "b383360",
+        "verified_at": "2026-01-29T13:27:02.297724Z",
         "requirements_addressed": []
       },
       "research_refs": [
         "lovable-agent-mode"
       ],
       "file_path": "/components/chat/DeployButton.tsx",
-      "status": "pending",
+      "status": "passed",
       "status_reason": null,
-      "started_at": null,
-      "completed_at": null,
-      "commit_hash": null,
+      "started_at": "2026-01-29T13:23:24.509346Z",
+      "completed_at": "2026-01-29T13:27:02.310494Z",
+      "commit_hash": "b383360",
       "parallelizable": false,
       "depends_on": [],
       "parallel_group": null,
@@ -5588,9 +5588,9 @@
         "odoo-deployment"
       ],
       "file_path": "/lib/agentic-core/deploy-validator.ts",
-      "status": "pending",
+      "status": "in_progress",
       "status_reason": null,
-      "started_at": null,
+      "started_at": "2026-01-29T13:27:09.033887Z",
       "completed_at": null,
       "commit_hash": null,
       "parallelizable": false,
