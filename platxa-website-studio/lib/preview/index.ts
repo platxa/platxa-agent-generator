@@ -405,3 +405,26 @@ export {
   type RestoreResult,
   type RestoreCallback,
 } from "./selection-persistence";
+
+// Google Fonts Selector for live font preview
+export {
+  GoogleFontsSelector,
+  createFontSelector,
+  GOOGLE_FONTS_CATALOG,
+  GOOGLE_FONTS_SCRIPT,
+  getFontsByCategory,
+  getPopularFonts,
+  findFont,
+  getAllFontFamilies,
+  buildFontUrl,
+  buildCombinedFontUrl,
+  type FontCategory,
+  type FontWeight,
+  type GoogleFont,
+  type FontSelection,
+  type FontSelectorOptions,
+  type FontSelectorState,
+  type FontApplyResult,
+  type FontSelectionCallback,
+  type FontLoadCallback,
+} from "./google-fonts-selector";
