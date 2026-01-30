@@ -617,3 +617,26 @@ export {
   type PhaseChangeCallback,
   type CompleteCallback as ProgressCompleteCallback,
 } from "./animated-progress-bar";
+
+// Thumbnail Generator for visual version history
+export {
+  ThumbnailGenerator,
+  createThumbnailGenerator,
+  SIZE_PRESETS as THUMBNAIL_SIZE_PRESETS,
+  generateThumbnailId,
+  getDimensions,
+  getMimeType,
+  calculateScaledDimensions,
+  dataUrlToBlob,
+  estimateFileSize,
+  type ThumbnailSize,
+  type ImageFormat,
+  type ThumbnailDimensions,
+  type ThumbnailMetadata,
+  type Thumbnail,
+  type VersionThumbnail,
+  type ThumbnailGeneratorOptions,
+  type CaptureOptions,
+  type GenerationCallback,
+  type ErrorCallback as ThumbnailErrorCallback,
+} from "./thumbnail-generator";
