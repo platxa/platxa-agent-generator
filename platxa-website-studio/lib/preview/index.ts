@@ -689,3 +689,27 @@ export {
   type ToolLabelConfig,
   type StateChangeCallback as UsageStateChangeCallback,
 } from "./tool-usage-indicator";
+
+// Token Cost Counter for session usage tracking
+export {
+  TokenCostCounter,
+  createTokenCostCounter,
+  MODEL_PRICING,
+  formatTokenCount,
+  formatCost,
+  calculateCost,
+  estimateTokens,
+  formatSessionDuration,
+  calculateCostPerToken,
+  generateSessionSummary,
+  type ModelId,
+  type ModelPricing,
+  type TokenUsage,
+  type SessionStats,
+  type ModelStats,
+  type DisplayOptions,
+  type HeaderDisplay,
+  type UsageHistoryEntry,
+  type BudgetAlert,
+  type StatsChangeCallback,
+} from "./token-cost-counter";
