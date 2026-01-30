@@ -590,3 +590,30 @@ export {
   type ETADisplay,
   type ETAUpdateCallback,
 } from "./eta-calculator";
+
+// Animated Progress Bar with phase-specific colors
+export {
+  AnimatedProgressBar,
+  createAnimatedProgressBar,
+  PHASE_COLORS,
+  PHASE_LABELS,
+  SIZE_CONFIG,
+  ANIMATION_KEYFRAMES,
+  PROGRESS_BAR_SCRIPT,
+  clamp,
+  getPhaseColor,
+  getPhaseLabel,
+  formatProgress,
+  getAnimationClasses,
+  getIndeterminateClasses,
+  type ProgressPhase,
+  type AnimationStyle,
+  type ProgressSize,
+  type PhaseColor,
+  type ProgressBarState,
+  type ProgressBarOptions,
+  type ProgressBarStyles,
+  type StateChangeCallback as ProgressStateChangeCallback,
+  type PhaseChangeCallback,
+  type CompleteCallback as ProgressCompleteCallback,
+} from "./animated-progress-bar";
