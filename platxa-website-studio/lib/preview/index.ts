@@ -1190,3 +1190,27 @@ export {
   type BackoffConfig,
   type RetryOptions,
 } from "./exponential-backoff";
+
+// Manual Fix Generator for Complex Errors
+export {
+  ManualFixGenerator,
+  createManualFixGenerator,
+  generateManualFix,
+  needsManualFix,
+  detectComplexity,
+  findMatchingTemplate as findFixTemplate,
+  calculateTotalTime,
+  generateId as generateManualFixId,
+  FIX_TEMPLATES,
+  DEFAULT_CONFIG as MANUAL_FIX_DEFAULT_CONFIG,
+  COMPLEXITY_THRESHOLDS,
+  type ComplexityLevel,
+  type StepPriority,
+  type StepCategory,
+  type ManualFixStep,
+  type FixPrerequisite,
+  type ManualFixSuggestion,
+  type ComplexError,
+  type ManualFixGeneratorConfig,
+  type FixTemplate,
+} from "./manual-fix-generator";
