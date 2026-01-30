@@ -504,3 +504,28 @@ export {
   type FrameStyles,
   type DeviceChangeCallback,
 } from "./device-frame";
+
+// Zoom Controls for preview panel scale adjustment
+export {
+  ZoomControls,
+  createZoomControls,
+  ZOOM_PRESETS,
+  KEYBOARD_SHORTCUTS,
+  ZOOM_CONTROLS_SCRIPT,
+  zoomToScale,
+  scaleToZoom,
+  formatZoom,
+  getClosestPreset,
+  isPreset,
+  type ZoomPreset,
+  type ZoomControlMode,
+  type ZoomChangeSource,
+  type ZoomChangeEvent,
+  type ZoomControlsState,
+  type ZoomControlsOptions,
+  type ZoomChangeCallback,
+  type StateChangeCallback as ZoomStateChangeCallback,
+  type SliderConfig,
+  type ButtonConfig,
+  type PresetButtonConfig,
+} from "./zoom-controls";
