@@ -242,3 +242,18 @@ export {
   type YjsProvider,
   type CheckpointManagerConfig,
 } from './checkpoint-manager';
+
+export {
+  AsciiMockup,
+  createAsciiMockup,
+  renderPreset,
+  quickMockup,
+  compareLayouts,
+  LAYOUT_PRESETS,
+  type SectionType,
+  type LayoutDirection,
+  type MockupSection,
+  type MockupLayout,
+  type MockupRenderOptions,
+  type MockupResult,
+} from './ascii-mockup';
