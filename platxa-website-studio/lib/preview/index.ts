@@ -380,3 +380,15 @@ export {
   type UseCursorHighlightOptions,
   type UseCursorHighlightReturn,
 } from "./cursor-highlight-bridge";
+
+// Section Keyboard Navigator for arrow key navigation between sections
+export {
+  SectionKeyboardNavigator,
+  createSectionNavigator,
+  SECTION_KEYBOARD_NAV_SCRIPT,
+  type NavigationDirection,
+  type SectionKeyboardNavigatorOptions,
+  type NavigatorState,
+  type NavigationEvent,
+  type NavigationCallback,
+} from "./section-keyboard-navigator";
