@@ -388,11 +388,13 @@ export class OdooPreviewRenderer {
    * Invalidates cache for a specific template.
    */
   invalidateTemplate(template: string): void {
-    for (const [key] of this.cache) {
+    const keysToDelete: string[] = [];
+    this.cache.forEach((_, key) => {
       if (key.startsWith(template)) {
-        this.cache.delete(key);
+        keysToDelete.push(key);
       }
-    }
+    });
+    keysToDelete.forEach((key) => this.cache.delete(key));
   }
 
   /**
