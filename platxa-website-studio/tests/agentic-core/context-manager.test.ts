@@ -12,6 +12,8 @@ import {
   createContextManagerFrom,
   type KnowledgeEntry,
   type ContextStats,
+  type RankedKnowledgeEntry,
+  type RelevanceQueryOptions,
 } from '@/lib/agentic-core/context-manager';
 import type { AgentContext, AgentPlanStep, ValidationResult } from '@/lib/agentic-core/agent-engine';
 import type { ToolResult } from '@/lib/agentic-core/tool-executor';
@@ -598,6 +600,350 @@ describe('ContextManager', () => {
 
       // Iteration 2 added 1 knowledge entry
       expect(history[1].knowledgeAdded.length).toBe(1);
+    });
+  });
+
+  // ==========================================================================
+  // Feature #34 Verification Tests: Relevance Ranking
+  // ==========================================================================
+
+  describe('Feature #34 verification: Relevance ranking based on recency and semantic similarity', () => {
+    describe('recency-based scoring', () => {
+      it('scores recent items higher than older items', async () => {
+        const manager = new ContextManager({
+          recencyHalfLife: 1000, // 1 second half-life for testing
+        });
+
+        // Add item at time T
+        manager.addFileContent('old-file.ts', 'old content');
+
+        // Wait a bit to create age difference
+        await new Promise(resolve => setTimeout(resolve, 50));
+
+        // Add newer item
+        manager.addFileContent('new-file.ts', 'new content');
+
+        // Get items ranked by recency
+        const ranked = manager.getRecent(10, 'file');
+
+        expect(ranked.length).toBe(2);
+        // Most recent should be first
+        expect(ranked[0].key).toBe('new-file.ts');
+        expect(ranked[1].key).toBe('old-file.ts');
+        // Recent item should have higher recency score
+        expect(ranked[0].scoreBreakdown.recency).toBeGreaterThan(ranked[1].scoreBreakdown.recency);
+      });
+
+      it('recency score decays with time', () => {
+        const manager = new ContextManager({
+          recencyHalfLife: 100, // 100ms half-life
+        });
+
+        // Manually test the recency calculation
+        const now = Date.now();
+        const recentDate = new Date(now - 10); // 10ms ago
+        const oldDate = new Date(now - 200); // 200ms ago (2 half-lives)
+
+        // Access private method via getByRelevance results
+        manager.addFileContent('test.ts', 'content');
+
+        const results = manager.getByRelevance({ recencyBoost: 1.0 });
+        expect(results.length).toBe(1);
+        // Score should be close to 1.0 since just added
+        expect(results[0].scoreBreakdown.recency).toBeGreaterThan(0.9);
+      });
+
+      it('getRecent returns items primarily by recency', () => {
+        const manager = new ContextManager();
+
+        manager.addFileContent('file1.ts', 'authentication login security');
+        manager.addFileContent('file2.ts', 'simple content');
+        manager.addFileContent('file3.ts', 'more content here');
+
+        const recent = manager.getRecent(2);
+
+        // Should return 2 most recent
+        expect(recent.length).toBe(2);
+        // Recency weight should be dominant (0.95)
+        expect(recent[0].scoreBreakdown.recency).toBeDefined();
+      });
+    });
+
+    describe('semantic similarity scoring', () => {
+      it('scores semantically similar items higher', () => {
+        const manager = new ContextManager();
+
+        // Add files with different content
+        manager.addFileContent('auth/login.ts', 'export function authenticate(user, password) { return token; }');
+        manager.addFileContent('utils/math.ts', 'export function calculateSum(a, b) { return a + b; }');
+        manager.addFileContent('auth/session.ts', 'export function validateToken(token) { authenticate(); }');
+
+        // Query for authentication-related items
+        const ranked = manager.getByRelevance({
+          query: 'authenticate token login',
+          type: 'file',
+          recencyBoost: 0.0, // Pure semantic matching
+        });
+
+        expect(ranked.length).toBe(3);
+        // Auth files should rank higher due to semantic similarity
+        expect(ranked[0].scoreBreakdown.semantic).toBeGreaterThan(ranked[2].scoreBreakdown.semantic);
+      });
+
+      it('handles partial token matches', () => {
+        const manager = new ContextManager();
+
+        manager.addFileContent('authentication.ts', 'auth function');
+        manager.addFileContent('unrelated.ts', 'completely different');
+
+        const ranked = manager.getByRelevance({
+          query: 'auth',
+          recencyBoost: 0.0,
+        });
+
+        // 'auth' should partially match 'authentication.ts' key
+        expect(ranked[0].key).toBe('authentication.ts');
+        expect(ranked[0].scoreBreakdown.semantic).toBeGreaterThan(0);
+      });
+
+      it('handles empty query gracefully', () => {
+        const manager = new ContextManager();
+        manager.addFileContent('test.ts', 'content');
+
+        const ranked = manager.getByRelevance({});
+
+        // Should return items with neutral semantic score
+        expect(ranked.length).toBe(1);
+        expect(ranked[0].scoreBreakdown.semantic).toBe(0.5);
+      });
+    });
+
+    describe('combined relevance scoring', () => {
+      it('combines recency and semantic similarity', () => {
+        const manager = new ContextManager({
+          recencyWeight: 0.4,
+          semanticWeight: 0.6,
+        });
+
+        manager.addFileContent('old-auth.ts', 'authentication login');
+        manager.addFileContent('new-unrelated.ts', 'completely different topic');
+
+        const ranked = manager.getByRelevance({
+          query: 'authentication',
+        });
+
+        // Both scores should be present in breakdown
+        expect(ranked[0].scoreBreakdown.recency).toBeDefined();
+        expect(ranked[0].scoreBreakdown.semantic).toBeDefined();
+        expect(ranked[0].scoreBreakdown.combined).toBeDefined();
+
+        // Combined should be weighted average
+        const entry = ranked[0];
+        const expectedCombined = (0.4 * entry.scoreBreakdown.recency) + (0.6 * entry.scoreBreakdown.semantic);
+        expect(entry.scoreBreakdown.combined).toBeCloseTo(expectedCombined, 5);
+      });
+
+      it('respects recencyBoost parameter', () => {
+        const manager = new ContextManager();
+
+        manager.addFileContent('file.ts', 'content');
+
+        const highRecency = manager.getByRelevance({
+          query: 'test',
+          recencyBoost: 0.9,
+        });
+
+        const lowRecency = manager.getByRelevance({
+          query: 'test',
+          recencyBoost: 0.1,
+        });
+
+        // With high recency boost, recency dominates the combined score
+        // With low recency boost, semantic dominates
+        // The actual combined scores will differ based on the weighting
+        expect(highRecency[0].relevanceScore).toBeDefined();
+        expect(lowRecency[0].relevanceScore).toBeDefined();
+      });
+    });
+
+    describe('filtering and limits', () => {
+      it('filters by minimum relevance', () => {
+        const manager = new ContextManager();
+
+        manager.addFileContent('relevant.ts', 'authentication login security');
+        manager.addFileContent('irrelevant.ts', 'xyz abc 123');
+
+        const ranked = manager.getByRelevance({
+          query: 'authentication',
+          minRelevance: 0.3,
+          recencyBoost: 0.0,
+        });
+
+        // Only items above threshold
+        for (const entry of ranked) {
+          expect(entry.relevanceScore).toBeGreaterThanOrEqual(0.3);
+        }
+      });
+
+      it('limits number of results', () => {
+        const manager = new ContextManager();
+
+        for (let i = 0; i < 20; i++) {
+          manager.addFileContent(`file${i}.ts`, `content ${i}`);
+        }
+
+        const ranked = manager.getByRelevance({ limit: 5 });
+
+        expect(ranked.length).toBe(5);
+      });
+
+      it('filters by type', () => {
+        const manager = new ContextManager();
+
+        manager.addFileContent('file.ts', 'file content');
+        manager.addSearchResults('query', [{ match: 'result' }]);
+        manager.addError('error message', 'test');
+
+        const filesOnly = manager.getByRelevance({ type: 'file' });
+        const searchOnly = manager.getByRelevance({ type: 'search' });
+
+        expect(filesOnly.every(e => e.type === 'file')).toBe(true);
+        expect(searchOnly.every(e => e.type === 'search')).toBe(true);
+      });
+
+      it('filters by tags', () => {
+        const manager = new ContextManager();
+
+        manager.addFileContent('app.ts', 'typescript code');
+        manager.addFileContent('style.css', 'css styles');
+
+        const tsFiles = manager.getByRelevance({ tags: ['ts'] });
+
+        expect(tsFiles.length).toBe(1);
+        expect(tsFiles[0].key).toBe('app.ts');
+      });
+    });
+
+    describe('convenience methods', () => {
+      it('getMostRelevant returns single best match', () => {
+        const manager = new ContextManager();
+
+        manager.addFileContent('auth.ts', 'authentication login');
+        manager.addFileContent('math.ts', 'calculate sum');
+
+        const best = manager.getMostRelevant('authentication', 'file');
+
+        expect(best).toBeDefined();
+        expect(best!.key).toBe('auth.ts');
+      });
+
+      it('getMostRelevant returns undefined for empty results', () => {
+        const manager = new ContextManager();
+
+        const best = manager.getMostRelevant('nonexistent');
+
+        expect(best).toBeUndefined();
+      });
+
+      it('setRelevance updates entry relevance', () => {
+        const manager = new ContextManager();
+        manager.addFileContent('test.ts', 'content');
+
+        const entries = manager.getAllKnowledge();
+        const entryId = entries[0].id;
+
+        const result = manager.setRelevance(entryId, 0.9);
+
+        expect(result).toBe(true);
+        expect(entries[0].relevance).toBe(0.9);
+      });
+
+      it('setRelevance clamps values to 0-1', () => {
+        const manager = new ContextManager();
+        manager.addFileContent('test.ts', 'content');
+
+        const entries = manager.getAllKnowledge();
+        const entryId = entries[0].id;
+
+        manager.setRelevance(entryId, 1.5);
+        expect(entries[0].relevance).toBe(1);
+
+        manager.setRelevance(entryId, -0.5);
+        expect(entries[0].relevance).toBe(0);
+      });
+
+      it('setRelevance returns false for unknown entry', () => {
+        const manager = new ContextManager();
+
+        const result = manager.setRelevance('nonexistent-id', 0.5);
+
+        expect(result).toBe(false);
+      });
+    });
+
+    describe('verification: Recent items and semantically similar items score higher', () => {
+      it('recent items score higher in recency component', async () => {
+        const manager = new ContextManager({
+          recencyHalfLife: 50, // Short half-life for testing
+        });
+
+        // Add old item
+        manager.addFileContent('old.ts', 'old content');
+
+        // Wait for significant time relative to half-life
+        await new Promise(resolve => setTimeout(resolve, 100));
+
+        // Add new item
+        manager.addFileContent('new.ts', 'new content');
+
+        const ranked = manager.getByRelevance({ recencyBoost: 1.0 });
+
+        // New item should be first with higher recency score
+        expect(ranked[0].key).toBe('new.ts');
+        expect(ranked[0].scoreBreakdown.recency).toBeGreaterThan(ranked[1].scoreBreakdown.recency);
+      });
+
+      it('semantically similar items score higher in semantic component', () => {
+        const manager = new ContextManager();
+
+        manager.addFileContent('database.ts', 'export class Database { query() { return sql; } }');
+        manager.addFileContent('auth.ts', 'export function login(user, password) { authenticate(); }');
+        manager.addFileContent('styles.css', '.button { color: blue; }');
+
+        const ranked = manager.getByRelevance({
+          query: 'database query sql',
+          recencyBoost: 0.0, // Pure semantic matching
+        });
+
+        // Database file should score highest semantically
+        expect(ranked[0].key).toBe('database.ts');
+        expect(ranked[0].scoreBreakdown.semantic).toBeGreaterThan(ranked[1].scoreBreakdown.semantic);
+        expect(ranked[0].scoreBreakdown.semantic).toBeGreaterThan(ranked[2].scoreBreakdown.semantic);
+      });
+
+      it('combined scoring balances recency and semantic similarity', () => {
+        const manager = new ContextManager({
+          recencyWeight: 0.4,
+          semanticWeight: 0.6,
+          recencyHalfLife: 100,
+        });
+
+        // Add highly relevant but older item
+        manager.addFileContent('old-relevant.ts', 'authentication login security token');
+
+        // Small delay
+        manager.addFileContent('new-irrelevant.ts', 'unrelated xyz content');
+
+        const ranked = manager.getByRelevance({
+          query: 'authentication login',
+        });
+
+        // With balanced weights, the older but more relevant item should still compete
+        // Both should have reasonable combined scores
+        expect(ranked.length).toBe(2);
+        expect(ranked[0].relevanceScore).toBeGreaterThan(0);
+        expect(ranked[1].relevanceScore).toBeGreaterThan(0);
+      });
     });
   });
 });

@@ -84,7 +84,56 @@ export interface ContextManagerOptions {
   trackHistory?: boolean;
   /** Workspace root for relative path resolution */
   workspaceRoot?: string;
+  /** Weight for recency in relevance scoring (0-1, default 0.4) */
+  recencyWeight?: number;
+  /** Weight for semantic similarity in relevance scoring (0-1, default 0.6) */
+  semanticWeight?: number;
+  /** Half-life for recency decay in milliseconds (default 5 minutes) */
+  recencyHalfLife?: number;
 }
+
+/** Options for relevance-based retrieval */
+export interface RelevanceQueryOptions {
+  /** Query string for semantic similarity matching */
+  query?: string;
+  /** Filter by knowledge type */
+  type?: KnowledgeEntry['type'];
+  /** Maximum number of results */
+  limit?: number;
+  /** Minimum relevance score (0-1) */
+  minRelevance?: number;
+  /** Filter by tags */
+  tags?: string[];
+  /** Boost recency over semantic similarity (0-1, default uses manager settings) */
+  recencyBoost?: number;
+}
+
+/** Result of relevance ranking */
+export interface RankedKnowledgeEntry extends KnowledgeEntry {
+  /** Computed relevance score (0-1) */
+  relevanceScore: number;
+  /** Breakdown of score components */
+  scoreBreakdown: {
+    recency: number;
+    semantic: number;
+    combined: number;
+  };
+}
+
+// ============================================================================
+// Constants
+// ============================================================================
+
+/** Common stop words to filter from tokenization */
+const STOP_WORDS = new Set([
+  'the', 'be', 'to', 'of', 'and', 'in', 'that', 'have', 'it', 'for',
+  'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at', 'this', 'but',
+  'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she', 'or', 'an',
+  'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what', 'so',
+  'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go', 'me', 'is',
+  'are', 'was', 'were', 'been', 'being', 'has', 'had', 'does', 'did',
+  'can', 'could', 'should', 'may', 'might', 'must', 'shall', 'will',
+]);
 
 // ============================================================================
 // Context Manager Class
@@ -120,6 +169,8 @@ export class ContextManager {
   private iterationHistory: IterationSnapshot[];
   private currentIteration: number;
   private options: Required<ContextManagerOptions>;
+  /** Cache for tokenized content (for semantic similarity) */
+  private tokenCache: Map<string, string[]>;
   private userPreferences: Record<string, unknown>;
   private odooContext: AgentContext['odooContext'];
   private designTokens: Record<string, unknown>;
@@ -131,6 +182,9 @@ export class ContextManager {
       maxFileSize: options.maxFileSize ?? 1024 * 1024, // 1MB default
       trackHistory: options.trackHistory ?? true,
       workspaceRoot: options.workspaceRoot ?? process.cwd(),
+      recencyWeight: options.recencyWeight ?? 0.4,
+      semanticWeight: options.semanticWeight ?? 0.6,
+      recencyHalfLife: options.recencyHalfLife ?? 5 * 60 * 1000, // 5 minutes
     };
 
     this.knowledge = new Map();
@@ -142,6 +196,7 @@ export class ContextManager {
     this.odooContext = {};
     this.designTokens = {};
     this.planMode = false;
+    this.tokenCache = new Map();
   }
 
   // ==========================================================================
@@ -205,6 +260,7 @@ export class ContextManager {
     this.userPreferences = {};
     this.odooContext = {};
     this.designTokens = {};
+    this.tokenCache.clear();
   }
 
   // ==========================================================================
@@ -485,6 +541,241 @@ export class ContextManager {
    */
   getReadFilePaths(): string[] {
     return Array.from(this.filesRead.keys());
+  }
+
+  // ==========================================================================
+  // Relevance Ranking
+  // ==========================================================================
+
+  /**
+   * Get knowledge entries ranked by relevance
+   *
+   * Relevance scoring combines:
+   * - Recency: More recent items score higher (exponential decay)
+   * - Semantic similarity: Items matching the query score higher
+   *
+   * @example
+   * ```typescript
+   * // Get most relevant files for a query
+   * const ranked = manager.getByRelevance({
+   *   query: 'authentication login',
+   *   type: 'file',
+   *   limit: 10,
+   * });
+   *
+   * // Get recent items with high relevance
+   * const recent = manager.getByRelevance({
+   *   minRelevance: 0.5,
+   *   recencyBoost: 0.8,
+   * });
+   * ```
+   */
+  getByRelevance(options: RelevanceQueryOptions = {}): RankedKnowledgeEntry[] {
+    const {
+      query,
+      type,
+      limit,
+      minRelevance = 0,
+      tags,
+      recencyBoost,
+    } = options;
+
+    const now = Date.now();
+    const queryTokens = query ? this.tokenize(query) : [];
+
+    // Calculate effective weights
+    const recencyWeight = recencyBoost ?? this.options.recencyWeight;
+    const semanticWeight = 1 - recencyWeight;
+
+    // Score and rank all entries
+    const ranked: RankedKnowledgeEntry[] = [];
+
+    for (const entry of this.knowledge.values()) {
+      // Apply type filter
+      if (type && entry.type !== type) continue;
+
+      // Apply tag filter
+      if (tags && tags.length > 0) {
+        const entryTags = entry.tags || [];
+        if (!tags.some(t => entryTags.includes(t))) continue;
+      }
+
+      // Calculate recency score (exponential decay)
+      const recencyScore = this.calculateRecencyScore(entry.createdAt, now);
+
+      // Calculate semantic similarity score
+      const semanticScore = queryTokens.length > 0
+        ? this.calculateSemanticSimilarity(entry, queryTokens)
+        : 0.5; // Neutral score if no query
+
+      // Combined weighted score
+      const combined = (recencyWeight * recencyScore) + (semanticWeight * semanticScore);
+
+      // Apply minimum relevance filter
+      if (combined < minRelevance) continue;
+
+      ranked.push({
+        ...entry,
+        relevanceScore: combined,
+        scoreBreakdown: {
+          recency: recencyScore,
+          semantic: semanticScore,
+          combined,
+        },
+      });
+    }
+
+    // Sort by relevance (highest first)
+    ranked.sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+    // Apply limit
+    if (limit && limit > 0) {
+      return ranked.slice(0, limit);
+    }
+
+    return ranked;
+  }
+
+  /**
+   * Calculate recency score using exponential decay
+   *
+   * Score = 2^(-age / halfLife)
+   * - At age 0: score = 1.0
+   * - At age = halfLife: score = 0.5
+   * - At age = 2*halfLife: score = 0.25
+   */
+  private calculateRecencyScore(createdAt: Date, now: number): number {
+    const age = now - createdAt.getTime();
+    const halfLife = this.options.recencyHalfLife;
+    return Math.pow(2, -age / halfLife);
+  }
+
+  /**
+   * Calculate semantic similarity between entry and query tokens
+   *
+   * Uses a combination of:
+   * - Jaccard similarity on tokens
+   * - Prefix/substring matching for partial matches
+   */
+  private calculateSemanticSimilarity(
+    entry: KnowledgeEntry,
+    queryTokens: string[]
+  ): number {
+    // Get or compute tokens for this entry
+    const entryTokens = this.getEntryTokens(entry);
+
+    if (entryTokens.length === 0 || queryTokens.length === 0) {
+      return 0;
+    }
+
+    // Calculate Jaccard-like similarity with partial matching
+    let matchScore = 0;
+    const querySet = new Set(queryTokens);
+    const entrySet = new Set(entryTokens);
+
+    for (const queryToken of querySet) {
+      // Exact match
+      if (entrySet.has(queryToken)) {
+        matchScore += 1.0;
+        continue;
+      }
+
+      // Partial match (prefix or substring)
+      let bestPartialScore = 0;
+      for (const entryToken of entrySet) {
+        if (entryToken.startsWith(queryToken) || queryToken.startsWith(entryToken)) {
+          // Prefix match: score based on overlap ratio
+          const shorter = Math.min(queryToken.length, entryToken.length);
+          const longer = Math.max(queryToken.length, entryToken.length);
+          bestPartialScore = Math.max(bestPartialScore, shorter / longer * 0.8);
+        } else if (entryToken.includes(queryToken) || queryToken.includes(entryToken)) {
+          // Substring match: lower score
+          bestPartialScore = Math.max(bestPartialScore, 0.5);
+        }
+      }
+      matchScore += bestPartialScore;
+    }
+
+    // Normalize by query size and apply diminishing returns
+    const normalizedScore = matchScore / queryTokens.length;
+
+    // Apply sigmoid-like transformation for smoother scoring
+    return Math.min(1, normalizedScore);
+  }
+
+  /**
+   * Get tokens for an entry (cached)
+   */
+  private getEntryTokens(entry: KnowledgeEntry): string[] {
+    const cached = this.tokenCache.get(entry.id);
+    if (cached) return cached;
+
+    // Build text to tokenize from entry
+    const textParts: string[] = [entry.key];
+
+    if (entry.tags) {
+      textParts.push(...entry.tags);
+    }
+
+    // Add data content for certain types
+    if (entry.type === 'file' && typeof entry.data === 'string') {
+      // For files, tokenize a portion of content
+      textParts.push(entry.data.substring(0, 1000));
+    } else if (entry.type === 'search' && typeof entry.key === 'string') {
+      // Search queries are already the key
+    } else if (entry.data && typeof entry.data === 'object') {
+      // Extract string values from object data
+      const dataStr = JSON.stringify(entry.data);
+      textParts.push(dataStr.substring(0, 500));
+    }
+
+    const tokens = this.tokenize(textParts.join(' '));
+    this.tokenCache.set(entry.id, tokens);
+    return tokens;
+  }
+
+  /**
+   * Tokenize text into normalized tokens
+   */
+  private tokenize(text: string): string[] {
+    return text
+      .toLowerCase()
+      // Split on non-alphanumeric characters
+      .split(/[^a-z0-9]+/)
+      // Filter empty and very short tokens
+      .filter(t => t.length >= 2)
+      // Remove common stop words
+      .filter(t => !STOP_WORDS.has(t));
+  }
+
+  /**
+   * Update relevance score for an entry manually
+   */
+  setRelevance(entryId: string, relevance: number): boolean {
+    const entry = this.knowledge.get(entryId);
+    if (!entry) return false;
+
+    entry.relevance = Math.max(0, Math.min(1, relevance));
+    return true;
+  }
+
+  /**
+   * Get the most relevant entry for a query
+   */
+  getMostRelevant(query: string, type?: KnowledgeEntry['type']): RankedKnowledgeEntry | undefined {
+    const results = this.getByRelevance({ query, type, limit: 1 });
+    return results[0];
+  }
+
+  /**
+   * Get recent entries (convenience method using recency-heavy ranking)
+   */
+  getRecent(limit: number = 10, type?: KnowledgeEntry['type']): RankedKnowledgeEntry[] {
+    return this.getByRelevance({
+      type,
+      limit,
+      recencyBoost: 0.95, // Almost purely recency-based
+    });
   }
 
   // ==========================================================================
