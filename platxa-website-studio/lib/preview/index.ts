@@ -554,3 +554,25 @@ export {
   type RecoveryCallback,
   type StateChangeCallback as ErrorStateChangeCallback,
 } from "./preview-error-boundary";
+
+// Tool Indicator for showing active operations
+export {
+  ToolIndicator,
+  createToolIndicator,
+  TOOL_DEFINITIONS,
+  CATEGORY_STYLES,
+  getToolDefinition,
+  formatDuration,
+  truncateTarget,
+  getCategoryStyle,
+  type ToolOperation,
+  type ToolCategory,
+  type ToolDefinition,
+  type ActiveTool,
+  type ToolIndicatorState,
+  type ToolHistoryEntry,
+  type ToolIndicatorOptions,
+  type ToolBadgeConfig,
+  type ToolChangeCallback,
+  type ToolCompleteCallback,
+} from "./tool-indicator";
