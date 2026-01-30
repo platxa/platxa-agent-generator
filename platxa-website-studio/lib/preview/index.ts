@@ -747,3 +747,32 @@ export {
   type ScoreChangeCallback,
   type QualityScoreDisplayOptions,
 } from "./quality-score-display";
+
+// File Diff Display for inline chat messages
+export {
+  FileDiffDisplay,
+  createFileDiffDisplay,
+  DEFAULT_COLORS as DIFF_DEFAULT_COLORS,
+  LIGHT_COLORS as DIFF_LIGHT_COLORS,
+  LINE_PREFIXES,
+  CSS_CLASSES as DIFF_CSS_CLASSES,
+  parseUnifiedDiff,
+  createDiff,
+  groupIntoHunks as groupDiffIntoHunks,
+  renderLineText,
+  renderLineHtml,
+  escapeHtml,
+  getLineColor,
+  formatDiffStats,
+  type LineChangeType,
+  type DiffLine as FileDiffLine,
+  type DiffHunk as FileDiffHunk,
+  type FileDiff,
+  type DiffColors,
+  type DiffDisplayOptions,
+  type RenderedLine,
+  type RenderedDiff,
+  type DiffChangeCallback,
+  type DisplayStateCallback as DiffDisplayStateCallback,
+  type FileDiffDisplayState,
+} from "./file-diff-display";
