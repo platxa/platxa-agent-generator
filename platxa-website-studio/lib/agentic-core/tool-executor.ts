@@ -91,7 +91,7 @@ export interface ToolRegistration {
 export interface ToolExecutorConfig {
   /** Timeout per tool execution in ms */
   timeout?: number;
-  /** Whether to cache results */
+  /** Whether to cache results (memoization) */
   cacheResults?: boolean;
   /** Cache TTL in ms */
   cacheTTL?: number;
@@ -99,7 +99,50 @@ export interface ToolExecutorConfig {
   retryOnFailure?: boolean;
   /** Max retries */
   maxRetries?: number;
+  /** Maximum cache entries before LRU eviction */
+  maxCacheEntries?: number;
 }
+
+/** Memoization statistics */
+export interface MemoizationStats {
+  /** Total cache hits */
+  hits: number;
+  /** Total cache misses */
+  misses: number;
+  /** Hit rate (0-1) */
+  hitRate: number;
+  /** Current cache size */
+  cacheSize: number;
+  /** Total evictions */
+  evictions: number;
+  /** Bytes saved (estimated) */
+  bytesSaved: number;
+}
+
+/** Cache entry with metadata */
+interface CacheEntry {
+  result: ToolResult;
+  timestamp: number;
+  accessCount: number;
+  /** Monotonic access order for deterministic LRU (higher = more recent) */
+  accessOrder: number;
+  sizeBytes: number;
+}
+
+/**
+ * Actions that are idempotent and safe to memoize.
+ * Write operations (write, edit) are NOT memoizable as they have side effects.
+ */
+const MEMOIZABLE_ACTIONS: Set<AgentActionType> = new Set([
+  'search',
+  'read',
+  'validate',
+  'compile',
+  'preview',
+  'test',
+  'web_search',
+  'inspect_logs',
+]);
 
 // ============================================================================
 // Default Tool Implementations
@@ -235,7 +278,16 @@ export class AgentToolExecutor implements ToolExecutor {
   private config: Required<ToolExecutorConfig>;
   private tools: Map<AgentActionType, ToolFunction>;
   private customTools: Map<string, ToolRegistration>;
-  private cache: Map<string, { result: ToolResult; timestamp: number }>;
+  private cache: Map<string, CacheEntry>;
+
+  // Memoization statistics
+  private cacheHits: number = 0;
+  private cacheMisses: number = 0;
+  private cacheEvictions: number = 0;
+  private bytesSaved: number = 0;
+
+  // Monotonic counter for deterministic LRU ordering (Date.now() can be same within ms)
+  private accessCounter: number = 0;
 
   constructor(config: ToolExecutorConfig = {}) {
     this.config = {
@@ -244,6 +296,7 @@ export class AgentToolExecutor implements ToolExecutor {
       cacheTTL: config.cacheTTL ?? 300000, // 5-minute TTL (Feature #12)
       retryOnFailure: config.retryOnFailure ?? true,
       maxRetries: config.maxRetries ?? 2,
+      maxCacheEntries: config.maxCacheEntries ?? 500,
     };
 
     // Initialize with default tools
@@ -274,13 +327,18 @@ export class AgentToolExecutor implements ToolExecutor {
       );
     }
 
-    // Check cache first
-    const cacheKey = this.getCacheKey(action, toolParams);
-    if (this.config.cacheResults) {
+    // Check cache first (only for memoizable actions)
+    const isMemoizable = this.isMemoizableAction(action);
+    const cacheKey = isMemoizable ? this.getCacheKey(action, toolParams) : '';
+
+    if (this.config.cacheResults && isMemoizable) {
       const cached = this.getFromCache(cacheKey);
       if (cached) {
-        return cached.data;
+        this.cacheHits++;
+        this.bytesSaved += cached.sizeBytes;
+        return cached.result.data;
       }
+      this.cacheMisses++;
     }
 
     // Get the tool handler
@@ -310,8 +368,8 @@ export class AgentToolExecutor implements ToolExecutor {
       }
     }
 
-    // Cache successful results
-    if (result!.success && this.config.cacheResults) {
+    // Cache successful results (only memoizable actions)
+    if (result!.success && this.config.cacheResults && isMemoizable) {
       this.setCache(cacheKey, result!);
     }
 
@@ -394,6 +452,40 @@ export class AgentToolExecutor implements ToolExecutor {
    */
   clearCache(): void {
     this.cache.clear();
+  }
+
+  /**
+   * Get memoization statistics
+   * Feature #200: Provides visibility into cache performance
+   */
+  getMemoizationStats(): MemoizationStats {
+    const totalRequests = this.cacheHits + this.cacheMisses;
+    return {
+      hits: this.cacheHits,
+      misses: this.cacheMisses,
+      hitRate: totalRequests > 0 ? this.cacheHits / totalRequests : 0,
+      cacheSize: this.cache.size,
+      evictions: this.cacheEvictions,
+      bytesSaved: this.bytesSaved,
+    };
+  }
+
+  /**
+   * Reset memoization statistics
+   */
+  resetMemoizationStats(): void {
+    this.cacheHits = 0;
+    this.cacheMisses = 0;
+    this.cacheEvictions = 0;
+    this.bytesSaved = 0;
+  }
+
+  /**
+   * Check if an action is safe to memoize (idempotent/read-only)
+   * Feature #200: Write operations are never memoized
+   */
+  isMemoizableAction(action: AgentActionType): boolean {
+    return MEMOIZABLE_ACTIONS.has(action);
   }
 
   /**
@@ -536,15 +628,58 @@ export class AgentToolExecutor implements ToolExecutor {
   }
 
   private getCacheKey(action: AgentActionType, params: ToolParams): string {
-    // Feature #12: Cache key includes all parameters for accurate cache hits
-    const paramsHash = JSON.stringify({
+    // Feature #200: Cache key must be deterministic and exclude non-cacheable data
+    // Context is excluded because:
+    // 1. It contains Maps with different object references per call
+    // 2. Context state doesn't affect tool output (e.g., reading a file returns same content)
+    // Only include parameters that affect the tool result
+    const cacheRelevantOptions = this.extractCacheRelevantOptions(params.options);
+    const keyData = {
       target: params.target,
-      options: params.options,
-    });
-    return `${action}:${paramsHash}`;
+      options: cacheRelevantOptions,
+    };
+    return `${action}:${JSON.stringify(keyData)}`;
   }
 
-  private getFromCache(key: string): ToolResult | null {
+  /**
+   * Extract only cache-relevant options, excluding context and other non-deterministic data
+   */
+  private extractCacheRelevantOptions(options?: Record<string, unknown>): Record<string, unknown> {
+    if (!options) return {};
+
+    const cacheRelevant: Record<string, unknown> = {};
+    const excludeKeys = new Set(['context', 'stepId', 'rationale']);
+
+    for (const [key, value] of Object.entries(options)) {
+      if (!excludeKeys.has(key) && value !== undefined) {
+        // Only include primitive values and simple objects (not Maps, Sets, etc.)
+        if (this.isCacheableValue(value)) {
+          cacheRelevant[key] = value;
+        }
+      }
+    }
+
+    return cacheRelevant;
+  }
+
+  /**
+   * Check if a value is suitable for cache key inclusion
+   */
+  private isCacheableValue(value: unknown): boolean {
+    if (value === null) return true;
+    const type = typeof value;
+    if (type === 'string' || type === 'number' || type === 'boolean') return true;
+    if (Array.isArray(value)) return value.every(v => this.isCacheableValue(v));
+    if (type === 'object') {
+      // Exclude Map, Set, and other non-plain objects
+      if (value instanceof Map || value instanceof Set) return false;
+      if (Object.getPrototypeOf(value) !== Object.prototype) return false;
+      return Object.values(value as Record<string, unknown>).every(v => this.isCacheableValue(v));
+    }
+    return false;
+  }
+
+  private getFromCache(key: string): CacheEntry | null {
     const entry = this.cache.get(key);
     if (!entry) return null;
 
@@ -554,11 +689,61 @@ export class AgentToolExecutor implements ToolExecutor {
       return null;
     }
 
-    return entry.result;
+    // Update access metadata for LRU (monotonic counter ensures deterministic ordering)
+    entry.accessCount++;
+    entry.accessOrder = ++this.accessCounter;
+
+    return entry;
   }
 
   private setCache(key: string, result: ToolResult): void {
-    this.cache.set(key, { result, timestamp: Date.now() });
+    // Enforce max cache entries with LRU eviction
+    while (this.cache.size >= this.config.maxCacheEntries) {
+      this.evictLRU();
+    }
+
+    const sizeBytes = this.estimateResultSize(result);
+    this.cache.set(key, {
+      result,
+      timestamp: Date.now(),
+      accessCount: 1,
+      accessOrder: ++this.accessCounter,
+      sizeBytes,
+    });
+  }
+
+  /**
+   * Evict least recently used cache entry
+   * Uses monotonic accessOrder for deterministic LRU (not Date.now() which can be same within ms)
+   */
+  private evictLRU(): void {
+    if (this.cache.size === 0) return;
+
+    let oldestKey: string | null = null;
+    let oldestOrder = Infinity;
+
+    for (const [key, entry] of this.cache.entries()) {
+      if (entry.accessOrder < oldestOrder) {
+        oldestOrder = entry.accessOrder;
+        oldestKey = key;
+      }
+    }
+
+    if (oldestKey) {
+      this.cache.delete(oldestKey);
+      this.cacheEvictions++;
+    }
+  }
+
+  /**
+   * Estimate the size of a tool result in bytes
+   */
+  private estimateResultSize(result: ToolResult): number {
+    try {
+      return JSON.stringify(result).length * 2; // UTF-16
+    } catch {
+      return 1024; // Default estimate
+    }
   }
 }
 

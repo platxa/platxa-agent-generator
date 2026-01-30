@@ -43,6 +43,7 @@ export {
   type ToolParams,
   type ToolRegistration,
   type ToolExecutorConfig,
+  type MemoizationStats,
 } from './tool-executor';
 
 export {

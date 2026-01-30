@@ -451,6 +451,229 @@ describe('AgentToolExecutor', () => {
     });
   });
 
+  describe('memoization (Feature #200)', () => {
+    it('should track memoization statistics', async () => {
+      const executor = new AgentToolExecutor({ cacheResults: true });
+      const customSearch = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: ['a', 'b'] },
+        duration: 10,
+        toolName: 'search',
+      });
+      executor.setToolHandler('search', customSearch);
+
+      // First call - miss
+      await executor.execute('search', {
+        target: 'test',
+        context: createMockContext(),
+      });
+
+      // Second call - hit
+      await executor.execute('search', {
+        target: 'test',
+        context: createMockContext(),
+      });
+
+      const stats = executor.getMemoizationStats();
+      expect(stats.hits).toBe(1);
+      expect(stats.misses).toBe(1);
+      expect(stats.hitRate).toBe(0.5);
+      expect(stats.cacheSize).toBe(1);
+      expect(stats.bytesSaved).toBeGreaterThan(0);
+    });
+
+    it('should NOT memoize write operations', async () => {
+      const executor = new AgentToolExecutor({ cacheResults: true });
+      const customWrite = vi.fn().mockResolvedValue({
+        success: true,
+        data: { written: true },
+        duration: 10,
+        toolName: 'write_file',
+      });
+      executor.setToolHandler('write', customWrite);
+
+      // First call
+      await executor.execute('write', {
+        target: 'test.txt',
+        context: createMockContext(),
+        content: 'content1',
+      });
+
+      // Second call with same target - should NOT use cache
+      await executor.execute('write', {
+        target: 'test.txt',
+        context: createMockContext(),
+        content: 'content2',
+      });
+
+      // Write should be called twice (not cached)
+      expect(customWrite).toHaveBeenCalledTimes(2);
+
+      const stats = executor.getMemoizationStats();
+      expect(stats.cacheSize).toBe(0); // Write operations not cached
+    });
+
+    it('should NOT memoize edit operations', async () => {
+      const executor = new AgentToolExecutor({ cacheResults: true });
+      const customEdit = vi.fn().mockResolvedValue({
+        success: true,
+        data: { edited: true },
+        duration: 10,
+        toolName: 'edit_file',
+      });
+      executor.setToolHandler('edit', customEdit);
+
+      // First call
+      await executor.execute('edit', {
+        target: 'test.txt',
+        context: createMockContext(),
+        operations: [{ search: 'a', replace: 'b' }],
+      });
+
+      // Second call
+      await executor.execute('edit', {
+        target: 'test.txt',
+        context: createMockContext(),
+        operations: [{ search: 'a', replace: 'b' }],
+      });
+
+      expect(customEdit).toHaveBeenCalledTimes(2);
+    });
+
+    it('should correctly identify memoizable actions', () => {
+      const executor = new AgentToolExecutor();
+
+      // Memoizable (read-only/idempotent)
+      expect(executor.isMemoizableAction('search')).toBe(true);
+      expect(executor.isMemoizableAction('read')).toBe(true);
+      expect(executor.isMemoizableAction('validate')).toBe(true);
+      expect(executor.isMemoizableAction('compile')).toBe(true);
+      expect(executor.isMemoizableAction('preview')).toBe(true);
+      expect(executor.isMemoizableAction('test')).toBe(true);
+      expect(executor.isMemoizableAction('web_search')).toBe(true);
+      expect(executor.isMemoizableAction('inspect_logs')).toBe(true);
+
+      // NOT memoizable (side effects)
+      expect(executor.isMemoizableAction('write')).toBe(false);
+      expect(executor.isMemoizableAction('edit')).toBe(false);
+    });
+
+    it('should evict LRU entries when cache is full', async () => {
+      const executor = new AgentToolExecutor({
+        cacheResults: true,
+        maxCacheEntries: 2,
+      });
+      const customSearch = vi.fn().mockImplementation(async (params: ToolParams) => ({
+        success: true,
+        data: { query: params.target },
+        duration: 10,
+        toolName: 'search',
+      }));
+      executor.setToolHandler('search', customSearch);
+
+      // Fill cache with 2 entries
+      await executor.execute('search', { target: 'query1', context: createMockContext() });
+      await executor.execute('search', { target: 'query2', context: createMockContext() });
+
+      // Access query1 to make it recently used
+      await executor.execute('search', { target: 'query1', context: createMockContext() });
+
+      // Add third entry - should evict query2 (LRU)
+      await executor.execute('search', { target: 'query3', context: createMockContext() });
+
+      const stats = executor.getMemoizationStats();
+      expect(stats.cacheSize).toBe(2);
+      expect(stats.evictions).toBe(1);
+
+      // query1 should still be cached (was accessed recently)
+      customSearch.mockClear();
+      await executor.execute('search', { target: 'query1', context: createMockContext() });
+      expect(customSearch).not.toHaveBeenCalled(); // cache hit
+
+      // query2 should have been evicted
+      await executor.execute('search', { target: 'query2', context: createMockContext() });
+      expect(customSearch).toHaveBeenCalledTimes(1); // cache miss
+    });
+
+    it('should reset memoization statistics', async () => {
+      const executor = new AgentToolExecutor({ cacheResults: true });
+      const customSearch = vi.fn().mockResolvedValue({
+        success: true,
+        data: { results: [] },
+        duration: 10,
+        toolName: 'search',
+      });
+      executor.setToolHandler('search', customSearch);
+
+      // Generate some stats
+      await executor.execute('search', { target: 'test', context: createMockContext() });
+      await executor.execute('search', { target: 'test', context: createMockContext() });
+
+      let stats = executor.getMemoizationStats();
+      expect(stats.hits).toBe(1);
+      expect(stats.misses).toBe(1);
+
+      // Reset stats
+      executor.resetMemoizationStats();
+
+      stats = executor.getMemoizationStats();
+      expect(stats.hits).toBe(0);
+      expect(stats.misses).toBe(0);
+      expect(stats.evictions).toBe(0);
+      expect(stats.bytesSaved).toBe(0);
+      // Cache size should remain (only stats reset, not cache)
+      expect(stats.cacheSize).toBe(1);
+    });
+
+    it('should memoize read operations within session', async () => {
+      const executor = new AgentToolExecutor({ cacheResults: true });
+      const customRead = vi.fn().mockResolvedValue({
+        success: true,
+        data: { content: 'file content' },
+        duration: 10,
+        toolName: 'read_file',
+      });
+      executor.setToolHandler('read', customRead);
+
+      // First read
+      const result1 = await executor.execute('read', {
+        target: 'test.ts',
+        context: createMockContext(),
+      });
+
+      // Second read - should be memoized
+      const result2 = await executor.execute('read', {
+        target: 'test.ts',
+        context: createMockContext(),
+      });
+
+      expect(customRead).toHaveBeenCalledTimes(1);
+      expect(result1).toEqual(result2);
+    });
+
+    it('should use different cache keys for different parameters', async () => {
+      const executor = new AgentToolExecutor({ cacheResults: true });
+      const customSearch = vi.fn().mockImplementation(async (params: ToolParams) => ({
+        success: true,
+        data: { query: params.target },
+        duration: 10,
+        toolName: 'search',
+      }));
+      executor.setToolHandler('search', customSearch);
+
+      await executor.execute('search', { target: 'query1', context: createMockContext() });
+      await executor.execute('search', { target: 'query2', context: createMockContext() });
+      await executor.execute('search', { target: 'query1', context: createMockContext() }); // hit
+
+      expect(customSearch).toHaveBeenCalledTimes(2);
+
+      const stats = executor.getMemoizationStats();
+      expect(stats.hits).toBe(1);
+      expect(stats.misses).toBe(2);
+      expect(stats.cacheSize).toBe(2);
+    });
+  });
+
   describe('plan mode (read-only exploration)', () => {
     const createPlanModeContext = (): AgentContext => ({
       filesRead: new Map(),
