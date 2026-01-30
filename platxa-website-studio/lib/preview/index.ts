@@ -640,3 +640,30 @@ export {
   type GenerationCallback,
   type ErrorCallback as ThumbnailErrorCallback,
 } from "./thumbnail-generator";
+
+// Version Diff View for before/after changes
+export {
+  VersionDiffView,
+  createVersionDiffView,
+  DIFF_STYLES,
+  computeDiff,
+  groupIntoHunks,
+  calculateStats,
+  formatLineNumber,
+  getChangeTypeClass,
+  getChangePrefix,
+  formatUnifiedDiff,
+  parseUnifiedDiff,
+  type DiffViewMode,
+  type ChangeType,
+  type DiffLine,
+  type DiffHunk,
+  type FileDiff,
+  type DiffStats,
+  type VersionInfo,
+  type DiffViewState,
+  type DiffViewOptions,
+  type DiffStyles,
+  type StateChangeCallback as DiffStateChangeCallback,
+  type FileSelectCallback,
+} from "./version-diff-view";
