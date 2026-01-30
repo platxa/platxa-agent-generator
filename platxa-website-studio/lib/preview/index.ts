@@ -392,3 +392,16 @@ export {
   type NavigationEvent,
   type NavigationCallback,
 } from "./section-keyboard-navigator";
+
+// Selection Persistence for preserving selection across HMR updates
+export {
+  SelectionPersistence,
+  createSelectionPersistence,
+  createMorphdomSelectionHooks,
+  SELECTION_PERSISTENCE_SCRIPT,
+  type SelectionIdentifier,
+  type SelectionPersistenceOptions,
+  type PersistenceState,
+  type RestoreResult,
+  type RestoreCallback,
+} from "./selection-persistence";
