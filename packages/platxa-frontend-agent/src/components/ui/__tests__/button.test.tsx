@@ -374,3 +374,70 @@ describe("AnimatedButton", () => {
     })
   })
 })
+
+// =============================================================================
+// ACCESSIBILITY TESTS (using axe-core)
+// =============================================================================
+
+describe("Button Accessibility", () => {
+  it("has no accessibility violations with default button", async () => {
+    const { checkA11y } = await import("@/test/utils/a11y")
+    const { container } = render(<Button>Accessible Button</Button>)
+
+    const results = await checkA11y(container)
+
+    expect(results.violations).toHaveLength(0)
+  })
+
+  it("has no accessibility violations with icon button using aria-label", async () => {
+    const { checkA11y } = await import("@/test/utils/a11y")
+    const { container } = render(
+      <Button size="icon" aria-label="Search">
+        🔍
+      </Button>
+    )
+
+    const results = await checkA11y(container)
+
+    expect(results.violations).toHaveLength(0)
+  })
+
+  it("has no accessibility violations when disabled", async () => {
+    const { checkA11y } = await import("@/test/utils/a11y")
+    const { container } = render(<Button disabled>Disabled Button</Button>)
+
+    const results = await checkA11y(container)
+
+    expect(results.violations).toHaveLength(0)
+  })
+
+  it("has no accessibility violations when loading", async () => {
+    const { checkA11y } = await import("@/test/utils/a11y")
+    const { container } = render(<Button isLoading>Loading Button</Button>)
+
+    const results = await checkA11y(container)
+
+    expect(results.violations).toHaveLength(0)
+  })
+
+  it("has no accessibility violations with all variants", async () => {
+    const { checkA11y } = await import("@/test/utils/a11y")
+    const variants = ["default", "destructive", "outline", "secondary", "ghost", "link"] as const
+
+    for (const variant of variants) {
+      const { container } = render(<Button variant={variant}>{variant} Button</Button>)
+      const results = await checkA11y(container)
+
+      expect(results.violations).toHaveLength(0)
+    }
+  })
+
+  it("has no accessibility violations with AnimatedButton", async () => {
+    const { checkA11y } = await import("@/test/utils/a11y")
+    const { container } = render(<AnimatedButton>Animated Button</AnimatedButton>)
+
+    const results = await checkA11y(container)
+
+    expect(results.violations).toHaveLength(0)
+  })
+})

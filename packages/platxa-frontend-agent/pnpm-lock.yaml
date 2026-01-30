@@ -54,6 +54,9 @@ importers:
         specifier: ^2.6.0
         version: 2.6.0
     devDependencies:
+      '@axe-core/react':
+        specifier: ^4.11.0
+        version: 4.11.0
       '@eslint/js':
         specifier: ^9.39.2
         version: 9.39.2
@@ -93,6 +96,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^2.1.8
         version: 2.1.9(vitest@2.1.9(@types/node@22.19.7)(jsdom@25.0.1)(lightningcss@1.30.2))
+      axe-core:
+        specifier: ^4.11.1
+        version: 4.11.1
       babel-plugin-react-compiler:
         specifier: ^1.0.0
         version: 1.0.0
@@ -150,6 +156,9 @@ packages:
 
   '@asamuzakjp/css-color@3.2.0':
     resolution: {integrity: sha512-K1A6z8tS3XsmCMM86xoWdn7Fkdn9m6RSVtocUrJYIwZnFVkng/PvkEoWtOWmP+Scc6saYWHWZYbndEEXxl24jw==}
+
+  '@axe-core/react@4.11.0':
+    resolution: {integrity: sha512-ko5hYRmdLzbsxagsb0u3GD8IqtZa+vUJZ4K4+z8qjsHGrHBNBps5Sy0EIfSL8whzyIKBQ3xYa1reK1QenIAkyw==}
 
   '@babel/code-frame@7.28.6':
     resolution: {integrity: sha512-JYgintcMjRiCvS8mMECzaEn+m3PfoQiyqukOMCCVQtoJGYJw8j/8LBJEiqkHLkfwCcs74E3pbAUFNg7d9VNJ+Q==}
@@ -2616,6 +2625,9 @@ packages:
     resolution: {integrity: sha512-dYqgNSZbDwkaJ2ceRd9ojCGjBq+mOm9LmtXnAnEGyHhN/5R7iDW2TRw3h+o/jCFxus3P2LfWIIiwowAjANm7IA==}
     engines: {node: '>= 0.4'}
 
+  requestidlecallback@0.3.0:
+    resolution: {integrity: sha512-TWHFkT7S9p7IxLC5A1hYmAYQx2Eb9w1skrXmQ+dS1URyvR8tenMLl4lHbqEOUnpEYxNKpkVMXUgknVpBZWXXfQ==}
+
   resolve-from@4.0.0:
     resolution: {integrity: sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g==}
     engines: {node: '>=4'}
@@ -3120,6 +3132,11 @@ snapshots:
       '@csstools/css-parser-algorithms': 3.0.5(@csstools/css-tokenizer@3.0.4)
       '@csstools/css-tokenizer': 3.0.4
       lru-cache: 10.4.3
+
+  '@axe-core/react@4.11.0':
+    dependencies:
+      axe-core: 4.11.1
+      requestidlecallback: 0.3.0
 
   '@babel/code-frame@7.28.6':
     dependencies:
@@ -5642,6 +5659,8 @@ snapshots:
       get-proto: 1.0.1
       gopd: 1.2.0
       set-function-name: 2.0.2
+
+  requestidlecallback@0.3.0: {}
 
   resolve-from@4.0.0: {}
 
