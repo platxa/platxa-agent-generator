@@ -1,0 +1,824 @@
+#!/usr/bin/env node
+import * as l from "node:fs";
+import * as d from "node:path";
+import * as E from "node:readline";
+const B = {
+  minimal: {
+    name: "Minimal",
+    description: "Basic brand kit with colors only",
+    features: ["Color primitives", "Semantic colors", "Package.json"]
+  },
+  standard: {
+    name: "Standard",
+    description: "Complete brand kit with all tokens",
+    features: ["Color primitives", "Semantic colors", "Typography", "Spacing", "Radius", "Shadow", "Tailwind preset"]
+  },
+  full: {
+    name: "Full",
+    description: "Standard + CSS output and documentation",
+    features: ["All standard features", "CSS variable output", "README documentation", "TypeScript types", "Build scripts"]
+  },
+  enterprise: {
+    name: "Enterprise",
+    description: "Full + testing, Storybook, and CI/CD",
+    features: ["All full features", "Vitest unit tests", "Storybook documentation", "GitHub Actions CI", "Changesets for versioning", "ESLint + Prettier"]
+  }
+}, M = {
+  default: {
+    primaryHue: 222,
+    accentHue: 262,
+    name: "Default (Blue-Violet)"
+  },
+  blue: {
+    primaryHue: 217,
+    accentHue: 199,
+    name: "Blue (Ocean)"
+  },
+  green: {
+    primaryHue: 142,
+    accentHue: 160,
+    name: "Green (Nature)"
+  },
+  violet: {
+    primaryHue: 262,
+    accentHue: 292,
+    name: "Violet (Royal)"
+  },
+  custom: {
+    primaryHue: 0,
+    accentHue: 0,
+    name: "Custom (Pick your own)"
+  }
+};
+function j() {
+  return E.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+}
+function p(e, n) {
+  return new Promise((t) => {
+    e.question(n, (r) => t(r.trim()));
+  });
+}
+async function k(e, n, t = !0) {
+  const a = await p(e, `${n} ${t ? "[Y/n]" : "[y/N]"} `);
+  return a === "" ? t : a.toLowerCase().startsWith("y");
+}
+async function b(e, n, t, r = 0) {
+  console.log(`
+${n}
+`), t.forEach((c, m) => {
+    const g = m === r ? ">" : " ", f = c.description ? ` - ${c.description}` : "";
+    console.log(`  ${g} ${m + 1}. ${c.label}${f}`);
+  });
+  const a = await p(e, `
+Choice [${r + 1}]: `);
+  if (a === "") return t[r].value;
+  const s = parseInt(a, 10) - 1;
+  return s >= 0 && s < t.length ? t[s].value : t[r].value;
+}
+function I(e) {
+  const n = e.template === "enterprise", t = e.template === "full" || n, r = {};
+  e.typescript && (r.build = "tsc", r.prepublishOnly = "npm run build"), e.tests && (r.test = "vitest run", r["test:watch"] = "vitest"), e.storybook && (r.storybook = "storybook dev -p 6006", r["build-storybook"] = "storybook build"), n && (r.lint = "eslint src --ext .ts", r.format = "prettier --write 'src/**/*.ts'", r.validate = "npm run lint && npm run test", r.release = "changeset publish");
+  const a = {};
+  e.typescript && (a.typescript = "^5.0.0"), e.tests && (a.vitest = "^2.0.0"), e.storybook && (a.storybook = "^8.0.0", a["@storybook/react"] = "^8.0.0", a["@storybook/react-vite"] = "^8.0.0"), n && (a.eslint = "^9.0.0", a.prettier = "^3.0.0", a["@changesets/cli"] = "^2.27.0");
+  const s = {
+    name: e.name,
+    version: "0.1.0",
+    description: e.description || `Brand kit for ${e.name}`,
+    author: e.author || "",
+    license: e.license,
+    type: "module",
+    main: e.typescript ? "./dist/index.js" : "./index.js",
+    types: e.typescript ? "./dist/index.d.ts" : void 0,
+    exports: {
+      ".": {
+        types: e.typescript ? "./dist/index.d.ts" : void 0,
+        import: e.typescript ? "./dist/index.js" : "./index.js",
+        require: e.typescript ? "./dist/index.cjs" : "./index.cjs"
+      },
+      ...t && {
+        "./css": "./dist/brand.css"
+      }
+    },
+    files: e.typescript ? ["dist", "src"] : ["index.js", "index.cjs", ...t ? ["brand.css"] : []],
+    scripts: Object.keys(r).length > 0 ? r : void 0,
+    peerDependencies: {
+      "@platxa/frontend-agent": "^1.0.0"
+    },
+    devDependencies: Object.keys(a).length > 0 ? {
+      "@platxa/frontend-agent": "^1.0.0",
+      ...a
+    } : {
+      "@platxa/frontend-agent": "^1.0.0"
+    },
+    keywords: ["platxa", "brand-kit", "design-tokens", "theme", "css"],
+    repository: n ? {
+      type: "git",
+      url: `https://github.com/your-org/${e.name.replace(/^@[^/]+\//, "")}`
+    } : void 0
+  }, c = JSON.parse(JSON.stringify(s));
+  return JSON.stringify(c, null, 2);
+}
+function P() {
+  return JSON.stringify({
+    compilerOptions: {
+      target: "ES2020",
+      module: "ESNext",
+      moduleResolution: "bundler",
+      declaration: !0,
+      declarationMap: !0,
+      strict: !0,
+      esModuleInterop: !0,
+      skipLibCheck: !0,
+      outDir: "./dist",
+      rootDir: "./src"
+    },
+    include: ["src/**/*"],
+    exclude: ["node_modules", "dist"]
+  }, null, 2);
+}
+function K(e) {
+  const n = e.preset === "custom" ? null : M[e.preset], t = e.primaryHue ?? (n == null ? void 0 : n.primaryHue) ?? 222, r = e.accentHue ?? (n == null ? void 0 : n.accentHue) ?? 262, a = e.template === "minimal";
+  let s = `/**
+ * ${e.name} Brand Kit
+ *
+ * Generated by create-brand-kit
+ * Template: ${e.template}
+ * Preset: ${e.preset}
+ *
+ * @packageDocumentation
+ */
+
+import type { BrandKitExport } from "@platxa/frontend-agent"
+
+// =============================================================================
+// METADATA
+// =============================================================================
+
+export const meta = {
+  name: "${e.name}",
+  version: "0.1.0",
+  description: "${e.description || `Brand kit for ${e.name}`}",
+  author: "${e.author || ""}",
+} as const
+
+// =============================================================================
+// COLOR PRIMITIVES
+// =============================================================================
+
+export const primary = {
+  50: "oklch(0.97 0.02 ${t})",
+  100: "oklch(0.93 0.04 ${t})",
+  200: "oklch(0.86 0.08 ${t})",
+  300: "oklch(0.76 0.12 ${t})",
+  400: "oklch(0.66 0.16 ${t})",
+  500: "oklch(0.55 0.18 ${t})",
+  600: "oklch(0.47 0.17 ${t})",
+  700: "oklch(0.40 0.15 ${t})",
+  800: "oklch(0.33 0.12 ${t})",
+  900: "oklch(0.27 0.09 ${t})",
+  950: "oklch(0.20 0.06 ${t})",
+} as const
+
+export const accent = {
+  50: "oklch(0.97 0.02 ${r})",
+  100: "oklch(0.93 0.04 ${r})",
+  200: "oklch(0.86 0.08 ${r})",
+  300: "oklch(0.76 0.12 ${r})",
+  400: "oklch(0.66 0.16 ${r})",
+  500: "oklch(0.55 0.18 ${r})",
+  600: "oklch(0.47 0.17 ${r})",
+  700: "oklch(0.40 0.15 ${r})",
+  800: "oklch(0.33 0.12 ${r})",
+  900: "oklch(0.27 0.09 ${r})",
+  950: "oklch(0.20 0.06 ${r})",
+} as const
+
+export const neutral = {
+  50: "oklch(0.98 0.005 ${t})",
+  100: "oklch(0.95 0.005 ${t})",
+  200: "oklch(0.90 0.005 ${t})",
+  300: "oklch(0.82 0.005 ${t})",
+  400: "oklch(0.70 0.01 ${t})",
+  500: "oklch(0.55 0.01 ${t})",
+  600: "oklch(0.45 0.01 ${t})",
+  700: "oklch(0.37 0.01 ${t})",
+  800: "oklch(0.27 0.01 ${t})",
+  900: "oklch(0.20 0.01 ${t})",
+  950: "oklch(0.14 0.01 ${t})",
+} as const
+
+export const primitives = { primary, accent, neutral } as const
+
+// =============================================================================
+// SEMANTIC COLORS
+// =============================================================================
+
+export const lightColors = {
+  background: "oklch(0.99 0.002 ${t})",
+  foreground: "oklch(0.15 0.01 ${t})",
+  card: "oklch(1 0 0)",
+  cardForeground: "oklch(0.15 0.01 ${t})",
+  popover: "oklch(1 0 0)",
+  popoverForeground: "oklch(0.15 0.01 ${t})",
+  primary: primary[600],
+  primaryForeground: "oklch(0.99 0 0)",
+  secondary: neutral[100],
+  secondaryForeground: neutral[900],
+  muted: neutral[100],
+  mutedForeground: neutral[500],
+  accent: accent[100],
+  accentForeground: accent[900],
+  destructive: "oklch(0.55 0.22 25)",
+  destructiveForeground: "oklch(0.99 0 0)",
+  border: neutral[200],
+  input: neutral[200],
+  ring: primary[500],
+} as const
+
+export const darkColors = {
+  background: "oklch(0.14 0.01 ${t})",
+  foreground: "oklch(0.95 0.005 ${t})",
+  card: "oklch(0.17 0.01 ${t})",
+  cardForeground: "oklch(0.95 0.005 ${t})",
+  popover: "oklch(0.17 0.01 ${t})",
+  popoverForeground: "oklch(0.95 0.005 ${t})",
+  primary: primary[500],
+  primaryForeground: "oklch(0.12 0.01 ${t})",
+  secondary: neutral[800],
+  secondaryForeground: neutral[100],
+  muted: neutral[800],
+  mutedForeground: neutral[400],
+  accent: accent[800],
+  accentForeground: accent[100],
+  destructive: "oklch(0.60 0.20 25)",
+  destructiveForeground: "oklch(0.99 0 0)",
+  border: neutral[800],
+  input: neutral[800],
+  ring: primary[400],
+} as const
+
+export const semantics = { light: lightColors, dark: darkColors } as const
+`;
+  return a || (s += `
+// =============================================================================
+// TYPOGRAPHY
+// =============================================================================
+
+export const typography = {
+  fontFamily: {
+    sans: ["Inter", "system-ui", "sans-serif"],
+    mono: ["JetBrains Mono", "Consolas", "monospace"],
+  },
+  fontSize: {
+    xs: "0.75rem",
+    sm: "0.875rem",
+    base: "1rem",
+    lg: "1.125rem",
+    xl: "1.25rem",
+    "2xl": "1.5rem",
+    "3xl": "1.875rem",
+    "4xl": "2.25rem",
+  },
+  fontWeight: {
+    normal: "400",
+    medium: "500",
+    semibold: "600",
+    bold: "700",
+  },
+  lineHeight: {
+    tight: "1.25",
+    normal: "1.5",
+    relaxed: "1.75",
+  },
+} as const
+
+// =============================================================================
+// SPACING
+// =============================================================================
+
+export const spacing = {
+  px: "1px",
+  0: "0",
+  0.5: "0.125rem",
+  1: "0.25rem",
+  2: "0.5rem",
+  3: "0.75rem",
+  4: "1rem",
+  5: "1.25rem",
+  6: "1.5rem",
+  8: "2rem",
+  10: "2.5rem",
+  12: "3rem",
+  16: "4rem",
+  20: "5rem",
+  24: "6rem",
+} as const
+
+// =============================================================================
+// RADIUS
+// =============================================================================
+
+export const radius = {
+  none: "0",
+  sm: "0.125rem",
+  default: "0.25rem",
+  md: "0.375rem",
+  lg: "0.5rem",
+  xl: "0.75rem",
+  "2xl": "1rem",
+  full: "9999px",
+} as const
+
+// =============================================================================
+// SHADOW
+// =============================================================================
+
+export const shadow = {
+  sm: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+  default: "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+  md: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
+  lg: "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+  xl: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+  none: "none",
+} as const
+
+// =============================================================================
+// TAILWIND PRESET
+// =============================================================================
+
+export const tailwindPreset = {
+  theme: {
+    extend: {
+      colors: { primary, accent, neutral },
+      borderRadius: radius,
+      boxShadow: shadow,
+    },
+  },
+} as const
+`), s += `
+// =============================================================================
+// EXPORT
+// =============================================================================
+
+const brandKit: BrandKitExport = {
+  meta,
+  primitives,
+  semantics,${a ? "" : `
+  typography,
+  spacing,
+  radius,
+  shadow,
+  tailwindPreset,`}
+}
+
+export default brandKit
+`, s;
+}
+function T(e) {
+  const n = B[e.template];
+  return `# ${e.name}
+
+${e.description || `Brand kit for ${e.name}`}
+
+## Features
+
+${n.features.map((t) => `- ${t}`).join(`
+`)}
+
+## Installation
+
+\`\`\`bash
+${e.packageManager} ${e.packageManager === "npm" ? "install" : "add"} ${e.name}
+\`\`\`
+
+## Usage
+
+### With BrandProvider
+
+\`\`\`tsx
+import { BrandProvider } from "@platxa/frontend-agent"
+
+function App() {
+  return (
+    <BrandProvider brandPackage="${e.name}">
+      <YourApp />
+    </BrandProvider>
+  )
+}
+\`\`\`
+
+### Direct Import
+
+\`\`\`typescript
+import brandKit from "${e.name}"
+
+// Access colors
+console.log(brandKit.primitives.primary[500])
+console.log(brandKit.semantics.light.primary)
+\`\`\`
+
+### With Tailwind CSS
+
+\`\`\`javascript
+// tailwind.config.js
+import brandKit from "${e.name}"
+
+export default {
+  presets: [brandKit.tailwindPreset],
+}
+\`\`\`
+
+## Development
+
+\`\`\`bash
+# Build
+${e.packageManager} run build
+
+${e.tests ? `# Test
+${e.packageManager} run test
+` : ""}${e.storybook ? `# Storybook
+${e.packageManager} run storybook
+` : ""}
+\`\`\`
+
+## Validation
+
+\`\`\`bash
+npx @platxa/frontend-agent validate .
+\`\`\`
+
+## License
+
+${e.license}
+`;
+}
+function F() {
+  return `node_modules/
+dist/
+*.log
+.DS_Store
+coverage/
+storybook-static/
+.changeset/*.md
+!.changeset/README.md
+`;
+}
+function A(e) {
+  return `import { describe, it, expect } from "vitest"
+import brandKit from "./index"
+
+describe("${e.name}", () => {
+  describe("meta", () => {
+    it("has required fields", () => {
+      expect(brandKit.meta.name).toBe("${e.name}")
+      expect(brandKit.meta.version).toBeDefined()
+    })
+  })
+
+  describe("primitives", () => {
+    it("has primary color scale", () => {
+      expect(brandKit.primitives.primary).toBeDefined()
+      expect(brandKit.primitives.primary[500]).toBeDefined()
+    })
+
+    it("has accent color scale", () => {
+      expect(brandKit.primitives.accent).toBeDefined()
+      expect(brandKit.primitives.accent[500]).toBeDefined()
+    })
+
+    it("has neutral color scale", () => {
+      expect(brandKit.primitives.neutral).toBeDefined()
+      expect(brandKit.primitives.neutral[500]).toBeDefined()
+    })
+  })
+
+  describe("semantics", () => {
+    it("has light mode colors", () => {
+      expect(brandKit.semantics.light).toBeDefined()
+      expect(brandKit.semantics.light.primary).toBeDefined()
+      expect(brandKit.semantics.light.background).toBeDefined()
+      expect(brandKit.semantics.light.foreground).toBeDefined()
+    })
+
+    it("has dark mode colors", () => {
+      expect(brandKit.semantics.dark).toBeDefined()
+      expect(brandKit.semantics.dark.primary).toBeDefined()
+      expect(brandKit.semantics.dark.background).toBeDefined()
+      expect(brandKit.semantics.dark.foreground).toBeDefined()
+    })
+  })
+})
+`;
+}
+function H(e) {
+  return `name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "${e.packageManager}"
+
+      - name: Install dependencies
+        run: ${e.packageManager} install
+
+      - name: Build
+        run: ${e.packageManager} run build
+
+      ${e.tests ? `- name: Test
+        run: ${e.packageManager} run test` : ""}
+
+      - name: Validate brand kit
+        run: npx @platxa/frontend-agent validate .
+
+  publish:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: ${e.packageManager} install
+
+      - name: Build
+        run: ${e.packageManager} run build
+
+      - name: Publish
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: \${{ secrets.NPM_TOKEN }}
+`;
+}
+async function O(e) {
+  const n = j();
+  console.log(`
+`), console.log("  ╔═══════════════════════════════════════════════════╗"), console.log("  ║                                                   ║"), console.log("  ║     🎨 Create Brand Kit                          ║"), console.log("  ║     Interactive Setup Wizard                     ║"), console.log("  ║                                                   ║"), console.log("  ╚═══════════════════════════════════════════════════╝"), console.log(`
+`);
+  try {
+    const t = e || "my-brand-kit", r = await p(n, `  Package name: [${t}] `) || t, a = r.replace(/^@[^/]+\//, ""), s = await p(n, `  Output directory: [./${a}] `) || `./${a}`, c = await b(n, "  Select a template:", [{
+      value: "minimal",
+      label: "Minimal",
+      description: "Colors only"
+    }, {
+      value: "standard",
+      label: "Standard",
+      description: "All design tokens (recommended)"
+    }, {
+      value: "full",
+      label: "Full",
+      description: "Standard + CSS & docs"
+    }, {
+      value: "enterprise",
+      label: "Enterprise",
+      description: "Full + testing & CI/CD"
+    }], 1), m = await b(n, "  Select a color preset:", [{
+      value: "default",
+      label: "Default",
+      description: "Blue-Violet"
+    }, {
+      value: "blue",
+      label: "Blue",
+      description: "Ocean theme"
+    }, {
+      value: "green",
+      label: "Green",
+      description: "Nature theme"
+    }, {
+      value: "violet",
+      label: "Violet",
+      description: "Royal theme"
+    }, {
+      value: "custom",
+      label: "Custom",
+      description: "Pick your own hue"
+    }], 0);
+    let g, f;
+    if (m === "custom") {
+      const x = await p(n, "  Primary hue (0-360): [220] ");
+      g = x ? parseInt(x, 10) : 220;
+      const $ = await p(n, "  Accent hue (0-360): [260] ");
+      f = $ ? parseInt($, 10) : 260;
+    }
+    const y = await k(n, `
+  Use TypeScript?`, !0);
+    let h = !1, o = !1;
+    c === "enterprise" ? (h = !0, o = !0) : c === "full" && (o = await k(n, "  Include tests?", !1), h = await k(n, "  Include Storybook?", !1));
+    const i = await b(n, "  Package manager:", [{
+      value: "npm",
+      label: "npm"
+    }, {
+      value: "pnpm",
+      label: "pnpm"
+    }, {
+      value: "yarn",
+      label: "yarn"
+    }], 0), u = await p(n, `
+  Description: `), S = await p(n, "  Author: "), w = await p(n, "  License: [MIT] ") || "MIT", D = await k(n, `
+  Initialize git repository?`, !0), C = await k(n, "  Install dependencies?", !0);
+    return n.close(), {
+      name: r,
+      outputDir: s,
+      template: c,
+      preset: m,
+      primaryHue: g,
+      accentHue: f,
+      typescript: y,
+      storybook: h,
+      tests: o,
+      packageManager: i,
+      author: S || void 0,
+      description: u || void 0,
+      license: w,
+      gitInit: D,
+      installDeps: C
+    };
+  } catch (t) {
+    throw n.close(), t;
+  }
+}
+async function v(e) {
+  const n = [], t = [];
+  try {
+    const r = d.resolve(process.cwd(), e.outputDir);
+    if (l.existsSync(r)) {
+      if (l.readdirSync(r).length > 0)
+        return {
+          success: !1,
+          outputDir: r,
+          files: [],
+          error: `Directory "${e.outputDir}" is not empty`,
+          nextSteps: []
+        };
+    } else
+      l.mkdirSync(r, {
+        recursive: !0
+      });
+    if (console.log(`
+  Creating brand kit...
+`), l.writeFileSync(d.join(r, "package.json"), I(e)), n.push("package.json"), console.log("  ✓ package.json"), e.typescript) {
+      const a = d.join(r, "src");
+      l.mkdirSync(a, {
+        recursive: !0
+      }), l.writeFileSync(d.join(a, "index.ts"), K(e)), n.push("src/index.ts"), console.log("  ✓ src/index.ts"), l.writeFileSync(d.join(r, "tsconfig.json"), P()), n.push("tsconfig.json"), console.log("  ✓ tsconfig.json"), e.tests && (l.writeFileSync(d.join(a, "index.test.ts"), A(e)), n.push("src/index.test.ts"), console.log("  ✓ src/index.test.ts"));
+    }
+    if (e.template !== "minimal" && (l.writeFileSync(d.join(r, "README.md"), T(e)), n.push("README.md"), console.log("  ✓ README.md")), l.writeFileSync(d.join(r, ".gitignore"), F()), n.push(".gitignore"), console.log("  ✓ .gitignore"), e.template === "enterprise") {
+      const a = d.join(r, ".github", "workflows");
+      l.mkdirSync(a, {
+        recursive: !0
+      }), l.writeFileSync(d.join(a, "ci.yml"), H(e)), n.push(".github/workflows/ci.yml"), console.log("  ✓ .github/workflows/ci.yml");
+    }
+    if (e.gitInit) {
+      const {
+        execSync: a
+      } = await import("node:child_process");
+      try {
+        a("git init", {
+          cwd: r,
+          stdio: "ignore"
+        }), console.log("  ✓ Initialized git repository");
+      } catch {
+        console.log("  ⚠ Could not initialize git repository");
+      }
+    }
+    if (e.installDeps) {
+      const {
+        execSync: a
+      } = await import("node:child_process");
+      console.log(`
+  Installing dependencies with ${e.packageManager}...`);
+      try {
+        const s = e.packageManager === "yarn" ? "yarn" : `${e.packageManager} install`;
+        a(s, {
+          cwd: r,
+          stdio: "inherit"
+        }), console.log("  ✓ Dependencies installed");
+      } catch {
+        console.log("  ⚠ Could not install dependencies"), t.push(`${e.packageManager} install`);
+      }
+    } else
+      t.push(`${e.packageManager} install`);
+    return e.typescript && t.push(`${e.packageManager} run build`), t.push("Edit src/index.ts to customize your brand colors"), t.push("npx @platxa/frontend-agent validate . to check your kit"), console.log(`
+  ╔═══════════════════════════════════════════════════╗`), console.log("  ║  ✅ Brand kit created successfully!               ║"), console.log("  ╚═══════════════════════════════════════════════════╝"), console.log(`
+  Location: ${r}
+`), t.length > 0 && (console.log("  Next steps:"), console.log(`    cd ${e.outputDir}`), t.forEach((a) => console.log(`    ${a}`)), console.log("")), {
+      success: !0,
+      outputDir: r,
+      files: n,
+      nextSteps: t
+    };
+  } catch (r) {
+    const a = r instanceof Error ? r.message : String(r);
+    return {
+      success: !1,
+      outputDir: e.outputDir,
+      files: n,
+      error: a,
+      nextSteps: []
+    };
+  }
+}
+async function N() {
+  const e = process.argv.slice(2);
+  (e.includes("--help") || e.includes("-h")) && (console.log(`
+Usage: create-brand-kit [name] [options]
+
+Create a new Platxa brand kit package.
+
+Arguments:
+  name                    Package name (e.g., @acme/brand-kit)
+
+Options:
+  --template <type>       Template: minimal, standard, full, enterprise
+  --preset <name>         Preset: default, blue, green, violet, custom
+  --hue <number>          Primary hue (0-360) for custom preset
+  --typescript, --ts      Use TypeScript (default)
+  --javascript, --js      Use JavaScript
+  --pm <manager>          Package manager: npm, yarn, pnpm
+  --no-git                Skip git initialization
+  --no-install            Skip dependency installation
+  -h, --help              Show this help
+
+Templates:
+  minimal     - Colors only
+  standard    - All design tokens (recommended)
+  full        - Standard + CSS output & docs
+  enterprise  - Full + testing, Storybook, CI/CD
+
+Examples:
+  create-brand-kit
+  create-brand-kit my-brand
+  create-brand-kit @acme/brand-kit --template full
+  create-brand-kit my-brand --preset custom --hue 180
+`), process.exit(0));
+  let n, t = "standard", r = "default", a, s = !0, c = "npm", m = !0, g = !0;
+  for (let o = 0; o < e.length; o++) {
+    const i = e[o];
+    if (i === "--template") {
+      const u = e[++o];
+      ["minimal", "standard", "full", "enterprise"].includes(u) && (t = u);
+    } else if (i === "--preset") {
+      const u = e[++o];
+      ["default", "blue", "green", "violet", "custom"].includes(u) && (r = u);
+    } else if (i === "--hue")
+      a = parseInt(e[++o], 10);
+    else if (i === "--typescript" || i === "--ts")
+      s = !0;
+    else if (i === "--javascript" || i === "--js")
+      s = !1;
+    else if (i === "--pm") {
+      const u = e[++o];
+      ["npm", "yarn", "pnpm"].includes(u) && (c = u);
+    } else i === "--no-git" ? m = !1 : i === "--no-install" ? g = !1 : !i.startsWith("-") && !n && (n = i);
+  }
+  if (!(n && e.some((o) => o.startsWith("--template")))) {
+    const o = await O(n), i = await v(o);
+    process.exit(i.success ? 0 : 1);
+  }
+  const y = {
+    name: n,
+    outputDir: `./${n.replace(/^@[^/]+\//, "")}`,
+    template: t,
+    preset: r,
+    primaryHue: a,
+    typescript: s,
+    storybook: t === "enterprise",
+    tests: t === "enterprise" || t === "full",
+    packageManager: c,
+    license: "MIT",
+    gitInit: m,
+    installDeps: g
+  }, h = await v(y);
+  h.success || console.error(`
+  ❌ Error: ${h.error}
+`), process.exit(h.success ? 0 : 1);
+}
+const R = typeof require < "u" ? require.main === module : import.meta.url === `file://${process.argv[1]}`;
+R && N().catch((e) => {
+  console.error("Error:", e.message), process.exit(1);
+});
+export {
+  v as createBrandKit,
+  N as main
+};

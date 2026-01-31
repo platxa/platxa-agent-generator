@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-46",
-  "title": "Implementation: [Brand Kit Template] Starter template for creating new brand...",
+  "title": "Implementation: Create tests for loadBrandKit() verifying NPM and local path...",
   "context": {
     "spec_id": "feature-46",
     "feature_id": "46",
     "dependencies": [],
     "metadata": {
-      "category": "Extensibility Features",
+      "category": "Brand-Kit",
       "verification_criteria": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "test",
+        "criteria": "Brand kit loading tests pass for all scenarios",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-21T12:30:24.602637"
+    "created_at": "2026-01-30T16:19:13.568642"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-46-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: [Brand Kit Template] Starter template for creating new brand kits Verification: Package.json template; TypeScript types included; Example tokens included",
+      "description": "Review feature requirements: Create tests for loadBrandKit() verifying NPM and local path loading",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-46-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-46-3",
       "title": "Implement Feature",
-      "description": "Implement: [Brand Kit Template] Starter template for creating new brand kits Verification: Package.json template; TypeScript types included; Example tokens included",
+      "description": "Implement: Create tests for loadBrandKit() verifying NPM and local path loading",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-46-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-46-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Manual verification required', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Brand kit loading tests pass for all scenarios', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "test",
+        "criteria": "Brand kit loading tests pass for all scenarios",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-21T12:30:24.602668",
+  "created_at": "2026-01-30T16:19:13.568670",
   "lsp_impact": {}
 }

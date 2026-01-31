@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-17",
-  "title": "Implementation: [Dark Theme Colors] Brand kit must export dark mode semantic...",
+  "title": "Implementation: Create src/test/utils/render.tsx with custom render function...",
   "context": {
     "spec_id": "feature-17",
     "feature_id": "17",
     "dependencies": [],
     "metadata": {
-      "category": "Brand Kit Interface Features",
+      "category": "Testing",
       "verification_criteria": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "test",
+        "criteria": "Custom render wraps with BrandProvider and theme",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-21T11:44:51.978334"
+    "created_at": "2026-01-30T16:28:21.527757"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-17-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: [Dark Theme Colors] Brand kit must export dark mode semantic colors Verification: Complete dark theme colors; Colors optimized for dark backgrounds; Contrast ratios meet WCAG AA",
+      "description": "Review feature requirements: Create src/test/utils/render.tsx with custom render function including providers",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-17-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-17-3",
       "title": "Implement Feature",
-      "description": "Implement: [Dark Theme Colors] Brand kit must export dark mode semantic colors Verification: Complete dark theme colors; Colors optimized for dark backgrounds; Contrast ratios meet WCAG AA",
+      "description": "Implement: Create src/test/utils/render.tsx with custom render function including providers",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-17-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-17-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Manual verification required', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Custom render wraps with BrandProvider and theme', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "test",
+        "criteria": "Custom render wraps with BrandProvider and theme",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-21T11:44:51.978403",
+  "created_at": "2026-01-30T16:28:21.527805",
   "lsp_impact": {}
 }

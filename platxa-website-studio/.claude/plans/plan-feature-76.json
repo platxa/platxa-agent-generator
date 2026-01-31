@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-76",
-  "title": "Implementation: Create prompt optimization module that improves prompts base...",
+  "title": "Implementation: Implement keyboard navigation between sections (arrow keys)",
   "context": {
     "spec_id": "feature-76",
     "feature_id": "76",
     "dependencies": [],
     "metadata": {
-      "category": "Agent Intelligence",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Low-quality output triggers prompt reformulation; second attempt shows measurable quality improvement",
+        "type": "manual",
+        "criteria": "Up/down arrows move selection between sibling sections",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T15:50:41.504071"
+    "created_at": "2026-01-30T15:50:03.942072"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-76-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create prompt optimization module that improves prompts based on output quality feedback",
+      "description": "Review feature requirements: Implement keyboard navigation between sections (arrow keys)",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-76-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-76-3",
       "title": "Implement Feature",
-      "description": "Implement: Create prompt optimization module that improves prompts based on output quality feedback",
+      "description": "Implement: Implement keyboard navigation between sections (arrow keys)",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-76-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-76-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Low-quality output triggers prompt reformulation; second attempt shows measurable quality improvement', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Up/down arrows move selection between sibling sections', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Low-quality output triggers prompt reformulation; second attempt shows measurable quality improvement",
+        "type": "manual",
+        "criteria": "Up/down arrows move selection between sibling sections",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T15:50:41.504105",
+  "created_at": "2026-01-30T15:50:03.942113",
   "lsp_impact": {}
 }

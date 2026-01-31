@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-88",
-  "title": "Implementation: Create Odoo App Store submission validator checking all mark...",
+  "title": "Implementation: Create zoom controls for preview panel (25%-200%)",
   "context": {
     "spec_id": "feature-88",
     "feature_id": "88",
     "dependencies": [],
     "metadata": {
-      "category": "Odoo Deployment",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Validates: license, icon, description length, screenshots, version format, dependency correctness",
+        "type": "manual",
+        "criteria": "Slider or buttons adjust preview scale; shows current percentage",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T15:10:30.218434"
+    "created_at": "2026-01-30T16:35:20.746757"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-88-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create Odoo App Store submission validator checking all marketplace requirements",
+      "description": "Review feature requirements: Create zoom controls for preview panel (25%-200%)",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-88-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-88-3",
       "title": "Implement Feature",
-      "description": "Implement: Create Odoo App Store submission validator checking all marketplace requirements",
+      "description": "Implement: Create zoom controls for preview panel (25%-200%)",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-88-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-88-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Validates: license, icon, description length, screenshots, version format, dependency correctness', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Slider or buttons adjust preview scale; shows current percentage', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Validates: license, icon, description length, screenshots, version format, dependency correctness",
+        "type": "manual",
+        "criteria": "Slider or buttons adjust preview scale; shows current percentage",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T15:10:30.218464",
+  "created_at": "2026-01-30T16:35:20.746786",
   "lsp_impact": {}
 }

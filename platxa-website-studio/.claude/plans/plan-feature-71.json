@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-71",
-  "title": "Implementation: Add parallel worker execution for independent section genera...",
+  "title": "Implementation: Add preview highlight from editor cursor position",
   "context": {
     "spec_id": "feature-71",
     "feature_id": "71",
     "dependencies": [],
     "metadata": {
-      "category": "Agent Intelligence",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "5-section page generates in ~1.2x time of single section via parallel execution",
+        "type": "manual",
+        "criteria": "Cursor in snippet code highlights corresponding preview section",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T14:16:01.566788"
+    "created_at": "2026-01-30T15:45:42.459853"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-71-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add parallel worker execution for independent section generation tasks",
+      "description": "Review feature requirements: Add preview highlight from editor cursor position",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-71-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-71-3",
       "title": "Implement Feature",
-      "description": "Implement: Add parallel worker execution for independent section generation tasks",
+      "description": "Implement: Add preview highlight from editor cursor position",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-71-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-71-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': '5-section page generates in ~1.2x time of single section via parallel execution', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Cursor in snippet code highlights corresponding preview section', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "5-section page generates in ~1.2x time of single section via parallel execution",
+        "type": "manual",
+        "criteria": "Cursor in snippet code highlights corresponding preview section",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T14:16:01.566856",
+  "created_at": "2026-01-30T15:45:42.459895",
   "lsp_impact": {}
 }

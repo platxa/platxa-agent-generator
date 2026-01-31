@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-15",
-  "title": "Implementation: [Semantic Colors] Brand kit must export semantic color mappi...",
+  "title": "Implementation: Create src/test/mocks/framer-motion.ts for animation testing...",
   "context": {
     "spec_id": "feature-15",
     "feature_id": "15",
     "dependencies": [],
     "metadata": {
-      "category": "Brand Kit Interface Features",
+      "category": "Testing",
       "verification_criteria": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "test",
+        "criteria": "Animation components test in <100ms",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-21T11:40:43.803084"
+    "created_at": "2026-01-30T16:27:50.312917"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-15-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: [Semantic Colors] Brand kit must export semantic color mappings (background, foreground, etc.) Verification: background, foreground defined; primary, primaryForeground defined; All shadcn/ui semantic colors supported",
+      "description": "Review feature requirements: Create src/test/mocks/framer-motion.ts for animation testing with MotionConfig duration:0",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-15-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-15-3",
       "title": "Implement Feature",
-      "description": "Implement: [Semantic Colors] Brand kit must export semantic color mappings (background, foreground, etc.) Verification: background, foreground defined; primary, primaryForeground defined; All shadcn/ui semantic colors supported",
+      "description": "Implement: Create src/test/mocks/framer-motion.ts for animation testing with MotionConfig duration:0",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-15-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-15-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Manual verification required', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Animation components test in <100ms', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "test",
+        "criteria": "Animation components test in <100ms",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-21T11:40:43.803113",
+  "created_at": "2026-01-30T16:27:50.312959",
   "lsp_impact": {}
 }

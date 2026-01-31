@@ -1,531 +1,38 @@
 {
-  "session_id": "9d81c4e43aa0",
+  "session_id": "77add0c31c34",
   "stack": {
     "session": {
-      "id": "9d81c4e43aa0-375",
-      "text": "[Phase 1: Agentic Core] Feature #25: Implement web_search tool for fetching Odoo documentation and examples Criteria: Returns top 5 search results; supports site: filtering for odoo.com",
+      "id": "77add0c31c34-533",
+      "text": "[Phase 6: Integration] Feature #196: Add architecture decision records (ADRs) for major decisions Criteria: ADRs for: agentic loop design, tool selection, HMR approach",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769764556.7443419,
-      "updated_at": 1769764556.744342,
+      "created_at": 1769889562.680855,
+      "updated_at": 1769889562.6808553,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 25,
-        "category": "Phase 1: Agentic Core"
+        "feature_id": 196,
+        "category": "Phase 6: Integration"
       },
       "keywords": []
     },
     "task": {
-      "id": "9d81c4e43aa0-376",
-      "text": "Implement: Implement web_search tool for fetching Odoo documentation and examples",
+      "id": "77add0c31c34-534",
+      "text": "Implement: Add architecture decision records (ADRs) for major decisions",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769764556.7495365,
-      "updated_at": 1769764556.7495368,
+      "created_at": 1769889562.6914263,
+      "updated_at": 1769889562.6914265,
       "completed_at": null,
-      "parent_id": "9d81c4e43aa0-375",
+      "parent_id": "77add0c31c34-533",
       "metadata": {},
       "keywords": []
     },
     "step": null
   },
   "history": [
-    {
-      "id": "347bef3d7b98-1",
-      "text": "[System Integration] Feature #4: Route generate_snippet tool through frontend-agent with design token constraints Criteria: Generated snippets reference design token variables instead of hardcoded values",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769518375.3150513,
-      "updated_at": 1769518375.3150518,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 4,
-        "category": "System Integration"
-      },
-      "keywords": []
-    },
-    {
-      "id": "347bef3d7b98-2",
-      "text": "Implement: Route generate_snippet tool through frontend-agent with design token constraints",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769518375.3194084,
-      "updated_at": 1769518375.3194087,
-      "completed_at": null,
-      "parent_id": "347bef3d7b98-1",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "f875a92cd15e-3",
-      "text": "[System Integration] Feature #5: Route modify_styles tool through frontend-agent modern-css and design-tokens modules Criteria: modify_styles validates changes against active design tokens before applying",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769518552.3134177,
-      "updated_at": 1769518552.3134177,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 5,
-        "category": "System Integration"
-      },
-      "keywords": []
-    },
-    {
-      "id": "f875a92cd15e-4",
-      "text": "Implement: Route modify_styles tool through frontend-agent modern-css and design-tokens modules",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769518552.3194993,
-      "updated_at": 1769518552.3194995,
-      "completed_at": null,
-      "parent_id": "f875a92cd15e-3",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "51b9868d4609-5",
-      "text": "[System Integration] Feature #7: Create real-time file write channel routing AI output through editor-sync WebSocket Criteria: AI-generated file writes trigger Yjs doc.transact() and propagate to all connected clients",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769518740.4375868,
-      "updated_at": 1769518740.437587,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 7,
-        "category": "System Integration"
-      },
-      "keywords": []
-    },
-    {
-      "id": "51b9868d4609-6",
-      "text": "Implement: Create real-time file write channel routing AI output through editor-sync WebSocket",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769518740.443449,
-      "updated_at": 1769518740.4434493,
-      "completed_at": null,
-      "parent_id": "51b9868d4609-5",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "ecc1cf416b47-7",
-      "text": "[System Integration] Feature #8: Implement AI awareness protocol in editor-sync to show AI editing indicators to users Criteria: Yjs awareness state includes AI cursor position and editing status; UI renders pulsing indicator",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769519106.3153653,
-      "updated_at": 1769519106.3153656,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 8,
-        "category": "System Integration"
-      },
-      "keywords": []
-    },
-    {
-      "id": "ecc1cf416b47-8",
-      "text": "Implement: Implement AI awareness protocol in editor-sync to show AI editing indicators to users",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769519106.361051,
-      "updated_at": 1769519106.3610513,
-      "completed_at": null,
-      "parent_id": "ecc1cf416b47-7",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "50db83b9323f-9",
-      "text": "[System Integration] Feature #9: Create project config bridge syncing Zustand store state with agent context Criteria: Changes to project store automatically update agent context; agent has access to full project config",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769519357.1242838,
-      "updated_at": 1769519357.1242838,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 9,
-        "category": "System Integration"
-      },
-      "keywords": []
-    },
-    {
-      "id": "50db83b9323f-10",
-      "text": "Implement: Create project config bridge syncing Zustand store state with agent context",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769519357.1303086,
-      "updated_at": 1769519357.1303089,
-      "completed_at": null,
-      "parent_id": "50db83b9323f-9",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "9634398e65a3-11",
-      "text": "[System Integration] Feature #10: Add agent status streaming to chat interface showing plan/search/edit/test phases Criteria: Chat UI displays progress indicators for each agent phase with estimated progress",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769519643.7744777,
-      "updated_at": 1769519643.7744782,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 10,
-        "category": "System Integration"
-      },
-      "keywords": []
-    },
-    {
-      "id": "9634398e65a3-12",
-      "text": "Implement: Add agent status streaming to chat interface showing plan/search/edit/test phases",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769519643.7807906,
-      "updated_at": 1769519643.7807908,
-      "completed_at": null,
-      "parent_id": "9634398e65a3-11",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "e72d5d508bf6-13",
-      "text": "[Quality Assurance] Feature #36: Add SCSS compilation validator using dart-sass to catch syntax errors before deployment Criteria: Generated SCSS files compile without errors via dart-sass; errors reported with line numbers",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769519875.3780913,
-      "updated_at": 1769519875.3780913,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 36,
-        "category": "Quality Assurance"
-      },
-      "keywords": []
-    },
-    {
-      "id": "e72d5d508bf6-14",
-      "text": "Implement: Add SCSS compilation validator using dart-sass to catch syntax errors before deployment",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769519875.3838377,
-      "updated_at": 1769519875.383838,
-      "completed_at": null,
-      "parent_id": "e72d5d508bf6-13",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "99fd84e37a15-15",
-      "text": "[Visual Editing] Feature #52: Create section-level regeneration allowing users to regenerate a single snippet while keeping the rest Criteria: User can right-click a section and select 'Regenerate' - only that snippet is regenerated",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769580647.7352622,
-      "updated_at": 1769580647.7352624,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 52,
-        "category": "Visual Editing"
-      },
-      "keywords": []
-    },
-    {
-      "id": "99fd84e37a15-16",
-      "text": "Implement: Create section-level regeneration allowing users to regenerate a single snippet while keeping the rest",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769580647.7437518,
-      "updated_at": 1769580647.743752,
-      "completed_at": null,
-      "parent_id": "99fd84e37a15-15",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "050f1dbcaa01-17",
-      "text": "[Visual Editing] Feature #49: Create DOM-to-source bidirectional mapping for QWeb template elements Criteria: Each DOM element maps to QWeb template line; clicking code highlights corresponding preview element",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769581116.7623014,
-      "updated_at": 1769581116.7623017,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 49,
-        "category": "Visual Editing"
-      },
-      "keywords": []
-    },
-    {
-      "id": "050f1dbcaa01-18",
-      "text": "Implement: Create DOM-to-source bidirectional mapping for QWeb template elements",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769581116.770728,
-      "updated_at": 1769581116.7707283,
-      "completed_at": null,
-      "parent_id": "050f1dbcaa01-17",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "c49c71645014-19",
-      "text": "[Visual Editing] Feature #50: Add floating style editor panel for colors, fonts, and spacing adjustments Criteria: Floating panel appears on element selection with color pickers, font selectors, spacing controls",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769581309.5702138,
-      "updated_at": 1769581309.570214,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 50,
-        "category": "Visual Editing"
-      },
-      "keywords": []
-    },
-    {
-      "id": "c49c71645014-20",
-      "text": "Implement: Add floating style editor panel for colors, fonts, and spacing adjustments",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769581309.577381,
-      "updated_at": 1769581309.5773814,
-      "completed_at": null,
-      "parent_id": "c49c71645014-19",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "dec5ad8b88a4-21",
-      "text": "[Visual Editing] Feature #51: Implement direct color picker changes mapping to SCSS variable live updates Criteria: Color picker change updates $o-color-palettes SCSS variable and live-reloads preview",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769581455.5747209,
-      "updated_at": 1769581455.574721,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 51,
-        "category": "Visual Editing"
-      },
-      "keywords": []
-    },
-    {
-      "id": "dec5ad8b88a4-22",
-      "text": "Implement: Implement direct color picker changes mapping to SCSS variable live updates",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769581455.5825539,
-      "updated_at": 1769581455.582554,
-      "completed_at": null,
-      "parent_id": "dec5ad8b88a4-21",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "b7ea4b0cbddf-23",
-      "text": "[Visual Editing] Feature #54: Implement responsive preview toggle with accurate mobile/tablet/desktop device frames Criteria: Toggle between mobile (375x667), tablet (768x1024), desktop (100%) with device chrome",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769581615.1363766,
-      "updated_at": 1769581615.1363769,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 54,
-        "category": "Visual Editing"
-      },
-      "keywords": []
-    },
-    {
-      "id": "b7ea4b0cbddf-24",
-      "text": "Implement: Implement responsive preview toggle with accurate mobile/tablet/desktop device frames",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769581615.1423411,
-      "updated_at": 1769581615.1423414,
-      "completed_at": null,
-      "parent_id": "b7ea4b0cbddf-23",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "75ccdbb272b1-25",
-      "text": "[Visual Editing] Feature #55: Create live SCSS compilation and CSS injection for instant preview updates without full reload Criteria: SCSS changes compile in <500ms and inject into preview iframe without page reload",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769581724.4940512,
-      "updated_at": 1769581724.4940512,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 55,
-        "category": "Visual Editing"
-      },
-      "keywords": []
-    },
-    {
-      "id": "75ccdbb272b1-26",
-      "text": "Implement: Create live SCSS compilation and CSS injection for instant preview updates without full reload",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769581724.501891,
-      "updated_at": 1769581724.5018911,
-      "completed_at": null,
-      "parent_id": "75ccdbb272b1-25",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "3ce3fef4152c-27",
-      "text": "[Agent Intelligence] Feature #64: Implement Orchestrator-Workers pattern with task decomposition for multi-section pages Criteria: Page generation decomposes into N section tasks; workers execute in parallel; orchestrator assembles result",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769581884.2157562,
-      "updated_at": 1769581884.2157567,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 64,
-        "category": "Agent Intelligence"
-      },
-      "keywords": []
-    },
-    {
-      "id": "3ce3fef4152c-28",
-      "text": "Implement: Implement Orchestrator-Workers pattern with task decomposition for multi-section pages",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769581884.2569416,
-      "updated_at": 1769581884.2569418,
-      "completed_at": null,
-      "parent_id": "3ce3fef4152c-27",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "99bef778464f-29",
-      "text": "[Agent Intelligence] Feature #65: Add Evaluator-Optimizer feedback loop for iterative quality improvement of generated output Criteria: Failed quality gate triggers evaluator; optimizer regenerates failing section; loop repeats up to 3 times",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769582029.0006986,
-      "updated_at": 1769582029.0006988,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 65,
-        "category": "Agent Intelligence"
-      },
-      "keywords": []
-    },
-    {
-      "id": "99bef778464f-30",
-      "text": "Implement: Add Evaluator-Optimizer feedback loop for iterative quality improvement of generated output",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769582029.0051558,
-      "updated_at": 1769582029.0051558,
-      "completed_at": null,
-      "parent_id": "99bef778464f-29",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "a077728decc8-31",
-      "text": "[Agent Intelligence] Feature #66: Create RAG pipeline for existing theme codebase understanding and context retrieval Criteria: Query 'existing header snippet' retrieves relevant code from project files with correct ranking",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769582166.902841,
-      "updated_at": 1769582166.902841,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 66,
-        "category": "Agent Intelligence"
-      },
-      "keywords": []
-    },
-    {
-      "id": "a077728decc8-32",
-      "text": "Implement: Create RAG pipeline for existing theme codebase understanding and context retrieval",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769582166.9086795,
-      "updated_at": 1769582166.9086795,
-      "completed_at": null,
-      "parent_id": "a077728decc8-31",
-      "metadata": {},
-      "keywords": []
-    },
-    {
-      "id": "1741ffea2cd3-33",
-      "text": "[Agent Intelligence] Feature #67: Implement multi-step agent cycle: Plan→Search→Read→Edit→Test for complex requests Criteria: Complex request triggers all 5 phases",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769582456.9008806,
-      "updated_at": 1769582456.9008808,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 67,
-        "category": "Agent Intelligence"
-      },
-      "keywords": []
-    },
-    {
-      "id": "1741ffea2cd3-34",
-      "text": "Implement: Implement multi-step agent cycle: Plan→Search→Read→Edit→Test for complex requests",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769582456.9050703,
-      "updated_at": 1769582456.9050703,
-      "completed_at": null,
-      "parent_id": "1741ffea2cd3-33",
-      "metadata": {},
-      "keywords": []
-    },
     {
       "id": "04799d554232-35",
       "text": "[Agent Intelligence] Feature #68: Add clarifying question generation before ambiguous or underspecified requests Criteria: Ambiguous prompt ('make it better') triggers clarifying questions instead of blind generation",
@@ -5484,9 +4991,2300 @@
       "parent_id": "9d81c4e43aa0-375",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "f572e48e923c-377",
+      "text": "[Phase 1: Agentic Core] Feature #29: Add mode switching UI with clear visual indicators (plan icon vs agent icon) Criteria: Mode badge shows current mode; click toggles between plan/agent",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769764938.8903308,
+      "updated_at": 1769764938.8903308,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 29,
+        "category": "Phase 1: Agentic Core"
+      },
+      "keywords": []
+    },
+    {
+      "id": "f572e48e923c-378",
+      "text": "Implement: Add mode switching UI with clear visual indicators (plan icon vs agent icon)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769764938.8969467,
+      "updated_at": 1769764938.8969467,
+      "completed_at": null,
+      "parent_id": "f572e48e923c-377",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "b770011295e1-379",
+      "text": "[Phase 1: Agentic Core] Feature #34: Add relevance ranking for context items based on recency and semantic similarity Criteria: Recent items and semantically similar items score higher",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769765419.3955603,
+      "updated_at": 1769765419.3955605,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 34,
+        "category": "Phase 1: Agentic Core"
+      },
+      "keywords": []
+    },
+    {
+      "id": "b770011295e1-380",
+      "text": "Implement: Add relevance ranking for context items based on recency and semantic similarity",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769765419.4026978,
+      "updated_at": 1769765419.402698,
+      "completed_at": null,
+      "parent_id": "b770011295e1-379",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "6a2a951b11c0-381",
+      "text": "[Phase 1: Agentic Core] Feature #35: Create context serialization optimized for LLM injection (compact format) Criteria: Serialized context is <50% smaller than raw JSON",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769765772.9431055,
+      "updated_at": 1769765772.9431057,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 35,
+        "category": "Phase 1: Agentic Core"
+      },
+      "keywords": []
+    },
+    {
+      "id": "6a2a951b11c0-382",
+      "text": "Implement: Create context serialization optimized for LLM injection (compact format)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769765772.9508312,
+      "updated_at": 1769765772.9508314,
+      "completed_at": null,
+      "parent_id": "6a2a951b11c0-381",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "e7ed9fd4d0df-383",
+      "text": "[Phase 2: Plan Mode] Feature #40: Implement option scoring based on effort/quality/risk tradeoffs Criteria: Options sorted by recommended score; scoring factors visible",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769766156.2993855,
+      "updated_at": 1769766156.2993855,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 40,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "e7ed9fd4d0df-384",
+      "text": "Implement: Implement option scoring based on effort/quality/risk tradeoffs",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769766156.307875,
+      "updated_at": 1769766156.3078752,
+      "completed_at": null,
+      "parent_id": "e7ed9fd4d0df-383",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "af0fa3db6963-385",
+      "text": "[Phase 2: Plan Mode] Feature #45: Implement industry-aware option generation leveraging Odoo vertical presets Criteria: Restaurant requests get food-specific options; law gets formal options",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769766566.8224955,
+      "updated_at": 1769766566.8224955,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 45,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "af0fa3db6963-386",
+      "text": "Implement: Implement industry-aware option generation leveraging Odoo vertical presets",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769766566.8298316,
+      "updated_at": 1769766566.8298318,
+      "completed_at": null,
+      "parent_id": "af0fa3db6963-385",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "a9303bcc1f9e-387",
+      "text": "[Phase 2: Plan Mode] Feature #46: Add effort estimation based on file count and complexity metrics Criteria: Effort: low (<5 files), medium (5-15 files), high (>15 files)",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769766832.9851944,
+      "updated_at": 1769766832.985195,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 46,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "a9303bcc1f9e-388",
+      "text": "Implement: Add effort estimation based on file count and complexity metrics",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769766832.9979908,
+      "updated_at": 1769766832.997991,
+      "completed_at": null,
+      "parent_id": "a9303bcc1f9e-387",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "25b84fba5141-389",
+      "text": "[Phase 2: Plan Mode] Feature #48: Implement option comparison view showing side-by-side trade-offs Criteria: Table view with options as columns; pros/cons/effort as rows",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769766998.3585758,
+      "updated_at": 1769766998.358576,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 48,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "25b84fba5141-390",
+      "text": "Implement: Implement option comparison view showing side-by-side trade-offs",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769766998.3661227,
+      "updated_at": 1769766998.366123,
+      "completed_at": null,
+      "parent_id": "25b84fba5141-389",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "77a329244cd4-391",
+      "text": "[Phase 2: Plan Mode] Feature #53: Implement ModeSwitcher toggle for manual mode selection Criteria: Toggle button switches between plan/agent; persists until changed",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769767207.5240066,
+      "updated_at": 1769767207.5240068,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 53,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "77a329244cd4-392",
+      "text": "Implement: Implement ModeSwitcher toggle for manual mode selection",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769767207.5313253,
+      "updated_at": 1769767207.5313256,
+      "completed_at": null,
+      "parent_id": "77a329244cd4-391",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "dca05bf2a1cd-393",
+      "text": "[Phase 2: Plan Mode] Feature #56: Create hypothetical file change preview (diff without commit) Criteria: Shows unified diff of proposed changes; clearly marked as preview",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769767294.550393,
+      "updated_at": 1769767294.5503933,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 56,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "dca05bf2a1cd-394",
+      "text": "Implement: Create hypothetical file change preview (diff without commit)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769767294.5581717,
+      "updated_at": 1769767294.558172,
+      "completed_at": null,
+      "parent_id": "dca05bf2a1cd-393",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "37223febe345-395",
+      "text": "[Phase 2: Plan Mode] Feature #58: Implement exploration session isolation (separate context per session) Criteria: Each plan session has unique ID and isolated context",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769767500.4269896,
+      "updated_at": 1769767500.4269898,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 58,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "37223febe345-396",
+      "text": "Implement: Implement exploration session isolation (separate context per session)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769767500.434667,
+      "updated_at": 1769767500.4346673,
+      "completed_at": null,
+      "parent_id": "37223febe345-395",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "c9255bd3032f-397",
+      "text": "[Phase 3: HMR Preview] Feature #65: Create update flash animation for visual feedback on changed sections Criteria: Updated sections flash with subtle highlight for 300ms",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769767704.312402,
+      "updated_at": 1769767704.3124022,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 65,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c9255bd3032f-398",
+      "text": "Implement: Create update flash animation for visual feedback on changed sections",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769767704.3199012,
+      "updated_at": 1769767704.3199015,
+      "completed_at": null,
+      "parent_id": "c9255bd3032f-397",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "00c44e8bb593-399",
+      "text": "[Phase 3: HMR Preview] Feature #71: Add preview highlight from editor cursor position Criteria: Cursor in snippet code highlights corresponding preview section",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769768143.0627358,
+      "updated_at": 1769768143.062736,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 71,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "00c44e8bb593-400",
+      "text": "Implement: Add preview highlight from editor cursor position",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769768143.0720773,
+      "updated_at": 1769768143.0720775,
+      "completed_at": null,
+      "parent_id": "00c44e8bb593-399",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "8f1e6eb65431-401",
+      "text": "[Phase 3: HMR Preview] Feature #76: Implement keyboard navigation between sections (arrow keys) Criteria: Up/down arrows move selection between sibling sections",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769768404.483779,
+      "updated_at": 1769768404.483779,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 76,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "8f1e6eb65431-402",
+      "text": "Implement: Implement keyboard navigation between sections (arrow keys)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769768404.4916337,
+      "updated_at": 1769768404.491634,
+      "completed_at": null,
+      "parent_id": "8f1e6eb65431-401",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "ce9135cd2900-403",
+      "text": "[Phase 3: HMR Preview] Feature #77: Add selection persistence across HMR updates Criteria: Selection restored by ID after DOM morph",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769768614.3206875,
+      "updated_at": 1769768614.3206875,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 77,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "ce9135cd2900-404",
+      "text": "Implement: Add selection persistence across HMR updates",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769768614.3281896,
+      "updated_at": 1769768614.3281898,
+      "completed_at": null,
+      "parent_id": "ce9135cd2900-403",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "3356b4c75c04-405",
+      "text": "[Phase 3: HMR Preview] Feature #80: Add font selector with live Google Fonts preview Criteria: Dropdown lists available fonts; selection updates typography instantly",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769768883.7596526,
+      "updated_at": 1769768883.7596529,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 80,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "3356b4c75c04-406",
+      "text": "Implement: Add font selector with live Google Fonts preview",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769768883.7675548,
+      "updated_at": 1769768883.767555,
+      "completed_at": null,
+      "parent_id": "3356b4c75c04-405",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "f7682294001e-407",
+      "text": "[Phase 3: HMR Preview] Feature #81: Create spacing controls for margin and padding adjustments Criteria: Box model control with drag handles or input fields",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769769386.4452984,
+      "updated_at": 1769769386.4452987,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 81,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "f7682294001e-408",
+      "text": "Implement: Create spacing controls for margin and padding adjustments",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769769386.454032,
+      "updated_at": 1769769386.454032,
+      "completed_at": null,
+      "parent_id": "f7682294001e-407",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "5718c2038a16-409",
+      "text": "[Phase 3: HMR Preview] Feature #84: Create 'Edit in Code' button jumping to source in editor Criteria: Button opens file in editor at selected element's source line",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769769705.072578,
+      "updated_at": 1769769705.072578,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 84,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "5718c2038a16-410",
+      "text": "Implement: Create 'Edit in Code' button jumping to source in editor",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769769705.0803163,
+      "updated_at": 1769769705.0803168,
+      "completed_at": null,
+      "parent_id": "5718c2038a16-409",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "e4711ec7eaf8-411",
+      "text": "[Phase 3: HMR Preview] Feature #86: Implement device frame visualization around preview Criteria: iPhone/iPad/MacBook frames wrap preview at appropriate sizes",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769769918.1152694,
+      "updated_at": 1769769918.1152694,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 86,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "e4711ec7eaf8-412",
+      "text": "Implement: Implement device frame visualization around preview",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769769918.1253355,
+      "updated_at": 1769769918.1253357,
+      "completed_at": null,
+      "parent_id": "e4711ec7eaf8-411",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "875eb6fdf5de-413",
+      "text": "[Phase 3: HMR Preview] Feature #88: Create zoom controls for preview panel (25%-200%) Criteria: Slider or buttons adjust preview scale; shows current percentage",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769771121.3003,
+      "updated_at": 1769771121.3003,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 88,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "875eb6fdf5de-414",
+      "text": "Implement: Create zoom controls for preview panel (25%-200%)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769771121.3077452,
+      "updated_at": 1769771121.3077455,
+      "completed_at": null,
+      "parent_id": "875eb6fdf5de-413",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "87dbe2508fee-415",
+      "text": "[Phase 3: HMR Preview] Feature #94: Implement error boundary for preview failures with fallback UI Criteria: Preview errors show friendly message with retry button",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769771352.083151,
+      "updated_at": 1769771352.0831513,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 94,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "87dbe2508fee-416",
+      "text": "Implement: Implement error boundary for preview failures with fallback UI",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769771352.0954552,
+      "updated_at": 1769771352.0954554,
+      "completed_at": null,
+      "parent_id": "87dbe2508fee-415",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "c48fd60cf620-417",
+      "text": "[Phase 4: Enhanced UI] Feature #97: Add current tool indicator showing active operation (searching, reading, etc.) Criteria: Badge shows current tool name with spinning icon",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769771686.1854687,
+      "updated_at": 1769771686.185469,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 97,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c48fd60cf620-418",
+      "text": "Implement: Add current tool indicator showing active operation (searching, reading, etc.)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769771686.1921027,
+      "updated_at": 1769771686.192103,
+      "completed_at": null,
+      "parent_id": "c48fd60cf620-417",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "051fc4d010c5-419",
+      "text": "[Phase 4: Enhanced UI] Feature #99: Implement estimated time remaining calculation based on plan steps Criteria: Shows 'Estimated: ~30s remaining' based on steps completed vs total",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769771878.103076,
+      "updated_at": 1769771878.103076,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 99,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "051fc4d010c5-420",
+      "text": "Implement: Implement estimated time remaining calculation based on plan steps",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769771878.107747,
+      "updated_at": 1769771878.107747,
+      "completed_at": null,
+      "parent_id": "051fc4d010c5-419",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "95e2c62e1ebd-421",
+      "text": "[Phase 4: Enhanced UI] Feature #101: Create animated progress bar with phase-specific colors Criteria: Blue for planning, green for generating, yellow for validating",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769772171.671893,
+      "updated_at": 1769772171.671893,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 101,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "95e2c62e1ebd-422",
+      "text": "Implement: Create animated progress bar with phase-specific colors",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769772171.6766276,
+      "updated_at": 1769772171.6766279,
+      "completed_at": null,
+      "parent_id": "95e2c62e1ebd-421",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "84384a7ed95c-423",
+      "text": "[Phase 4: Enhanced UI] Feature #104: Add thumbnail generation for visual version history Criteria: Small preview screenshot attached to each version",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769772384.9999688,
+      "updated_at": 1769772384.9999688,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 104,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "84384a7ed95c-424",
+      "text": "Implement: Add thumbnail generation for visual version history",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769772385.0048335,
+      "updated_at": 1769772385.0048337,
+      "completed_at": null,
+      "parent_id": "84384a7ed95c-423",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "79114f6b62c8-425",
+      "text": "[Phase 4: Enhanced UI] Feature #106: Implement version diff view showing before/after changes Criteria: Side-by-side or unified diff view of all changed files",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769772719.3267674,
+      "updated_at": 1769772719.3267677,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 106,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "79114f6b62c8-426",
+      "text": "Implement: Implement version diff view showing before/after changes",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769772719.3314865,
+      "updated_at": 1769772719.3314867,
+      "completed_at": null,
+      "parent_id": "79114f6b62c8-425",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "1f9f4ff2b30e-427",
+      "text": "[Phase 4: Enhanced UI] Feature #110: Implement tool usage indicators in chat messages Criteria: Chips show tools used: 'searched 3 files', 'edited 2 files'",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769773147.7882488,
+      "updated_at": 1769773147.7882488,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 110,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "1f9f4ff2b30e-428",
+      "text": "Implement: Implement tool usage indicators in chat messages",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769773147.7936847,
+      "updated_at": 1769773147.793685,
+      "completed_at": null,
+      "parent_id": "1f9f4ff2b30e-427",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "72b37cba6c9c-429",
+      "text": "[Phase 4: Enhanced UI] Feature #111: Add token/cost counter for current session Criteria: Shows 'Tokens: 12.3K | Cost: $0.05' in header",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769773453.8585157,
+      "updated_at": 1769773453.858516,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 111,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "72b37cba6c9c-430",
+      "text": "Implement: Add token/cost counter for current session",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769773453.8644292,
+      "updated_at": 1769773453.8644295,
+      "completed_at": null,
+      "parent_id": "72b37cba6c9c-429",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "a38fe4c0989b-431",
+      "text": "[Phase 4: Enhanced UI] Feature #112: Create quality score display after generation completion Criteria: Shows 'Quality: 85/100' with breakdown (syntax, a11y, structure)",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769773757.6011798,
+      "updated_at": 1769773757.60118,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 112,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "a38fe4c0989b-432",
+      "text": "Implement: Create quality score display after generation completion",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769773757.606094,
+      "updated_at": 1769773757.6060941,
+      "completed_at": null,
+      "parent_id": "a38fe4c0989b-431",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "a4264f9b728c-433",
+      "text": "[Phase 4: Enhanced UI] Feature #116: Add file diff inline display in chat messages Criteria: Diff blocks show added/removed lines with color coding",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769774068.6795356,
+      "updated_at": 1769774068.6795359,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 116,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "a4264f9b728c-434",
+      "text": "Implement: Add file diff inline display in chat messages",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769774068.6847734,
+      "updated_at": 1769774068.6847737,
+      "completed_at": null,
+      "parent_id": "a4264f9b728c-433",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "02ee8e965404-435",
+      "text": "[Phase 4: Enhanced UI] Feature #117: Create collapsible plan/execution details in messages Criteria: Expand/collapse toggle for detailed plan and execution logs",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769774298.1897962,
+      "updated_at": 1769774298.1897962,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 117,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "02ee8e965404-436",
+      "text": "Implement: Create collapsible plan/execution details in messages",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769774298.194467,
+      "updated_at": 1769774298.1944673,
+      "completed_at": null,
+      "parent_id": "02ee8e965404-435",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "574925e36396-437",
+      "text": "[Phase 4: Enhanced UI] Feature #118: Implement message actions (copy, regenerate, edit) Criteria: Hover shows action buttons; copy copies text; regenerate re-runs",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769774642.4563847,
+      "updated_at": 1769774642.4563851,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 118,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "574925e36396-438",
+      "text": "Implement: Implement message actions (copy, regenerate, edit)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769774642.464115,
+      "updated_at": 1769774642.4641151,
+      "completed_at": null,
+      "parent_id": "574925e36396-437",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "873477d636e1-439",
+      "text": "[Phase 4: Enhanced UI] Feature #121: Implement panel collapse/expand animations Criteria: Panels animate smoothly when collapsed/expanded",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769774961.8467333,
+      "updated_at": 1769774961.8467336,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 121,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "873477d636e1-440",
+      "text": "Implement: Implement panel collapse/expand animations",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769774961.859571,
+      "updated_at": 1769774961.8595712,
+      "completed_at": null,
+      "parent_id": "873477d636e1-439",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "9746fb3e2cd9-441",
+      "text": "[Phase 4: Enhanced UI] Feature #122: Add panel layout presets (code-focused, preview-focused, balanced) Criteria: Preset buttons instantly resize panels to predefined ratios",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769775442.8597875,
+      "updated_at": 1769775442.8597877,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 122,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "9746fb3e2cd9-442",
+      "text": "Implement: Add panel layout presets (code-focused, preview-focused, balanced)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769775442.8675413,
+      "updated_at": 1769775442.8675416,
+      "completed_at": null,
+      "parent_id": "9746fb3e2cd9-441",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "094c315c8772-443",
+      "text": "[Phase 4: Enhanced UI] Feature #123: Create full-screen preview mode Criteria: Button expands preview to fill window; ESC exits",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769775714.11332,
+      "updated_at": 1769775714.1133204,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 123,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "094c315c8772-444",
+      "text": "Implement: Create full-screen preview mode",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769775714.1211812,
+      "updated_at": 1769775714.1211815,
+      "completed_at": null,
+      "parent_id": "094c315c8772-443",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "40e37f332890-445",
+      "text": "[Phase 5: Self-Debugging] Feature #131: Create log severity classification (error, warning, info) Criteria: Each log entry has severity level; errors sorted first",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769776194.7673101,
+      "updated_at": 1769776194.7673104,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 131,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "40e37f332890-446",
+      "text": "Implement: Create log severity classification (error, warning, info)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769776194.775147,
+      "updated_at": 1769776194.7751472,
+      "completed_at": null,
+      "parent_id": "40e37f332890-445",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "00dd49401c67-447",
+      "text": "[Phase 5: Self-Debugging] Feature #136: Implement error deduplication for repeated issues Criteria: Same error from multiple places collapsed into single issue with count",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769776458.6411126,
+      "updated_at": 1769776458.641113,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 136,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "00dd49401c67-448",
+      "text": "Implement: Implement error deduplication for repeated issues",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769776458.6548655,
+      "updated_at": 1769776458.6548657,
+      "completed_at": null,
+      "parent_id": "00dd49401c67-447",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "e5ec27f0d4ae-449",
+      "text": "[Phase 5: Self-Debugging] Feature #143: Add accessibility error patterns (contrast, labels, focus) Criteria: Patterns for: low contrast, missing alt, no focus visible, missing ARIA",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769777006.864529,
+      "updated_at": 1769777006.864529,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 143,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "e5ec27f0d4ae-450",
+      "text": "Implement: Add accessibility error patterns (contrast, labels, focus)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769777006.872174,
+      "updated_at": 1769777006.8721743,
+      "completed_at": null,
+      "parent_id": "e5ec27f0d4ae-449",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "d3b8d1f891cf-451",
+      "text": "[Phase 5: Self-Debugging] Feature #149: Implement fix confidence scoring based on pattern match quality Criteria: Score 0-100 based on: pattern match (40), context clarity (30), fix simplicity (30)",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769777474.366631,
+      "updated_at": 1769777474.3666313,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 149,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "d3b8d1f891cf-452",
+      "text": "Implement: Implement fix confidence scoring based on pattern match quality",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769777474.3745377,
+      "updated_at": 1769777474.374538,
+      "completed_at": null,
+      "parent_id": "d3b8d1f891cf-451",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "6905a27a39db-453",
+      "text": "[Phase 5: Self-Debugging] Feature #150: Add multi-fix batching for related errors Criteria: Related errors (same file, same cause) fixed together",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769777736.6388192,
+      "updated_at": 1769777736.6388192,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 150,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "6905a27a39db-454",
+      "text": "Implement: Add multi-fix batching for related errors",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769777736.648015,
+      "updated_at": 1769777736.6480153,
+      "completed_at": null,
+      "parent_id": "6905a27a39db-453",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "4832bed7aa83-455",
+      "text": "[Phase 5: Self-Debugging] Feature #151: Create fix explanation for user transparency Criteria: Each fix includes plain-language explanation of what was wrong and how it was fixed",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769778349.049854,
+      "updated_at": 1769778349.0498543,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 151,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "4832bed7aa83-456",
+      "text": "Implement: Create fix explanation for user transparency",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769778349.057557,
+      "updated_at": 1769778349.0575573,
+      "completed_at": null,
+      "parent_id": "4832bed7aa83-455",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "f3c770f15cd1-457",
+      "text": "[Phase 5: Self-Debugging] Feature #153: Create exponential backoff strategy for repeated failures Criteria: Delays: 0s, 1s, 3s between retry attempts",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769778883.5415316,
+      "updated_at": 1769778883.5415318,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 153,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "f3c770f15cd1-458",
+      "text": "Implement: Create exponential backoff strategy for repeated failures",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769778883.5490627,
+      "updated_at": 1769778883.549063,
+      "completed_at": null,
+      "parent_id": "f3c770f15cd1-457",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "56b663426612-459",
+      "text": "[Phase 5: Self-Debugging] Feature #155: Implement manual fix suggestion generation for complex errors Criteria: LLM generates step-by-step manual fix instructions",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769779313.556317,
+      "updated_at": 1769779313.556317,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 155,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "56b663426612-460",
+      "text": "Implement: Implement manual fix suggestion generation for complex errors",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769779313.563729,
+      "updated_at": 1769779313.5637295,
+      "completed_at": null,
+      "parent_id": "56b663426612-459",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "b276ead6d96f-461",
+      "text": "[Phase 5: Self-Debugging] Feature #159: Add fix preview before applying (diff view) Criteria: Shows unified diff of proposed fix; Apply/Cancel buttons",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769779844.729609,
+      "updated_at": 1769779844.729609,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 159,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "b276ead6d96f-462",
+      "text": "Implement: Add fix preview before applying (diff view)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769779844.7370079,
+      "updated_at": 1769779844.737008,
+      "completed_at": null,
+      "parent_id": "b276ead6d96f-461",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "53d77268b50c-463",
+      "text": "[Phase 6: Integration] Feature #166: Route OKLCH palette generation through agent pipeline Criteria: Theme generation uses OKLCH palette module from frontend-agent",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769854982.4066815,
+      "updated_at": 1769854982.4066818,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 166,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "53d77268b50c-464",
+      "text": "Implement: Route OKLCH palette generation through agent pipeline",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769854982.4123418,
+      "updated_at": 1769854982.412342,
+      "completed_at": null,
+      "parent_id": "53d77268b50c-463",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "89b459959709-465",
+      "text": "[Phase 6: Integration] Feature #169: Add AI editing indicator (pulsing highlight on modified lines) Criteria: Lines being modified by agent have animated background",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769855447.2663739,
+      "updated_at": 1769855447.266374,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 169,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "89b459959709-466",
+      "text": "Implement: Add AI editing indicator (pulsing highlight on modified lines)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769855447.270999,
+      "updated_at": 1769855447.270999,
+      "completed_at": null,
+      "parent_id": "89b459959709-465",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "8b079b2717a8-467",
+      "text": "[Phase 6: Integration] Feature #171: Implement agent session isolation (separate Yjs awareness user) Criteria: Agent has unique awareness ID; distinguishable from human users",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769855890.5262089,
+      "updated_at": 1769855890.526209,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 171,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "8b079b2717a8-468",
+      "text": "Implement: Implement agent session isolation (separate Yjs awareness user)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769855890.534862,
+      "updated_at": 1769855890.5348623,
+      "completed_at": null,
+      "parent_id": "8b079b2717a8-467",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "bf98f19c4503-469",
+      "text": "[Phase 6: Integration] Feature #175: Create sidecar log streaming to log inspector Criteria: Sidecar logs stream to LogInspector via WebSocket",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769856339.4277303,
+      "updated_at": 1769856339.4277303,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 175,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "bf98f19c4503-470",
+      "text": "Implement: Create sidecar log streaming to log inspector",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769856339.4348934,
+      "updated_at": 1769856339.4348936,
+      "completed_at": null,
+      "parent_id": "bf98f19c4503-469",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "53e5e2c87c6b-471",
+      "text": "[Phase 6: Integration] Feature #176: Implement sidecar restart on failure with automatic recovery Criteria: Sidecar failure triggers restart; agent waits for recovery",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769856692.2154481,
+      "updated_at": 1769856692.2154484,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 176,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "53e5e2c87c6b-472",
+      "text": "Implement: Implement sidecar restart on failure with automatic recovery",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769856692.222856,
+      "updated_at": 1769856692.2228563,
+      "completed_at": null,
+      "parent_id": "53e5e2c87c6b-471",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "b94d7e89558e-473",
+      "text": "[Phase 6: Integration] Feature #179: Add deployment progress streaming to UI Criteria: Shows: Packaging → Uploading → Installing → Verifying → Complete",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769857564.1358128,
+      "updated_at": 1769857564.1358132,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 179,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "b94d7e89558e-474",
+      "text": "Implement: Add deployment progress streaming to UI",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769857564.1433449,
+      "updated_at": 1769857564.143345,
+      "completed_at": null,
+      "parent_id": "b94d7e89558e-473",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "959712d542c8-475",
+      "text": "[Phase 6: Integration] Feature #185: Add integration tests for mode transitions Criteria: Tests: plan→agent handoff, mode switching, context preservation",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769858253.8561773,
+      "updated_at": 1769858253.8561776,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 185,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "959712d542c8-476",
+      "text": "Implement: Add integration tests for mode transitions",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769858253.8634639,
+      "updated_at": 1769858253.863464,
+      "completed_at": null,
+      "parent_id": "959712d542c8-475",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "e18e2350c4d8-477",
+      "text": "[Phase 6: Integration] Feature #186: Create visual regression tests for preview Criteria: Screenshot comparison for: selection mode, device frames, floating editor",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769860173.6740158,
+      "updated_at": 1769860173.674016,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 186,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "e18e2350c4d8-478",
+      "text": "Implement: Create visual regression tests for preview",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769860173.6817367,
+      "updated_at": 1769860173.681737,
+      "completed_at": null,
+      "parent_id": "e18e2350c4d8-477",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "d83bfced30b6-479",
+      "text": "[Phase 6: Integration] Feature #187: Implement performance benchmarks Criteria: Measures: generation time, preview latency, tool execution time",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769861649.1521451,
+      "updated_at": 1769861649.1521454,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 187,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "d83bfced30b6-480",
+      "text": "Implement: Implement performance benchmarks",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769861649.159955,
+      "updated_at": 1769861649.1599553,
+      "completed_at": null,
+      "parent_id": "d83bfced30b6-479",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "44c2e69132ee-481",
+      "text": "[Phase 6: Integration] Feature #189: Create agent metrics dashboard (latency, quality, cost) Criteria: Dashboard shows: avg generation time, quality distribution, cost per generation",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769862854.379012,
+      "updated_at": 1769862854.379012,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 189,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "44c2e69132ee-482",
+      "text": "Implement: Create agent metrics dashboard (latency, quality, cost)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769862854.3872354,
+      "updated_at": 1769862854.3872356,
+      "completed_at": null,
+      "parent_id": "44c2e69132ee-481",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "81f5708fd9c4-483",
+      "text": "[Phase 6: Integration] Feature #190: Implement generation analytics tracking Criteria: Tracks: prompts, generations, errors, user satisfaction",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769863182.5343199,
+      "updated_at": 1769863182.53432,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 190,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "81f5708fd9c4-484",
+      "text": "Implement: Implement generation analytics tracking",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769863182.5424943,
+      "updated_at": 1769863182.5424945,
+      "completed_at": null,
+      "parent_id": "81f5708fd9c4-483",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "411bba01f834-485",
+      "text": "[Phase 6: Integration] Feature #191: Add error rate monitoring with alerts Criteria: Alert triggered if error rate > 20% over 1 hour",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769863539.0121949,
+      "updated_at": 1769863539.0121949,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 191,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "411bba01f834-486",
+      "text": "Implement: Add error rate monitoring with alerts",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769863539.0194695,
+      "updated_at": 1769863539.0194697,
+      "completed_at": null,
+      "parent_id": "411bba01f834-485",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "bb31c9b98faf-487",
+      "text": "[Phase 6: Integration] Feature #194: Create API documentation for agent tools Criteria: Each tool documented with: purpose, parameters, return value, examples",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769864317.578634,
+      "updated_at": 1769864317.5786343,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 194,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "bb31c9b98faf-488",
+      "text": "Implement: Create API documentation for agent tools",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769864317.5862095,
+      "updated_at": 1769864317.5862098,
+      "completed_at": null,
+      "parent_id": "bb31c9b98faf-487",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "230d746abe79-489",
+      "text": "[Phase 6: Integration] Feature #195: Implement inline code documentation for complex functions Criteria: All public functions have JSDoc comments",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769865157.793633,
+      "updated_at": 1769865157.793633,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 195,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "230d746abe79-490",
+      "text": "Implement: Implement inline code documentation for complex functions",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769865157.8011444,
+      "updated_at": 1769865157.8011446,
+      "completed_at": null,
+      "parent_id": "230d746abe79-489",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "e91297c42846-491",
+      "text": "[Phase 6: Integration] Feature #197: Create troubleshooting guide for common issues Criteria: Guide covers: agent stuck, preview not updating, deploy failing",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769865891.9569597,
+      "updated_at": 1769865891.9569597,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 197,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "e91297c42846-492",
+      "text": "Implement: Create troubleshooting guide for common issues",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769865891.9649973,
+      "updated_at": 1769865891.9649975,
+      "completed_at": null,
+      "parent_id": "e91297c42846-491",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "49efcd0de055-493",
+      "text": "[Phase 6: Integration] Feature #198: Implement example prompt library for common use cases Criteria: Library includes: theme creation, page addition, style modification examples",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769866161.1599712,
+      "updated_at": 1769866161.1599712,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 198,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "49efcd0de055-494",
+      "text": "Implement: Implement example prompt library for common use cases",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769866161.1680477,
+      "updated_at": 1769866161.168048,
+      "completed_at": null,
+      "parent_id": "49efcd0de055-493",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "2da5e18a4cec-495",
+      "text": "[Phase 6: Integration] Feature #201: Create lazy loading for heavy UI components Criteria: Monaco editor, device frames, diff viewer lazy loaded",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769866461.169335,
+      "updated_at": 1769866461.169335,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 201,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "2da5e18a4cec-496",
+      "text": "Implement: Create lazy loading for heavy UI components",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769866461.1770911,
+      "updated_at": 1769866461.1770914,
+      "completed_at": null,
+      "parent_id": "2da5e18a4cec-495",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "a5f0185ef341-497",
+      "text": "[Phase 6: Integration] Feature #202: Implement preview render caching Criteria: Unchanged pages return cached preview; cache invalidated on change",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769866658.9477463,
+      "updated_at": 1769866658.9477465,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 202,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "a5f0185ef341-498",
+      "text": "Implement: Implement preview render caching",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769866658.955424,
+      "updated_at": 1769866658.9554243,
+      "completed_at": null,
+      "parent_id": "a5f0185ef341-497",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "f3d14decb64a-499",
+      "text": "[Phase 6: Integration] Feature #203: Add bundle size optimization (tree shaking, code splitting) Criteria: Main bundle < 300KB; dynamic imports for heavy features",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769866896.9866683,
+      "updated_at": 1769866896.9866686,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 203,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "f3d14decb64a-500",
+      "text": "Implement: Add bundle size optimization (tree shaking, code splitting)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769866896.9951332,
+      "updated_at": 1769866896.9951334,
+      "completed_at": null,
+      "parent_id": "f3d14decb64a-499",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "f7a24f97e6ff-501",
+      "text": "[Phase 2: Plan Mode] Feature #54: Add PlanHistory showing previous exploration sessions Criteria: Sidebar shows past plans with query and timestamp; click to restore",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769867302.8596203,
+      "updated_at": 1769867302.8596203,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 54,
+        "category": "Phase 2: Plan Mode"
+      },
+      "keywords": []
+    },
+    {
+      "id": "f7a24f97e6ff-502",
+      "text": "Implement: Add PlanHistory showing previous exploration sessions",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769867302.8657117,
+      "updated_at": 1769867302.8657117,
+      "completed_at": null,
+      "parent_id": "f7a24f97e6ff-501",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "c48009c3a430-503",
+      "text": "[Phase 3: HMR Preview] Feature #82: Implement border-radius adjuster in floating editor Criteria: Slider adjusts border radius from 0 to 50px",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769867602.178745,
+      "updated_at": 1769867602.178745,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 82,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c48009c3a430-504",
+      "text": "Implement: Implement border-radius adjuster in floating editor",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769867602.1833677,
+      "updated_at": 1769867602.183368,
+      "completed_at": null,
+      "parent_id": "c48009c3a430-503",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "9b8fb5bed9ff-505",
+      "text": "[Phase 3: HMR Preview] Feature #87: Add orientation toggle for portrait/landscape mobile preview Criteria: Button rotates device frame between portrait and landscape",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769867768.8747804,
+      "updated_at": 1769867768.8747804,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 87,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "9b8fb5bed9ff-506",
+      "text": "Implement: Add orientation toggle for portrait/landscape mobile preview",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769867768.8796678,
+      "updated_at": 1769867768.879668,
+      "completed_at": null,
+      "parent_id": "9b8fb5bed9ff-505",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "2d49cb6e3426-507",
+      "text": "[Phase 3: HMR Preview] Feature #89: Implement fit-to-screen auto-zoom option Criteria: Button calculates optimal zoom to fill panel without scrolling",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769867958.0540774,
+      "updated_at": 1769867958.0540776,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 89,
+        "category": "Phase 3: HMR Preview"
+      },
+      "keywords": []
+    },
+    {
+      "id": "2d49cb6e3426-508",
+      "text": "Implement: Implement fit-to-screen auto-zoom option",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769867958.0589688,
+      "updated_at": 1769867958.058969,
+      "completed_at": null,
+      "parent_id": "2d49cb6e3426-507",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "68acc0a24021-509",
+      "text": "[Phase 4: Enhanced UI] Feature #107: Add version labeling and notes for user organization Criteria: Click to add/edit label; optional notes field",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769868156.7590368,
+      "updated_at": 1769868156.7590368,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 107,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "68acc0a24021-510",
+      "text": "Implement: Add version labeling and notes for user organization",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769868156.7636902,
+      "updated_at": 1769868156.7636905,
+      "completed_at": null,
+      "parent_id": "68acc0a24021-509",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "92c4d56773ff-511",
+      "text": "[Phase 4: Enhanced UI] Feature #108: Create version pruning for storage management (keep last 20) Criteria: Auto-delete versions beyond limit; starred versions exempt",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769868497.675853,
+      "updated_at": 1769868497.6758533,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 108,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "92c4d56773ff-512",
+      "text": "Implement: Create version pruning for storage management (keep last 20)",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769868497.6804698,
+      "updated_at": 1769868497.6804698,
+      "completed_at": null,
+      "parent_id": "92c4d56773ff-511",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "31ff7601b61c-513",
+      "text": "[Phase 4: Enhanced UI] Feature #113: Implement iteration counter for self-correction loops Criteria: Shows 'Completed in 2 iterations' after multiple passes",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769869821.3918817,
+      "updated_at": 1769869821.391882,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 113,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "31ff7601b61c-514",
+      "text": "Implement: Implement iteration counter for self-correction loops",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769869821.3992388,
+      "updated_at": 1769869821.399239,
+      "completed_at": null,
+      "parent_id": "31ff7601b61c-513",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "c3ca68878bc3-515",
+      "text": "[Phase 4: Enhanced UI] Feature #119: Add suggestion chips for common follow-up actions Criteria: Chips like 'Add another page', 'Change colors', 'Deploy' appear after generation",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769873021.255362,
+      "updated_at": 1769873021.255362,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 119,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "c3ca68878bc3-516",
+      "text": "Implement: Add suggestion chips for common follow-up actions",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769873021.2625737,
+      "updated_at": 1769873021.2625742,
+      "completed_at": null,
+      "parent_id": "c3ca68878bc3-515",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "eef8ddf8f6d4-517",
+      "text": "[Phase 4: Enhanced UI] Feature #124: Implement keyboard shortcuts for panel navigation Criteria: Cmd+1 focuses chat, Cmd+2 focuses preview, Cmd+3 focuses editor",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769887156.523949,
+      "updated_at": 1769887156.5239491,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 124,
+        "category": "Phase 4: Enhanced UI"
+      },
+      "keywords": []
+    },
+    {
+      "id": "eef8ddf8f6d4-518",
+      "text": "Implement: Implement keyboard shortcuts for panel navigation",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769887156.5286949,
+      "updated_at": 1769887156.5286949,
+      "completed_at": null,
+      "parent_id": "eef8ddf8f6d4-517",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "eda8cbe803ba-519",
+      "text": "[Phase 5: Self-Debugging] Feature #156: Create error report for debugging support Criteria: Report includes: error, context, attempted fixes, timestamps",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769887488.7984903,
+      "updated_at": 1769887488.7984903,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 156,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "eda8cbe803ba-520",
+      "text": "Implement: Create error report for debugging support",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769887488.807646,
+      "updated_at": 1769887488.8076463,
+      "completed_at": null,
+      "parent_id": "eda8cbe803ba-519",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "33416daa45ae-521",
+      "text": "[Phase 5: Self-Debugging] Feature #160: Create error history tracking for debugging patterns Criteria: Shows past errors with timestamps and fix status",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769887966.9497604,
+      "updated_at": 1769887966.9497607,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 160,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "33416daa45ae-522",
+      "text": "Implement: Create error history tracking for debugging patterns",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769887966.957525,
+      "updated_at": 1769887966.9575253,
+      "completed_at": null,
+      "parent_id": "33416daa45ae-521",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "97b135de2fc3-523",
+      "text": "[Phase 5: Self-Debugging] Feature #161: Implement error filtering and search Criteria: Filter by severity, category, file; search by message",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769888204.2845232,
+      "updated_at": 1769888204.2845235,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 161,
+        "category": "Phase 5: Self-Debugging"
+      },
+      "keywords": []
+    },
+    {
+      "id": "97b135de2fc3-524",
+      "text": "Implement: Implement error filtering and search",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769888204.2950814,
+      "updated_at": 1769888204.2950816,
+      "completed_at": null,
+      "parent_id": "97b135de2fc3-523",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "98cb685923f2-525",
+      "text": "[Phase 6: Integration] Feature #182: Add deployment history tracking Criteria: Shows past deployments with timestamps, versions, status",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769888543.5032768,
+      "updated_at": 1769888543.5032768,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 182,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "98cb685923f2-526",
+      "text": "Implement: Add deployment history tracking",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769888543.5109084,
+      "updated_at": 1769888543.5109086,
+      "completed_at": null,
+      "parent_id": "98cb685923f2-525",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "d62d26b5de60-527",
+      "text": "[Phase 6: Integration] Feature #188: Add load testing for concurrent generations Criteria: System handles 10 concurrent users without degradation",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769888843.0032263,
+      "updated_at": 1769888843.0032265,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 188,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "d62d26b5de60-528",
+      "text": "Implement: Add load testing for concurrent generations",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769888843.0114887,
+      "updated_at": 1769888843.011489,
+      "completed_at": null,
+      "parent_id": "d62d26b5de60-527",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "b6a1f9871806-529",
+      "text": "[Phase 6: Integration] Feature #192: Create user satisfaction tracking Criteria: Optional thumbs up/down after generation; tracked in analytics",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769889056.023545,
+      "updated_at": 1769889056.023545,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 192,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "b6a1f9871806-530",
+      "text": "Implement: Create user satisfaction tracking",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769889056.0310547,
+      "updated_at": 1769889056.0310552,
+      "completed_at": null,
+      "parent_id": "b6a1f9871806-529",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "696154405c79-531",
+      "text": "[Phase 6: Integration] Feature #193: Implement A/B testing infrastructure for agent improvements Criteria: Can split users between agent versions; tracks metrics per variant",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769889328.0330706,
+      "updated_at": 1769889328.0330706,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 193,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "696154405c79-532",
+      "text": "Implement: Implement A/B testing infrastructure for agent improvements",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769889328.0404868,
+      "updated_at": 1769889328.040487,
+      "completed_at": null,
+      "parent_id": "696154405c79-531",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "77add0c31c34-533",
+      "text": "[Phase 6: Integration] Feature #196: Add architecture decision records (ADRs) for major decisions Criteria: ADRs for: agentic loop design, tool selection, HMR approach",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769889562.680855,
+      "updated_at": 1769889562.6808553,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 196,
+        "category": "Phase 6: Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "77add0c31c34-534",
+      "text": "Implement: Add architecture decision records (ADRs) for major decisions",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1769889562.6914263,
+      "updated_at": 1769889562.6914265,
+      "completed_at": null,
+      "parent_id": "77add0c31c34-533",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 376,
+  "intent_counter": 534,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769764556.7495406
+  "updated_at": 1769889562.6914477
 }

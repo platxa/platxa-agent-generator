@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-53",
-  "title": "Implementation: Add drag-and-drop section reordering in preview with live po...",
+  "title": "Implementation: Implement ModeSwitcher toggle for manual mode selection",
   "context": {
     "spec_id": "feature-53",
     "feature_id": "53",
     "dependencies": [],
     "metadata": {
-      "category": "Visual Editing",
+      "category": "Phase 2: Plan Mode",
       "verification_criteria": {
         "type": "manual",
-        "criteria": "Sections can be dragged to new positions; QWeb template updates to match new order",
+        "criteria": "Toggle button switches between plan/agent; persists until changed",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T13:47:57.713804"
+    "created_at": "2026-01-30T15:30:06.988736"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-53-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add drag-and-drop section reordering in preview with live position feedback",
+      "description": "Review feature requirements: Implement ModeSwitcher toggle for manual mode selection",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-53-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-53-3",
       "title": "Implement Feature",
-      "description": "Implement: Add drag-and-drop section reordering in preview with live position feedback",
+      "description": "Implement: Implement ModeSwitcher toggle for manual mode selection",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-53-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-53-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Sections can be dragged to new positions; QWeb template updates to match new order', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Toggle button switches between plan/agent; persists until changed', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "manual",
-        "criteria": "Sections can be dragged to new positions; QWeb template updates to match new order",
+        "criteria": "Toggle button switches between plan/agent; persists until changed",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T13:47:57.713836",
+  "created_at": "2026-01-30T15:30:06.988788",
   "lsp_impact": {}
 }

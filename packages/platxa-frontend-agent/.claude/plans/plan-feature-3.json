@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-3",
-  "title": "Implementation: [Brand Kit Interface] Standard interface (BrandKitExport) th...",
+  "title": "Implementation: Create src/lib/utils.ts with cn() utility using clsx and tai...",
   "context": {
     "spec_id": "feature-3",
     "feature_id": "3",
     "dependencies": [],
     "metadata": {
-      "category": "Core System Features",
+      "category": "Infrastructure",
       "verification_criteria": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "import",
+        "criteria": "All components can import cn from @/lib/utils",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-20T18:58:50.392237"
+    "created_at": "2026-01-30T16:18:14.341776"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-3-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: [Brand Kit Interface] Standard interface (BrandKitExport) that all brand kits must implement Verification: TypeScript interface exported for brand kit authors; Clear documentation of required vs optional fields; Validation against interface at load time",
+      "description": "Review feature requirements: Create src/lib/utils.ts with cn() utility using clsx and tailwind-merge",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-3-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-3-3",
       "title": "Implement Feature",
-      "description": "Implement: [Brand Kit Interface] Standard interface (BrandKitExport) that all brand kits must implement Verification: TypeScript interface exported for brand kit authors; Clear documentation of required vs optional fields; Validation against interface at load time",
+      "description": "Implement: Create src/lib/utils.ts with cn() utility using clsx and tailwind-merge",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-3-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-3-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Manual verification required', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'import', 'criteria': 'All components can import cn from @/lib/utils', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "import",
+        "criteria": "All components can import cn from @/lib/utils",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-20T18:58:50.392261",
+  "created_at": "2026-01-30T16:18:14.341816",
   "lsp_impact": {}
 }

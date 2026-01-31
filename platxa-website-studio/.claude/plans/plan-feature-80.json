@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-80",
-  "title": "Implementation: Implement Odoo marketplace metadata generator producing icon...",
+  "title": "Implementation: Add font selector with live Google Fonts preview",
   "context": {
     "spec_id": "feature-80",
     "feature_id": "80",
     "dependencies": [],
     "metadata": {
-      "category": "Odoo Deployment",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Generates: 256x256 icon, 3+ screenshots, HTML description, feature list, category tags",
+        "type": "manual",
+        "criteria": "Dropdown lists available fonts; selection updates typography instantly",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T12:20:18.460651"
+    "created_at": "2026-01-30T15:58:03.196528"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-80-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Implement Odoo marketplace metadata generator producing icon, screenshots, and description",
+      "description": "Review feature requirements: Add font selector with live Google Fonts preview",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-80-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-80-3",
       "title": "Implement Feature",
-      "description": "Implement: Implement Odoo marketplace metadata generator producing icon, screenshots, and description",
+      "description": "Implement: Add font selector with live Google Fonts preview",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-80-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-80-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Generates: 256x256 icon, 3+ screenshots, HTML description, feature list, category tags', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Dropdown lists available fonts; selection updates typography instantly', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Generates: 256x256 icon, 3+ screenshots, HTML description, feature list, category tags",
+        "type": "manual",
+        "criteria": "Dropdown lists available fonts; selection updates typography instantly",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T12:20:18.460668",
+  "created_at": "2026-01-30T15:58:03.196565",
   "lsp_impact": {}
 }

@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-56",
-  "title": "Implementation: Add snapshot/version timeline with visual thumbnails for eac...",
+  "title": "Implementation: Create hypothetical file change preview (diff without commit...",
   "context": {
     "spec_id": "feature-56",
     "feature_id": "56",
     "dependencies": [],
     "metadata": {
-      "category": "Visual Editing",
+      "category": "Phase 2: Plan Mode",
       "verification_criteria": {
         "type": "manual",
-        "criteria": "Timeline shows thumbnail + timestamp for each generation; clicking restores that version",
+        "criteria": "Shows unified diff of proposed changes; clearly marked as preview",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T13:51:31.236614"
+    "created_at": "2026-01-30T15:31:34.012016"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-56-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add snapshot/version timeline with visual thumbnails for each generation step",
+      "description": "Review feature requirements: Create hypothetical file change preview (diff without commit)",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-56-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-56-3",
       "title": "Implement Feature",
-      "description": "Implement: Add snapshot/version timeline with visual thumbnails for each generation step",
+      "description": "Implement: Create hypothetical file change preview (diff without commit)",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-56-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-56-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Timeline shows thumbnail + timestamp for each generation; clicking restores that version', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Shows unified diff of proposed changes; clearly marked as preview', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "manual",
-        "criteria": "Timeline shows thumbnail + timestamp for each generation; clicking restores that version",
+        "criteria": "Shows unified diff of proposed changes; clearly marked as preview",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T13:51:31.236654",
+  "created_at": "2026-01-30T15:31:34.012063",
   "lsp_impact": {}
 }

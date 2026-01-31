@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-22T14:37:28.438260",
+  "updated_at": "2026-01-30T16:47:15.835559",
   "plans": [
     {
       "id": "plan-feature-108",
@@ -19,11 +19,19 @@
       "constitution_check": true
     },
     {
-      "id": "plan-feature-6",
-      "title": "Implementation: [Backward Compatibility] Existing code using built-in themin...",
+      "id": "plan-feature-2",
+      "title": "Implementation: Create tsconfig.node.json for Vite configuration typing",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-20T19:11:27.149470",
+      "created_at": "2026-01-30T16:17:56.856856",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-6",
+      "title": "Implementation: Create CLAUDE.md with project conventions, commands, code pa...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T16:25:45.580415",
       "constitution_check": true
     },
     {
@@ -52,10 +60,10 @@
     },
     {
       "id": "plan-feature-17",
-      "title": "Implementation: [Dark Theme Colors] Brand kit must export dark mode semantic...",
+      "title": "Implementation: Create src/test/utils/render.tsx with custom render function...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-21T11:44:51.978403",
+      "created_at": "2026-01-30T16:28:21.527805",
       "constitution_check": true
     },
     {
@@ -84,10 +92,10 @@
     },
     {
       "id": "plan-feature-46",
-      "title": "Implementation: [Brand Kit Template] Starter template for creating new brand...",
+      "title": "Implementation: Create tests for loadBrandKit() verifying NPM and local path...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-21T12:30:24.602668",
+      "created_at": "2026-01-30T16:19:13.568670",
       "constitution_check": true
     },
     {
@@ -108,10 +116,10 @@
     },
     {
       "id": "plan-feature-4",
-      "title": "Implementation: [Dynamic Import System] Lazy loading of brand kits using dyn...",
+      "title": "Implementation: Add generateId(), prefersReducedMotion(), and delay() utilit...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-20T19:03:49.657178",
+      "created_at": "2026-01-30T16:21:46.610475",
       "constitution_check": true
     },
     {
@@ -124,26 +132,26 @@
     },
     {
       "id": "plan-feature-20",
-      "title": "Implementation: [Radius Scale] Brand kit must export border radius scale Ver...",
+      "title": "Implementation: Create src/lib/react-agent/brand/__tests__/config.test.ts fo...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-21T11:48:08.088325",
+      "created_at": "2026-01-30T16:39:41.554714",
       "constitution_check": true
     },
     {
       "id": "plan-feature-28",
-      "title": "Implementation: [Theme Switching Script] Generate JavaScript for theme switc...",
+      "title": "Implementation: Install @opentelemetry/api, @opentelemetry/sdk-trace-base, @...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-21T11:53:18.207994",
+      "created_at": "2026-01-30T16:46:22.865315",
       "constitution_check": true
     },
     {
       "id": "plan-feature-22",
-      "title": "Implementation: [NPM Package Loading] Load brand kit from NPM package name (...",
+      "title": "Implementation: Install @axe-core/react and create src/test/utils/a11y.ts fo...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-21T11:49:28.695955",
+      "created_at": "2026-01-30T16:43:36.687902",
       "constitution_check": true
     },
     {
@@ -236,10 +244,10 @@
     },
     {
       "id": "plan-feature-19",
-      "title": "Implementation: [Spacing Scale] Brand kit must export spacing scale (8px gri...",
+      "title": "Implementation: Create src/lib/react-agent/__tests__/coordinator.test.ts tes...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-21T11:47:02.006696",
+      "created_at": "2026-01-30T16:32:54.794720",
       "constitution_check": true
     },
     {
@@ -252,10 +260,10 @@
     },
     {
       "id": "plan-feature-8",
-      "title": "Implementation: [defineFrontendConfig Helper] Type-safe configuration helper...",
+      "title": "Implementation: Update package.json with correct build, dev, test, lint, and...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-20T19:19:11.910687",
+      "created_at": "2026-01-30T16:26:11.527894",
       "constitution_check": true
     },
     {
@@ -268,10 +276,10 @@
     },
     {
       "id": "plan-feature-3",
-      "title": "Implementation: [Brand Kit Interface] Standard interface (BrandKitExport) th...",
+      "title": "Implementation: Create src/lib/utils.ts with cn() utility using clsx and tai...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-20T18:58:50.392261",
+      "created_at": "2026-01-30T16:18:14.341816",
       "constitution_check": true
     },
     {
@@ -284,10 +292,10 @@
     },
     {
       "id": "plan-feature-13",
-      "title": "Implementation: [Meta Information] Brand kit must export meta with name, ver...",
+      "title": "Implementation: Install testing dependencies: vitest, @testing-library/react...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-21T11:38:33.977184",
+      "created_at": "2026-01-30T16:18:41.129409",
       "constitution_check": true
     },
     {
@@ -308,10 +316,10 @@
     },
     {
       "id": "plan-feature-14",
-      "title": "Implementation: [Color Primitives] Brand kit must export 12-step color scale...",
+      "title": "Implementation: Create src/test/setup.ts with jest-dom matchers and global t...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-21T11:39:40.619231",
+      "created_at": "2026-01-30T16:18:58.142096",
       "constitution_check": true
     },
     {
@@ -356,10 +364,10 @@
     },
     {
       "id": "plan-feature-9",
-      "title": "Implementation: [Brand Package Specification] brand.package field to specify...",
+      "title": "Implementation: Create src/styles/globals.css with Tailwind v4 @import and @...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-20T19:21:12.983278",
+      "created_at": "2026-01-30T16:27:32.601982",
       "constitution_check": true
     },
     {
@@ -372,10 +380,10 @@
     },
     {
       "id": "plan-feature-36",
-      "title": "Implementation: [Schema Validation] Validate brand kit exports against JSON ...",
+      "title": "Implementation: Create src/lib/react-agent/security/css-validator.test.ts wi...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-21T12:12:42.287959",
+      "created_at": "2026-01-30T16:19:03.241253",
       "constitution_check": true
     },
     {
@@ -596,10 +604,10 @@
     },
     {
       "id": "plan-feature-5",
-      "title": "Implementation: [Token Normalization] Adapter layer that normalizes brand ki...",
+      "title": "Implementation: Create eslint.config.js with React, TypeScript, jsx-a11y, an...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-20T19:06:37.455649",
+      "created_at": "2026-01-30T16:22:50.338950",
       "constitution_check": true
     },
     {
@@ -763,6 +771,14 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-1",
+      "title": "Implementation: Create vite.config.ts with Tailwind v4 plugin, React, path a...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T16:16:53.824592",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-85",
       "title": "Implementation: [Safe Dynamic Import] Whitelist allowed brand kit packages V...",
       "progress": 0.0,
@@ -796,10 +812,10 @@
     },
     {
       "id": "plan-feature-29",
-      "title": "Implementation: [OKLCH Color Support] Support OKLCH color space in brand tok...",
+      "title": "Implementation: Create src/lib/telemetry/tracer.ts with OpenTelemetry tracer...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-21T12:00:17.720867",
+      "created_at": "2026-01-30T16:47:15.835127",
       "constitution_check": true
     },
     {
@@ -868,10 +884,10 @@
     },
     {
       "id": "plan-feature-15",
-      "title": "Implementation: [Semantic Colors] Brand kit must export semantic color mappi...",
+      "title": "Implementation: Create src/test/mocks/framer-motion.ts for animation testing...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-21T11:40:43.803113",
+      "created_at": "2026-01-30T16:27:50.312959",
       "constitution_check": true
     },
     {

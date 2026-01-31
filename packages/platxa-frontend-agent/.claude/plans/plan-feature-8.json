@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-8",
-  "title": "Implementation: [defineFrontendConfig Helper] Type-safe configuration helper...",
+  "title": "Implementation: Update package.json with correct build, dev, test, lint, and...",
   "context": {
     "spec_id": "feature-8",
     "feature_id": "8",
     "dependencies": [],
     "metadata": {
-      "category": "Configuration Features",
+      "category": "Infrastructure",
       "verification_criteria": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "script",
+        "criteria": "All npm scripts execute without errors",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-20T19:19:11.910646"
+    "created_at": "2026-01-30T16:26:11.527853"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-8-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: [defineFrontendConfig Helper] Type-safe configuration helper function with IntelliSense Verification: Helper function exported; Full TypeScript types provided; IntelliSense works in all major editors",
+      "description": "Review feature requirements: Update package.json with correct build, dev, test, lint, and typecheck scripts",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-8-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-8-3",
       "title": "Implement Feature",
-      "description": "Implement: [defineFrontendConfig Helper] Type-safe configuration helper function with IntelliSense Verification: Helper function exported; Full TypeScript types provided; IntelliSense works in all major editors",
+      "description": "Implement: Update package.json with correct build, dev, test, lint, and typecheck scripts",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-8-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-8-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Manual verification required', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'script', 'criteria': 'All npm scripts execute without errors', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "script",
+        "criteria": "All npm scripts execute without errors",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-20T19:19:11.910687",
+  "created_at": "2026-01-30T16:26:11.527894",
   "lsp_impact": {}
 }

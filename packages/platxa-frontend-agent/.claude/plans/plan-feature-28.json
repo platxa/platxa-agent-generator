@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-28",
-  "title": "Implementation: [Theme Switching Script] Generate JavaScript for theme switc...",
+  "title": "Implementation: Install @opentelemetry/api, @opentelemetry/sdk-trace-base, @...",
   "context": {
     "spec_id": "feature-28",
     "feature_id": "28",
     "dependencies": [],
     "metadata": {
-      "category": "Theme Integration Features",
+      "category": "Observability",
       "verification_criteria": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "install",
+        "criteria": "OTel packages in dependencies",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-21T11:53:18.207959"
+    "created_at": "2026-01-30T16:46:22.865292"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-28-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: [Theme Switching Script] Generate JavaScript for theme switching (light/dark/system) Verification: Light/dark/system modes supported; Preference persisted to localStorage; System preference respected",
+      "description": "Review feature requirements: Install @opentelemetry/api, @opentelemetry/sdk-trace-base, @opentelemetry/sdk-metrics",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-28-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-28-3",
       "title": "Implement Feature",
-      "description": "Implement: [Theme Switching Script] Generate JavaScript for theme switching (light/dark/system) Verification: Light/dark/system modes supported; Preference persisted to localStorage; System preference respected",
+      "description": "Implement: Install @opentelemetry/api, @opentelemetry/sdk-trace-base, @opentelemetry/sdk-metrics",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-28-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-28-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Manual verification required', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'install', 'criteria': 'OTel packages in dependencies', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "install",
+        "criteria": "OTel packages in dependencies",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-21T11:53:18.207994",
+  "created_at": "2026-01-30T16:46:22.865315",
   "lsp_impact": {}
 }

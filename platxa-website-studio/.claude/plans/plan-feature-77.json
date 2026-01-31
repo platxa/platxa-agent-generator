@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-77",
-  "title": "Implementation: Add multi-model routing using different LLMs for different t...",
+  "title": "Implementation: Add selection persistence across HMR updates",
   "context": {
     "spec_id": "feature-77",
     "feature_id": "77",
     "dependencies": [],
     "metadata": {
-      "category": "Agent Intelligence",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
         "type": "test",
-        "criteria": "Planning tasks use reasoning model; code generation uses code model; review uses evaluation model",
+        "criteria": "Selection restored by ID after DOM morph",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T15:52:57.036492"
+    "created_at": "2026-01-30T15:53:33.805365"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-77-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add multi-model routing using different LLMs for different task types (planning vs coding vs review)",
+      "description": "Review feature requirements: Add selection persistence across HMR updates",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-77-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-77-3",
       "title": "Implement Feature",
-      "description": "Implement: Add multi-model routing using different LLMs for different task types (planning vs coding vs review)",
+      "description": "Implement: Add selection persistence across HMR updates",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-77-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-77-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Planning tasks use reasoning model; code generation uses code model; review uses evaluation model', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Selection restored by ID after DOM morph', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "test",
-        "criteria": "Planning tasks use reasoning model; code generation uses code model; review uses evaluation model",
+        "criteria": "Selection restored by ID after DOM morph",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T15:52:57.036537",
+  "created_at": "2026-01-30T15:53:33.805407",
   "lsp_impact": {}
 }

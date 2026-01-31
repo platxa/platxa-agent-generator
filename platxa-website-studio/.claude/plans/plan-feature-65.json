@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-65",
-  "title": "Implementation: Add Evaluator-Optimizer feedback loop for iterative quality ...",
+  "title": "Implementation: Create update flash animation for visual feedback on changed...",
   "context": {
     "spec_id": "feature-65",
     "feature_id": "65",
     "dependencies": [],
     "metadata": {
-      "category": "Agent Intelligence",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Failed quality gate triggers evaluator; optimizer regenerates failing section; loop repeats up to 3 times",
+        "type": "manual",
+        "criteria": "Updated sections flash with subtle highlight for 300ms",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T12:03:43.109455"
+    "created_at": "2026-01-30T15:38:23.790484"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-65-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add Evaluator-Optimizer feedback loop for iterative quality improvement of generated output",
+      "description": "Review feature requirements: Create update flash animation for visual feedback on changed sections",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-65-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-65-3",
       "title": "Implement Feature",
-      "description": "Implement: Add Evaluator-Optimizer feedback loop for iterative quality improvement of generated output",
+      "description": "Implement: Create update flash animation for visual feedback on changed sections",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-65-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-65-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Failed quality gate triggers evaluator; optimizer regenerates failing section; loop repeats up to 3 times', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Updated sections flash with subtle highlight for 300ms', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Failed quality gate triggers evaluator; optimizer regenerates failing section; loop repeats up to 3 times",
+        "type": "manual",
+        "criteria": "Updated sections flash with subtle highlight for 300ms",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T12:03:43.109480",
+  "created_at": "2026-01-30T15:38:23.790532",
   "lsp_impact": {}
 }

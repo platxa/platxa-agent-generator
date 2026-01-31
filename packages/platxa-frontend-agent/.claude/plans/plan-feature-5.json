@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-5",
-  "title": "Implementation: [Token Normalization] Adapter layer that normalizes brand ki...",
+  "title": "Implementation: Create eslint.config.js with React, TypeScript, jsx-a11y, an...",
   "context": {
     "spec_id": "feature-5",
     "feature_id": "5",
     "dependencies": [],
     "metadata": {
-      "category": "Core System Features",
+      "category": "Infrastructure",
       "verification_criteria": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "lint",
+        "criteria": "npm run lint succeeds",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-20T19:06:37.455618"
+    "created_at": "2026-01-30T16:22:50.338908"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-5-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: [Token Normalization] Adapter layer that normalizes brand kit tokens to internal format Verification: Brand kit tokens converted to internal DesignTokens format; Missing optional tokens filled with defaults; Consistent token structure regardless of source",
+      "description": "Review feature requirements: Create eslint.config.js with React, TypeScript, jsx-a11y, and security plugins",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-5-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-5-3",
       "title": "Implement Feature",
-      "description": "Implement: [Token Normalization] Adapter layer that normalizes brand kit tokens to internal format Verification: Brand kit tokens converted to internal DesignTokens format; Missing optional tokens filled with defaults; Consistent token structure regardless of source",
+      "description": "Implement: Create eslint.config.js with React, TypeScript, jsx-a11y, and security plugins",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-5-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-5-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Manual verification required', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'lint', 'criteria': 'npm run lint succeeds', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "manual",
-        "criteria": "Manual verification required",
+        "type": "lint",
+        "criteria": "npm run lint succeeds",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-20T19:06:37.455649",
+  "created_at": "2026-01-30T16:22:50.338950",
   "lsp_impact": {}
 }

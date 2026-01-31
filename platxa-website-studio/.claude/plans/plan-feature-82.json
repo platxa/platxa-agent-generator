@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-82",
-  "title": "Implementation: Create theme upgrade migration script generator for version-...",
+  "title": "Implementation: Implement border-radius adjuster in floating editor",
   "context": {
     "spec_id": "feature-82",
     "feature_id": "82",
     "dependencies": [],
     "metadata": {
-      "category": "Odoo Deployment",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Migration script generator produces pre/post migration Python scripts",
+        "type": "manual",
+        "criteria": "Slider adjusts border radius from 0 to 50px",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T14:55:41.395207"
+    "created_at": "2026-01-31T19:23:21.756627"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-82-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create theme upgrade migration script generator for version-to-version updates",
+      "description": "Review feature requirements: Implement border-radius adjuster in floating editor",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-82-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-82-3",
       "title": "Implement Feature",
-      "description": "Implement: Create theme upgrade migration script generator for version-to-version updates",
+      "description": "Implement: Implement border-radius adjuster in floating editor",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-82-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-82-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Migration script generator produces pre/post migration Python scripts', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Slider adjusts border radius from 0 to 50px', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Migration script generator produces pre/post migration Python scripts",
+        "type": "manual",
+        "criteria": "Slider adjusts border radius from 0 to 50px",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T14:55:41.395239",
+  "created_at": "2026-01-31T19:23:21.756662",
   "lsp_impact": {}
 }

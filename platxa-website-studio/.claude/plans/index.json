@@ -1,13 +1,29 @@
 {
   "version": "1.0",
-  "updated_at": "2026-01-30T14:45:56.436221",
+  "updated_at": "2026-02-01T01:29:21.975703",
   "plans": [
+    {
+      "id": "plan-feature-108",
+      "title": "Implementation: Create version pruning for storage management (keep last 20)",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T19:38:17.270707",
+      "constitution_check": true
+    },
     {
       "id": "plan-feature-98",
       "title": "Implementation: Create file modification tracker listing changed files in re...",
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T16:59:24.835050",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-189",
+      "title": "Implementation: Create agent metrics dashboard (latency, quality, cost)",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T18:04:13.735120",
       "constitution_check": true
     },
     {
@@ -27,11 +43,35 @@
       "constitution_check": true
     },
     {
-      "id": "plan-feature-89",
-      "title": "Implementation: Implement incremental theme update pushing only changed file...",
+      "id": "plan-feature-124",
+      "title": "Implementation: Implement keyboard shortcuts for panel navigation",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T15:59:17.546459",
+      "created_at": "2026-02-01T00:49:16.122678",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-197",
+      "title": "Implementation: Create troubleshooting guide for common issues",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T18:54:51.322508",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-116",
+      "title": "Implementation: Add file diff inline display in chat messages",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T17:24:28.307814",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-89",
+      "title": "Implementation: Implement fit-to-screen auto-zoom option",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T19:29:17.655020",
       "constitution_check": true
     },
     {
@@ -68,10 +108,10 @@
     },
     {
       "id": "plan-feature-53",
-      "title": "Implementation: Add drag-and-drop section reordering in preview with live po...",
+      "title": "Implementation: Implement ModeSwitcher toggle for manual mode selection",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T13:47:57.713836",
+      "created_at": "2026-01-30T15:30:06.988788",
       "constitution_check": true
     },
     {
@@ -91,19 +131,35 @@
       "constitution_check": true
     },
     {
-      "id": "plan-feature-46",
-      "title": "Implementation: Implement visual regression baseline capture and pixel-level...",
+      "id": "plan-feature-110",
+      "title": "Implementation: Implement tool usage indicators in chat messages",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T15:40:25.410170",
+      "created_at": "2026-01-30T17:09:07.393792",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-46",
+      "title": "Implementation: Add effort estimation based on file count and complexity met...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T15:23:52.364745",
       "constitution_check": true
     },
     {
       "id": "plan-feature-76",
-      "title": "Implementation: Create prompt optimization module that improves prompts base...",
+      "title": "Implementation: Implement keyboard navigation between sections (arrow keys)",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T15:50:41.504105",
+      "created_at": "2026-01-30T15:50:03.942113",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-175",
+      "title": "Implementation: Create sidecar log streaming to log inspector",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T16:15:38.845684",
       "constitution_check": true
     },
     {
@@ -115,11 +171,51 @@
       "constitution_check": true
     },
     {
-      "id": "plan-feature-80",
-      "title": "Implementation: Implement Odoo marketplace metadata generator producing icon...",
+      "id": "plan-feature-151",
+      "title": "Implementation: Create fix explanation for user transparency",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T12:20:18.460668",
+      "created_at": "2026-01-30T18:35:48.436536",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-80",
+      "title": "Implementation: Add font selector with live Google Fonts preview",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T15:58:03.196565",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-166",
+      "title": "Implementation: Route OKLCH palette generation through agent pipeline",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T15:53:02.045447",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-187",
+      "title": "Implementation: Implement performance benchmarks",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T17:44:08.532794",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-117",
+      "title": "Implementation: Create collapsible plan/execution details in messages",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T17:28:17.847038",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-34",
+      "title": "Implementation: Add relevance ranking for context items based on recency and...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T15:00:18.973563",
       "constitution_check": true
     },
     {
@@ -211,6 +307,14 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-198",
+      "title": "Implementation: Implement example prompt library for common use cases",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T18:59:20.562930",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-158",
       "title": "Implementation: Implement error-to-source navigation (click to jump)",
       "progress": 0.0,
@@ -228,10 +332,10 @@
     },
     {
       "id": "plan-feature-65",
-      "title": "Implementation: Add Evaluator-Optimizer feedback loop for iterative quality ...",
+      "title": "Implementation: Create update flash animation for visual feedback on changed...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T12:03:43.109480",
+      "created_at": "2026-01-30T15:38:23.790532",
       "constitution_check": true
     },
     {
@@ -275,6 +379,14 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-202",
+      "title": "Implementation: Implement preview render caching",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T19:07:38.345192",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-27",
       "title": "Implementation: Create ModeRouter class detecting plan vs agent intent from ...",
       "progress": 0.0,
@@ -300,10 +412,10 @@
     },
     {
       "id": "plan-feature-97",
-      "title": "Implementation: Create plugin architecture for custom snippet types beyond t...",
+      "title": "Implementation: Add current tool indicator showing active operation (searchi...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T16:05:16.068427",
+      "created_at": "2026-01-30T16:44:45.796476",
       "constitution_check": true
     },
     {
@@ -332,10 +444,10 @@
     },
     {
       "id": "plan-feature-88",
-      "title": "Implementation: Create Odoo App Store submission validator checking all mark...",
+      "title": "Implementation: Create zoom controls for preview panel (25%-200%)",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T15:10:30.218464",
+      "created_at": "2026-01-30T16:35:20.746786",
       "constitution_check": true
     },
     {
@@ -355,6 +467,14 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-106",
+      "title": "Implementation: Implement version diff view showing before/after changes",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T17:01:58.923606",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-3",
       "title": "Implementation: Add plan generation phase using LLM with structured JSON out...",
       "progress": 0.0,
@@ -368,6 +488,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T14:41:46.469265",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-159",
+      "title": "Implementation: Add fix preview before applying (diff view)",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T19:00:44.118646",
       "constitution_check": true
     },
     {
@@ -411,6 +539,14 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-201",
+      "title": "Implementation: Create lazy loading for heavy UI components",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T19:04:20.559204",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-51",
       "title": "Implementation: Add PlanPreview component showing numbered execution steps",
       "progress": 0.0,
@@ -419,11 +555,35 @@
       "constitution_check": true
     },
     {
-      "id": "plan-feature-84",
-      "title": "Implementation: Add theme asset optimizer minifying SCSS, optimizing images,...",
+      "id": "plan-feature-143",
+      "title": "Implementation: Add accessibility error patterns (contrast, labels, focus)",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T14:59:49.839558",
+      "created_at": "2026-01-30T18:13:26.262862",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-123",
+      "title": "Implementation: Create full-screen preview mode",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T17:51:53.551169",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-45",
+      "title": "Implementation: Implement industry-aware option generation leveraging Odoo v...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T15:19:26.295656",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-84",
+      "title": "Implementation: Create 'Edit in Code' button jumping to source in editor",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T16:11:44.506788",
       "constitution_check": true
     },
     {
@@ -443,11 +603,27 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-192",
+      "title": "Implementation: Create user satisfaction tracking",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-02-01T01:20:55.336406",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-67",
       "title": "Implementation: Implement data-snippet-id attribution during QWeb generation",
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T12:09:58.225102",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-161",
+      "title": "Implementation: Implement error filtering and search",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-02-01T01:06:43.654722",
       "constitution_check": true
     },
     {
@@ -467,6 +643,14 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-188",
+      "title": "Implementation: Add load testing for concurrent generations",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-02-01T01:17:22.365382",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-59",
       "title": "Implementation: Create OdooHMRPreview class managing iframe communication an...",
       "progress": 0.0,
@@ -483,11 +667,35 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-171",
+      "title": "Implementation: Implement agent session isolation (separate Yjs awareness us...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T16:08:09.913638",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-125",
       "title": "Implementation: Create LogInspector aggregating errors from SCSS, QWeb, Odoo...",
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T12:49:08.551839",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-101",
+      "title": "Implementation: Create animated progress bar with phase-specific colors",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T16:52:51.338575",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-153",
+      "title": "Implementation: Create exponential backoff strategy for repeated failures",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T18:44:42.971542",
       "constitution_check": true
     },
     {
@@ -507,6 +715,22 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-111",
+      "title": "Implementation: Add token/cost counter for current session",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T17:14:13.517756",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-196",
+      "title": "Implementation: Add architecture decision records (ADRs) for major decisions",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-02-01T01:29:21.974617",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-39",
       "title": "Implementation: Create option generator producing 2-4 design approaches with...",
       "progress": 0.0,
@@ -515,11 +739,27 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-194",
+      "title": "Implementation: Create API documentation for agent tools",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T18:28:36.994652",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-170",
       "title": "Implementation: Create conflict prevention for concurrent human/AI edits",
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T18:39:16.887298",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-131",
+      "title": "Implementation: Create log severity classification (error, warning, info)",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T17:59:54.186520",
       "constitution_check": true
     },
     {
@@ -548,10 +788,10 @@
     },
     {
       "id": "plan-feature-54",
-      "title": "Implementation: Implement responsive preview toggle with accurate mobile/tab...",
+      "title": "Implementation: Add PlanHistory showing previous exploration sessions",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T11:56:49.600036",
+      "created_at": "2026-01-31T19:18:22.470369",
       "constitution_check": true
     },
     {
@@ -564,10 +804,10 @@
     },
     {
       "id": "plan-feature-56",
-      "title": "Implementation: Add snapshot/version timeline with visual thumbnails for eac...",
+      "title": "Implementation: Create hypothetical file change preview (diff without commit...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T13:51:31.236654",
+      "created_at": "2026-01-30T15:31:34.012063",
       "constitution_check": true
     },
     {
@@ -603,6 +843,46 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-203",
+      "title": "Implementation: Add bundle size optimization (tree shaking, code splitting)",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T19:11:36.352388",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-169",
+      "title": "Implementation: Add AI editing indicator (pulsing highlight on modified line...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T16:00:46.884959",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-48",
+      "title": "Implementation: Implement option comparison view showing side-by-side trade-...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T15:26:37.805309",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-155",
+      "title": "Implementation: Implement manual fix suggestion generation for complex error...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T18:51:52.979056",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-122",
+      "title": "Implementation: Add panel layout presets (code-focused, preview-focused, bal...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T17:47:22.297299",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-95",
       "title": "Implementation: Create AgentProgress component showing phase progression wit...",
       "progress": 0.0,
@@ -632,6 +912,22 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T15:43:49.836841",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-179",
+      "title": "Implementation: Add deployment progress streaming to UI",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T16:36:03.538496",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-113",
+      "title": "Implementation: Implement iteration counter for self-correction loops",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T20:00:20.769795",
       "constitution_check": true
     },
     {
@@ -668,18 +964,18 @@
     },
     {
       "id": "plan-feature-94",
-      "title": "Implementation: Create development mode with hot-reload across website-studi...",
+      "title": "Implementation: Implement error boundary for preview failures with fallback ...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T15:18:55.221821",
+      "created_at": "2026-01-30T16:39:11.536688",
       "constitution_check": true
     },
     {
       "id": "plan-feature-40",
-      "title": "Implementation: Implement CSS specificity analyzer flagging overly complex s...",
+      "title": "Implementation: Implement option scoring based on effort/quality/risk tradeo...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T12:50:21.607425",
+      "created_at": "2026-01-30T15:12:35.743262",
       "constitution_check": true
     },
     {
@@ -708,18 +1004,18 @@
     },
     {
       "id": "plan-feature-86",
-      "title": "Implementation: Implement theme preview server simulating Odoo QWeb renderin...",
+      "title": "Implementation: Implement device frame visualization around preview",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T15:04:42.470673",
+      "created_at": "2026-01-30T16:15:17.551031",
       "constitution_check": true
     },
     {
       "id": "plan-feature-99",
-      "title": "Implementation: Implement batch generation for multiple pages and snippets w...",
+      "title": "Implementation: Implement estimated time remaining calculation based on plan...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T15:32:50.202393",
+      "created_at": "2026-01-30T16:47:57.753037",
       "constitution_check": true
     },
     {
@@ -728,6 +1024,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T14:05:17.698895",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-118",
+      "title": "Implementation: Implement message actions (copy, regenerate, edit)",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T17:34:01.914754",
       "constitution_check": true
     },
     {
@@ -740,10 +1044,26 @@
     },
     {
       "id": "plan-feature-81",
-      "title": "Implementation: Add automated theme testing against Odoo Docker instance for...",
+      "title": "Implementation: Create spacing controls for margin and padding adjustments",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T12:22:34.396322",
+      "created_at": "2026-01-30T16:06:25.909792",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-176",
+      "title": "Implementation: Implement sidecar restart on failure with automatic recovery",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T16:21:31.585249",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-104",
+      "title": "Implementation: Add thumbnail generation for visual version history",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T16:56:24.663457",
       "constitution_check": true
     },
     {
@@ -760,6 +1080,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T18:42:56.907178",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-149",
+      "title": "Implementation: Implement fix confidence scoring based on pattern match qual...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T18:21:13.804220",
       "constitution_check": true
     },
     {
@@ -792,6 +1120,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T16:46:52.611543",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-193",
+      "title": "Implementation: Implement A/B testing infrastructure for agent improvements",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-02-01T01:25:27.373523",
       "constitution_check": true
     },
     {
@@ -828,10 +1164,10 @@
     },
     {
       "id": "plan-feature-58",
-      "title": "Implementation: Create AI editing indicators with pulsing highlights showing...",
+      "title": "Implementation: Implement exploration session isolation (separate context pe...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T14:01:57.126752",
+      "created_at": "2026-01-30T15:34:59.909296",
       "constitution_check": true
     },
     {
@@ -843,11 +1179,27 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-112",
+      "title": "Implementation: Create quality score display after generation completion",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T17:19:17.261618",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-10",
       "title": "Implementation: Create finalization logic producing AgentResult with success...",
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T15:06:10.169027",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-190",
+      "title": "Implementation: Implement generation analytics tracking",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T18:09:41.945691",
       "constitution_check": true
     },
     {
@@ -868,10 +1220,10 @@
     },
     {
       "id": "plan-feature-77",
-      "title": "Implementation: Add multi-model routing using different LLMs for different t...",
+      "title": "Implementation: Add selection persistence across HMR updates",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T15:52:57.036537",
+      "created_at": "2026-01-30T15:53:33.805407",
       "constitution_check": true
     },
     {
@@ -884,10 +1236,26 @@
     },
     {
       "id": "plan-feature-71",
-      "title": "Implementation: Add parallel worker execution for independent section genera...",
+      "title": "Implementation: Add preview highlight from editor cursor position",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T14:16:01.566856",
+      "created_at": "2026-01-30T15:45:42.459895",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-107",
+      "title": "Implementation: Add version labeling and notes for user organization",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T19:32:36.364217",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-182",
+      "title": "Implementation: Add deployment history tracking",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-02-01T01:12:22.873490",
       "constitution_check": true
     },
     {
@@ -896,6 +1264,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T16:27:08.506737",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-185",
+      "title": "Implementation: Add integration tests for mode transitions",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T16:47:33.250590",
       "constitution_check": true
     },
     {
@@ -955,6 +1331,22 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-160",
+      "title": "Implementation: Create error history tracking for debugging patterns",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-02-01T01:02:46.299696",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-186",
+      "title": "Implementation: Create visual regression tests for preview",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T17:19:33.077480",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-63",
       "title": "Implementation: Implement scroll position preservation during HMR updates",
       "progress": 0.0,
@@ -984,6 +1376,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T12:04:37.000136",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-195",
+      "title": "Implementation: Implement inline code documentation for complex functions",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T18:42:37.131129",
       "constitution_check": true
     },
     {
@@ -1019,6 +1419,22 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-119",
+      "title": "Implementation: Add suggestion chips for common follow-up actions",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T20:53:40.635980",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-29",
+      "title": "Implementation: Add mode switching UI with clear visual indicators (plan ico...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T14:52:18.582591",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-162",
       "title": "Implementation: Wire FrontendOrchestrator into Agent Engine generation step",
       "progress": 0.0,
@@ -1028,10 +1444,18 @@
     },
     {
       "id": "plan-feature-82",
-      "title": "Implementation: Create theme upgrade migration script generator for version-...",
+      "title": "Implementation: Implement border-radius adjuster in floating editor",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T14:55:41.395239",
+      "created_at": "2026-01-31T19:23:21.756662",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-35",
+      "title": "Implementation: Create context serialization optimized for LLM injection (co...",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T15:06:12.405317",
       "constitution_check": true
     },
     {
@@ -1048,6 +1472,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T17:08:02.557663",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-150",
+      "title": "Implementation: Add multi-fix batching for related errors",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T18:25:36.012419",
       "constitution_check": true
     },
     {
@@ -1076,10 +1508,10 @@
     },
     {
       "id": "plan-feature-87",
-      "title": "Implementation: Add theme configuration wizard generating install options fo...",
+      "title": "Implementation: Add orientation toggle for portrait/landscape mobile preview",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T15:07:28.432903",
+      "created_at": "2026-01-31T19:26:08.477386",
       "constitution_check": true
     },
     {
@@ -1107,6 +1539,30 @@
       "constitution_check": true
     },
     {
+      "id": "plan-feature-156",
+      "title": "Implementation: Create error report for debugging support",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-02-01T00:54:48.150182",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-121",
+      "title": "Implementation: Implement panel collapse/expand animations",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T17:39:21.258344",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-191",
+      "title": "Implementation: Add error rate monitoring with alerts",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-31T18:15:38.418379",
+      "constitution_check": true
+    },
+    {
       "id": "plan-feature-49",
       "title": "Implementation: Create PlanModeIndicator component showing current mode with...",
       "progress": 0.0,
@@ -1120,6 +1576,14 @@
       "progress": 0.0,
       "tasks_count": 5,
       "created_at": "2026-01-29T14:22:14.758123",
+      "constitution_check": true
+    },
+    {
+      "id": "plan-feature-136",
+      "title": "Implementation: Implement error deduplication for repeated issues",
+      "progress": 0.0,
+      "tasks_count": 5,
+      "created_at": "2026-01-30T18:04:18.036695",
       "constitution_check": true
     }
   ]

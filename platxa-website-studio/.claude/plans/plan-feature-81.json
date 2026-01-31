@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-81",
-  "title": "Implementation: Add automated theme testing against Odoo Docker instance for...",
+  "title": "Implementation: Create spacing controls for margin and padding adjustments",
   "context": {
     "spec_id": "feature-81",
     "feature_id": "81",
     "dependencies": [],
     "metadata": {
-      "category": "Odoo Deployment",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Theme installs successfully on Odoo Docker; website renders without errors",
+        "type": "manual",
+        "criteria": "Box model control with drag handles or input fields",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T12:22:34.396297"
+    "created_at": "2026-01-30T16:06:25.909751"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-81-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add automated theme testing against Odoo Docker instance for installation verification",
+      "description": "Review feature requirements: Create spacing controls for margin and padding adjustments",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-81-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-81-3",
       "title": "Implement Feature",
-      "description": "Implement: Add automated theme testing against Odoo Docker instance for installation verification",
+      "description": "Implement: Create spacing controls for margin and padding adjustments",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-81-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-81-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Theme installs successfully on Odoo Docker; website renders without errors', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Box model control with drag handles or input fields', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Theme installs successfully on Odoo Docker; website renders without errors",
+        "type": "manual",
+        "criteria": "Box model control with drag handles or input fields",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T12:22:34.396322",
+  "created_at": "2026-01-30T16:06:25.909792",
   "lsp_impact": {}
 }

@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "active": null,
+  "history": [],
+  "statistics": {
+    "total_sessions": 0,
+    "resolved": 0,
+    "escalated": 0,
+    "average_attempts": 0.0
+  }
+}

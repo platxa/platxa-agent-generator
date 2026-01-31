@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-94",
-  "title": "Implementation: Create development mode with hot-reload across website-studi...",
+  "title": "Implementation: Implement error boundary for preview failures with fallback ...",
   "context": {
     "spec_id": "feature-94",
     "feature_id": "94",
     "dependencies": [],
     "metadata": {
-      "category": "Developer Experience",
+      "category": "Phase 3: HMR Preview",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Code changes in any of the 3 systems trigger hot-reload without manual restart",
+        "type": "manual",
+        "criteria": "Preview errors show friendly message with retry button",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T15:18:55.221766"
+    "created_at": "2026-01-30T16:39:11.536643"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-94-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create development mode with hot-reload across website-studio, editor-sync, and frontend-agent",
+      "description": "Review feature requirements: Implement error boundary for preview failures with fallback UI",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-94-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-94-3",
       "title": "Implement Feature",
-      "description": "Implement: Create development mode with hot-reload across website-studio, editor-sync, and frontend-agent",
+      "description": "Implement: Implement error boundary for preview failures with fallback UI",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-94-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-94-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Code changes in any of the 3 systems trigger hot-reload without manual restart', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Preview errors show friendly message with retry button', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Code changes in any of the 3 systems trigger hot-reload without manual restart",
+        "type": "manual",
+        "criteria": "Preview errors show friendly message with retry button",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T15:18:55.221821",
+  "created_at": "2026-01-30T16:39:11.536688",
   "lsp_impact": {}
 }

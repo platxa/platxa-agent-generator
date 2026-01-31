@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-58",
-  "title": "Implementation: Create AI editing indicators with pulsing highlights showing...",
+  "title": "Implementation: Implement exploration session isolation (separate context pe...",
   "context": {
     "spec_id": "feature-58",
     "feature_id": "58",
     "dependencies": [],
     "metadata": {
-      "category": "Visual Editing",
+      "category": "Phase 2: Plan Mode",
       "verification_criteria": {
-        "type": "manual",
-        "criteria": "Sections being modified by AI show animated border highlight; completed sections flash green",
+        "type": "test",
+        "criteria": "Each plan session has unique ID and isolated context",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T14:01:57.126712"
+    "created_at": "2026-01-30T15:34:59.909196"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-58-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create AI editing indicators with pulsing highlights showing which sections the agent is modifying",
+      "description": "Review feature requirements: Implement exploration session isolation (separate context per session)",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-58-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-58-3",
       "title": "Implement Feature",
-      "description": "Implement: Create AI editing indicators with pulsing highlights showing which sections the agent is modifying",
+      "description": "Implement: Implement exploration session isolation (separate context per session)",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-58-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-58-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'manual', 'criteria': 'Sections being modified by AI show animated border highlight; completed sections flash green', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Each plan session has unique ID and isolated context', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "manual",
-        "criteria": "Sections being modified by AI show animated border highlight; completed sections flash green",
+        "type": "test",
+        "criteria": "Each plan session has unique ID and isolated context",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T14:01:57.126752",
+  "created_at": "2026-01-30T15:34:59.909296",
   "lsp_impact": {}
 }

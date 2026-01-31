@@ -16,7 +16,7 @@
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-27T18:16:12.143513"
+    "created_at": "2026-01-30T17:07:39.864443"
   },
   "phases": [
     "research",
@@ -35,7 +35,10 @@
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-3-2",
@@ -47,7 +50,10 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-3-3",
@@ -59,7 +65,10 @@
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-3-4",
@@ -71,7 +80,10 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-3-5",
@@ -90,11 +102,14 @@
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-27T18:16:12.143537",
+  "created_at": "2026-01-30T17:07:39.864466",
   "lsp_impact": {}
 }
