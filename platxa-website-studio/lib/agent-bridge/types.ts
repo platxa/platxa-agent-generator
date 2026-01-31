@@ -109,8 +109,16 @@ export interface DesignAnalysis {
   };
 }
 
+/** Extended design context from design-analyzer (re-exported for convenience) */
+export type { DesignContext } from "./design-analyzer";
+
 export interface PreGenerationResult {
   designAnalysis: DesignAnalysis | null;
+  /**
+   * Rich design context from design-analyzer (colors, layout, mood, typography, spacing).
+   * Present when enablePreGeneration=true, null when pre-generation is skipped.
+   */
+  designContext: import("./design-analyzer").DesignContext | null;
   brandTokens: BrandTokenContext;
   enhancedPromptFragment: string;
   timestamp: string;

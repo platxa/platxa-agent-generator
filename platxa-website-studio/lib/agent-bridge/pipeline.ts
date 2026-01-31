@@ -90,11 +90,12 @@ export class AgentPipeline {
     this.startTime = Date.now();
 
     if (!this.config.enablePreGeneration) {
-      // Return minimal result with default brand tokens
+      // Return minimal result with default brand tokens (no design analysis)
       const { mapOdooPaletteToBrandTokens } = await import("./color-mapper");
       const brandTokens = mapOdooPaletteToBrandTokens(input.colorPalette);
       this.preResult = {
         designAnalysis: null,
+        designContext: null,
         brandTokens,
         enhancedPromptFragment: "",
         timestamp: new Date().toISOString(),
@@ -546,8 +547,9 @@ export class AgentPipeline {
 
     this.emitStatus("complete", "Generation complete", 100);
 
-    const preGeneration = this.preResult || {
+    const preGeneration: PreGenerationResult = this.preResult || {
       designAnalysis: null,
+      designContext: null,
       brandTokens: {
         colors: {
           primary: "#7c3aed",

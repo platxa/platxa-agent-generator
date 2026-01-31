@@ -16,6 +16,7 @@ import type {
 import { mapOdooPaletteToBrandTokens } from "./color-mapper";
 import { assembleTokenSet } from "../design-tokens/token-assembler";
 import { deriveDarkMode } from "../design-tokens/color-scale-generator";
+import { analyzeDesignIntent, type DesignContext } from "./design-analyzer";
 
 // =============================================================================
 // Lightweight Design Analysis (Odoo-focused)
@@ -162,16 +163,43 @@ export interface PreGenerationInput {
 
 /**
  * Runs the pre-generation pipeline:
- * 1. Analyze user message for design intent
+ * 1. Analyze user message for design intent (comprehensive design-analyzer)
  * 2. Map color palette to brand tokens
  * 3. Generate full DTCG design tokens (when palette is available)
- * 4. Build enhanced prompt fragment
+ * 4. Build enhanced prompt fragment with rich design context
  */
 export function runPreGeneration(input: PreGenerationInput): PreGenerationResult {
   const { userMessage, colorPalette, industry, designStyle } = input;
 
-  // 1. Analyze design intent from user message
+  // 1. Run comprehensive design analysis (colors, layout, mood, typography, spacing)
+  const designContext = analyzeDesignIntent(userMessage);
+
+  // 1b. Also run lightweight analysis for backward compatibility
   const designAnalysis = analyzeUserMessage(userMessage);
+
+  // Merge insights from comprehensive analysis into designAnalysis
+  if (designContext.colors.mood) {
+    designAnalysis.colorIntent = designAnalysis.colorIntent || {};
+    designAnalysis.colorIntent.mood = designContext.colors.mood;
+    // Map warm/cool to temperature
+    if (designContext.colors.mood === "warm" || designContext.colors.mood === "cool") {
+      designAnalysis.colorIntent.temperature = designContext.colors.mood;
+    }
+  }
+  if (designContext.layout.style.length > 0) {
+    designAnalysis.layoutIntent = designAnalysis.layoutIntent || {};
+    if (designContext.layout.style.includes("centered") || designContext.layout.patterns.includes("centered")) {
+      designAnalysis.layoutIntent.alignment = "center";
+    }
+    if (designContext.layout.style.includes("grid")) {
+      designAnalysis.layoutIntent.distribution = "grid";
+    }
+    if (designContext.layout.style.includes("single-column")) {
+      designAnalysis.layoutIntent.direction = "vertical";
+    } else if (designContext.layout.style.includes("two-column") || designContext.layout.style.includes("three-column")) {
+      designAnalysis.layoutIntent.direction = "horizontal";
+    }
+  }
 
   // 2. Map Odoo palette to brand tokens
   const brandTokens = mapOdooPaletteToBrandTokens(colorPalette);
@@ -205,21 +233,23 @@ export function runPreGeneration(input: PreGenerationInput): PreGenerationResult
     });
 
     // Generate dark mode tokens if design analysis suggests dark theme
-    if (designAnalysis.colorIntent?.mood === "dark") {
+    if (designAnalysis.colorIntent?.mood === "dark" || designContext.colors.darkMode) {
       brandTokens.darkModeTokens = deriveDarkMode(brandTokens.designTokens);
     }
   }
 
-  // 4. Build compact prompt fragment
+  // 4. Build compact prompt fragment with rich design context
   const enhancedPromptFragment = buildPromptFragment(
     designAnalysis,
     brandTokens,
     industry,
     designStyle,
+    designContext,
   );
 
   return {
     designAnalysis,
+    designContext,
     brandTokens,
     enhancedPromptFragment,
     timestamp: new Date().toISOString(),
@@ -229,12 +259,14 @@ export function runPreGeneration(input: PreGenerationInput): PreGenerationResult
 /**
  * Builds a compact prompt fragment (<500 tokens) from analysis results.
  * This is injected into the system prompt before LLM streaming.
+ * Now includes rich design context from design-analyzer.
  */
 function buildPromptFragment(
   analysis: DesignAnalysis,
   tokens: BrandTokenContext,
   industry?: string,
   designStyle?: string,
+  designContext?: DesignContext,
 ): string {
   const lines: string[] = ["## Brand Tokens"];
 
@@ -256,18 +288,77 @@ function buildPromptFragment(
     lines.push(`Body: ${tokens.typography.bodyFamily}`);
   }
 
-  // Design analysis hints
+  // Design analysis hints section
+  lines.push(`\n## Design Hints`);
+
   if (analysis.componentType !== "unknown") {
-    lines.push(`\n## Design Hints`);
     lines.push(`Section type: ${analysis.componentType}`);
   }
 
-  if (analysis.colorIntent?.mood) {
-    lines.push(`Mood: ${analysis.colorIntent.mood}`);
-  }
+  // Include rich design context from design-analyzer
+  if (designContext) {
+    // Color intent from design-analyzer
+    if (designContext.colors.mood) {
+      lines.push(`Color mood: ${designContext.colors.mood}`);
+    }
+    if (designContext.colors.namedColors.length > 0) {
+      lines.push(`Requested colors: ${designContext.colors.namedColors.join(", ")}`);
+    }
+    if (designContext.colors.darkMode) {
+      lines.push(`Dark mode: requested`);
+    }
 
-  if (analysis.layoutIntent?.direction) {
-    lines.push(`Layout: ${analysis.layoutIntent.direction}`);
+    // Layout intent from design-analyzer
+    if (designContext.layout.style.length > 0) {
+      lines.push(`Layout style: ${designContext.layout.style.join(", ")}`);
+    }
+    if (designContext.layout.patterns.length > 0) {
+      lines.push(`Layout patterns: ${designContext.layout.patterns.join(", ")}`);
+    }
+    if (designContext.layout.columns !== null) {
+      lines.push(`Columns: ${designContext.layout.columns}`);
+    }
+    if (designContext.layout.fullWidth) {
+      lines.push(`Full width: yes`);
+    }
+
+    // Mood/aesthetic from design-analyzer
+    if (designContext.mood.keywords.length > 0) {
+      lines.push(`Aesthetic: ${designContext.mood.keywords.join(", ")}`);
+    }
+    lines.push(`Formality: ${designContext.mood.formality}/5 | Energy: ${designContext.mood.energy}/5`);
+
+    // Typography from design-analyzer
+    if (designContext.typography.style.length > 0) {
+      lines.push(`Font style: ${designContext.typography.style.join(", ")}`);
+    }
+    if (designContext.typography.fontNames.length > 0) {
+      lines.push(`Requested fonts: ${designContext.typography.fontNames.join(", ")}`);
+    }
+    if (designContext.typography.sizePreference) {
+      lines.push(`Text size: ${designContext.typography.sizePreference}`);
+    }
+
+    // Spacing from design-analyzer
+    if (designContext.spacing.density) {
+      lines.push(`Spacing: ${designContext.spacing.density}`);
+    }
+
+    // Suggested sections
+    if (designContext.suggestedSections.length > 0) {
+      lines.push(`Suggested sections: ${designContext.suggestedSections.join(", ")}`);
+    }
+
+    // Confidence score
+    lines.push(`Analysis confidence: ${Math.round(designContext.confidence * 100)}%`);
+  } else {
+    // Fallback to basic analysis
+    if (analysis.colorIntent?.mood) {
+      lines.push(`Mood: ${analysis.colorIntent.mood}`);
+    }
+    if (analysis.layoutIntent?.direction) {
+      lines.push(`Layout: ${analysis.layoutIntent.direction}`);
+    }
   }
 
   if (industry) {
