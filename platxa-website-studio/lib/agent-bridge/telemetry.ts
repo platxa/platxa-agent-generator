@@ -310,3 +310,407 @@ export function deserializeTelemetry(json: string): TelemetryState {
     eventCounter: (data.events ?? []).length,
   };
 }
+
+// =============================================================================
+// Generation Analytics Tracking (Feature #190)
+// =============================================================================
+
+/** Prompt tracking record */
+export interface PromptRecord {
+  /** Unique prompt ID */
+  promptId: string;
+  /** Prompt type */
+  type: PromptType;
+  /** Prompt hash (for deduplication) */
+  hash: string;
+  /** Prompt length in characters */
+  length: number;
+  /** Timestamp */
+  timestamp: number;
+  /** Associated generation ID (if any) */
+  generationId?: string;
+  /** Template used (if any) */
+  templateId?: string;
+}
+
+export type PromptType =
+  | 'user_request'
+  | 'system_prompt'
+  | 'template'
+  | 'refinement'
+  | 'error_recovery'
+  | 'validation';
+
+/** Error tracking record */
+export interface ErrorRecord {
+  /** Unique error ID */
+  errorId: string;
+  /** Error category */
+  category: ErrorCategory;
+  /** Error message */
+  message: string;
+  /** Error code (if any) */
+  code?: string;
+  /** Stack trace (if available) */
+  stack?: string;
+  /** Associated generation ID */
+  generationId?: string;
+  /** Timestamp */
+  timestamp: number;
+  /** Whether error was recovered */
+  recovered: boolean;
+  /** Recovery action taken */
+  recoveryAction?: string;
+}
+
+export type ErrorCategory =
+  | 'api_error'
+  | 'validation_error'
+  | 'timeout'
+  | 'rate_limit'
+  | 'content_filter'
+  | 'generation_failed'
+  | 'parse_error'
+  | 'network_error'
+  | 'unknown';
+
+/** Extended analytics state with prompt and error tracking */
+export interface AnalyticsState {
+  /** Base telemetry state */
+  telemetry: TelemetryState;
+  /** Tracked prompts */
+  prompts: PromptRecord[];
+  /** Tracked errors */
+  errors: ErrorRecord[];
+  /** Prompt counter */
+  promptCounter: number;
+  /** Error counter */
+  errorCounter: number;
+}
+
+/** Creates analytics state */
+export function createAnalyticsState(sessionId: string): AnalyticsState {
+  return {
+    telemetry: createTelemetryState(sessionId),
+    prompts: [],
+    errors: [],
+    promptCounter: 0,
+    errorCounter: 0,
+  };
+}
+
+/** Simple string hash for prompt deduplication */
+export function hashPrompt(text: string): string {
+  let hash = 0;
+  for (let i = 0; i < text.length; i++) {
+    const char = text.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return Math.abs(hash).toString(36);
+}
+
+/** Records a prompt */
+export function trackPrompt(
+  state: AnalyticsState,
+  type: PromptType,
+  promptText: string,
+  generationId?: string,
+  templateId?: string,
+): AnalyticsState {
+  const promptId = `prompt_${++state.promptCounter}`;
+  const prompt: PromptRecord = {
+    promptId,
+    type,
+    hash: hashPrompt(promptText),
+    length: promptText.length,
+    timestamp: Date.now(),
+    generationId,
+    templateId,
+  };
+
+  const updatedTelemetry = recordEvent(
+    state.telemetry,
+    'generation_start',
+    { promptId, type, length: prompt.length, hash: prompt.hash }
+  );
+
+  return {
+    ...state,
+    telemetry: updatedTelemetry,
+    prompts: [...state.prompts, prompt],
+    promptCounter: state.promptCounter,
+  };
+}
+
+/** Records an error */
+export function trackError(
+  state: AnalyticsState,
+  category: ErrorCategory,
+  message: string,
+  options: {
+    code?: string;
+    stack?: string;
+    generationId?: string;
+    recovered?: boolean;
+    recoveryAction?: string;
+  } = {},
+): AnalyticsState {
+  const errorId = `error_${++state.errorCounter}`;
+  const error: ErrorRecord = {
+    errorId,
+    category,
+    message,
+    code: options.code,
+    stack: options.stack,
+    generationId: options.generationId,
+    timestamp: Date.now(),
+    recovered: options.recovered ?? false,
+    recoveryAction: options.recoveryAction,
+  };
+
+  const updatedTelemetry = recordEvent(
+    state.telemetry,
+    'generation_error',
+    { errorId, category, message, recovered: error.recovered }
+  );
+
+  return {
+    ...state,
+    telemetry: updatedTelemetry,
+    errors: [...state.errors, error],
+    errorCounter: state.errorCounter,
+  };
+}
+
+/** Records a generation with full tracking */
+export function trackGeneration(
+  state: AnalyticsState,
+  metrics: Omit<GenerationMetrics, "generationId" | "sessionId">,
+): AnalyticsState {
+  const updatedTelemetry = recordGeneration(state.telemetry, metrics);
+  return { ...state, telemetry: updatedTelemetry };
+}
+
+/** Records user satisfaction with analytics */
+export function trackSatisfaction(
+  state: AnalyticsState,
+  generationId: string,
+  satisfaction: -1 | 0 | 1,
+): AnalyticsState {
+  const updatedTelemetry = recordSatisfaction(state.telemetry, generationId, satisfaction);
+  return { ...state, telemetry: updatedTelemetry };
+}
+
+// =============================================================================
+// Analytics Queries
+// =============================================================================
+
+/** Prompt analytics summary */
+export interface PromptAnalytics {
+  /** Total prompts tracked */
+  totalPrompts: number;
+  /** Prompts by type */
+  byType: Record<PromptType, number>;
+  /** Average prompt length */
+  avgLength: number;
+  /** Unique prompts (by hash) */
+  uniqueCount: number;
+  /** Reuse rate (1 - unique/total) */
+  reuseRate: number;
+}
+
+/** Computes prompt analytics */
+export function computePromptAnalytics(state: AnalyticsState): PromptAnalytics {
+  const { prompts } = state;
+  const total = prompts.length;
+
+  if (total === 0) {
+    return {
+      totalPrompts: 0,
+      byType: {
+        user_request: 0,
+        system_prompt: 0,
+        template: 0,
+        refinement: 0,
+        error_recovery: 0,
+        validation: 0,
+      },
+      avgLength: 0,
+      uniqueCount: 0,
+      reuseRate: 0,
+    };
+  }
+
+  const byType: Record<PromptType, number> = {
+    user_request: 0,
+    system_prompt: 0,
+    template: 0,
+    refinement: 0,
+    error_recovery: 0,
+    validation: 0,
+  };
+
+  const uniqueHashes = new Set<string>();
+  let totalLength = 0;
+
+  for (const p of prompts) {
+    byType[p.type]++;
+    uniqueHashes.add(p.hash);
+    totalLength += p.length;
+  }
+
+  const uniqueCount = uniqueHashes.size;
+
+  return {
+    totalPrompts: total,
+    byType,
+    avgLength: totalLength / total,
+    uniqueCount,
+    reuseRate: 1 - (uniqueCount / total),
+  };
+}
+
+/** Error analytics summary */
+export interface ErrorAnalytics {
+  /** Total errors */
+  totalErrors: number;
+  /** Errors by category */
+  byCategory: Record<ErrorCategory, number>;
+  /** Recovery rate */
+  recoveryRate: number;
+  /** Most common error category */
+  mostCommon: ErrorCategory | null;
+  /** Recent errors (last 10) */
+  recent: ErrorRecord[];
+}
+
+/** Computes error analytics */
+export function computeErrorAnalytics(state: AnalyticsState): ErrorAnalytics {
+  const { errors } = state;
+  const total = errors.length;
+
+  const byCategory: Record<ErrorCategory, number> = {
+    api_error: 0,
+    validation_error: 0,
+    timeout: 0,
+    rate_limit: 0,
+    content_filter: 0,
+    generation_failed: 0,
+    parse_error: 0,
+    network_error: 0,
+    unknown: 0,
+  };
+
+  if (total === 0) {
+    return {
+      totalErrors: 0,
+      byCategory,
+      recoveryRate: 0,
+      mostCommon: null,
+      recent: [],
+    };
+  }
+
+  let recoveredCount = 0;
+  for (const e of errors) {
+    byCategory[e.category]++;
+    if (e.recovered) recoveredCount++;
+  }
+
+  // Find most common category
+  let mostCommon: ErrorCategory | null = null;
+  let maxCount = 0;
+  for (const [cat, count] of Object.entries(byCategory)) {
+    if (count > maxCount) {
+      maxCount = count;
+      mostCommon = cat as ErrorCategory;
+    }
+  }
+
+  return {
+    totalErrors: total,
+    byCategory,
+    recoveryRate: recoveredCount / total,
+    mostCommon,
+    recent: errors.slice(-10),
+  };
+}
+
+/** Comprehensive generation analytics */
+export interface GenerationAnalytics {
+  /** Base analytics from telemetry */
+  summary: AnalyticsSummary;
+  /** Prompt analytics */
+  prompts: PromptAnalytics;
+  /** Error analytics */
+  errors: ErrorAnalytics;
+  /** Generations by period */
+  byPeriod: {
+    lastHour: number;
+    lastDay: number;
+    lastWeek: number;
+  };
+}
+
+/** Computes comprehensive generation analytics */
+export function computeGenerationAnalytics(state: AnalyticsState): GenerationAnalytics {
+  const now = Date.now();
+  const hourAgo = now - 3600000;
+  const dayAgo = now - 86400000;
+  const weekAgo = now - 604800000;
+
+  const metrics = state.telemetry.metrics;
+
+  return {
+    summary: computeAnalytics(state.telemetry),
+    prompts: computePromptAnalytics(state),
+    errors: computeErrorAnalytics(state),
+    byPeriod: {
+      lastHour: metrics.filter(m => m.startTime >= hourAgo).length,
+      lastDay: metrics.filter(m => m.startTime >= dayAgo).length,
+      lastWeek: metrics.filter(m => m.startTime >= weekAgo).length,
+    },
+  };
+}
+
+/** Formats analytics as human-readable report */
+export function formatAnalyticsReport(analytics: GenerationAnalytics): string {
+  const { summary, prompts, errors, byPeriod } = analytics;
+
+  const lines = [
+    '═══════════════════════════════════════════════════════════',
+    '  GENERATION ANALYTICS REPORT',
+    '═══════════════════════════════════════════════════════════',
+    '',
+    '📊 GENERATIONS',
+    `  Total: ${summary.totalGenerations}`,
+    `  Success Rate: ${(summary.successRate * 100).toFixed(1)}%`,
+    `  Avg Quality: ${summary.avgQualityScore.toFixed(1)}`,
+    `  Avg Duration: ${summary.avgDurationMs.toFixed(0)}ms`,
+    '',
+    '📝 PROMPTS',
+    `  Total: ${prompts.totalPrompts}`,
+    `  Unique: ${prompts.uniqueCount}`,
+    `  Reuse Rate: ${(prompts.reuseRate * 100).toFixed(1)}%`,
+    `  Avg Length: ${prompts.avgLength.toFixed(0)} chars`,
+    '',
+    '❌ ERRORS',
+    `  Total: ${errors.totalErrors}`,
+    `  Recovery Rate: ${(errors.recoveryRate * 100).toFixed(1)}%`,
+    `  Most Common: ${errors.mostCommon ?? 'N/A'}`,
+    '',
+    '👍 USER SATISFACTION',
+    `  Positive: ${summary.satisfactionDistribution.positive}`,
+    `  Neutral: ${summary.satisfactionDistribution.neutral}`,
+    `  Negative: ${summary.satisfactionDistribution.negative}`,
+    '',
+    '📅 BY PERIOD',
+    `  Last Hour: ${byPeriod.lastHour}`,
+    `  Last Day: ${byPeriod.lastDay}`,
+    `  Last Week: ${byPeriod.lastWeek}`,
+    '═══════════════════════════════════════════════════════════',
+  ];
+
+  return lines.join('\n');
+}

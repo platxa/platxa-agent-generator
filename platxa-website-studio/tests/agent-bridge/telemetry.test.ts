@@ -10,8 +10,18 @@ import {
   getEventsByType,
   serializeTelemetry,
   deserializeTelemetry,
+  createAnalyticsState,
+  hashPrompt,
+  trackPrompt,
+  trackError,
+  trackGeneration,
+  trackSatisfaction,
+  computePromptAnalytics,
+  computeErrorAnalytics,
+  computeGenerationAnalytics,
+  formatAnalyticsReport,
 } from "@/lib/agent-bridge/telemetry";
-import type { GenerationMetrics } from "@/lib/agent-bridge/telemetry";
+import type { GenerationMetrics, AnalyticsState } from "@/lib/agent-bridge/telemetry";
 
 function makeMetrics(overrides: Partial<GenerationMetrics> = {}): Omit<GenerationMetrics, "generationId" | "sessionId"> {
   return {
@@ -228,6 +238,252 @@ describe("Telemetry", () => {
       const json = serializeTelemetry(createTelemetryState("s1"));
       const restored = deserializeTelemetry(json);
       expect(restored.metrics).toHaveLength(0);
+    });
+  });
+
+  // ===========================================================================
+  // Generation Analytics Tracking (Feature #190)
+  // ===========================================================================
+
+  describe("createAnalyticsState", () => {
+    it("creates empty analytics state", () => {
+      const state = createAnalyticsState("sess-1");
+      expect(state.telemetry.sessionId).toBe("sess-1");
+      expect(state.prompts).toHaveLength(0);
+      expect(state.errors).toHaveLength(0);
+    });
+  });
+
+  describe("hashPrompt", () => {
+    it("generates consistent hash for same text", () => {
+      const hash1 = hashPrompt("test prompt");
+      const hash2 = hashPrompt("test prompt");
+      expect(hash1).toBe(hash2);
+    });
+
+    it("generates different hash for different text", () => {
+      const hash1 = hashPrompt("prompt A");
+      const hash2 = hashPrompt("prompt B");
+      expect(hash1).not.toBe(hash2);
+    });
+  });
+
+  describe("trackPrompt", () => {
+    it("records prompt with type and hash", () => {
+      let state = createAnalyticsState("s1");
+      state = trackPrompt(state, "user_request", "Generate a landing page");
+
+      expect(state.prompts).toHaveLength(1);
+      expect(state.prompts[0].type).toBe("user_request");
+      expect(state.prompts[0].length).toBe(23); // "Generate a landing page" = 23 chars
+      expect(state.prompts[0].hash).toBeTruthy();
+    });
+
+    it("records generation_start event", () => {
+      let state = createAnalyticsState("s1");
+      state = trackPrompt(state, "template", "System prompt template");
+
+      const events = getEventsByType(state.telemetry, "generation_start");
+      expect(events).toHaveLength(1);
+      expect(events[0].data.type).toBe("template");
+    });
+
+    it("associates prompt with generation ID", () => {
+      let state = createAnalyticsState("s1");
+      state = trackPrompt(state, "refinement", "Improve the header", "gen_123");
+
+      expect(state.prompts[0].generationId).toBe("gen_123");
+    });
+  });
+
+  describe("trackError", () => {
+    it("records error with category", () => {
+      let state = createAnalyticsState("s1");
+      state = trackError(state, "api_error", "Rate limit exceeded");
+
+      expect(state.errors).toHaveLength(1);
+      expect(state.errors[0].category).toBe("api_error");
+      expect(state.errors[0].message).toBe("Rate limit exceeded");
+    });
+
+    it("records generation_error event", () => {
+      let state = createAnalyticsState("s1");
+      state = trackError(state, "timeout", "Request timed out");
+
+      const events = getEventsByType(state.telemetry, "generation_error");
+      expect(events).toHaveLength(1);
+    });
+
+    it("tracks recovery status", () => {
+      let state = createAnalyticsState("s1");
+      state = trackError(state, "rate_limit", "Too many requests", {
+        recovered: true,
+        recoveryAction: "retry_with_backoff",
+      });
+
+      expect(state.errors[0].recovered).toBe(true);
+      expect(state.errors[0].recoveryAction).toBe("retry_with_backoff");
+    });
+  });
+
+  describe("trackGeneration", () => {
+    it("records generation through analytics state", () => {
+      let state = createAnalyticsState("s1");
+      state = trackGeneration(state, makeMetrics());
+
+      expect(state.telemetry.metrics).toHaveLength(1);
+    });
+  });
+
+  describe("trackSatisfaction", () => {
+    it("records satisfaction through analytics state", () => {
+      let state = createAnalyticsState("s1");
+      state = trackGeneration(state, makeMetrics());
+      const genId = state.telemetry.metrics[0].generationId;
+      state = trackSatisfaction(state, genId, 1);
+
+      expect(state.telemetry.metrics[0].satisfaction).toBe(1);
+    });
+  });
+
+  describe("computePromptAnalytics", () => {
+    it("returns zeros for empty state", () => {
+      const state = createAnalyticsState("s1");
+      const analytics = computePromptAnalytics(state);
+
+      expect(analytics.totalPrompts).toBe(0);
+      expect(analytics.uniqueCount).toBe(0);
+    });
+
+    it("counts prompts by type", () => {
+      let state = createAnalyticsState("s1");
+      state = trackPrompt(state, "user_request", "prompt 1");
+      state = trackPrompt(state, "user_request", "prompt 2");
+      state = trackPrompt(state, "template", "template 1");
+
+      const analytics = computePromptAnalytics(state);
+      expect(analytics.byType.user_request).toBe(2);
+      expect(analytics.byType.template).toBe(1);
+    });
+
+    it("calculates reuse rate", () => {
+      let state = createAnalyticsState("s1");
+      state = trackPrompt(state, "user_request", "same prompt");
+      state = trackPrompt(state, "user_request", "same prompt"); // Duplicate
+      state = trackPrompt(state, "user_request", "different prompt");
+
+      const analytics = computePromptAnalytics(state);
+      expect(analytics.totalPrompts).toBe(3);
+      expect(analytics.uniqueCount).toBe(2);
+      expect(analytics.reuseRate).toBeCloseTo(1/3, 2);
+    });
+
+    it("calculates average length", () => {
+      let state = createAnalyticsState("s1");
+      state = trackPrompt(state, "user_request", "short"); // 5 chars
+      state = trackPrompt(state, "user_request", "much longer prompt"); // 18 chars
+
+      const analytics = computePromptAnalytics(state);
+      expect(analytics.avgLength).toBe(11.5);
+    });
+  });
+
+  describe("computeErrorAnalytics", () => {
+    it("returns zeros for empty state", () => {
+      const state = createAnalyticsState("s1");
+      const analytics = computeErrorAnalytics(state);
+
+      expect(analytics.totalErrors).toBe(0);
+      expect(analytics.mostCommon).toBeNull();
+    });
+
+    it("counts errors by category", () => {
+      let state = createAnalyticsState("s1");
+      state = trackError(state, "api_error", "Error 1");
+      state = trackError(state, "api_error", "Error 2");
+      state = trackError(state, "timeout", "Timeout");
+
+      const analytics = computeErrorAnalytics(state);
+      expect(analytics.byCategory.api_error).toBe(2);
+      expect(analytics.byCategory.timeout).toBe(1);
+    });
+
+    it("identifies most common category", () => {
+      let state = createAnalyticsState("s1");
+      state = trackError(state, "rate_limit", "Rate limit 1");
+      state = trackError(state, "rate_limit", "Rate limit 2");
+      state = trackError(state, "timeout", "Timeout");
+
+      const analytics = computeErrorAnalytics(state);
+      expect(analytics.mostCommon).toBe("rate_limit");
+    });
+
+    it("calculates recovery rate", () => {
+      let state = createAnalyticsState("s1");
+      state = trackError(state, "api_error", "Error 1", { recovered: true });
+      state = trackError(state, "api_error", "Error 2", { recovered: true });
+      state = trackError(state, "api_error", "Error 3", { recovered: false });
+
+      const analytics = computeErrorAnalytics(state);
+      expect(analytics.recoveryRate).toBeCloseTo(2/3, 2);
+    });
+
+    it("returns recent errors", () => {
+      let state = createAnalyticsState("s1");
+      for (let i = 0; i < 15; i++) {
+        state = trackError(state, "api_error", `Error ${i}`);
+      }
+
+      const analytics = computeErrorAnalytics(state);
+      expect(analytics.recent).toHaveLength(10);
+      expect(analytics.recent[9].message).toBe("Error 14");
+    });
+  });
+
+  describe("computeGenerationAnalytics", () => {
+    it("combines all analytics", () => {
+      let state = createAnalyticsState("s1");
+      state = trackPrompt(state, "user_request", "Create a page");
+      state = trackGeneration(state, makeMetrics({ startTime: Date.now() }));
+      state = trackError(state, "validation_error", "Invalid HTML");
+
+      const analytics = computeGenerationAnalytics(state);
+
+      expect(analytics.summary.totalGenerations).toBe(1);
+      expect(analytics.prompts.totalPrompts).toBe(1);
+      expect(analytics.errors.totalErrors).toBe(1);
+    });
+
+    it("tracks generations by period", () => {
+      const now = Date.now();
+      let state = createAnalyticsState("s1");
+
+      // Recent generation
+      state = trackGeneration(state, makeMetrics({ startTime: now - 1000 }));
+
+      const analytics = computeGenerationAnalytics(state);
+      expect(analytics.byPeriod.lastHour).toBe(1);
+      expect(analytics.byPeriod.lastDay).toBe(1);
+      expect(analytics.byPeriod.lastWeek).toBe(1);
+    });
+  });
+
+  describe("formatAnalyticsReport", () => {
+    it("generates formatted report", () => {
+      let state = createAnalyticsState("s1");
+      state = trackPrompt(state, "user_request", "Test prompt");
+      state = trackGeneration(state, makeMetrics({ satisfaction: 1 }));
+      state = trackError(state, "api_error", "Test error");
+
+      const analytics = computeGenerationAnalytics(state);
+      const report = formatAnalyticsReport(analytics);
+
+      expect(report).toContain("GENERATION ANALYTICS REPORT");
+      expect(report).toContain("GENERATIONS");
+      expect(report).toContain("PROMPTS");
+      expect(report).toContain("ERRORS");
+      expect(report).toContain("USER SATISFACTION");
+      expect(report).toContain("BY PERIOD");
     });
   });
 });
