@@ -176,7 +176,8 @@ export function comparePixels(
 
       if (maxDiff > config.colorTolerance) {
         // Anti-aliasing check: skip if pixel is likely AA
-        if (config.antiAliasing && isAntiAliased(baseline, x, y, current, x, y)) {
+        // Pass the color diff - large differences (>50) are NEVER AA
+        if (config.antiAliasing && isAntiAliased(baseline, x, y, current, x, y, maxDiff)) {
           continue;
         }
         changedPixels.push(idx / 4);
@@ -205,22 +206,37 @@ export function comparePixels(
 }
 
 /**
- * Simple anti-aliasing detection: pixel is likely AA if its neighbors
- * in the baseline differ significantly (edge pixel).
+ * Anti-aliasing detection: a pixel is considered AA only if:
+ * 1. The color difference is SMALL (<=50) - AA never causes large color changes
+ * 2. It's on an edge in BOTH images (same structural edge exists)
+ * 3. The corresponding pixels in both images have similar edge patterns
+ *
+ * This prevents skipping legitimately changed pixels (moved/recolored edges).
+ * Large color differences (like blue→red) are NEVER anti-aliasing.
  */
 function isAntiAliased(
   img1: PixelData,
   x1: number,
   y1: number,
-  _img2: PixelData,
-  _x2: number,
-  _y2: number,
+  img2: PixelData,
+  x2: number,
+  y2: number,
+  colorDiff: number,
 ): boolean {
-  // Check if pixel is on an edge in the baseline
+  // CRITICAL: Large color differences are NEVER anti-aliasing
+  // AA causes minor rendering variations (typically 20-50 range)
+  // Color changes like blue→red (diff 180+) are real changes
+  const AA_MAX_COLOR_DIFF = 50;
+  if (colorDiff > AA_MAX_COLOR_DIFF) {
+    return false;
+  }
+
   const neighbors = [
     [-1, 0], [1, 0], [0, -1], [0, 1],
   ];
-  let edgeCount = 0;
+
+  // Count edges in baseline
+  let edgeCount1 = 0;
   for (const [dx, dy] of neighbors) {
     const nx = x1 + dx;
     const ny = y1 + dy;
@@ -231,9 +247,42 @@ function isAntiAliased(
       Math.abs((img1.data[idx1] ?? 0) - (img1.data[idx2] ?? 0)) +
       Math.abs((img1.data[idx1 + 1] ?? 0) - (img1.data[idx2 + 1] ?? 0)) +
       Math.abs((img1.data[idx1 + 2] ?? 0) - (img1.data[idx2 + 2] ?? 0));
-    if (diff > 50) edgeCount++;
+    if (diff > 50) edgeCount1++;
   }
-  return edgeCount >= 2;
+
+  // Count edges in current image at same position
+  let edgeCount2 = 0;
+  for (const [dx, dy] of neighbors) {
+    const nx = x2 + dx;
+    const ny = y2 + dy;
+    if (nx < 0 || ny < 0 || nx >= img2.width || ny >= img2.height) continue;
+    const idx1 = (y2 * img2.width + x2) * 4;
+    const idx2 = (ny * img2.width + nx) * 4;
+    const diff =
+      Math.abs((img2.data[idx1] ?? 0) - (img2.data[idx2] ?? 0)) +
+      Math.abs((img2.data[idx1 + 1] ?? 0) - (img2.data[idx2 + 1] ?? 0)) +
+      Math.abs((img2.data[idx1 + 2] ?? 0) - (img2.data[idx2 + 2] ?? 0));
+    if (diff > 50) edgeCount2++;
+  }
+
+  // Only consider as AA if BOTH images have edges at this position
+  // AND both have similar edge counts (same structural edge exists in both)
+  // This prevents skipping moved edges or changed edge colors
+  const isEdgeInBaseline = edgeCount1 >= 2;
+  const isEdgeInCurrent = edgeCount2 >= 2;
+
+  // If edge exists in only one image, it's a real change, not AA
+  if (isEdgeInBaseline !== isEdgeInCurrent) {
+    return false;
+  }
+
+  // If both are edges, check if edge patterns are similar (within 1)
+  // Very different edge counts suggest structural change, not AA
+  if (isEdgeInBaseline && isEdgeInCurrent) {
+    return Math.abs(edgeCount1 - edgeCount2) <= 1;
+  }
+
+  return false;
 }
 
 // =============================================================================
