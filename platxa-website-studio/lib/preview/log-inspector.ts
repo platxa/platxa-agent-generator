@@ -25,6 +25,7 @@ export type LogSource =
   | "preview"
   | "bridge"
   | "hmr"
+  | "sidecar"
   | "unknown";
 
 /** Unified log entry structure */
@@ -436,6 +437,7 @@ export class LogInspector {
       preview: 0,
       bridge: 0,
       hmr: 0,
+      sidecar: 0,
       unknown: 0,
     };
 
