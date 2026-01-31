@@ -238,3 +238,332 @@ export function computeWindowMetrics(
   const filtered = getRecordsByRange(state, startMs, endMs);
   return computeMetrics({ ...state, records: filtered });
 }
+
+// =============================================================================
+// Dashboard Rendering (Feature #189)
+// =============================================================================
+
+export interface DashboardView {
+  /** Title for the dashboard section */
+  title: string;
+  /** Time range description */
+  timeRange: string;
+  /** Formatted latency section */
+  latency: {
+    avg: string;
+    p50: string;
+    p95: string;
+    bar: string;
+  };
+  /** Formatted quality section */
+  quality: {
+    avg: string;
+    distribution: string;
+    bar: string;
+  };
+  /** Formatted cost section */
+  cost: {
+    total: string;
+    perGeneration: string;
+    byModel: string[];
+  };
+  /** Summary stats */
+  summary: {
+    totalGenerations: string;
+    successRate: string;
+    errorRate: string;
+    totalTokens: string;
+  };
+}
+
+/**
+ * Formats duration in human-readable format.
+ */
+export function formatDuration(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(2)}s`;
+  return `${(ms / 60000).toFixed(2)}m`;
+}
+
+/**
+ * Formats cost in USD.
+ */
+export function formatCost(usd: number): string {
+  if (usd < 0.01) return `$${(usd * 100).toFixed(3)}¢`;
+  if (usd < 1) return `$${usd.toFixed(4)}`;
+  return `$${usd.toFixed(2)}`;
+}
+
+/**
+ * Creates an ASCII bar for visualization.
+ */
+export function createBar(value: number, max: number, width: number = 20): string {
+  const filled = Math.round((value / max) * width);
+  const empty = width - filled;
+  return '█'.repeat(Math.max(0, filled)) + '░'.repeat(Math.max(0, empty));
+}
+
+/**
+ * Creates quality distribution bar.
+ */
+export function createQualityBar(dist: DashboardMetrics['qualityDistribution']): string {
+  const total = dist.excellent + dist.good + dist.fair + dist.poor;
+  if (total === 0) return '░'.repeat(20);
+
+  const width = 20;
+  const e = Math.round((dist.excellent / total) * width);
+  const g = Math.round((dist.good / total) * width);
+  const f = Math.round((dist.fair / total) * width);
+  const p = width - e - g - f;
+
+  return '🟢'.repeat(Math.max(0, e)) +
+         '🟡'.repeat(Math.max(0, g)) +
+         '🟠'.repeat(Math.max(0, f)) +
+         '🔴'.repeat(Math.max(0, p));
+}
+
+/**
+ * Formats latency bar relative to a target.
+ */
+export function createLatencyBar(avgMs: number, targetMs: number = 5000): string {
+  const ratio = Math.min(avgMs / targetMs, 1);
+  return createBar(ratio * 100, 100);
+}
+
+/**
+ * Renders dashboard metrics as a DashboardView.
+ */
+export function renderDashboard(
+  metrics: DashboardMetrics,
+  title: string = 'Agent Metrics Dashboard',
+  timeRange: string = 'All Time',
+): DashboardView {
+  const { qualityDistribution } = metrics;
+  const total = qualityDistribution.excellent + qualityDistribution.good +
+                qualityDistribution.fair + qualityDistribution.poor;
+
+  const distStr = total > 0
+    ? `Excellent: ${qualityDistribution.excellent} | Good: ${qualityDistribution.good} | Fair: ${qualityDistribution.fair} | Poor: ${qualityDistribution.poor}`
+    : 'No data';
+
+  const costByModelLines = Object.entries(metrics.costByModel)
+    .sort(([, a], [, b]) => b - a)
+    .map(([model, cost]) => `  ${model}: ${formatCost(cost)}`);
+
+  return {
+    title,
+    timeRange,
+    latency: {
+      avg: formatDuration(metrics.avgLatencyMs),
+      p50: formatDuration(metrics.p50LatencyMs),
+      p95: formatDuration(metrics.p95LatencyMs),
+      bar: createLatencyBar(metrics.avgLatencyMs),
+    },
+    quality: {
+      avg: metrics.avgQualityScore.toFixed(1),
+      distribution: distStr,
+      bar: createQualityBar(qualityDistribution),
+    },
+    cost: {
+      total: formatCost(metrics.totalCost),
+      perGeneration: formatCost(metrics.avgCostPerGeneration),
+      byModel: costByModelLines,
+    },
+    summary: {
+      totalGenerations: metrics.totalGenerations.toLocaleString(),
+      successRate: `${((1 - metrics.errorRate) * 100).toFixed(1)}%`,
+      errorRate: `${(metrics.errorRate * 100).toFixed(1)}%`,
+      totalTokens: metrics.totalTokens.toLocaleString(),
+    },
+  };
+}
+
+/**
+ * Formats dashboard view as a string for display.
+ */
+export function formatDashboard(view: DashboardView): string {
+  const lines = [
+    '╔══════════════════════════════════════════════════════════════╗',
+    `║  ${view.title.padEnd(58)}║`,
+    `║  Time Range: ${view.timeRange.padEnd(47)}║`,
+    '╠══════════════════════════════════════════════════════════════╣',
+    '║  📊 LATENCY                                                  ║',
+    `║    Average: ${view.latency.avg.padEnd(10)} ${view.latency.bar.padEnd(25)}║`,
+    `║    p50:     ${view.latency.p50.padEnd(10)} p95: ${view.latency.p95.padEnd(20)}║`,
+    '╠══════════════════════════════════════════════════════════════╣',
+    '║  ⭐ QUALITY                                                  ║',
+    `║    Average Score: ${view.quality.avg.padEnd(40)}║`,
+    `║    ${view.quality.bar.padEnd(58)}║`,
+    `║    ${view.quality.distribution.slice(0, 56).padEnd(56)}  ║`,
+    '╠══════════════════════════════════════════════════════════════╣',
+    '║  💰 COST                                                     ║',
+    `║    Total: ${view.cost.total.padEnd(15)} Per Gen: ${view.cost.perGeneration.padEnd(18)}║`,
+    ...view.cost.byModel.slice(0, 3).map(line =>
+      `║  ${line.padEnd(58)}║`
+    ),
+    '╠══════════════════════════════════════════════════════════════╣',
+    '║  📈 SUMMARY                                                  ║',
+    `║    Generations: ${view.summary.totalGenerations.padEnd(10)} Success: ${view.summary.successRate.padEnd(18)}║`,
+    `║    Tokens: ${view.summary.totalTokens.padEnd(14)} Errors: ${view.summary.errorRate.padEnd(19)}║`,
+    '╚══════════════════════════════════════════════════════════════╝',
+  ];
+
+  return lines.join('\n');
+}
+
+/**
+ * Computes trend data for a metric over time buckets.
+ */
+export interface TrendPoint {
+  timestamp: number;
+  value: number;
+  label: string;
+}
+
+export function computeLatencyTrend(
+  state: DashboardState,
+  bucketCount: number = 10,
+): TrendPoint[] {
+  if (state.records.length === 0) return [];
+
+  const sorted = [...state.records].sort((a, b) => a.timestamp - b.timestamp);
+  const minTs = sorted[0].timestamp;
+  const maxTs = sorted[sorted.length - 1].timestamp;
+  const bucketSize = Math.max(1, (maxTs - minTs) / bucketCount);
+
+  const buckets: { sum: number; count: number; ts: number }[] = [];
+  for (let i = 0; i < bucketCount; i++) {
+    buckets.push({ sum: 0, count: 0, ts: minTs + i * bucketSize });
+  }
+
+  for (const r of sorted) {
+    const idx = Math.min(
+      Math.floor((r.timestamp - minTs) / bucketSize),
+      bucketCount - 1
+    );
+    buckets[idx].sum += r.durationMs;
+    buckets[idx].count++;
+  }
+
+  return buckets
+    .filter(b => b.count > 0)
+    .map(b => ({
+      timestamp: b.ts,
+      value: b.sum / b.count,
+      label: formatDuration(b.sum / b.count),
+    }));
+}
+
+/**
+ * Computes quality trend over time buckets.
+ */
+export function computeQualityTrend(
+  state: DashboardState,
+  bucketCount: number = 10,
+): TrendPoint[] {
+  if (state.records.length === 0) return [];
+
+  const sorted = [...state.records].sort((a, b) => a.timestamp - b.timestamp);
+  const minTs = sorted[0].timestamp;
+  const maxTs = sorted[sorted.length - 1].timestamp;
+  const bucketSize = Math.max(1, (maxTs - minTs) / bucketCount);
+
+  const buckets: { sum: number; count: number; ts: number }[] = [];
+  for (let i = 0; i < bucketCount; i++) {
+    buckets.push({ sum: 0, count: 0, ts: minTs + i * bucketSize });
+  }
+
+  for (const r of sorted) {
+    const idx = Math.min(
+      Math.floor((r.timestamp - minTs) / bucketSize),
+      bucketCount - 1
+    );
+    buckets[idx].sum += r.qualityScore;
+    buckets[idx].count++;
+  }
+
+  return buckets
+    .filter(b => b.count > 0)
+    .map(b => ({
+      timestamp: b.ts,
+      value: b.sum / b.count,
+      label: (b.sum / b.count).toFixed(1),
+    }));
+}
+
+/**
+ * Computes cost trend over time buckets.
+ */
+export function computeCostTrend(
+  state: DashboardState,
+  bucketCount: number = 10,
+): TrendPoint[] {
+  if (state.records.length === 0) return [];
+
+  const sorted = [...state.records].sort((a, b) => a.timestamp - b.timestamp);
+  const minTs = sorted[0].timestamp;
+  const maxTs = sorted[sorted.length - 1].timestamp;
+  const bucketSize = Math.max(1, (maxTs - minTs) / bucketCount);
+
+  const buckets: { sum: number; ts: number }[] = [];
+  for (let i = 0; i < bucketCount; i++) {
+    buckets.push({ sum: 0, ts: minTs + i * bucketSize });
+  }
+
+  for (const r of sorted) {
+    const idx = Math.min(
+      Math.floor((r.timestamp - minTs) / bucketSize),
+      bucketCount - 1
+    );
+    buckets[idx].sum += r.cost;
+  }
+
+  return buckets.map(b => ({
+    timestamp: b.ts,
+    value: b.sum,
+    label: formatCost(b.sum),
+  }));
+}
+
+/**
+ * Formats trend as ASCII sparkline.
+ */
+export function formatTrendSparkline(trend: TrendPoint[], width: number = 20): string {
+  if (trend.length === 0) return '─'.repeat(width);
+
+  const values = trend.map(t => t.value);
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const range = max - min || 1;
+
+  const chars = ['▁', '▂', '▃', '▄', '▅', '▆', '▇', '█'];
+
+  return values.map(v => {
+    const normalized = (v - min) / range;
+    const idx = Math.min(Math.floor(normalized * chars.length), chars.length - 1);
+    return chars[idx];
+  }).join('');
+}
+
+/**
+ * Creates a complete dashboard summary string.
+ */
+export function createDashboardSummary(state: DashboardState): string {
+  const metrics = computeMetrics(state);
+  const view = renderDashboard(metrics);
+  const dashboard = formatDashboard(view);
+
+  const latencyTrend = computeLatencyTrend(state);
+  const qualityTrend = computeQualityTrend(state);
+  const costTrend = computeCostTrend(state);
+
+  const trends = [
+    '',
+    '📉 TRENDS',
+    `  Latency:  ${formatTrendSparkline(latencyTrend)}`,
+    `  Quality:  ${formatTrendSparkline(qualityTrend)}`,
+    `  Cost:     ${formatTrendSparkline(costTrend)}`,
+  ].join('\n');
+
+  return dashboard + '\n' + trends;
+}

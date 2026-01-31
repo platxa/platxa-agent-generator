@@ -9,8 +9,20 @@ import {
   getErrors,
   getRecentRecords,
   computeWindowMetrics,
+  formatDuration,
+  formatCost,
+  createBar,
+  createQualityBar,
+  createLatencyBar,
+  renderDashboard,
+  formatDashboard,
+  computeLatencyTrend,
+  computeQualityTrend,
+  computeCostTrend,
+  formatTrendSparkline,
+  createDashboardSummary,
 } from "@/lib/agent-bridge/observability-dashboard";
-import type { GenerationRecord } from "@/lib/agent-bridge/observability-dashboard";
+import type { GenerationRecord, DashboardMetrics } from "@/lib/agent-bridge/observability-dashboard";
 
 const now = 1000000;
 
@@ -205,6 +217,228 @@ describe("Observability Dashboard", () => {
       const m = computeWindowMetrics(state, 4000, 10000);
       expect(m.totalGenerations).toBe(2);
       expect(m.avgQualityScore).toBe(85);
+    });
+  });
+
+  // ===========================================================================
+  // Dashboard Rendering (Feature #189)
+  // ===========================================================================
+
+  describe("formatDuration", () => {
+    it("formats milliseconds", () => {
+      expect(formatDuration(500)).toBe("500ms");
+    });
+
+    it("formats seconds", () => {
+      expect(formatDuration(2500)).toBe("2.50s");
+    });
+
+    it("formats minutes", () => {
+      expect(formatDuration(90000)).toBe("1.50m");
+    });
+  });
+
+  describe("formatCost", () => {
+    it("formats small costs as cents", () => {
+      expect(formatCost(0.005)).toContain("¢");
+    });
+
+    it("formats medium costs", () => {
+      expect(formatCost(0.05)).toBe("$0.0500");
+    });
+
+    it("formats large costs", () => {
+      expect(formatCost(1.50)).toBe("$1.50");
+    });
+  });
+
+  describe("createBar", () => {
+    it("creates full bar at max value", () => {
+      const bar = createBar(100, 100, 10);
+      expect(bar).toBe("██████████");
+    });
+
+    it("creates empty bar at zero", () => {
+      const bar = createBar(0, 100, 10);
+      expect(bar).toBe("░░░░░░░░░░");
+    });
+
+    it("creates half bar at 50%", () => {
+      const bar = createBar(50, 100, 10);
+      expect(bar).toBe("█████░░░░░");
+    });
+  });
+
+  describe("createQualityBar", () => {
+    it("creates bar from quality distribution", () => {
+      const dist = { excellent: 5, good: 3, fair: 1, poor: 1 };
+      const bar = createQualityBar(dist);
+      expect(bar).toContain("🟢"); // Excellent
+      expect(bar).toContain("🟡"); // Good
+    });
+
+    it("handles empty distribution", () => {
+      const dist = { excellent: 0, good: 0, fair: 0, poor: 0 };
+      const bar = createQualityBar(dist);
+      expect(bar).toBe("░░░░░░░░░░░░░░░░░░░░");
+    });
+  });
+
+  describe("createLatencyBar", () => {
+    it("creates bar relative to target", () => {
+      const bar = createLatencyBar(2500, 5000);
+      expect(bar.length).toBe(20);
+    });
+  });
+
+  describe("renderDashboard", () => {
+    it("renders dashboard view from metrics", () => {
+      let state = createDashboardState();
+      state = recordGeneration(state, makeRecord({ durationMs: 2000, qualityScore: 85, cost: 0.02 }));
+      state = recordGeneration(state, makeRecord({ durationMs: 3000, qualityScore: 75, cost: 0.03 }));
+      const metrics = computeMetrics(state);
+
+      const view = renderDashboard(metrics, "Test Dashboard", "Last Hour");
+
+      expect(view.title).toBe("Test Dashboard");
+      expect(view.timeRange).toBe("Last Hour");
+      expect(view.latency.avg).toBe("2.50s");
+      expect(view.quality.avg).toBe("80.0");
+      expect(view.summary.totalGenerations).toBe("2");
+    });
+
+    it("includes cost by model", () => {
+      let state = createDashboardState();
+      state = recordGeneration(state, makeRecord({ model: "opus", cost: 0.05 }));
+      state = recordGeneration(state, makeRecord({ model: "sonnet", cost: 0.01 }));
+      const metrics = computeMetrics(state);
+
+      const view = renderDashboard(metrics);
+
+      expect(view.cost.byModel.length).toBe(2);
+      expect(view.cost.byModel[0]).toContain("opus");
+    });
+  });
+
+  describe("formatDashboard", () => {
+    it("formats dashboard as string with borders", () => {
+      let state = createDashboardState();
+      state = recordGeneration(state, makeRecord());
+      const metrics = computeMetrics(state);
+      const view = renderDashboard(metrics);
+
+      const formatted = formatDashboard(view);
+
+      expect(formatted).toContain("╔");
+      expect(formatted).toContain("╚");
+      expect(formatted).toContain("LATENCY");
+      expect(formatted).toContain("QUALITY");
+      expect(formatted).toContain("COST");
+      expect(formatted).toContain("SUMMARY");
+    });
+  });
+
+  describe("computeLatencyTrend", () => {
+    it("computes latency trend over buckets", () => {
+      let state = createDashboardState();
+      for (let i = 0; i < 10; i++) {
+        state = recordGeneration(state, makeRecord({
+          timestamp: now + i * 1000,
+          durationMs: 100 + i * 10, // Use small durations to get "ms" format
+        }));
+      }
+
+      const trend = computeLatencyTrend(state, 5);
+
+      expect(trend.length).toBeGreaterThan(0);
+      expect(trend[0].value).toBeGreaterThan(0);
+      expect(trend[0].label).toContain("ms");
+    });
+
+    it("returns empty for no records", () => {
+      const state = createDashboardState();
+      const trend = computeLatencyTrend(state);
+      expect(trend).toHaveLength(0);
+    });
+  });
+
+  describe("computeQualityTrend", () => {
+    it("computes quality trend over buckets", () => {
+      let state = createDashboardState();
+      for (let i = 0; i < 10; i++) {
+        state = recordGeneration(state, makeRecord({
+          timestamp: now + i * 1000,
+          qualityScore: 70 + i * 2,
+        }));
+      }
+
+      const trend = computeQualityTrend(state, 5);
+
+      expect(trend.length).toBeGreaterThan(0);
+      expect(trend[0].value).toBeGreaterThanOrEqual(70);
+    });
+  });
+
+  describe("computeCostTrend", () => {
+    it("computes cumulative cost per bucket", () => {
+      let state = createDashboardState();
+      for (let i = 0; i < 10; i++) {
+        state = recordGeneration(state, makeRecord({
+          timestamp: now + i * 1000,
+          cost: 0.01,
+        }));
+      }
+
+      const trend = computeCostTrend(state, 5);
+
+      expect(trend.length).toBe(5);
+      const totalCost = trend.reduce((sum, t) => sum + t.value, 0);
+      expect(totalCost).toBeCloseTo(0.1, 2);
+    });
+  });
+
+  describe("formatTrendSparkline", () => {
+    it("creates sparkline from trend", () => {
+      const trend = [
+        { timestamp: 0, value: 10, label: "10" },
+        { timestamp: 1, value: 50, label: "50" },
+        { timestamp: 2, value: 30, label: "30" },
+        { timestamp: 3, value: 90, label: "90" },
+      ];
+
+      const sparkline = formatTrendSparkline(trend);
+
+      expect(sparkline.length).toBe(4);
+      expect(sparkline).toMatch(/[▁▂▃▄▅▆▇█]+/);
+    });
+
+    it("returns dashes for empty trend", () => {
+      const sparkline = formatTrendSparkline([], 10);
+      expect(sparkline).toBe("──────────");
+    });
+  });
+
+  describe("createDashboardSummary", () => {
+    it("creates complete dashboard summary", () => {
+      let state = createDashboardState();
+      for (let i = 0; i < 5; i++) {
+        state = recordGeneration(state, makeRecord({
+          timestamp: now + i * 1000,
+          durationMs: 2000 + i * 100,
+          qualityScore: 80 + i,
+          cost: 0.02,
+        }));
+      }
+
+      const summary = createDashboardSummary(state);
+
+      expect(summary).toContain("LATENCY");
+      expect(summary).toContain("QUALITY");
+      expect(summary).toContain("COST");
+      expect(summary).toContain("TRENDS");
+      expect(summary).toContain("Latency:");
+      expect(summary).toContain("Quality:");
+      expect(summary).toContain("Cost:");
     });
   });
 });
