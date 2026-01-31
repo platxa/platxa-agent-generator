@@ -256,3 +256,343 @@ export function getIndicatorSummary(state: IndicatorManagerState): Array<{
     message: s.message,
   }));
 }
+
+// =============================================================================
+// Line-Level Indicators (Monaco Editor Integration)
+// =============================================================================
+
+/** A single line's editing indicator */
+export interface LineIndicator {
+  /** File path this line belongs to */
+  filePath: string;
+  /** Line number (1-based) */
+  lineNumber: number;
+  /** Current visual state */
+  state: IndicatorState;
+  /** ISO timestamp when state last changed */
+  updatedAt: string;
+  /** Optional message for tooltip */
+  message?: string;
+}
+
+/** Line range for multi-line highlights */
+export interface LineRange {
+  startLine: number;
+  endLine: number;
+}
+
+/** Line-level indicator manager state */
+export interface LineIndicatorManagerState {
+  /** Map of filePath -> Map of lineNumber -> indicator */
+  lines: Map<string, Map<number, LineIndicator>>;
+}
+
+/** Monaco decoration options for line highlights */
+export interface MonacoLineDecoration {
+  range: {
+    startLineNumber: number;
+    startColumn: number;
+    endLineNumber: number;
+    endColumn: number;
+  };
+  options: {
+    isWholeLine: boolean;
+    className: string;
+    glyphMarginClassName?: string;
+    linesDecorationsClassName?: string;
+  };
+}
+
+/** CSS class names for line-level indicators */
+export const LINE_INDICATOR_CLASSES = {
+  editing: "ai-line-editing",
+  completed: "ai-line-completed",
+  error: "ai-line-error",
+  glyph: "ai-line-glyph",
+} as const;
+
+/** Line-level pulsing background animation */
+export const LINE_PULSE_KEYFRAMES: KeyframesDefinition = {
+  name: "ai-line-pulse",
+  css: `@keyframes ai-line-pulse {
+  0%, 100% { background-color: rgba(59, 130, 246, 0.15); }
+  50% { background-color: rgba(59, 130, 246, 0.3); }
+}`,
+};
+
+/** Line-level completion flash animation */
+export const LINE_COMPLETE_KEYFRAMES: KeyframesDefinition = {
+  name: "ai-line-complete",
+  css: `@keyframes ai-line-complete {
+  0% { background-color: rgba(34, 197, 94, 0.4); }
+  100% { background-color: rgba(34, 197, 94, 0); }
+}`,
+};
+
+/** Line-level error flash animation */
+export const LINE_ERROR_KEYFRAMES: KeyframesDefinition = {
+  name: "ai-line-error",
+  css: `@keyframes ai-line-error {
+  0%, 100% { background-color: rgba(239, 68, 68, 0.15); }
+  50% { background-color: rgba(239, 68, 68, 0.3); }
+}`,
+};
+
+/** Generates CSS for Monaco line-level indicators */
+export function generateLineIndicatorCSS(): string {
+  return `${LINE_PULSE_KEYFRAMES.css}
+${LINE_COMPLETE_KEYFRAMES.css}
+${LINE_ERROR_KEYFRAMES.css}
+
+.${LINE_INDICATOR_CLASSES.editing} {
+  animation: ${LINE_PULSE_KEYFRAMES.name} 1.5s ease-in-out infinite;
+}
+
+.${LINE_INDICATOR_CLASSES.completed} {
+  animation: ${LINE_COMPLETE_KEYFRAMES.name} 0.8s ease-out forwards;
+}
+
+.${LINE_INDICATOR_CLASSES.error} {
+  animation: ${LINE_ERROR_KEYFRAMES.name} 0.5s ease-in-out 3;
+}
+
+.${LINE_INDICATOR_CLASSES.glyph} {
+  background-color: rgba(59, 130, 246, 0.8);
+  width: 4px !important;
+  margin-left: 3px;
+  border-radius: 2px;
+}
+
+.${LINE_INDICATOR_CLASSES.glyph}.completed {
+  background-color: rgba(34, 197, 94, 0.8);
+}
+
+.${LINE_INDICATOR_CLASSES.glyph}.error {
+  background-color: rgba(239, 68, 68, 0.8);
+}`;
+}
+
+// =============================================================================
+// Line-Level State Management
+// =============================================================================
+
+/** Creates a new line indicator manager state. */
+export function createLineIndicatorManager(): LineIndicatorManagerState {
+  return { lines: new Map() };
+}
+
+/** Marks lines as being edited (pulsing highlight). */
+export function markLinesEditing(
+  state: LineIndicatorManagerState,
+  filePath: string,
+  lineNumbers: number[],
+  message?: string,
+): LineIndicatorManagerState {
+  const lines = new Map(state.lines);
+  const fileLines = new Map(lines.get(filePath) || new Map());
+
+  const now = new Date().toISOString();
+  for (const lineNumber of lineNumbers) {
+    fileLines.set(lineNumber, {
+      filePath,
+      lineNumber,
+      state: "editing",
+      updatedAt: now,
+      message,
+    });
+  }
+
+  lines.set(filePath, fileLines);
+  return { lines };
+}
+
+/** Marks a range of lines as being edited. */
+export function markLineRangeEditing(
+  state: LineIndicatorManagerState,
+  filePath: string,
+  range: LineRange,
+  message?: string,
+): LineIndicatorManagerState {
+  const lineNumbers: number[] = [];
+  for (let i = range.startLine; i <= range.endLine; i++) {
+    lineNumbers.push(i);
+  }
+  return markLinesEditing(state, filePath, lineNumbers, message);
+}
+
+/** Marks lines as completed (green flash). */
+export function markLinesCompleted(
+  state: LineIndicatorManagerState,
+  filePath: string,
+  lineNumbers: number[],
+  message?: string,
+): LineIndicatorManagerState {
+  const lines = new Map(state.lines);
+  const fileLines = new Map(lines.get(filePath) || new Map());
+
+  const now = new Date().toISOString();
+  for (const lineNumber of lineNumbers) {
+    fileLines.set(lineNumber, {
+      filePath,
+      lineNumber,
+      state: "completed",
+      updatedAt: now,
+      message,
+    });
+  }
+
+  lines.set(filePath, fileLines);
+  return { lines };
+}
+
+/** Marks lines as error (red flash). */
+export function markLinesError(
+  state: LineIndicatorManagerState,
+  filePath: string,
+  lineNumbers: number[],
+  message?: string,
+): LineIndicatorManagerState {
+  const lines = new Map(state.lines);
+  const fileLines = new Map(lines.get(filePath) || new Map());
+
+  const now = new Date().toISOString();
+  for (const lineNumber of lineNumbers) {
+    fileLines.set(lineNumber, {
+      filePath,
+      lineNumber,
+      state: "error",
+      updatedAt: now,
+      message,
+    });
+  }
+
+  lines.set(filePath, fileLines);
+  return { lines };
+}
+
+/** Clears line indicators for a file. */
+export function clearFileLineIndicators(
+  state: LineIndicatorManagerState,
+  filePath: string,
+): LineIndicatorManagerState {
+  const lines = new Map(state.lines);
+  lines.delete(filePath);
+  return { lines };
+}
+
+/** Clears specific line indicators. */
+export function clearLineIndicators(
+  state: LineIndicatorManagerState,
+  filePath: string,
+  lineNumbers: number[],
+): LineIndicatorManagerState {
+  const lines = new Map(state.lines);
+  const fileLines = new Map(lines.get(filePath) || new Map());
+
+  for (const lineNumber of lineNumbers) {
+    fileLines.delete(lineNumber);
+  }
+
+  if (fileLines.size === 0) {
+    lines.delete(filePath);
+  } else {
+    lines.set(filePath, fileLines);
+  }
+
+  return { lines };
+}
+
+/** Clears all line indicators. */
+export function clearAllLineIndicators(
+  state: LineIndicatorManagerState,
+): LineIndicatorManagerState {
+  return { lines: new Map() };
+}
+
+// =============================================================================
+// Monaco Decoration Generation
+// =============================================================================
+
+/** Generates Monaco decoration options for a file's line indicators. */
+export function getMonacoDecorations(
+  state: LineIndicatorManagerState,
+  filePath: string,
+): MonacoLineDecoration[] {
+  const fileLines = state.lines.get(filePath);
+  if (!fileLines) return [];
+
+  const decorations: MonacoLineDecoration[] = [];
+
+  for (const indicator of fileLines.values()) {
+    const className = getLineIndicatorClass(indicator.state);
+    const glyphClass = getGlyphClass(indicator.state);
+
+    decorations.push({
+      range: {
+        startLineNumber: indicator.lineNumber,
+        startColumn: 1,
+        endLineNumber: indicator.lineNumber,
+        endColumn: 1,
+      },
+      options: {
+        isWholeLine: true,
+        className,
+        glyphMarginClassName: glyphClass,
+        linesDecorationsClassName: glyphClass,
+      },
+    });
+  }
+
+  return decorations;
+}
+
+/** Gets the CSS class for a line's state. */
+function getLineIndicatorClass(state: IndicatorState): string {
+  switch (state) {
+    case "editing":
+      return LINE_INDICATOR_CLASSES.editing;
+    case "completed":
+      return LINE_INDICATOR_CLASSES.completed;
+    case "error":
+      return LINE_INDICATOR_CLASSES.error;
+    default:
+      return "";
+  }
+}
+
+/** Gets the glyph margin class for a line's state. */
+function getGlyphClass(state: IndicatorState): string {
+  switch (state) {
+    case "editing":
+      return LINE_INDICATOR_CLASSES.glyph;
+    case "completed":
+      return `${LINE_INDICATOR_CLASSES.glyph} completed`;
+    case "error":
+      return `${LINE_INDICATOR_CLASSES.glyph} error`;
+    default:
+      return "";
+  }
+}
+
+/** Gets all lines currently being edited for a file. */
+export function getEditingLines(
+  state: LineIndicatorManagerState,
+  filePath: string,
+): number[] {
+  const fileLines = state.lines.get(filePath);
+  if (!fileLines) return [];
+
+  return Array.from(fileLines.values())
+    .filter((l) => l.state === "editing")
+    .map((l) => l.lineNumber);
+}
+
+/** Gets a summary of line indicators for a file. */
+export function getLineIndicatorSummary(
+  state: LineIndicatorManagerState,
+  filePath: string,
+): LineIndicator[] {
+  const fileLines = state.lines.get(filePath);
+  if (!fileLines) return [];
+  return Array.from(fileLines.values());
+}
