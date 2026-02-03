@@ -12,6 +12,10 @@ import {
   Code,
   Globe,
   MousePointer2,
+  RotateCcw,
+  Maximize2,
+  Minimize2,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,12 +25,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useSyncStore, useProjectStore, useEditorStore, useChatStore } from "@/lib/stores";
-import { useStreamingPreviewSafe, QWebRuntime, detectSnippets, replaceImagesWithPlaceholders } from "@/lib/preview";
+import { useSyncStore, useProjectStore, useEditorStore, useEditorStoreHydration, useChatStore } from "@/lib/stores";
+import { useStreamingPreviewSafe, QWebRuntime, detectSnippets, replaceImagesWithPlaceholders } from "@/lib/preview/client";
 import { usePreviewHotReload } from "@/lib/hooks";
 import { cn } from "@/lib/utils/cn";
-import { DeviceFrame, DEVICE_SPECS } from "./DeviceFrame";
-import type { DeviceType } from "./DeviceFrame";
+import {
+  DeviceFrame,
+  DeviceSelector,
+  DEVICE_SPECS,
+  DEVICE_MODELS,
+  getDeviceById,
+  getDefaultDevice,
+  type DeviceType,
+  type DeviceOrientation,
+} from "./DeviceFrame";
 import { BreakpointIndicator } from "./BreakpointIndicator";
 import { PreviewErrorBoundary } from "./PreviewErrorBoundary";
 import { StreamingOverlay } from "./StreamingOverlay";
@@ -168,6 +180,17 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
     }
   }
 
+  // Strip external stylesheet links that reference local paths (we inline CSS instead)
+  // This prevents 404 errors for paths like /static/src/scss/theme.scss
+  htmlContent = htmlContent
+    // Remove <link> tags referencing local SCSS/CSS files
+    .replace(/<link[^>]*href=["'][^"']*\/static\/[^"']*\.s?css["'][^>]*\/?>/gi, "")
+    .replace(/<link[^>]*href=["'](?!https?:\/\/)[^"']*\.s?css["'][^>]*\/?>/gi, "")
+    // Remove t-call-assets directives (we handle CSS inline)
+    .replace(/<t\s+t-call-assets=["'][^"']*["'][^>]*\/?>/gi, "<!-- assets loaded inline -->")
+    // Remove @import statements for local files
+    .replace(/@import\s+["'](?!https?:\/\/)[^"']+["']\s*;/gi, "");
+
   // If no HTML found, create a placeholder
   if (!htmlContent.trim()) {
     htmlContent = `
@@ -198,6 +221,23 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
 
   // Odoo color classes simulation + preview enhancements
   const odooColorClasses = `
+    /* CSS Custom Properties for theming */
+    :root {
+      --primary: #0d6efd;
+      --primary-dark: #0a58ca;
+      --secondary: #6c757d;
+      --accent: #6f42c1;
+      --bg-light: #f8f9fa;
+      --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      --shadow-soft: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
+      --shadow-medium: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+      --shadow-large: 0 25px 50px -12px rgba(0,0,0,0.25);
+      --radius-sm: 0.375rem;
+      --radius-md: 0.5rem;
+      --radius-lg: 1rem;
+      --radius-xl: 1.5rem;
+    }
+
     /* Odoo color classes */
     .o_cc { background-color: var(--o-cc-bg, #fff); color: var(--o-cc-text, #212529); }
     .o_cc1 { --o-cc-bg: #f8f9fa; --o-cc-text: #212529; }
@@ -208,6 +248,165 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
     .o_colored_level { padding: 2rem; }
     .oe_structure { min-height: 100px; }
     #wrap { min-height: 100vh; }
+
+    /* Enhanced default styling for better visual appearance */
+    body {
+      line-height: 1.7;
+      color: #374151;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Modern section styling */
+    section {
+      padding: 4rem 0;
+    }
+
+    section:nth-child(even) {
+      background-color: var(--bg-light);
+    }
+
+    /* Enhanced headings */
+    h1, h2, h3, h4, h5, h6 {
+      font-weight: 700;
+      color: #1f2937;
+      line-height: 1.2;
+    }
+
+    h1 { font-size: 3rem; margin-bottom: 1.5rem; }
+    h2 { font-size: 2.25rem; margin-bottom: 1.25rem; }
+    h3 { font-size: 1.75rem; margin-bottom: 1rem; }
+
+    /* Better paragraph styling */
+    p {
+      color: #6b7280;
+      font-size: 1.1rem;
+    }
+
+    /* Enhanced card styling */
+    .card {
+      border: none !important;
+      border-radius: var(--radius-lg) !important;
+      box-shadow: var(--shadow-soft) !important;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-medium) !important;
+    }
+
+    /* Modern button styling */
+    .btn {
+      font-weight: 600;
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--radius-md);
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: var(--bg-gradient);
+      border: none;
+      box-shadow: 0 4px 14px 0 rgba(102, 126, 234, 0.39);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px 0 rgba(102, 126, 234, 0.5);
+    }
+
+    .btn-outline-primary {
+      border-width: 2px;
+    }
+
+    /* Hero section enhancements */
+    .hero-section, section:first-child {
+      background: var(--bg-gradient);
+      color: white;
+      padding: 6rem 0;
+      min-height: 60vh;
+      display: flex;
+      align-items: center;
+    }
+
+    .hero-section h1, section:first-child h1,
+    .hero-section h2, section:first-child h2 {
+      color: white;
+    }
+
+    .hero-section p, section:first-child p {
+      color: rgba(255,255,255,0.9);
+    }
+
+    /* Feature icons */
+    .feature-icon, .icon-box {
+      width: 64px;
+      height: 64px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+      border-radius: var(--radius-lg);
+      margin-bottom: 1rem;
+    }
+
+    .feature-icon i, .icon-box i {
+      font-size: 1.5rem;
+      color: #667eea;
+    }
+
+    /* Image placeholders */
+    img:not([src]), img[src=""], img[src^="/web/image"] {
+      background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+      min-height: 200px;
+      display: block;
+      border-radius: var(--radius-lg);
+    }
+
+    /* Link styling */
+    a:not(.btn) {
+      color: var(--primary);
+      text-decoration: none;
+      transition: color 0.2s ease;
+    }
+
+    a:not(.btn):hover {
+      color: var(--primary-dark);
+    }
+
+    /* Footer styling */
+    footer {
+      background: #1f2937 !important;
+      color: white;
+      padding: 4rem 0 2rem;
+    }
+
+    footer h5, footer h6 {
+      color: white;
+      font-weight: 600;
+    }
+
+    footer p, footer a {
+      color: rgba(255,255,255,0.7);
+    }
+
+    footer a:hover {
+      color: white;
+    }
+
+    /* Testimonial styling */
+    .testimonial, blockquote {
+      font-style: italic;
+      border-left: 4px solid var(--primary);
+      padding-left: 1.5rem;
+      margin: 1.5rem 0;
+    }
+
+    /* Badge styling */
+    .badge {
+      font-weight: 500;
+      padding: 0.5em 1em;
+      border-radius: 9999px;
+    }
 
     /* Odoo spacing utilities */
     .pt16 { padding-top: 1rem; }
@@ -394,11 +593,18 @@ export function PreviewPanel() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [device, setDevice] = useState<DeviceType>("desktop");
+  const [deviceId, setDeviceId] = useState<string | undefined>(undefined);
+  const [orientation, setOrientation] = useState<DeviceOrientation>("portrait");
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("standalone");
   const [currentPath, setCurrentPath] = useState("/");
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [iframeWidth, setIframeWidth] = useState(0);
+  const [showDeviceSelector, setShowDeviceSelector] = useState(false);
+
+  // Ensure store is hydrated before accessing persisted state
+  const isHydrated = useEditorStoreHydration();
 
   const selectedSnippetId = useEditorStore((s) => s.selectedSnippetId);
   const setInputValue = useChatStore((s) => s.setInputValue);
@@ -430,6 +636,36 @@ export function PreviewPanel() {
   // Element inspector
   const { isEnabled: inspectorEnabled, toggle: toggleInspector, disable: disableInspector } = useElementInspector();
 
+  // Get current device model for orientation support check
+  const currentDeviceModel = deviceId ? getDeviceById(deviceId) : getDefaultDevice(device);
+  const supportsOrientation = currentDeviceModel?.supportsLandscape && device !== "desktop";
+
+  // Fullscreen toggle
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+
+    if (!isFullscreen) {
+      if (containerRef.current.requestFullscreen) {
+        containerRef.current.requestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+    setIsFullscreen(!isFullscreen);
+  }, [isFullscreen]);
+
+  // Handle device change from selector
+  const handleDeviceChange = (type: DeviceType, id?: string) => {
+    setDevice(type);
+    setDeviceId(id);
+    // Reset orientation when switching to desktop
+    if (type === "desktop") {
+      setOrientation("portrait");
+    }
+  };
+
   // Use odooUrl or default localhost
   const baseUrl = odooUrl || previewUrl || "http://localhost:8069";
 
@@ -438,7 +674,16 @@ export function PreviewPanel() {
 
   // Generate standalone preview HTML (with streaming support)
   const standaloneHtml = useMemo(() => {
+    // Wait for hydration before generating preview from persisted state
+    if (!isHydrated) {
+      console.log("[PreviewPanel] Waiting for hydration...");
+      return "";
+    }
     if (previewMode !== "standalone") return "";
+
+    console.log("[PreviewPanel] ===== Generating preview HTML =====");
+    console.log("[PreviewPanel] fileContents keys:", Object.keys(fileContents));
+    console.log("[PreviewPanel] Total files:", Object.keys(fileContents).length);
 
     // If streaming, use partial content for preview
     if (streamingPreview?.isStreaming && streamingPreview.partialHtml) {
@@ -451,8 +696,10 @@ export function PreviewPanel() {
       return generatePreviewHtml({ ...fileContents, ...streamingFiles });
     }
 
-    return generatePreviewHtml(fileContents);
-  }, [fileContents, previewMode, streamingPreview?.isStreaming, streamingPreview?.partialHtml, streamingPreview?.partialCss]);
+    const html = generatePreviewHtml(fileContents);
+    console.log("[PreviewPanel] Generated HTML length:", html.length);
+    return html;
+  }, [isHydrated, fileContents, previewMode, streamingPreview?.isStreaming, streamingPreview?.partialHtml, streamingPreview?.partialCss]);
 
   // Create blob URL for standalone preview
   const previewBlobUrl = useMemo(() => {
@@ -613,7 +860,7 @@ export function PreviewPanel() {
                       variant={device === d ? "secondary" : "ghost"}
                       size="icon"
                       className="h-8 w-8 rounded-none first:rounded-l-md last:rounded-r-md"
-                      onClick={() => setDevice(d)}
+                      onClick={() => handleDeviceChange(d)}
                     >
                       <Icon className="w-4 h-4" />
                     </Button>
@@ -623,6 +870,59 @@ export function PreviewPanel() {
               );
             })}
           </div>
+
+          {/* Device Model Selector */}
+          <div className="relative">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 text-xs gap-1"
+                  onClick={() => setShowDeviceSelector(!showDeviceSelector)}
+                >
+                  <span className="max-w-[100px] truncate">
+                    {currentDeviceModel?.name || "Device"}
+                  </span>
+                  <ChevronDown className="w-3 h-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Select specific device</TooltipContent>
+            </Tooltip>
+            {showDeviceSelector && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-popover border rounded-md shadow-lg p-2 min-w-[200px]">
+                <DeviceSelector
+                  deviceType={device}
+                  deviceId={deviceId}
+                  orientation={orientation}
+                  onDeviceChange={(type, id) => {
+                    handleDeviceChange(type, id);
+                    setShowDeviceSelector(false);
+                  }}
+                  onOrientationChange={setOrientation}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Orientation toggle */}
+          {supportsOrientation && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setOrientation(orientation === "portrait" ? "landscape" : "portrait")}
+                >
+                  <RotateCcw className={cn("w-4 h-4", orientation === "landscape" && "rotate-90")} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {orientation === "portrait" ? "Switch to Landscape" : "Switch to Portrait"}
+              </TooltipContent>
+            </Tooltip>
+          )}
 
           {/* URL input (only for Odoo mode) */}
           {previewMode === "odoo" && (
@@ -714,12 +1014,31 @@ export function PreviewPanel() {
             </TooltipTrigger>
             <TooltipContent>Open in new tab</TooltipContent>
           </Tooltip>
+
+          {/* Fullscreen toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={toggleFullscreen}
+              >
+                {isFullscreen ? (
+                  <Minimize2 className="w-4 h-4" />
+                ) : (
+                  <Maximize2 className="w-4 h-4" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>{isFullscreen ? "Exit Fullscreen" : "Fullscreen"}</TooltipContent>
+          </Tooltip>
         </div>
 
         {/* Preview Area */}
         <div ref={containerRef} className="flex-1 flex items-center justify-center p-4 overflow-auto">
           <PreviewErrorBoundary onRetry={refreshPreview}>
-            <DeviceFrame device={device}>
+            <DeviceFrame device={device} deviceId={deviceId} orientation={orientation}>
               {/* Streaming overlay */}
               {streamingPreview?.isStreaming && (
                 <StreamingOverlay

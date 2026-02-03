@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { StreamingPreviewProvider } from "@/lib/preview";
+import { SessionProvider } from "@/components/providers/SessionProvider";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { StreamingPreviewProvider } from "@/lib/preview/client";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -16,9 +18,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="font-sans antialiased">
-        <StreamingPreviewProvider>
-          {children}
-        </StreamingPreviewProvider>
+        <ThemeProvider>
+          <SessionProvider>
+            <StreamingPreviewProvider>
+              {children}
+            </StreamingPreviewProvider>
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

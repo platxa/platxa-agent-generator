@@ -1,0 +1,59 @@
+# =============================================================================
+# Platxa Website Studio - Docker Compose (Development)
+# =============================================================================
+# Development environment with hot-reload and debugging support
+
+version: "3.8"
+
+services:
+  # ---------------------------------------------------------------------------
+  # Development Application (with hot-reload)
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: platxa-studio-dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot-reload
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-dev-secret-change-in-production}
+      - NEXTAUTH_URL=http://localhost:3000
+      - YJS_WEBSOCKET_URL=ws://yjs:1234
+    depends_on:
+      - yjs
+    networks:
+      - platxa-dev-network
+
+  # ---------------------------------------------------------------------------
+  # Yjs WebSocket Server (Collaboration)
+  # ---------------------------------------------------------------------------
+  yjs:
+    image: node:20-alpine
+    container_name: platxa-yjs-dev
+    restart: unless-stopped
+    working_dir: /app
+    command: >
+      sh -c "npm install y-websocket && npx y-websocket"
+    ports:
+      - "1234:1234"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=1234
+    networks:
+      - platxa-dev-network
+
+# -----------------------------------------------------------------------------
+# Networks
+# -----------------------------------------------------------------------------
+networks:
+  platxa-dev-network:
+    driver: bridge
