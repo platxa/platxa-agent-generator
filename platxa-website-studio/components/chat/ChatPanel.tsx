@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect, useState, useCallback } from "react";
+import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { useChat } from "ai/react";
 import { AlertCircle, RefreshCw, CheckCircle2, AlertTriangle, Sparkles, Wand2 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -10,12 +10,13 @@ import { ChatInput } from "./ChatInput";
 import { StreamingIndicator } from "./StreamingIndicator";
 import { AgentPhaseIndicator } from "./AgentPhaseIndicator";
 import { DesignSuggestions } from "./DesignSuggestions";
-import { useChatStore, useProjectStore, useEditorStore } from "@/lib/stores";
-import { useStreamingPreviewSafe } from "@/lib/preview";
-import { parseGeneratedFiles, validateOdooTheme, formatFilesForDisplay } from "@/lib/ai/parser";
+import { useChatStore, useProjectStore, useEditorStore, useEditorStoreHydration } from "@/lib/stores";
+import { useStreamingPreviewSafe } from "@/lib/preview/client";
+import { parseGeneratedFiles, validateOdooTheme, formatFilesForDisplay, generateManifest, type ParsedFile } from "@/lib/ai/parser";
 import { cn } from "@/lib/utils/cn";
 
 interface ChatPanelProps {
+  projectId: string;
   initialPrompt?: string;
 }
 
@@ -32,12 +33,15 @@ const QUICK_PROMPTS = [
   { icon: "🛒", text: "E-commerce product page" },
 ];
 
-export function ChatPanel({ initialPrompt }: ChatPanelProps) {
+export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { projectName, projectConfig, addFile } = useProjectStore();
   const { suggestions, setSuggestions } = useChatStore();
   const { openGeneratedFiles, fileContents } = useEditorStore();
   const streamingPreview = useStreamingPreviewSafe();
+
+  // Ensure editor store is hydrated for SSR compatibility
+  useEditorStoreHydration();
   const [streamStartTime, setStreamStartTime] = useState<number | undefined>();
   const [apiError, setApiError] = useState<ApiError | null>(null);
   const [hasInitialized, setHasInitialized] = useState(false);
@@ -46,6 +50,10 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps) {
     isValid: boolean;
     warnings: string[];
   } | null>(null);
+
+  // Track previous loading state for detecting completion (use ref for reliability)
+  const prevIsLoadingRef = useRef(false);
+  const hasProcessedRef = useRef<string | null>(null); // Track processed message IDs
 
   // Get existing file paths for context
   const existingFilePaths = Object.keys(fileContents);
@@ -61,6 +69,7 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps) {
     append,
     reload,
   } = useChat({
+    id: `chat-${projectId}`, // Scope messages to this project - fixes localStorage cross-contamination
     api: "/api/chat",
     body: {
       projectContext: {
@@ -75,51 +84,11 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps) {
       // Start streaming preview when response begins
       streamingPreview?.startStreaming();
     },
-    onFinish: (message: { content: string }) => {
+    onFinish: () => {
       setStreamStartTime(undefined);
       // End streaming preview when generation completes
       streamingPreview?.endStreaming();
-      const files = parseGeneratedFiles(message.content);
-
-      if (files.length > 0) {
-        console.log("Generated files:", files);
-        console.log("Files detail:", formatFilesForDisplay(files));
-
-        // Validate Odoo theme structure
-        const validation = validateOdooTheme(files);
-        setGenerationStatus({
-          files: files.length,
-          isValid: validation.isValid,
-          warnings: validation.warnings,
-        });
-
-        // Auto-open generated files in editor
-        openGeneratedFiles(
-          files.map((f) => ({
-            path: f.path,
-            content: f.content,
-            language: f.language,
-          }))
-        );
-
-        // Also add files to project store for persistence
-        files.forEach((file) => {
-          addFile({
-            id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-            name: file.path.split("/").pop() || file.path,
-            path: file.path,
-            type: "file",
-            content: file.content,
-            isModified: true,
-          });
-        });
-
-        // Clear status after 10 seconds
-        setTimeout(() => setGenerationStatus(null), 10000);
-      } else {
-        // No files parsed - AI response didn't contain code
-        setGenerationStatus(null);
-      }
+      // Note: File parsing is handled by useEffect watching messages for reliability
     },
     onError: (error: Error) => {
       setStreamStartTime(undefined);
@@ -138,6 +107,173 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps) {
       }
     },
   });
+
+  // CRITICAL: Parse files when generation completes
+  // We watch for isLoading to transition from true to false
+  useEffect(() => {
+    const wasLoading = prevIsLoadingRef.current;
+    prevIsLoadingRef.current = isLoading;
+
+    // Detect when loading finishes (was loading, now not)
+    if (wasLoading && !isLoading && messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+
+      // Prevent duplicate processing
+      const messageId = lastMessage.id || `${messages.length}-${lastMessage.content?.length || 0}`;
+      if (hasProcessedRef.current === messageId) {
+        console.log("[ChatPanel] Already processed this message, skipping");
+        return;
+      }
+
+      if (lastMessage.role === "assistant" && lastMessage.content) {
+        hasProcessedRef.current = messageId;
+        console.log("[ChatPanel] ===== Generation complete, parsing files =====");
+        console.log("[ChatPanel] Message ID:", messageId);
+        console.log("[ChatPanel] Message content length:", lastMessage.content.length);
+        console.log("[ChatPanel] First 500 chars:", lastMessage.content.substring(0, 500));
+
+        // Parse generated files from the AI response
+        let files = parseGeneratedFiles(lastMessage.content);
+        console.log("[ChatPanel] Parsed files count:", files.length);
+
+        if (files.length > 0) {
+          console.log("[ChatPanel] Generated files:", formatFilesForDisplay(files));
+
+          // Validate Odoo theme structure
+          const validation = validateOdooTheme(files);
+
+          // Auto-recovery: Generate missing manifest if we have XML files
+          if (!validation.isValid && validation.missing.some(m => m.includes("__manifest__"))) {
+            const hasXmlFiles = files.some(f => f.path.endsWith(".xml"));
+            if (hasXmlFiles) {
+              console.log("[ChatPanel] Auto-generating missing __manifest__.py");
+              const manifestContent = generateManifest(
+                projectName || "Theme Generated",
+                files
+              );
+              const manifestFile: ParsedFile = {
+                path: "theme_generated/__manifest__.py",
+                content: manifestContent,
+                language: "python",
+                action: "create",
+              };
+              files = [manifestFile, ...files];
+            }
+          }
+
+          // Re-validate after auto-recovery
+          const finalValidation = validateOdooTheme(files);
+
+          setGenerationStatus({
+            files: files.length,
+            isValid: finalValidation.isValid,
+            warnings: [
+              ...finalValidation.warnings,
+              ...(finalValidation.missing.length > 0
+                ? [`Missing: ${finalValidation.missing.join(", ")}`]
+                : []),
+            ],
+          });
+
+          // Auto-open generated files in editor
+          console.log("[ChatPanel] Opening files in editor...");
+          openGeneratedFiles(
+            files.map((f) => ({
+              path: f.path,
+              content: f.content,
+              language: f.language,
+            }))
+          );
+
+          // Also add files to project store for persistence
+          files.forEach((file) => {
+            addFile({
+              id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+              name: file.path.split("/").pop() || file.path,
+              path: file.path,
+              type: "file",
+              content: file.content,
+              isModified: true,
+            });
+          });
+
+          // Clear status after 15 seconds
+          setTimeout(() => setGenerationStatus(null), 15000);
+        } else {
+          // No files parsed - check if AI response contains any code-like content
+          const hasCodeContent = lastMessage.content.includes("<") ||
+                                lastMessage.content.includes("{") ||
+                                lastMessage.content.includes("def ") ||
+                                lastMessage.content.includes("class ");
+
+          if (hasCodeContent) {
+            // AI generated something but parser couldn't extract files
+            console.warn("[ChatPanel] AI response contained code but no files were parsed");
+            console.log("[ChatPanel] Attempting fallback extraction...");
+
+            // FALLBACK: Try to extract any HTML/XML content and wrap it as a template
+            const htmlMatch = lastMessage.content.match(/<(?:section|div|header|footer|nav|main|article)[^>]*>[\s\S]*?<\/(?:section|div|header|footer|nav|main|article)>/i);
+            if (htmlMatch) {
+              console.log("[ChatPanel] Fallback: Found raw HTML section, wrapping as Odoo template");
+              const fallbackContent = `<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <template id="ai_generated_section" name="AI Generated Section">
+    ${htmlMatch[0]}
+  </template>
+</odoo>`;
+              const fallbackFile: ParsedFile = {
+                path: "theme_generated/views/ai_generated.xml",
+                content: fallbackContent,
+                language: "xml",
+                action: "create",
+              };
+
+              // Open the fallback file
+              openGeneratedFiles([{
+                path: fallbackFile.path,
+                content: fallbackFile.content,
+                language: fallbackFile.language,
+              }]);
+
+              addFile({
+                id: `file-${Date.now()}-fallback`,
+                name: "ai_generated.xml",
+                path: fallbackFile.path,
+                type: "file",
+                content: fallbackFile.content,
+                isModified: true,
+              });
+
+              setGenerationStatus({
+                files: 1,
+                isValid: false,
+                warnings: [
+                  "AI output was reformatted (model may need upgrading)",
+                  "Consider using llama3.2:3b for better code generation",
+                ],
+              });
+              setTimeout(() => setGenerationStatus(null), 15000);
+              return;
+            }
+
+            setGenerationStatus({
+              files: 0,
+              isValid: false,
+              warnings: [
+                "AI generated code but file format was not recognized",
+                "Try: 'Create a simple hero section with Welcome text'",
+                "Or upgrade model: ollama pull llama3.2:3b",
+              ],
+            });
+            setTimeout(() => setGenerationStatus(null), 10000);
+          } else {
+            // AI response was purely conversational
+            setGenerationStatus(null);
+          }
+        }
+      }
+    }
+  }, [isLoading, messages, projectName, openGeneratedFiles, addFile]);
 
   // Custom submit handler with tracking
   const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {
@@ -259,7 +395,7 @@ export function ChatPanel({ initialPrompt }: ChatPanelProps) {
       </div>
 
       {/* Messages */}
-      <ScrollArea ref={scrollRef} className="flex-1 p-4">
+      <ScrollArea ref={scrollRef} data-testid="chat-messages" className="flex-1 p-4">
         {messages.length === 0 && !isLoading ? (
           <div className="flex flex-col items-center justify-center h-full text-center fade-in">
             <div className="max-w-md space-y-6">

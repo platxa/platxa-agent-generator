@@ -1094,6 +1094,7 @@ export function PreviewPanel() {
                 <iframe
                   key={`${hotReloadKey}-${standaloneHtml.length}`}
                   ref={iframeRef}
+                  data-testid="preview-iframe"
                   srcDoc={standaloneHtml}
                   className={cn(
                     "w-full h-full border-0 bg-white",
@@ -1107,6 +1108,7 @@ export function PreviewPanel() {
             ) : (
               <iframe
                 ref={iframeRef}
+                data-testid="preview-iframe"
                 src={`${baseUrl}${currentPath}`}
                 className="w-full h-full border-0"
                 onLoad={handleIframeLoad}

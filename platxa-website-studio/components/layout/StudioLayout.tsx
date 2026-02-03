@@ -26,7 +26,7 @@ export function StudioLayout({ projectId, initialPrompt }: StudioLayoutProps) {
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-screen bg-background">
+      <div data-testid="studio-layout" className="flex flex-col h-screen bg-background">
         {/* Main Content */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Sidebar */}
@@ -41,10 +41,10 @@ export function StudioLayout({ projectId, initialPrompt }: StudioLayoutProps) {
           <ResizablePanelGroup direction="horizontal" className="flex-1">
             {/* Left Panel - Chat/Explorer */}
             <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
-              <div className="h-full border-r">
+              <div data-testid="chat-panel" className="h-full border-r">
                 <ErrorBoundary>
                   {activePanel === "chat" ? (
-                    <ChatPanel initialPrompt={initialPrompt} />
+                    <ChatPanel projectId={projectId} initialPrompt={initialPrompt} />
                   ) : (
                     <ExplorerPanel />
                   )}
@@ -56,9 +56,11 @@ export function StudioLayout({ projectId, initialPrompt }: StudioLayoutProps) {
 
             {/* Center Panel - Editor */}
             <ResizablePanel defaultSize={showPreview ? 40 : 75} minSize={30}>
-              <ErrorBoundary>
-                <EditorPanel />
-              </ErrorBoundary>
+              <div data-testid="editor-panel">
+                <ErrorBoundary>
+                  <EditorPanel />
+                </ErrorBoundary>
+              </div>
             </ResizablePanel>
 
             {/* Right Panel - Preview */}
@@ -66,9 +68,11 @@ export function StudioLayout({ projectId, initialPrompt }: StudioLayoutProps) {
               <>
                 <ResizableHandle withHandle />
                 <ResizablePanel defaultSize={35} minSize={20} maxSize={50}>
-                  <ErrorBoundary>
-                    <PreviewPanel />
-                  </ErrorBoundary>
+                  <div data-testid="preview-panel">
+                    <ErrorBoundary>
+                      <PreviewPanel />
+                    </ErrorBoundary>
+                  </div>
                 </ResizablePanel>
               </>
             )}

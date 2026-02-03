@@ -165,7 +165,9 @@ export function ExplorerPanel() {
               </span>
             }
           >
-            <FileTree />
+            <div data-testid="file-tree">
+              <FileTree />
+            </div>
           </CollapsibleSection>
         </ScrollArea>
       </div>

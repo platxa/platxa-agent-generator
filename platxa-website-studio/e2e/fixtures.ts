@@ -40,7 +40,8 @@ export const test = base.extend<PlatxaFixtures>({
 
   openStudio: async ({ page, waitForAppReady }, use) => {
     await use(async () => {
-      await page.goto("/");
+      // Navigate to studio with a test project ID
+      await page.goto("/studio/e2e-test-project");
       await waitForAppReady();
     });
   },

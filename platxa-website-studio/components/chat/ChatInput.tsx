@@ -49,6 +49,7 @@ export function ChatInput({
       <div className="flex items-end gap-2 p-2 border rounded-xl bg-muted/30 focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
         <textarea
           ref={textareaRef}
+          data-testid="chat-input"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -66,6 +67,7 @@ export function ChatInput({
         <Button
           type="submit"
           size="icon"
+          data-testid="chat-send"
           disabled={!value.trim() || isLoading || disabled}
           className="flex-shrink-0 h-9 w-9"
         >
