@@ -1,0 +1,228 @@
+// Platxa Website Studio - Database Schema
+// PostgreSQL database for users, projects, and deployments
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// USER & AUTHENTICATION
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  password      String    // bcrypt hashed
+  avatar        String?
+  role          UserRole  @default(USER)
+  emailVerified DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  projects      Project[]
+  deployments   Deployment[]
+  sessions      Session[]
+  apiKeys       ApiKey[]
+
+  @@index([email])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  name      String
+  key       String   @unique
+  userId    String
+  lastUsed  DateTime?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([key])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  DEVELOPER
+}
+
+// ============================================
+// PROJECTS
+// ============================================
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  industry    String?       // restaurant, tech, legal, etc.
+  colorPalette Json?        // { primary, secondary, accent }
+  settings    Json?         // Additional project settings
+  status      ProjectStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Owner
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Relations
+  files       ProjectFile[]
+  deployments Deployment[]
+  snapshots   ProjectSnapshot[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model ProjectFile {
+  id        String   @id @default(cuid())
+  path      String   // e.g., "theme_generated/views/homepage.xml"
+  name      String   // e.g., "homepage.xml"
+  content   String   @db.Text
+  language  String   // xml, scss, python, etc.
+  isGenerated Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, path])
+  @@index([projectId])
+}
+
+model ProjectSnapshot {
+  id          String   @id @default(cuid())
+  name        String   // e.g., "Before deployment v1.2"
+  description String?
+  files       Json     // Snapshot of all file contents
+  createdAt   DateTime @default(now())
+
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Link to deployment if this was a pre-deployment snapshot
+  deploymentId String?  @unique
+  deployment   Deployment? @relation("PreDeploymentSnapshot", fields: [deploymentId], references: [id])
+
+  @@index([projectId])
+}
+
+enum ProjectStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+// ============================================
+// DEPLOYMENTS & ROLLBACK
+// ============================================
+
+model Deployment {
+  id              String           @id @default(cuid())
+  version         String           // e.g., "1.0.0", "1.0.1"
+  status          DeploymentStatus @default(PENDING)
+
+  // Odoo target
+  odooUrl         String           // e.g., "https://mycompany.odoo.com"
+  odooDatabase    String
+  moduleName      String           // e.g., "theme_generated"
+
+  // Deployment details
+  filesDeployed   Json             // List of files deployed
+  manifestContent String?          @db.Text
+
+  // Verification
+  verifiedAt      DateTime?
+  verificationLog String?          @db.Text
+
+  // Error handling
+  errorMessage    String?          @db.Text
+  errorCode       String?
+
+  // Timing
+  startedAt       DateTime         @default(now())
+  completedAt     DateTime?
+
+  // Relations
+  projectId       String
+  project         Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Pre-deployment snapshot for rollback
+  snapshot        ProjectSnapshot? @relation("PreDeploymentSnapshot")
+
+  // Rollback reference
+  rolledBackFrom  Deployment?      @relation("RollbackChain", fields: [rolledBackFromId], references: [id])
+  rolledBackFromId String?
+  rollbackTo      Deployment[]     @relation("RollbackChain")
+
+  @@index([projectId])
+  @@index([userId])
+  @@index([status])
+}
+
+enum DeploymentStatus {
+  PENDING
+  UPLOADING
+  INSTALLING
+  VERIFYING
+  SUCCESS
+  FAILED
+  ROLLED_BACK
+}
+
+// ============================================
+// RATE LIMITING & ANALYTICS
+// ============================================
+
+model RateLimitEntry {
+  id        String   @id @default(cuid())
+  key       String   // userId or IP address
+  endpoint  String   // e.g., "/api/chat"
+  count     Int      @default(1)
+  windowStart DateTime @default(now())
+
+  @@unique([key, endpoint])
+  @@index([key])
+  @@index([windowStart])
+}
+
+model UsageLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  endpoint    String
+  method      String
+  statusCode  Int
+  duration    Int      // milliseconds
+  tokensUsed  Int?     // For AI endpoints
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@index([endpoint])
+  @@index([createdAt])
+}

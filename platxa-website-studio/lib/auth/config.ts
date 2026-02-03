@@ -1,6 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { getUserByEmail, createUser } from "./users";
+import { db } from "@/lib/db";
 import { hashCredential, verifyCredential } from "./password";
 import { getAuthSecret } from "./env";
 
@@ -77,44 +77,55 @@ export const authConfig: NextAuthConfig = {
         const action = credentials.action as string;
         const name = credentials.name as string;
 
-        if (action === "signup") {
-          // Check if user exists
-          const existingUser = getUserByEmail(email);
-          if (existingUser) {
-            throw new Error("User already exists");
+        try {
+          if (action === "signup") {
+            // Check if user exists in database
+            const existingUser = await db.user.findUnique({
+              where: { email: email.toLowerCase().trim() },
+            });
+            if (existingUser) {
+              throw new Error("User already exists");
+            }
+
+            // Create new user with hashed credential in database
+            const secureHash = await hashCredential(inputCredential);
+            const newUser = await db.user.create({
+              data: {
+                email: email.toLowerCase().trim(),
+                name: name || email.split("@")[0],
+                password: secureHash,
+              },
+            });
+
+            return {
+              id: newUser.id,
+              email: newUser.email,
+              name: newUser.name,
+            };
           }
 
-          // Create new user with hashed credential
-          const secureHash = await hashCredential(inputCredential);
-          const newUser = createUser({
-            email,
-            name: name || email.split("@")[0],
-            hashedPassword: secureHash,
+          // Login flow - query database
+          const user = await db.user.findUnique({
+            where: { email: email.toLowerCase().trim() },
           });
+          if (!user) {
+            return null;
+          }
+
+          const isValid = await verifyCredential(inputCredential, user.password);
+          if (!isValid) {
+            return null;
+          }
 
           return {
-            id: newUser.id,
-            email: newUser.email,
-            name: newUser.name,
+            id: user.id,
+            email: user.email,
+            name: user.name,
           };
-        }
-
-        // Login flow
-        const user = getUserByEmail(email);
-        if (!user) {
+        } catch (error) {
+          console.error("Auth error:", error);
           return null;
         }
-
-        const isValid = await verifyCredential(inputCredential, user.hashedPassword);
-        if (!isValid) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-        };
       },
     }),
   ],
