@@ -8,7 +8,7 @@
  * Uses the existing /ws/doc/{path} endpoint in platxa-editor-sync.
  */
 
-import * as Y from "yjs";
+import { Y, type YDoc } from "@/lib/yjs-singleton";
 import type { WriteResult, FileWriteStatus } from "./types";
 
 // =============================================================================
@@ -28,7 +28,7 @@ export interface WsFileWriterOptions {
 
 interface WsWriteConnection {
   ws: WebSocket;
-  doc: Y.Doc;
+  doc: YDoc;
   ready: Promise<void>;
 }
 

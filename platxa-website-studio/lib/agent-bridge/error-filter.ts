@@ -254,26 +254,32 @@ export function resetFilter(): void {
 }
 
 export function clearFilterField(field: keyof ErrorFilter): void {
-  const updates: Partial<ErrorFilter> = {};
-
   switch (field) {
     case 'severities':
+      setFilter({ severities: [] });
+      break;
     case 'categories':
+      setFilter({ categories: [] });
+      break;
     case 'files':
+      setFilter({ files: [] });
+      break;
     case 'codes':
+      setFilter({ codes: [] });
+      break;
     case 'sources':
-      updates[field] = [];
+      setFilter({ sources: [] });
       break;
     case 'searchQuery':
-      updates.searchQuery = '';
+      setFilter({ searchQuery: '' });
       break;
     case 'fromTimestamp':
+      setFilter({ fromTimestamp: null });
+      break;
     case 'toTimestamp':
-      updates[field] = null;
+      setFilter({ toTimestamp: null });
       break;
   }
-
-  setFilter(updates);
 }
 
 // ============================================================================
@@ -419,13 +425,14 @@ function searchErrors(query: string): Set<string> {
       matchingIds = tokenMatches;
     } else {
       // Intersect with previous matches
-      matchingIds = new Set(
-        [...matchingIds].filter(id => tokenMatches.has(id))
+      const prevMatches: Set<string> = matchingIds;
+      matchingIds = new Set<string>(
+        Array.from(prevMatches).filter((id: string) => tokenMatches.has(id))
       );
     }
   }
 
-  return matchingIds ?? new Set();
+  return matchingIds ?? new Set<string>();
 }
 
 // ============================================================================

@@ -517,7 +517,7 @@ export function formatReportAsText(id: string): string | null {
     return null;
   }
 
-  const lines: string[] = [
+  const lines: (string | null)[] = [
     '=== Error Report ===',
     `ID: ${report.id}`,
     `Status: ${report.status}`,
@@ -550,7 +550,7 @@ export function formatReportAsText(id: string): string | null {
     report.timestamps.resolved ? `Resolved: ${formatTime(report.timestamps.resolved)}` : null,
   ];
 
-  return lines.filter(l => l !== null).join('\n');
+  return lines.filter((l): l is string => l !== null).join('\n');
 }
 
 // ============================================================================

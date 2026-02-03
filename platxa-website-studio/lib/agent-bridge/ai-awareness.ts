@@ -9,8 +9,7 @@
  * Uses the standard Yjs awareness protocol from y-protocols.
  */
 
-import * as Y from "yjs";
-import { Awareness } from "y-protocols/awareness";
+import { Y, Awareness, type AwarenessType } from "@/lib/yjs-singleton";
 
 // =============================================================================
 // Types
@@ -160,12 +159,12 @@ export function isHumanAwarenessState(
  * ```
  */
 export class AiAwarenessManager {
-  private awareness: Awareness;
+  private awareness: AwarenessType;
   private config: Required<AiAwarenessConfig>;
   private idleTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly sessionId: string;
 
-  constructor(awareness: Awareness, config?: AiAwarenessConfig) {
+  constructor(awareness: AwarenessType, config?: AiAwarenessConfig) {
     this.awareness = awareness;
     this.sessionId = config?.sessionId ?? generateAgentSessionId();
     this.config = {
@@ -288,7 +287,7 @@ export class AiAwarenessManager {
   /**
    * Returns the underlying Yjs Awareness instance.
    */
-  getAwareness(): Awareness {
+  getAwareness(): AwarenessType {
     return this.awareness;
   }
 
