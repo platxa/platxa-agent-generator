@@ -54,9 +54,8 @@ E-commerce: purple (#7c3aed primary, #faf5ff bg, #ec4899 accent)
 const SECTION_TEMPLATES = `
 ## Section Templates
 
-### Hero Section
-<section class="min-vh-75 d-flex align-items-center bg-gradient-primary position-relative">
-  <div class="position-absolute top-0 start-0 w-100 h-100 bg-dark opacity-50"></div>
+### Hero Section (with background image)
+<section class="min-vh-75 d-flex align-items-center position-relative" style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&amp;q=80') center/cover no-repeat;">
   <div class="container position-relative z-1 text-center text-white py-5">
     <span class="badge bg-light text-primary mb-3">Welcome</span>
     <h1 class="display-3 fw-bold mb-4">Main Headline Here</h1>
@@ -67,6 +66,16 @@ const SECTION_TEMPLATES = `
     </div>
   </div>
 </section>
+
+### Image Placeholders by Industry
+Use these Unsplash URLs for realistic placeholder images:
+- Restaurant: https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80 (dining)
+- Restaurant food: https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80
+- Technology: https://images.unsplash.com/photo-1518770660439-4636190af475?w=1920&q=80
+- Legal: https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1920&q=80
+- Healthcare: https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1920&q=80
+- E-commerce: https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80
+- Generic: https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80 (office)
 
 ### Features Grid
 <section class="py-5 bg-light">
@@ -148,36 +157,93 @@ const SECTION_TEMPLATES = `
 
 /**
  * Compact prompt for local LLMs - includes design guidelines
+ * CRITICAL: Output format must be explicit for smaller models
  */
 export const ODOO_LOCAL_PROMPT = `You are an expert Odoo 18 website theme developer with strong UI/UX design skills.
 
-## Output Format
-For each file, use EXACTLY:
-\`\`\`file:theme_name/path/file.ext
-[content]
+## CRITICAL OUTPUT FORMAT
+You MUST output code in EXACTLY this format - wrap each file in a code fence with the file path:
+
+**__manifest__.py:**
+\`\`\`python
+{
+    'name': 'Theme Name',
+    'version': '18.0.1.0.0',
+    'category': 'Theme/Creative',
+    'depends': ['website'],
+    'data': ['views/templates.xml'],
+    'license': 'LGPL-3',
+}
 \`\`\`
 
-## Required Files
-1. __manifest__.py - Module manifest
-2. views/templates.xml - QWeb templates
-3. static/src/scss/theme.scss - Custom styles (optional)
+**views/templates.xml:**
+\`\`\`xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <template id="homepage" name="Homepage">
+    <!-- content here -->
+  </template>
+</odoo>
+\`\`\`
 
-## Odoo 18 Conventions
-- Templates: <template id="x" inherit_id="website.layout">
-- Xpath: <xpath expr="//div[@id='wrap']" position="replace">
-- Use t-call="website.layout" for pages
-- Bootstrap 5 is included
+**static/src/scss/theme.scss:**
+\`\`\`scss
+// Theme styles
+.hero-section {
+  min-height: 75vh;
+}
+\`\`\`
+
+## Required Files (generate ALL of these)
+1. __manifest__.py - Python dict with name, version, depends, data, license
+2. views/templates.xml - QWeb templates wrapped in <odoo> tags
+3. static/src/scss/theme.scss - Custom SCSS styles
+
+## Odoo 18 Template Format
+ALL templates must be inside <odoo> tags:
+\`\`\`xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <template id="unique_id" name="Display Name">
+    <section class="py-5">
+      <!-- Bootstrap 5 HTML here -->
+    </section>
+  </template>
+</odoo>
+\`\`\`
+
+## Bootstrap 5 Classes to Use
+- Containers: container, container-fluid
+- Grid: row, col-md-4, col-lg-6
+- Spacing: py-5, px-4, mb-4, gap-4
+- Cards: card, card-body, shadow-sm, rounded-3
+- Buttons: btn, btn-primary, btn-lg, rounded-pill
+- Text: fw-bold, text-center, text-muted
+- Flex: d-flex, align-items-center, justify-content-center
+- Background: bg-light, bg-dark, bg-primary
+
 ${DESIGN_SYSTEM}
 ${SECTION_TEMPLATES}
-## Quality Checklist
-- [ ] Modern, professional design
-- [ ] 60-30-10 color distribution
-- [ ] Proper spacing (py-5 for sections)
-- [ ] Shadow and rounded corners on cards
-- [ ] Clear visual hierarchy
-- [ ] Mobile-responsive (Bootstrap grid)
 
-Generate beautiful, production-ready Odoo themes.`;
+## Quality Checklist
+- Modern, professional design with shadows and rounded corners
+- 60-30-10 color distribution (60% neutral, 30% secondary, 10% accent)
+- Proper spacing (py-5 for sections, p-4 for cards)
+- Clear visual hierarchy with proper heading sizes
+- Mobile-responsive using Bootstrap grid
+
+## STYLING REQUIREMENTS (MANDATORY)
+Always use these Bootstrap classes for professional appearance:
+- Hero sections: min-vh-75 d-flex align-items-center bg-primary text-white
+- Cards: card border-0 shadow-sm rounded-3 h-100
+- Buttons: btn btn-primary btn-lg rounded-pill px-4
+- Sections: py-5 (minimum padding)
+- Text: fw-bold for headings, text-muted for descriptions
+- Icons: Use Font Awesome (fa-solid fa-icon-name)
+- Containers: Always use container class
+
+IMPORTANT: Always wrap your XML in <odoo> tags and include the XML declaration.
+Generate beautiful, production-ready Odoo themes with FULL Bootstrap styling NOW.`;
 
 /**
  * Full prompt for cloud APIs (Claude, GPT-4)
@@ -185,27 +251,62 @@ Generate beautiful, production-ready Odoo themes.`;
 export const ODOO_FULL_PROMPT = `You are an expert Odoo 18 website theme developer with exceptional UI/UX design skills.
 Your goal is to create beautiful, modern, production-ready Odoo themes that rival the best website builders.
 
-## Output Format
-For each file, output EXACTLY:
-\`\`\`file:path/to/file.ext
-[complete file content]
+## CRITICAL OUTPUT FORMAT
+For each file, output with a header followed by a code fence:
+
+**theme_generated/__manifest__.py:**
+\`\`\`python
+{
+    'name': 'Theme Name',
+    'version': '18.0.1.0.0',
+    'category': 'Theme/Creative',
+    'summary': 'Modern website theme',
+    'depends': ['website'],
+    'data': ['views/templates.xml'],
+    'assets': {
+        'web.assets_frontend': [
+            'theme_generated/static/src/scss/theme.scss',
+        ],
+    },
+    'license': 'LGPL-3',
+}
+\`\`\`
+
+**theme_generated/views/templates.xml:**
+\`\`\`xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <template id="homepage" name="Homepage">
+    <t t-call="website.layout">
+      <div id="wrap">
+        <!-- sections here -->
+      </div>
+    </t>
+  </template>
+</odoo>
+\`\`\`
+
+**theme_generated/static/src/scss/theme.scss:**
+\`\`\`scss
+// Theme custom styles
 \`\`\`
 
 ## Required Files Structure
 \`\`\`
-theme_name/
-├── __manifest__.py          # Module manifest
+theme_generated/
+├── __manifest__.py          # Module manifest (REQUIRED)
 ├── views/
-│   └── templates.xml        # QWeb templates
+│   └── templates.xml        # QWeb templates (REQUIRED)
 └── static/
     └── src/
         └── scss/
-            └── theme.scss   # Custom styles
+            └── theme.scss   # Custom styles (REQUIRED)
 \`\`\`
 
 ## Odoo 18 Technical Requirements
+- ALL templates must be wrapped in <odoo> tags with XML declaration
 - QWeb directives: t-if, t-foreach, t-esc, t-call, t-set
-- Inherit website.layout for all pages
+- Inherit website.layout for all pages using t-call
 - Use xpath for template modifications
 - Color classes: o_cc1-o_cc5 for Odoo color customization
 - Bootstrap 5.3 is included by default
@@ -223,27 +324,8 @@ ${SECTION_TEMPLATES}
 6. **Responsiveness**: Mobile-first, test all breakpoints
 7. **Accessibility**: Proper contrast, semantic HTML
 
-## Example __manifest__.py
-\`\`\`python
-{
-    'name': 'Theme Name',
-    'version': '18.0.1.0.0',
-    'category': 'Theme/Creative',
-    'summary': 'Modern website theme',
-    'depends': ['website'],
-    'data': [
-        'views/templates.xml',
-    ],
-    'assets': {
-        'web.assets_frontend': [
-            'theme_name/static/src/scss/theme.scss',
-        ],
-    },
-    'license': 'LGPL-3',
-}
-\`\`\`
-
-Generate complete, beautiful, working Odoo 18 themes.`;
+IMPORTANT: Generate ALL required files with complete content. Do not use placeholders.
+Generate complete, beautiful, working Odoo 18 themes NOW.`;
 
 // =============================================================================
 // ODOO SKILLS INTEGRATION
@@ -422,12 +504,13 @@ export function buildEnhancedSystemPrompt(
 const INDUSTRY_GUIDANCE: Record<string, string> = {
   restaurant: `
 Restaurant Theme Guidelines:
-- Warm color palette (burgundy, cream, wood tones)
-- Food photography placeholders
-- Menu section with cards
-- Reservation CTA prominent
+- MUST use warm color palette: primary #c9302c (burgundy red), secondary #8b4513 (brown), accent #d4a373 (tan), background #fefae0 (cream)
+- Hero with food/dining background image (use: https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80)
+- Food photography in menu section (use: https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80)
+- Menu section with appetizing card design
+- Reservation CTA prominent with warm accent color
 - Hours and location in footer
-- Testimonials from customers`,
+- Testimonials from happy diners`,
 
   technology: `
 Tech/SaaS Theme Guidelines:

@@ -1,9 +1,23 @@
 import { buildSystemPrompt } from "@/lib/ai/system-prompts";
 import { AgentPipeline } from "@/lib/agent-bridge/pipeline";
+import { Agent } from "undici";
+import {
+  createRateLimitState,
+  checkRateLimit,
+  recordApiCall,
+  type RateLimitState,
+} from "@/lib/agent-bridge/rate-limiter";
 
 // Sidecar configuration (optional - for writing files through editor-sync)
 const SIDECAR_BASE_URL = process.env.SIDECAR_BASE_URL || "";
 const ENABLE_AGENT_BRIDGE = process.env.ENABLE_AGENT_BRIDGE !== "false";
+
+// Rate limiting state (global for now - in production use per-user/session)
+let rateLimitState: RateLimitState = createRateLimitState({
+  maxRequestsPerMinute: 20,
+  maxTokensPerMinute: 50000,
+  sessionTokenBudget: 500000,
+});
 
 // Increase timeout for local LLM (10 minutes max)
 export const maxDuration = 600;
@@ -12,6 +26,17 @@ export const maxDuration = 600;
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2:1b";
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
 const REQUEST_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes for generation (local LLMs are slow)
+
+// Custom HTTP agent with extended timeouts for local LLM
+// Default undici headersTimeout is 300s which may be exceeded when Ollama loads model
+const ollamaAgent = new Agent({
+  headersTimeout: REQUEST_TIMEOUT_MS,
+  bodyTimeout: REQUEST_TIMEOUT_MS,
+  keepAliveTimeout: 60000,
+  connect: {
+    timeout: 30000, // 30s connection timeout
+  },
+});
 
 interface OllamaMessage {
   role: "system" | "user" | "assistant";
@@ -108,6 +133,17 @@ export async function POST(req: Request) {
       return errorResponse("Messages array is required and cannot be empty", 400);
     }
 
+    // Check rate limit before proceeding
+    const estimatedTokens = 2000; // Estimate for typical request
+    const rateLimitCheck = checkRateLimit(rateLimitState, estimatedTokens);
+    if (!rateLimitCheck.allowed) {
+      return errorResponse(
+        rateLimitCheck.reason || "Rate limit exceeded",
+        429,
+        "RATE_LIMITED"
+      );
+    }
+
     // Check Ollama health before proceeding
     const health = await checkOllamaHealth();
     if (!health.ok) {
@@ -178,6 +214,7 @@ export async function POST(req: Request) {
 
     try {
       // Call Ollama API with streaming
+      // Use custom agent with extended timeouts for slow local LLM responses
       const ollamaResponse = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -193,6 +230,8 @@ export async function POST(req: Request) {
           },
         }),
         signal: controller.signal,
+        // @ts-expect-error - dispatcher is valid for Node.js fetch with undici
+        dispatcher: ollamaAgent,
       });
 
       clearTimeout(timeoutId);
@@ -227,9 +266,38 @@ export async function POST(req: Request) {
             return;
           }
 
+          // Track stream state to prevent enqueueing after close
+          let isStreamClosed = false;
+
+          const safeEnqueue = (chunk: Uint8Array): boolean => {
+            if (isStreamClosed) return false;
+            try {
+              streamController.enqueue(chunk);
+              return true;
+            } catch (err) {
+              // Controller might be closed due to client disconnect
+              if (err instanceof Error && err.message.includes("Controller is already closed")) {
+                isStreamClosed = true;
+                return false;
+              }
+              throw err;
+            }
+          };
+
+          const safeClose = () => {
+            if (isStreamClosed) return;
+            isStreamClosed = true;
+            try {
+              streamController.close();
+            } catch {
+              // Already closed, ignore
+            }
+          };
+
           try {
             let buffer = "";
             let fullResponseText = ""; // Accumulate for post-generation
+            let lastUsageStats = { promptTokens: 0, completionTokens: 0 };
 
             while (true) {
               const { done, value } = await reader.read();
@@ -248,19 +316,18 @@ export async function POST(req: Request) {
                     fullResponseText += data.message.content;
                     // AI SDK v3 data stream format
                     const aiChunk = `0:${JSON.stringify(data.message.content)}\n`;
-                    streamController.enqueue(encoder.encode(aiChunk));
+                    if (!safeEnqueue(encoder.encode(aiChunk))) {
+                      // Client disconnected, stop processing
+                      reader.releaseLock();
+                      return;
+                    }
                   }
                   if (data.done) {
-                    // Send finish message with usage stats
-                    const finishData = {
-                      finishReason: "stop",
-                      usage: {
-                        promptTokens: data.prompt_eval_count || 0,
-                        completionTokens: data.eval_count || 0,
-                      },
+                    // Capture usage stats for final message
+                    lastUsageStats = {
+                      promptTokens: data.prompt_eval_count || 0,
+                      completionTokens: data.eval_count || 0,
                     };
-                    const finishChunk = `d:${JSON.stringify(finishData)}\n`;
-                    streamController.enqueue(encoder.encode(finishChunk));
                   }
                 } catch {
                   // Skip invalid JSON lines
@@ -275,18 +342,24 @@ export async function POST(req: Request) {
                 if (data.message?.content) {
                   fullResponseText += data.message.content;
                   const aiChunk = `0:${JSON.stringify(data.message.content)}\n`;
-                  streamController.enqueue(encoder.encode(aiChunk));
+                  safeEnqueue(encoder.encode(aiChunk));
+                }
+                if (data.done) {
+                  lastUsageStats = {
+                    promptTokens: data.prompt_eval_count || 0,
+                    completionTokens: data.eval_count || 0,
+                  };
                 }
               } catch {
                 // Ignore
               }
             }
 
-            // --- Agent Bridge: Post-Generation (runs after LLM stream) ---
-            if (activePipeline && fullResponseText) {
+            // --- Agent Bridge: Post-Generation (runs after LLM stream completes) ---
+            if (activePipeline && fullResponseText && !isStreamClosed) {
               try {
                 const postResult = await activePipeline.runPostGeneration(fullResponseText);
-                if (postResult) {
+                if (postResult && !isStreamClosed) {
                   const qualityData = {
                     agentQuality: {
                       score: postResult.quality.overallScore,
@@ -296,19 +369,50 @@ export async function POST(req: Request) {
                     },
                   };
                   const qualityChunk = `2:${JSON.stringify([qualityData])}\n`;
-                  streamController.enqueue(encoder.encode(qualityChunk));
+                  safeEnqueue(encoder.encode(qualityChunk));
                 }
-
                 activePipeline.finalize();
               } catch (err) {
-                console.warn("Agent post-generation failed:", err);
+                // Log but don't fail - post-generation is optional enhancement
+                console.warn("Agent post-generation warning:", err instanceof Error ? err.message : err);
               }
+            }
+
+            // Record API call for rate limiting
+            if (lastUsageStats.promptTokens > 0 || lastUsageStats.completionTokens > 0) {
+              const { state: newState, newAlerts } = recordApiCall(
+                rateLimitState,
+                lastUsageStats.promptTokens,
+                lastUsageStats.completionTokens,
+                OLLAMA_MODEL
+              );
+              rateLimitState = newState;
+
+              // Log budget alerts if any
+              for (const alert of newAlerts) {
+                console.warn(`[RateLimit] Budget alert: ${alert.label} threshold reached (${alert.currentUsage}/${alert.budgetLimit} tokens)`);
+              }
+            }
+
+            // Send finish message with usage stats (must be last before close)
+            if (!isStreamClosed) {
+              const finishData = {
+                finishReason: "stop",
+                usage: lastUsageStats,
+              };
+              const finishChunk = `d:${JSON.stringify(finishData)}\n`;
+              safeEnqueue(encoder.encode(finishChunk));
             }
           } catch (error) {
             console.error("Stream processing error:", error);
+            // Send error to client if stream still open
+            if (!isStreamClosed) {
+              const errorChunk = `3:${JSON.stringify({ error: "Stream processing failed" })}\n`;
+              safeEnqueue(encoder.encode(errorChunk));
+            }
           } finally {
             reader.releaseLock();
-            streamController.close();
+            safeClose();
           }
         },
       });
@@ -358,10 +462,16 @@ export async function POST(req: Request) {
 }
 
 /**
- * GET /api/chat - Health check
+ * GET /api/chat - Health check with rate limit status
  */
 export async function GET() {
   const health = await checkOllamaHealth();
+  const totalTokens = rateLimitState.calls.reduce(
+    (sum, c) => sum + c.promptTokens + c.completionTokens, 0
+  );
+  const budgetUsed = rateLimitState.config.sessionTokenBudget > 0
+    ? (totalTokens / rateLimitState.config.sessionTokenBudget * 100).toFixed(1)
+    : "0";
 
   return new Response(
     JSON.stringify({
@@ -369,6 +479,15 @@ export async function GET() {
       model: OLLAMA_MODEL,
       ollamaUrl: OLLAMA_BASE_URL,
       error: health.error,
+      rateLimit: {
+        requestsThisMinute: rateLimitState.calls.filter(
+          c => c.timestamp > Date.now() - 60000
+        ).length,
+        maxRequestsPerMinute: rateLimitState.config.maxRequestsPerMinute,
+        tokensUsed: totalTokens,
+        tokenBudget: rateLimitState.config.sessionTokenBudget,
+        budgetUsedPercent: budgetUsed,
+      },
     }),
     {
       status: health.ok ? 200 : 503,
