@@ -1,7 +1,13 @@
 import NextAuth from "next-auth";
-import { authConfig } from "@/lib/auth/config";
+import { authConfigEdge } from "@/lib/auth/config.edge";
 
-export default NextAuth(authConfig).auth;
+/**
+ * Edge-compatible middleware for authentication
+ *
+ * Uses authConfigEdge which contains only the authorized callback
+ * and no Node.js-only dependencies (bcrypt, prisma).
+ */
+export default NextAuth(authConfigEdge).auth;
 
 export const config = {
   // Match all routes except static files and API health checks

@@ -816,7 +816,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           0.027531998057384044,
@@ -1081,7 +1081,8 @@
           0.3464660039753653,
           0.3531319962348789,
           0.6480090014520101,
-          0.6113790004746988
+          0.6113790004746988,
+          0.47240700223483145
         ]
       }
     },
@@ -1901,7 +1902,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           0.02447099905111827,
@@ -2166,7 +2167,8 @@
           0.46466899948427454,
           0.4262309957994148,
           0.3760919935302809,
-          0.4454849986359477
+          0.4454849986359477,
+          0.48421900282846764
         ]
       }
     },
@@ -2986,7 +2988,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           0.026426998374518007,
@@ -3251,7 +3253,8 @@
           0.39110299985622987,
           0.2995190006913617,
           0.32767499942565337,
-          0.344050997227896
+          0.344050997227896,
+          0.3058020010939799
         ]
       }
     },
@@ -4071,7 +4074,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           0.013261997082736343,
@@ -4336,7 +4339,8 @@
           0.47329699737019837,
           0.31401000160258263,
           0.3576870003598742,
-          0.386741005058866
+          0.386741005058866,
+          0.36015599471284077
         ]
       }
     },
@@ -5156,7 +5160,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           211.78640200014343,
@@ -5421,7 +5425,8 @@
           177.86345700005768,
           169.5774660038296,
           173.28658800397534,
-          179.27258199779317
+          179.27258199779317,
+          170.46011000638828
         ]
       }
     },
@@ -6241,7 +6246,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           0.008697999874129891,
@@ -6506,7 +6511,8 @@
           0.3868830026476644,
           0.32100299722515047,
           0.3498760052025318,
-          0.498697001603432
+          0.498697001603432,
+          0.4543370014289394
         ]
       }
     },
@@ -7326,7 +7332,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           0.040848000935511664,
@@ -7591,7 +7597,8 @@
           0.546062998182606,
           0.4464630037546158,
           0.398185002268292,
-          0.35198799741920084
+          0.35198799741920084,
+          0.4642870044335723
         ]
       }
     },
@@ -8411,7 +8418,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           0.01931699807755649,
@@ -8676,7 +8683,8 @@
           0.3788510002777912,
           0.394839997170493,
           0.37701299879699945,
-          0.39315500180236995
+          0.39315500180236995,
+          0.7116240012692288
         ]
       }
     },
@@ -9496,7 +9504,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           2.811457001371309,
@@ -9761,7 +9769,8 @@
           5.740046995924786,
           7.116062995919492,
           5.748682000557892,
-          6.23966700368328
+          6.23966700368328,
+          13.436272005492356
         ]
       }
     },
@@ -10581,7 +10590,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           7.452567999280291,
@@ -10846,7 +10855,8 @@
           5.517129000509158,
           10.599773006106261,
           5.859406999661587,
-          5.281463003484532
+          5.281463003484532,
+          0.5173230019863695
         ]
       }
     },
@@ -12102,7 +12112,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           0.02016899816226214,
@@ -12367,7 +12377,8 @@
           0.4353830008767545,
           0.37040399911347777,
           0.4161059987382032,
-          0.48560099821770564
+          0.48560099821770564,
+          0.3231270020478405
         ]
       }
     },
@@ -13187,7 +13198,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           0.1984449991141446,
@@ -13452,7 +13463,8 @@
           2.788817000691779,
           2.92845399962971,
           2.1871010030736215,
-          2.2660240065306425
+          2.2660240065306425,
+          3.1388709976454265
         ]
       }
     },
@@ -14272,7 +14284,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           0.03471599848126061,
@@ -14537,7 +14549,8 @@
           0.6557900051120669,
           0.27201700140722096,
           0.5686120057362132,
-          0.3761469997698441
+          0.3761469997698441,
+          0.34777400287566707
         ]
       }
     },
@@ -15357,7 +15370,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           16.755155997088877,
@@ -15622,7 +15635,8 @@
           0.41297500138171017,
           0.36627699591917917,
           0.5082089992356487,
-          0.49262800166616216
+          0.49262800166616216,
+          0.6158409960335121
         ]
       }
     },
@@ -16442,7 +16456,7 @@
         ]
       },
       "on_feature_complete": {
-        "success": 263,
+        "success": 264,
         "failure": 0,
         "latencies": [
           8.621450997452484,
@@ -16707,13 +16721,14 @@
           27.32677799940575,
           33.52288700261852,
           25.031083001522347,
-          31.887426994217094
+          31.887426994217094,
+          35.68324100342579
         ]
       }
     },
     "hardening": {
       "on_feature_complete": {
-        "success": 164,
+        "success": 165,
         "failure": 0,
         "latencies": [
           0.8357610004168237,
@@ -16879,7 +16894,8 @@
           0.6393770017893985,
           0.9924149999278598,
           0.6543960043927655,
-          0.6544990028487518
+          0.6544990028487518,
+          0.7461230052285828
         ]
       },
       "on_feature_start": {
@@ -17382,7 +17398,7 @@
     },
     "bm25_search": {
       "on_feature_complete": {
-        "success": 164,
+        "success": 165,
         "failure": 0,
         "latencies": [
           0.2774740005406784,
@@ -17548,7 +17564,8 @@
           0.47870200069155544,
           0.5610739972325973,
           0.4677689939853735,
-          0.6622279979637824
+          0.6622279979637824,
+          0.5881019969820045
         ]
       },
       "on_feature_start": {
@@ -18051,7 +18068,7 @@
     },
     "skill_workflow": {
       "on_feature_complete": {
-        "success": 164,
+        "success": 165,
         "failure": 0,
         "latencies": [
           0.5076440011180239,
@@ -18217,7 +18234,8 @@
           0.5648399965139106,
           0.3935860004276037,
           0.39489999471697956,
-          0.6541210022987798
+          0.6541210022987798,
+          0.4013760044472292
         ]
       },
       "on_feature_start": {
@@ -18720,7 +18738,7 @@
     },
     "realtime": {
       "on_feature_complete": {
-        "success": 164,
+        "success": 165,
         "failure": 0,
         "latencies": [
           0.29194200033089146,
@@ -18886,7 +18904,8 @@
           0.5437350046122447,
           0.36947199987480417,
           0.3624099990702234,
-          0.33325699769193307
+          0.33325699769193307,
+          0.3361650014994666
         ]
       },
       "on_feature_start": {
@@ -38512,79 +38531,98 @@
     "196": {
       "hardening": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "todo_sync": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "prompt_engineering": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "clarification": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "specification": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "context_engineering": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "bm25_search": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "planning": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "consistency": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "parallelization": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "skill_workflow": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "language_agents": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "lsp": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "duplicate_detection": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "realtime": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "quality_gates": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "debugging": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "memory": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       },
       "long_term_memory": {
         "on_feature_start": 1,
-        "get_feature_context": 2
+        "get_feature_context": 2,
+        "on_feature_complete": 1
       }
     }
   }

@@ -1,5 +1,5 @@
 {
-  "session_id": "77add0c31c34",
+  "session_id": "400ab3896160",
   "stack": {
     "session": {
       "id": "77add0c31c34-533",
@@ -21,11 +21,11 @@
       "id": "77add0c31c34-534",
       "text": "Implement: Add architecture decision records (ADRs) for major decisions",
       "level": "task",
-      "status": "active",
+      "status": "completed",
       "confidence": 1.0,
       "created_at": 1769889562.6914263,
-      "updated_at": 1769889562.6914265,
-      "completed_at": null,
+      "updated_at": 1769890014.0325098,
+      "completed_at": 1769890014.0325093,
       "parent_id": "77add0c31c34-533",
       "metadata": {},
       "keywords": []
@@ -7286,5 +7286,5 @@
   ],
   "intent_counter": 534,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769889562.6914477
+  "updated_at": 1769890014.0325105
 }
