@@ -603,9 +603,11 @@ describe('OptionGenerator', () => {
         description: 'A test plan option',
         plan: {
           id: 'plan-1',
+          goal: 'Test plan goal',
           description: 'Test',
           steps: [],
-          estimatedSteps: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
         complexity: 3,
         riskLevel: 'medium',

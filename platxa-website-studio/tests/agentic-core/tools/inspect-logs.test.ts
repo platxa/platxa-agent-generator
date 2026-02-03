@@ -16,7 +16,7 @@ import {
   clearLogs,
   type InspectLogsOptions,
 } from '@/lib/agentic-core/tools/inspect-logs';
-import type { AgentContext } from '@/lib/agentic-core/agent-engine';
+import { createAgentContext, type AgentContext } from '@/lib/agentic-core/agent-engine';
 
 describe('inspect-logs tool', () => {
   beforeEach(() => {
@@ -229,13 +229,13 @@ describe('inspect-logs tool', () => {
   });
 
   describe('inspectLogsTool', () => {
-    const mockContext: AgentContext = {
+    const mockContext = createAgentContext({
       workspaceRoot: '/test/workspace',
       goal: 'Test goal',
       iteration: 1,
       maxIterations: 5,
       planMode: false,
-    };
+    });
 
     it('returns successful result with log data', async () => {
       const inspector = getLogInspector();

@@ -18,7 +18,7 @@ import {
   generateDockerCommands,
   DEFAULT_DOCKER_CONFIG,
 } from '@/lib/agent-bridge/odoo-docker-tester';
-import type { AgentContext } from '@/lib/agentic-core/agent-engine';
+import { createAgentContext, type AgentContext } from '@/lib/agentic-core/agent-engine';
 
 // ============================================================================
 // Test Fixtures - Injectable mock executors (no module mocking needed)
@@ -70,13 +70,13 @@ const mockErrorFetch: HttpFetcher = async (url: string) => ({
 });
 
 describe('test-odoo tool', () => {
-  const mockContext: AgentContext = {
+  const mockContext = createAgentContext({
     workspaceRoot: '/test/workspace',
     goal: 'Test theme installation',
     iteration: 1,
     maxIterations: 5,
     planMode: false,
-  };
+  });
 
   describe('generateTestCommands', () => {
     it('generates Docker setup commands', () => {

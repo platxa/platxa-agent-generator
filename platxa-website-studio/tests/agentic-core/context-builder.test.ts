@@ -18,7 +18,7 @@ import {
   ALL_TOOLS,
 } from '@/lib/agentic-core/context-builder';
 import { AgentToolExecutor } from '@/lib/agentic-core/tool-executor';
-import type { AgentContext } from '@/lib/agentic-core/agent-engine';
+import { createAgentContext, type AgentContext } from '@/lib/agentic-core/agent-engine';
 
 describe('ContextBuilder', () => {
   describe('constructor', () => {
@@ -269,13 +269,13 @@ describe('ContextBuilder', () => {
 
     it('AgentToolExecutor rejects write in plan mode', async () => {
       const executor = new AgentToolExecutor();
-      const planContext: AgentContext = {
+      const planContext = createAgentContext({
         workspaceRoot: '/project',
         goal: 'Plan',
         iteration: 1,
         maxIterations: 5,
         planMode: true,
-      };
+      });
 
       // write action should fail in plan mode
       await expect(
@@ -285,13 +285,13 @@ describe('ContextBuilder', () => {
 
     it('AgentToolExecutor rejects edit in plan mode', async () => {
       const executor = new AgentToolExecutor();
-      const planContext: AgentContext = {
+      const planContext = createAgentContext({
         workspaceRoot: '/project',
         goal: 'Plan',
         iteration: 1,
         maxIterations: 5,
         planMode: true,
-      };
+      });
 
       // edit action should fail in plan mode
       await expect(
@@ -301,13 +301,13 @@ describe('ContextBuilder', () => {
 
     it('AgentToolExecutor allows read in plan mode', async () => {
       const executor = new AgentToolExecutor();
-      const planContext: AgentContext = {
+      const planContext = createAgentContext({
         workspaceRoot: '/project',
         goal: 'Plan',
         iteration: 1,
         maxIterations: 5,
         planMode: true,
-      };
+      });
 
       // read action should work in plan mode (will fail on file not found, not plan mode)
       await expect(
@@ -341,13 +341,13 @@ describe('ContextBuilder', () => {
 
     it('AgentToolExecutor allows write in agent mode', async () => {
       const executor = new AgentToolExecutor();
-      const agentContext: AgentContext = {
+      const agentContext = createAgentContext({
         workspaceRoot: '/project',
         goal: 'Build',
         iteration: 1,
         maxIterations: 5,
         planMode: false,
-      };
+      });
 
       // write action should succeed in agent mode (no plan mode error)
       const result = await executor.execute('write', {
@@ -362,13 +362,13 @@ describe('ContextBuilder', () => {
 
     it('AgentToolExecutor allows edit in agent mode', async () => {
       const executor = new AgentToolExecutor();
-      const agentContext: AgentContext = {
+      const agentContext = createAgentContext({
         workspaceRoot: '/project',
         goal: 'Build',
         iteration: 1,
         maxIterations: 5,
         planMode: false,
-      };
+      });
 
       // First write a file to edit
       await executor.execute('write', {

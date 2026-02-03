@@ -502,7 +502,7 @@ describe("FullscreenPreview", () => {
         (call) => call[0].newState === "fullscreen"
       );
       expect(fullscreenCall).toBeDefined();
-      expect(fullscreenCall[0].previousState).toBe("entering");
+      expect(fullscreenCall![0].previousState).toBe("entering");
     });
 
     it("should return unsubscribe function", async () => {

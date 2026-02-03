@@ -747,7 +747,7 @@ describe("AICursorManager", () => {
 
     it("merges label properties", () => {
       const style = createCursorStyle({
-        label: { fontSize: 14 },
+        label: { fontSize: 14, show: true, background: '#000', textColor: '#fff' },
       });
 
       expect(style.label.fontSize).toBe(14);

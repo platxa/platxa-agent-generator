@@ -1,10 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
+import path from "path";
 
 /**
  * Playwright E2E Test Configuration
  *
  * @see https://playwright.dev/docs/test-configuration
  */
+
+const AUTH_FILE = path.join(__dirname, "e2e/.auth/user.json");
+
 export default defineConfig({
   // Test directory
   testDir: "./e2e",
@@ -51,26 +55,53 @@ export default defineConfig({
 
   // Configure projects for major browsers
   projects: [
+    // Authentication setup - runs first and creates session
+    {
+      name: "setup",
+      testMatch: /.*\.setup\.ts/,
+    },
+
+    // Desktop browsers - depend on setup
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: AUTH_FILE,
+      },
+      dependencies: ["setup"],
     },
     {
       name: "firefox",
-      use: { ...devices["Desktop Firefox"] },
+      use: {
+        ...devices["Desktop Firefox"],
+        storageState: AUTH_FILE,
+      },
+      dependencies: ["setup"],
     },
     {
       name: "webkit",
-      use: { ...devices["Desktop Safari"] },
+      use: {
+        ...devices["Desktop Safari"],
+        storageState: AUTH_FILE,
+      },
+      dependencies: ["setup"],
     },
-    // Mobile viewports
+    // Mobile viewports - depend on setup
     {
       name: "mobile-chrome",
-      use: { ...devices["Pixel 5"] },
+      use: {
+        ...devices["Pixel 5"],
+        storageState: AUTH_FILE,
+      },
+      dependencies: ["setup"],
     },
     {
       name: "mobile-safari",
-      use: { ...devices["iPhone 12"] },
+      use: {
+        ...devices["iPhone 12"],
+        storageState: AUTH_FILE,
+      },
+      dependencies: ["setup"],
     },
   ],
 
@@ -80,6 +111,10 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120000,
+    env: {
+      // Enable E2E test mode to seed test user
+      PLAYWRIGHT_TEST: "true",
+    },
   },
 
   // Global timeout for tests

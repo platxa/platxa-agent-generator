@@ -156,7 +156,8 @@ describe('PlanEngine', () => {
         mode: 'plan' as const,
         confidence: 'high' as const,
         score: 0.95,
-        patterns: ['what if'],
+        matchedPatterns: ['what if'],
+        message: 'What if we added a hero?',
       };
 
       engine.startPlanning('What if we added a hero?', classification);

@@ -95,7 +95,7 @@ describe("SelectModeController", () => {
         snippetId: "snippet-1",
         elementId: null,
         tagName: "div",
-        className: "container",
+        classes: ["container"],
         bounds: new DOMRect(10, 20, 200, 300),
         selector: '[data-snippet-id="snippet-1"]',
       };
@@ -110,7 +110,7 @@ describe("SelectModeController", () => {
         snippetId: "snippet-2",
         elementId: null,
         tagName: "article",
-        className: "content",
+        classes: ["content"],
         bounds: new DOMRect(0, 0, 150, 150),
         selector: '[data-snippet-id="snippet-2"]',
       };

@@ -429,7 +429,7 @@ describe("Sidecar Recovery Manager (Feature #176)", () => {
 
         // Capture rejection immediately to prevent unhandled rejection warning
         let caughtError: Error | null = null;
-        const requirePromise = manager.requireReady(100).catch((e) => {
+        const requirePromise = manager.requireReady(100).catch((e: Error) => {
           caughtError = e;
         });
 
@@ -437,7 +437,7 @@ describe("Sidecar Recovery Manager (Feature #176)", () => {
         await requirePromise;
 
         expect(caughtError).toBeInstanceOf(Error);
-        expect(caughtError?.message).toContain("not ready");
+        expect((caughtError as Error | null)?.message).toContain("not ready");
       });
     });
 

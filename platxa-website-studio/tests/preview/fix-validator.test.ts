@@ -20,6 +20,8 @@ import {
   type Fix,
   type ValidationResult,
   type ValidatorConfig,
+  type ValidatorResult,
+  type ValidationError,
 } from "@/lib/preview/fix-validator";
 
 describe("FixValidator", () => {
@@ -190,18 +192,18 @@ describe("FixValidator", () => {
   describe("createSyntaxValidator", () => {
     it("detects bracket imbalance", () => {
       const validator = createSyntaxValidator();
-      const result = validator.validate("function test() { {", "/test.js");
+      const result = validator.validate("function test() { {", "/test.js") as ValidatorResult;
 
       expect(result.passed).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Unclosed"))).toBe(true);
+      expect(result.errors.some((e: ValidationError) => e.message.includes("Unclosed"))).toBe(true);
     });
 
     it("detects extra closing brackets", () => {
       const validator = createSyntaxValidator();
-      const result = validator.validate("function test() { } }", "/test.js");
+      const result = validator.validate("function test() { } }", "/test.js") as ValidatorResult;
 
       expect(result.passed).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Extra closing"))).toBe(true);
+      expect(result.errors.some((e: ValidationError) => e.message.includes("Extra closing"))).toBe(true);
     });
 
     it("passes valid code", () => {
@@ -209,14 +211,14 @@ describe("FixValidator", () => {
       const result = validator.validate(
         "function test() { return { x: 1 }; }",
         "/test.js"
-      );
+      ) as ValidatorResult;
 
       expect(result.passed).toBe(true);
     });
 
     it("detects double commas", () => {
       const validator = createSyntaxValidator();
-      const result = validator.validate("const arr = [1,, 2]", "/test.js");
+      const result = validator.validate("const arr = [1,, 2]", "/test.js") as ValidatorResult;
 
       expect(result.passed).toBe(false);
     });
@@ -225,14 +227,14 @@ describe("FixValidator", () => {
   describe("createJSONValidator", () => {
     it("validates valid JSON", () => {
       const validator = createJSONValidator();
-      const result = validator.validate('{"key": "value"}', "/test.json");
+      const result = validator.validate('{"key": "value"}', "/test.json") as ValidatorResult;
 
       expect(result.passed).toBe(true);
     });
 
     it("rejects invalid JSON", () => {
       const validator = createJSONValidator();
-      const result = validator.validate("{invalid json}", "/test.json");
+      const result = validator.validate("{invalid json}", "/test.json") as ValidatorResult;
 
       expect(result.passed).toBe(false);
       expect(result.errors[0].type).toBe("syntax");
@@ -240,7 +242,7 @@ describe("FixValidator", () => {
 
     it("rejects trailing commas", () => {
       const validator = createJSONValidator();
-      const result = validator.validate('{"key": "value",}', "/test.json");
+      const result = validator.validate('{"key": "value",}', "/test.json") as ValidatorResult;
 
       expect(result.passed).toBe(false);
     });
@@ -249,29 +251,29 @@ describe("FixValidator", () => {
   describe("createXMLValidator", () => {
     it("validates valid XML", () => {
       const validator = createXMLValidator();
-      const result = validator.validate("<root><child></child></root>", "/test.xml");
+      const result = validator.validate("<root><child></child></root>", "/test.xml") as ValidatorResult;
 
       expect(result.passed).toBe(true);
     });
 
     it("detects unclosed tags", () => {
       const validator = createXMLValidator();
-      const result = validator.validate("<root><child></root>", "/test.xml");
+      const result = validator.validate("<root><child></root>", "/test.xml") as ValidatorResult;
 
       expect(result.passed).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Mismatched"))).toBe(true);
+      expect(result.errors.some((e: ValidationError) => e.message.includes("Mismatched"))).toBe(true);
     });
 
     it("handles self-closing tags", () => {
       const validator = createXMLValidator();
-      const result = validator.validate("<root><br/><img/></root>", "/test.html");
+      const result = validator.validate("<root><br/><img/></root>", "/test.html") as ValidatorResult;
 
       expect(result.passed).toBe(true);
     });
 
     it("handles HTML void elements", () => {
       const validator = createXMLValidator();
-      const result = validator.validate("<div><br><input></div>", "/test.html");
+      const result = validator.validate("<div><br><input></div>", "/test.html") as ValidatorResult;
 
       expect(result.passed).toBe(true);
     });
@@ -280,14 +282,14 @@ describe("FixValidator", () => {
   describe("createCSSValidator", () => {
     it("validates valid CSS", () => {
       const validator = createCSSValidator();
-      const result = validator.validate(".class { color: red; }", "/test.css");
+      const result = validator.validate(".class { color: red; }", "/test.css") as ValidatorResult;
 
       expect(result.passed).toBe(true);
     });
 
     it("detects unclosed braces", () => {
       const validator = createCSSValidator();
-      const result = validator.validate(".class { color: red;", "/test.css");
+      const result = validator.validate(".class { color: red;", "/test.css") as ValidatorResult;
 
       expect(result.passed).toBe(false);
       expect(result.errors[0].message).toContain("unclosed");
@@ -295,7 +297,7 @@ describe("FixValidator", () => {
 
     it("detects extra closing braces", () => {
       const validator = createCSSValidator();
-      const result = validator.validate(".class { } }", "/test.css");
+      const result = validator.validate(".class { } }", "/test.css") as ValidatorResult;
 
       expect(result.passed).toBe(false);
     });
@@ -304,14 +306,14 @@ describe("FixValidator", () => {
   describe("createPythonValidator", () => {
     it("validates valid Python", () => {
       const validator = createPythonValidator();
-      const result = validator.validate("def test():\n    return True", "/test.py");
+      const result = validator.validate("def test():\n    return True", "/test.py") as ValidatorResult;
 
       expect(result.passed).toBe(true);
     });
 
     it("detects missing colon on block statement", () => {
       const validator = createPythonValidator();
-      const result = validator.validate("if True\n    pass", "/test.py");
+      const result = validator.validate("if True\n    pass", "/test.py") as ValidatorResult;
 
       expect(result.passed).toBe(false);
       expect(result.errors[0].message).toContain("missing colon");
@@ -319,7 +321,7 @@ describe("FixValidator", () => {
 
     it("detects mixed tabs and spaces", () => {
       const validator = createPythonValidator();
-      const result = validator.validate("def test():\n\t pass", "/test.py");
+      const result = validator.validate("def test():\n\t pass", "/test.py") as ValidatorResult;
 
       expect(result.passed).toBe(false);
       expect(result.errors[0].message).toContain("Mixed tabs and spaces");

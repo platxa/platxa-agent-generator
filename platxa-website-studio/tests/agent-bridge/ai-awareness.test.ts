@@ -306,7 +306,9 @@ describe("AI Awareness - Agent Session Isolation (Feature #171)", () => {
         const agentStates = manager.getAgentStates();
         expect(agentStates.size).toBe(1);
 
-        const [clientId, state] = agentStates.entries().next().value;
+        const entry = agentStates.entries().next().value;
+        expect(entry).toBeDefined();
+        const [clientId, state] = entry!;
         expect(clientId).toBe(manager.getClientId());
         expect(state.sessionId).toBe(manager.getSessionId());
       });

@@ -86,7 +86,7 @@ describe("DeploymentRollbackHandler", () => {
       });
 
       expect(response.ok).toBe(true);
-      const data = await response.json();
+      const data = await response.json() as { state?: string };
       expect(data.state).toBe("installed");
     });
 
@@ -98,7 +98,7 @@ describe("DeploymentRollbackHandler", () => {
       });
 
       expect(response.ok).toBe(true);
-      const data = await response.json();
+      const data = await response.json() as { state?: string };
       expect(data.state).toBe("uninstalled");
     });
 
@@ -110,7 +110,7 @@ describe("DeploymentRollbackHandler", () => {
       });
 
       expect(response.ok).toBe(true);
-      const data = await response.json();
+      const data = await response.json() as { success?: boolean };
       expect(data.success).toBe(true);
     });
 

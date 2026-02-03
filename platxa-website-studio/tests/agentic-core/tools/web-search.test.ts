@@ -393,8 +393,9 @@ describe('webSearchTool', () => {
     expect(result.success).toBe(true);
     expect(result.toolName).toBe('web_search');
     expect(result.data).toBeDefined();
-    expect(result.data.query).toBe('odoo qweb');
-    expect(result.data.results).toBeDefined();
+    const data = result.data as { query: string; results: unknown; metadata?: { siteFilter?: string } };
+    expect(data.query).toBe('odoo qweb');
+    expect(data.results).toBeDefined();
     expect(result.duration).toBeGreaterThanOrEqual(0);
   });
 
@@ -416,7 +417,8 @@ describe('webSearchTool', () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.data.metadata.siteFilter).toBe('odoo.com');
+    const data = result.data as { metadata: { siteFilter?: string } };
+    expect(data.metadata.siteFilter).toBe('odoo.com');
   });
 
   it('updates context with search results', async () => {

@@ -115,7 +115,7 @@ describe("PostDeployVerifier", () => {
       });
 
       expect(response.ok).toBe(true);
-      const data = await response.json();
+      const data = await response.json() as { state?: string };
       expect(data.state).toBe("installed");
     });
 
@@ -138,7 +138,7 @@ describe("PostDeployVerifier", () => {
       });
 
       expect(response.ok).toBe(true);
-      const data = await response.json();
+      const data = await response.json() as { html?: string };
       expect(data.html).toContain("Sample Page");
     });
 

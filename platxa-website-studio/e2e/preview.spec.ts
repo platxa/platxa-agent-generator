@@ -204,12 +204,12 @@ test.describe("Preview Updates", () => {
     const iframe = page.locator('iframe').first();
 
     if (await iframe.isVisible()) {
-      // Get iframe content
-      const frame = iframe.contentFrame();
-      if (frame) {
-        // Frame should be accessible
-        await frame.waitForLoadState("load").catch(() => {});
-      }
+      // Get iframe content as FrameLocator
+      const frameLocator = iframe.contentFrame();
+      // Verify frame is accessible by checking if we can locate content within it
+      const frameContent = frameLocator.locator('body');
+      // Frame should be accessible - just verify the locator exists
+      await frameContent.waitFor({ state: 'attached', timeout: 5000 }).catch(() => {});
     }
   });
 
