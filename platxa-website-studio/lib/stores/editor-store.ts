@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { useEffect, useState } from "react";
 
 /**
  * Open tab in the editor
@@ -314,6 +315,10 @@ export const useEditorStore = create<EditorState>()(
       // Bulk open generated files from AI
       openGeneratedFiles: (files) =>
         set((state) => {
+          console.log("[EditorStore] ===== openGeneratedFiles called =====");
+          console.log("[EditorStore] Incoming files:", files.length);
+          files.forEach(f => console.log(`[EditorStore]   - ${f.path}: ${f.content.length} chars`));
+
           const newTabs = [...state.openTabs];
           const newFileContents = { ...state.fileContents };
           let firstNewTab: string | null = null;
@@ -342,6 +347,9 @@ export const useEditorStore = create<EditorState>()(
             newFileContents[file.path] = file.content;
           }
 
+          console.log("[EditorStore] New fileContents keys:", Object.keys(newFileContents));
+          console.log("[EditorStore] Total files in store:", Object.keys(newFileContents).length);
+
           return {
             openTabs: newTabs,
             activeTab: firstNewTab || state.activeTab,
@@ -351,6 +359,7 @@ export const useEditorStore = create<EditorState>()(
     }),
     {
       name: "platxa-editor-storage",
+      storage: createJSONStorage(() => localStorage),
       // Persist tabs, settings, and file contents
       partialize: (state) => ({
         openTabs: state.openTabs,
@@ -360,9 +369,44 @@ export const useEditorStore = create<EditorState>()(
         wordWrap: state.wordWrap,
         fontSize: state.fontSize,
       }),
+      // Skip hydration on server - handle manually on client
+      skipHydration: true,
     }
   )
 );
+
+/**
+ * Hook to ensure store is hydrated before use (SSR-safe)
+ * Use this in components that depend on persisted state
+ */
+export function useEditorStoreHydration() {
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    // Rehydrate the store on client mount
+    useEditorStore.persist.rehydrate();
+    setHydrated(true);
+  }, []);
+
+  return hydrated;
+}
+
+/**
+ * Hook to safely access editor store with hydration check
+ * Returns empty state until hydration is complete
+ */
+export function useEditorStoreHydrated<T>(selector: (state: EditorState) => T): T {
+  const hydrated = useEditorStoreHydration();
+  const value = useEditorStore(selector);
+  const initialValue = useEditorStore.getInitialState();
+
+  // Return initial state during SSR/before hydration
+  if (!hydrated) {
+    return selector(initialValue as EditorState);
+  }
+
+  return value;
+}
 
 /**
  * Selector for checking if there are unsaved changes

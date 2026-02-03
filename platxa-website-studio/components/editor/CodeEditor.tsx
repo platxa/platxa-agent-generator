@@ -1,16 +1,31 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import Editor, { type OnMount, type OnChange } from "@monaco-editor/react";
 import type { editor } from "monaco-editor";
-import { useEditorStore, useProjectStore } from "@/lib/stores";
+import { useEditorStore } from "@/lib/stores";
 import { getFileLanguage } from "@/lib/utils/file-icons";
+import { MonacoCursorAdapter, createMonacoCursorAdapter } from "@/lib/collaboration/monaco-adapter";
+import type { CollaboratorInfo } from "@/lib/collaboration";
 
 interface CodeEditorProps {
   filePath: string;
   content: string;
   onChange?: (content: string) => void;
   readOnly?: boolean;
+  /** Remote collaborators for cursor display */
+  collaborators?: CollaboratorInfo[];
+  /** Callback when local cursor moves */
+  onCursorChange?: (line: number, column: number) => void;
+  /** Callback when local selection changes */
+  onSelectionChange?: (
+    startLine: number,
+    startColumn: number,
+    endLine: number,
+    endColumn: number
+  ) => void;
+  /** Callback when user is typing */
+  onTyping?: () => void;
 }
 
 export function CodeEditor({
@@ -18,8 +33,15 @@ export function CodeEditor({
   content,
   onChange,
   readOnly = false,
+  collaborators = [],
+  onCursorChange,
+  onSelectionChange,
+  onTyping,
 }: CodeEditorProps) {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const monacoRef = useRef<typeof import("monaco-editor") | null>(null);
+  const cursorAdapterRef = useRef<MonacoCursorAdapter | null>(null);
+
   const {
     showMinimap,
     wordWrap,
@@ -32,8 +54,31 @@ export function CodeEditor({
 
   const language = getFileLanguage(filePath);
 
+  // Update remote cursors when collaborators change
+  useEffect(() => {
+    if (cursorAdapterRef.current && collaborators.length > 0) {
+      cursorAdapterRef.current.updateFromCollaborators(collaborators, filePath);
+    }
+  }, [collaborators, filePath]);
+
+  // Clean up cursor adapter on unmount or file change
+  useEffect(() => {
+    return () => {
+      cursorAdapterRef.current?.clearAll();
+    };
+  }, [filePath]);
+
   const handleEditorMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
+
+    // Initialize cursor adapter for collaboration
+    cursorAdapterRef.current = createMonacoCursorAdapter(editor, monaco, {
+      showLabels: true,
+      labelDuration: 3000,
+      cursorAnimation: "pulse",
+      selectionOpacity: 0.25,
+    });
 
     // Configure editor options
     editor.updateOptions({
@@ -52,10 +97,9 @@ export function CodeEditor({
 
     // Track cursor position
     editor.onDidChangeCursorPosition((e) => {
-      setCursorPosition({
-        line: e.position.lineNumber,
-        column: e.position.column,
-      });
+      const { lineNumber, column } = e.position;
+      setCursorPosition({ line: lineNumber, column });
+      onCursorChange?.(lineNumber, column);
     });
 
     // Track selection
@@ -70,6 +114,12 @@ export function CodeEditor({
           endLine: sel.endLineNumber,
           endColumn: sel.endColumn,
         });
+        onSelectionChange?.(
+          sel.startLineNumber,
+          sel.startColumn,
+          sel.endLineNumber,
+          sel.endColumn
+        );
       }
     });
 
@@ -95,6 +145,11 @@ export function CodeEditor({
 
     // Register Odoo-specific languages
     registerOdooLanguages(monaco);
+
+    // Update cursors if collaborators already present
+    if (collaborators.length > 0) {
+      cursorAdapterRef.current?.updateFromCollaborators(collaborators, filePath);
+    }
   };
 
   const handleChange: OnChange = useCallback(
@@ -103,13 +158,14 @@ export function CodeEditor({
         onChange?.(value);
         setFileContent(filePath, value);
         markTabModified(filePath, true);
+        onTyping?.();
       }
     },
-    [filePath, onChange, setFileContent, markTabModified]
+    [filePath, onChange, setFileContent, markTabModified, onTyping]
   );
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full relative">
       <Editor
         height="100%"
         language={language}

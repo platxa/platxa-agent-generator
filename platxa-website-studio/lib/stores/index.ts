@@ -11,6 +11,8 @@ export {
 } from "./chat-store";
 export {
   useEditorStore,
+  useEditorStoreHydration,
+  useEditorStoreHydrated,
   selectHasUnsavedChanges,
   selectUnsavedFilePaths,
   type EditorTab,
