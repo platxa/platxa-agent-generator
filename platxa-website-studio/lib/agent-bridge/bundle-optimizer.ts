@@ -222,22 +222,22 @@ export function registerModule(
 }
 
 export function markExportUsed(modulePath: string, exportName: string): boolean {
-  const module = state.moduleGraph.get(modulePath);
-  if (!module) {
+  const mod = state.moduleGraph.get(modulePath);
+  if (!mod) {
     return false;
   }
 
-  if (!module.exports.includes(exportName)) {
+  if (!mod.exports.includes(exportName)) {
     return false;
   }
 
-  if (module.usedExports.includes(exportName)) {
+  if (mod.usedExports.includes(exportName)) {
     return true;
   }
 
   const updatedModule: ModuleNode = {
-    ...module,
-    usedExports: [...module.usedExports, exportName],
+    ...mod,
+    usedExports: [...mod.usedExports, exportName],
   };
 
   const newGraph = new Map(state.moduleGraph);
@@ -253,21 +253,21 @@ export function markExportUsed(modulePath: string, exportName: string): boolean 
 }
 
 export function markAsDynamicImport(modulePath: string): boolean {
-  const module = state.moduleGraph.get(modulePath);
-  if (!module) {
+  const mod = state.moduleGraph.get(modulePath);
+  if (!mod) {
     return false;
   }
 
   // Already marked - no need to update
-  if (module.isDynamicImport) {
+  if (mod.isDynamicImport) {
     return true;
   }
 
   const updatedModule: ModuleNode = {
-    ...module,
+    ...mod,
     isDynamicImport: true,
     // Preserve existing dynamicImportInfo if set
-    dynamicImportInfo: module.dynamicImportInfo,
+    dynamicImportInfo: mod.dynamicImportInfo,
   };
 
   const newGraph = new Map(state.moduleGraph);
@@ -292,17 +292,17 @@ export function analyzeTreeShaking(): TreeShakingResults {
   const removedExports: string[] = [];
   const sideEffectModules: string[] = [];
 
-  for (const [path, module] of state.moduleGraph) {
-    originalSize += module.size;
+  for (const [path, mod] of state.moduleGraph) {
+    originalSize += mod.size;
 
-    if (module.hasSideEffects) {
+    if (mod.hasSideEffects) {
       sideEffectModules.push(path);
-      optimizedSize += module.size;
+      optimizedSize += mod.size;
       continue;
     }
 
-    const unusedExports = module.exports.filter(
-      exp => !module.usedExports.includes(exp)
+    const unusedExports = mod.exports.filter(
+      exp => !mod.usedExports.includes(exp)
     );
 
     if (unusedExports.length > 0) {
@@ -310,11 +310,11 @@ export function analyzeTreeShaking(): TreeShakingResults {
     }
 
     // Estimate size reduction based on unused exports
-    const usedRatio = module.exports.length > 0
-      ? module.usedExports.length / module.exports.length
+    const usedRatio = mod.exports.length > 0
+      ? mod.usedExports.length / mod.exports.length
       : 1;
 
-    optimizedSize += Math.ceil(module.size * usedRatio);
+    optimizedSize += Math.ceil(mod.size * usedRatio);
   }
 
   const savings = originalSize - optimizedSize;
@@ -331,12 +331,12 @@ export function analyzeTreeShaking(): TreeShakingResults {
 }
 
 export function getUnusedExports(modulePath: string): readonly string[] {
-  const module = state.moduleGraph.get(modulePath);
-  if (!module) {
+  const mod = state.moduleGraph.get(modulePath);
+  if (!mod) {
     return [];
   }
 
-  return module.exports.filter(exp => !module.usedExports.includes(exp));
+  return mod.exports.filter(exp => !mod.usedExports.includes(exp));
 }
 
 // ============================================================================
@@ -352,9 +352,9 @@ export function createChunk(
   let size = 0;
 
   for (const modulePath of modules) {
-    const module = state.moduleGraph.get(modulePath);
-    if (module) {
-      size += module.size;
+    const mod = state.moduleGraph.get(modulePath);
+    if (mod) {
+      size += mod.size;
     } else {
       // Check if it's a known heavy module
       for (const [pattern, moduleSize] of HEAVY_MODULES) {
@@ -461,10 +461,10 @@ export function createDynamicImport(
   };
 
   // Store the info in module node for later retrieval
-  const module = state.moduleGraph.get(modulePath);
-  if (module) {
+  const mod = state.moduleGraph.get(modulePath);
+  if (mod) {
     const updatedModule: ModuleNode = {
-      ...module,
+      ...mod,
       isDynamicImport: true,
       dynamicImportInfo: info,
     };
@@ -537,11 +537,11 @@ export function analyzeBundle(): BundleAnalysis {
   }
 
   // Collect dynamic import info - use stored info if available to preserve priority
-  for (const [path, module] of state.moduleGraph) {
-    if (module.isDynamicImport) {
-      if (module.dynamicImportInfo) {
+  for (const [path, mod] of state.moduleGraph) {
+    if (mod.isDynamicImport) {
+      if (mod.dynamicImportInfo) {
         // Use stored info to preserve priority and other settings
-        dynamicImports.push(module.dynamicImportInfo);
+        dynamicImports.push(mod.dynamicImportInfo);
       } else {
         // Fallback: create new info with defaults
         dynamicImports.push(createDynamicImport(path));
@@ -660,14 +660,14 @@ export function optimizeBundle(): OptimizationResult {
   }
 
   // Dynamic imports for heavy modules
-  for (const [path, module] of state.moduleGraph) {
+  for (const [path, mod] of state.moduleGraph) {
     if (shouldDynamicImport(path, getMainBundleSize())) {
-      if (!module.isDynamicImport) {
+      if (!mod.isDynamicImport) {
         markAsDynamicImport(path);
         appliedOptimizations.push({
           type: 'dynamic-import',
           description: `Converted ${path} to dynamic import`,
-          sizeSaved: module.size,
+          sizeSaved: mod.size,
           affectedModules: [path],
         });
       }

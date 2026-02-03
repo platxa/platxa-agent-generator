@@ -27,21 +27,34 @@ export type AgentStatus =
 /** Types of actions the agent can perform */
 export type AgentActionType =
   | 'search'
+  | 'search_codebase'
   | 'read'
+  | 'read_file'
   | 'write'
+  | 'write_file'
   | 'edit'
+  | 'edit_file'
   | 'validate'
+  | 'validate_qweb'
   | 'compile'
+  | 'compile_scss'
   | 'preview'
+  | 'preview_render'
   | 'test'
+  | 'test_odoo'
+  | 'execute'
   | 'web_search'
-  | 'inspect_logs';
+  | 'inspect_logs'
+  | 'analyze';
 
 /** A single step in the agent's execution plan */
 export interface AgentPlanStep {
   id: string;
   action: AgentActionType;
   target: string;
+  /** Human-readable description of what this step does (optional, use rationale if not provided) */
+  description?: string;
+  /** Reasoning behind this step choice */
   rationale: string;
   status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped';
   result?: unknown;
@@ -54,6 +67,8 @@ export interface AgentPlanStep {
 export interface AgentPlan {
   id: string;
   goal: string;
+  /** Optional description of the plan */
+  description?: string;
   steps: AgentPlanStep[];
   createdAt: Date;
   updatedAt: Date;
@@ -85,6 +100,14 @@ export interface FileModification {
 
 /** Context gathered during execution */
 export interface AgentContext {
+  /** Workspace root path (for context builder initialization) */
+  workspaceRoot?: string;
+  /** Goal/task description (for context builder initialization) */
+  goal?: string;
+  /** Current iteration (for context builder initialization) */
+  iteration?: number;
+  /** Maximum iterations allowed (for context builder initialization) */
+  maxIterations?: number;
   /** Files read during exploration */
   filesRead: Map<string, string>;
   /** Search results cached */
@@ -105,6 +128,25 @@ export interface AgentContext {
    * Used for read-only codebase exploration before generating plans
    */
   planMode?: boolean;
+}
+
+/**
+ * Create an AgentContext with sensible defaults
+ * Use this factory function to create contexts with optional overrides
+ */
+export function createAgentContext(overrides: Partial<AgentContext> = {}): AgentContext {
+  return {
+    workspaceRoot: overrides.workspaceRoot,
+    goal: overrides.goal,
+    iteration: overrides.iteration,
+    maxIterations: overrides.maxIterations,
+    filesRead: overrides.filesRead ?? new Map(),
+    searchResults: overrides.searchResults ?? new Map(),
+    userPreferences: overrides.userPreferences ?? {},
+    odooContext: overrides.odooContext ?? {},
+    designTokens: overrides.designTokens,
+    planMode: overrides.planMode,
+  };
 }
 
 /** Validation result from quality gates */

@@ -14,7 +14,7 @@
 import { writeFile as fsWriteFile, mkdir, stat, rename, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 import { dirname, resolve, isAbsolute } from 'path';
-import * as Y from 'yjs';
+import { Y, type YDoc } from '@/lib/yjs-singleton';
 import type { ToolParams, ToolResult } from '../tool-executor';
 
 // ============================================================================
@@ -36,7 +36,7 @@ export interface WriteFileOptions {
   /** Encoding to use (default: utf-8) */
   encoding?: BufferEncoding;
   /** Y.Doc instance for real-time sync (optional) */
-  yDoc?: Y.Doc;
+  yDoc?: YDoc;
   /** Document ID for Yjs sync */
   docId?: string;
 }
@@ -60,7 +60,7 @@ export interface WriteFileResult {
 /** Yjs document manager for file sync */
 export interface YjsDocManager {
   /** Get or create Y.Doc for a file path */
-  getDoc(docId: string): Y.Doc;
+  getDoc(docId: string): YDoc;
   /** Notify connected clients of update */
   broadcastUpdate(docId: string, update: Uint8Array): void;
 }
@@ -71,13 +71,13 @@ export interface YjsDocManager {
 
 /** Global registry of Y.Doc instances for file sync */
 class YjsDocRegistry {
-  private docs: Map<string, Y.Doc> = new Map();
+  private docs: Map<string, YDoc> = new Map();
   private updateListeners: Map<string, Set<(update: Uint8Array) => void>> = new Map();
 
   /**
    * Get or create a Y.Doc for a document ID
    */
-  getDoc(docId: string): Y.Doc {
+  getDoc(docId: string): YDoc {
     let doc = this.docs.get(docId);
     if (!doc) {
       doc = new Y.Doc();

@@ -431,4 +431,3 @@ export function classifyIntent(message: string): ClassificationResult {
 // ============================================================================
 
 export default ModeRouter;
-export type { LLMClassifier };

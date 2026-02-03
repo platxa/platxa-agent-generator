@@ -149,12 +149,17 @@ const DEFAULT_OPTIONS: Required<Omit<ZoomControlsOptions, "container">> = {
 export const ZOOM_PRESETS: ZoomPreset[] = [25, 50, 75, 100, 125, 150, 175, 200];
 
 /** Keyboard shortcuts */
-export const KEYBOARD_SHORTCUTS = {
+export const KEYBOARD_SHORTCUTS: {
+  zoomIn: readonly string[];
+  zoomOut: readonly string[];
+  reset: readonly string[];
+  fit: readonly string[];
+} = {
   zoomIn: ["=", "+", "NumpadAdd"],
   zoomOut: ["-", "_", "NumpadSubtract"],
   reset: ["0", "Numpad0"],
   fit: ["f", "F"],
-} as const;
+};
 
 // =============================================================================
 // Utility Functions

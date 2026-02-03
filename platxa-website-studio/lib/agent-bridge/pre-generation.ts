@@ -17,6 +17,8 @@ import { mapOdooPaletteToBrandTokens } from "./color-mapper";
 import { assembleTokenSet } from "../design-tokens/token-assembler";
 import { deriveDarkMode } from "../design-tokens/color-scale-generator";
 import { analyzeDesignIntent, type DesignContext } from "./design-analyzer";
+import { INDUSTRY_PRESETS } from "../odoo-skills/theme-generator";
+import type { Industry } from "../odoo-skills/types";
 
 // =============================================================================
 // Lightweight Design Analysis (Odoo-focused)
@@ -151,6 +153,125 @@ function extractDesignKeywords(text: string): string[] {
 }
 
 // =============================================================================
+// Industry Auto-Detection
+// =============================================================================
+
+/**
+ * Industry keyword patterns for auto-detection from user messages.
+ * Maps keywords found in user prompts to Industry types.
+ */
+const INDUSTRY_KEYWORDS: Record<Industry, string[]> = {
+  restaurant: [
+    "restaurant", "cafe", "coffee", "bistro", "diner", "eatery", "food",
+    "dining", "menu", "cuisine", "chef", "kitchen", "bakery", "pizzeria",
+    "bar", "pub", "grill", "steakhouse", "sushi", "catering",
+  ],
+  technology: [
+    "tech", "technology", "saas", "software", "app", "startup", "digital",
+    "platform", "cloud", "api", "developer", "coding", "ai", "machine learning",
+    "data", "analytics", "cyber", "fintech", "blockchain",
+  ],
+  legal: [
+    "law", "legal", "lawyer", "attorney", "firm", "litigation", "court",
+    "justice", "paralegal", "counsel", "advocate", "barrister", "solicitor",
+  ],
+  healthcare: [
+    "health", "healthcare", "medical", "clinic", "hospital", "doctor",
+    "physician", "dental", "dentist", "therapy", "therapist", "wellness",
+    "pharmacy", "nursing", "patient", "care",
+  ],
+  ecommerce: [
+    "ecommerce", "e-commerce", "shop", "store", "retail", "products",
+    "marketplace", "buy", "sell", "cart", "checkout", "inventory",
+  ],
+  fitness: [
+    "fitness", "gym", "workout", "training", "exercise", "sports", "yoga",
+    "pilates", "crossfit", "personal trainer", "athletic", "wellness",
+  ],
+  education: [
+    "education", "school", "university", "college", "academy", "learning",
+    "course", "training", "tutoring", "student", "teacher", "classroom",
+    "curriculum", "degree", "certification", "online learning", "e-learning",
+  ],
+  realestate: [
+    "real estate", "realestate", "property", "properties", "housing", "home",
+    "apartment", "condo", "rental", "mortgage", "broker", "agent", "listing",
+    "commercial", "residential", "investment property",
+  ],
+  creative: [
+    "creative", "design", "art", "artist", "studio", "portfolio", "photography",
+    "photographer", "graphic", "illustration", "animation", "video", "film",
+    "music", "agency", "branding", "marketing",
+  ],
+  nonprofit: [
+    "nonprofit", "non-profit", "charity", "foundation", "ngo", "volunteer",
+    "donation", "cause", "community", "social", "mission", "advocacy",
+    "humanitarian", "welfare", "fundraising",
+  ],
+  generic: [], // Fallback, no specific keywords
+};
+
+/**
+ * Detects industry type from user message by matching keywords.
+ * Returns the detected industry or undefined if no strong match.
+ */
+export function detectIndustry(text: string): Industry | undefined {
+  const lower = text.toLowerCase();
+
+  // Count matches for each industry
+  const scores: Record<string, number> = {};
+
+  for (const [industry, keywords] of Object.entries(INDUSTRY_KEYWORDS)) {
+    if (industry === "generic") continue;
+
+    let score = 0;
+    for (const keyword of keywords) {
+      // Use word boundary matching for accuracy
+      const regex = new RegExp(`\\b${keyword}\\b`, "gi");
+      const matches = lower.match(regex);
+      if (matches) {
+        score += matches.length;
+      }
+    }
+
+    if (score > 0) {
+      scores[industry] = score;
+    }
+  }
+
+  // Find the industry with highest score
+  const entries = Object.entries(scores);
+  if (entries.length === 0) return undefined;
+
+  entries.sort((a, b) => b[1] - a[1]);
+  const [topIndustry, topScore] = entries[0];
+
+  // Require at least 1 keyword match
+  if (topScore >= 1) {
+    return topIndustry as Industry;
+  }
+
+  return undefined;
+}
+
+/**
+ * Gets color palette from industry preset.
+ * Returns undefined if industry is not found.
+ */
+export function getIndustryColorPalette(industry: Industry): OdooColorPalette | undefined {
+  const preset = INDUSTRY_PRESETS[industry];
+  if (!preset) return undefined;
+
+  return {
+    primary: preset.colors.primary,
+    secondary: preset.colors.secondary,
+    accent: preset.colors.accent,
+    background: preset.colors.background,
+    text: preset.colors.text,
+  };
+}
+
+// =============================================================================
 // Public API
 // =============================================================================
 
@@ -164,12 +285,25 @@ export interface PreGenerationInput {
 /**
  * Runs the pre-generation pipeline:
  * 1. Analyze user message for design intent (comprehensive design-analyzer)
- * 2. Map color palette to brand tokens
- * 3. Generate full DTCG design tokens (when palette is available)
- * 4. Build enhanced prompt fragment with rich design context
+ * 2. Auto-detect industry from user message if not provided
+ * 3. Map color palette to brand tokens (using industry colors if detected)
+ * 4. Generate full DTCG design tokens (when palette is available)
+ * 5. Build enhanced prompt fragment with rich design context
  */
 export function runPreGeneration(input: PreGenerationInput): PreGenerationResult {
-  const { userMessage, colorPalette, industry, designStyle } = input;
+  const { userMessage, colorPalette, designStyle } = input;
+
+  // Auto-detect industry from user message if not explicitly provided
+  let industry = input.industry;
+  let detectedIndustry: Industry | undefined;
+
+  if (!industry) {
+    detectedIndustry = detectIndustry(userMessage);
+    if (detectedIndustry) {
+      industry = detectedIndustry;
+      console.log(`[PreGeneration] Auto-detected industry: ${industry}`);
+    }
+  }
 
   // 1. Run comprehensive design analysis (colors, layout, mood, typography, spacing)
   const designContext = analyzeDesignIntent(userMessage);
@@ -201,17 +335,28 @@ export function runPreGeneration(input: PreGenerationInput): PreGenerationResult
     }
   }
 
-  // 2. Map Odoo palette to brand tokens
-  const brandTokens = mapOdooPaletteToBrandTokens(colorPalette);
+  // 2. Determine color palette: explicit > industry preset > defaults
+  let effectiveColorPalette = colorPalette;
 
-  // 3. Generate full DTCG token set from the palette
-  if (colorPalette) {
+  if (!effectiveColorPalette && industry) {
+    // Use industry preset colors when no explicit palette provided
+    effectiveColorPalette = getIndustryColorPalette(industry as Industry);
+    if (effectiveColorPalette) {
+      console.log(`[PreGeneration] Using ${industry} industry color palette:`, effectiveColorPalette);
+    }
+  }
+
+  // 3. Map Odoo palette to brand tokens
+  const brandTokens = mapOdooPaletteToBrandTokens(effectiveColorPalette);
+
+  // 4. Generate full DTCG token set from the palette
+  if (effectiveColorPalette) {
     const palette = {
-      primary: colorPalette.primary || brandTokens.colors.primary,
-      secondary: colorPalette.secondary || brandTokens.colors.secondary,
-      accent: colorPalette.accent || brandTokens.colors.accent,
-      background: colorPalette.background || brandTokens.colors.background,
-      text: colorPalette.text || brandTokens.colors.text,
+      primary: effectiveColorPalette.primary || brandTokens.colors.primary,
+      secondary: effectiveColorPalette.secondary || brandTokens.colors.secondary,
+      accent: effectiveColorPalette.accent || brandTokens.colors.accent,
+      background: effectiveColorPalette.background || brandTokens.colors.background,
+      text: effectiveColorPalette.text || brandTokens.colors.text,
     };
 
     const typographyConfig = brandTokens.typography

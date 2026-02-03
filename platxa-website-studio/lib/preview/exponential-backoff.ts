@@ -73,7 +73,7 @@ export interface BackoffConfig {
   /** Whether first attempt has delay */
   delayFirstAttempt?: boolean;
   /** Custom delay sequence (for custom type) */
-  customDelays?: number[];
+  customDelays?: readonly number[] | number[];
   /** Reset delay after success */
   resetOnSuccess?: boolean;
 }

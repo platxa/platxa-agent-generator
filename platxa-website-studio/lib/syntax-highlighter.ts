@@ -233,11 +233,8 @@ const LANGUAGE_DEFINITIONS: Partial<Record<SupportedLanguage, LanguageDefinition
   },
 };
 
-// Copy JS/TS definition
-LANGUAGE_DEFINITIONS.typescript = {
-  ...LANGUAGE_DEFINITIONS.javascript,
-  ...LANGUAGE_DEFINITIONS.typescript,
-};
+// TypeScript extends JavaScript definition with additional keywords
+// (typescript definition already includes comprehensive keywords above)
 
 // =============================================================================
 // Token CSS Classes

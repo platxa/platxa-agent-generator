@@ -24,6 +24,8 @@ export interface ScoreWeights {
 
 /** Pattern match factors */
 export interface PatternMatchFactors {
+  /** Index signature for Record compatibility */
+  [key: string]: number;
   /** Regex match specificity (0-1) */
   matchSpecificity: number;
   /** Number of patterns matched (0-1) */
@@ -36,6 +38,8 @@ export interface PatternMatchFactors {
 
 /** Context clarity factors */
 export interface ContextClarityFactors {
+  /** Index signature for Record compatibility */
+  [key: string]: number;
   /** File location available (0-1) */
   hasFileLocation: number;
   /** Line number available (0-1) */
@@ -50,6 +54,8 @@ export interface ContextClarityFactors {
 
 /** Fix simplicity factors */
 export interface FixSimplicityFactors {
+  /** Index signature for Record compatibility */
+  [key: string]: number;
   /** Single file change (0-1) */
   isSingleFile: number;
   /** Few lines to change (0-1) */

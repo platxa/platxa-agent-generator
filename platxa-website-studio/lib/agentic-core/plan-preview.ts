@@ -120,30 +120,58 @@ export type PreviewFormat = 'text' | 'markdown' | 'json' | 'structured';
 // ============================================================================
 
 /** Default duration estimates per action type (in seconds) */
-const DEFAULT_ACTION_DURATIONS: Record<AgentActionType, number> = {
+const DEFAULT_ACTION_DURATIONS: Partial<Record<AgentActionType, number>> = {
+  read: 2,
   read_file: 2,
+  write: 5,
   write_file: 5,
+  edit: 8,
   edit_file: 8,
   search: 3,
+  search_codebase: 3,
   validate: 4,
+  validate_qweb: 4,
+  compile: 6,
+  compile_scss: 6,
+  preview: 5,
+  preview_render: 5,
+  test: 10,
+  test_odoo: 10,
   execute: 10,
   analyze: 5,
-  plan: 15,
-  unknown: 5,
+  web_search: 8,
+  inspect_logs: 3,
 };
 
+/** Fallback duration for unknown actions */
+const DEFAULT_DURATION_FALLBACK = 5;
+
 /** Default human-readable action labels */
-const DEFAULT_ACTION_LABELS: Record<AgentActionType, string> = {
+const DEFAULT_ACTION_LABELS: Partial<Record<AgentActionType, string>> = {
+  read: 'Read file',
   read_file: 'Read file',
+  write: 'Create file',
   write_file: 'Create file',
+  edit: 'Edit file',
   edit_file: 'Edit file',
   search: 'Search codebase',
+  search_codebase: 'Search codebase',
   validate: 'Validate changes',
+  validate_qweb: 'Validate QWeb',
+  compile: 'Compile assets',
+  compile_scss: 'Compile SCSS',
+  preview: 'Preview render',
+  preview_render: 'Preview render',
+  test: 'Run tests',
+  test_odoo: 'Run Odoo tests',
   execute: 'Execute command',
   analyze: 'Analyze code',
-  plan: 'Generate plan',
-  unknown: 'Process',
+  web_search: 'Web search',
+  inspect_logs: 'Inspect logs',
 };
+
+/** Fallback label for unknown actions */
+const DEFAULT_LABEL_FALLBACK = 'Process';
 
 // ============================================================================
 // Plan Preview Generator Class
@@ -165,8 +193,8 @@ const DEFAULT_ACTION_LABELS: Record<AgentActionType, string> = {
  */
 export class PlanPreviewGenerator {
   private config: Required<PlanPreviewConfig>;
-  private actionDurations: Record<AgentActionType, number>;
-  private actionLabels: Record<AgentActionType, string>;
+  private actionDurations: Partial<Record<AgentActionType, number>>;
+  private actionLabels: Partial<Record<AgentActionType, string>>;
 
   constructor(config: PlanPreviewConfig = {}) {
     this.actionDurations = {
@@ -183,6 +211,16 @@ export class PlanPreviewGenerator {
       includeDependencies: config.includeDependencies ?? true,
       actionLabels: this.actionLabels,
     };
+  }
+
+  /** Get duration for an action with fallback */
+  private getDuration(action: AgentActionType): number {
+    return this.actionDurations[action] ?? DEFAULT_DURATION_FALLBACK;
+  }
+
+  /** Get label for an action with fallback */
+  private getLabel(action: AgentActionType): string {
+    return this.actionLabels[action] ?? DEFAULT_LABEL_FALLBACK;
   }
 
   // ==========================================================================
@@ -258,10 +296,10 @@ export class PlanPreviewGenerator {
       number: index + 1,
       id: step.id,
       action: step.action,
-      actionLabel: this.actionLabels[step.action] || step.action,
+      actionLabel: this.getLabel(step.action),
       target: step.target,
-      description: step.rationale || `${this.actionLabels[step.action]} on ${step.target}`,
-      estimatedDurationSec: this.actionDurations[step.action] || 5,
+      description: step.rationale || `${this.getLabel(step.action)} on ${step.target}`,
+      estimatedDurationSec: this.getDuration(step.action),
       status: step.status,
       dependencies: this.config.includeDependencies
         ? this.inferDependencies(step, steps, index)

@@ -26,6 +26,7 @@ export type ErrorCategory =
   | "syntax"
   | "runtime"
   | "resource"
+  | "fatal"
   | "unknown";
 
 /** Preview error information */
@@ -134,6 +135,7 @@ export const ERROR_MESSAGES: Record<ErrorCategory, string> = {
   syntax: "Syntax error in template",
   runtime: "Runtime error occurred",
   resource: "Resource not found",
+  fatal: "Fatal error - preview cannot continue",
   unknown: "An unexpected error occurred",
 };
 
@@ -146,6 +148,7 @@ export const SUGGESTED_ACTIONS: Record<ErrorCategory, string> = {
   syntax: "Fix the syntax error in your template",
   runtime: "Check the error details and fix the issue",
   resource: "Verify the resource path is correct",
+  fatal: "Restart the application or contact support",
   unknown: "Try refreshing or contact support if the issue persists",
 };
 

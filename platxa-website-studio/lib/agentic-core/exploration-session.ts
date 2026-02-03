@@ -459,7 +459,8 @@ export class ExplorationSession {
     const session = new ExplorationSession();
 
     // Restore metadata (except ID which was set in constructor, but override it)
-    (session as { sessionId: string }).sessionId = snapshot.metadata.id;
+    // Cast through unknown to override readonly private field during deserialization
+    (session as unknown as { sessionId: string }).sessionId = snapshot.metadata.id;
     session.metadata = { ...snapshot.metadata };
 
     // Restore context

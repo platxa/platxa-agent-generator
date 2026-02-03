@@ -1431,6 +1431,7 @@ export class OptionGenerator {
           description: 'Implement core functionality',
           action: 'edit_file',
           target: relevantFiles[0] ?? 'main.xml',
+          rationale: 'Direct implementation of requested changes',
           status: 'pending',
         });
         break;
@@ -1441,6 +1442,7 @@ export class OptionGenerator {
           description: 'Analyze existing code structure',
           action: 'read_file',
           target: relevantFiles[0] ?? 'main.xml',
+          rationale: 'Understand current implementation before making changes',
           status: 'pending',
         });
         steps.push({
@@ -1448,6 +1450,7 @@ export class OptionGenerator {
           description: 'Implement changes following best practices',
           action: 'edit_file',
           target: relevantFiles[0] ?? 'main.xml',
+          rationale: 'Apply changes using established patterns',
           status: 'pending',
         });
         steps.push({
@@ -1455,6 +1458,7 @@ export class OptionGenerator {
           description: 'Update related files',
           action: 'edit_file',
           target: relevantFiles[1] ?? 'style.scss',
+          rationale: 'Ensure consistency across related components',
           status: 'pending',
         });
         break;
@@ -1465,6 +1469,7 @@ export class OptionGenerator {
           description: 'Analyze all affected components',
           action: 'read_file',
           target: relevantFiles[0] ?? 'main.xml',
+          rationale: 'Full analysis to understand impact of changes',
           status: 'pending',
         });
         steps.push({
@@ -1472,6 +1477,7 @@ export class OptionGenerator {
           description: 'Create new component structure',
           action: 'write_file',
           target: 'new_component.xml',
+          rationale: 'Establish new component following architecture guidelines',
           status: 'pending',
         });
         steps.push({
@@ -1479,6 +1485,7 @@ export class OptionGenerator {
           description: 'Implement full feature set',
           action: 'edit_file',
           target: relevantFiles[0] ?? 'main.xml',
+          rationale: 'Complete feature implementation with all requirements',
           status: 'pending',
         });
         steps.push({
@@ -1486,6 +1493,7 @@ export class OptionGenerator {
           description: 'Add styling and integration',
           action: 'edit_file',
           target: relevantFiles[1] ?? 'style.scss',
+          rationale: 'Apply visual styling and integrate with existing UI',
           status: 'pending',
         });
         break;
@@ -1496,6 +1504,7 @@ export class OptionGenerator {
           description: 'Analyze specific requirements',
           action: 'read_file',
           target: relevantFiles[0] ?? 'main.xml',
+          rationale: 'Understand custom requirements before implementation',
           status: 'pending',
         });
         steps.push({
@@ -1503,6 +1512,7 @@ export class OptionGenerator {
           description: 'Implement custom solution',
           action: 'edit_file',
           target: relevantFiles[0] ?? 'main.xml',
+          rationale: 'Tailored implementation for specific needs',
           status: 'pending',
         });
         break;
@@ -1511,8 +1521,10 @@ export class OptionGenerator {
     return {
       id: `plan-${template.category}`,
       description: `${template.namePattern} for: ${context.request}`,
+      goal: context.request,
       steps,
-      estimatedSteps: steps.length,
+      createdAt: new Date(),
+      updatedAt: new Date(),
     };
   }
 

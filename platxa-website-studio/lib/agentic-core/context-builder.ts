@@ -156,6 +156,10 @@ export class ContextBuilder {
       iteration: 1,
       maxIterations,
       planMode: isPlanMode,
+      filesRead: new Map(),
+      searchResults: new Map(),
+      userPreferences: {},
+      odooContext: {},
     };
 
     return {
