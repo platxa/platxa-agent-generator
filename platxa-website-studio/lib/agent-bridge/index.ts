@@ -1300,3 +1300,23 @@ export type {
   PlanExecutorConfig,
   ToolExecutorFn,
 } from "./plan-executor";
+
+// Source Mapper (DOM ↔ QWeb bidirectional mapping for visual editing)
+export {
+  DEFAULT_MAPPER_CONFIG,
+  resetMapperCounters,
+  SourceMapper,
+  getSourceMapper,
+  resetSourceMapper,
+} from "./source-mapper";
+export type {
+  SourcePosition,
+  SourceRange,
+  MappedElement,
+  DomToSourceResult,
+  SourceToDomResult,
+  SourceMapperConfig,
+  SourceMapperEventType,
+  SourceMapperEvent,
+  SourceMapperEventListener,
+} from "./source-mapper";
