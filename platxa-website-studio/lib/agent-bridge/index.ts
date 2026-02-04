@@ -1381,3 +1381,26 @@ export type {
   FileWriter,
   FileReader,
 } from "./change-applicator";
+
+// Knowledge Manager (CRUD for custom project knowledge)
+export {
+  DEFAULT_KNOWLEDGE_CONFIG,
+  CATEGORY_INFO,
+  resetKnowledgeCounters,
+  KnowledgeManager,
+  getKnowledgeManager,
+  resetKnowledgeManager,
+} from "./knowledge-manager";
+export type {
+  KnowledgeCategory,
+  KnowledgePriority,
+  KnowledgeEntry,
+  CreateKnowledgeInput,
+  UpdateKnowledgeInput,
+  KnowledgeQuery,
+  KnowledgeManagerState,
+  KnowledgeEventType,
+  KnowledgeEvent,
+  KnowledgeEventListener,
+  KnowledgeManagerConfig,
+} from "./knowledge-manager";
