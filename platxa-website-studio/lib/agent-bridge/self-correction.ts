@@ -75,9 +75,9 @@ export interface SelfCorrectionResult {
 
 /** Options for self-correction */
 export interface SelfCorrectionOptions {
-  /** Maximum retry attempts (default 3) */
+  /** Maximum retry attempts (default 5, matching Lovable's self-correction loop) */
   maxAttempts?: number;
-  /** Minimum overall score to pass (default 70) */
+  /** Minimum overall score to pass (default 80, matching Lovable's quality threshold) */
   minOverallScore?: number;
   /** Minimum accessibility score to pass (default 80) */
   minAccessibilityScore?: number;
@@ -197,8 +197,8 @@ export async function runSelfCorrection(
   options: SelfCorrectionOptions = {},
 ): Promise<SelfCorrectionResult> {
   const {
-    maxAttempts = 3,
-    minOverallScore = 70,
+    maxAttempts = 5,
+    minOverallScore = 80,
     minAccessibilityScore = 80,
     minBrandConsistency = 60,
     onAttempt,
