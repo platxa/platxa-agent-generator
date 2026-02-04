@@ -1445,3 +1445,25 @@ export type {
   GitHubSyncEventListener,
   GitHubApiAdapter,
 } from "./github-sync";
+
+// GitHub OAuth (OAuth 2.0 flow for GitHub authentication)
+export {
+  DEFAULT_OAUTH_CONFIG,
+  PLATXA_SCOPES,
+  GitHubOAuth,
+  initGitHubOAuth,
+  getGitHubOAuth,
+  resetGitHubOAuth,
+  isGitHubOAuthInitialized,
+} from "./github-oauth";
+export type {
+  GitHubScope,
+  GitHubOAuthConfig,
+  OAuthState,
+  GitHubTokenResponse,
+  StoredToken,
+  GitHubUser,
+  OAuthResult,
+  TokenStorageAdapter,
+  OAuthHttpAdapter,
+} from "./github-oauth";
