@@ -1404,3 +1404,19 @@ export type {
   KnowledgeEventListener,
   KnowledgeManagerConfig,
 } from "./knowledge-manager";
+
+// Knowledge Injector (prepend project knowledge to AI prompts)
+export {
+  DEFAULT_INJECTOR_CONFIG as DEFAULT_KNOWLEDGE_INJECTOR_CONFIG,
+  KnowledgeInjector,
+  getKnowledgeInjector,
+  resetKnowledgeInjector,
+} from "./knowledge-injector";
+export type {
+  InjectionMode,
+  InjectionFormat,
+  InjectionResult as KnowledgeInjectionResult,
+  InjectionContext,
+  KnowledgeInjectorConfig,
+  EnrichedPrompt,
+} from "./knowledge-injector";
