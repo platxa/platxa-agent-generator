@@ -1489,3 +1489,23 @@ export type {
   SystemPrompt,
   PromptBuilderOptions,
 } from "./mode-prompts";
+
+// Multi-Select (batch editing multiple elements)
+export {
+  DEFAULT_MULTI_SELECT_CONFIG,
+  MultiSelectManager,
+  getMultiSelectManager,
+  resetMultiSelectManager,
+  createMultiSelectHook,
+} from "./multi-select";
+export type {
+  MultiSelectState,
+  SelectionMode,
+  SelectionChangeEvent,
+  BatchEdit,
+  BatchEditResult,
+  MultiSelectConfig,
+  MultiSelectEventType,
+  MultiSelectEvent,
+  MultiSelectEventListener,
+} from "./multi-select";
