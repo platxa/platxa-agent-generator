@@ -1281,10 +1281,9 @@ export type {
 // Plan Executor (sequential plan execution with pause/resume)
 export {
   DEFAULT_EXECUTOR_CONFIG,
-  resetExecutorCounters,
-  createExecutionState,
-  updateProgress,
   setDefaultToolExecutor,
+  createMockExecutor,
+  createLoggingExecutor,
   PlanExecutor,
   getPlanExecutor,
   resetPlanExecutor,
@@ -1299,4 +1298,5 @@ export type {
   ExecutionEvent,
   ExecutionEventListener,
   PlanExecutorConfig,
+  ToolExecutorFn,
 } from "./plan-executor";
