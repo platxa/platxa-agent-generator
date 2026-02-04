@@ -1256,3 +1256,24 @@ export type {
   ChatModeState,
   BlockedOperation,
 } from "./chat-mode";
+
+// Plan Generator (step-by-step implementation plans)
+export {
+  DEFAULT_PLAN_CONFIG,
+  resetPlanGeneratorCounters,
+  analyzeRequest,
+  generatePlan,
+  PlanGenerator,
+  getPlanGenerator,
+  resetPlanGenerator,
+} from "./plan-generator";
+export type {
+  PlanRequest,
+  RequestContext,
+  PlanConstraints,
+  RequestAnalysis,
+  RequestIntent,
+  ExtractedEntity,
+  PlanGenerationResult,
+  PlanGeneratorConfig,
+} from "./plan-generator";
