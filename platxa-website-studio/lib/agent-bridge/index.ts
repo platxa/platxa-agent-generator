@@ -1338,3 +1338,26 @@ export type {
   InjectionResult,
   InjectionStats,
 } from "./source-injector";
+
+// Visual Editor (element selection and property editing controller)
+export {
+  DEFAULT_VISUAL_EDITOR_CONFIG,
+  PROPERTY_CATEGORIES,
+  resetVisualEditorCounters,
+  VisualEditor,
+  getVisualEditor,
+  resetVisualEditor,
+} from "./visual-editor";
+export type {
+  PropertyType,
+  EditableProperty,
+  SelectedElement,
+  VisualEdit,
+  EditBatch,
+  VisualEditorState,
+  VisualEditorConfig,
+  VisualEditorEventType,
+  VisualEditorEvent,
+  VisualEditorEventListener,
+  SourceUpdateFn,
+} from "./visual-editor";
