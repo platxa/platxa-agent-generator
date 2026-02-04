@@ -1420,3 +1420,28 @@ export type {
   KnowledgeInjectorConfig,
   EnrichedPrompt,
 } from "./knowledge-injector";
+
+// GitHub Sync (bidirectional sync between Platxa and GitHub)
+export {
+  DEFAULT_GITHUB_SYNC_CONFIG,
+  GitHubSync,
+  getGitHubSync,
+  resetGitHubSync,
+} from "./github-sync";
+export type {
+  GitHubAuth,
+  RepoRef,
+  FileChange,
+  SyncDirection,
+  SyncStatus,
+  SyncConflict,
+  SyncResult,
+  WebhookEventType,
+  WebhookPayload,
+  GitHubSyncConfig,
+  GitHubSyncState,
+  GitHubSyncEventType,
+  GitHubSyncEvent,
+  GitHubSyncEventListener,
+  GitHubApiAdapter,
+} from "./github-sync";
