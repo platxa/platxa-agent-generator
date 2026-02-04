@@ -1361,3 +1361,23 @@ export type {
   VisualEditorEventListener,
   SourceUpdateFn,
 } from "./visual-editor";
+
+// Change Applicator (translate property changes to QWeb/SCSS edits)
+export {
+  DEFAULT_APPLICATOR_CONFIG,
+  resetApplicatorCounters,
+  ChangeApplicator,
+  createMockApplicator,
+  setApplicatorIO,
+  getChangeApplicator,
+  resetChangeApplicator,
+} from "./change-applicator";
+export type {
+  EditType,
+  SourceEdit,
+  ApplyResult,
+  ScssContext,
+  ChangeApplicatorConfig,
+  FileWriter,
+  FileReader,
+} from "./change-applicator";
