@@ -1467,3 +1467,25 @@ export type {
   TokenStorageAdapter,
   OAuthHttpAdapter,
 } from "./github-oauth";
+
+// Mode Prompts (mode-specific system prompts for AI behavior)
+export {
+  CHAT_MODE_PROMPT,
+  AGENT_MODE_PROMPT,
+  VISUAL_MODE_PROMPT,
+  MODE_PROMPTS,
+  ModePromptBuilder,
+  getCurrentModePrompt,
+  getModePrompt,
+  canExecuteInCurrentMode,
+  isPlanningMode,
+  isVisualEditMode,
+  getModePromptBuilder,
+  resetModePromptBuilder,
+} from "./mode-prompts";
+export type {
+  PromptVariables,
+  ModePromptConfig,
+  SystemPrompt,
+  PromptBuilderOptions,
+} from "./mode-prompts";
