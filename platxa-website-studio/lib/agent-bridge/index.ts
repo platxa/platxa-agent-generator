@@ -1320,3 +1320,21 @@ export type {
   SourceMapperEvent,
   SourceMapperEventListener,
 } from "./source-mapper";
+
+// Source Injector (data-qweb-* attribute injection for click-to-source)
+export {
+  DEFAULT_INJECTOR_CONFIG,
+  resetInjectionCounters,
+  SourceInjector,
+  getSourceInjector,
+  resetSourceInjector,
+  injectSourceAttributes,
+  hasSourceAttributes,
+  stripSourceAttributes,
+  CLICK_TO_SOURCE_SCRIPT,
+} from "./source-injector";
+export type {
+  SourceInjectorConfig,
+  InjectionResult,
+  InjectionStats,
+} from "./source-injector";
