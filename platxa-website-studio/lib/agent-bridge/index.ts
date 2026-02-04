@@ -1234,3 +1234,25 @@ export type {
   ModeManagerState,
   ModeChangeListener,
 } from "./mode-manager";
+
+// Chat Mode (read-only planning mode)
+export {
+  ALLOWED_TOOLS,
+  BLOCKED_TOOLS,
+  DEFAULT_CHAT_CONFIG,
+  resetChatModeCounters,
+  ChatMode,
+  getChatMode,
+  resetChatMode,
+} from "./chat-mode";
+export type {
+  ToolCategory,
+  ToolDefinition,
+  ToolExecutor,
+  ToolResult,
+  PlanStep,
+  ImplementationPlan,
+  ChatModeConfig,
+  ChatModeState,
+  BlockedOperation,
+} from "./chat-mode";
