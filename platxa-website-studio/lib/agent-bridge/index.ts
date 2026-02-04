@@ -1277,3 +1277,26 @@ export type {
   PlanGenerationResult,
   PlanGeneratorConfig,
 } from "./plan-generator";
+
+// Plan Executor (sequential plan execution with pause/resume)
+export {
+  DEFAULT_EXECUTOR_CONFIG,
+  resetExecutorCounters,
+  createExecutionState,
+  updateProgress,
+  setDefaultToolExecutor,
+  PlanExecutor,
+  getPlanExecutor,
+  resetPlanExecutor,
+} from "./plan-executor";
+export type {
+  ExecutionStatus,
+  StepStatus,
+  StepExecutionResult,
+  ExecutionProgress,
+  ExecutionState,
+  ExecutionEventType,
+  ExecutionEvent,
+  ExecutionEventListener,
+  PlanExecutorConfig,
+} from "./plan-executor";
