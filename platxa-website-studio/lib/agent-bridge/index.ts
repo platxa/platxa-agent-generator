@@ -1216,3 +1216,21 @@ export type {
 
 // Design Tokens (Tier 2)
 export * from "../design-tokens";
+
+// Mode Manager (Lovable-style Chat/Agent/Visual modes)
+export {
+  MODE_CONFIGS,
+  DEFAULT_MODE,
+  ModeManager,
+  getModeManager,
+  resetModeManager,
+  createModeManagerHook,
+} from "./mode-manager";
+export type {
+  OperationalMode,
+  ModeChangeEvent,
+  ModeCapabilities,
+  ModeConfig,
+  ModeManagerState,
+  ModeChangeListener,
+} from "./mode-manager";
