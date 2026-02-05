@@ -17,3 +17,16 @@ export {
   type ThemeFilterOptions,
   type AppliedTheme,
 } from "./theme-registry";
+
+// Theme Templates
+export {
+  minimalTheme,
+  minimalLightColors,
+  minimalDarkColors,
+  minimalTypography,
+  minimalSpacing,
+  minimalLayout,
+  generateMinimalSCSS,
+  generateMinimalCSSVariables,
+  generateMinimalManifest,
+} from "./templates/minimal";
