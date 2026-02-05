@@ -12,3 +12,11 @@ export {
   type VersionBookmark,
   type CurrentVersion,
 } from "./VersionBookmarks";
+
+export {
+  ImprovedHistoryView,
+  type ImprovedHistoryViewProps,
+  type HistoryEntry,
+  type ChangeType,
+  type ChangeAction,
+} from "./ImprovedHistoryView";
