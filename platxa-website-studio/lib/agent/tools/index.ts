@@ -47,3 +47,16 @@ export {
   type TestResult,
   type PreviewFrame,
 } from "./browser-test";
+
+export {
+  CodebaseSearchTool,
+  createCodebaseSearchTool,
+  type MatchType,
+  type FileCategory,
+  type SearchResult as CodebaseSearchResult,
+  type ContentMatch,
+  type SymbolMatch,
+  type SearchOptions as CodebaseSearchOptions,
+  type SearchResponse as CodebaseSearchResponse,
+  type CodebaseFile,
+} from "./codebase-search";
