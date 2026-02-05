@@ -56,3 +56,22 @@ export {
   type CreateInvitationOptions,
   type AcceptInvitationResult,
 } from "./invitation-service";
+
+export {
+  PermissionChecker,
+  getPermissionChecker,
+  createPermissionChecker,
+  canPerform,
+  getRoleInfo,
+  getAllRoles,
+  getAssignableRoles,
+  ROLE_DEFINITIONS,
+  PERMISSION_DEFINITIONS,
+  type Role,
+  type PermissionAction,
+  type ResourceType,
+  type PermissionContext,
+  type PermissionResult,
+  type PermissionDefinition,
+  type RoleDefinition,
+} from "./permission-system";
