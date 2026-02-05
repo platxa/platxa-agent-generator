@@ -30,3 +30,20 @@ export {
   type ImageProviderConfig,
   type OdooUploadOptions,
 } from "./image-generation";
+
+export {
+  BrowserTestTool,
+  createBrowserTestTool,
+  type SelectorType,
+  type ElementQuery,
+  type ElementState,
+  type StyleCheckOptions,
+  type InteractionType,
+  type InteractionOptions,
+  type AccessibilityCheck,
+  type ViewportConfig,
+  type ViewportPreset,
+  type TestAssertion,
+  type TestResult,
+  type PreviewFrame,
+} from "./browser-test";
