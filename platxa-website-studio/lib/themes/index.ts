@@ -30,3 +30,15 @@ export {
   generateMinimalCSSVariables,
   generateMinimalManifest,
 } from "./templates/minimal";
+
+export {
+  corporateTheme,
+  corporateColors,
+  corporateDarkColors,
+  corporateTypography,
+  corporateSpacing,
+  corporateLayout,
+  generateCorporateSCSS,
+  generateCorporateCSSVariables,
+  generateCorporateManifest,
+} from "./templates/corporate";
