@@ -81,3 +81,25 @@ export {
   type CSSImportResult,
   type CSSImportOptions,
 } from "./css-import";
+
+// Color Palette Generator
+export {
+  generatePalette,
+  suggestPalettes,
+  paletteToCSSVariables,
+  paletteToTailwindConfig,
+  hexToRgb,
+  rgbToHex,
+  hexToHsl,
+  hslToHex,
+  getContrastRatio,
+  isWCAGAACompliant,
+  isWCAGAAACompliant,
+  getBestTextColor,
+  type RGB,
+  type HSL,
+  type GeneratedColor,
+  type PaletteConfig,
+  type GeneratedPalette,
+  type PaletteSuggestion,
+} from "./color-palette-generator";
