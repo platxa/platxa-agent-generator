@@ -1,6 +1,7 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 import type { AgentStatus, QualityReport } from "@/lib/agent-bridge/types";
+import { safeLocalStorage } from "./safe-storage";
 
 /**
  * Message role types
@@ -221,6 +222,7 @@ export const useChatStore = create<ChatState>()(
     }),
     {
       name: "platxa-chat-storage",
+      storage: createJSONStorage(() => safeLocalStorage),
       // Only persist messages (last 50) and session info
       partialize: (state) => ({
         messages: state.messages.slice(-50), // Keep last 50 messages

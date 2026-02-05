@@ -1,5 +1,6 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { safeLocalStorage } from "./safe-storage";
 
 /**
  * File node structure for the project tree
@@ -218,6 +219,7 @@ export const useProjectStore = create<ProjectState>()(
     }),
     {
       name: "platxa-project-storage",
+      storage: createJSONStorage(() => safeLocalStorage),
       partialize: (state) => ({
         projectId: state.projectId,
         projectName: state.projectName,

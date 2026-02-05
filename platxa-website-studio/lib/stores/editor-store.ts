@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { useEffect, useState } from "react";
+import { safeLocalStorage } from "./safe-storage";
 
 /**
  * Open tab in the editor
@@ -45,6 +46,10 @@ interface EditorState {
 
   // File contents (in-memory for generated files)
   fileContents: Record<string, string>;
+
+  // CRITICAL: Timestamp to force React re-renders when files change
+  // This bypasses any reference equality issues with fileContents object
+  lastFileUpdate: number;
 
   // View state
   showMinimap: boolean;
@@ -130,6 +135,7 @@ export const useEditorStore = create<EditorState>()(
       cursorPosition: { line: 1, column: 1 },
       selection: null,
       fileContents: {},
+      lastFileUpdate: 0,
       showMinimap: true,
       wordWrap: false,
       fontSize: 14,
@@ -350,16 +356,21 @@ export const useEditorStore = create<EditorState>()(
           console.log("[EditorStore] New fileContents keys:", Object.keys(newFileContents));
           console.log("[EditorStore] Total files in store:", Object.keys(newFileContents).length);
 
+          // CRITICAL: Update timestamp to force React re-renders
+          const updateTime = Date.now();
+          console.log("[EditorStore] Setting lastFileUpdate to:", updateTime);
+
           return {
             openTabs: newTabs,
             activeTab: firstNewTab || state.activeTab,
             fileContents: newFileContents,
+            lastFileUpdate: updateTime,
           };
         }),
     }),
     {
       name: "platxa-editor-storage",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => safeLocalStorage),
       // Persist tabs, settings, and file contents
       partialize: (state) => ({
         openTabs: state.openTabs,
@@ -378,14 +389,44 @@ export const useEditorStore = create<EditorState>()(
 /**
  * Hook to ensure store is hydrated before use (SSR-safe)
  * Use this in components that depend on persisted state
+ *
+ * FIX: Use lazy initializer to check hydration status immediately,
+ * avoiding the race condition where hasHydrated() is true but state is false
  */
 export function useEditorStoreHydration() {
+  // Simple approach: track if we're on client and hydration attempted
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    // Rehydrate the store on client mount
-    useEditorStore.persist.rehydrate();
-    setHydrated(true);
+    // We're on the client now - trigger hydration
+    const persist = useEditorStore.persist;
+
+    // Subscribe to finish event
+    const unsub = persist.onFinishHydration(() => {
+      setHydrated(true);
+    });
+
+    // Check if already hydrated
+    if (persist.hasHydrated()) {
+      setHydrated(true);
+    } else {
+      // Trigger rehydration
+      persist.rehydrate();
+    }
+
+    // FAILSAFE: If hydration doesn't complete in 500ms, force it
+    // This handles edge cases where localStorage is slow or unavailable
+    const failsafe = setTimeout(() => {
+      if (!persist.hasHydrated()) {
+        console.warn("[EditorStore] Hydration timeout - forcing completion");
+      }
+      setHydrated(true);
+    }, 500);
+
+    return () => {
+      unsub();
+      clearTimeout(failsafe);
+    };
   }, []);
 
   return hydrated;

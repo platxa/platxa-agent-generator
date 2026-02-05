@@ -51,6 +51,71 @@ import { SnippetContextMenu, SNIPPET_CONTEXT_SCRIPT } from "./SnippetContextMenu
 type PreviewMode = "standalone" | "odoo";
 
 /**
+ * Sanitize JavaScript content for safe preview embedding
+ * Strips ES module imports/exports which can't be used inside inline scripts
+ * Also removes Odoo-specific JS that requires the Odoo runtime
+ * Also removes problematic patterns that could break the preview
+ */
+function sanitizeJsForPreview(js: string): string {
+  if (!js || !js.trim()) return "";
+
+  let sanitized = js;
+
+  // ==========================================================================
+  // ODOO-SPECIFIC JS REMOVAL (these require Odoo runtime which doesn't exist in preview)
+  // ==========================================================================
+
+  // Check if this is Odoo-specific JS - if so, return empty or stub
+  const isOdooJs = /\bodoo\.define\b|\bpublicWidget\b|\brequire\s*\(\s*['"]web\.|@odoo\//.test(sanitized);
+
+  if (isOdooJs) {
+    // Return a stub comment - Odoo JS won't work in preview anyway
+    return "// [Odoo JS removed - requires Odoo runtime for preview]";
+  }
+
+  // Remove odoo.define() blocks entirely
+  sanitized = sanitized.replace(/odoo\.define\s*\([^)]*,\s*function\s*\([^)]*\)\s*\{[\s\S]*?\}\s*\);?/g, "// [odoo.define removed]");
+
+  // Remove require() calls for Odoo modules (web.*, @odoo/*)
+  sanitized = sanitized.replace(/\brequire\s*\(\s*['"](?:web\.|@odoo\/)[^'"]*['"]\s*\)/g, "null /* Odoo require removed */");
+
+  // ==========================================================================
+  // ES MODULE REMOVAL
+  // ==========================================================================
+
+  // Remove ES module import statements (they can't be used in inline scripts)
+  // Handles: import x from 'y', import { x } from 'y', import * as x from 'y', import 'y'
+  sanitized = sanitized.replace(/^\s*import\s+(?:(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s+)?['"][^'"]+['"]\s*;?\s*$/gm, "// [import removed for preview]");
+
+  // Remove ES module export statements
+  // Handles: export default, export { }, export const/let/var/function/class
+  sanitized = sanitized.replace(/^\s*export\s+(?:default\s+)?(?:\{[^}]*\}|const|let|var|function|class)/gm, "// [export removed] ");
+
+  // Remove dynamic imports: await import('...')
+  sanitized = sanitized.replace(/\bawait\s+import\s*\([^)]+\)/g, "null /* dynamic import removed */");
+
+  // Remove require() calls that reference node modules (not relative paths)
+  sanitized = sanitized.replace(/\brequire\s*\(\s*['"][^./][^'"]*['"]\s*\)/g, "null /* require removed */");
+
+  // Strip any remaining standalone import/export keywords at line start that might cause issues
+  sanitized = sanitized.replace(/^(import|export)\s/gm, "// $1 ");
+
+  // ==========================================================================
+  // TYPESCRIPT/JSX REMOVAL
+  // ==========================================================================
+
+  // Remove TypeScript/JSX that browsers can't handle
+  sanitized = sanitized.replace(/<[A-Z]\w*[^>]*\/>/g, "/* JSX removed */"); // Self-closing JSX
+  sanitized = sanitized.replace(/<[A-Z]\w*[^>]*>[\s\S]*?<\/[A-Z]\w*>/g, "/* JSX removed */"); // JSX blocks
+
+  // Remove type annotations (TypeScript)
+  sanitized = sanitized.replace(/:\s*\w+(\[\])?(?=\s*[=;,)])/g, ""); // : Type
+  sanitized = sanitized.replace(/<\w+>/g, ""); // Generic types like <T>
+
+  return sanitized.trim();
+}
+
+/**
  * Convert SCSS variables to CSS custom properties
  */
 function convertScssVariables(scss: string): { css: string; variables: string } {
@@ -101,48 +166,254 @@ const qwebRuntime = new QWebRuntime({
 });
 
 /**
+ * Strip Odoo-specific XML tags that browsers can't render
+ * This is the core sanitization step for preview rendering
+ * PRODUCTION-GRADE: Handles partial/incomplete tags from streaming
+ */
+function stripOdooTags(content: string): string {
+  return content
+    // CRITICAL: Strip any preamble text before the first XML/HTML tag
+    // AI sometimes outputs "Here is..." or explanatory text before the actual code
+    .replace(/^[\s\S]*?(?=<\?xml|<odoo|<template|<section|<div|<header|<footer|<nav|<main|<!DOCTYPE|<!--|<html)/i, "")
+    // Remove XML declarations
+    .replace(/<\?xml[^>]*\?>/gi, "")
+    // Remove odoo wrapper (complete and partial)
+    .replace(/<\/?odoo[^>]*>/gi, "")
+    // Remove xpath wrappers - KEEP CONTENT INSIDE (critical fix)
+    // Only remove the opening and closing tags, preserve inner content
+    .replace(/<xpath[^>]*\/>/gi, "")  // Self-closing xpath (no content)
+    .replace(/<xpath[^>]*>/gi, "")    // Opening xpath tag only
+    .replace(/<\/xpath>/gi, "")       // Closing xpath tag only
+    // Remove partial xpath at start of content (streaming artifact)
+    .replace(/^[^<]*<\/xpath>/gi, "")
+    // Remove data elements
+    .replace(/<\/?data[^>]*>/gi, "")
+    // Remove record elements
+    .replace(/<record[^>]*>[\s\S]*?<\/record>/gi, "")
+    // Remove field elements (Odoo model fields)
+    .replace(/<field[^>]*\/>/gi, "")
+    .replace(/<field[^>]*>[\s\S]*?<\/field>/gi, "")
+    // Remove t-call to website.layout
+    .replace(/<t\s+t-call=["']website\.layout["'][^>]*>/g, "")
+    .replace(/<\/t>/g, "")
+    // Remove empty template wrappers
+    .replace(/<template[^>]*>\s*<\/template>/gi, "")
+    // Remove template opening/closing (we just want content)
+    .replace(/<template[^>]*>/gi, "")
+    .replace(/<\/template>/gi, "")
+    // Clean up Odoo-specific attributes that might remain
+    .replace(/\s+t-(?:if|else|elif|foreach|as|esc|raw|att\w*)="[^"]*"/gi, "")
+    // CRITICAL: Remove script tags that might contain ES module imports
+    // These would cause "Cannot use import statement outside a module" errors
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, "<!-- script removed for preview -->")
+    // Clean up multiple whitespace/newlines
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/**
+ * Extract content from sections (fallback when template extraction fails)
+ */
+function extractSections(content: string): string {
+  const sections: string[] = [];
+
+  // Match <section> elements
+  const sectionRegex = /<section[^>]*>[\s\S]*?<\/section>/gi;
+  let sectionMatch: RegExpExecArray | null;
+  while ((sectionMatch = sectionRegex.exec(content)) !== null) {
+    sections.push(sectionMatch[0]);
+  }
+
+  // Match common container divs
+  const containerPatterns = [
+    /<div[^>]*class="[^"]*container[^"]*"[^>]*>[\s\S]*?<\/div>/gi,
+    /<div[^>]*class="[^"]*hero[^"]*"[^>]*>[\s\S]*?<\/div>/gi,
+    /<div[^>]*class="[^"]*banner[^"]*"[^>]*>[\s\S]*?<\/div>/gi,
+    /<header[^>]*>[\s\S]*?<\/header>/gi,
+    /<footer[^>]*>[\s\S]*?<\/footer>/gi,
+    /<nav[^>]*>[\s\S]*?<\/nav>/gi,
+    /<main[^>]*>[\s\S]*?<\/main>/gi,
+  ];
+
+  for (const pattern of containerPatterns) {
+    let containerMatch: RegExpExecArray | null;
+    while ((containerMatch = pattern.exec(content)) !== null) {
+      // Avoid duplicates
+      if (!sections.some(s => s.includes(containerMatch![0].substring(0, 50)))) {
+        sections.push(containerMatch[0]);
+      }
+    }
+  }
+
+  return sections.join("\n\n");
+}
+
+/**
+ * Strip conversational preamble and streaming artifacts from AI content
+ */
+function cleanAIContent(content: string): string {
+  let cleaned = content;
+
+  // Remove repeated preamble patterns (streaming artifacts)
+  // Pattern: "Here is an example...<?xml" repeated with growing content
+  const streamingArtifactPattern = /(?:Here (?:is|are)[^<]*)+(?=<\?xml|<odoo|<template|<section)/gi;
+  cleaned = cleaned.replace(streamingArtifactPattern, "");
+
+  // Remove standalone conversational text before XML/HTML
+  cleaned = cleaned.replace(/^(?:Here (?:is|are)[^\n]*\n*)+/gim, "");
+  cleaned = cleaned.replace(/^(?:I(?:'ll| will)[^\n]*\n*)+/gim, "");
+  cleaned = cleaned.replace(/^(?:Below (?:is|are)[^\n]*\n*)+/gim, "");
+  cleaned = cleaned.replace(/^(?:This (?:is|creates)[^\n]*\n*)+/gim, "");
+
+  // Find the first XML/HTML marker and strip everything before it
+  const xmlStart = cleaned.search(/<\?xml|<odoo|<template|<section|<div|<header|<footer/i);
+  if (xmlStart > 0 && xmlStart < 1000) {
+    cleaned = cleaned.substring(xmlStart);
+  }
+
+  return cleaned.trim();
+}
+
+/**
  * Extract and render QWeb template content for preview using QWebRuntime
+ * Production-grade extraction with multiple fallback strategies
  */
 function extractQwebContent(xml: string): { html: string; snippets: string[] } {
+  // First, clean the input of conversational preamble and streaming artifacts
+  const cleanedXml = cleanAIContent(xml);
+
+  console.log("[extractQwebContent] Input length:", xml.length, "Cleaned length:", cleanedXml.length);
+  console.log("[extractQwebContent] Cleaned preview:", cleanedXml.substring(0, 300));
+
   let html = "";
 
-  // Extract all template contents
+  // Strategy 1: Extract content from <template> tags
   const templateRegex = /<template[^>]*>([\s\S]*?)<\/template>/g;
   let match;
-  while ((match = templateRegex.exec(xml)) !== null) {
+  while ((match = templateRegex.exec(cleanedXml)) !== null) {
+    console.log("[extractQwebContent] Found template, content length:", match[1].length);
     html += match[1];
   }
 
-  // If no template tags, try to use content directly
-  if (!html && xml.includes("<")) {
-    html = xml;
+  // Strategy 2: If no templates found, try extracting from <odoo> wrapper
+  if (!html) {
+    const odooMatch = cleanedXml.match(/<odoo[^>]*>([\s\S]*?)<\/odoo>/i);
+    if (odooMatch) {
+      console.log("[extractQwebContent] Found odoo wrapper, extracting content");
+      html = odooMatch[1];
+    }
   }
 
-  // Remove t-call to website.layout (we'll wrap content ourselves)
-  html = html.replace(/<t\s+t-call=["']website\.layout["'][^>]*>/g, "");
+  // Strategy 3: If still no content, try direct section extraction
+  if (!html && cleanedXml.includes("<")) {
+    console.log("[extractQwebContent] Trying direct section extraction");
+    html = extractSections(cleanedXml);
+  }
+
+  // Strategy 4: Last resort - use entire content if it looks like HTML
+  if (!html && (cleanedXml.includes("<section") || cleanedXml.includes("<div"))) {
+    console.log("[extractQwebContent] Using raw content as fallback");
+    html = cleanedXml;
+  }
+
+  // Strip all Odoo-specific tags
+  html = stripOdooTags(html);
+
+  // Log extraction result
+  if (html.trim()) {
+    console.log("[extractQwebContent] SUCCESS - Extracted HTML length:", html.length);
+    console.log("[extractQwebContent] First 300 chars:", html.substring(0, 300));
+  } else {
+    console.warn("[extractQwebContent] FAILED - No HTML content extracted");
+    console.warn("[extractQwebContent] Original content sample:", xml.substring(0, 500));
+  }
 
   // Detect snippets used in the template
   const detectedSnippets = detectSnippets(html);
 
-  // Use QWebRuntime for full template rendering
+  // Use QWebRuntime for full template rendering (handles t-* directives)
   try {
-    html = qwebRuntime.render(html);
+    const renderedHtml = qwebRuntime.render(html);
+    console.log("[extractQwebContent] QWebRuntime rendered successfully, length:", renderedHtml.length);
+    html = renderedHtml;
   } catch (error) {
-    console.warn("QWeb rendering error, using fallback:", error);
+    console.warn("[extractQwebContent] QWebRuntime error, using basic cleanup:", error);
     // Fallback to basic cleanup if runtime fails
     html = html
+      // Remove t-if/else/elif attributes
       .replace(/\s*t-if="[^"]*"/g, "")
-      .replace(/\s*t-else="[^"]*"/g, "")
+      .replace(/\s*t-else(?:="[^"]*")?/g, "")
       .replace(/\s*t-elif="[^"]*"/g, "")
+      // Convert t-esc to visible placeholders
       .replace(/<t\s+t-esc="([^"]+)"[^/]*\/>/g, '<span class="preview-value">[$1]</span>')
       .replace(/<t\s+t-raw="([^"]+)"[^/]*\/>/g, '<span class="preview-value preview-html">[$1]</span>')
-      .replace(/\s*t-attf?-[\w-]+="[^"]*"/g, "");
+      // Remove t-att* attributes
+      .replace(/\s*t-attf?-[\w-]+="[^"]*"/g, "")
+      // Remove t-foreach
+      .replace(/\s*t-foreach="[^"]*"/g, "")
+      .replace(/\s*t-as="[^"]*"/g, "")
+      // Remove remaining <t> tags
+      .replace(/<t[^>]*>/g, "")
+      .replace(/<\/t>/g, "");
   }
 
   // Replace Odoo image URLs with SVG placeholders
   html = replaceImagesWithPlaceholders(html);
 
   return { html, snippets: detectedSnippets };
+}
+
+/**
+ * Generate a loading state HTML document
+ * Shown during store hydration to avoid blank preview
+ */
+function generateLoadingHtml(): string {
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loading Preview</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .loader-container {
+      text-align: center;
+      color: white;
+    }
+    .loader {
+      width: 48px;
+      height: 48px;
+      border: 3px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 1rem;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    h2 { font-size: 1.25rem; font-weight: 600; margin-bottom: 0.5rem; }
+    p { opacity: 0.8; font-size: 0.875rem; }
+  </style>
+</head>
+<body>
+  <div class="loader-container">
+    <div class="loader"></div>
+    <h2>Loading Preview</h2>
+    <p>Preparing your workspace...</p>
+  </div>
+</body>
+</html>
+  `.trim();
 }
 
 /**
@@ -155,13 +426,18 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
   let jsContent = "";
   const allSnippets: string[] = [];
 
+  console.log("[generatePreviewHtml] Processing", Object.keys(fileContents).length, "files");
+
   for (const [path, content] of Object.entries(fileContents)) {
     const ext = path.split(".").pop()?.toLowerCase();
     const fileName = path.split("/").pop()?.toLowerCase() || "";
 
+    console.log(`[generatePreviewHtml] Processing: ${path} (${ext}, ${content.length} chars)`);
+
     if (ext === "xml") {
       // Odoo QWeb templates - use QWebRuntime
       const { html, snippets } = extractQwebContent(content);
+      console.log(`[generatePreviewHtml] Extracted ${html.length} chars HTML from XML`);
       htmlContent += html;
       allSnippets.push(...snippets);
     } else if (ext === "html") {
@@ -173,7 +449,11 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
     } else if (ext === "css") {
       cssContent += content;
     } else if (ext === "js") {
-      jsContent += content;
+      // Sanitize JS to remove ES module imports/exports that break inline scripts
+      const sanitizedJs = sanitizeJsForPreview(content);
+      if (sanitizedJs) {
+        jsContent += sanitizedJs + "\n";
+      }
     } else if (ext === "py" && fileName === "__manifest__.py") {
       // Show manifest info in a comment (useful for debugging)
       console.log("Odoo manifest detected:", path);
@@ -191,21 +471,75 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
     // Remove @import statements for local files
     .replace(/@import\s+["'](?!https?:\/\/)[^"']+["']\s*;/gi, "");
 
-  // If no HTML found, create a placeholder
+  // Summary logging
+  console.log("[generatePreviewHtml] ===== SUMMARY =====");
+  console.log("[generatePreviewHtml] HTML content length:", htmlContent.length);
+  console.log("[generatePreviewHtml] CSS content length:", cssContent.length);
+  console.log("[generatePreviewHtml] CSS variables length:", cssVariables.length);
+  console.log("[generatePreviewHtml] JS content length:", jsContent.length);
+  if (htmlContent.trim()) {
+    console.log("[generatePreviewHtml] HTML preview (first 500 chars):", htmlContent.substring(0, 500));
+  }
+
+  // If no HTML found, create a premium placeholder
   if (!htmlContent.trim()) {
     htmlContent = `
-      <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; font-family: system-ui, sans-serif; color: #666; text-align: center; padding: 2rem;">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 1rem; opacity: 0.5;">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-          <polyline points="14 2 14 8 20 8"></polyline>
-          <line x1="16" y1="13" x2="8" y2="13"></line>
-          <line x1="16" y1="17" x2="8" y2="17"></line>
-          <polyline points="10 9 9 9 8 9"></polyline>
-        </svg>
-        <h2 style="margin: 0 0 0.5rem; font-size: 1.25rem; font-weight: 600;">Odoo Theme Preview</h2>
-        <p style="margin: 0; opacity: 0.7;">Generate an Odoo theme to see a live preview</p>
-        <p style="margin: 0.5rem 0 0; font-size: 0.875rem; opacity: 0.5;">Try: "Create a restaurant website with warm colors"</p>
-      </div>
+      <!-- Premium Welcome Screen -->
+      <section style="min-height: 100vh; background: linear-gradient(135deg, #0f0f1a 0%, #1a1a3e 50%, #0f0f1a 100%); position: relative; overflow: hidden;">
+        <!-- Mesh gradient overlay -->
+        <div style="position: absolute; inset: 0; background: radial-gradient(at 20% 30%, rgba(139,92,246,0.3) 0%, transparent 50%), radial-gradient(at 80% 20%, rgba(236,72,153,0.2) 0%, transparent 50%), radial-gradient(at 40% 80%, rgba(59,130,246,0.2) 0%, transparent 50%);"></div>
+
+        <div style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 2rem; text-align: center;">
+          <!-- Icon -->
+          <div style="width: 80px; height: 80px; border-radius: 24px; background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(236,72,153,0.2)); display: flex; align-items: center; justify-content: center; margin-bottom: 2rem; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1);">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="url(#gradient)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <defs>
+                <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" style="stop-color:#8b5cf6"/>
+                  <stop offset="100%" style="stop-color:#ec4899"/>
+                </linearGradient>
+              </defs>
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+
+          <!-- Title -->
+          <h1 style="font-family: system-ui, -apple-system, sans-serif; font-size: clamp(2rem, 5vw, 3rem); font-weight: 800; color: white; margin: 0 0 1rem; letter-spacing: -0.03em; line-height: 1.1;">
+            Platxa
+            <span style="display: block; background: linear-gradient(135deg, #8b5cf6, #ec4899); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Website Studio</span>
+          </h1>
+
+          <p style="font-family: system-ui; font-size: 1.125rem; color: rgba(255,255,255,0.7); margin: 0 0 2rem; max-width: 400px; line-height: 1.6;">
+            Describe your website and watch it come to life with AI-powered generation
+          </p>
+
+          <!-- Example prompts -->
+          <div style="display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; max-width: 500px;">
+            <span style="padding: 0.5rem 1rem; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 9999px; font-size: 0.875rem; color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.1);">🏠 Modern homepage</span>
+            <span style="padding: 0.5rem 1rem; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 9999px; font-size: 0.875rem; color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.1);">☕ Coffee shop</span>
+            <span style="padding: 0.5rem 1rem; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 9999px; font-size: 0.875rem; color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.1);">🍕 Restaurant</span>
+            <span style="padding: 0.5rem 1rem; background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); border-radius: 9999px; font-size: 0.875rem; color: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.1);">💼 Business site</span>
+          </div>
+
+          <!-- Trust indicators -->
+          <div style="display: flex; gap: 3rem; margin-top: 3rem; padding-top: 2rem; border-top: 1px solid rgba(255,255,255,0.1);">
+            <div style="text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: 700; color: white;">Odoo 18</div>
+              <div style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">Compatible</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: 700; color: white;">Premium</div>
+              <div style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">Design Quality</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="font-size: 1.5rem; font-weight: 700; color: white;">Local AI</div>
+              <div style="font-size: 0.75rem; color: rgba(255,255,255,0.5);">Private & Fast</div>
+            </div>
+          </div>
+        </div>
+      </section>
     `;
   }
 
@@ -213,6 +547,8 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
   const bootstrapCss = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css";
   const bootstrapJs = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js";
   const fontAwesomeCss = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css";
+  // jQuery for legacy JS compatibility (Odoo themes may use $)
+  const jQueryJs = "https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js";
 
   // Log detected snippets for debugging
   if (allSnippets.length > 0) {
@@ -555,6 +891,126 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
       color: #6366f1;
       font-size: 0.875rem;
     }
+
+    /* ========================================
+       PREMIUM CSS UTILITIES
+       ======================================== */
+
+    /* Glassmorphism utilities */
+    .glass {
+      background: rgba(255, 255, 255, 0.1) !important;
+      backdrop-filter: blur(16px) saturate(180%);
+      -webkit-backdrop-filter: blur(16px) saturate(180%);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .glass-light {
+      background: rgba(255, 255, 255, 0.7) !important;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    .glass-dark {
+      background: rgba(0, 0, 0, 0.3) !important;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+    @supports not (backdrop-filter: blur(10px)) {
+      .glass { background: rgba(255, 255, 255, 0.9) !important; }
+      .glass-light { background: rgba(255, 255, 255, 0.95) !important; }
+      .glass-dark { background: rgba(0, 0, 0, 0.85) !important; }
+    }
+
+    /* Gradient text utility */
+    .gradient-text {
+      background: linear-gradient(135deg, var(--primary, #667eea), var(--accent, #764ba2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* Premium layered shadows */
+    .shadow-premium {
+      box-shadow:
+        0 1px 2px rgba(0, 0, 0, 0.06),
+        0 2px 4px rgba(0, 0, 0, 0.06),
+        0 4px 8px rgba(0, 0, 0, 0.06),
+        0 8px 16px rgba(0, 0, 0, 0.06) !important;
+    }
+    .shadow-premium-lg {
+      box-shadow:
+        0 4px 8px rgba(0, 0, 0, 0.04),
+        0 8px 16px rgba(0, 0, 0, 0.04),
+        0 16px 32px rgba(0, 0, 0, 0.04),
+        0 32px 64px rgba(0, 0, 0, 0.04) !important;
+    }
+    .shadow-glow {
+      box-shadow: 0 0 40px rgba(102, 126, 234, 0.4) !important;
+    }
+
+    /* Premium animations */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes scaleIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .animate-fadeInUp { animation: fadeInUp 0.6s ease-out both; }
+    .animate-fadeIn { animation: fadeIn 0.4s ease-out both; }
+    .animate-scaleIn { animation: scaleIn 0.5s cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+    /* Staggered animation delays */
+    .delay-100 { animation-delay: 100ms; }
+    .delay-200 { animation-delay: 200ms; }
+    .delay-300 { animation-delay: 300ms; }
+    .delay-400 { animation-delay: 400ms; }
+    .delay-500 { animation-delay: 500ms; }
+
+    /* Premium hover effects */
+    .hover-lift {
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease !important;
+    }
+    .hover-lift:hover {
+      transform: translateY(-6px) !important;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15) !important;
+    }
+
+    /* Responsive typography */
+    .display-fluid {
+      font-size: clamp(2.5rem, 5vw + 1rem, 4.5rem);
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+    }
+    .lead-fluid {
+      font-size: clamp(1rem, 2vw + 0.5rem, 1.25rem);
+      line-height: 1.7;
+    }
+
+    /* Premium border radius */
+    .rounded-2xl { border-radius: 1rem !important; }
+    .rounded-3xl { border-radius: 1.5rem !important; }
+    .rounded-4xl { border-radius: 2rem !important; }
+
+    /* Mesh gradient backgrounds */
+    .bg-mesh {
+      background:
+        radial-gradient(at 20% 30%, rgba(139, 92, 246, 0.3) 0%, transparent 50%),
+        radial-gradient(at 80% 20%, rgba(236, 72, 153, 0.2) 0%, transparent 50%),
+        radial-gradient(at 40% 80%, rgba(59, 130, 246, 0.2) 0%, transparent 50%);
+    }
+
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
   `;
 
   return `
@@ -580,8 +1036,20 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
       ${htmlContent}
     </div>
   </div>
+  <script src="${jQueryJs}"></script>
   <script src="${bootstrapJs}"></script>
-  ${jsContent ? `<script>${jsContent}</script>` : ""}
+  ${jsContent ? `<script>
+(function() {
+  'use strict';
+  document.addEventListener('DOMContentLoaded', function() {
+    try {
+      ${jsContent}
+    } catch (e) {
+      console.warn('[Preview] JS execution error:', e.message);
+    }
+  });
+})();
+</script>` : ""}
   ${SNIPPET_SELECT_SCRIPT}
   ${SNIPPET_CONTEXT_SCRIPT}
 </body>
@@ -606,12 +1074,42 @@ export function PreviewPanel() {
   // Ensure store is hydrated before accessing persisted state
   const isHydrated = useEditorStoreHydration();
 
+  // CRITICAL: Use explicit selectors for proper Zustand reactivity
+  // Using destructuring pattern can cause stale closures with useMemo
   const selectedSnippetId = useEditorStore((s) => s.selectedSnippetId);
+  const fileContents = useEditorStore((s) => s.fileContents);
+  const openTabs = useEditorStore((s) => s.openTabs);
+  const lastFileUpdate = useEditorStore((s) => s.lastFileUpdate);
+
   const setInputValue = useChatStore((s) => s.setInputValue);
   const { previewUrl, previewStatus, setPreviewStatus, isDeploying } = useSyncStore();
   const { odooUrl, odooStatus } = useProjectStore();
-  const { fileContents, openTabs } = useEditorStore();
   const streamingPreview = useStreamingPreviewSafe();
+
+  // Track file count for reactive updates
+  const fileCount = Object.keys(fileContents).length;
+  const fileKeys = Object.keys(fileContents).join(',');
+
+  // CRITICAL: Generate content hash for iframe key to force re-render on ANY content change
+  // This is production-grade: ensures React replaces iframe when content changes
+  const contentHash = useMemo(() => {
+    const contentStr = Object.entries(fileContents)
+      .map(([path, content]) => `${path}:${content.length}:${content.slice(0, 50)}`)
+      .join('|');
+    // Simple hash function for reliable change detection
+    let hash = 0;
+    for (let i = 0; i < contentStr.length; i++) {
+      const char = contentStr.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash.toString(36);
+  }, [fileContents]);
+
+  // Debug: Log when fileContents changes
+  useEffect(() => {
+    console.log("[PreviewPanel] fileContents changed - count:", fileCount, "keys:", fileKeys, "lastUpdate:", lastFileUpdate, "hash:", contentHash);
+  }, [fileCount, fileKeys, lastFileUpdate, contentHash]);
 
   // Hot reload integration
   const [hotReloadKey, setHotReloadKey] = useState(0);
@@ -673,17 +1171,19 @@ export function PreviewPanel() {
   const isOdooAvailable = odooStatus === "connected";
 
   // Generate standalone preview HTML (with streaming support)
+  // CRITICAL: Include fileCount and fileKeys as dependencies for robust reactivity
   const standaloneHtml = useMemo(() => {
-    // Wait for hydration before generating preview from persisted state
-    if (!isHydrated) {
-      console.log("[PreviewPanel] Waiting for hydration...");
-      return "";
-    }
     if (previewMode !== "standalone") return "";
 
+    // Show loading state during hydration (don't return empty string)
+    if (!isHydrated) {
+      console.log("[PreviewPanel] Waiting for hydration...");
+      return generateLoadingHtml();
+    }
+
     console.log("[PreviewPanel] ===== Generating preview HTML =====");
-    console.log("[PreviewPanel] fileContents keys:", Object.keys(fileContents));
-    console.log("[PreviewPanel] Total files:", Object.keys(fileContents).length);
+    console.log("[PreviewPanel] fileCount:", fileCount, "fileKeys:", fileKeys);
+    console.log("[PreviewPanel] fileContents object keys:", Object.keys(fileContents));
 
     // If streaming, use partial content for preview
     if (streamingPreview?.isStreaming && streamingPreview.partialHtml) {
@@ -693,13 +1193,15 @@ export function PreviewPanel() {
       if (streamingPreview.partialCss) {
         streamingFiles["streaming/preview.scss"] = streamingPreview.partialCss;
       }
+      console.log("[PreviewPanel] Using streaming files for preview");
       return generatePreviewHtml({ ...fileContents, ...streamingFiles });
     }
 
     const html = generatePreviewHtml(fileContents);
     console.log("[PreviewPanel] Generated HTML length:", html.length);
+    console.log("[PreviewPanel] HTML contains sections:", html.includes("<section"));
     return html;
-  }, [isHydrated, fileContents, previewMode, streamingPreview?.isStreaming, streamingPreview?.partialHtml, streamingPreview?.partialCss]);
+  }, [isHydrated, fileContents, fileCount, fileKeys, lastFileUpdate, contentHash, previewMode, streamingPreview?.isStreaming, streamingPreview?.partialHtml, streamingPreview?.partialCss]);
 
   // Create blob URL for standalone preview
   const previewBlobUrl = useMemo(() => {
@@ -1092,7 +1594,7 @@ export function PreviewPanel() {
                 style={{ transform: `scale(${zoom / 100})` }}
               >
                 <iframe
-                  key={`${hotReloadKey}-${standaloneHtml.length}`}
+                  key={`preview-${contentHash}-${hotReloadKey}-${lastFileUpdate}`}
                   ref={iframeRef}
                   data-testid="preview-iframe"
                   srcDoc={standaloneHtml}
