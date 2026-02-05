@@ -46,3 +46,19 @@ export {
   type AssetFile,
   type OdooModuleExportResult,
 } from "./odoo-module-exporter";
+
+export {
+  OdooServerConnector,
+  createOdooConnector,
+  connectToOdoo,
+  connectToOdooWithCredentials,
+  type AuthMethod,
+  type ConnectionStatus,
+  type OdooServerInfo,
+  type OdooUserInfo,
+  type OdooDatabaseInfo,
+  type OdooConnectionConfig,
+  type ConnectionResult,
+  type OdooRecord,
+  type OdooDomain,
+} from "./odoo-server-connector";
