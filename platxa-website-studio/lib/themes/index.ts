@@ -42,3 +42,17 @@ export {
   generateCorporateCSSVariables,
   generateCorporateManifest,
 } from "./templates/corporate";
+
+export {
+  odooDefaultTheme,
+  odooDefaultColors,
+  odooDefaultTypography,
+  odooDefaultSpacing,
+  odooDefaultLayout,
+  odooBrandColors,
+  odooGrayscale,
+  odooBreakpoints,
+  generateOdooDefaultSCSS,
+  generateOdooDefaultCSSVariables,
+  generateOdooDefaultManifest,
+} from "./templates/odoo-default";
