@@ -56,3 +56,16 @@ export {
   generateOdooDefaultCSSVariables,
   generateOdooDefaultManifest,
 } from "./templates/odoo-default";
+
+// SCSS Exporter
+export {
+  exportThemeToOdooSCSS,
+  exportThemeSCSS,
+  exportThemeVariables,
+  extractGoogleFonts,
+  generateGoogleFontsImport,
+  getBootstrapVersion,
+  type OdooVersion,
+  type OdooSCSSExportOptions,
+  type OdooSCSSExport,
+} from "./odoo-scss-exporter";
