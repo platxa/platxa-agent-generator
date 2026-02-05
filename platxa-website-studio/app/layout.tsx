@@ -8,6 +8,11 @@ export const metadata: Metadata = {
   title: "Platxa Website Studio",
   description: "AI-powered Odoo website generator - create beautiful websites with natural language",
   keywords: ["Odoo", "website", "AI", "generator", "themes", "QWeb"],
+  icons: {
+    icon: "/icon.svg",
+    shortcut: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
