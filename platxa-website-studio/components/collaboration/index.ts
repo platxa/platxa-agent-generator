@@ -16,3 +16,11 @@ export {
   type ActivityBadgeProps,
   type CollaboratorListProps,
 } from "./PresenceIndicator";
+
+export {
+  TeamPanel,
+  type TeamPanelProps,
+  type TeamMember,
+  type PendingInvitation,
+  type MemberRole,
+} from "./TeamPanel";
