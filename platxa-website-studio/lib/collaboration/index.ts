@@ -41,3 +41,18 @@ export {
   type AddProjectOptions,
   type UpdateWorkspaceOptions,
 } from "./workspace-manager";
+
+export {
+  InvitationService,
+  createInvitationService,
+  generateInvitationEmailHtml,
+  generateInvitationEmailText,
+  type EmailProvider,
+  type SendEmailOptions,
+  type EmailResult,
+  type InvitationTokenPayload,
+  type InvitationDetails,
+  type InvitationServiceConfig,
+  type CreateInvitationOptions,
+  type AcceptInvitationResult,
+} from "./invitation-service";
