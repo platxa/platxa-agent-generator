@@ -69,3 +69,15 @@ export {
   type OdooSCSSExportOptions,
   type OdooSCSSExport,
 } from "./odoo-scss-exporter";
+
+// CSS Import
+export {
+  importCSSTheme,
+  importCSSFromFile,
+  mergeWithExistingTheme,
+  type ExtractedColor,
+  type ExtractedFont,
+  type ExtractedSpacing,
+  type CSSImportResult,
+  type CSSImportOptions,
+} from "./css-import";
