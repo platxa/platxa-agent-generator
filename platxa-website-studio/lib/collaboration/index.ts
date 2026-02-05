@@ -75,3 +75,20 @@ export {
   type PermissionDefinition,
   type RoleDefinition,
 } from "./permission-system";
+
+export {
+  NotificationManager,
+  getNotificationManager,
+  createNotificationManager,
+  generateEmailNotification,
+  NotificationBuilders,
+  type NotificationType,
+  type NotificationPriority,
+  type NotificationChannel,
+  type NotificationUser,
+  type Notification,
+  type NotificationPreferences,
+  type NotificationFilter,
+  type NotificationStats,
+  type EmailNotification,
+} from "./notification-system";
