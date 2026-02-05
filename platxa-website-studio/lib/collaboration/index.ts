@@ -92,3 +92,18 @@ export {
   type NotificationStats,
   type EmailNotification,
 } from "./notification-system";
+
+export {
+  ProjectSharingManager,
+  getProjectSharingManager,
+  createProjectSharingManager,
+  permissionIncludes,
+  getPermissionDescription,
+  type ProjectVisibility,
+  type SharePermission,
+  type SharedUser,
+  type ShareLink,
+  type ProjectSharingSettings,
+  type ShareInvite,
+  type AccessCheckResult,
+} from "./project-sharing";
