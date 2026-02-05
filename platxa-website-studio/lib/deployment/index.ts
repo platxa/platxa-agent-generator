@@ -31,3 +31,18 @@ export {
   type PreviewAnalytics,
   type ValidatePreviewResult,
 } from "./preview-url-generator";
+
+export {
+  OdooModuleExporter,
+  getModuleExporter,
+  createModuleExporter,
+  toTechnicalName,
+  escapeXml,
+  type OdooModuleVersion,
+  type ModuleCategory,
+  type OdooModuleExportConfig,
+  type ModuleFile,
+  type PageTemplate,
+  type AssetFile,
+  type OdooModuleExportResult,
+} from "./odoo-module-exporter";
