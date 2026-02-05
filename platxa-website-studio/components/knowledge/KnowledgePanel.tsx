@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   BookOpen,
   Palette,
@@ -14,6 +14,9 @@ import {
   Save,
   AlertCircle,
   Check,
+  Upload,
+  Image as ImageIcon,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -35,6 +38,7 @@ import type {
   Security,
   Persona,
   BrandColor,
+  LogoAsset,
 } from "@/lib/knowledge/schema";
 import { validateProjectKnowledge, createEmptyProjectKnowledge } from "@/lib/knowledge/schema";
 
@@ -364,8 +368,316 @@ interface BrandAssetsSectionProps {
   readOnly?: boolean;
 }
 
+/** Style keyword options for brand personality */
+const STYLE_KEYWORDS = [
+  "Modern",
+  "Classic",
+  "Minimal",
+  "Bold",
+  "Playful",
+  "Professional",
+  "Elegant",
+  "Corporate",
+  "Creative",
+  "Technical",
+  "Friendly",
+  "Luxurious",
+  "Organic",
+  "Geometric",
+  "Retro",
+  "Futuristic",
+];
+
+/** Common font families for selection */
+const FONT_FAMILIES = [
+  "Inter",
+  "Roboto",
+  "Open Sans",
+  "Lato",
+  "Montserrat",
+  "Poppins",
+  "Source Sans Pro",
+  "Nunito",
+  "Raleway",
+  "Work Sans",
+  "DM Sans",
+  "Plus Jakarta Sans",
+  "Playfair Display",
+  "Merriweather",
+  "Georgia",
+  "Times New Roman",
+];
+
+interface SelectFieldProps {
+  label: string;
+  value: string | undefined;
+  onChange: (value: string) => void;
+  options: string[];
+  placeholder?: string;
+  readOnly?: boolean;
+  allowCustom?: boolean;
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  placeholder,
+  readOnly,
+  allowCustom = true,
+}: SelectFieldProps) {
+  const [isCustom, setIsCustom] = useState(false);
+  const isCustomValue = value && !options.includes(value);
+
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs">{label}</Label>
+      {isCustom || isCustomValue ? (
+        <div className="flex gap-2">
+          <Input
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            disabled={readOnly}
+            className="flex-1"
+          />
+          {allowCustom && !readOnly && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCustom(false)}
+            >
+              List
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <select
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            disabled={readOnly}
+            className={cn(
+              "flex-1 h-10 px-3 py-2 text-sm rounded-md border",
+              "bg-background",
+              "focus:outline-none focus:ring-2 focus:ring-ring",
+              readOnly && "opacity-60 cursor-not-allowed"
+            )}
+          >
+            <option value="">{placeholder || "Select..."}</option>
+            {options.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+          {allowCustom && !readOnly && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCustom(true)}
+            >
+              Custom
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface MultiSelectFieldProps {
+  label: string;
+  values: string[] | undefined;
+  onChange: (values: string[]) => void;
+  options: string[];
+  readOnly?: boolean;
+  maxSelections?: number;
+}
+
+function MultiSelectField({
+  label,
+  values = [],
+  onChange,
+  options,
+  readOnly,
+  maxSelections = 5,
+}: MultiSelectFieldProps) {
+  const toggleOption = (option: string) => {
+    if (values.includes(option)) {
+      onChange(values.filter((v) => v !== option));
+    } else if (values.length < maxSelections) {
+      onChange([...values, option]);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs">{label}</Label>
+        <span className="text-xs text-muted-foreground">
+          {values.length}/{maxSelections}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {options.map((option) => {
+          const isSelected = values.includes(option);
+          return (
+            <Button
+              key={option}
+              variant={isSelected ? "default" : "outline"}
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => !readOnly && toggleOption(option)}
+              disabled={readOnly || (!isSelected && values.length >= maxSelections)}
+            >
+              {option}
+              {isSelected && <X className="h-3 w-3 ml-1" />}
+            </Button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+interface LogoUploadFieldProps {
+  logos: LogoAsset[] | undefined;
+  onChange: (logos: LogoAsset[]) => void;
+  readOnly?: boolean;
+}
+
+function LogoUploadField({ logos = [], onChange, readOnly }: LogoUploadFieldProps) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Convert to data URI for preview
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUri = event.target?.result as string;
+      const newLogo: LogoAsset = {
+        name: file.name.replace(/\.[^/.]+$/, ""),
+        url: dataUri,
+        variant: "primary",
+        format: file.type.split("/")[1],
+      };
+      onChange([...logos, newLogo]);
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  const updateLogo = (index: number, update: Partial<LogoAsset>) => {
+    const updated = [...logos];
+    updated[index] = { ...updated[index], ...update };
+    onChange(updated);
+  };
+
+  const removeLogo = (index: number) => {
+    onChange(logos.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs">Logo Assets</Label>
+        {!readOnly && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <Upload className="h-4 w-4 mr-1" />
+            Upload Logo
+          </Button>
+        )}
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,.svg"
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+
+      {logos.length === 0 ? (
+        <div
+          className={cn(
+            "border-2 border-dashed rounded-lg p-6",
+            "flex flex-col items-center justify-center gap-2",
+            "text-muted-foreground text-sm",
+            !readOnly && "hover:border-primary hover:bg-primary/5 cursor-pointer"
+          )}
+          onClick={() => !readOnly && fileInputRef.current?.click()}
+        >
+          <ImageIcon className="w-8 h-8" />
+          <span>No logos uploaded</span>
+          {!readOnly && <span className="text-xs">Click to upload</span>}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {logos.map((logo, index) => (
+            <div key={index} className="border rounded-lg p-3 space-y-2">
+              <div className="aspect-video bg-muted rounded flex items-center justify-center overflow-hidden">
+                <img
+                  src={logo.url}
+                  alt={logo.name}
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+              <Input
+                value={logo.name}
+                onChange={(e) => updateLogo(index, { name: e.target.value })}
+                placeholder="Logo name"
+                className="h-7 text-xs"
+                disabled={readOnly}
+              />
+              <div className="flex items-center gap-2">
+                <select
+                  value={logo.variant || "primary"}
+                  onChange={(e) =>
+                    updateLogo(index, { variant: e.target.value as LogoAsset["variant"] })
+                  }
+                  disabled={readOnly}
+                  className="flex-1 h-7 text-xs rounded border bg-background px-2"
+                >
+                  <option value="primary">Primary</option>
+                  <option value="secondary">Secondary</option>
+                  <option value="icon">Icon</option>
+                  <option value="wordmark">Wordmark</option>
+                  <option value="monochrome">Monochrome</option>
+                </select>
+                {!readOnly && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => removeLogo(index)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function BrandAssetsSection({ brandAssets, onChange, readOnly }: BrandAssetsSectionProps) {
   const assets = brandAssets || { brandName: "" };
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const update = (key: keyof BrandAssets, value: unknown) => {
     onChange({ ...assets, [key]: value });
@@ -388,6 +700,12 @@ function BrandAssetsSection({ brandAssets, onChange, readOnly }: BrandAssetsSect
     update("colors", colors);
   };
 
+  // Style keywords stored in metadata
+  const styleKeywords = (assets as BrandAssets & { styleKeywords?: string[] }).styleKeywords || [];
+  const updateStyleKeywords = (keywords: string[]) => {
+    onChange({ ...assets, styleKeywords: keywords } as BrandAssets);
+  };
+
   return (
     <div className="space-y-4">
       <TextField
@@ -405,6 +723,32 @@ function BrandAssetsSection({ brandAssets, onChange, readOnly }: BrandAssetsSect
         readOnly={readOnly}
       />
 
+      {/* Style Keywords Dropdown/Multi-select */}
+      <MultiSelectField
+        label="Style Keywords"
+        values={styleKeywords}
+        onChange={updateStyleKeywords}
+        options={STYLE_KEYWORDS}
+        readOnly={readOnly}
+        maxSelections={5}
+      />
+
+      {/* Logo Upload */}
+      <Collapsible defaultOpen>
+        <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium">
+          <ChevronDown className="h-4 w-4" />
+          Logos
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-2 pl-6">
+          <LogoUploadField
+            logos={assets.logos}
+            onChange={(logos) => update("logos", logos)}
+            readOnly={readOnly}
+          />
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Color Palette */}
       <Collapsible defaultOpen>
         <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium">
           <ChevronDown className="h-4 w-4" />
@@ -427,6 +771,22 @@ function BrandAssetsSection({ brandAssets, onChange, readOnly }: BrandAssetsSect
                 className="flex-1 h-8"
                 disabled={readOnly}
               />
+              <select
+                value={color.role || ""}
+                onChange={(e) => updateColor(index, { role: e.target.value as BrandColor["role"] })}
+                disabled={readOnly}
+                className="h-8 text-xs rounded border bg-background px-2"
+              >
+                <option value="">Role...</option>
+                <option value="primary">Primary</option>
+                <option value="secondary">Secondary</option>
+                <option value="accent">Accent</option>
+                <option value="background">Background</option>
+                <option value="text">Text</option>
+                <option value="error">Error</option>
+                <option value="warning">Warning</option>
+                <option value="success">Success</option>
+              </select>
               <code className="text-xs bg-muted px-2 py-1 rounded">{color.hex}</code>
               {!readOnly && (
                 <Button
@@ -449,24 +809,46 @@ function BrandAssetsSection({ brandAssets, onChange, readOnly }: BrandAssetsSect
         </CollapsibleContent>
       </Collapsible>
 
-      <Collapsible>
+      {/* Typography with Font Selectors */}
+      <Collapsible defaultOpen>
         <CollapsibleTrigger className="flex items-center gap-2 text-sm font-medium">
-          <ChevronRight className="h-4 w-4" />
+          <ChevronDown className="h-4 w-4" />
           Typography
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-2 pl-6 space-y-3">
-          <TextField
+          <SelectField
             label="Heading Font Family"
             value={assets.typography?.headingFamily}
             onChange={(v) => update("typography", { ...assets.typography, headingFamily: v })}
-            placeholder="e.g., Inter, Roboto..."
+            options={FONT_FAMILIES}
+            placeholder="Select heading font..."
             readOnly={readOnly}
           />
-          <TextField
+          <SelectField
             label="Body Font Family"
             value={assets.typography?.bodyFamily}
             onChange={(v) => update("typography", { ...assets.typography, bodyFamily: v })}
-            placeholder="e.g., Inter, Open Sans..."
+            options={FONT_FAMILIES}
+            placeholder="Select body font..."
+            readOnly={readOnly}
+          />
+          <TextField
+            label="Type Scale Ratio"
+            value={assets.typography?.scaleRatio?.toString()}
+            onChange={(v) =>
+              update("typography", {
+                ...assets.typography,
+                scaleRatio: parseFloat(v) || 1.25,
+              })
+            }
+            placeholder="e.g., 1.25 (Major Third)"
+            readOnly={readOnly}
+          />
+          <ArrayField
+            label="Font Sources (CDN URLs)"
+            values={assets.typography?.fontSources}
+            onChange={(v) => update("typography", { ...assets.typography, fontSources: v })}
+            placeholder="Add font URL..."
             readOnly={readOnly}
           />
         </CollapsibleContent>
