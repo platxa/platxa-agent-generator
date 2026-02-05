@@ -46,3 +46,20 @@ export {
   getTaskType,
   type ClassificationResult,
 } from "./task-classifier";
+
+// Provider adapters
+export {
+  AnthropicAdapter,
+  OpenAIAdapter,
+  ProviderError,
+  type ProviderAdapter,
+  type ImageProviderAdapter,
+  type ProviderRequestOptions,
+  type ProviderResponse,
+  type StreamChunk,
+  type Message,
+  type ContentBlock,
+  type Tool,
+  type ImageGenerationRequest,
+  type ImageGenerationResponse,
+} from "./providers";
