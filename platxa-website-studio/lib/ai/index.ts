@@ -37,3 +37,12 @@ export {
   type RoutingDecision,
   type OrchestratorConfig,
 } from "./model-orchestrator";
+
+export {
+  TaskClassifier,
+  getClassifier,
+  resetClassifier,
+  classifyTask,
+  getTaskType,
+  type ClassificationResult,
+} from "./task-classifier";
