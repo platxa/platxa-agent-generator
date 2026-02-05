@@ -569,3 +569,19 @@ export function formatCommit(commit: GitCommit): string {
   const date = commit.timestamp.toLocaleDateString();
   return `${commit.shortHash} - ${commit.message} (${commit.author}, ${date})`;
 }
+
+// =============================================================================
+// COMMIT MANAGER EXPORTS
+// =============================================================================
+
+export {
+  CommitManager,
+  createCommitManager,
+  type FileChange,
+  type FileCategory,
+  type CommitStrategy,
+  type CommitManagerConfig,
+  type CommitContext,
+  type CommitEvent,
+  type CommitEventListener,
+} from "./commit-manager";
