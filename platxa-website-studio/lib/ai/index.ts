@@ -20,3 +20,20 @@ export {
 } from "./tools";
 
 export { parseGeneratedFiles, type ParsedFile } from "./parser";
+
+export {
+  ModelOrchestrator,
+  getOrchestrator,
+  resetOrchestrator,
+  routeTask,
+  getModelForTask,
+  type ModelProvider,
+  type ModelId,
+  type TaskType,
+  type TaskPriority,
+  type ModelCapabilities,
+  type ModelConfig,
+  type TaskRequest,
+  type RoutingDecision,
+  type OrchestratorConfig,
+} from "./model-orchestrator";
