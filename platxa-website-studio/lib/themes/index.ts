@@ -57,6 +57,31 @@ export {
   generateOdooDefaultManifest,
 } from "./templates/odoo-default";
 
+export {
+  playfulTheme,
+  playfulLightColors,
+  playfulDarkColors,
+  playfulTypography,
+  playfulSpacing,
+  playfulLayout,
+  generatePlayfulSCSS,
+  generatePlayfulCSSVariables,
+  generatePlayfulManifest,
+} from "./templates/playful";
+
+export {
+  techTheme,
+  techDarkColors,
+  techLightColors,
+  techTypography,
+  techSpacing,
+  techLayout,
+  generateTechSCSS,
+  generateTechCSSVariables,
+  generateTechManifest,
+  getSyntaxColors,
+} from "./templates/tech";
+
 // SCSS Exporter
 export {
   exportThemeToOdooSCSS,
