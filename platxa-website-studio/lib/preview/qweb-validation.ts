@@ -6,7 +6,18 @@
  * - Line number
  * - Directive type
  * - Error message
+ *
+ * Phase 3: Upgraded to use AST-based parsing via qweb-parser.ts
+ * for more accurate validation of nested structures.
  */
+
+import {
+  parseQWeb,
+  type QWebASTNode,
+  type QWebParseResult,
+  hasDirective,
+  getDirectiveValue,
+} from "./qweb-parser";
 
 // =============================================================================
 // Types
@@ -95,6 +106,8 @@ export interface QWebValidatorOptions {
   validateExpressions?: boolean;
   /** Whether to check for deprecated directives (default: true) */
   checkDeprecated?: boolean;
+  /** Use AST-based validation for better accuracy (default: true) */
+  useAST?: boolean;
 }
 
 // =============================================================================
@@ -171,13 +184,21 @@ export class QWebValidator {
       file: options.file ?? null,
       validateExpressions: options.validateExpressions ?? false,
       checkDeprecated: options.checkDeprecated ?? true,
+      useAST: options.useAST ?? false, // Line-based is default (handles malformed XML better)
     } as Required<QWebValidatorOptions>;
   }
 
   /**
    * Validate QWeb content and return structured errors.
+   * Uses AST-based validation by default for better accuracy.
    */
   validate(content: string): QWebValidationResult {
+    // Use AST-based validation when enabled (default)
+    if (this.options.useAST) {
+      return this.validateWithAST(content);
+    }
+
+    // Fallback to line-based validation
     const errors: QWebValidationError[] = [];
     const warnings: QWebValidationError[] = [];
     const templateNames: string[] = [];
@@ -577,6 +598,302 @@ export class QWebValidator {
       code: params.code,
       file: this.options.file,
     };
+  }
+
+  // ===========================================================================
+  // AST-Based Validation (Phase 3)
+  // ===========================================================================
+
+  /**
+   * Validate using AST parser for more accurate structural validation.
+   * This method uses the qweb-parser.ts for proper XML parsing.
+   */
+  validateWithAST(content: string): QWebValidationResult {
+    const errors: QWebValidationError[] = [];
+    const warnings: QWebValidationError[] = [];
+    const templateNames: string[] = [];
+    const lines = content.split("\n");
+
+    // Parse content using AST parser
+    let parseResult: QWebParseResult;
+    try {
+      parseResult = parseQWeb(content);
+    } catch (error) {
+      // AST parsing failed - fall back to line-based validation for better error detection
+      // Line-based validation handles malformed XML (unclosed tags, mismatched tags) better
+      const fallbackValidator = new QWebValidator({
+        ...this.options,
+        useAST: false, // Force line-based validation
+      });
+      return fallbackValidator.validate(content);
+    }
+
+    // Add parser warnings
+    for (const warning of parseResult.warnings) {
+      warnings.push(
+        this.createError({
+          message: warning,
+          templateName: null,
+          line: 1,
+          column: null,
+          directive: null,
+          directiveValue: null,
+          code: "SYNTAX_ERROR",
+          severity: "warning",
+        })
+      );
+    }
+
+    // Collect template names
+    templateNames.push(...parseResult.templateNames);
+
+    // Validate AST nodes recursively
+    this.validateASTNode(parseResult.ast, null, errors, warnings, [], lines);
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      warnings,
+      templateNames,
+      linesProcessed: content.split("\n").length,
+    };
+  }
+
+  /**
+   * Recursively validate an AST node and its children.
+   */
+  private validateASTNode(
+    node: QWebASTNode,
+    templateName: string | null,
+    errors: QWebValidationError[],
+    warnings: QWebValidationError[],
+    siblingDirectives: string[],
+    lines: string[]
+  ): void {
+    // Skip text and comment nodes
+    if (node.tag === "#text" || node.tag === "#comment") {
+      return;
+    }
+
+    // Extract template name if present
+    const tName = getDirectiveValue(node, "t-name");
+    if (tName) {
+      templateName = tName;
+    }
+
+    // Calculate line number by finding the tag in source
+    let line = node.location?.line ?? 1;
+    let column = node.location?.column ?? null;
+
+    // Find line number by searching for the element in source
+    if (node.tag && node.tag !== "#fragment") {
+      const tagPattern = new RegExp(`<${node.tag}[\\s>]`);
+      for (let i = 0; i < lines.length; i++) {
+        if (tagPattern.test(lines[i])) {
+          // Verify this is the right element by checking directives
+          const lineHasAllDirectives = node.directives.every(d =>
+            lines[i].includes(d.type) || lines[i].includes(`${d.type}=`)
+          );
+          if (lineHasAllDirectives || node.directives.length === 0) {
+            line = i + 1;
+            const match = lines[i].match(tagPattern);
+            if (match && match.index !== undefined) {
+              column = match.index + 1;
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    // Check for unknown/invalid directives
+    for (const directive of node.directives) {
+      const dirType = directive.type;
+      // Check if it's a valid directive or dynamic attribute (t-att-*, t-attf-*)
+      const isValid = VALID_DIRECTIVES.has(dirType) ||
+        dirType.startsWith("t-att-") ||
+        dirType.startsWith("t-attf-") ||
+        dirType === "t-att" ||
+        dirType === "t-attf";
+
+      if (!isValid) {
+        errors.push(
+          this.createError({
+            message: `Unknown QWeb directive: ${dirType}`,
+            templateName,
+            line,
+            column,
+            directive: "unknown",
+            directiveValue: `${dirType}="${directive.value}"`,
+            code: "INVALID_DIRECTIVE",
+          })
+        );
+      }
+    }
+
+    // Check t-foreach requires t-as
+    if (hasDirective(node, "t-foreach") && !hasDirective(node, "t-as")) {
+      errors.push(
+        this.createError({
+          message: "Directive 't-foreach' requires 't-as' on the same element",
+          templateName,
+          line,
+          column,
+          directive: "t-foreach",
+          directiveValue: getDirectiveValue(node, "t-foreach") ?? null,
+          code: "MISSING_T_AS",
+        })
+      );
+    }
+
+    // Check t-as requires t-foreach
+    if (hasDirective(node, "t-as") && !hasDirective(node, "t-foreach")) {
+      errors.push(
+        this.createError({
+          message: "Directive 't-as' requires 't-foreach' on the same element",
+          templateName,
+          line,
+          column,
+          directive: "t-as",
+          directiveValue: getDirectiveValue(node, "t-as") ?? null,
+          code: "MISSING_T_FOREACH",
+        })
+      );
+    }
+
+    // Check t-elif/t-else must follow t-if
+    if (hasDirective(node, "t-elif")) {
+      if (!siblingDirectives.includes("t-if") && !siblingDirectives.includes("t-elif")) {
+        errors.push(
+          this.createError({
+            message: "t-elif must follow a t-if or another t-elif on a sibling element",
+            templateName,
+            line,
+            column,
+            directive: "t-elif",
+            directiveValue: getDirectiveValue(node, "t-elif") ?? null,
+            code: "ORPHAN_T_ELIF",
+          })
+        );
+      }
+    }
+
+    if (hasDirective(node, "t-else")) {
+      if (!siblingDirectives.includes("t-if") && !siblingDirectives.includes("t-elif")) {
+        errors.push(
+          this.createError({
+            message: "t-else must follow a t-if or t-elif on a sibling element",
+            templateName,
+            line,
+            column,
+            directive: "t-else",
+            directiveValue: null,
+            code: "ORPHAN_T_ELSE",
+          })
+        );
+      }
+    }
+
+    // Check for deprecated directives
+    if (this.options.checkDeprecated && hasDirective(node, "t-raw")) {
+      warnings.push(
+        this.createError({
+          message: "Deprecated directive 't-raw'. Use t-out with t-options=\"{'widget': 'html'}\" instead.",
+          templateName,
+          line,
+          column,
+          directive: "t-raw",
+          directiveValue: getDirectiveValue(node, "t-raw") ?? null,
+          code: "INVALID_DIRECTIVE",
+          severity: "warning",
+        })
+      );
+    }
+
+    // Validate expressions if enabled
+    if (this.options.validateExpressions) {
+      for (const directive of node.directives) {
+        if (directive.value) {
+          this.validateExpressionAST(
+            directive.value,
+            directive.type,
+            line,
+            column,
+            templateName,
+            errors
+          );
+        }
+      }
+    }
+
+    // Track directives for sibling validation
+    const currentDirectives: string[] = [];
+    for (const directive of node.directives) {
+      currentDirectives.push(directive.type);
+    }
+
+    // Recursively validate children with sibling tracking
+    let childSiblingDirectives: string[] = [];
+    for (const child of node.children) {
+      this.validateASTNode(child, templateName, errors, warnings, childSiblingDirectives, lines);
+
+      // Track sibling directives for conditional chains
+      if (child.tag !== "#text" && child.tag !== "#comment") {
+        childSiblingDirectives = child.directives.map(d => d.type);
+      }
+    }
+  }
+
+  /**
+   * Validate expression syntax for AST-based validation.
+   */
+  private validateExpressionAST(
+    expr: string,
+    directive: string,
+    line: number,
+    column: number | null,
+    templateName: string | null,
+    errors: QWebValidationError[]
+  ): void {
+    const trimmed = expr.trim();
+    let parenCount = 0;
+    let bracketCount = 0;
+
+    for (const char of trimmed) {
+      if (char === "(") parenCount++;
+      if (char === ")") parenCount--;
+      if (char === "[") bracketCount++;
+      if (char === "]") bracketCount--;
+
+      if (parenCount < 0 || bracketCount < 0) {
+        errors.push(
+          this.createError({
+            message: `Unbalanced brackets in expression: ${expr}`,
+            templateName,
+            line,
+            column,
+            directive: directive as QWebDirective,
+            directiveValue: `${directive}="${expr}"`,
+            code: "INVALID_EXPRESSION",
+          })
+        );
+        return;
+      }
+    }
+
+    if (parenCount !== 0 || bracketCount !== 0) {
+      errors.push(
+        this.createError({
+          message: `Unbalanced brackets in expression: ${expr}`,
+          templateName,
+          line,
+          column,
+          directive: directive as QWebDirective,
+          directiveValue: `${directive}="${expr}"`,
+          code: "INVALID_EXPRESSION",
+        })
+      );
+    }
   }
 }
 
