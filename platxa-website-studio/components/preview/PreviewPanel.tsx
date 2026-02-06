@@ -28,6 +28,7 @@ import {
 import { useSyncStore, useProjectStore, useEditorStore, useEditorStoreHydration, useChatStore } from "@/lib/stores";
 import { useStreamingPreviewSafe, QWebRuntime, detectSnippets, replaceImagesWithPlaceholders } from "@/lib/preview/client";
 import { usePreviewHotReload } from "@/lib/hooks";
+import { HMR_RUNTIME_SCRIPT, HMRRuntimeController } from "@/lib/preview/hmr-runtime";
 import { cn } from "@/lib/utils/cn";
 import {
   DeviceFrame,
@@ -1052,6 +1053,7 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
 </script>` : ""}
   ${SNIPPET_SELECT_SCRIPT}
   ${SNIPPET_CONTEXT_SCRIPT}
+  ${HMR_RUNTIME_SCRIPT}
 </body>
 </html>
   `.trim();
@@ -1060,6 +1062,7 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
 export function PreviewPanel() {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hmrControllerRef = useRef<HMRRuntimeController | null>(null);
   const [device, setDevice] = useState<DeviceType>("desktop");
   const [deviceId, setDeviceId] = useState<string | undefined>(undefined);
   const [orientation, setOrientation] = useState<DeviceOrientation>("portrait");
@@ -1133,6 +1136,79 @@ export function PreviewPanel() {
 
   // Element inspector
   const { isEnabled: inspectorEnabled, toggle: toggleInspector, disable: disableInspector } = useElementInspector();
+
+  // HMR Controller: Initialize and connect to iframe for live CSS/HTML updates
+  useEffect(() => {
+    // Create controller if not exists
+    if (!hmrControllerRef.current) {
+      hmrControllerRef.current = new HMRRuntimeController();
+    }
+
+    const controller = hmrControllerRef.current;
+
+    // Connect to iframe when available
+    if (iframeRef.current) {
+      controller.connect(iframeRef.current);
+
+      // Listen for HMR ready signal from iframe
+      const unsubscribeReady = controller.on("platxa:hmr-ready", (payload) => {
+        console.log("[HMR] Runtime ready in iframe", payload);
+      });
+
+      // Listen for element selection events
+      const unsubscribeSelect = controller.on("platxa:hmr-element-selected", (payload) => {
+        const data = payload as { element: { snippetId?: string; elementId?: string } | null };
+        if (data?.element?.snippetId) {
+          console.log("[HMR] Element selected:", data.element.snippetId);
+          // Could dispatch to editor store to highlight the corresponding code
+        }
+      });
+
+      // Listen for CSS injection confirmation
+      const unsubscribeCss = controller.on("platxa:hmr-css-injected", (payload) => {
+        console.log("[HMR] CSS injected:", payload);
+      });
+
+      // Listen for snippet update confirmation
+      const unsubscribeSnippet = controller.on("platxa:hmr-snippet-updated", (payload) => {
+        console.log("[HMR] Snippet updated:", payload);
+      });
+
+      return () => {
+        unsubscribeReady();
+        unsubscribeSelect();
+        unsubscribeCss();
+        unsubscribeSnippet();
+        controller.disconnect();
+      };
+    }
+  }, [iframeRef.current]); // Re-connect when iframe changes
+
+  // HMR: Inject CSS updates without full reload when CSS files change
+  useEffect(() => {
+    if (!hmrControllerRef.current?.isReady()) return;
+
+    // Extract CSS from fileContents and inject via HMR
+    const cssFiles = Object.entries(fileContents).filter(
+      ([path]) => path.endsWith(".css") || path.endsWith(".scss")
+    );
+
+    if (cssFiles.length > 0) {
+      let combinedCss = "";
+      for (const [path, content] of cssFiles) {
+        if (path.endsWith(".scss")) {
+          const { css, variables } = convertScssVariables(content);
+          combinedCss += variables + css;
+        } else {
+          combinedCss += content;
+        }
+      }
+
+      // Inject CSS via HMR (no reload needed)
+      hmrControllerRef.current.injectCss(combinedCss, "platxa-live-css");
+      console.log("[HMR] Live CSS injected:", combinedCss.length, "chars");
+    }
+  }, [fileContents]);
 
   // Get current device model for orientation support check
   const currentDeviceModel = deviceId ? getDeviceById(deviceId) : getDefaultDevice(device);
@@ -1311,7 +1387,9 @@ export function PreviewPanel() {
     [setInputValue],
   );
 
-  const hasGeneratedFiles = Object.keys(fileContents).length > 0;
+  // CRITICAL: Only report files as generated after store is hydrated
+  // Otherwise we show "No files generated" while hydration is still loading stale data
+  const hasGeneratedFiles = isHydrated && Object.keys(fileContents).length > 0;
 
   return (
     <TooltipProvider>

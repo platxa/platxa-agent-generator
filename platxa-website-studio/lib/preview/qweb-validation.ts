@@ -106,7 +106,7 @@ export interface QWebValidatorOptions {
   validateExpressions?: boolean;
   /** Whether to check for deprecated directives (default: true) */
   checkDeprecated?: boolean;
-  /** Use AST-based validation for better accuracy (default: true) */
+  /** Use AST-based validation for accurate directive checking (default: true, falls back to line-based on parse errors) */
   useAST?: boolean;
 }
 
@@ -184,21 +184,61 @@ export class QWebValidator {
       file: options.file ?? null,
       validateExpressions: options.validateExpressions ?? false,
       checkDeprecated: options.checkDeprecated ?? true,
-      useAST: options.useAST ?? false, // Line-based is default (handles malformed XML better)
+      useAST: options.useAST ?? true, // AST-based is default for accurate directive validation
     } as Required<QWebValidatorOptions>;
   }
 
   /**
    * Validate QWeb content and return structured errors.
-   * Uses AST-based validation by default for better accuracy.
+   * Production-grade: Combines AST-based directive validation with
+   * line-based structural validation for comprehensive error detection.
    */
   validate(content: string): QWebValidationResult {
-    // Use AST-based validation when enabled (default)
+    // Production-grade: Run BOTH validations and merge results
+    // - AST: Accurate directive checking (t-foreach/t-as, t-if chains)
+    // - Line-based: Structural validation (unclosed tags, mismatched tags)
     if (this.options.useAST) {
-      return this.validateWithAST(content);
+      // Run AST validation for directive accuracy
+      const astResult = this.validateWithAST(content);
+
+      // Run line-based validation for structural issues
+      const lineValidator = new QWebValidator({
+        ...this.options,
+        useAST: false,
+        validateExpressions: false, // Already done in AST
+        checkDeprecated: false, // Already done in AST
+      });
+      const lineResult = lineValidator.validate(content);
+
+      // Merge results: AST errors for directives, line errors for structure
+      const structuralCodes: Set<QWebErrorCode> = new Set([
+        "UNCLOSED_ELEMENT",
+        "MISMATCHED_TAGS",
+      ]);
+
+      // Keep AST directive errors + line structural errors
+      const mergedErrors = [
+        ...astResult.errors.filter(e => !structuralCodes.has(e.code)),
+        ...lineResult.errors.filter(e => structuralCodes.has(e.code)),
+      ];
+
+      // Deduplicate warnings
+      const warningMessages = new Set(astResult.warnings.map(w => w.message));
+      const mergedWarnings = [
+        ...astResult.warnings,
+        ...lineResult.warnings.filter(w => !warningMessages.has(w.message)),
+      ];
+
+      return {
+        valid: mergedErrors.length === 0,
+        errors: mergedErrors,
+        warnings: mergedWarnings,
+        templateNames: astResult.templateNames.length > 0 ? astResult.templateNames : lineResult.templateNames,
+        linesProcessed: content.split("\n").length,
+      };
     }
 
-    // Fallback to line-based validation
+    // Pure line-based validation (fallback)
     const errors: QWebValidationError[] = [];
     const warnings: QWebValidationError[] = [];
     const templateNames: string[] = [];
@@ -628,7 +668,22 @@ export class QWebValidator {
       return fallbackValidator.validate(content);
     }
 
-    // Add parser warnings
+    // Check if AST parsing failed silently (returned text node fallback or has parse errors)
+    // Parser returns warnings for XML errors and falls back to text node
+    const hasParseErrors = parseResult.warnings.some(w => w.includes("XML Parse error"));
+    const isTextNodeFallback = parseResult.ast.tag === "#text" && parseResult.ast.text === content;
+
+    if (hasParseErrors || isTextNodeFallback) {
+      // Fall back to line-based validation for malformed XML
+      // Line-based handles unclosed tags, mismatched tags better
+      const fallbackValidator = new QWebValidator({
+        ...this.options,
+        useAST: false, // Force line-based validation
+      });
+      return fallbackValidator.validate(content);
+    }
+
+    // Add parser warnings (non-fatal ones)
     for (const warning of parseResult.warnings) {
       warnings.push(
         this.createError({

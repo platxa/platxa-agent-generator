@@ -353,8 +353,6 @@ export function useKeyboardShortcuts(options: ShortcutOptions = {}) {
  * Get all registered shortcuts for help display
  */
 export function getAllShortcuts(customShortcuts: ShortcutDefinition[] = []): ShortcutDefinition[] {
-  const platform = getPlatformInfo();
-
   // Mode shortcuts
   const modeShortcuts: ShortcutDefinition[] = [
     {
@@ -384,6 +382,279 @@ export function getAllShortcuts(customShortcuts: ShortcutDefinition[] = []): Sho
   ];
 
   return [...modeShortcuts, ...customShortcuts];
+}
+
+// =============================================================================
+// Comprehensive Default Shortcuts Factory
+// =============================================================================
+
+export interface ComprehensiveShortcutHandlers {
+  // File
+  onSave?: () => void;
+  onExport?: () => void;
+  // Edit
+  onUndo?: () => void;
+  onRedo?: () => void;
+  onFind?: () => void;
+  // View
+  onTogglePreview?: () => void;
+  onToggleChat?: () => void;
+  onToggleSidebar?: () => void;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onZoomReset?: () => void;
+  onToggleFullscreen?: () => void;
+  // Preview
+  onRefreshPreview?: () => void;
+  onToggleDeviceFrame?: () => void;
+  onToggleInspector?: () => void;
+  // Generation
+  onGenerate?: () => void;
+  onStopGeneration?: () => void;
+  onRegenerateLastPrompt?: () => void;
+  // Navigation
+  onNavigatePrevSection?: () => void;
+  onNavigateNextSection?: () => void;
+  onFocusChat?: () => void;
+  onFocusEditor?: () => void;
+  onEscape?: () => void;
+  // Help
+  onToggleHelp?: () => void;
+}
+
+/**
+ * Create comprehensive shortcut definitions for the website studio
+ */
+export function createComprehensiveShortcuts(
+  handlers: ComprehensiveShortcutHandlers
+): ShortcutDefinition[] {
+  return [
+    // =========================================================================
+    // FILE SHORTCUTS
+    // =========================================================================
+    {
+      key: "save",
+      code: "s",
+      meta: true,
+      handler: () => handlers.onSave?.(),
+      description: "Save current project",
+      category: "File",
+    },
+    {
+      key: "export",
+      code: "e",
+      meta: true,
+      shift: true,
+      handler: () => handlers.onExport?.(),
+      description: "Export project as Odoo module",
+      category: "File",
+    },
+
+    // =========================================================================
+    // EDIT SHORTCUTS
+    // =========================================================================
+    {
+      key: "undo",
+      code: "z",
+      meta: true,
+      handler: () => handlers.onUndo?.(),
+      description: "Undo last action",
+      category: "Edit",
+    },
+    {
+      key: "redo",
+      code: "z",
+      meta: true,
+      shift: true,
+      handler: () => handlers.onRedo?.(),
+      description: "Redo last undone action",
+      category: "Edit",
+    },
+    {
+      key: "find",
+      code: "f",
+      meta: true,
+      handler: () => handlers.onFind?.(),
+      description: "Open find dialog",
+      category: "Edit",
+    },
+
+    // =========================================================================
+    // VIEW SHORTCUTS
+    // =========================================================================
+    {
+      key: "toggle-preview",
+      code: "p",
+      meta: true,
+      shift: true,
+      handler: () => handlers.onTogglePreview?.(),
+      description: "Toggle preview panel",
+      category: "View",
+    },
+    {
+      key: "toggle-chat",
+      code: "j",
+      meta: true,
+      handler: () => handlers.onToggleChat?.(),
+      description: "Toggle chat panel",
+      category: "View",
+    },
+    {
+      key: "toggle-sidebar",
+      code: "b",
+      meta: true,
+      handler: () => handlers.onToggleSidebar?.(),
+      description: "Toggle sidebar",
+      category: "View",
+    },
+    {
+      key: "zoom-in",
+      code: "=",
+      meta: true,
+      handler: () => handlers.onZoomIn?.(),
+      description: "Zoom in preview",
+      category: "View",
+    },
+    {
+      key: "zoom-out",
+      code: "-",
+      meta: true,
+      handler: () => handlers.onZoomOut?.(),
+      description: "Zoom out preview",
+      category: "View",
+    },
+    {
+      key: "zoom-reset",
+      code: "0",
+      meta: true,
+      handler: () => handlers.onZoomReset?.(),
+      description: "Reset zoom to 100%",
+      category: "View",
+    },
+    {
+      key: "fullscreen",
+      code: "f",
+      meta: true,
+      shift: true,
+      handler: () => handlers.onToggleFullscreen?.(),
+      description: "Toggle fullscreen",
+      category: "View",
+    },
+
+    // =========================================================================
+    // PREVIEW SHORTCUTS
+    // =========================================================================
+    {
+      key: "refresh-preview",
+      code: "r",
+      meta: true,
+      shift: true,
+      handler: () => handlers.onRefreshPreview?.(),
+      description: "Refresh preview",
+      category: "Preview",
+    },
+    {
+      key: "toggle-device",
+      code: "d",
+      meta: true,
+      shift: true,
+      handler: () => handlers.onToggleDeviceFrame?.(),
+      description: "Toggle device frame",
+      category: "Preview",
+    },
+    {
+      key: "toggle-inspector",
+      code: "i",
+      meta: true,
+      shift: true,
+      handler: () => handlers.onToggleInspector?.(),
+      description: "Toggle element inspector",
+      category: "Preview",
+    },
+
+    // =========================================================================
+    // GENERATION SHORTCUTS
+    // =========================================================================
+    {
+      key: "generate",
+      code: "Enter",
+      meta: true,
+      handler: () => handlers.onGenerate?.(),
+      description: "Send message / Generate",
+      category: "Generation",
+    },
+    {
+      key: "stop-generation",
+      code: "Escape",
+      handler: () => handlers.onStopGeneration?.(),
+      description: "Stop current generation",
+      category: "Generation",
+    },
+    {
+      key: "regenerate",
+      code: "r",
+      meta: true,
+      handler: () => handlers.onRegenerateLastPrompt?.(),
+      description: "Regenerate last response",
+      category: "Generation",
+    },
+
+    // =========================================================================
+    // NAVIGATION SHORTCUTS
+    // =========================================================================
+    {
+      key: "prev-section",
+      code: "ArrowUp",
+      alt: true,
+      handler: () => handlers.onNavigatePrevSection?.(),
+      description: "Navigate to previous section",
+      category: "Navigation",
+    },
+    {
+      key: "next-section",
+      code: "ArrowDown",
+      alt: true,
+      handler: () => handlers.onNavigateNextSection?.(),
+      description: "Navigate to next section",
+      category: "Navigation",
+    },
+    {
+      key: "focus-chat",
+      code: "/",
+      meta: true,
+      handler: () => handlers.onFocusChat?.(),
+      description: "Focus chat input",
+      category: "Navigation",
+    },
+    {
+      key: "focus-editor",
+      code: "e",
+      meta: true,
+      handler: () => handlers.onFocusEditor?.(),
+      description: "Focus code editor",
+      category: "Navigation",
+    },
+    {
+      key: "escape",
+      code: "Escape",
+      handler: () => handlers.onEscape?.(),
+      description: "Cancel / Close modal",
+      category: "Navigation",
+    },
+
+    // =========================================================================
+    // HELP SHORTCUTS
+    // =========================================================================
+    {
+      key: "help",
+      code: "?",
+      meta: true,
+      shift: true,
+      handler: () => handlers.onToggleHelp?.(),
+      description: "Show keyboard shortcuts",
+      category: "Help",
+    },
+  ];
 }
 
 /**

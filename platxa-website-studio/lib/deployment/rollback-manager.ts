@@ -614,23 +614,54 @@ export class RollbackManager {
       }
 
       case "restore_artifacts": {
-        // Re-upload target version artifacts
+        // Re-upload target version artifacts to Odoo
+        context.restoredArtifacts = [];
+        let uploadedCount = 0;
+
         for (const artifact of toVersion.artifacts) {
           if (artifact.type === "bundle" && artifact.url) {
-            // Fetch artifact and re-upload
             try {
+              // Fetch artifact blob from stored URL
               const response = await fetch(artifact.url);
-              if (response.ok) {
-                // Artifact available for restore
-                context.restoredArtifacts = context.restoredArtifacts || [];
-                context.restoredArtifacts.push(artifact.name);
+              if (!response.ok) {
+                throw new Error(`Failed to fetch artifact: ${response.status}`);
               }
-            } catch {
-              // Log but continue - artifact might be locally cached
+
+              const artifactBlob = await response.blob();
+
+              // Upload artifact to Odoo via binary upload endpoint
+              const formData = new FormData();
+              formData.append("ufile", artifactBlob, artifact.name);
+              formData.append("model", "ir.module.module");
+              formData.append("id", "0");
+
+              const uploadUrl = server.url.replace(/\/+$/, "") + "/web/binary/upload_attachment";
+              const uploadResponse = await fetch(uploadUrl, {
+                method: "POST",
+                body: formData,
+                headers: {
+                  Cookie: `session_id=${sessionId}`,
+                },
+              });
+
+              if (!uploadResponse.ok) {
+                throw new Error(`Upload failed: ${uploadResponse.status}`);
+              }
+
+              context.restoredArtifacts.push(artifact.name);
+              uploadedCount++;
+            } catch (error) {
+              // Log error but continue with remaining artifacts
+              console.error(`[Rollback] Failed to restore artifact ${artifact.name}:`, error);
             }
           }
         }
-        return `Restored ${toVersion.artifacts.length} artifacts`;
+
+        if (uploadedCount === 0 && toVersion.artifacts.length > 0) {
+          throw new Error("Failed to restore any artifacts to Odoo");
+        }
+
+        return `Restored ${uploadedCount}/${toVersion.artifacts.length} artifacts to Odoo`;
       }
 
       case "restore_config": {
