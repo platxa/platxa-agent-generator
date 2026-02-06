@@ -6,14 +6,17 @@
  *
  * Features:
  * - One-click deployment to Odoo instances
- * - Module packaging with proper structure
+ * - Module packaging with proper structure (JSZip)
  * - Secure authentication with Odoo API
  * - Progress tracking and status updates
  * - Rollback support on failure
  * - Multi-version Odoo support (14-17)
  *
  * Feature #80: Deployment - OneClickDeploy Service
+ * Phase 2: Production-grade ZIP creation with JSZip
  */
+
+import JSZip from "jszip";
 
 // =============================================================================
 // Types
@@ -399,87 +402,50 @@ export class OneClickDeploy {
 
   /**
    * Package module files into uploadable format
+   * Uses JSZip for proper ZIP file creation with compression
    */
   private async packageModule(pkg: ModulePackage): Promise<Blob> {
-    // Create module structure
-    const files: Record<string, string | Uint8Array> = {};
+    const zip = new JSZip();
+    const moduleFolder = zip.folder(pkg.technicalName);
+
+    if (!moduleFolder) {
+      throw new Error("Failed to create module folder in ZIP");
+    }
 
     // Add manifest
-    files["__manifest__.py"] = createManifestContent(pkg.manifest);
+    moduleFolder.file("__manifest__.py", createManifestContent(pkg.manifest));
 
     // Add __init__.py
-    files["__init__.py"] = "# -*- coding: utf-8 -*-\n";
+    moduleFolder.file("__init__.py", "# -*- coding: utf-8 -*-\n");
 
-    // Add all package files
+    // Add all package files with proper directory structure
     for (const [path, content] of pkg.files) {
-      files[path] = content;
+      // Handle nested directories
+      const parts = path.split("/");
+      if (parts.length > 1) {
+        // Create subdirectories and add file
+        let currentFolder = moduleFolder;
+        for (let i = 0; i < parts.length - 1; i++) {
+          const subFolder = currentFolder.folder(parts[i]);
+          if (subFolder) {
+            currentFolder = subFolder;
+          }
+        }
+        currentFolder.file(parts[parts.length - 1], content);
+      } else {
+        moduleFolder.file(path, content);
+      }
     }
 
-    // Create ZIP archive (simplified - in production use JSZip or similar)
-    const zipContent = await this.createZipArchive(pkg.technicalName, files);
+    // Generate ZIP with DEFLATE compression for smaller file size
+    const zipBlob = await zip.generateAsync({
+      type: "blob",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 },
+      comment: `Platxa Website Studio - ${pkg.name} v${pkg.version}`,
+    });
 
-    return new Blob([zipContent], { type: "application/zip" });
-  }
-
-  /**
-   * Create ZIP archive from files
-   */
-  private async createZipArchive(
-    moduleName: string,
-    files: Record<string, string | Uint8Array>
-  ): Promise<Uint8Array> {
-    // Simplified ZIP creation - in production use proper ZIP library
-    // This creates a basic structure that Odoo can understand
-
-    const encoder = new TextEncoder();
-    const parts: Uint8Array[] = [];
-
-    // ZIP file header and content (simplified)
-    for (const [filename, content] of Object.entries(files)) {
-      const fullPath = `${moduleName}/${filename}`;
-      const data = typeof content === "string" ? encoder.encode(content) : content;
-
-      // Local file header
-      const header = new Uint8Array([
-        0x50, 0x4b, 0x03, 0x04, // Local file header signature
-        0x14, 0x00, // Version needed
-        0x00, 0x00, // General purpose bit flag
-        0x00, 0x00, // Compression method (stored)
-        0x00, 0x00, // File last modification time
-        0x00, 0x00, // File last modification date
-        0x00, 0x00, 0x00, 0x00, // CRC-32
-        ...this.intToBytes(data.length, 4), // Compressed size
-        ...this.intToBytes(data.length, 4), // Uncompressed size
-        ...this.intToBytes(fullPath.length, 2), // File name length
-        0x00, 0x00, // Extra field length
-      ]);
-
-      parts.push(header);
-      parts.push(encoder.encode(fullPath));
-      parts.push(data);
-    }
-
-    // Combine all parts
-    const totalLength = parts.reduce((sum, p) => sum + p.length, 0);
-    const result = new Uint8Array(totalLength);
-    let offset = 0;
-    for (const part of parts) {
-      result.set(part, offset);
-      offset += part.length;
-    }
-
-    return result;
-  }
-
-  /**
-   * Convert integer to bytes (little-endian)
-   */
-  private intToBytes(num: number, bytes: number): number[] {
-    const result: number[] = [];
-    for (let i = 0; i < bytes; i++) {
-      result.push((num >> (i * 8)) & 0xff);
-    }
-    return result;
+    return zipBlob;
   }
 
   /**
@@ -548,7 +514,7 @@ export class OneClickDeploy {
         "ir.module.module",
         "search",
         [[["name", "=", moduleName]]]
-      );
+      ) as number[];
 
       if (!moduleIds || moduleIds.length === 0) {
         return { success: false, error: "Module not found after upload" };
@@ -588,7 +554,7 @@ export class OneClickDeploy {
       "website",
       "search",
       [[]]
-    );
+    ) as number[];
 
     if (websiteIds && websiteIds.length > 0) {
       // Set theme on website
@@ -620,7 +586,7 @@ export class OneClickDeploy {
         "ir.module.module",
         "search_read",
         [[["name", "=", moduleName]], ["state"]]
-      );
+      ) as Array<{ state: string }>;
 
       if (modules && modules.length > 0 && modules[0].state === "installed") {
         return { success: true };
@@ -647,7 +613,7 @@ export class OneClickDeploy {
         "ir.module.module",
         "search",
         [[["name", "=", moduleName]]]
-      );
+      ) as number[];
 
       if (moduleIds && moduleIds.length > 0) {
         await this.callOdooMethod(
