@@ -24,7 +24,7 @@ export {
   type ParseResult,
 } from "./incremental-qweb-parser";
 
-// QWeb Runtime simulator
+// QWeb Runtime simulator (legacy regex-based)
 export {
   QWebRuntime,
   createQWebRuntime,
@@ -32,6 +32,33 @@ export {
   type QWebContext,
   type TemplateRegistry,
 } from "./qweb-runtime";
+
+// QWeb Parser (AST-based) - Phase 2 upgrade
+export {
+  parseQWeb,
+  serializeAST,
+  findNodes,
+  findNodesWithDirective,
+  getDirectiveValue,
+  hasDirective,
+  transformAST,
+  cloneNode,
+  type QWebASTNode,
+  type QWebParseResult,
+  type QWebParseOptions,
+  type QWebDirective as QWebParsedDirective,
+  type QWebDirectiveType,
+} from "./qweb-parser";
+
+// QWeb Runtime V2 (AST-based) - Phase 2 upgrade
+export {
+  QWebRuntimeV2,
+  createQWebRuntimeV2,
+  renderQWebV2,
+  type QWebContext as QWebContextV2,
+  type QWebRenderOptions,
+  type QWebRenderResult,
+} from "./qweb-runtime-v2";
 
 // Snippet registry
 export {
