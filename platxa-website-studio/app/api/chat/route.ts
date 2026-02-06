@@ -12,7 +12,14 @@ import {
 // Phase 1: Production-Grade Integrations
 import { createRAGPipeline, type RAGQueryResult } from "@/lib/agent-bridge/rag-pipeline";
 import { classifyTask, type ClassificationResult } from "@/lib/ai/task-classifier";
-import { routeTask, type RoutingDecision, type TaskType } from "@/lib/ai/model-orchestrator";
+import {
+  routeTask,
+  getOrchestrator,
+  type RoutingDecision,
+  type TaskType,
+  type ModelId,
+  type ModelConfig,
+} from "@/lib/ai/model-orchestrator";
 import {
   validateGeneratedCode,
   buildCorrectionPrompt,
@@ -20,7 +27,25 @@ import {
   shouldAttemptCorrection,
   formatValidationSummary,
   type ValidationSummary,
+  type SelfCorrectionOptions,
 } from "@/lib/ai/self-correction-loop";
+
+// =============================================================================
+// Self-Correction Configuration
+// =============================================================================
+
+/** Maximum correction iterations before giving up */
+const MAX_CORRECTION_ITERATIONS = 3;
+
+/** Minimum quality score to accept (0-100) */
+const MIN_QUALITY_SCORE = 80;
+
+/** Self-correction options */
+const SELF_CORRECTION_OPTIONS: SelfCorrectionOptions = {
+  maxIterations: MAX_CORRECTION_ITERATIONS,
+  minQualityScore: MIN_QUALITY_SCORE,
+  includeWarnings: false,
+};
 
 // Sidecar configuration (optional - for writing files through editor-sync)
 const SIDECAR_BASE_URL = process.env.SIDECAR_BASE_URL || "";
@@ -39,7 +64,39 @@ export const maxDuration = 600;
 // AI Provider Configuration - reads from environment variables (secure)
 // Priority: 1. Claude API (fast, production quality) if ANTHROPIC_API_KEY env var is set
 //           2. Ollama (local, free, slower) as fallback
-const CLAUDE_MODEL = process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514";
+const CLAUDE_MODEL_DEFAULT = process.env.CLAUDE_MODEL || "claude-sonnet-4-20250514";
+
+// Model ID mapping: Orchestrator model IDs -> Provider model IDs
+const ANTHROPIC_MODEL_MAP: Partial<Record<ModelId, string>> = {
+  "claude-3-opus": "claude-3-opus-20240229",
+  "claude-3-sonnet": "claude-3-sonnet-20240229",
+  "claude-3.5-sonnet": "claude-sonnet-4-20250514",
+  "claude-3-haiku": "claude-3-haiku-20240307",
+};
+
+const OPENAI_MODEL_MAP: Partial<Record<ModelId, string>> = {
+  "gpt-4o": "gpt-4o",
+  "gpt-4o-mini": "gpt-4o-mini",
+  "gpt-4-turbo": "gpt-4-turbo",
+  "o1-preview": "o1-preview",
+  "o1-mini": "o1-mini",
+};
+
+/**
+ * Resolves orchestrator model config to actual provider model ID
+ */
+function resolveModelId(modelConfig: ModelConfig): { provider: "anthropic" | "openai" | "ollama"; modelId: string } {
+  if (modelConfig.provider === "anthropic") {
+    const modelId = ANTHROPIC_MODEL_MAP[modelConfig.id] || CLAUDE_MODEL_DEFAULT;
+    return { provider: "anthropic", modelId };
+  }
+  if (modelConfig.provider === "openai") {
+    const modelId = OPENAI_MODEL_MAP[modelConfig.id] || "gpt-4o";
+    return { provider: "openai", modelId };
+  }
+  // Fallback to Ollama for local/other providers
+  return { provider: "ollama", modelId: OLLAMA_MODEL };
+}
 
 // Ollama configuration (fallback or primary if no Claude API key)
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2:1b";
@@ -212,6 +269,256 @@ Use the codebase context above to understand existing patterns, naming conventio
 When generating code, follow the same patterns and styles shown in the context.`;
 }
 
+// =============================================================================
+// RAG Pattern Extraction for Validation
+// =============================================================================
+
+interface ExtractedPatterns {
+  namingConventions: string[];
+  filePatterns: string[];
+  directivesUsed: string[];
+  scssVariables: string[];
+}
+
+/**
+ * Extracts patterns from RAG context for validation
+ */
+function extractPatternsFromRAG(ragContext: string): ExtractedPatterns {
+  const patterns: ExtractedPatterns = {
+    namingConventions: [],
+    filePatterns: [],
+    directivesUsed: [],
+    scssVariables: [],
+  };
+
+  if (!ragContext) return patterns;
+
+  // Extract QWeb directive patterns
+  const directiveMatches = ragContext.match(/t-(?:if|foreach|esc|raw|set|call|name|attf?-\w+)(?==|>|\s)/g);
+  if (directiveMatches) {
+    patterns.directivesUsed = Array.from(new Set(directiveMatches));
+  }
+
+  // Extract SCSS variable patterns
+  const scssVarMatches = ragContext.match(/\$[\w-]+/g);
+  if (scssVarMatches) {
+    patterns.scssVariables = Array.from(new Set(scssVarMatches));
+  }
+
+  // Extract template naming patterns (e.g., website.template_name)
+  const templateMatches = ragContext.match(/t-name=["']([^"']+)["']/g);
+  if (templateMatches) {
+    patterns.namingConventions = templateMatches.map(m => {
+      const match = m.match(/t-name=["']([^"']+)["']/);
+      return match ? match[1].split('.')[0] : '';
+    }).filter(Boolean);
+    patterns.namingConventions = Array.from(new Set(patterns.namingConventions));
+  }
+
+  return patterns;
+}
+
+/**
+ * Validates generated code against RAG-extracted patterns
+ */
+function validateAgainstRAGPatterns(
+  generatedCode: string,
+  patterns: ExtractedPatterns
+): { valid: boolean; issues: string[] } {
+  const issues: string[] = [];
+
+  // Check if generated code uses unknown SCSS variables not in codebase
+  const generatedScssVars = generatedCode.match(/\$[\w-]+/g) || [];
+  const unknownVars = generatedScssVars.filter(v =>
+    !patterns.scssVariables.includes(v) &&
+    !v.startsWith('$o-') && // Odoo variables
+    !v.startsWith('$bs-')   // Bootstrap variables
+  );
+
+  if (unknownVars.length > 3 && patterns.scssVariables.length > 0) {
+    // Only flag if codebase has established patterns and many unknowns
+    issues.push(`Generated code uses ${unknownVars.length} SCSS variables not found in codebase. Consider using existing variables: ${patterns.scssVariables.slice(0, 5).join(', ')}`);
+  }
+
+  // Check template naming consistency
+  const generatedTemplates = generatedCode.match(/t-name=["']([^"']+)["']/g) || [];
+  if (generatedTemplates.length > 0 && patterns.namingConventions.length > 0) {
+    const expectedPrefix = patterns.namingConventions[0];
+    const wrongPrefix = generatedTemplates.filter(t => {
+      const match = t.match(/t-name=["']([^"']+)["']/);
+      return match && !match[1].startsWith(expectedPrefix) && !match[1].startsWith('website.');
+    });
+
+    if (wrongPrefix.length > 0) {
+      issues.push(`Template names should follow existing convention (prefix: ${expectedPrefix}). Found: ${wrongPrefix.slice(0, 2).join(', ')}`);
+    }
+  }
+
+  return {
+    valid: issues.length === 0,
+    issues,
+  };
+}
+
+// =============================================================================
+// Self-Correction Loop Implementation
+// =============================================================================
+
+interface CorrectionAttempt {
+  iteration: number;
+  validation: ValidationSummary;
+  qualityScore: number;
+  corrected: boolean;
+}
+
+/**
+ * Runs self-correction loop on generated code
+ * Returns corrected content or original if max iterations reached
+ */
+async function runSelfCorrectionLoop(
+  originalPrompt: string,
+  generatedCode: string,
+  systemPrompt: string,
+  modelId: string,
+  ragPatterns: ExtractedPatterns
+): Promise<{
+  finalContent: string;
+  attempts: CorrectionAttempt[];
+  wasCorrrected: boolean;
+}> {
+  const attempts: CorrectionAttempt[] = [];
+  let currentContent = generatedCode;
+  let wasCorrrected = false;
+
+  for (let iteration = 1; iteration <= MAX_CORRECTION_ITERATIONS; iteration++) {
+    // Validate current content
+    const validation = validateGeneratedCode(currentContent);
+    const qualityScore = calculateQualityScore(validation);
+
+    // Also validate against RAG patterns
+    const ragValidation = validateAgainstRAGPatterns(currentContent, ragPatterns);
+
+    // Merge RAG issues into validation
+    if (!ragValidation.valid) {
+      for (const issue of ragValidation.issues) {
+        validation.results.push({
+          file: "rag-pattern-check",
+          type: "unknown",
+          valid: false,
+          errors: [{ message: issue }],
+          warnings: [],
+        });
+        validation.totalErrors += 1;
+        validation.allValid = false;
+      }
+      // Rebuild error prompt with RAG issues
+      if (validation.errorPrompt) {
+        validation.errorPrompt += `\n### RAG Pattern Violations\n${ragValidation.issues.map(i => `- ${i}`).join('\n')}\n`;
+      }
+    }
+
+    attempts.push({
+      iteration,
+      validation,
+      qualityScore,
+      corrected: false,
+    });
+
+    console.log(`[SelfCorrection] Iteration ${iteration}: ${formatValidationSummary(validation)}`);
+
+    // Check if we should stop
+    if (!shouldAttemptCorrection(validation, SELF_CORRECTION_OPTIONS)) {
+      console.log(`[SelfCorrection] Quality acceptable (score: ${qualityScore}), stopping loop`);
+      break;
+    }
+
+    // Don't attempt correction on last iteration
+    if (iteration === MAX_CORRECTION_ITERATIONS) {
+      console.log(`[SelfCorrection] Max iterations reached, returning best effort`);
+      break;
+    }
+
+    // Build correction prompt and call AI again
+    const correctionPrompt = buildCorrectionPrompt(originalPrompt, currentContent, validation);
+
+    console.log(`[SelfCorrection] Attempting correction with ${validation.totalErrors} errors...`);
+
+    try {
+      // Make synchronous correction call (non-streaming for simplicity)
+      const correctedContent = await callAIForCorrection(
+        systemPrompt,
+        correctionPrompt,
+        modelId
+      );
+
+      if (correctedContent && correctedContent.trim() !== currentContent.trim()) {
+        currentContent = correctedContent;
+        wasCorrrected = true;
+        attempts[attempts.length - 1].corrected = true;
+        console.log(`[SelfCorrection] Correction applied, re-validating...`);
+      } else {
+        console.log(`[SelfCorrection] No meaningful correction returned`);
+        break;
+      }
+    } catch (error) {
+      console.error(`[SelfCorrection] Correction call failed:`, error);
+      break;
+    }
+  }
+
+  return { finalContent: currentContent, attempts, wasCorrrected };
+}
+
+/**
+ * Makes a non-streaming AI call for correction
+ */
+async function callAIForCorrection(
+  systemPrompt: string,
+  correctionPrompt: string,
+  modelId: string
+): Promise<string> {
+  const client = getAnthropicClient();
+
+  if (client) {
+    // Use Claude API for correction
+    const response = await client.messages.create({
+      model: modelId,
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [{ role: "user", content: correctionPrompt }],
+    });
+
+    // Extract text content
+    const textBlock = response.content.find(block => block.type === "text");
+    return textBlock?.type === "text" ? textBlock.text : "";
+  }
+
+  // Fallback to Ollama for correction
+  const ollamaResponse = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: OLLAMA_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: correctionPrompt },
+      ],
+      stream: false,
+      options: {
+        temperature: 0.3, // Lower temperature for corrections
+        num_predict: 4096,
+      },
+    }),
+  });
+
+  if (!ollamaResponse.ok) {
+    throw new Error(`Ollama correction call failed: ${ollamaResponse.statusText}`);
+  }
+
+  const data = await ollamaResponse.json();
+  return data.message?.content || "";
+}
+
 /**
  * Stream response from Claude API
  * Returns a ReadableStream compatible with AI SDK format
@@ -219,7 +526,10 @@ When generating code, follow the same patterns and styles shown in the context.`
 async function streamClaudeResponse(
   systemPrompt: string,
   messages: ChatMessage[],
-  pipeline: AgentPipeline | null
+  pipeline: AgentPipeline | null,
+  modelId: string,
+  originalUserMessage: string,
+  ragPatterns: ExtractedPatterns
 ): Promise<Response> {
   const client = getAnthropicClient();
   if (!client) {
@@ -237,7 +547,7 @@ async function streamClaudeResponse(
   }));
 
   const stream = await client.messages.stream({
-    model: CLAUDE_MODEL,
+    model: modelId,
     max_tokens: 4096,
     system: systemPrompt,
     messages: anthropicMessages,
@@ -312,31 +622,53 @@ async function streamClaudeResponse(
         }
 
         // =====================================================================
-        // PHASE 1: Self-Correction Validation
+        // PHASE 1: Self-Correction Loop (ACTUALLY RUNS NOW!)
         // =====================================================================
         if (fullResponseText && !isStreamClosed) {
           try {
-            const validation: ValidationSummary = validateGeneratedCode(fullResponseText);
-            const qualityScore = calculateQualityScore(validation);
+            // Run the full self-correction loop
+            const correctionResult = await runSelfCorrectionLoop(
+              originalUserMessage,
+              fullResponseText,
+              systemPrompt,
+              modelId,
+              ragPatterns
+            );
 
-            console.log(`[SelfCorrection] ${formatValidationSummary(validation)}`);
+            const finalValidation = validateGeneratedCode(correctionResult.finalContent);
+            const finalQualityScore = calculateQualityScore(finalValidation);
+
+            console.log(`[SelfCorrection] Final: ${formatValidationSummary(finalValidation)} (corrected: ${correctionResult.wasCorrrected})`);
+
+            // If content was corrected, stream the corrected version
+            if (correctionResult.wasCorrrected && !isStreamClosed) {
+              // Send correction marker
+              const correctionMarker = `2:${JSON.stringify([{ selfCorrectionApplied: true, iterations: correctionResult.attempts.length }])}\n`;
+              safeEnqueue(encoder.encode(correctionMarker));
+
+              // Stream the corrected content (replace previous content)
+              const correctedChunk = `0:${JSON.stringify("\n\n---\n**[Auto-Corrected Version]**\n\n" + correctionResult.finalContent)}\n`;
+              safeEnqueue(encoder.encode(correctedChunk));
+            }
 
             // Send validation metadata to client
             if (!isStreamClosed) {
               const validationData = {
                 codeValidation: {
-                  valid: validation.allValid,
-                  qualityScore,
-                  errorCount: validation.totalErrors,
-                  warningCount: validation.totalWarnings,
-                  needsCorrection: shouldAttemptCorrection(validation),
+                  valid: finalValidation.allValid,
+                  qualityScore: finalQualityScore,
+                  errorCount: finalValidation.totalErrors,
+                  warningCount: finalValidation.totalWarnings,
+                  needsCorrection: shouldAttemptCorrection(finalValidation),
+                  correctionAttempts: correctionResult.attempts.length,
+                  wasCorrected: correctionResult.wasCorrrected,
                 },
               };
               const validationChunk = `2:${JSON.stringify([validationData])}\n`;
               safeEnqueue(encoder.encode(validationChunk));
             }
           } catch (err) {
-            console.warn("Self-correction validation warning:", err);
+            console.warn("Self-correction loop warning:", err);
           }
         }
 
@@ -346,7 +678,7 @@ async function streamClaudeResponse(
             rateLimitState,
             lastUsageStats.promptTokens,
             lastUsageStats.completionTokens,
-            CLAUDE_MODEL
+            modelId
           );
           rateLimitState = newState;
           for (const alert of newAlerts) {
@@ -485,6 +817,10 @@ export async function POST(req: Request) {
     console.log(`[TaskClassifier] Type: ${taskClassification.primaryType} (${taskClassification.confidence}% confidence)`);
     console.log(`[ModelOrchestrator] Selected: ${routingDecision.model.displayName} - ${routingDecision.reason}`);
 
+    // Resolve the actual model ID to use based on routing decision
+    const resolvedModel = resolveModelId(routingDecision.model);
+    console.log(`[ModelRouting] Using ${resolvedModel.provider}/${resolvedModel.modelId}`);
+
     // =========================================================================
     // PHASE 1: RAG Context Retrieval
     // =========================================================================
@@ -502,6 +838,12 @@ export async function POST(req: Request) {
       if (ragContext) {
         console.log(`[RAG] Added ${Math.ceil(ragContext.length / 4)} tokens of context`);
       }
+    }
+
+    // Extract patterns from RAG context for validation
+    const ragPatterns = extractPatternsFromRAG(ragContext);
+    if (ragPatterns.directivesUsed.length > 0 || ragPatterns.scssVariables.length > 0) {
+      console.log(`[RAG] Extracted ${ragPatterns.directivesUsed.length} directive patterns, ${ragPatterns.scssVariables.length} SCSS variables`);
     }
 
     // Check rate limit before proceeding
@@ -583,13 +925,17 @@ export async function POST(req: Request) {
 
     // =====================================================================
     // CLAUDE API PATH - Fast, production-quality generation
+    // Uses model routing decision from orchestrator
     // =====================================================================
-    if (useClaudeApi) {
+    if (useClaudeApi && resolvedModel.provider === "anthropic") {
       try {
         return await streamClaudeResponse(
           systemPrompt,
           messages as ChatMessage[],
-          pipeline
+          pipeline,
+          resolvedModel.modelId,
+          userMessageContent,
+          ragPatterns
         );
       } catch (error) {
         console.error("Claude API error:", error);
@@ -664,8 +1010,11 @@ export async function POST(req: Request) {
       const encoder = new TextEncoder();
       const decoder = new TextDecoder();
 
-      // Capture pipeline reference for use inside the stream closure
+      // Capture references for use inside the stream closure
       const activePipeline = pipeline;
+      const capturedUserMessage = userMessageContent;
+      const capturedRagPatterns = ragPatterns;
+      const capturedSystemPrompt = systemPrompt;
 
       const transformedStream = new ReadableStream({
         async start(streamController) {
@@ -795,30 +1144,52 @@ export async function POST(req: Request) {
               }
             }
 
-            // --- Self-Correction Validation (runs after LLM stream completes) ---
+            // --- Self-Correction Loop (ACTUALLY RUNS NOW!) ---
             if (fullResponseText && !isStreamClosed) {
               try {
-                const validation: ValidationSummary = validateGeneratedCode(fullResponseText);
-                const qualityScore = calculateQualityScore(validation);
+                // Run the full self-correction loop
+                const correctionResult = await runSelfCorrectionLoop(
+                  capturedUserMessage,
+                  fullResponseText,
+                  capturedSystemPrompt,
+                  OLLAMA_MODEL,
+                  capturedRagPatterns
+                );
 
-                console.log(`[SelfCorrection] ${formatValidationSummary(validation)}`);
+                const finalValidation = validateGeneratedCode(correctionResult.finalContent);
+                const finalQualityScore = calculateQualityScore(finalValidation);
+
+                console.log(`[SelfCorrection] Final: ${formatValidationSummary(finalValidation)} (corrected: ${correctionResult.wasCorrrected})`);
+
+                // If content was corrected, stream the corrected version
+                if (correctionResult.wasCorrrected && !isStreamClosed) {
+                  // Send correction marker
+                  const correctionMarker = `2:${JSON.stringify([{ selfCorrectionApplied: true, iterations: correctionResult.attempts.length }])}\n`;
+                  safeEnqueue(encoder.encode(correctionMarker));
+
+                  // Stream the corrected content
+                  const correctedChunk = `0:${JSON.stringify("\n\n---\n**[Auto-Corrected Version]**\n\n" + correctionResult.finalContent)}\n`;
+                  safeEnqueue(encoder.encode(correctedChunk));
+                }
 
                 // Send validation metadata to client
                 if (!isStreamClosed) {
                   const validationData = {
                     codeValidation: {
-                      valid: validation.allValid,
-                      qualityScore,
-                      errorCount: validation.totalErrors,
-                      warningCount: validation.totalWarnings,
-                      needsCorrection: shouldAttemptCorrection(validation),
+                      valid: finalValidation.allValid,
+                      qualityScore: finalQualityScore,
+                      errorCount: finalValidation.totalErrors,
+                      warningCount: finalValidation.totalWarnings,
+                      needsCorrection: shouldAttemptCorrection(finalValidation),
+                      correctionAttempts: correctionResult.attempts.length,
+                      wasCorrected: correctionResult.wasCorrrected,
                     },
                   };
                   const validationChunk = `2:${JSON.stringify([validationData])}\n`;
                   safeEnqueue(encoder.encode(validationChunk));
                 }
               } catch (err) {
-                console.warn("Self-correction validation warning:", err instanceof Error ? err.message : err);
+                console.warn("Self-correction loop warning:", err instanceof Error ? err.message : err);
               }
             }
 
