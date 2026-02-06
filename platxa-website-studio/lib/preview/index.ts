@@ -1277,3 +1277,21 @@ export {
   type EditCallback as FixEditCallback,
   type StateChangeCallback as FixPreviewStateChangeCallback,
 } from "./fix-preview";
+
+// Accessibility Engine V2 - axe-core powered (Phase 2 upgrade)
+export {
+  runA11yAudit,
+  runA11yAuditInIframe,
+  runStaticA11yAudit,
+  formatViolation as formatA11yViolation,
+  formatAuditResult as formatA11yAuditResult,
+  getViolationsByImpact,
+  getViolationsByCategory,
+  type WCAGLevel as A11yWCAGLevel,
+  type A11yImpact,
+  type A11yCategory as A11yEngineCategory,
+  type A11yViolation,
+  type A11yNode,
+  type A11yAuditResult,
+  type A11yAuditOptions,
+} from "./accessibility-engine-v2";
