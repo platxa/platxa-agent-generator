@@ -1,0 +1,133 @@
+# ============================================================
+# Python
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+sdist/
+wheels/
+.eggs/
+.Python
+.hatch/
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+
+# ============================================================
+# Node.js
+# ============================================================
+node_modules/
+.pnp
+.pnp.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# ============================================================
+# Build output
+# ============================================================
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.turbo/
+.vercel/
+
+# ============================================================
+# Testing & coverage
+# ============================================================
+htmlcov/
+.coverage
+.coverage.*
+coverage/
+coverage.xml
+*.cover
+*.py,cover
+.pytest_cache/
+.hypothesis/
+.tox/
+.nox/
+test-results/
+playwright-report/
+e2e/.auth
+
+# ============================================================
+# Type checking & linting
+# ============================================================
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.ruff_cache/
+.pyright/
+
+# ============================================================
+# IDE & OS
+# ============================================================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ============================================================
+# Claude Code session state (ephemeral, machine-specific)
+# ============================================================
+# Keep: .claude/agents/, .claude/skills/, .claude/commands/
+# Ignore everything else in .claude/
+.claude/settings.local.json
+.claude/session_state.json
+.claude/debug_sessions.json
+.claude/research.json
+.claude/feature_list.json
+.claude/feature_list.json.backup*
+.claude/feature_list.backup*
+.claude/generated_features.json
+.claude/integration_metrics.json
+.claude/lovable_parity_features.json
+.claude/skill_state.json
+.claude/memory.db
+.claude/.recovery_point
+.claude/PROGRESS.md
+.claude/SPEC_PROGRESS.md
+.claude/LOVABLE_PARITY_RESEARCH.md
+.claude/brand_system_features.json
+.claude/backups/
+.claude/checkpoints/
+.claude/plans/
+.claude/state/
+.claude/config/
+.claude/intent_state/
+.claude/findings/
+.claude/history/
+.claude/snapshots/
+.claude/*.backup*
+.claude/**/.ruff_cache/
+.claude/**/__pycache__/
+.claude/**/.pytest_cache/
+.claude/**/.benchmarks/
+
+# ============================================================
+# Secrets & credentials
+# ============================================================
+.env.local
+.env.*.local
+*.pem
+.mcp.json
+
+# ============================================================
+# Misc
+# ============================================================
+*.log
+/site/
+CLAUDE.md
