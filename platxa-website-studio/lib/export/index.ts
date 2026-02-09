@@ -207,12 +207,26 @@ export async function exportTheme(options: ExportOptions): Promise<ExportResult>
     }
 
     // Add all generated files
+    // PRODUCTION-CRITICAL FIX: Handle path prefix mismatch
+    // Files may have 'theme_generated/' prefix while themeName is different (e.g., 'theme_custom')
+    // This prevents nested structures like theme_custom/theme_generated/...
     let totalSize = 0;
     for (const file of files) {
-      // Remove theme name prefix if present (files should be relative)
-      const relativePath = file.path.startsWith(`${themeName}/`)
-        ? file.path.substring(themeName.length + 1)
-        : file.path;
+      let relativePath = file.path;
+
+      // Remove ANY theme_* prefix to get the actual relative path
+      // This handles: theme_generated/views/... -> views/...
+      //               theme_custom/views/... -> views/...
+      //               themeName/views/... -> views/...
+      const themePrefix = relativePath.match(/^theme_[a-z0-9_]+\//i);
+      if (themePrefix) {
+        relativePath = relativePath.substring(themePrefix[0].length);
+      } else if (relativePath.startsWith(`${themeName}/`)) {
+        relativePath = relativePath.substring(themeName.length + 1);
+      }
+
+      // Ensure we don't have double slashes or leading slashes
+      relativePath = relativePath.replace(/^\/+/, '').replace(/\/+/g, '/');
 
       themeFolder.file(relativePath, file.content);
       totalSize += file.content.length;

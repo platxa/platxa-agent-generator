@@ -292,12 +292,85 @@ function buildFullPath(filename: string): string {
 }
 
 /**
+ * Sanitize content by removing invalid HTML document structure
+ * Returns cleaned content or null if completely invalid
+ */
+function sanitizeOdooContent(content: string): string | null {
+  let cleaned = content;
+
+  // Check for full HTML document structure (INVALID for Odoo)
+  const hasDoctype = content.includes('<!DOCTYPE');
+  const hasHtmlTag = /<html[\s>]/i.test(content);
+  const hasHeadTag = /<head[\s>]/i.test(content);
+  const hasBodyTag = /<body[\s>]/i.test(content);
+
+  if (hasDoctype || hasHtmlTag || hasHeadTag || hasBodyTag) {
+    // Try to extract just the useful section content
+    // Look for content inside <body> or standalone sections
+
+    // Extract body content if present
+    const bodyMatch = content.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    if (bodyMatch) {
+      cleaned = bodyMatch[1].trim();
+    }
+
+    // Extract sections from the cleaned content
+    const sections: string[] = [];
+    const sectionRegex = /<section[^>]*>[\s\S]*?<\/section>/gi;
+    let sectionMatch: RegExpExecArray | null;
+    while ((sectionMatch = sectionRegex.exec(cleaned)) !== null) {
+      sections.push(sectionMatch[0]);
+    }
+
+    // Also extract divs with common classes
+    const divRegex = /<div[^>]*class="[^"]*(?:hero|banner|features?|about|contact|footer|header)[^"]*"[^>]*>[\s\S]*?<\/div>/gi;
+    let divMatch: RegExpExecArray | null;
+    while ((divMatch = divRegex.exec(cleaned)) !== null) {
+      // Avoid duplicates
+      if (!sections.some(s => s.includes(divMatch![0]))) {
+        sections.push(divMatch[0]);
+      }
+    }
+
+    if (sections.length > 0) {
+      cleaned = sections.join('\n\n');
+    } else {
+      // No valid sections found - this content is unusable
+      console.warn('[Parser] Rejecting content with HTML document structure - no valid sections found');
+      return null;
+    }
+  }
+
+  // Remove any remaining invalid tags
+  cleaned = cleaned
+    .replace(/<!DOCTYPE[^>]*>/gi, '')
+    .replace(/<\/?html[^>]*>/gi, '')
+    .replace(/<head[\s\S]*?<\/head>/gi, '')
+    .replace(/<\/?body[^>]*>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '') // Remove scripts
+    .replace(/<style[\s\S]*?<\/style>/gi, '')   // Remove style tags (should be in SCSS)
+    .trim();
+
+  return cleaned.length > 20 ? cleaned : null;
+}
+
+/**
  * Wrap HTML/section content in Odoo template structure
  */
 function wrapInOdooTemplate(content: string, templateId: string): string {
+  // First, sanitize the content
+  const sanitized = sanitizeOdooContent(content);
+  if (!sanitized) {
+    // Return empty template if content is invalid
+    return `<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Invalid content was removed -->
+</odoo>`;
+  }
+
   // Check if already wrapped
-  if (content.includes("<odoo>") || content.includes("<template")) {
-    return content;
+  if (sanitized.includes("<odoo>") || sanitized.includes("<template")) {
+    return sanitized;
   }
 
   // Clean template ID
@@ -306,9 +379,44 @@ function wrapInOdooTemplate(content: string, templateId: string): string {
   return `<?xml version="1.0" encoding="utf-8"?>
 <odoo>
   <template id="${cleanId}" name="${cleanId.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}">
-    ${content}
+    ${sanitized}
   </template>
 </odoo>`;
+}
+
+/**
+ * Strip conversational preamble text from AI responses
+ * Removes phrases like "Here is...", "I'll create...", explanatory text before code blocks
+ */
+function stripConversationalPreamble(response: string): string {
+  // Common preamble patterns to remove
+  const preamblePatterns = [
+    /^(?:Here (?:is|are) (?:an? )?(?:example|the|my|your|a).*?:?\s*\n*)+/gim,
+    /^(?:I(?:'ll| will) (?:create|generate|build|make|write).*?:?\s*\n*)+/gim,
+    /^(?:Below (?:is|are).*?:?\s*\n*)+/gim,
+    /^(?:The following.*?:?\s*\n*)+/gim,
+    /^(?:This (?:is|creates|generates).*?:?\s*\n*)+/gim,
+    /^(?:Let me (?:create|generate|show).*?:?\s*\n*)+/gim,
+  ];
+
+  let cleaned = response;
+
+  // Apply each pattern
+  for (const pattern of preamblePatterns) {
+    cleaned = cleaned.replace(pattern, "");
+  }
+
+  // Also strip any text before the first code block or XML declaration
+  const firstCodeBlock = cleaned.search(/```|\<\?xml|\<odoo|\<template/i);
+  if (firstCodeBlock > 0 && firstCodeBlock < 500) {
+    // Check if the text before is conversational (doesn't look like code)
+    const textBefore = cleaned.substring(0, firstCodeBlock);
+    if (!/[\{\}\[\]<>]/.test(textBefore) || textBefore.includes("Here is")) {
+      cleaned = cleaned.substring(firstCodeBlock);
+    }
+  }
+
+  return cleaned.trim();
 }
 
 /**
@@ -316,6 +424,9 @@ function wrapInOdooTemplate(content: string, templateId: string): string {
  * Production-grade with comprehensive format support
  */
 export function parseGeneratedFiles(response: string): ParsedFile[] {
+  // Preprocess: strip conversational preamble
+  const cleanedResponse = stripConversationalPreamble(response);
+
   const files: ParsedFile[] = [];
   const seenPaths = new Set<string>();
   const seenContents = new Set<string>(); // Dedupe by content hash
@@ -346,7 +457,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   const fileBlockRegex = /```(\w+)?\s*file:\s*([^\n]+)\n([\s\S]*?)```/gi;
   let match;
 
-  while ((match = fileBlockRegex.exec(response)) !== null) {
+  while ((match = fileBlockRegex.exec(cleanedResponse)) !== null) {
     const [, lang, filePath, content] = match;
     const path = buildFullPath(normalizePath(filePath));
     addFile(path, content, lang || detectLanguage(path));
@@ -355,7 +466,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   // Strategy 2: Comment-based file path - ```lang\n# file: path or // file: path
   const commentFileRegex = /```(\w+)\n\s*(?:#|\/\/|<!--)\s*file:\s*([^\n>]+)(?:-->)?\n([\s\S]*?)```/gi;
 
-  while ((match = commentFileRegex.exec(response)) !== null) {
+  while ((match = commentFileRegex.exec(cleanedResponse)) !== null) {
     const [, language, filePath, content] = match;
     const path = buildFullPath(normalizePath(filePath));
     // Remove the file comment from content
@@ -366,7 +477,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   // Strategy 3: Header-based format - **filename:**\n```lang or ### filename\n```lang
   const headerBlockRegex = /(?:\*\*([^*\n]+)\*\*:?|#{1,4}\s+([^\n]+))\s*\n+```(\w+)\n([\s\S]*?)```/gi;
 
-  while ((match = headerBlockRegex.exec(response)) !== null) {
+  while ((match = headerBlockRegex.exec(cleanedResponse)) !== null) {
     const [, boldHeader, hashHeader, language, content] = match;
     const header = boldHeader || hashHeader || "";
     const extractedPath = extractFilenameFromHeader(header);
@@ -380,7 +491,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   // Strategy 4: Inline file marker - File: path/to/file.ext or Filename: file.ext
   const inlineFileRegex = /(?:file(?:name)?|path):\s*([^\n]+\.[a-z0-9]+)\s*\n+```(\w+)\n([\s\S]*?)```/gi;
 
-  while ((match = inlineFileRegex.exec(response)) !== null) {
+  while ((match = inlineFileRegex.exec(cleanedResponse)) !== null) {
     const [, filePath, language, content] = match;
     const path = buildFullPath(normalizePath(filePath));
     addFile(path, content, language);
@@ -391,7 +502,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   const plainBlockRegex = /```(\w+)\n([\s\S]*?)```/g;
   let blockIndex = 0;
 
-  while ((match = plainBlockRegex.exec(response)) !== null) {
+  while ((match = plainBlockRegex.exec(cleanedResponse)) !== null) {
     const [fullMatch, language, content] = match;
 
     // Skip if this block was already captured by other strategies
@@ -425,7 +536,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   // Matches ``` followed by newline and content (no language word)
   const noLangBlockRegex = /```\n([\s\S]*?)```/g;
 
-  while ((match = noLangBlockRegex.exec(response)) !== null) {
+  while ((match = noLangBlockRegex.exec(cleanedResponse)) !== null) {
     const [, content] = match;
     const contentTrimmed = content.trim();
 
@@ -474,7 +585,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
     const odooBlockRegex = /<odoo[^>]*>[\s\S]*?<\/odoo>/gi;
     let odooIndex = 0;
 
-    while ((match = odooBlockRegex.exec(response)) !== null) {
+    while ((match = odooBlockRegex.exec(cleanedResponse)) !== null) {
       const content = match[0];
       const path = `theme_generated/views/template_${odooIndex + 1}.xml`;
       if (addFile(path, content, "xml")) {
@@ -487,7 +598,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
       const templateBlockRegex = /<template[^>]*>[\s\S]*?<\/template>/gi;
       let templateIndex = 0;
 
-      while ((match = templateBlockRegex.exec(response)) !== null) {
+      while ((match = templateBlockRegex.exec(cleanedResponse)) !== null) {
         const content = match[0];
         const wrappedContent = `<?xml version="1.0" encoding="utf-8"?>\n<odoo>\n  ${content}\n</odoo>`;
         const path = `theme_generated/views/template_${templateIndex + 1}.xml`;
@@ -503,7 +614,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
       const htmlSectionRegex = /<(section|header|footer|nav|main|article|div\s+class=["'][^"']*(?:hero|banner|feature|service|about|contact|testimonial)[^"']*["'])[^>]*>[\s\S]*?<\/\1>/gi;
       let sectionIndex = 0;
 
-      while ((match = htmlSectionRegex.exec(response)) !== null) {
+      while ((match = htmlSectionRegex.exec(cleanedResponse)) !== null) {
         const content = match[0];
         const tagType = match[1].toLowerCase();
         const sectionName = tagType.includes("hero") ? "hero" :
@@ -631,30 +742,130 @@ export function validateOdooTheme(files: ParsedFile[]): {
 }
 
 /**
- * Generate a default __manifest__.py if missing
+ * Generate a default __init__.py (required for every Odoo module)
  */
-export function generateManifest(themeName: string, files: ParsedFile[]): string {
+export function generateInitPy(): string {
+  return `# -*- coding: utf-8 -*-
+# Odoo theme module - no Python code needed for themes
+`;
+}
+
+/**
+ * Ensure all required Odoo module files exist AND are valid
+ * PRODUCTION-GRADE: Validates and fixes ALL files before export
+ */
+export function ensureRequiredFiles(files: ParsedFile[], themeName: string = "Theme Generated"): ParsedFile[] {
+  const result: ParsedFile[] = [];
+  const paths = files.map(f => f.path);
+
+  // Derive module name from theme name
+  const moduleName = themeName
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, '_');
+  const finalModuleName = moduleName.startsWith('theme_') ? moduleName : `theme_${moduleName}`;
+
+  // STEP 1: Validate and fix ALL XML files first
+  const validatedFiles: ParsedFile[] = [];
+  for (const file of files) {
+    if (file.path.endsWith(".xml")) {
+      // CRITICAL: Ensure valid Odoo XML structure
+      const fixedContent = ensureValidOdooXml(file.content, file.path);
+      validatedFiles.push({
+        ...file,
+        content: fixedContent,
+      });
+    } else {
+      validatedFiles.push(file);
+    }
+  }
+
+  // STEP 2: Check for __manifest__.py - also validate it has required fields
+  const manifestIdx = validatedFiles.findIndex(f => f.path.includes("__manifest__.py"));
+  const hasValidManifest = manifestIdx >= 0 &&
+    validatedFiles[manifestIdx].content.includes("'version'") &&
+    validatedFiles[manifestIdx].content.includes("'depends'") &&
+    validatedFiles[manifestIdx].content.includes("'license'") &&
+    !validatedFiles[manifestIdx].content.includes("'data': ['views/templates.xml', 'static/"); // Invalid: scss in data
+
+  if (!hasValidManifest) {
+    // Generate proper manifest with correct module name for asset paths
+    const manifestContent = generateManifest(themeName, validatedFiles, finalModuleName);
+    result.push({
+      path: "theme_generated/__manifest__.py",
+      content: manifestContent,
+      language: "python",
+      action: "create",
+    });
+  }
+
+  // STEP 3: Add all validated files (except old invalid manifest)
+  for (const file of validatedFiles) {
+    if (file.path.includes("__manifest__.py") && !hasValidManifest) {
+      continue; // Skip invalid manifest, we added a new one
+    }
+    result.push(file);
+  }
+
+  // STEP 4: Check for __init__.py (REQUIRED for Odoo modules)
+  const hasInit = paths.some(p => p.includes("__init__.py"));
+  if (!hasInit) {
+    result.push({
+      path: "theme_generated/__init__.py",
+      content: generateInitPy(),
+      language: "python",
+      action: "create",
+    });
+  }
+
+  return result;
+}
+
+/**
+ * Generate a default __manifest__.py if missing
+ * Follows Odoo 18 theme structure requirements
+ * PRODUCTION-GRADE: Correct asset paths with module prefix
+ */
+export function generateManifest(themeName: string, files: ParsedFile[], moduleName: string = "theme_generated"): string {
+  // PRODUCTION-CRITICAL: Include ALL XML files in 'data' section
+  // This includes views/, views/snippets/, views/pages/, data/, etc.
+  // ROOT CAUSE FIX: Previous filter only matched views/ not views/snippets/
   const xmlFiles = files
     .filter(f => f.path.endsWith(".xml"))
-    .map(f => `        '${f.path.replace(/^theme_generated\//, "")}',`);
+    .map(f => {
+      // Normalize path: remove theme_generated/ or any theme_* prefix
+      let relativePath = f.path
+        .replace(/^theme_generated\//, "")
+        .replace(/^theme_[a-z0-9_]+\//i, "");
+      return `        '${relativePath}',`;
+    })
+    // Remove duplicates
+    .filter((path, index, self) => self.indexOf(path) === index);
 
+  // SCSS/CSS/JS go in 'assets' section - MUST include module name prefix
   const scssFiles = files
-    .filter(f => f.path.endsWith(".scss"))
-    .map(f => f.path.replace(/^theme_generated\//, ""));
+    .filter(f => f.path.endsWith(".scss") || f.path.endsWith(".css"))
+    .map(f => {
+      const relativePath = f.path.replace(/^theme_generated\//, "").replace(/^[^/]+\//, "");
+      return `${moduleName}/${relativePath}`;
+    });
 
   const jsFiles = files
     .filter(f => f.path.endsWith(".js"))
-    .map(f => f.path.replace(/^theme_generated\//, ""));
+    .map(f => {
+      const relativePath = f.path.replace(/^theme_generated\//, "").replace(/^[^/]+\//, "");
+      return `${moduleName}/${relativePath}`;
+    });
 
   let assets = "";
   if (scssFiles.length > 0 || jsFiles.length > 0) {
-    const scssAssets = scssFiles.map(f => `                '${f}',`).join("\n");
-    const jsAssets = jsFiles.map(f => `                '${f}',`).join("\n");
+    const assetLines: string[] = [];
+    scssFiles.forEach(f => assetLines.push(`            '${f}',`));
+    jsFiles.forEach(f => assetLines.push(`            '${f}',`));
     assets = `
     'assets': {
         'web.assets_frontend': [
-${scssAssets}
-${jsAssets}
+${assetLines.join("\n")}
         ],
     },`;
   }
@@ -684,4 +895,57 @@ ${xmlFiles.join("\n")}
     'auto_install': False,
 }
 `;
+}
+
+/**
+ * PRODUCTION-GRADE: Ensure ALL XML files have proper Odoo structure
+ * This is the FINAL validation before export
+ */
+export function ensureValidOdooXml(content: string, filePath: string): string {
+  let fixed = content.trim();
+
+  // Skip if already properly wrapped
+  if (fixed.includes("<odoo>") || fixed.includes("<odoo ")) {
+    // Ensure XML declaration exists
+    if (!fixed.startsWith("<?xml")) {
+      fixed = `<?xml version="1.0" encoding="utf-8"?>\n${fixed}`;
+    }
+    return fixed;
+  }
+
+  // Remove any existing XML declarations (will re-add)
+  fixed = fixed.replace(/<\?xml[^?]*\?>\s*/g, '').trim();
+
+  // Remove HTML comments at the start that might interfere
+  fixed = fixed.replace(/^<!--[^>]*-->\s*/g, '').trim();
+
+  // Check if it's a raw template without odoo wrapper
+  if (fixed.includes("<template")) {
+    return `<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+${fixed}
+</odoo>`;
+  }
+
+  // Check if it's raw HTML/sections that need full wrapping
+  if (fixed.includes("<section") || fixed.includes("<div") || fixed.includes("<header") || fixed.includes("<footer")) {
+    const templateId = filePath
+      .replace(/^.*\//, '')
+      .replace(/\.xml$/, '')
+      .replace(/[^a-z0-9_]/gi, '_')
+      .toLowerCase();
+
+    return `<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <template id="${templateId}" name="${templateId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}">
+    ${fixed}
+  </template>
+</odoo>`;
+  }
+
+  // Default: wrap in odoo tags
+  return `<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+${fixed}
+</odoo>`;
 }
