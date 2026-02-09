@@ -759,9 +759,11 @@ export function ensureRequiredFiles(files: ParsedFile[], themeName: string = "Th
   const paths = files.map(f => f.path);
 
   // Derive module name from theme name
+  // PRODUCTION-CRITICAL: Preserve underscores in module names!
+  // theme_custom -> theme_custom (not theme_themecustom)
   const moduleName = themeName
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/[^a-z0-9_\s]/g, '')  // Keep underscores!
     .replace(/\s+/g, '_');
   const finalModuleName = moduleName.startsWith('theme_') ? moduleName : `theme_${moduleName}`;
 
@@ -780,13 +782,53 @@ export function ensureRequiredFiles(files: ParsedFile[], themeName: string = "Th
     }
   }
 
-  // STEP 2: Check for __manifest__.py - also validate it has required fields
+  // STEP 2: Check for __manifest__.py - PRODUCTION-CRITICAL validation
+  // ROOT CAUSE: AI-generated manifests often lack assets section or have incomplete data arrays
   const manifestIdx = validatedFiles.findIndex(f => f.path.includes("__manifest__.py"));
-  const hasValidManifest = manifestIdx >= 0 &&
-    validatedFiles[manifestIdx].content.includes("'version'") &&
-    validatedFiles[manifestIdx].content.includes("'depends'") &&
-    validatedFiles[manifestIdx].content.includes("'license'") &&
-    !validatedFiles[manifestIdx].content.includes("'data': ['views/templates.xml', 'static/"); // Invalid: scss in data
+
+  // Count XML files that should be in data array
+  const xmlFilesCount = validatedFiles.filter(f => f.path.endsWith(".xml")).length;
+  // Count CSS/SCSS/JS files that should be in assets section
+  const assetFilesCount = validatedFiles.filter(f =>
+    f.path.endsWith(".scss") || f.path.endsWith(".css") || f.path.endsWith(".js")
+  ).length;
+
+  // Validate manifest has ALL required components
+  let hasValidManifest = false;
+  if (manifestIdx >= 0) {
+    const manifestContent = validatedFiles[manifestIdx].content;
+
+    // Basic required fields
+    const hasVersion = manifestContent.includes("'version'");
+    const hasDepends = manifestContent.includes("'depends'");
+    const hasLicense = manifestContent.includes("'license'");
+
+    // CRITICAL: Check if data array has roughly correct number of XML files
+    const dataArrayMatch = manifestContent.match(/'data'\s*:\s*\[([\s\S]*?)\]/);
+    const dataArrayContent = dataArrayMatch ? dataArrayMatch[1] : "";
+    const dataEntriesCount = (dataArrayContent.match(/\.xml/g) || []).length;
+
+    // CRITICAL: Check if assets section exists when asset files exist
+    const hasAssetsSection = manifestContent.includes("'assets':");
+    const needsAssets = assetFilesCount > 0;
+
+    // Manifest is invalid if:
+    // 1. Missing basic fields
+    // 2. Data array is significantly incomplete (missing > 30% of XML files)
+    // 3. Missing assets section when CSS/SCSS/JS files exist
+    const dataIsComplete = dataEntriesCount >= Math.floor(xmlFilesCount * 0.7);
+    const assetsIsValid = !needsAssets || hasAssetsSection;
+
+    hasValidManifest = hasVersion && hasDepends && hasLicense && dataIsComplete && assetsIsValid;
+
+    if (!hasValidManifest) {
+      console.log(`[Parser] Manifest validation failed:`,
+        `version=${hasVersion}, depends=${hasDepends}, license=${hasLicense}`,
+        `dataComplete=${dataIsComplete} (${dataEntriesCount}/${xmlFilesCount})`,
+        `assetsValid=${assetsIsValid} (hasSection=${hasAssetsSection}, needs=${needsAssets})`
+      );
+    }
+  }
 
   if (!hasValidManifest) {
     // Generate proper manifest with correct module name for asset paths
@@ -861,19 +903,28 @@ export function generateManifest(themeName: string, files: ParsedFile[], moduleN
     .filter((path, index, self) => self.indexOf(path) === index);
 
   // SCSS/CSS/JS go in 'assets' section - MUST include module name prefix
+  // PRODUCTION-CRITICAL: Asset paths must be moduleName/static/src/...
   const scssFiles = files
     .filter(f => f.path.endsWith(".scss") || f.path.endsWith(".css"))
     .map(f => {
-      const relativePath = f.path.replace(/^theme_generated\//, "").replace(/^[^/]+\//, "");
+      // Remove theme_generated/ or any theme_* prefix, keep static/src/...
+      const relativePath = f.path
+        .replace(/^theme_generated\//, "")
+        .replace(/^theme_[a-z0-9_]+\//i, "");
       return `${moduleName}/${relativePath}`;
-    });
+    })
+    .filter((path, index, self) => self.indexOf(path) === index); // Dedupe
 
   const jsFiles = files
     .filter(f => f.path.endsWith(".js"))
     .map(f => {
-      const relativePath = f.path.replace(/^theme_generated\//, "").replace(/^[^/]+\//, "");
+      // Remove theme_generated/ or any theme_* prefix, keep static/src/...
+      const relativePath = f.path
+        .replace(/^theme_generated\//, "")
+        .replace(/^theme_[a-z0-9_]+\//i, "");
       return `${moduleName}/${relativePath}`;
-    });
+    })
+    .filter((path, index, self) => self.indexOf(path) === index); // Dedupe
 
   let assets = "";
   if (scssFiles.length > 0 || jsFiles.length > 0) {
@@ -916,11 +967,62 @@ ${xmlFiles.join("\n")}
 }
 
 /**
+ * Detect and repair corrupted XML attributes
+ * ROOT CAUSE: Previous duplicate fixer corrupted attributes by replacing text inside quotes
+ * Pattern: attribute="value"GARBAGE"anothervalue" -> attribute="value"
+ */
+export function repairCorruptedXmlAttributes(content: string): { content: string; fixed: boolean } {
+  let fixed = content;
+  let wasFixed = false;
+
+  // Pattern: attribute="value" followed by unquoted text then another "value"
+  // Example: t-esc="product.description"Exceptional service!"display-6 fw-bold mb-3">
+  // Should become: t-esc="product.description"/>
+  const corruptedAttrPattern = /(<[^>]*\s+[a-z-]+="[^"]*)"[^"<>]*"[^"]*"([^>]*>)/gi;
+
+  let iterations = 0;
+  while (corruptedAttrPattern.test(fixed) && iterations < 10) {
+    corruptedAttrPattern.lastIndex = 0; // Reset regex state
+    fixed = fixed.replace(corruptedAttrPattern, (match, before, after) => {
+      wasFixed = true;
+      return `${before}"${after}`;
+    });
+    iterations++;
+  }
+
+  // Also fix: ="value"text"value"> pattern more aggressively
+  // Matches: ="something"GARBAGE"othertext" and replaces with ="something"
+  const attrGarbagePattern = /="([^"]{1,100})"[^"<>=\s]{1,100}"[^"<>=]*"/g;
+  if (attrGarbagePattern.test(fixed)) {
+    attrGarbagePattern.lastIndex = 0;
+    fixed = fixed.replace(attrGarbagePattern, (match, validValue) => {
+      wasFixed = true;
+      return `="${validValue}"`;
+    });
+  }
+
+  // Fix broken t-esc with garbage: <t t-esc="var"garbage> -> <t t-esc="var"/>
+  fixed = fixed.replace(/<t\s+t-esc="([^"]+)"[^/>\s][^>]*>/g, (match, varName) => {
+    wasFixed = true;
+    return `<t t-esc="${varName}"/>`;
+  });
+
+  return { content: fixed, fixed: wasFixed };
+}
+
+/**
  * PRODUCTION-GRADE: Ensure ALL XML files have proper Odoo structure
  * This is the FINAL validation before export
  */
 export function ensureValidOdooXml(content: string, filePath: string): string {
   let fixed = content.trim();
+
+  // STEP 0: Repair any corrupted XML attributes from previous bad auto-fixes
+  const repairResult = repairCorruptedXmlAttributes(fixed);
+  if (repairResult.fixed) {
+    console.log(`[Parser] Repaired corrupted XML attributes in ${filePath}`);
+    fixed = repairResult.content;
+  }
 
   // Skip if already properly wrapped
   if (fixed.includes("<odoo>") || fixed.includes("<odoo ")) {

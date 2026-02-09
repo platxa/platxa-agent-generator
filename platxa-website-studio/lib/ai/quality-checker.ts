@@ -401,6 +401,127 @@ export function fixPlaceholders(content: string, context: FixContext): string {
 }
 
 // =============================================================================
+// HTML TO QWEB CONVERSION - PRODUCTION CRITICAL
+// =============================================================================
+
+/**
+ * Convert raw HTML files to valid Odoo QWeb XML templates
+ * ROOT CAUSE: AI often generates .html files instead of .xml QWeb templates
+ */
+export function convertHtmlToQweb(content: string, filePath: string): {
+  content: string;
+  newPath: string;
+  issues: QualityIssue[];
+} {
+  const issues: QualityIssue[] = [];
+  let fixed = content;
+
+  // Check if this is a raw HTML file (has DOCTYPE, html, head, body tags)
+  const isRawHtml = content.includes('<!DOCTYPE') ||
+                    /<html[\s>]/i.test(content) ||
+                    /<head[\s>]/i.test(content) ||
+                    /<body[\s>]/i.test(content);
+
+  if (!isRawHtml && !filePath.endsWith('.html')) {
+    return { content, newPath: filePath, issues };
+  }
+
+  // Extract meaningful content from HTML
+  let extractedContent = fixed;
+
+  // Remove DOCTYPE, html, head, body wrappers
+  extractedContent = extractedContent
+    .replace(/<!DOCTYPE[^>]*>/gi, '')
+    .replace(/<html[^>]*>/gi, '')
+    .replace(/<\/html>/gi, '')
+    .replace(/<head[\s\S]*?<\/head>/gi, '')
+    .replace(/<body[^>]*>/gi, '')
+    .replace(/<\/body>/gi, '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<link[^>]*>/gi, '')
+    .replace(/<meta[^>]*>/gi, '')
+    .trim();
+
+  // Fix JavaScript template syntax ${var} to QWeb t-esc
+  extractedContent = extractedContent.replace(/\$\{([^}]+)\}/g, '<t t-esc="$1"/>');
+
+  // Fix placeholders like [Name], [Title], etc.
+  extractedContent = extractedContent
+    .replace(/\[Name\]/gi, 'Our Business')
+    .replace(/\[Title\]/gi, 'Welcome')
+    .replace(/\[Description\]/gi, 'Quality service you can trust')
+    .replace(/\[Phone\]/gi, '+1 (555) 123-4567')
+    .replace(/\[Email\]/gi, 'contact@example.com')
+    .replace(/\[Address\]/gi, '123 Main Street');
+
+  // Generate template ID from filename
+  const templateId = filePath
+    .replace(/^.*\//, '')
+    .replace(/\.(html|xml)$/i, '')
+    .replace(/[^a-z0-9_]/gi, '_')
+    .toLowerCase();
+
+  // Wrap in proper Odoo QWeb structure
+  const qwebContent = `<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <template id="${templateId}" name="${templateId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}">
+    ${extractedContent}
+  </template>
+</odoo>`;
+
+  // Change file extension from .html to .xml
+  const newPath = filePath.replace(/\.html$/i, '.xml').replace(/^theme_[^/]+\//, 'theme_generated/views/');
+
+  issues.push({
+    severity: "info",
+    file: filePath,
+    message: `Auto-converted HTML to QWeb XML template: ${newPath}`,
+  });
+
+  return { content: qwebContent, newPath, issues };
+}
+
+/**
+ * Fix JavaScript template syntax to QWeb
+ * ROOT CAUSE: AI generates ${var} instead of <t t-esc="var"/>
+ */
+export function fixJsTemplateSyntax(content: string, filePath: string): {
+  content: string;
+  fixed: boolean;
+  issues: QualityIssue[];
+} {
+  const issues: QualityIssue[] = [];
+  let fixed = content;
+  let wasFixed = false;
+
+  // Replace ${var} with <t t-esc="var"/>
+  const jsTemplatePattern = /\$\{([^}]+)\}/g;
+  if (jsTemplatePattern.test(fixed)) {
+    fixed = fixed.replace(jsTemplatePattern, '<t t-esc="$1"/>');
+    wasFixed = true;
+    issues.push({
+      severity: "info",
+      file: filePath,
+      message: "Auto-fixed: Converted JavaScript template syntax ${} to QWeb t-esc",
+    });
+  }
+
+  // Also fix {{ var }} Jinja/Django style to QWeb
+  const jinjaPattern = /\{\{\s*([^}]+)\s*\}\}/g;
+  if (jinjaPattern.test(fixed)) {
+    fixed = fixed.replace(jinjaPattern, '<t t-esc="$1"/>');
+    wasFixed = true;
+    issues.push({
+      severity: "info",
+      file: filePath,
+      message: "Auto-fixed: Converted Jinja/Django template syntax {{}} to QWeb t-esc",
+    });
+  }
+
+  return { content: fixed, fixed: wasFixed, issues };
+}
+
+// =============================================================================
 // DUPLICATE CONTENT DETECTION - PRODUCTION CRITICAL
 // =============================================================================
 
@@ -431,6 +552,9 @@ const FEATURE_REPLACEMENTS = [
 /**
  * Detect and fix duplicate content in templates
  * ROOT CAUSE: AI often generates identical testimonials/features repeated 3x
+ *
+ * PRODUCTION-CRITICAL: This function must NOT corrupt HTML structure
+ * Only replaces text content inside quotes or p tags, never modifies tag attributes
  */
 export function detectAndFixDuplicates(content: string, filePath: string): {
   content: string;
@@ -441,89 +565,90 @@ export function detectAndFixDuplicates(content: string, filePath: string): {
   let fixed = content;
   let wasFixed = false;
 
-  // Extract all quoted text (testimonials, reviews)
-  const quotePattern = /"([^"]{20,200})"/g;
-  const quotes: string[] = [];
-  let match;
-
-  while ((match = quotePattern.exec(content)) !== null) {
-    quotes.push(match[1]);
+  // SAFETY: Skip files that might have complex nested structures
+  // Only process simple testimonial/review sections
+  if (!content.includes('testimonial') && !content.includes('review') && !content.includes('quote')) {
+    // Just report duplicates but don't auto-fix complex content
+    return { content, issues, fixed: false };
   }
 
-  // Also check for text in <p> tags (common testimonial pattern)
-  const pTagPattern = /<p[^>]*>([^<]{20,200})<\/p>/g;
-  while ((match = pTagPattern.exec(content)) !== null) {
+  // Extract ONLY text in dedicated quote/testimonial elements
+  // Pattern: <p class="...quote...">"text"</p> or <blockquote>text</blockquote>
+  const safeQuotePattern = /<(?:blockquote|p[^>]*class="[^"]*quote[^"]*")[^>]*>([^<]{20,200})<\/(?:blockquote|p)>/gi;
+  const quotes: Array<{ text: string; fullMatch: string }> = [];
+  let match;
+
+  while ((match = safeQuotePattern.exec(content)) !== null) {
     const text = match[1].trim();
-    if (text && !text.includes('<') && !text.includes('{')) {
-      quotes.push(text);
+    if (text && !text.includes('<') && !text.includes('{') && !text.includes('=')) {
+      quotes.push({ text, fullMatch: match[0] });
     }
   }
 
-  // Find duplicates
-  const quoteCounts = new Map<string, number>();
+  // Find duplicates by comparing normalized text
+  const quoteCounts = new Map<string, Array<{ text: string; fullMatch: string }>>();
   for (const quote of quotes) {
-    const normalized = quote.trim().toLowerCase();
-    quoteCounts.set(normalized, (quoteCounts.get(normalized) || 0) + 1);
+    const normalized = quote.text.trim().toLowerCase();
+    const existing = quoteCounts.get(normalized) || [];
+    existing.push(quote);
+    quoteCounts.set(normalized, existing);
   }
 
   // Check for duplicates (same content appearing 2+ times)
   const duplicates = Array.from(quoteCounts.entries())
-    .filter(([_, count]) => count > 1)
-    .map(([text, count]) => ({ text, count }));
+    .filter(([_, items]) => items.length > 1);
 
   if (duplicates.length > 0) {
     issues.push({
       severity: "warning",
       file: filePath,
-      message: `Found ${duplicates.length} duplicated text block(s) - content may appear repetitive`,
+      message: `Found ${duplicates.length} duplicated testimonial(s) - will replace with unique content`,
     });
 
     // AUTO-FIX: Replace duplicates with unique content
+    // SAFE: Only replace the EXACT fullMatch, keeping HTML structure intact
     let replacementIndex = 0;
-    for (const dup of duplicates) {
-      // Find all occurrences and replace all but the first
-      const escapedText = dup.text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const dupPattern = new RegExp(`(["'>])${escapedText}(["'<])`, 'gi');
-      let occurrenceCount = 0;
-
-      fixed = fixed.replace(dupPattern, (fullMatch, prefix, suffix) => {
-        occurrenceCount++;
-        if (occurrenceCount === 1) {
-          return fullMatch; // Keep first occurrence
-        }
-
-        // Replace with unique testimonial
+    for (const [_, items] of duplicates) {
+      // Keep first occurrence, replace the rest
+      for (let i = 1; i < items.length; i++) {
+        const item = items[i];
         const replacement = TESTIMONIAL_REPLACEMENTS[replacementIndex % TESTIMONIAL_REPLACEMENTS.length];
-        replacementIndex++;
-        wasFixed = true;
-        return `${prefix}${replacement.quote}${suffix}`;
-      });
+
+        // Create new tag with replacement text, preserving tag structure
+        const newContent = item.fullMatch.replace(item.text, replacement.quote);
+
+        // Only replace this exact occurrence
+        const idx = fixed.indexOf(item.fullMatch);
+        if (idx !== -1) {
+          fixed = fixed.substring(0, idx) + newContent + fixed.substring(idx + item.fullMatch.length);
+          replacementIndex++;
+          wasFixed = true;
+        }
+      }
     }
 
     if (wasFixed) {
       issues.push({
         severity: "info",
         file: filePath,
-        message: `Auto-fixed: Replaced ${replacementIndex} duplicate text blocks with unique content`,
+        message: `Auto-fixed: Replaced ${replacementIndex} duplicate testimonial(s) with unique content`,
       });
     }
   }
 
-  // Check for duplicate class-based sections (e.g., multiple identical cards)
+  // Report (but don't auto-fix) duplicate cards - too risky
   const cardPattern = /<div[^>]*class="[^"]*card[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
   const cards: string[] = [];
   while ((match = cardPattern.exec(content)) !== null) {
-    // Normalize whitespace for comparison
     const normalized = match[1].replace(/\s+/g, ' ').trim();
     if (normalized.length > 50) {
       cards.push(normalized);
     }
   }
 
-  // Find duplicate cards
   const cardCounts = new Map<string, number>();
   for (const card of cards) {
-    const key = card.substring(0, 100); // Use first 100 chars as key
+    const key = card.substring(0, 100);
     cardCounts.set(key, (cardCounts.get(key) || 0) + 1);
   }
 
@@ -532,9 +657,9 @@ export function detectAndFixDuplicates(content: string, filePath: string): {
 
   if (duplicateCards.length > 0) {
     issues.push({
-      severity: "warning",
+      severity: "info",
       file: filePath,
-      message: `Found ${duplicateCards.length} potentially duplicated card/section(s) - consider varying content`,
+      message: `Found ${duplicateCards.length} similar card(s) - consider varying content manually`,
     });
   }
 
@@ -722,15 +847,68 @@ interface QualityResult {
 
 /**
  * Comprehensive quality check for generated files
+ * PRODUCTION-CRITICAL: Fixes ALL issues automatically
  */
 export function qualityCheck(
   files: ParsedFile[],
   context?: FixContext
 ): QualityResult {
   const issues: QualityIssue[] = [];
-  const fixedFiles: ParsedFile[] = [];
+  let fixedFiles: ParsedFile[] = [];
 
+  // STEP 0: Filter out and convert invalid files FIRST
+  // ROOT CAUSE FIX: Remove/convert .html files, index.html, file_*.html
   for (const file of files) {
+    // Skip index.html completely - it's not valid for Odoo
+    if (file.path.endsWith('index.html') || file.path.includes('/index.html')) {
+      issues.push({
+        severity: "info",
+        file: file.path,
+        message: "Removed index.html - not valid for Odoo modules",
+      });
+      continue; // Skip this file entirely
+    }
+
+    // Skip random file_N.html files - they're not valid
+    if (/file_\d+\.html$/i.test(file.path)) {
+      issues.push({
+        severity: "info",
+        file: file.path,
+        message: "Removed invalid HTML file - Odoo requires QWeb XML",
+      });
+      continue; // Skip this file entirely
+    }
+
+    // Skip files in /files/ directory with .txt or .html extension
+    if (file.path.includes('/files/') && (file.path.endsWith('.txt') || file.path.endsWith('.html'))) {
+      issues.push({
+        severity: "info",
+        file: file.path,
+        message: "Removed invalid file from /files/ directory",
+      });
+      continue;
+    }
+
+    // Convert remaining .html files to QWeb XML
+    if (file.path.endsWith('.html')) {
+      const converted = convertHtmlToQweb(file.content, file.path);
+      issues.push(...converted.issues);
+      fixedFiles.push({
+        ...file,
+        path: converted.newPath,
+        content: converted.content,
+        language: "xml",
+      });
+      continue;
+    }
+
+    fixedFiles.push(file);
+  }
+
+  // Now process the cleaned files
+  const processedFiles: ParsedFile[] = [];
+
+  for (const file of fixedFiles) {
     let content = file.content;
 
     // Check for placeholders
@@ -807,6 +985,14 @@ export function qualityCheck(
       const templateValidation = validateTemplateStructure(content, file.path);
       content = templateValidation.content;
       issues.push(...templateValidation.issues);
+
+      // PRODUCTION-CRITICAL: Fix JavaScript template syntax ${var} to QWeb t-esc
+      // ROOT CAUSE: AI generates ${product.name} instead of <t t-esc="product.name"/>
+      const jsSyntaxFix = fixJsTemplateSyntax(content, file.path);
+      if (jsSyntaxFix.fixed) {
+        content = jsSyntaxFix.content;
+        issues.push(...jsSyntaxFix.issues);
+      }
     }
 
     // Check JavaScript follows Odoo patterns
@@ -986,7 +1172,7 @@ export function qualityCheck(
       }
     }
 
-    fixedFiles.push({
+    processedFiles.push({
       ...file,
       content,
     });
@@ -997,7 +1183,7 @@ export function qualityCheck(
   return {
     passed: !hasErrors,
     issues,
-    fixedFiles,
+    fixedFiles: processedFiles,
   };
 }
 
@@ -1024,7 +1210,7 @@ export function validateModuleStructure(files: ParsedFile[]): {
   }
 
   // Check for __init__.py
-  const hasInit = Array.from(paths).some((p) => p.includes("__init__.py"));
+  const hasInit = Array.from(paths).some((p) => p.endsWith("__init__.py") && !p.includes("models/"));
   if (!hasInit) {
     fixedFiles.push({
       path: "theme_generated/__init__.py",
