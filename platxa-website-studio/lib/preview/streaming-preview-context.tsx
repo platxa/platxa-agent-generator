@@ -108,9 +108,12 @@ export function StreamingPreviewProvider({
     });
   }, []);
 
-  // Update content with new chunk (debounced)
-  const updateContent = useCallback((chunk: string) => {
-    accumulatedContentRef.current += chunk;
+  // Update content with full message content (debounced)
+  // ROOT CAUSE FIX: ChatPanel sends full content, not incremental chunks
+  // So we REPLACE instead of appending to avoid content duplication
+  const updateContent = useCallback((fullContent: string) => {
+    // CRITICAL: Replace, don't append - ChatPanel sends full content each time
+    accumulatedContentRef.current = fullContent;
 
     // Clear existing timeout
     if (updateTimeoutRef.current) {
@@ -122,8 +125,9 @@ export function StreamingPreviewProvider({
       const content = accumulatedContentRef.current;
 
       try {
-        // Parse the chunk
-        const result = parserRef.current.addChunk(chunk);
+        // Parse full content (reset parser first since we're parsing full content)
+        parserRef.current.reset();
+        const result = parserRef.current.addChunk(content);
 
         // Extract CSS from SCSS blocks
         const scssMatch = content.match(/```(?:scss|css)([\s\S]*?)```/g);
