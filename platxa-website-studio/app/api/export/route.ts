@@ -20,6 +20,9 @@
 
 import { exportTheme, validateBeforeExport, exportAsJson } from "@/lib/export";
 import type { GeneratedFile } from "@/lib/odoo-skills";
+import { processGeneratedFiles } from "@/lib/ai/quality-checker";
+import { ensureRequiredFiles } from "@/lib/ai/parser";
+import type { ParsedFile } from "@/lib/ai/parser";
 
 // =============================================================================
 // TYPES
@@ -81,12 +84,46 @@ export async function POST(req: Request) {
       );
     }
 
-    // Convert to GeneratedFile format
-    const files: GeneratedFile[] = body.files.map((f) => ({
+    // PRODUCTION-CRITICAL: Apply quality fixes BEFORE validation
+    // ROOT CAUSE FIX: Files must be auto-fixed before any validation runs
+
+    // Step 1: Convert to ParsedFile format for quality checker
+    const parsedFiles: ParsedFile[] = body.files.map((f) => ({
       path: f.path,
       content: f.content,
-      type: f.type as GeneratedFile["type"],
+      language: f.type === "xml" ? "xml" :
+                f.type === "py" ? "python" :
+                f.type === "scss" ? "scss" :
+                f.type === "css" ? "css" :
+                f.type === "js" ? "javascript" : "xml",
+      action: "create" as const,
     }));
+
+    // Step 2: Run production-grade quality checker with AUTO-FIXES
+    // This fixes: asset paths, models/__init__.py, color contrast, duplicates, etc.
+    const qualityResult = processGeneratedFiles(parsedFiles, {
+      businessName: body.themeName.replace(/^theme_/, "").replace(/_/g, " "),
+    });
+
+    // Step 3: Ensure all required files exist (manifest, __init__.py, etc.)
+    const completeFiles = ensureRequiredFiles(qualityResult.files, body.themeName);
+
+    // Step 4: Convert back to GeneratedFile format
+    const files: GeneratedFile[] = completeFiles.map((f) => ({
+      path: f.path,
+      content: f.content,
+      type: f.path.endsWith(".xml") ? "xml" :
+            f.path.endsWith(".py") ? "py" :
+            f.path.endsWith(".scss") ? "scss" :
+            f.path.endsWith(".css") ? "css" :
+            f.path.endsWith(".js") ? "js" : "xml" as GeneratedFile["type"],
+    }));
+
+    // Log quality fixes applied
+    const fixCount = qualityResult.quality.issues.filter(i => i.severity === "info").length;
+    if (fixCount > 0) {
+      console.log(`[Export] Applied ${fixCount} auto-fixes to files`);
+    }
 
     // Check if JSON format requested
     if (body.options?.format === "json") {
@@ -98,14 +135,16 @@ export async function POST(req: Request) {
       });
     }
 
-    // Pre-validate if strict validation is requested
+    // Pre-validate AFTER fixes are applied
     if (body.options?.validate !== false) {
       const preCheck = validateBeforeExport(files);
       if (!preCheck.canExport) {
+        // Include the fixes that were applied in the error response
         return new Response(
           JSON.stringify({
             error: preCheck.message,
             validation: preCheck.validation,
+            fixesApplied: qualityResult.quality.issues.filter(i => i.severity === "info"),
           }),
           {
             status: 422,
@@ -115,7 +154,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // Export as ZIP
+    // Export as ZIP with FIXED files
     const result = await exportTheme({
       themeName: body.themeName,
       files,

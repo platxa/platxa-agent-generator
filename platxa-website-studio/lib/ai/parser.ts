@@ -807,11 +807,29 @@ export function ensureRequiredFiles(files: ParsedFile[], themeName: string = "Th
     result.push(file);
   }
 
-  // STEP 4: Check for __init__.py (REQUIRED for Odoo modules)
-  const hasInit = paths.some(p => p.includes("__init__.py"));
-  if (!hasInit) {
+  // STEP 4: Check for ROOT __init__.py (REQUIRED for Odoo modules)
+  // PRODUCTION-CRITICAL: Must check for ROOT init, not just any __init__.py
+  // ROOT CAUSE FIX: models/__init__.py was matching, but root __init__.py was missing
+  const hasRootInit = result.some(f =>
+    f.path === "theme_generated/__init__.py" ||
+    f.path.match(/^theme_[a-z0-9_]+\/__init__\.py$/i) ||
+    f.path === "__init__.py"
+  );
+  if (!hasRootInit) {
     result.push({
       path: "theme_generated/__init__.py",
+      content: generateInitPy(),
+      language: "python",
+      action: "create",
+    });
+  }
+
+  // STEP 5: Ensure models/__init__.py exists if models/ directory has files
+  const hasModelsDir = result.some(f => f.path.includes("/models/") && !f.path.endsWith("__init__.py"));
+  const hasModelsInit = result.some(f => f.path.includes("models/__init__.py"));
+  if (hasModelsDir && !hasModelsInit) {
+    result.push({
+      path: "theme_generated/models/__init__.py",
       content: generateInitPy(),
       language: "python",
       action: "create",
