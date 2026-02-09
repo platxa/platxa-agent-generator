@@ -431,14 +431,40 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   const seenPaths = new Set<string>();
   const seenContents = new Set<string>(); // Dedupe by content hash
 
+  // ROOT CAUSE FIX: Sanitize content DURING parsing (streaming) not after
+  // This prevents broken Flask url_for syntax from ever reaching the preview
+  const sanitizeContent = (content: string, filePath: string): string => {
+    let sanitized = content;
+
+    // Fix Flask url_for patterns: {{ url_for('static', ...) }}filename.ext
+    // ROOT CAUSE: AI generates Flask/Jinja syntax instead of proper paths
+    const flaskUrlForWithFile = /\{\{\s*url_for\s*\([^)]*\)\s*\}\}([a-zA-Z0-9_.-]+)/g;
+    sanitized = sanitized.replace(flaskUrlForWithFile, (match, filename) => {
+      const ext = filename.split('.').pop()?.toLowerCase();
+      if (ext === 'css' || ext === 'scss') {
+        return `/theme_generated/static/src/scss/${filename}`;
+      } else if (ext === 'js') {
+        return `/theme_generated/static/src/js/${filename}`;
+      }
+      return `/theme_generated/static/${filename}`;
+    });
+
+    // Remove standalone {{ url_for(...) }} without filename
+    sanitized = sanitized.replace(/\{\{\s*url_for\s*\([^)]*\)\s*\}\}/g, '');
+
+    return sanitized;
+  };
+
   const addFile = (path: string, content: string, language: string): boolean => {
     const normalizedPath = normalizePath(path);
-    const contentHash = content.trim().substring(0, 100); // Simple hash
+    // CRITICAL: Sanitize content FIRST before any processing
+    const sanitizedContent = sanitizeContent(content, normalizedPath);
+    const contentHash = sanitizedContent.trim().substring(0, 100); // Simple hash
 
-    if (!normalizedPath || !content.trim()) return false;
+    if (!normalizedPath || !sanitizedContent.trim()) return false;
     if (seenPaths.has(normalizedPath)) return false;
     if (seenContents.has(contentHash)) return false;
-    if (content.trim().length < 10) return false;
+    if (sanitizedContent.trim().length < 10) return false;
     if (!normalizedPath.includes(".")) return false;
 
     seenPaths.add(normalizedPath);
@@ -446,7 +472,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
 
     files.push({
       path: normalizedPath,
-      content: content.trim(),
+      content: sanitizedContent.trim(),
       language: normalizeLanguage(language) || detectLanguage(normalizedPath),
       action: "create",
     });
