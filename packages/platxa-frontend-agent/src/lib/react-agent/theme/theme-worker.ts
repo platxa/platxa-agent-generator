@@ -2136,7 +2136,54 @@ export function generateCss(
 }
 
 /**
- * Generates dark mode CSS
+ * Dark mode generation options (Feature #27)
+ */
+export interface DarkModeOptions {
+  /**
+   * CSS selector for dark mode
+   * @default ".dark"
+   */
+  selector?: string
+
+  /**
+   * Include media query fallback for system preference
+   * @default false
+   */
+  includeMediaQuery?: boolean
+
+  /**
+   * Selector to exclude from media query (e.g., ".light" for manual overrides)
+   * @default ".light"
+   */
+  excludeSelector?: string
+}
+
+/**
+ * Generates dark mode CSS with class selector (Feature #27)
+ *
+ * Creates CSS that overrides color variables when a dark mode class is present.
+ * This is the JavaScript-toggled approach where you add/remove a class.
+ *
+ * @example
+ * ```typescript
+ * const darkCss = generateDarkModeCss(darkColors)
+ * // Returns:
+ * // .dark {
+ * //   --background: hsl(222.2 84% 4.9%);
+ * //   --foreground: hsl(210 40% 98%);
+ * //   ...
+ * // }
+ * ```
+ *
+ * @example Custom selector
+ * ```typescript
+ * const darkCss = generateDarkModeCss(darkColors, "[data-theme='dark']")
+ * // Returns:
+ * // [data-theme='dark'] {
+ * //   --background: hsl(222.2 84% 4.9%);
+ * //   ...
+ * // }
+ * ```
  */
 export function generateDarkModeCss(
   darkColors: Partial<SemanticColors>,
@@ -2156,6 +2203,125 @@ export function generateDarkModeCss(
   lines.push("}")
 
   return lines.join("\n")
+}
+
+/**
+ * Generates dark mode CSS with media query fallback (Feature #27)
+ *
+ * Creates CSS that responds to the user's system preference using
+ * `prefers-color-scheme: dark`. Includes an exclude selector to allow
+ * manual overrides (e.g., when user explicitly chooses light mode).
+ *
+ * @example
+ * ```typescript
+ * const mediaCss = generateDarkModeMediaQuery(darkColors)
+ * // Returns:
+ * // @media (prefers-color-scheme: dark) {
+ * //   :root:not(.light) {
+ * //     --background: hsl(222.2 84% 4.9%);
+ * //     --foreground: hsl(210 40% 98%);
+ * //     ...
+ * //   }
+ * // }
+ * ```
+ *
+ * @example Custom exclude selector
+ * ```typescript
+ * const mediaCss = generateDarkModeMediaQuery(darkColors, "[data-theme='light']")
+ * // Returns:
+ * // @media (prefers-color-scheme: dark) {
+ * //   :root:not([data-theme='light']) {
+ * //     --background: ...
+ * //   }
+ * // }
+ * ```
+ */
+export function generateDarkModeMediaQuery(
+  darkColors: Partial<SemanticColors>,
+  excludeSelector: string = ".light"
+): string {
+  const colorLines = Object.entries(darkColors)
+    .filter(([, value]) => value)
+    .map(([key, value]) => `    --${toKebabCase(key)}: ${typeof value === "string" ? value : ""};`)
+
+  if (colorLines.length === 0) {
+    return ""
+  }
+
+  return `@media (prefers-color-scheme: dark) {
+  :root:not(${excludeSelector}) {
+${colorLines.join("\n")}
+  }
+}`
+}
+
+/**
+ * Generates complete dark mode CSS with both selector and media query (Feature #27)
+ *
+ * Creates comprehensive dark mode support with:
+ * 1. Class-based toggle (`.dark` selector) for JavaScript control
+ * 2. Media query fallback for system preference (`prefers-color-scheme`)
+ *
+ * This is the recommended approach for most applications as it supports:
+ * - Manual toggle via JavaScript (add/remove .dark class)
+ * - Automatic system preference detection
+ * - User override capability (`.light` class prevents auto-dark)
+ *
+ * @example
+ * ```typescript
+ * const darkCss = generateCompleteDarkMode(darkColors)
+ * // Returns:
+ * // /* Dark Mode (Class Toggle) *\/
+ * // .dark {
+ * //   --background: hsl(222.2 84% 4.9%);
+ * //   ...
+ * // }
+ * //
+ * // /* Dark Mode (System Preference) *\/
+ * // @media (prefers-color-scheme: dark) {
+ * //   :root:not(.light) {
+ * //     --background: hsl(222.2 84% 4.9%);
+ * //     ...
+ * //   }
+ * // }
+ * ```
+ *
+ * @example With custom options
+ * ```typescript
+ * const darkCss = generateCompleteDarkMode(darkColors, {
+ *   selector: "[data-theme='dark']",
+ *   excludeSelector: "[data-theme='light']",
+ *   includeMediaQuery: true,
+ * })
+ * ```
+ */
+export function generateCompleteDarkMode(
+  darkColors: Partial<SemanticColors>,
+  options: DarkModeOptions = {}
+): string {
+  const {
+    selector = ".dark",
+    includeMediaQuery = true,
+    excludeSelector = ".light",
+  } = options
+
+  const sections: string[] = []
+
+  // Class-based dark mode
+  sections.push("/* Dark Mode (Class Toggle) */")
+  sections.push(generateDarkModeCss(darkColors, selector))
+
+  // Media query fallback
+  if (includeMediaQuery) {
+    const mediaQuery = generateDarkModeMediaQuery(darkColors, excludeSelector)
+    if (mediaQuery) {
+      sections.push("")
+      sections.push("/* Dark Mode (System Preference) */")
+      sections.push(mediaQuery)
+    }
+  }
+
+  return sections.join("\n")
 }
 
 /**

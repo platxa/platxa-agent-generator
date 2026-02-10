@@ -82,6 +82,9 @@ export {
   generateAllCssVariables,
   generateCss,
   generateDarkModeCss,
+  // Dark Mode Generation (Feature #27)
+  generateDarkModeMediaQuery,
+  generateCompleteDarkMode,
   generateTailwindTheme,
   generateThemeScript,
   generateTheme,
@@ -583,6 +586,8 @@ export {
 export type {
   UseThemeState,
   BuildOutput,
+  // Dark Mode Generation (Feature #27)
+  DarkModeOptions,
   // Contrast Ratio Validation (Feature #73)
   WcagLevel,
   TextSize,
