@@ -59,3 +59,39 @@ export {
   getDeploymentCost,
   cleanupExpiredReservations,
 } from "./deployment-billing"
+
+// Partner program (whitelabel/reseller)
+export {
+  // Types
+  type PartnerTier,
+  type PartnerStatus,
+  type CommissionType,
+  type PayoutStatus,
+  type WhitelabelBranding,
+  type PartnerTierConfig,
+  type WhitelabelFeatures,
+  type Partner,
+  type CommissionConfig,
+  type PartnerBilling,
+  type PartnerSettings,
+  type PartnerClient,
+  type CommissionRecord,
+  type PayoutRecord,
+  type PartnerDashboard,
+  type MonthlyStats,
+  type AllTimeStats,
+  type CreatePartnerInput,
+  type UpdatePartnerInput,
+  // Constants
+  PARTNER_TIERS,
+  // Classes
+  PartnerProgram,
+  // Functions
+  getPartnerProgram,
+  createPartnerProgram,
+  createPartner,
+  getPartnerDashboard,
+  getBrandingForDomain,
+  getPartnerTierConfig,
+  getAllPartnerTiers,
+} from "./partner-program"
