@@ -23,6 +23,7 @@ import type { GeneratedFile } from "@/lib/odoo-skills";
 import { processGeneratedFiles } from "@/lib/ai/quality-checker";
 import { ensureRequiredFiles, consolidateExportFiles } from "@/lib/ai/parser";
 import type { ParsedFile } from "@/lib/ai/parser";
+import { scanFiles, type ScanResult } from "@/lib/security/code-scanner";
 
 // =============================================================================
 // TYPES
@@ -110,6 +111,33 @@ export async function POST(req: Request) {
     // This merges them into single files to prevent Odoo installation errors
     const consolidatedFiles = consolidateExportFiles(qualityResult.files);
     console.log(`[Export] Consolidated ${qualityResult.files.length} files into ${consolidatedFiles.length} files`);
+
+    // Step 2.6: Security scan for vulnerabilities in generated code
+    // SECURITY: Scan for XSS, SQL injection, path traversal, etc.
+    const securityScan: ScanResult = scanFiles(
+      consolidatedFiles.map(f => ({ path: f.path, content: f.content }))
+    );
+
+    if (!securityScan.passed) {
+      const criticalCount = securityScan.issues.filter(i => i.severity === 'critical').length;
+      const highCount = securityScan.issues.filter(i => i.severity === 'high').length;
+      console.warn(`[Export] Security scan found ${criticalCount} critical, ${highCount} high severity issues`);
+
+      // Block export if critical security issues found
+      if (criticalCount > 0) {
+        return errorResponse(
+          `Security scan failed: ${criticalCount} critical issue(s) found. ` +
+          securityScan.issues
+            .filter(i => i.severity === 'critical')
+            .map(i => `${i.id}: ${i.message}`)
+            .slice(0, 3)
+            .join('; '),
+          400
+        );
+      }
+    } else {
+      console.log(`[Export] Security scan passed (${securityScan.scannedFiles} files, ${securityScan.scanDuration}ms)`);
+    }
 
     // Step 3: Ensure all required files exist (manifest, __init__.py, etc.)
     const completeFiles = ensureRequiredFiles(consolidatedFiles, body.themeName);

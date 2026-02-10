@@ -59,22 +59,78 @@ const nextConfig: NextConfig = {
     },
   },
 
-  // Headers for iframe embedding and CORS
+  // Security headers and CORS configuration
   async headers() {
-    return [
+    const isDev = process.env.NODE_ENV === 'development';
+    const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+
+    // Security headers applied to all routes
+    const securityHeaders = [
+      // Prevent MIME type sniffing
+      { key: 'X-Content-Type-Options', value: 'nosniff' },
+      // Prevent clickjacking
+      { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+      // XSS Protection for legacy browsers
+      { key: 'X-XSS-Protection', value: '1; mode=block' },
+      // Referrer Policy
+      { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+      // DNS Prefetch Control
+      { key: 'X-DNS-Prefetch-Control', value: 'on' },
+      // Permissions Policy
       {
-        source: "/api/:path*",
+        key: 'Permissions-Policy',
+        value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+      },
+      // Content Security Policy
+      {
+        key: 'Content-Security-Policy',
+        value: [
+          "default-src 'self'",
+          `script-src 'self' ${isDev ? "'unsafe-inline' 'unsafe-eval'" : "'unsafe-inline'"}`,
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+          "img-src 'self' data: blob: https://*.githubusercontent.com https://*.googleusercontent.com",
+          "font-src 'self' https://fonts.gstatic.com data:",
+          `connect-src 'self' https://api.anthropic.com https://api.openai.com https://api.github.com ${isDev ? 'ws://localhost:* http://localhost:*' : ''}`,
+          "frame-ancestors 'self'",
+          "form-action 'self'",
+          "base-uri 'self'",
+          "object-src 'none'",
+          isDev ? '' : 'upgrade-insecure-requests',
+        ].filter(Boolean).join('; '),
+      },
+    ];
+
+    // Add HSTS in production only
+    if (!isDev) {
+      securityHeaders.push({
+        key: 'Strict-Transport-Security',
+        value: 'max-age=31536000; includeSubDomains; preload',
+      });
+    }
+
+    return [
+      // Security headers for all routes
+      {
+        source: '/:path*',
+        headers: securityHeaders,
+      },
+      // CORS headers for API routes (tightened from wildcard)
+      {
+        source: '/api/:path*',
         headers: [
-          { key: "Access-Control-Allow-Credentials", value: "true" },
-          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: 'Access-Control-Allow-Credentials', value: 'true' },
           {
-            key: "Access-Control-Allow-Methods",
-            value: "GET,DELETE,PATCH,POST,PUT",
+            key: 'Access-Control-Allow-Origin',
+            value: isDev ? '*' : appUrl,
           },
           {
-            key: "Access-Control-Allow-Headers",
+            key: 'Access-Control-Allow-Methods',
+            value: 'GET,DELETE,PATCH,POST,PUT,OPTIONS',
+          },
+          {
+            key: 'Access-Control-Allow-Headers',
             value:
-              "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version",
+              'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization',
           },
         ],
       },
