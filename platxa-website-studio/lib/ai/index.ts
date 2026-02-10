@@ -63,3 +63,28 @@ export {
   type ImageGenerationRequest,
   type ImageGenerationResponse,
 } from "./providers";
+
+// Image-to-Code (Screenshot Analysis)
+export {
+  analyzeScreenshot,
+  analysisToTokens,
+  generateThemeFromScreenshot,
+  loadImageFromFile,
+  loadImageFromUrl,
+  loadImageFromBase64,
+  writeThemeToDirectory,
+  validateImageSource,
+  getSupportedFormats,
+  estimateAnalysisCost,
+  type ImageFormat,
+  type ImageSource,
+  type ExtractedColor,
+  type ExtractedTypography,
+  type ExtractedSpacing,
+  type DetectedComponent,
+  type LayoutAnalysis,
+  type ScreenshotAnalysis,
+  type GeneratedFile,
+  type ThemeGenerationResult,
+  type ImageToCodeOptions,
+} from "./image-to-code";
