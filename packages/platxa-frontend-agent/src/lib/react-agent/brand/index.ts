@@ -132,6 +132,12 @@ export {
   getBrandError,
   isBrandError,
   getBrandLoadingStatus,
+  // Error Recovery (Feature #24)
+  resetBrandError,
+  retryBrandLoad,
+  getLastAttemptedPackage,
+  canRetryBrandLoad,
+  resetAllBrandState,
   clearBrandCache,
   removeBrandFromCache,
   isBrandCached,

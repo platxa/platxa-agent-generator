@@ -359,6 +359,8 @@ let currentLoadingState: ConfigLoadingState = "idle"
 let currentBrandKit: BrandKitExport | null = null
 /** Current error message (Feature #68) */
 let currentBrandError: string | null = null
+/** Last attempted brand package for retry (Feature #24) */
+let lastAttemptedPackage: string | null = null
 
 /**
  * Get current brand loading state
@@ -407,6 +409,109 @@ export function getBrandError(): string | null {
  */
 export function isBrandError(): boolean {
   return currentLoadingState === "error" && currentBrandError !== null
+}
+
+// =============================================================================
+// ERROR RECOVERY (Feature #24)
+// =============================================================================
+
+/**
+ * Reset brand error state and allow retry (Feature #24)
+ *
+ * Clears the error state and resets to idle, allowing a fresh
+ * attempt to load a brand kit. Does not clear cached brand kits.
+ *
+ * @example
+ * ```typescript
+ * if (isBrandError()) {
+ *   // Show error to user, then allow retry
+ *   resetBrandError()
+ *   await loadBrandKit("@acme/brand-kit")
+ * }
+ * ```
+ */
+export function resetBrandError(): void {
+  if (currentLoadingState === "error") {
+    currentLoadingState = "idle"
+    currentBrandError = null
+    notifySubscribers()
+  }
+}
+
+/**
+ * Retry loading the last attempted brand package (Feature #24)
+ *
+ * Automatically retries loading the brand kit that previously failed.
+ * Useful for "Try Again" buttons in error UI.
+ *
+ * @param options - Loading options (timeout, throwOnError)
+ * @returns Promise resolving to load result, or null if no previous attempt
+ *
+ * @example
+ * ```typescript
+ * // In error UI component
+ * async function handleRetry() {
+ *   const result = await retryBrandLoad()
+ *   if (result?.status === "loaded") {
+ *     // Success!
+ *   }
+ * }
+ * ```
+ */
+export async function retryBrandLoad(
+  options: BrandLoaderOptions = {}
+): Promise<BrandLoadResult | null> {
+  if (!lastAttemptedPackage) {
+    console.warn("[brand-loader] No previous brand load attempt to retry")
+    return null
+  }
+
+  // Reset error state before retry
+  resetBrandError()
+
+  // Invalidate cache for this package to force fresh load
+  removeBrandFromCache(lastAttemptedPackage)
+
+  return loadBrandKit(lastAttemptedPackage, options)
+}
+
+/**
+ * Get the last attempted brand package name (Feature #24)
+ *
+ * @returns Package name or null if no attempt was made
+ */
+export function getLastAttemptedPackage(): string | null {
+  return lastAttemptedPackage
+}
+
+/**
+ * Check if retry is available (Feature #24)
+ *
+ * @returns true if there was a previous load attempt that can be retried
+ */
+export function canRetryBrandLoad(): boolean {
+  return lastAttemptedPackage !== null && currentLoadingState === "error"
+}
+
+/**
+ * Reset all brand loading state (Feature #24)
+ *
+ * Fully resets the brand loader to initial state. Use this for testing
+ * or when you want to completely clear all brand-related state.
+ *
+ * @example
+ * ```typescript
+ * // In tests or app reset
+ * resetAllBrandState()
+ * ```
+ */
+export function resetAllBrandState(): void {
+  currentLoadingState = "idle"
+  currentBrandKit = null
+  currentBrandError = null
+  lastAttemptedPackage = null
+  brandCache.clear()
+  notifySubscribers()
 }
 
 /**
@@ -919,6 +1024,9 @@ export async function loadBrandKit(
   options: BrandLoaderOptions = {}
 ): Promise<BrandLoadResult> {
   const { timeout = DEFAULT_TIMEOUT, throwOnError = false } = options
+
+  // Track for retry functionality (Feature #24)
+  lastAttemptedPackage = packageName
 
   // Check cache first (Feature #66)
   const cached = brandCache.get(packageName)
