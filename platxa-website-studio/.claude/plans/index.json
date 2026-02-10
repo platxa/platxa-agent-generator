@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-02-10T16:09:20.150492",
+  "updated_at": "2026-02-10T16:29:15.732381",
   "plans": [
     {
       "id": "plan-feature-108",
@@ -500,10 +500,10 @@
     },
     {
       "id": "plan-feature-13",
-      "title": "Implementation: Add parallel tool execution for independent operations using...",
+      "title": "Implementation: Add DTCG schema validation for brand token files",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T15:09:28.851575",
+      "created_at": "2026-02-10T16:29:15.731719",
       "constitution_check": true
     },
     {

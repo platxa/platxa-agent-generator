@@ -95,6 +95,19 @@ export {
   bumpVersion,
 } from "./token-validator";
 
+// DTCG Schema Validation (Feature #13)
+export {
+  validateDtcgSchema,
+  formatValidationResult,
+  validateTokenFile,
+  type DtcgTokenType,
+  type ValidationSeverity,
+  type DtcgValidationIssue,
+  type DtcgErrorCode,
+  type DtcgValidationResult,
+  type DtcgValidationOptions,
+} from "./dtcg-schema-validator";
+
 // Figma Integration (Phase 6)
 export {
   extractTokensFromFigmaFile,
