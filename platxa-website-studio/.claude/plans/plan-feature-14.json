@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-14",
-  "title": "Implementation: Create tool timeout handling with 30-second default and conf...",
+  "title": "Implementation: Add theme versioning and change history tracking",
   "context": {
     "spec_id": "feature-14",
     "feature_id": "14",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "Versioning",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Tools abort after timeout; return ToolTimeoutError with partial results if available",
+        "type": "functional",
+        "criteria": "Track theme versions, diff between versions, rollback",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-29T15:10:45.864466"
+    "created_at": "2026-02-10T16:34:42.832644"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-14-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create tool timeout handling with 30-second default and configurable per-tool limits",
+      "description": "Review feature requirements: Add theme versioning and change history tracking",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -58,7 +58,7 @@
     {
       "id": "task-14-3",
       "title": "Implement Feature",
-      "description": "Implement: Create tool timeout handling with 30-second default and configurable per-tool limits",
+      "description": "Implement: Add theme versioning and change history tracking",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -88,14 +88,14 @@
     {
       "id": "task-14-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Tools abort after timeout; return ToolTimeoutError with partial results if available', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'functional', 'criteria': 'Track theme versions, diff between versions, rollback', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Tools abort after timeout; return ToolTimeoutError with partial results if available",
+        "type": "functional",
+        "criteria": "Track theme versions, diff between versions, rollback",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-29T15:10:45.864515",
+  "created_at": "2026-02-10T16:34:42.832697",
   "lsp_impact": {}
 }

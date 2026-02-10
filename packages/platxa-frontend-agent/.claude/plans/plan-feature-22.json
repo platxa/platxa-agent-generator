@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-22",
-  "title": "Implementation: Install @axe-core/react and create src/test/utils/a11y.ts fo...",
+  "title": "Implementation: Implement LangGraph-style state machine for agent orchestrat...",
   "context": {
     "spec_id": "feature-22",
     "feature_id": "22",
     "dependencies": [],
     "metadata": {
-      "category": "Testing",
+      "category": "Architecture",
       "verification_criteria": {
-        "type": "a11y",
-        "criteria": "A11y tests integrated in component test suite",
+        "type": "functional",
+        "criteria": "Agent workflow as directed graph, not freeform loop",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-30T16:43:36.687856"
+    "created_at": "2026-02-10T17:31:29.916019"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-22-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Install @axe-core/react and create src/test/utils/a11y.ts for accessibility testing",
+      "description": "Review feature requirements: Implement LangGraph-style state machine for agent orchestration",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -58,7 +58,7 @@
     {
       "id": "task-22-3",
       "title": "Implement Feature",
-      "description": "Implement: Install @axe-core/react and create src/test/utils/a11y.ts for accessibility testing",
+      "description": "Implement: Implement LangGraph-style state machine for agent orchestration",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -88,14 +88,14 @@
     {
       "id": "task-22-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'a11y', 'criteria': 'A11y tests integrated in component test suite', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'functional', 'criteria': 'Agent workflow as directed graph, not freeform loop', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "a11y",
-        "criteria": "A11y tests integrated in component test suite",
+        "type": "functional",
+        "criteria": "Agent workflow as directed graph, not freeform loop",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-30T16:43:36.687902",
+  "created_at": "2026-02-10T17:31:29.916045",
   "lsp_impact": {}
 }

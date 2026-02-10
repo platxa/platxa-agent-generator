@@ -1,35 +1,33 @@
 {
-  "session_id": "95440c72e8d1",
+  "session_id": "37d9f46657f1",
   "stack": {
     "session": {
-      "id": "5552fe1016b5-265",
-      "text": "[Observability] Feature #29: Create src/lib/telemetry/tracer.ts with OpenTelemetry tracer initialization Criteria: Tracer initializes without errors",
+      "id": "37d9f46657f1-269",
+      "text": "[Architecture] Feature #22: Implement LangGraph-style state machine for agent orchestration Criteria: Agent workflow as directed graph, not freeform loop",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769771836.0945308,
-      "updated_at": 1769771836.094531,
+      "created_at": 1770724890.214716,
+      "updated_at": 1770724890.214716,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 29,
-        "category": "Observability"
+        "feature_id": 22,
+        "category": "Architecture"
       },
       "keywords": []
     },
     "task": {
-      "id": "5552fe1016b5-266",
-      "text": "Implement: Create src/lib/telemetry/tracer.ts with OpenTelemetry tracer initialization",
+      "id": "37d9f46657f1-270",
+      "text": "Implement: Implement LangGraph-style state machine for agent orchestration",
       "level": "task",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769771836.1001065,
-      "updated_at": 1769771836.1001067,
+      "created_at": 1770724890.221645,
+      "updated_at": 1770724890.2216454,
       "completed_at": null,
-      "parent_id": "5552fe1016b5-265",
-      "metadata": {
-        "feature_id": 29
-      },
+      "parent_id": "37d9f46657f1-269",
+      "metadata": {},
       "keywords": []
     },
     "step": null
@@ -3929,9 +3927,67 @@
         "feature_id": 29
       },
       "keywords": []
+    },
+    {
+      "id": "404f88f058df-267",
+      "text": "[Streaming] Feature #17: Implement double-streaming pattern with output sanitization Criteria: Backend→API→Client streaming with DOMPurify sanitization",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1770724358.1153328,
+      "updated_at": 1770724358.1153328,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 17,
+        "category": "Streaming"
+      },
+      "keywords": []
+    },
+    {
+      "id": "404f88f058df-268",
+      "text": "Implement: Implement double-streaming pattern with output sanitization",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1770724358.1202617,
+      "updated_at": 1770724358.120262,
+      "completed_at": null,
+      "parent_id": "404f88f058df-267",
+      "metadata": {},
+      "keywords": []
+    },
+    {
+      "id": "37d9f46657f1-269",
+      "text": "[Architecture] Feature #22: Implement LangGraph-style state machine for agent orchestration Criteria: Agent workflow as directed graph, not freeform loop",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1770724890.214716,
+      "updated_at": 1770724890.214716,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 22,
+        "category": "Architecture"
+      },
+      "keywords": []
+    },
+    {
+      "id": "37d9f46657f1-270",
+      "text": "Implement: Implement LangGraph-style state machine for agent orchestration",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1770724890.221645,
+      "updated_at": 1770724890.2216454,
+      "completed_at": null,
+      "parent_id": "37d9f46657f1-269",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 266,
+  "intent_counter": 270,
   "created_at": 1768900061.32227,
-  "updated_at": 1769771836.1001108
+  "updated_at": 1770724890.2216518
 }
