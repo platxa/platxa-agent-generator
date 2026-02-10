@@ -46,6 +46,16 @@ import {
 } from "@/lib/ai/critic-agent";
 import { parseGeneratedFiles, type ParsedFile } from "@/lib/ai/parser";
 
+// Generation Recovery (Feature #7)
+import {
+  createGenerationState,
+  prepareForGeneration,
+  handleGenerationFailure,
+  completeGeneration,
+  resetAfterFailure,
+  type GenerationState,
+} from "@/lib/agent-bridge/generation-recovery";
+
 // =============================================================================
 // Self-Correction Configuration
 // =============================================================================
@@ -73,6 +83,9 @@ let rateLimitState: RateLimitState = createRateLimitState({
   maxTokensPerMinute: 50000,
   sessionTokenBudget: 500000,
 });
+
+// Generation recovery state (global for now - in production use per-session)
+let generationState: GenerationState = createGenerationState({ maxRetries: 3 });
 
 // Increase timeout for local LLM (10 minutes max)
 export const maxDuration = 600;
@@ -802,8 +815,41 @@ async function streamClaudeResponse(
         }
       } catch (error) {
         console.error("Claude stream error:", error);
+
+        // Feature #7: Handle generation failure with recovery
+        const errorMessage = error instanceof Error ? error.message : "Stream processing failed";
+        const failureResult = handleGenerationFailure(
+          generationState,
+          errorMessage,
+          "streaming",
+          [], // affectedSections - determined by client
+          fullResponseText.length > 0, // hasPartialOutput
+          {
+            onRecoveryStart: (plan) => {
+              console.log(`[Recovery] Starting ${plan.strategy} recovery...`);
+            },
+            onRecoveryComplete: (result) => {
+              console.log(`[Recovery] ${result.success ? "Success" : "Failed"}: ${result.message}`);
+            },
+          }
+        );
+        generationState = failureResult.state;
+
         if (!isStreamClosed) {
-          const errorChunk = `3:${JSON.stringify({ error: "Stream processing failed" })}\n`;
+          // Emit recovery metadata to client
+          const recoveryData = {
+            generationRecovery: {
+              strategy: failureResult.plan.strategy,
+              success: failureResult.result.success,
+              message: failureResult.result.message,
+              shouldRetry: failureResult.shouldRetry,
+              retryCount: failureResult.state.retryCount,
+            },
+          };
+          const recoveryChunk = `2:${JSON.stringify([recoveryData])}\n`;
+          safeEnqueue(encoder.encode(recoveryChunk));
+
+          const errorChunk = `3:${JSON.stringify({ error: errorMessage })}\n`;
           safeEnqueue(encoder.encode(errorChunk));
         }
       } finally {
@@ -1217,9 +1263,11 @@ export async function POST(req: Request) {
             }
           };
 
+          // Declare outside try block so it's accessible in catch for recovery
+          let fullResponseText = "";
+
           try {
             let buffer = "";
-            let fullResponseText = ""; // Accumulate for post-generation
             let lastUsageStats = { promptTokens: 0, completionTokens: 0 };
             let chunkCount = 0;
 
@@ -1408,10 +1456,42 @@ export async function POST(req: Request) {
           } catch (error) {
             console.error("[Ollama Stream] ERROR in stream processing:", error);
 
+            // Feature #7: Handle generation failure with recovery
+            const errorMessage = error instanceof Error ? error.message : "Stream processing failed";
+            const failureResult = handleGenerationFailure(
+              generationState,
+              errorMessage,
+              "streaming",
+              [],
+              fullResponseText.length > 0,
+              {
+                onRecoveryStart: (plan) => {
+                  console.log(`[Recovery] Starting ${plan.strategy} recovery...`);
+                },
+                onRecoveryComplete: (result) => {
+                  console.log(`[Recovery] ${result.success ? "Success" : "Failed"}: ${result.message}`);
+                },
+              }
+            );
+            generationState = failureResult.state;
+
             // Even on error, try to send finish signal so client knows stream ended
             // This is critical for the AI SDK useChat hook to set isLoading=false
             if (!isStreamClosed) {
               try {
+                // Emit recovery metadata to client
+                const recoveryData = {
+                  generationRecovery: {
+                    strategy: failureResult.plan.strategy,
+                    success: failureResult.result.success,
+                    message: failureResult.result.message,
+                    shouldRetry: failureResult.shouldRetry,
+                    retryCount: failureResult.state.retryCount,
+                  },
+                };
+                const recoveryChunk = `2:${JSON.stringify([recoveryData])}\n`;
+                safeEnqueue(encoder.encode(recoveryChunk));
+
                 const finishData = {
                   finishReason: "error",
                   usage: { promptTokens: 0, completionTokens: 0 },
