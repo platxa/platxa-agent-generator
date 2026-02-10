@@ -88,3 +88,33 @@ export {
   type ThemeGenerationResult,
   type ImageToCodeOptions,
 } from "./image-to-code";
+
+// Critic Agent
+export {
+  evaluateWithCritic,
+  buildCorrectionPromptFromCritic,
+  formatCriticReport,
+  type CriticGrade,
+  type CriticIssue,
+  type CriticReport,
+  type CriticOptions,
+  type ValidatorResult,
+} from "./critic-agent";
+
+// Generator-Critic-Refinement Pattern
+export {
+  GeneratorAgent,
+  RefinementAgent,
+  GCROrchestrator,
+  createGCROrchestrator,
+  runGCRCycle,
+  evaluateQuality,
+  formatGCRResult,
+  type AgentRole,
+  type IterationStatus,
+  type GeneratorConfig,
+  type RefinementConfig,
+  type GCRConfig,
+  type GCRIteration,
+  type GCRResult,
+} from "./gcr-agent";
