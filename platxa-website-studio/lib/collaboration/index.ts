@@ -107,3 +107,21 @@ export {
   type ShareInvite,
   type AccessCheckResult,
 } from "./project-sharing";
+
+// Theme-specific collaboration
+export {
+  ThemeCollaborationProvider,
+  createThemeCollaboration,
+  getThemeCollaboration,
+  destroyThemeCollaboration,
+  type ThemeEditTool,
+  type TokenCategory,
+  type TokenEditState,
+  type ThemeCollaboratorInfo,
+  type ThemeCollaborationState,
+  type ThemeCollaborationConfig,
+  type TokenLockStatus,
+  type ThemeCollaborationEventType,
+  type ThemeCollaborationEvent,
+  type ThemeCollaborationEventCallback,
+} from "./theme-collaboration";
