@@ -891,7 +891,7 @@ export function PromptLibrary({
   }, [allPrompts, selectedCategory, searchQuery]);
 
   // Recent prompts display
-  const recentPromptItems = useMemo(() => {
+  const recentPromptItems: PromptTemplate[] = useMemo(() => {
     if (selectedCategory !== 'recent') return [];
     return recentPrompts.slice(0, maxRecent).map((prompt, index) => ({
       id: `recent-${index}`,
@@ -900,6 +900,7 @@ export function PromptLibrary({
       prompt,
       category: 'custom' as PromptCategory,
       tags: ['recent'],
+      isCustom: false,
     }));
   }, [selectedCategory, recentPrompts, maxRecent]);
 

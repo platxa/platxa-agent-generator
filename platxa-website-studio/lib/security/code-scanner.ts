@@ -48,12 +48,32 @@ const SCAN_RULES: ScanRule[] = [
   // XSS Vulnerabilities
   {
     id: 'XSS-001',
-    name: 'Unescaped Output',
+    name: 'Unescaped Output (t-raw)',
     severity: 'high',
     category: 'XSS',
     pattern: /t-raw\s*=\s*["'][^"']*\b(user|input|request|param|query)/gi,
     message: 'Potentially unsafe t-raw with user-controlled data',
     recommendation: 'Use t-esc instead of t-raw for user-controlled content',
+    fileTypes: ['.xml'],
+  },
+  {
+    id: 'XSS-005',
+    name: 'Unescaped Output (t-out)',
+    severity: 'high',
+    category: 'XSS',
+    pattern: /t-out\s*=\s*["'][^"']*\b(user|input|request|param|query|record\.\w+_html)/gi,
+    message: 'Potentially unsafe t-out with user-controlled or HTML data',
+    recommendation: 'Use t-esc for user content or sanitize HTML fields before output',
+    fileTypes: ['.xml'],
+  },
+  {
+    id: 'XSS-006',
+    name: 'Raw HTML Field Output',
+    severity: 'medium',
+    category: 'XSS',
+    pattern: /t-(?:raw|out)\s*=\s*["'](?:record|object|doc)\.\w*(?:html|content|body|description)/gi,
+    message: 'Outputting HTML field without sanitization check',
+    recommendation: 'Ensure HTML fields are sanitized in the model or use t-field with widget',
     fileTypes: ['.xml'],
   },
   {

@@ -493,13 +493,21 @@ export function createSlideVariant(
   direction: "left" | "right" | "top" | "bottom",
   distance = 20
 ): Variants {
-  const axis = direction === "left" || direction === "right" ? "x" : "y";
+  const isHorizontal = direction === "left" || direction === "right";
   const sign = direction === "left" || direction === "top" ? -1 : 1;
 
+  // Use explicit x/y properties to avoid computed property type issues
+  if (isHorizontal) {
+    return {
+      initial: { x: distance * sign, opacity: 0 },
+      animate: { x: 0, opacity: 1, transition: springSmooth },
+      exit: { x: distance * sign * 0.5, opacity: 0, transition: tweenFast },
+    };
+  }
   return {
-    initial: { [axis]: distance * sign, opacity: 0 },
-    animate: { [axis]: 0, opacity: 1, transition: springSmooth },
-    exit: { [axis]: distance * sign * 0.5, opacity: 0, transition: tweenFast },
+    initial: { y: distance * sign, opacity: 0 },
+    animate: { y: 0, opacity: 1, transition: springSmooth },
+    exit: { y: distance * sign * 0.5, opacity: 0, transition: tweenFast },
   };
 }
 

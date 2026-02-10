@@ -423,7 +423,7 @@ export class EnvironmentManager {
    */
   getConfig<T = unknown>(path: string, defaultValue?: T): T {
     const env = this.getCurrent();
-    const value = getNestedValue(env, path);
+    const value = getNestedValue(env as unknown as Record<string, unknown>, path);
 
     // Check for overrides
     const envOverrides = this.overrides.get(this.currentEnvironment) || [];

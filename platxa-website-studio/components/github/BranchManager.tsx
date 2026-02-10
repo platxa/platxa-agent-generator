@@ -430,7 +430,7 @@ function BranchItem({
             </span>
           )}
           {branch.isProtected && (
-            <Shield className="h-3.5 w-3.5 text-yellow-600" title="Protected branch" />
+            <Shield className="h-3.5 w-3.5 text-yellow-600" aria-label="Protected branch" />
           )}
           {isCurrent && (
             <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 rounded">

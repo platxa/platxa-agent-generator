@@ -506,7 +506,8 @@ export class OdooServerConnector {
         "read",
         [[uid], ["groups_id"]]
       );
-      return groups?.[0]?.groups_id || [];
+      const result = groups as Array<{ groups_id?: string[] }> | undefined;
+      return result?.[0]?.groups_id || [];
     } catch {
       return [];
     }

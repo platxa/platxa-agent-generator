@@ -122,10 +122,11 @@ async function loadImage(source: string | Blob | File): Promise<HTMLImageElement
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error("Failed to load image"));
 
-    if (source instanceof Blob || source instanceof File) {
-      img.src = URL.createObjectURL(source);
-    } else {
+    if (typeof source === "string") {
       img.src = source;
+    } else {
+      // source is Blob | File
+      img.src = URL.createObjectURL(source);
     }
   });
 }

@@ -40,7 +40,9 @@ export async function GET() {
     const repositories = await db.gitHubRepository.findMany({
       where: {
         project: {
-          userId,
+          is: {
+            userId,
+          },
         },
       },
       select: {

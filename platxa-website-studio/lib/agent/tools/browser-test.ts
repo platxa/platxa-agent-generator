@@ -882,7 +882,7 @@ export class BrowserTestTool {
    */
   private setupConsoleCapture(): void {
     this.consoleLogs = [];
-    const win = this.previewFrame?.getWindow();
+    const win = this.previewFrame?.getWindow() as (Window & { console: Console }) | undefined;
     if (!win) return;
 
     const originalConsole = win.console;

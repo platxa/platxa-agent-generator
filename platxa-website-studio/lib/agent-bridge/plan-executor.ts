@@ -48,6 +48,10 @@ export interface ExecutionProgress {
   currentStep: number;
   percentComplete: number;
   estimatedRemainingMs?: number;
+  /** ID of current step being executed */
+  currentStepId?: string;
+  /** Per-step status tracking */
+  steps?: Array<{ id: string; status: StepStatus }>;
 }
 
 /** Full execution state */

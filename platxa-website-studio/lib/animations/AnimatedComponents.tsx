@@ -261,18 +261,32 @@ export const AnimatedPanel = forwardRef<HTMLDivElement, AnimatedPanelProps>(
     const sign = position === "left" || position === "top" ? -1 : 1;
     const sizeValue = typeof size === "number" ? `${size}px` : size;
 
-    const variants: Variants = {
-      closed: {
-        [axis]: `${sign * 100}%`,
-        opacity: reducedMotion ? 0 : 1,
-        transition: reducedMotion ? { duration: 0.01 } : springSmooth,
-      },
-      open: {
-        [axis]: 0,
-        opacity: 1,
-        transition: reducedMotion ? { duration: 0.01 } : springSmooth,
-      },
-    };
+    // Use explicit x/y variants to avoid computed property type issues
+    const variants: Variants = isHorizontal
+      ? {
+          closed: {
+            x: `${sign * 100}%`,
+            opacity: reducedMotion ? 0 : 1,
+            transition: reducedMotion ? { duration: 0.01 } : springSmooth,
+          },
+          open: {
+            x: 0,
+            opacity: 1,
+            transition: reducedMotion ? { duration: 0.01 } : springSmooth,
+          },
+        }
+      : {
+          closed: {
+            y: `${sign * 100}%`,
+            opacity: reducedMotion ? 0 : 1,
+            transition: reducedMotion ? { duration: 0.01 } : springSmooth,
+          },
+          open: {
+            y: 0,
+            opacity: 1,
+            transition: reducedMotion ? { duration: 0.01 } : springSmooth,
+          },
+        };
 
     return (
       <AnimatePresence>

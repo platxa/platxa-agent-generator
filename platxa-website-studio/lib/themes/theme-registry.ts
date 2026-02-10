@@ -78,7 +78,7 @@ export interface Spacing {
 /** Theme layout options */
 export interface LayoutOptions {
   /** Header style */
-  headerStyle: "fixed" | "static" | "sticky";
+  headerStyle: "fixed" | "static" | "sticky" | "floating";
   /** Navigation style */
   navStyle: "horizontal" | "vertical" | "hamburger";
   /** Footer columns */

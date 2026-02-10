@@ -176,7 +176,7 @@ export interface GeneratedEcommerce {
 export interface EcommerceMetadata {
   componentType: string;
   generatedAt: Date;
-  options: Record<string, unknown>;
+  options: ProductListingOptions | ProductCardOptions | CartWidgetOptions;
 }
 
 // ============================================================================

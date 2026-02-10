@@ -20,6 +20,10 @@ export type OperationalMode = "chat" | "agent" | "visual";
 export interface ModeChangeEvent {
   previousMode: OperationalMode;
   currentMode: OperationalMode;
+  /** Alias for currentMode (for backwards compatibility) */
+  to: OperationalMode;
+  /** Alias for previousMode (for backwards compatibility) */
+  from: OperationalMode;
   timestamp: number;
   triggeredBy: "user" | "system" | "auto";
 }
@@ -187,6 +191,11 @@ export class ModeManager {
     return this.state.currentMode;
   }
 
+  /** Alias for getMode() (for backwards compatibility) */
+  getCurrentMode(): OperationalMode {
+    return this.state.currentMode;
+  }
+
   /** Get previous mode (null if first mode) */
   getPreviousMode(): OperationalMode | null {
     return this.state.previousMode;
@@ -259,6 +268,8 @@ export class ModeManager {
     const event: ModeChangeEvent = {
       previousMode,
       currentMode: mode,
+      to: mode,
+      from: previousMode,
       timestamp,
       triggeredBy,
     };
@@ -319,9 +330,15 @@ export class ModeManager {
   // ---------------------------------------------------------------------------
 
   /** Subscribe to mode change events */
-  on(event: "modeChange", listener: ModeChangeListener): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
+  on(event: "modeChange", listener: ModeChangeListener): () => void;
+  on(listener: ModeChangeListener): () => void;
+  on(
+    eventOrListener: "modeChange" | ModeChangeListener,
+    listener?: ModeChangeListener
+  ): () => void {
+    const actualListener = typeof eventOrListener === "function" ? eventOrListener : listener!;
+    this.listeners.add(actualListener);
+    return () => this.listeners.delete(actualListener);
   }
 
   /** Unsubscribe from mode change events */

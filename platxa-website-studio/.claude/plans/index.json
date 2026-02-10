@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-02-10T12:26:55.773687",
+  "updated_at": "2026-02-10T15:07:01.130596",
   "plans": [
     {
       "id": "plan-feature-108",
@@ -220,10 +220,10 @@
     },
     {
       "id": "plan-feature-4",
-      "title": "Implementation: Create step execution dispatcher routing plan steps to appro...",
+      "title": "Implementation: Add XSS detection for QWeb template output",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T17:54:04.043930",
+      "created_at": "2026-02-10T15:07:01.129706",
       "constitution_check": true
     },
     {
@@ -476,10 +476,10 @@
     },
     {
       "id": "plan-feature-3",
-      "title": "Implementation: Add plan generation phase using LLM with structured JSON out...",
+      "title": "Implementation: Add SQL injection detection to quality checker for Odoo ORM ...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T17:51:21.665557",
+      "created_at": "2026-02-10T15:06:38.802302",
       "constitution_check": true
     },
     {

@@ -91,9 +91,10 @@ model Project {
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Relations
-  files       ProjectFile[]
-  deployments Deployment[]
-  snapshots   ProjectSnapshot[]
+  files            ProjectFile[]
+  deployments      Deployment[]
+  snapshots        ProjectSnapshot[]
+  gitHubRepository GitHubRepository?
 
   @@index([userId])
   @@index([status])
@@ -427,6 +428,9 @@ model GitHubConnection {
 model GitHubRepository {
   id            String   @id @default(cuid())
   projectId     String   @unique
+
+  // Relation to Project
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   // Repository info
   owner         String

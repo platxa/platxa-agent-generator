@@ -152,15 +152,15 @@ function decompress(str: string): string {
 }
 
 /** Debounce function */
-function debounce<T extends (...args: unknown[]) => unknown>(
+function debounce<T extends (...args: never[]) => void>(
   fn: T,
   ms: number
-): (...args: Parameters<T>) => void {
+): T {
   let timeoutId: ReturnType<typeof setTimeout>;
-  return (...args: Parameters<T>) => {
+  return ((...args: Parameters<T>) => {
     clearTimeout(timeoutId);
     timeoutId = setTimeout(() => fn(...args), ms);
-  };
+  }) as T;
 }
 
 // =============================================================================

@@ -165,7 +165,13 @@ function ProgressBar({
   );
 }
 
-function TimeEstimate({ seconds }: { seconds: number }) {
+function TimeEstimate({ value }: { value: string | number }) {
+  // If it's already a string like "5m", "1h", "2 minutes", display as-is
+  if (typeof value === "string") {
+    return <span>{value}</span>;
+  }
+  // If it's seconds, format as time
+  const seconds = value;
   if (seconds < 60) {
     return <span>{seconds}s</span>;
   }
@@ -290,7 +296,7 @@ function StepItem({
             {step.estimatedTime && status === "pending" && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Clock className="w-3 h-3" />
-                <TimeEstimate seconds={step.estimatedTime} />
+                <TimeEstimate value={step.estimatedTime} />
               </span>
             )}
           </button>
@@ -399,18 +405,18 @@ export function PlanViewer({
   // Build step status map from progress
   const getStepStatus = useCallback(
     (stepId: string): StepStatus => {
-      if (!progress) return "pending";
-      const stepProgress = progress.steps.find((s) => s.stepId === stepId);
+      if (!progress?.steps) return "pending";
+      const stepProgress = progress.steps.find((s) => s.id === stepId);
       return stepProgress?.status ?? "pending";
     },
     [progress]
   );
 
   // Calculate overall progress
-  const completedCount = progress?.steps.filter(
+  const completedCount = progress?.steps?.filter(
     (s) => s.status === "completed"
   ).length ?? 0;
-  const failedCount = progress?.steps.filter(
+  const failedCount = progress?.steps?.filter(
     (s) => s.status === "failed"
   ).length ?? 0;
   const totalSteps = plan.steps.length;
@@ -482,7 +488,7 @@ export function PlanViewer({
           {plan.estimatedTime && (
             <span className="flex items-center gap-1">
               <Clock className="w-3 h-3" />
-              Est. <TimeEstimate seconds={plan.estimatedTime} />
+              Est. <TimeEstimate value={plan.estimatedTime} />
             </span>
           )}
         </div>

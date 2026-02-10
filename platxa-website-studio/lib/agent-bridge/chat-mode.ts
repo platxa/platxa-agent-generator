@@ -49,6 +49,10 @@ export interface PlanStep {
   description: string;
   estimatedImpact: "low" | "medium" | "high";
   affectedFiles: string[];
+  /** Estimated time for this step (e.g., "5m", "1h") */
+  estimatedTime?: string;
+  /** IDs of steps this step depends on */
+  dependencies?: string[];
 }
 
 /** Implementation plan generated from Chat mode discussion */
@@ -61,6 +65,10 @@ export interface ImplementationPlan {
   estimatedComplexity: "simple" | "moderate" | "complex";
   affectedFiles: string[];
   requiresConfirmation: boolean;
+  /** Short summary of the plan */
+  summary?: string;
+  /** Total estimated time for all steps */
+  estimatedTime?: string;
 }
 
 /** Chat mode configuration */

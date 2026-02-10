@@ -371,7 +371,7 @@ export function TryToFixButton({
           {status === "idle" || status === "failed" ? (
             <button
               onClick={status === "failed" ? handleRetry : handleFix}
-              disabled={disabled || status === "fixing"}
+              disabled={disabled}
               className={`
                 inline-flex items-center font-medium rounded-lg transition-all
                 ${sizeClasses[size]}

@@ -6,6 +6,7 @@
  */
 
 import { db } from '@/lib/db';
+import { Prisma } from '@prisma/client';
 
 // Define types locally since Prisma types may not be generated yet
 export type TransactionType =
@@ -196,8 +197,8 @@ export async function deductCredits(
           amount: -amount,
           type,
           description,
-          projectId: projectId || null,
-          metadata: metadata || null,
+          projectId: projectId ?? undefined,
+          metadata: metadata as Prisma.InputJsonValue ?? undefined,
           balanceBefore: account.balance,
           balanceAfter: newBalance,
         },
@@ -253,7 +254,7 @@ export async function addCredits(
           amount,
           type,
           description,
-          metadata: metadata || null,
+          metadata: metadata as Prisma.InputJsonValue ?? undefined,
           balanceBefore: account.balance,
           balanceAfter: newBalance,
         },

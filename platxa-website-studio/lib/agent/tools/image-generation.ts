@@ -193,7 +193,10 @@ export class ImageGenerationTool {
 
     // Set default provider to first available
     if (this.providers.size > 0) {
-      this.defaultProvider = this.providers.keys().next().value;
+      const firstProvider = this.providers.keys().next().value;
+      if (firstProvider) {
+        this.defaultProvider = firstProvider;
+      }
     }
   }
 
