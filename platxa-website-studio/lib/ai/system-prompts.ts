@@ -180,36 +180,88 @@ You MUST output code in EXACTLY this format - wrap each file in a code fence wit
 \`\`\`xml
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-  <template id="homepage" name="Homepage">
-    <!-- content here -->
+  <template id="website_homepage_content" name="Homepage Content" inherit_id="website.homepage" customize_show="True">
+    <xpath expr="//div[@id='wrap']" position="inside">
+      <section class="hero-section min-vh-75 d-flex align-items-center bg-primary text-white">
+        <div class="container text-center">
+          <h1 class="display-4 fw-bold">Welcome</h1>
+          <p class="lead">Your amazing website starts here</p>
+          <a href="#" class="btn btn-light btn-lg rounded-pill px-4">Get Started</a>
+        </div>
+      </section>
+    </xpath>
   </template>
 </odoo>
 \`\`\`
 
 **static/src/scss/theme.scss:**
 \`\`\`scss
-// Theme styles
+// Theme styles - USE THEME COLORS, NOT BLUE!
 .hero-section {
   min-height: 75vh;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  // ✅ Use neutral shadow, NOT blue
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
+
+.card {
+  // ✅ Neutral shadow
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+// ❌ NEVER: box-shadow: 0 4px 20px rgba(0, 128, 255, 0.6);  <- BLUE IS WRONG
+// ✅ ALWAYS: box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);   <- NEUTRAL IS CORRECT
 \`\`\`
 
-## Required Files (generate ALL of these)
-1. __manifest__.py - Python dict with name, version, depends, data, license
-2. views/templates.xml - QWeb templates wrapped in <odoo> tags
-3. static/src/scss/theme.scss - Custom SCSS styles
+## ⚠️ SCSS COLOR RULES (MANDATORY)
+❌ NEVER use blue shadows: rgba(0, 128, 255, ...) or any blue color
+✅ ALWAYS use neutral shadows: rgba(0, 0, 0, 0.1-0.2)
+✅ Use theme colors from CSS variables for backgrounds/borders
 
-## Odoo 18 Template Format
-ALL templates must be inside <odoo> tags:
+## Required Files (generate EXACTLY these 3 files, no more)
+1. __manifest__.py - Python dict with name, version, depends, data, license
+2. views/templates.xml - ALL QWeb templates in ONE file (do NOT create pages.xml separately)
+3. static/src/scss/theme.scss - ALL custom styles in ONE file (do NOT create style.scss separately)
+
+IMPORTANT: Only create ONE XML file and ONE SCSS file. Multiple files cause duplicate ID conflicts.
+
+## MANDATORY Odoo 18 Template Rules (NO EXCEPTIONS)
+⚠️ EVERY template MUST follow ONE of these patterns. Raw HTML sections are INVALID and will CRASH Odoo:
+
+PATTERN A - For homepage content (USE THIS):
 \`\`\`xml
-<?xml version="1.0" encoding="utf-8"?>
-<odoo>
-  <template id="unique_id" name="Display Name">
-    <section class="py-5">
-      <!-- Bootstrap 5 HTML here -->
-    </section>
-  </template>
-</odoo>
+<template id="my_content" inherit_id="website.homepage">
+  <xpath expr="//div[@id='wrap']" position="inside">
+    <section>Your content</section>
+  </xpath>
+</template>
+\`\`\`
+
+PATTERN B - For standalone pages:
+\`\`\`xml
+<template id="my_page">
+  <t t-call="website.layout">
+    <div id="wrap">
+      <section>Your content</section>
+    </div>
+  </t>
+</template>
+\`\`\`
+
+❌ NEVER DO THIS (causes crash):
+\`\`\`xml
+<template id="bad">
+  <section>Content without wrapper</section>  <!-- WRONG! -->
+</template>
+\`\`\`
+
+✅ ALWAYS DO THIS:
+\`\`\`xml
+<template id="good" inherit_id="website.homepage">
+  <xpath expr="//div[@id='wrap']" position="inside">
+    <section>Content with proper inheritance</section>
+  </xpath>
+</template>
 \`\`\`
 
 ## Bootstrap 5 Classes to Use
@@ -276,38 +328,89 @@ For each file, output with a header followed by a code fence:
 \`\`\`xml
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-  <template id="homepage" name="Homepage">
-    <t t-call="website.layout">
-      <div id="wrap">
-        <!-- sections here -->
-      </div>
-    </t>
+  <!-- Inherit homepage to add content -->
+  <template id="website_homepage_content" name="Homepage Content" inherit_id="website.homepage" customize_show="True">
+    <xpath expr="//div[@id='wrap']" position="inside">
+      <section class="hero-section min-vh-75 d-flex align-items-center">
+        <div class="container text-center">
+          <h1 class="display-4 fw-bold">Your Title</h1>
+          <p class="lead">Your description text here</p>
+          <a href="#" class="btn btn-primary btn-lg rounded-pill px-4">Call to Action</a>
+        </div>
+      </section>
+      <section class="py-5">
+        <div class="container">
+          <div class="row g-4">
+            <!-- Feature cards here -->
+          </div>
+        </div>
+      </section>
+    </xpath>
   </template>
 </odoo>
 \`\`\`
 
 **theme_generated/static/src/scss/theme.scss:**
 \`\`\`scss
-// Theme custom styles
+// Theme custom styles - ALL styles in this ONE file
+// MANDATORY: Use CSS variables for ALL colors (no hardcoded hex/rgb)
+
+:root {
+  // These are set by Odoo based on theme configuration
+  --primary: #c9302c;    // Example: warm red for restaurant
+  --secondary: #8b4513;  // Example: earthy brown
+  --accent: #d4a373;     // Example: golden accent
+  --background: #fefae0; // Example: cream background
+}
+
+.hero-section {
+  min-height: 75vh;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+  // ✅ CORRECT: Use primary color for shadows
+  box-shadow: 0 4px 20px rgba(var(--primary-rgb, 201, 48, 44), 0.3);
+}
+
+.card {
+  // ✅ CORRECT: Neutral shadow using dark color
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  background: var(--background);
+}
+
+.btn-primary {
+  background: var(--primary);
+  // ✅ CORRECT: Shadow matches button color
+  box-shadow: 0 4px 12px rgba(var(--primary-rgb, 201, 48, 44), 0.4);
+}
 \`\`\`
 
-## Required Files Structure
+## ⚠️ SCSS COLOR RULES (MANDATORY - NO EXCEPTIONS)
+❌ NEVER use hardcoded blue colors like: rgba(0, 128, 255, ...) or #0080ff
+❌ NEVER use any blue shadows unless the theme is explicitly blue
+✅ ALWAYS use theme colors (var(--primary), var(--secondary), etc.)
+✅ ALWAYS use neutral shadows: rgba(0, 0, 0, 0.1) for subtle effects
+✅ For colored shadows, derive from the PRIMARY color, not arbitrary blue
+
+## Required Files Structure (EXACTLY 3 files - no more!)
 \`\`\`
 theme_generated/
 ├── __manifest__.py          # Module manifest (REQUIRED)
 ├── views/
-│   └── templates.xml        # QWeb templates (REQUIRED)
+│   └── templates.xml        # ALL QWeb templates in ONE file (REQUIRED)
 └── static/
     └── src/
         └── scss/
-            └── theme.scss   # Custom styles (REQUIRED)
+            └── theme.scss   # ALL custom styles in ONE file (REQUIRED)
 \`\`\`
+
+CRITICAL: Do NOT create multiple XML files (no pages.xml, no snippets.xml separately).
+CRITICAL: Do NOT create multiple SCSS files (no style.scss, no variables.scss separately).
+Put ALL content in the single templates.xml and single theme.scss files.
 
 ## Odoo 18 Technical Requirements
 - ALL templates must be wrapped in <odoo> tags with XML declaration
+- Use inherit_id="website.homepage" to extend the homepage
+- Use xpath to position content within the layout
 - QWeb directives: t-if, t-foreach, t-esc, t-call, t-set
-- Inherit website.layout for all pages using t-call
-- Use xpath for template modifications
 - Color classes: o_cc1-o_cc5 for Odoo color customization
 - Bootstrap 5.3 is included by default
 

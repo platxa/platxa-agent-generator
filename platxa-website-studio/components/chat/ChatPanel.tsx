@@ -35,7 +35,7 @@ const QUICK_PROMPTS = [
 
 export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { projectName, projectConfig, addFile } = useProjectStore();
+  const { projectName, projectConfig, setFilesConsolidated } = useProjectStore();
   const { suggestions, setSuggestions } = useChatStore();
   const { openGeneratedFiles, fileContents } = useEditorStore();
   const streamingPreview = useStreamingPreviewSafe();
@@ -185,17 +185,17 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
             }))
           );
 
-          // Also add files to project store for persistence
-          files.forEach((file) => {
-            addFile({
-              id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-              name: file.path.split("/").pop() || file.path,
-              path: file.path,
-              type: "file",
-              content: file.content,
-              isModified: true,
-            });
-          });
+          // ROOT CAUSE FIX: Use consolidated bulk add to merge duplicate XML/SCSS files
+          // This prevents Odoo installation errors from duplicate template IDs
+          const fileNodes = files.map((file) => ({
+            id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+            name: file.path.split("/").pop() || file.path,
+            path: file.path,
+            type: "file" as const,
+            content: file.content,
+            isModified: true,
+          }));
+          setFilesConsolidated(fileNodes);
 
           // Clear status after 15 seconds
           setTimeout(() => setGenerationStatus(null), 15000);
@@ -235,14 +235,14 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
                 language: fallbackFile.language,
               }]);
 
-              addFile({
+              setFilesConsolidated([{
                 id: `file-${Date.now()}-fallback`,
                 name: "ai_generated.xml",
                 path: fallbackFile.path,
-                type: "file",
+                type: "file" as const,
                 content: fallbackFile.content,
                 isModified: true,
-              });
+              }]);
 
               setGenerationStatus({
                 files: 1,
@@ -273,7 +273,7 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
         }
       }
     }
-  }, [isLoading, messages, projectName, openGeneratedFiles, addFile]);
+  }, [isLoading, messages, projectName, openGeneratedFiles, setFilesConsolidated]);
 
   // Custom submit handler with tracking
   const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {

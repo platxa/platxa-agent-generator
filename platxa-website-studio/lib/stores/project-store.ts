@@ -63,6 +63,7 @@ interface ProjectState {
   setProject: (projectId: string, name: string) => void;
   setProjectConfig: (config: ProjectConfig) => void;
   setFiles: (files: FileNode[]) => void;
+  setFilesConsolidated: (files: FileNode[]) => void;
   addFile: (file: FileNode) => void;
   updateFile: (path: string, content: string) => void;
   deleteFile: (path: string) => void;
@@ -109,6 +110,133 @@ function deleteFileFromTree(nodes: FileNode[], path: string): FileNode[] {
       }
       return node;
     });
+}
+
+/**
+ * ROOT CAUSE FIX: Consolidate duplicate XML and SCSS files
+ * AI often generates both templates.xml AND pages.xml with duplicate template IDs
+ * This merges them into single canonical files BEFORE storing
+ */
+function consolidateFiles(files: FileNode[]): FileNode[] {
+  // Flatten tree to get all files
+  const flatFiles: FileNode[] = [];
+  const collectFiles = (nodes: FileNode[]) => {
+    for (const node of nodes) {
+      if (node.type === "file") {
+        flatFiles.push(node);
+      } else if (node.children) {
+        collectFiles(node.children);
+      }
+    }
+  };
+  collectFiles(files);
+
+  // Separate by type
+  const xmlFiles = flatFiles.filter(f => f.path.endsWith('.xml') && f.path.includes('/views/'));
+  const scssFiles = flatFiles.filter(f => f.path.endsWith('.scss') || f.path.endsWith('.css'));
+  const otherFiles = flatFiles.filter(f =>
+    !(f.path.endsWith('.xml') && f.path.includes('/views/')) &&
+    !f.path.endsWith('.scss') && !f.path.endsWith('.css')
+  );
+
+  const consolidated: FileNode[] = [...otherFiles];
+
+  // Consolidate XML files
+  if (xmlFiles.length > 1) {
+    console.log("[ProjectStore] Consolidating", xmlFiles.length, "XML files into templates.xml");
+    const seenTemplateIds = new Set<string>();
+    const mergedTemplates: string[] = [];
+
+    for (const xmlFile of xmlFiles) {
+      const content = xmlFile.content || '';
+      const templateRegex = /<template\s+[^>]*id=["']([^"']+)["'][^>]*>[\s\S]*?<\/template>/gi;
+      let match;
+      while ((match = templateRegex.exec(content)) !== null) {
+        const templateId = match[1];
+        if (!seenTemplateIds.has(templateId)) {
+          seenTemplateIds.add(templateId);
+          mergedTemplates.push(match[0]);
+        } else {
+          console.log("[ProjectStore] Skipping duplicate template ID:", templateId);
+        }
+      }
+    }
+
+    if (mergedTemplates.length > 0) {
+      consolidated.push({
+        id: 'theme_generated/views/templates.xml',
+        name: 'templates.xml',
+        path: 'theme_generated/views/templates.xml',
+        type: 'file',
+        content: `<?xml version="1.0" encoding="utf-8"?>\n<odoo>\n  ${mergedTemplates.join('\n\n  ')}\n</odoo>`,
+        isModified: true,
+      });
+    }
+  } else if (xmlFiles.length === 1) {
+    consolidated.push(xmlFiles[0]);
+  }
+
+  // Consolidate SCSS files
+  if (scssFiles.length > 1) {
+    console.log("[ProjectStore] Consolidating", scssFiles.length, "SCSS files into theme.scss");
+    consolidated.push({
+      id: 'theme_generated/static/src/scss/theme.scss',
+      name: 'theme.scss',
+      path: 'theme_generated/static/src/scss/theme.scss',
+      type: 'file',
+      content: scssFiles.map(f => `/* From: ${f.path} */\n${f.content || ''}`).join('\n\n'),
+      isModified: true,
+    });
+  } else if (scssFiles.length === 1) {
+    consolidated.push(scssFiles[0]);
+  }
+
+  // Rebuild tree structure from consolidated flat files
+  return buildTreeFromFiles(consolidated);
+}
+
+/**
+ * Build tree structure from flat file list
+ */
+function buildTreeFromFiles(files: FileNode[]): FileNode[] {
+  const root: FileNode[] = [];
+  const dirs = new Map<string, FileNode>();
+
+  for (const file of files) {
+    const parts = file.path.split('/');
+    let currentPath = '';
+    let currentArray = root;
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      const isLast = i === parts.length - 1;
+      currentPath = currentPath ? `${currentPath}/${part}` : part;
+
+      if (isLast) {
+        // Add the file
+        currentArray.push({
+          ...file,
+          name: part,
+        });
+      } else {
+        // Ensure directory exists
+        if (!dirs.has(currentPath)) {
+          const dir: FileNode = {
+            id: currentPath,
+            name: part,
+            path: currentPath,
+            type: 'directory',
+            children: [],
+          };
+          currentArray.push(dir);
+          dirs.set(currentPath, dir);
+        }
+        currentArray = dirs.get(currentPath)!.children!;
+      }
+    }
+  }
+
+  return root;
 }
 
 /**
@@ -172,6 +300,13 @@ export const useProjectStore = create<ProjectState>()(
         }),
 
       setFiles: (files) => set({ files }),
+
+      // ROOT CAUSE FIX: Consolidate files before storing
+      setFilesConsolidated: (files) => {
+        const consolidated = consolidateFiles(files);
+        console.log("[ProjectStore] setFilesConsolidated:", files.length, "->", consolidated.length, "files");
+        set({ files: consolidated });
+      },
 
       addFile: (file) =>
         set((state) => ({

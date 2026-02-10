@@ -1391,6 +1391,15 @@ export function PreviewPanel() {
   // Otherwise we show "No files generated" while hydration is still loading stale data
   const hasGeneratedFiles = isHydrated && Object.keys(fileContents).length > 0;
 
+  // Debug logging for preview state
+  useEffect(() => {
+    console.log("[PreviewPanel] ===== Render state =====");
+    console.log("[PreviewPanel] isHydrated:", isHydrated);
+    console.log("[PreviewPanel] hasGeneratedFiles:", hasGeneratedFiles);
+    console.log("[PreviewPanel] fileCount:", fileCount);
+    console.log("[PreviewPanel] previewMode:", previewMode);
+  }, [isHydrated, hasGeneratedFiles, fileCount, previewMode]);
+
   return (
     <TooltipProvider>
       <div className="flex flex-col h-full bg-muted/30">

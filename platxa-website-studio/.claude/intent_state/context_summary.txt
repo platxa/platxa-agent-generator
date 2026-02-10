@@ -1,2 +1,2 @@
-Session goal: [Phase 3: HMR Preview] Feature #86: Implement device frame visualization around preview Criteria: iPhone/iPad/MacBook frames wrap preview at appropriate sizes
-Current task: Implement: Implement device frame visualization around preview
+Session goal: [Phase 6: Integration] Feature #196: Add architecture decision records (ADRs) for major decisions Criteria: ADRs for: agentic loop design, tool selection, HMR approach
+Current task: Implement: Add architecture decision records (ADRs) for major decisions

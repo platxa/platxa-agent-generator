@@ -104,6 +104,10 @@ export function fixInvalidInheritId(content: string): { content: string; fixed: 
 /**
  * Validate and fix template structure for Odoo 18
  * Ensures templates follow proper QWeb syntax
+ *
+ * ROOT CAUSE FIXES:
+ * 1. xpath without inherit_id → add inherit_id="website.homepage"
+ * 2. Raw HTML templates → wrap in t-call="website.layout"
  */
 export function validateTemplateStructure(content: string, filePath: string): {
   content: string;
@@ -111,6 +115,85 @@ export function validateTemplateStructure(content: string, filePath: string): {
 } {
   const issues: QualityIssue[] = [];
   let fixed = content;
+
+  // ==========================================================================
+  // ROOT CAUSE FIX #1: xpath without inherit_id
+  // AI generates <template id="x"><xpath expr="..."> without inherit_id
+  // This CRASHES Odoo on install - xpath REQUIRES inherit_id
+  // ==========================================================================
+  // Match: <template id="xxx"> followed by <xpath (with possible whitespace/newlines)
+  // But NOT if inherit_id is already present
+  if (fixed.includes('<xpath') && !fixed.includes('inherit_id')) {
+    // Simple case: no inherit_id anywhere, add it to templates with xpath
+    fixed = fixed.replace(
+      /<template\s+id=["']([^"']+)["']([^>]*)>\s*<xpath/gi,
+      (match, id, attrs) => {
+        issues.push({
+          severity: "error",
+          file: filePath,
+          message: `Auto-fixed: Template '${id}' uses xpath without inherit_id - added inherit_id="website.homepage"`,
+        });
+        return `<template id="${id}" inherit_id="website.homepage"${attrs}>\n    <xpath`;
+      }
+    );
+  } else if (fixed.includes('<xpath')) {
+    // Complex case: some templates have inherit_id, some don't
+    // Process each template individually
+    fixed = fixed.replace(
+      /<template\s+id=["']([^"']+)["']([^>]*)>\s*<xpath/gi,
+      (match, id, attrs) => {
+        if (!attrs.includes('inherit_id')) {
+          issues.push({
+            severity: "error",
+            file: filePath,
+            message: `Auto-fixed: Template '${id}' uses xpath without inherit_id - added inherit_id="website.homepage"`,
+          });
+          return `<template id="${id}" inherit_id="website.homepage"${attrs}>\n    <xpath`;
+        }
+        return match;
+      }
+    );
+  }
+
+  // ==========================================================================
+  // ROOT CAUSE FIX #2: Raw HTML templates without website.layout
+  // AI generates <template id="x"><section>...</section></template>
+  // This renders WITHOUT Odoo header/footer/navigation
+  // ==========================================================================
+  // Match templates that have raw HTML (section, div, header) but no t-call="website.layout"
+  const rawHtmlTemplatePattern = /<template\s+id=["']([^"']+)["']([^>]*)>\s*(<(?:section|div|header|footer|main|article)[^>]*>[\s\S]*?<\/(?:section|div|header|footer|main|article)>)\s*<\/template>/gi;
+
+  let match;
+  const rawHtmlRegex = new RegExp(rawHtmlTemplatePattern.source, rawHtmlTemplatePattern.flags);
+  while ((match = rawHtmlRegex.exec(fixed)) !== null) {
+    const [fullMatch, templateId, attrs, innerContent] = match;
+
+    // Skip if already has t-call or inherit_id
+    if (attrs.includes('inherit_id') || innerContent.includes('t-call=')) {
+      continue;
+    }
+
+    // Skip if this looks like it should inherit (has xpath markers)
+    if (innerContent.includes('<xpath')) {
+      continue;
+    }
+
+    // Wrap in t-call="website.layout"
+    const wrappedContent = `<template id="${templateId}"${attrs}>
+    <t t-call="website.layout">
+      <div id="wrap" class="oe_structure">
+        ${innerContent}
+      </div>
+    </t>
+  </template>`;
+
+    fixed = fixed.replace(fullMatch, wrappedContent);
+    issues.push({
+      severity: "error",
+      file: filePath,
+      message: `Auto-fixed: Template '${templateId}' wrapped in t-call="website.layout" for proper Odoo integration`,
+    });
+  }
 
   // Check for XML declaration
   if (!fixed.includes('<?xml') && fixed.includes('<odoo>')) {

@@ -420,12 +420,153 @@ function stripConversationalPreamble(response: string): string {
 }
 
 /**
+ * ROOT CAUSE FIX #3: Replace hardcoded blue shadows with neutral shadows
+ * AI sometimes generates rgba(0, 128, 255, ...) blue shadows regardless of theme
+ * This fixes them to use neutral black shadows which work with any color scheme
+ */
+function fixBlueShadowsInScss(content: string): string {
+  let fixed = content;
+
+  // Match blue shadows: rgba(0, 128, 255, ...) or similar blue values
+  // Blue is when: R is low (0-50), G is medium (80-180), B is high (200-255)
+  const blueShadowPattern = /box-shadow:\s*([^;]*?)rgba\s*\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*([\d.]+)\s*\)([^;]*);/gi;
+
+  fixed = fixed.replace(blueShadowPattern, (match, before, r, g, b, alpha, after) => {
+    const red = parseInt(r);
+    const green = parseInt(g);
+    const blue = parseInt(b);
+
+    // Detect blue: low red, medium green, high blue
+    const isBlue = red < 80 && green > 60 && green < 200 && blue > 180;
+
+    if (isBlue) {
+      console.log(`[Parser] ROOT CAUSE FIX #3: Replaced blue shadow rgba(${r},${g},${b},${alpha}) with neutral`);
+      // Replace with neutral shadow, keeping the same alpha but slightly reduced for subtlety
+      const neutralAlpha = Math.min(parseFloat(alpha), 0.2).toFixed(2);
+      return `box-shadow:${before}rgba(0, 0, 0, ${neutralAlpha})${after};`;
+    }
+    return match;
+  });
+
+  // Also catch hex blue colors in shadows: #0080ff, #007bff, etc.
+  const hexBlueShadowPattern = /box-shadow:\s*([^;]*?)#(0{1,2}[0-9a-f]{0,2})(7[0-9a-f]|8[0-9a-f]|9[0-9a-f]|[a-f][0-9a-f])(f{2}|e[0-9a-f]|d[0-9a-f])([^;]*);/gi;
+  fixed = fixed.replace(hexBlueShadowPattern, (match, before, r, g, b, after) => {
+    console.log(`[Parser] ROOT CAUSE FIX #3: Replaced hex blue shadow with neutral`);
+    return `box-shadow:${before}rgba(0, 0, 0, 0.15)${after};`;
+  });
+
+  return fixed;
+}
+
+/**
+ * ROOT CAUSE FIX: Consolidate duplicate XML and SCSS files
+ * AI sometimes generates both templates.xml and pages.xml with same template IDs
+ * Or generates both style.scss and theme.scss with duplicate styles
+ * This merges them into single canonical files to prevent Odoo installation errors
+ */
+/**
+ * ROOT CAUSE FIX: Consolidate duplicate XML and SCSS files for export
+ * Exported for use by export API
+ */
+export function consolidateExportFiles(files: ParsedFile[]): ParsedFile[] {
+  return consolidateDuplicateFiles(files);
+}
+
+function consolidateDuplicateFiles(files: ParsedFile[]): ParsedFile[] {
+  const result: ParsedFile[] = [];
+  const xmlFiles: ParsedFile[] = [];
+  const scssFiles: ParsedFile[] = [];
+  const otherFiles: ParsedFile[] = [];
+
+  // Categorize files
+  for (const file of files) {
+    if (file.path.endsWith('.xml') && file.path.includes('/views/')) {
+      xmlFiles.push(file);
+    } else if (file.path.endsWith('.scss') || file.path.endsWith('.css')) {
+      scssFiles.push(file);
+    } else {
+      otherFiles.push(file);
+    }
+  }
+
+  // Consolidate XML files into single templates.xml
+  if (xmlFiles.length > 1) {
+    console.log("[Parser] Consolidating", xmlFiles.length, "XML files into templates.xml");
+    const seenTemplateIds = new Set<string>();
+    const mergedTemplates: string[] = [];
+
+    for (const xmlFile of xmlFiles) {
+      // Extract templates from this file, avoiding duplicates
+      const templateRegex = /<template\s+[^>]*id=["']([^"']+)["'][^>]*>[\s\S]*?<\/template>/gi;
+      let match;
+      while ((match = templateRegex.exec(xmlFile.content)) !== null) {
+        const templateId = match[1];
+        if (!seenTemplateIds.has(templateId)) {
+          seenTemplateIds.add(templateId);
+          mergedTemplates.push(match[0]);
+        } else {
+          console.log("[Parser] Skipping duplicate template ID:", templateId);
+        }
+      }
+    }
+
+    if (mergedTemplates.length > 0) {
+      const mergedContent = `<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  ${mergedTemplates.join('\n\n  ')}
+</odoo>`;
+      result.push({
+        path: 'theme_generated/views/templates.xml',
+        content: mergedContent,
+        language: 'xml',
+        action: 'create',
+      });
+    }
+  } else if (xmlFiles.length === 1) {
+    result.push(xmlFiles[0]);
+  }
+
+  // Consolidate SCSS files into single theme.scss
+  if (scssFiles.length > 1) {
+    console.log("[Parser] Consolidating", scssFiles.length, "SCSS files into theme.scss");
+    let mergedScss = scssFiles
+      .map(f => `/* From: ${f.path} */\n${f.content}`)
+      .join('\n\n');
+    // ROOT CAUSE FIX #3: Replace hardcoded blue shadows with neutral shadows
+    mergedScss = fixBlueShadowsInScss(mergedScss);
+    result.push({
+      path: 'theme_generated/static/src/scss/theme.scss',
+      content: mergedScss,
+      language: 'scss',
+      action: 'create',
+    });
+  } else if (scssFiles.length === 1) {
+    // Also fix blue shadows in single file
+    const fixedScss = {
+      ...scssFiles[0],
+      content: fixBlueShadowsInScss(scssFiles[0].content),
+    };
+    result.push(fixedScss);
+  }
+
+  // Add other files unchanged
+  result.push(...otherFiles);
+
+  return result;
+}
+
+/**
  * Main parser - handles multiple AI output formats
  * Production-grade with comprehensive format support
  */
 export function parseGeneratedFiles(response: string): ParsedFile[] {
+  console.log("[Parser] ===== parseGeneratedFiles called =====");
+  console.log("[Parser] Input length:", response.length);
+  console.log("[Parser] Input preview (first 300 chars):", response.substring(0, 300));
+
   // Preprocess: strip conversational preamble
   const cleanedResponse = stripConversationalPreamble(response);
+  console.log("[Parser] After preamble strip, length:", cleanedResponse.length);
 
   const files: ParsedFile[] = [];
   const seenPaths = new Set<string>();
@@ -461,11 +602,26 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
     const sanitizedContent = sanitizeContent(content, normalizedPath);
     const contentHash = sanitizedContent.trim().substring(0, 100); // Simple hash
 
-    if (!normalizedPath || !sanitizedContent.trim()) return false;
-    if (seenPaths.has(normalizedPath)) return false;
-    if (seenContents.has(contentHash)) return false;
-    if (sanitizedContent.trim().length < 10) return false;
-    if (!normalizedPath.includes(".")) return false;
+    if (!normalizedPath || !sanitizedContent.trim()) {
+      console.log("[Parser] addFile rejected - empty path or content:", { path, normalizedPath, contentLen: content.length });
+      return false;
+    }
+    if (seenPaths.has(normalizedPath)) {
+      console.log("[Parser] addFile rejected - duplicate path:", normalizedPath);
+      return false;
+    }
+    if (seenContents.has(contentHash)) {
+      console.log("[Parser] addFile rejected - duplicate content hash for:", normalizedPath);
+      return false;
+    }
+    if (sanitizedContent.trim().length < 10) {
+      console.log("[Parser] addFile rejected - content too short:", normalizedPath, sanitizedContent.length);
+      return false;
+    }
+    if (!normalizedPath.includes(".")) {
+      console.log("[Parser] addFile rejected - no extension:", normalizedPath);
+      return false;
+    }
 
     seenPaths.add(normalizedPath);
     seenContents.add(contentHash);
@@ -476,6 +632,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
       language: normalizeLanguage(language) || detectLanguage(normalizedPath),
       action: "create",
     });
+    console.log("[Parser] ✅ File added:", normalizedPath, "(" + sanitizedContent.trim().length + " chars)");
     return true;
   };
 
@@ -501,16 +658,23 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   }
 
   // Strategy 3: Header-based format - **filename:**\n```lang or ### filename\n```lang
-  const headerBlockRegex = /(?:\*\*([^*\n]+)\*\*:?|#{1,4}\s+([^\n]+))\s*\n+```(\w+)\n([\s\S]*?)```/gi;
+  // ROOT CAUSE FIX: Changed \n+ to \n* to allow headers immediately followed by code fence
+  // Some LLMs output: **file.py:**```python instead of **file.py:**\n```python
+  const headerBlockRegex = /(?:\*\*([^*\n]+)\*\*:?|#{1,4}\s+([^\n]+))[\s\n]*```(\w+)\n([\s\S]*?)```/gi;
 
+  console.log("[Parser] Strategy 3: Searching for header-based format...");
   while ((match = headerBlockRegex.exec(cleanedResponse)) !== null) {
-    const [, boldHeader, hashHeader, language, content] = match;
+    const [fullMatch, boldHeader, hashHeader, language, content] = match;
     const header = boldHeader || hashHeader || "";
+    console.log("[Parser] Strategy 3 match - header:", header, "lang:", language, "content length:", content.length);
     const extractedPath = extractFilenameFromHeader(header);
 
     if (extractedPath) {
       const path = buildFullPath(extractedPath);
+      console.log("[Parser] Strategy 3 - extracted path:", extractedPath, "-> full path:", path);
       addFile(path, content, language);
+    } else {
+      console.log("[Parser] Strategy 3 - could not extract path from header:", header);
     }
   }
 
@@ -528,21 +692,27 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   const plainBlockRegex = /```(\w+)\n([\s\S]*?)```/g;
   let blockIndex = 0;
 
+  console.log("[Parser] Strategy 5: Searching for plain code blocks...");
   while ((match = plainBlockRegex.exec(cleanedResponse)) !== null) {
     const [fullMatch, language, content] = match;
 
     // Skip if this block was already captured by other strategies
     const contentTrimmed = content.trim();
-    if (seenContents.has(contentTrimmed.substring(0, 100))) continue;
+    if (seenContents.has(contentTrimmed.substring(0, 100))) {
+      console.log("[Parser] Strategy 5 - skipping duplicate content for lang:", language);
+      continue;
+    }
 
     // Skip non-code languages
     const normalizedLang = normalizeLanguage(language);
     if (["text", "plaintext", "console", "bash", "shell", "sh", "terminal", "output"].includes(normalizedLang)) {
+      console.log("[Parser] Strategy 5 - skipping non-code language:", language);
       continue;
     }
 
     // Infer path from content
     const path = inferFilePathFromContent(normalizedLang, contentTrimmed, blockIndex);
+    console.log("[Parser] Strategy 5 - inferred path:", path, "for lang:", normalizedLang, "content length:", contentTrimmed.length);
 
     // For HTML sections, wrap in Odoo template structure
     let finalContent = contentTrimmed;
@@ -659,8 +829,26 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
     }
   }
 
+  // ROOT CAUSE FIX: Consolidate duplicate XML and SCSS files
+  // AI sometimes generates both templates.xml and pages.xml, or style.scss and theme.scss
+  // This causes duplicate template IDs and wasted code - merge them into single files
+  const consolidatedFiles = consolidateDuplicateFiles(files);
+
+  // Final summary logging
+  console.log("[Parser] ===== PARSING COMPLETE =====");
+  console.log("[Parser] Total files extracted:", consolidatedFiles.length);
+  consolidatedFiles.forEach((f, i) => {
+    console.log(`[Parser]   ${i + 1}. ${f.path} (${f.language}, ${f.content.length} chars)`);
+  });
+  if (consolidatedFiles.length === 0) {
+    console.log("[Parser] WARNING: No files extracted! Check AI output format.");
+    console.log("[Parser] Input contained code blocks:", cleanedResponse.includes("```"));
+    console.log("[Parser] Input contained <odoo>:", cleanedResponse.includes("<odoo"));
+    console.log("[Parser] Input contained <template>:", cleanedResponse.includes("<template"));
+  }
+
   // Sort files by type (manifest first, then views, then assets)
-  return files.sort((a, b) => {
+  return consolidatedFiles.sort((a, b) => {
     const order = (path: string): number => {
       if (path.includes("__manifest__")) return 0;
       if (path.includes("/views/")) return 1;
@@ -965,6 +1153,8 @@ ${assetLines.join("\n")}
     },`;
   }
 
+  // ROOT CAUSE FIX: Don't reference banner.png that doesn't exist
+  // Only include 'images' key if we actually have images
   return `# -*- coding: utf-8 -*-
 {
     'name': '${themeName}',
@@ -982,9 +1172,6 @@ ${assetLines.join("\n")}
     'data': [
 ${xmlFiles.join("\n")}
     ],${assets}
-    'images': [
-        'static/description/banner.png',
-    ],
     'installable': True,
     'application': False,
     'auto_install': False,
@@ -1048,6 +1235,72 @@ export function ensureValidOdooXml(content: string, filePath: string): string {
   if (repairResult.fixed) {
     console.log(`[Parser] Repaired corrupted XML attributes in ${filePath}`);
     fixed = repairResult.content;
+  }
+
+  // ==========================================================================
+  // ROOT CAUSE FIX #1: xpath without inherit_id
+  // AI generates <template id="x"><xpath> without inherit_id which CRASHES Odoo
+  // This MUST run BEFORE the early return below
+  // ==========================================================================
+  if (fixed.includes('<xpath') && !fixed.includes('inherit_id')) {
+    fixed = fixed.replace(
+      /<template\s+id=["']([^"']+)["']([^>]*)>\s*<xpath/gi,
+      (match, id, attrs) => {
+        console.log(`[Parser] ROOT CAUSE FIX: Added inherit_id to template '${id}' with xpath`);
+        return `<template id="${id}" inherit_id="website.homepage"${attrs}>\n    <xpath`;
+      }
+    );
+  }
+
+  // ==========================================================================
+  // ROOT CAUSE FIX #2: Raw HTML templates without website.layout wrapper
+  // AI generates <template><section>...</section></template> without t-call
+  // This causes templates to render WITHOUT Odoo header/footer/navigation
+  //
+  // MUST match templates with MULTIPLE sections (previous regex only caught single)
+  // ==========================================================================
+  // Match ALL templates, then check if they need wrapping
+  const allTemplatesPattern = /<template\s+id=["']([^"']+)["']([^>]*)>([\s\S]*?)<\/template>/gi;
+  let templateMatch;
+  const templateReplacements: Array<{original: string, replacement: string}> = [];
+
+  while ((templateMatch = allTemplatesPattern.exec(fixed)) !== null) {
+    const [fullMatch, templateId, attrs, innerContent] = templateMatch;
+
+    // Skip if already has inherit_id (it's an extension template)
+    if (attrs.includes('inherit_id')) {
+      continue;
+    }
+
+    // Skip if already has t-call (properly wrapped)
+    if (innerContent.includes('t-call=')) {
+      continue;
+    }
+
+    // Skip if it uses xpath (should have inherit_id, handled above)
+    if (innerContent.includes('<xpath')) {
+      continue;
+    }
+
+    // Check if content is raw HTML (has section, div, header, etc. as direct children)
+    const hasRawHtml = /^\s*<(?:section|div|header|footer|main|article|nav)/i.test(innerContent.trim());
+
+    if (hasRawHtml) {
+      const wrapped = `<template id="${templateId}"${attrs}>
+    <t t-call="website.layout">
+      <div id="wrap" class="oe_structure">
+        ${innerContent.trim()}
+      </div>
+    </t>
+  </template>`;
+      templateReplacements.push({ original: fullMatch, replacement: wrapped });
+      console.log(`[Parser] ROOT CAUSE FIX: Wrapped template '${templateId}' in website.layout`);
+    }
+  }
+
+  // Apply all replacements (reverse order to preserve indices)
+  for (const { original, replacement } of templateReplacements.reverse()) {
+    fixed = fixed.replace(original, replacement);
   }
 
   // Skip if already properly wrapped

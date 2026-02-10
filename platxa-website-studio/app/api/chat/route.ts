@@ -9,6 +9,15 @@ import {
   type RateLimitState,
 } from "@/lib/agent-bridge/rate-limiter";
 
+// Credit System Integration
+import { auth } from "@/lib/auth";
+import {
+  getCreditBalance,
+  deductForThemeGeneration,
+  deductForIteration,
+  CREDIT_COSTS,
+} from "@/lib/services/credit-service";
+
 // Phase 1: Production-Grade Integrations
 import { createRAGPipeline, type RAGQueryResult } from "@/lib/agent-bridge/rag-pipeline";
 import { classifyTask, type ClassificationResult } from "@/lib/ai/task-classifier";
@@ -529,7 +538,8 @@ async function streamClaudeResponse(
   pipeline: AgentPipeline | null,
   modelId: string,
   originalUserMessage: string,
-  ragPatterns: ExtractedPatterns
+  ragPatterns: ExtractedPatterns,
+  creditContext?: { userId: string; projectId: string; isGeneration: boolean }
 ): Promise<Response> {
   const client = getAnthropicClient();
   if (!client) {
@@ -683,6 +693,27 @@ async function streamClaudeResponse(
           rateLimitState = newState;
           for (const alert of newAlerts) {
             console.warn(`[RateLimit] Budget alert: ${alert.label} (${alert.currentUsage}/${alert.budgetLimit})`);
+          }
+        }
+
+        // Deduct credits after successful generation
+        if (creditContext?.userId) {
+          try {
+            const deductFn = creditContext.isGeneration
+              ? deductForThemeGeneration
+              : deductForIteration;
+            const result = await deductFn(
+              creditContext.userId,
+              creditContext.projectId,
+              lastUsageStats.promptTokens + lastUsageStats.completionTokens
+            );
+            if (result.success) {
+              console.log(`[Credits] Deducted credits for ${creditContext.isGeneration ? 'generation' : 'iteration'}. New balance: ${result.newBalance}`);
+            } else {
+              console.warn(`[Credits] Failed to deduct credits: ${result.error}`);
+            }
+          } catch (creditError) {
+            console.error("[Credits] Error deducting credits:", creditError);
           }
         }
 
@@ -857,6 +888,40 @@ export async function POST(req: Request) {
       );
     }
 
+    // =========================================================================
+    // CREDIT CHECK - Verify user has sufficient credits
+    // =========================================================================
+    let userId: string | null = null;
+    let creditBalance: Awaited<ReturnType<typeof getCreditBalance>> | null = null;
+    const isGenerationTask = taskClassification.primaryType === "code_generation" ||
+                             taskClassification.primaryType === "code_editing";
+
+    try {
+      const session = await auth();
+      if (session?.user?.id) {
+        userId = session.user.id;
+        creditBalance = await getCreditBalance(userId);
+
+        // Determine credit cost based on task type
+        const creditCost = isGenerationTask
+          ? CREDIT_COSTS.THEME_GENERATION
+          : CREDIT_COSTS.THEME_ITERATION;
+
+        if (creditBalance.available < creditCost) {
+          return errorResponse(
+            `Insufficient credits. You have ${creditBalance.available} credits, but this operation requires ${creditCost} credits.`,
+            402,
+            "INSUFFICIENT_CREDITS"
+          );
+        }
+
+        console.log(`[Credits] User ${userId} has ${creditBalance.available} credits (needs ${creditCost})`);
+      }
+    } catch (creditError) {
+      // Log but don't block - credits are optional for unauthenticated users
+      console.warn("[Credits] Could not check credit balance:", creditError);
+    }
+
     // Determine which AI provider to use
     // Priority: Claude API (if configured) > Ollama (local fallback)
     const claudeClient = getAnthropicClient();
@@ -935,7 +1000,12 @@ export async function POST(req: Request) {
           pipeline,
           resolvedModel.modelId,
           userMessageContent,
-          ragPatterns
+          ragPatterns,
+          userId ? {
+            userId,
+            projectId: effectiveProjectId,
+            isGeneration: isGenerationTask,
+          } : undefined
         );
       } catch (error) {
         console.error("Claude API error:", error);

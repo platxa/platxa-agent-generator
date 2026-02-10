@@ -101,6 +101,80 @@ interface EditorState {
 }
 
 /**
+ * ROOT CAUSE FIX: Consolidate duplicate XML and SCSS files
+ * AI often generates both templates.xml AND pages.xml with duplicate template IDs
+ * This merges them into single canonical files BEFORE storing
+ */
+function consolidateGeneratedFiles(
+  files: Array<{ path: string; content: string; language: string }>
+): Array<{ path: string; content: string; language: string }> {
+  const xmlFiles: typeof files = [];
+  const scssFiles: typeof files = [];
+  const otherFiles: typeof files = [];
+
+  // Categorize files
+  for (const file of files) {
+    if (file.path.endsWith('.xml') && file.path.includes('/views/')) {
+      xmlFiles.push(file);
+    } else if (file.path.endsWith('.scss') || file.path.endsWith('.css')) {
+      scssFiles.push(file);
+    } else {
+      otherFiles.push(file);
+    }
+  }
+
+  const result: typeof files = [];
+
+  // Consolidate XML files into single templates.xml
+  if (xmlFiles.length > 1) {
+    console.log("[EditorStore] Consolidating", xmlFiles.length, "XML files into templates.xml");
+    const seenTemplateIds = new Set<string>();
+    const mergedTemplates: string[] = [];
+
+    for (const xmlFile of xmlFiles) {
+      const templateRegex = /<template\s+[^>]*id=["']([^"']+)["'][^>]*>[\s\S]*?<\/template>/gi;
+      let match;
+      while ((match = templateRegex.exec(xmlFile.content)) !== null) {
+        const templateId = match[1];
+        if (!seenTemplateIds.has(templateId)) {
+          seenTemplateIds.add(templateId);
+          mergedTemplates.push(match[0]);
+        } else {
+          console.log("[EditorStore] Skipping duplicate template ID:", templateId);
+        }
+      }
+    }
+
+    if (mergedTemplates.length > 0) {
+      result.push({
+        path: 'theme_generated/views/templates.xml',
+        content: `<?xml version="1.0" encoding="utf-8"?>\n<odoo>\n  ${mergedTemplates.join('\n\n  ')}\n</odoo>`,
+        language: 'xml',
+      });
+    }
+  } else if (xmlFiles.length === 1) {
+    result.push(xmlFiles[0]);
+  }
+
+  // Consolidate SCSS files into single theme.scss
+  if (scssFiles.length > 1) {
+    console.log("[EditorStore] Consolidating", scssFiles.length, "SCSS files into theme.scss");
+    result.push({
+      path: 'theme_generated/static/src/scss/theme.scss',
+      content: scssFiles.map(f => `/* From: ${f.path} */\n${f.content}`).join('\n\n'),
+      language: 'scss',
+    });
+  } else if (scssFiles.length === 1) {
+    result.push(scssFiles[0]);
+  }
+
+  // Add other files unchanged
+  result.push(...otherFiles);
+
+  return result;
+}
+
+/**
  * Detect language from file path
  */
 function detectLanguage(path: string): string {
@@ -325,11 +399,17 @@ export const useEditorStore = create<EditorState>()(
           console.log("[EditorStore] Incoming files:", files.length);
           files.forEach(f => console.log(`[EditorStore]   - ${f.path}: ${f.content.length} chars`));
 
+          // ROOT CAUSE FIX: Consolidate duplicate XML and SCSS files IMMEDIATELY
+          // AI often generates both templates.xml AND pages.xml, or style.scss AND theme.scss
+          // This causes Odoo installation errors - fix at the source
+          const consolidatedFiles = consolidateGeneratedFiles(files);
+          console.log("[EditorStore] After consolidation:", consolidatedFiles.length, "files");
+
           const newTabs = [...state.openTabs];
           const newFileContents = { ...state.fileContents };
           let firstNewTab: string | null = null;
 
-          for (const file of files) {
+          for (const file of consolidatedFiles) {
             // Check if tab already exists
             const existingTab = newTabs.find((t) => t.path === file.path);
 
@@ -394,39 +474,20 @@ export const useEditorStore = create<EditorState>()(
  * avoiding the race condition where hasHydrated() is true but state is false
  */
 export function useEditorStoreHydration() {
-  // Simple approach: track if we're on client and hydration attempted
+  // ROOT CAUSE FIX: Simple and reliable hydration check
+  // The complex logic with persist.onFinishHydration was failing silently
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    // We're on the client now - trigger hydration
+    // We're on the client - trigger hydration and mark as ready
     const persist = useEditorStore.persist;
 
-    // Subscribe to finish event
-    const unsub = persist.onFinishHydration(() => {
-      setHydrated(true);
-    });
+    // Trigger rehydration from localStorage
+    persist.rehydrate();
 
-    // Check if already hydrated
-    if (persist.hasHydrated()) {
-      setHydrated(true);
-    } else {
-      // Trigger rehydration
-      persist.rehydrate();
-    }
-
-    // FAILSAFE: If hydration doesn't complete in 500ms, force it
-    // This handles edge cases where localStorage is slow or unavailable
-    const failsafe = setTimeout(() => {
-      if (!persist.hasHydrated()) {
-        console.warn("[EditorStore] Hydration timeout - forcing completion");
-      }
-      setHydrated(true);
-    }, 500);
-
-    return () => {
-      unsub();
-      clearTimeout(failsafe);
-    };
+    // Mark hydrated immediately - the store will update reactively
+    // This fixes the issue where onFinishHydration callback wasn't firing
+    setHydrated(true);
   }, []);
 
   return hydrated;

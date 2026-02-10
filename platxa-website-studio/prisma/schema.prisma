@@ -30,6 +30,11 @@ model User {
   sessions      Session[]
   apiKeys       ApiKey[]
 
+  // Credit & Billing relations
+  creditAccount   CreditAccount?
+  subscriptions   Subscription[]
+  creditTransactions CreditTransaction[]
+
   @@index([email])
 }
 
@@ -225,4 +230,165 @@ model UsageLog {
   @@index([userId])
   @@index([endpoint])
   @@index([createdAt])
+}
+
+// ============================================
+// CREDIT SYSTEM & BILLING
+// ============================================
+
+model CreditAccount {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Credit balances
+  balance               Int      @default(100)  // Current available credits
+  lifetimeCredits       Int      @default(100)  // Total credits ever received
+  usedThisMonth         Int      @default(0)    // Credits used in current billing cycle
+
+  // Plan info (cached from active subscription)
+  plan                  PlanType @default(FREE)
+  monthlyAllowance      Int      @default(100)  // Credits included in plan per month
+
+  // Billing cycle
+  billingCycleStart     DateTime @default(now())
+  billingCycleEnd       DateTime?
+
+  // Timestamps
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@index([userId])
+  @@index([plan])
+}
+
+model CreditTransaction {
+  id          String            @id @default(cuid())
+  userId      String
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Transaction details
+  amount      Int               // Positive for credits added, negative for used
+  type        TransactionType
+
+  // Context
+  projectId   String?           // Which project this relates to
+  description String            // Human-readable description
+  metadata    Json?             // Additional context (model used, tokens, etc.)
+
+  // Balance tracking
+  balanceBefore Int             // Balance before this transaction
+  balanceAfter  Int             // Balance after this transaction
+
+  createdAt   DateTime          @default(now())
+
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+  @@index([projectId])
+}
+
+model Subscription {
+  id                String             @id @default(cuid())
+  userId            String
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Plan details
+  plan              PlanType           @default(FREE)
+  status            SubscriptionStatus @default(ACTIVE)
+
+  // Billing
+  priceMonthly      Int                @default(0)   // Price in cents
+  currency          String             @default("USD")
+
+  // Period
+  currentPeriodStart DateTime          @default(now())
+  currentPeriodEnd   DateTime?
+  cancelledAt        DateTime?
+  cancelAtPeriodEnd  Boolean           @default(false)
+
+  // External payment provider reference
+  stripeSubscriptionId String?         @unique
+  stripeCustomerId     String?
+
+  // Trial
+  trialStart         DateTime?
+  trialEnd           DateTime?
+
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([stripeSubscriptionId])
+}
+
+model PricingPlan {
+  id                String   @id @default(cuid())
+  name              String   @unique  // free, starter, team, business, enterprise
+  displayName       String            // "Free", "Starter", etc.
+
+  // Pricing
+  priceMonthly      Int      @default(0)   // Price in cents
+  priceYearly       Int      @default(0)   // Annual price in cents
+  currency          String   @default("USD")
+
+  // Credits
+  monthlyCredits    Int      @default(100)
+
+  // Limits
+  maxProjects       Int      @default(3)
+  maxDeployments    Int      @default(5)
+  maxTeamMembers    Int      @default(1)
+  storageGb         Int      @default(1)
+  apiCallsPerDay    Int      @default(100)
+
+  // Features
+  features          Json     // Array of feature flags
+
+  // Display
+  isRecommended     Boolean  @default(false)
+  isActive          Boolean  @default(true)
+  sortOrder         Int      @default(0)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([name])
+  @@index([isActive])
+}
+
+enum PlanType {
+  FREE
+  STARTER
+  TEAM
+  BUSINESS
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  PAST_DUE
+  TRIALING
+  PAUSED
+  INCOMPLETE
+}
+
+enum TransactionType {
+  // Credit additions
+  SIGNUP_BONUS         // Initial free credits
+  PLAN_ALLOWANCE       // Monthly plan credits
+  PURCHASE             // Bought credits
+  REFERRAL_BONUS       // Referral reward
+  PROMO_CODE           // Promotional credits
+  ADMIN_ADJUSTMENT     // Manual admin adjustment
+  REFUND               // Credit refund
+
+  // Credit usage
+  THEME_GENERATION     // AI theme generation
+  THEME_ITERATION      // AI iteration/refinement
+  EXPORT               // Theme export
+  DEPLOYMENT           // Deployment to Odoo
+  API_CALL             // API usage
 }

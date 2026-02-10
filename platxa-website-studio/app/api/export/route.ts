@@ -21,7 +21,7 @@
 import { exportTheme, validateBeforeExport, exportAsJson } from "@/lib/export";
 import type { GeneratedFile } from "@/lib/odoo-skills";
 import { processGeneratedFiles } from "@/lib/ai/quality-checker";
-import { ensureRequiredFiles } from "@/lib/ai/parser";
+import { ensureRequiredFiles, consolidateExportFiles } from "@/lib/ai/parser";
 import type { ParsedFile } from "@/lib/ai/parser";
 
 // =============================================================================
@@ -105,8 +105,14 @@ export async function POST(req: Request) {
       businessName: body.themeName.replace(/^theme_/, "").replace(/_/g, " "),
     });
 
+    // Step 2.5: ROOT CAUSE FIX - Consolidate duplicate XML and SCSS files
+    // AI often generates both templates.xml AND pages.xml, or style.scss AND theme.scss
+    // This merges them into single files to prevent Odoo installation errors
+    const consolidatedFiles = consolidateExportFiles(qualityResult.files);
+    console.log(`[Export] Consolidated ${qualityResult.files.length} files into ${consolidatedFiles.length} files`);
+
     // Step 3: Ensure all required files exist (manifest, __init__.py, etc.)
-    const completeFiles = ensureRequiredFiles(qualityResult.files, body.themeName);
+    const completeFiles = ensureRequiredFiles(consolidatedFiles, body.themeName);
 
     // Step 4: Convert back to GeneratedFile format
     // PRODUCTION-CRITICAL: Normalize ALL paths to use target themeName

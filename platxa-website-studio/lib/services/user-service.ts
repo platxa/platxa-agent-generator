@@ -5,6 +5,7 @@
 import { db } from "@/lib/db";
 import { hashCredential, verifyCredential } from "@/lib/auth/password";
 import type { User, UserRole } from "@prisma/client";
+import { getOrCreateCreditAccount } from "@/lib/services/credit-service";
 
 export interface CreateUserInput {
   email: string;
@@ -19,18 +20,28 @@ export interface UpdateUserInput {
 }
 
 /**
- * Create a new user with hashed password
+ * Create a new user with hashed password and initialize credit account
  */
 export async function createUser(input: CreateUserInput): Promise<User> {
   const hashedValue = await hashCredential(input.password);
 
-  return db.user.create({
+  const user = await db.user.create({
     data: {
       email: input.email.toLowerCase().trim(),
       password: hashedValue,
       name: input.name?.trim(),
     },
   });
+
+  // Initialize credit account with signup bonus
+  try {
+    await getOrCreateCreditAccount(user.id);
+  } catch (error) {
+    console.error('Failed to create credit account for user:', error);
+    // Don't fail user creation if credit account fails
+  }
+
+  return user;
 }
 
 /**
