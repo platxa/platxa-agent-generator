@@ -128,3 +128,18 @@ export {
   type GeneratedPalette,
   type PaletteSuggestion,
 } from "./color-palette-generator";
+
+// Template Library (15+ industry templates)
+export {
+  TemplateLibrary,
+  createTemplateLibrary,
+  getTemplateLibrary,
+  resetTemplateLibrary,
+  type IndustryCategory,
+  type SectionType,
+  type SectionConfig,
+  type CustomizationOption,
+  type IndustryTemplate,
+  type TemplateFilterOptions,
+  type CustomizedTemplate,
+} from "./template-library";
