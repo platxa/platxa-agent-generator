@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-5",
-  "title": "Implementation: Implement validation phase aggregating QWeb, SCSS, accessibi...",
+  "title": "Implementation: Integrate with Odoo.sh for one-click instance provisioning",
   "context": {
     "spec_id": "feature-5",
     "feature_id": "5",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "Integration",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "validatePhase() runs all validators in parallel; returns aggregated pass/fail with errors array",
+        "type": "manual",
+        "criteria": "User can provision Odoo instance with single click",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T17:56:33.041315"
+    "created_at": "2026-02-10T15:23:50.186449"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-5-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Implement validation phase aggregating QWeb, SCSS, accessibility, and Odoo structure checks",
+      "description": "Review feature requirements: Integrate with Odoo.sh for one-click instance provisioning",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-5-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-5-3",
       "title": "Implement Feature",
-      "description": "Implement: Implement validation phase aggregating QWeb, SCSS, accessibility, and Odoo structure checks",
+      "description": "Implement: Integrate with Odoo.sh for one-click instance provisioning",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-5-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-5-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'validatePhase() runs all validators in parallel; returns aggregated pass/fail with errors array', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'User can provision Odoo instance with single click', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "validatePhase() runs all validators in parallel; returns aggregated pass/fail with errors array",
+        "type": "manual",
+        "criteria": "User can provision Odoo instance with single click",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T17:56:33.041352",
+  "created_at": "2026-02-10T15:23:50.186486",
   "lsp_impact": {}
 }

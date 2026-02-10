@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-02-10T15:07:01.130596",
+  "updated_at": "2026-02-10T15:23:50.187398",
   "plans": [
     {
       "id": "plan-feature-108",
@@ -996,10 +996,10 @@
     },
     {
       "id": "plan-feature-5",
-      "title": "Implementation: Implement validation phase aggregating QWeb, SCSS, accessibi...",
+      "title": "Implementation: Integrate with Odoo.sh for one-click instance provisioning",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T17:56:33.041352",
+      "created_at": "2026-02-10T15:23:50.186486",
       "constitution_check": true
     },
     {
