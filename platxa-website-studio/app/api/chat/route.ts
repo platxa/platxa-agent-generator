@@ -884,10 +884,11 @@ export async function POST(req: Request) {
       return errorResponse("Request body must be an object", 400);
     }
 
-    const { messages, projectContext, projectId } = body as {
+    const { messages, projectContext, projectId, preferencePrompt } = body as {
       messages?: unknown;
       projectContext?: ProjectContext;
       projectId?: string;
+      preferencePrompt?: string; // User preferences from cross-session memory
     };
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
@@ -1039,7 +1040,7 @@ export async function POST(req: Request) {
     }
 
     // Build system prompt with context (enhanced with brand tokens if pipeline ran)
-    const basePrompt = buildSystemPrompt({
+    let basePrompt = buildSystemPrompt({
       projectName: projectContext?.projectName,
       industry: projectContext?.industry,
       colorPalette: projectContext?.colorPalette,
@@ -1047,6 +1048,12 @@ export async function POST(req: Request) {
       designStyle: projectContext?.designStyle,
       useCompactPrompt: true,
     });
+
+    // Inject user preferences from cross-session memory (Feature #6)
+    if (preferencePrompt && preferencePrompt.trim()) {
+      basePrompt = basePrompt + "\n" + preferencePrompt;
+      console.log("[Chat] Injected user preferences from cross-session memory");
+    }
 
     // Enhance with RAG context for codebase awareness
     const ragEnhancedPrompt = enhancePromptWithRAG(basePrompt, ragContext);

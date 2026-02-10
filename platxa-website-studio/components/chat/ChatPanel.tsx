@@ -10,7 +10,7 @@ import { ChatInput } from "./ChatInput";
 import { StreamingIndicator } from "./StreamingIndicator";
 import { AgentPhaseIndicator } from "./AgentPhaseIndicator";
 import { DesignSuggestions } from "./DesignSuggestions";
-import { useChatStore, useProjectStore, useEditorStore, useEditorStoreHydration, useAgentStore } from "@/lib/stores";
+import { useChatStore, useProjectStore, useEditorStore, useEditorStoreHydration, useAgentStore, usePreferenceStore } from "@/lib/stores";
 import { useStreamingPreviewSafe } from "@/lib/preview/client";
 import { parseGeneratedFiles, validateOdooTheme, formatFilesForDisplay, generateManifest, type ParsedFile } from "@/lib/ai/parser";
 import { cn } from "@/lib/utils/cn";
@@ -39,6 +39,7 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
   const { suggestions, setSuggestions } = useChatStore();
   const { openGeneratedFiles, fileContents } = useEditorStore();
   const { startPipeline, setAgentStatus, markComplete, reset: resetAgentStore } = useAgentStore();
+  const { buildPreferencePrompt } = usePreferenceStore();
   const streamingPreview = useStreamingPreviewSafe();
 
   // Ensure editor store is hydrated for SSR compatibility
@@ -80,6 +81,8 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
         colorPalette: projectConfig?.colorPalette,
         existingFiles: existingFilePaths.length > 0 ? existingFilePaths : undefined,
       },
+      // Include user preferences from cross-session memory (Feature #6)
+      preferencePrompt: buildPreferencePrompt(),
     },
     onResponse: () => {
       setApiError(null);

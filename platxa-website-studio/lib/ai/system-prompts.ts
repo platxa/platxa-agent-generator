@@ -586,14 +586,21 @@ import type { BrandTokenContext } from "@/lib/agent-bridge/types";
  * @param options - Project context for base prompt
  * @param brandTokens - Brand tokens from pre-generation (optional)
  * @param promptFragment - Pre-built prompt fragment from design analysis (optional)
- * @returns Enhanced system prompt with brand tokens appended
+ * @param preferencePrompt - User preference fragment from cross-session memory (optional)
+ * @returns Enhanced system prompt with brand tokens and preferences appended
  */
 export function buildEnhancedSystemPrompt(
   options: ProjectContext,
   brandTokens?: BrandTokenContext,
   promptFragment?: string,
+  preferencePrompt?: string,
 ): string {
-  const basePrompt = buildSystemPrompt(options);
+  let basePrompt = buildSystemPrompt(options);
+
+  // Inject user preferences if available (from cross-session memory)
+  if (preferencePrompt && preferencePrompt.trim()) {
+    basePrompt = basePrompt + "\n" + preferencePrompt;
+  }
 
   if (!brandTokens) return basePrompt;
 
