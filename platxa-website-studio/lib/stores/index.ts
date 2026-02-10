@@ -29,3 +29,11 @@ export {
   type DeployEventType,
   type FileSyncStatus,
 } from "./sync-store";
+export {
+  useAgentStore,
+  selectIsRunning,
+  selectAgentPhase,
+  selectQualityScore,
+  selectBrandColors,
+  type PipelineStatus,
+} from "./agent-store";

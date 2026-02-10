@@ -10,7 +10,7 @@ import { ChatInput } from "./ChatInput";
 import { StreamingIndicator } from "./StreamingIndicator";
 import { AgentPhaseIndicator } from "./AgentPhaseIndicator";
 import { DesignSuggestions } from "./DesignSuggestions";
-import { useChatStore, useProjectStore, useEditorStore, useEditorStoreHydration } from "@/lib/stores";
+import { useChatStore, useProjectStore, useEditorStore, useEditorStoreHydration, useAgentStore } from "@/lib/stores";
 import { useStreamingPreviewSafe } from "@/lib/preview/client";
 import { parseGeneratedFiles, validateOdooTheme, formatFilesForDisplay, generateManifest, type ParsedFile } from "@/lib/ai/parser";
 import { cn } from "@/lib/utils/cn";
@@ -38,6 +38,7 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
   const { projectName, projectConfig, setFilesConsolidated } = useProjectStore();
   const { suggestions, setSuggestions } = useChatStore();
   const { openGeneratedFiles, fileContents } = useEditorStore();
+  const { startPipeline, setAgentStatus, markComplete, reset: resetAgentStore } = useAgentStore();
   const streamingPreview = useStreamingPreviewSafe();
 
   // Ensure editor store is hydrated for SSR compatibility
@@ -68,6 +69,7 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
     error,
     append,
     reload,
+    data: streamData, // Streamed metadata from 2: chunks
   } = useChat({
     id: `chat-${projectId}`, // Scope messages to this project - fixes localStorage cross-contamination
     api: "/api/chat",
@@ -83,16 +85,22 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
       setApiError(null);
       // Start streaming preview when response begins
       streamingPreview?.startStreaming();
+      // Start agent pipeline tracking
+      startPipeline();
     },
     onFinish: () => {
       setStreamStartTime(undefined);
       // End streaming preview when generation completes
       streamingPreview?.endStreaming();
+      // Mark agent as complete using the proper action
+      markComplete();
       // Note: File parsing is handled by useEffect watching messages for reliability
     },
     onError: (error: Error) => {
       setStreamStartTime(undefined);
       console.error("Chat error:", error);
+      // Reset agent store on error
+      resetAgentStore();
 
       try {
         if (error.message) {
@@ -314,6 +322,44 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
       }
     }
   }, [messages, isLoading, streamingPreview]);
+
+  // Parse progress metadata from stream and update agent store
+  useEffect(() => {
+    if (!streamData || !Array.isArray(streamData)) return;
+
+    // Find the latest agentProgress data in the stream
+    for (let i = streamData.length - 1; i >= 0; i--) {
+      const item = streamData[i];
+      if (item && typeof item === "object" && "agentProgress" in item) {
+        const progress = item.agentProgress as {
+          phase: string;
+          progress: number;
+          message: string;
+          timestamp: number;
+        };
+
+        // Map stream phase to AgentPhase type
+        const phaseMap: Record<string, string> = {
+          analyzing: "analyzing",
+          streaming: "streaming",
+          post_processing: "post_processing",
+          computing_quality: "computing_quality",
+          complete: "complete",
+          error: "error",
+        };
+
+        const mappedPhase = phaseMap[progress.phase] || "streaming";
+
+        setAgentStatus({
+          phase: mappedPhase as "analyzing" | "streaming" | "post_processing" | "computing_quality" | "complete" | "error",
+          message: progress.message,
+          progress: progress.progress,
+          startedAt: new Date().toISOString(),
+        });
+        break;
+      }
+    }
+  }, [streamData, setAgentStatus]);
 
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion);

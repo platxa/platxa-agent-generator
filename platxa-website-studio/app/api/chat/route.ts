@@ -586,6 +586,26 @@ async function streamClaudeResponse(
   let fullResponseText = "";
   let lastUsageStats = { promptTokens: 0, completionTokens: 0 };
 
+  // Progress emission helper - emits phase updates via 2: data format
+  type AgentPhase = "analyzing" | "streaming" | "post_processing" | "computing_quality" | "complete" | "error";
+  const emitProgress = (
+    safeEnqueue: (chunk: Uint8Array) => boolean,
+    phase: AgentPhase,
+    progress: number,
+    message: string
+  ) => {
+    const progressData = {
+      agentProgress: {
+        phase,
+        progress: Math.min(100, Math.max(0, progress)),
+        message,
+        timestamp: Date.now(),
+      },
+    };
+    const progressChunk = `2:${JSON.stringify([progressData])}\n`;
+    safeEnqueue(encoder.encode(progressChunk));
+  };
+
   // Convert messages to Anthropic format
   const anthropicMessages = messages.map((msg) => ({
     role: msg.role as "user" | "assistant",
@@ -625,6 +645,9 @@ async function streamClaudeResponse(
       };
 
       try {
+        // Emit initial streaming phase
+        emitProgress(safeEnqueue, "streaming", 10, "Generating content...");
+
         for await (const event of stream) {
           if (event.type === "content_block_delta") {
             const delta = event.delta;
@@ -648,8 +671,14 @@ async function streamClaudeResponse(
         // Run post-generation pipeline if available
         if (pipeline && fullResponseText && !isStreamClosed) {
           try {
+            // Emit post-processing phase
+            emitProgress(safeEnqueue, "post_processing", 60, "Processing generated content...");
+
             const postResult = await pipeline.runPostGeneration(fullResponseText);
             if (postResult && !isStreamClosed) {
+              // Emit quality computation phase
+              emitProgress(safeEnqueue, "computing_quality", 80, "Computing quality score...");
+
               const qualityData = {
                 agentQuality: {
                   score: postResult.quality.overallScore,
@@ -755,6 +784,9 @@ async function streamClaudeResponse(
 
         // Send finish message - AI SDK v3 uses `d:` for finish_message
         // (verified from @ai-sdk/ui-utils source: finishMessageStreamPart.code = "d")
+        // Emit completion phase
+        emitProgress(safeEnqueue, "complete", 100, "Generation complete");
+
         // NOTE: `e:` is for finish_STEP (multi-step), `d:` is for finish_MESSAGE (end stream)
         if (!isStreamClosed) {
           const finishData = {
@@ -1116,6 +1148,26 @@ export async function POST(req: Request) {
       const encoder = new TextEncoder();
       const decoder = new TextDecoder();
 
+      // Progress emission helper for Ollama stream
+      type OllamaAgentPhase = "analyzing" | "streaming" | "post_processing" | "computing_quality" | "complete" | "error";
+      const emitOllamaProgress = (
+        safeEnqueue: (chunk: Uint8Array) => boolean,
+        phase: OllamaAgentPhase,
+        progress: number,
+        message: string
+      ) => {
+        const progressData = {
+          agentProgress: {
+            phase,
+            progress: Math.min(100, Math.max(0, progress)),
+            message,
+            timestamp: Date.now(),
+          },
+        };
+        const progressChunk = `2:${JSON.stringify([progressData])}\n`;
+        safeEnqueue(encoder.encode(progressChunk));
+      };
+
       // Capture references for use inside the stream closure
       const activePipeline = pipeline;
       const capturedUserMessage = userMessageContent;
@@ -1165,6 +1217,9 @@ export async function POST(req: Request) {
             let chunkCount = 0;
 
             console.log("[Ollama Stream] Starting to read chunks...");
+
+            // Emit initial streaming phase
+            emitOllamaProgress(safeEnqueue, "streaming", 10, "Generating content...");
 
             while (true) {
               const { done, value } = await reader.read();
@@ -1230,8 +1285,14 @@ export async function POST(req: Request) {
             // --- Agent Bridge: Post-Generation (runs after LLM stream completes) ---
             if (activePipeline && fullResponseText && !isStreamClosed) {
               try {
+                // Emit post-processing phase
+                emitOllamaProgress(safeEnqueue, "post_processing", 60, "Processing generated content...");
+
                 const postResult = await activePipeline.runPostGeneration(fullResponseText);
                 if (postResult && !isStreamClosed) {
+                  // Emit quality computation phase
+                  emitOllamaProgress(safeEnqueue, "computing_quality", 80, "Computing quality score...");
+
                   const qualityData = {
                     agentQuality: {
                       score: postResult.quality.overallScore,
@@ -1318,6 +1379,9 @@ export async function POST(req: Request) {
             // CRITICAL: Send finish message with usage stats (must be last before close)
             // AI SDK v3 uses `d:` for finish_message (verified from @ai-sdk/ui-utils source)
             // NOTE: `e:` is for finish_STEP (multi-step), `d:` is for finish_MESSAGE (ends stream!)
+            // Emit completion phase
+            emitOllamaProgress(safeEnqueue, "complete", 100, "Generation complete");
+
             console.log("[Ollama Stream] About to send finish_message - isStreamClosed:", isStreamClosed, "content length:", fullResponseText.length);
             if (!isStreamClosed) {
               const finishData = {

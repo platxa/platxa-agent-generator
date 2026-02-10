@@ -48,6 +48,8 @@ interface AgentState {
   setPreGenerationResult: (result: PreGenerationResult) => void;
   setPostGenerationResult: (result: PostGenerationResult) => void;
   completePipeline: (result: AgentPipelineResult) => void;
+  /** Marks pipeline as complete without requiring full result (for simple completion signals) */
+  markComplete: (message?: string) => void;
   failPipeline: (error: string) => void;
   setBrandContext: (context: BrandTokenContext) => void;
   reset: () => void;
@@ -107,6 +109,17 @@ export const useAgentStore = create<AgentState>()((set) => ({
       agentStatus: {
         phase: "complete",
         message: "Generation complete",
+        progress: 100,
+        startedAt: new Date().toISOString(),
+      },
+    }),
+
+  markComplete: (message = "Generation complete") =>
+    set({
+      pipelineStatus: "completed",
+      agentStatus: {
+        phase: "complete",
+        message,
         progress: 100,
         startedAt: new Date().toISOString(),
       },
