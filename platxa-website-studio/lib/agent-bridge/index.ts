@@ -1509,3 +1509,23 @@ export type {
   MultiSelectEvent,
   MultiSelectEventListener,
 } from "./multi-select";
+
+// Marketplace Publisher (Odoo App Store publishing flow)
+export {
+  publishToMarketplace,
+  createPurchaseWebhookHandler,
+  generateLicenseKey,
+  validateLicenseKey,
+  buildModulePackage,
+} from "./marketplace-publisher";
+export type {
+  OdooStoreAuth,
+  ModulePackage,
+  PublishStepStatus,
+  PublishStep,
+  PublishResult,
+  PriceConfig,
+  PublishOptions,
+  PurchaseEvent,
+  HttpClient,
+} from "./marketplace-publisher";
