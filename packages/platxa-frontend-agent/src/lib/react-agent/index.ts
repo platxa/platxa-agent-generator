@@ -1190,3 +1190,34 @@ export type {
   ColorFormatOptions,
   NamingConventionOptions,
 } from "./stylelint"
+
+// =============================================================================
+// MCP Integration (ESLint AI-Aware Linting)
+// =============================================================================
+
+export {
+  createESLintMCPTool,
+  createAILintContext,
+  ESLintBridge,
+  createESLintBridge,
+  createAIContext,
+} from "./mcp"
+
+export type {
+  LintSeverity,
+  LintMessage,
+  LintSuggestion,
+  LintFix,
+  LintFileResult,
+  LintResults,
+  RuleCategory,
+  LintAnalysis,
+  DetectedPattern,
+  LintToolParams,
+  AnalyzeToolParams,
+  ReportToolParams,
+  ESLintMCPConfig,
+  ESLintMCPTool,
+  RuleInfo,
+  AILintContext,
+} from "./mcp"
