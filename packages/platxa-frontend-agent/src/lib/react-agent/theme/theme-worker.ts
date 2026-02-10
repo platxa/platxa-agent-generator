@@ -1829,7 +1829,227 @@ export function generateColorVariables(
 }
 
 /**
- * Generates CSS from design tokens
+ * Generates CSS variables from spacing tokens (Feature #25)
+ *
+ * @example
+ * ```typescript
+ * const spacing = { 1: "0.25rem", 2: "0.5rem", 4: "1rem" }
+ * generateSpacingVariables(spacing)
+ * // Returns: { "--spacing-1": "0.25rem", "--spacing-2": "0.5rem", "--spacing-4": "1rem" }
+ * ```
+ */
+export function generateSpacingVariables(
+  spacing: Partial<Record<string | number, string>>
+): Record<string, string> {
+  const variables: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(spacing)) {
+    if (value) {
+      // Handle numeric keys and string keys consistently
+      const cssKey = key.toString().replace(".", "_") // 0.5 -> 0_5
+      variables[`--spacing-${cssKey}`] = value
+    }
+  }
+
+  return variables
+}
+
+/**
+ * Generates CSS variables from typography tokens (Feature #25)
+ *
+ * Creates both font-size and line-height variables for each typography step.
+ *
+ * @example
+ * ```typescript
+ * const typography = {
+ *   base: { fontSize: "1rem", lineHeight: "1.5" },
+ *   lg: { fontSize: "1.125rem", lineHeight: "1.75" }
+ * }
+ * generateTypographyVariables(typography)
+ * // Returns: {
+ * //   "--font-size-base": "1rem",
+ * //   "--line-height-base": "1.5",
+ * //   "--font-size-lg": "1.125rem",
+ * //   "--line-height-lg": "1.75"
+ * // }
+ * ```
+ */
+export function generateTypographyVariables(
+  typography: Partial<Record<string, { fontSize: string; lineHeight: string }>>
+): Record<string, string> {
+  const variables: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(typography)) {
+    if (value && typeof value === "object") {
+      if (value.fontSize) {
+        variables[`--font-size-${key}`] = value.fontSize
+      }
+      if (value.lineHeight) {
+        variables[`--line-height-${key}`] = value.lineHeight
+      }
+    }
+  }
+
+  return variables
+}
+
+/**
+ * Generates CSS variables from font family tokens (Feature #25)
+ *
+ * @example
+ * ```typescript
+ * const fontFamily = { sans: "Inter, sans-serif", mono: "Fira Code, monospace" }
+ * generateFontFamilyVariables(fontFamily)
+ * // Returns: { "--font-sans": "Inter, sans-serif", "--font-mono": "Fira Code, monospace" }
+ * ```
+ */
+export function generateFontFamilyVariables(
+  fontFamily?: { sans?: string; serif?: string; mono?: string }
+): Record<string, string> {
+  const variables: Record<string, string> = {}
+
+  if (!fontFamily) return variables
+
+  for (const [key, value] of Object.entries(fontFamily)) {
+    if (value) {
+      variables[`--font-${key}`] = value
+    }
+  }
+
+  return variables
+}
+
+/**
+ * Generates CSS variables from font weight tokens (Feature #25)
+ *
+ * @example
+ * ```typescript
+ * const fontWeight = { normal: 400, medium: 500, bold: 700 }
+ * generateFontWeightVariables(fontWeight)
+ * // Returns: { "--font-weight-normal": "400", "--font-weight-medium": "500", "--font-weight-bold": "700" }
+ * ```
+ */
+export function generateFontWeightVariables(
+  fontWeight: Partial<Record<string, number>>
+): Record<string, string> {
+  const variables: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(fontWeight)) {
+    if (value !== undefined) {
+      variables[`--font-weight-${key}`] = String(value)
+    }
+  }
+
+  return variables
+}
+
+/**
+ * Generates CSS variables from radius tokens (Feature #25)
+ *
+ * @example
+ * ```typescript
+ * const radius = { sm: "0.125rem", md: "0.25rem", lg: "0.5rem" }
+ * generateRadiusVariables(radius)
+ * // Returns: { "--radius-sm": "0.125rem", "--radius-md": "0.25rem", "--radius-lg": "0.5rem" }
+ * ```
+ */
+export function generateRadiusVariables(
+  radius: Partial<Record<string, string>>
+): Record<string, string> {
+  const variables: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(radius)) {
+    if (value) {
+      variables[`--radius-${key}`] = value
+    }
+  }
+
+  return variables
+}
+
+/**
+ * Generates CSS variables from shadow tokens (Feature #25)
+ *
+ * @example
+ * ```typescript
+ * const shadow = { sm: "0 1px 2px rgba(0,0,0,0.1)", lg: "0 10px 25px rgba(0,0,0,0.15)" }
+ * generateShadowVariables(shadow)
+ * // Returns: { "--shadow-sm": "0 1px 2px rgba(0,0,0,0.1)", "--shadow-lg": "0 10px 25px rgba(0,0,0,0.15)" }
+ * ```
+ */
+export function generateShadowVariables(
+  shadow: Partial<Record<string, string>>
+): Record<string, string> {
+  const variables: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(shadow)) {
+    if (value) {
+      const shadowKey = key === "default" ? "DEFAULT" : key
+      variables[`--shadow-${shadowKey}`] = value
+    }
+  }
+
+  return variables
+}
+
+/**
+ * Generates all CSS variables from design tokens (Feature #25)
+ *
+ * Combines all token categories (colors, spacing, typography, etc.)
+ * into a single Record of CSS variable name -> value pairs.
+ *
+ * @example
+ * ```typescript
+ * const allVars = generateAllCssVariables(tokens)
+ * // Returns combined object with:
+ * // - Color vars: --background, --foreground, --primary, etc.
+ * // - Spacing vars: --spacing-1, --spacing-2, etc.
+ * // - Typography vars: --font-size-base, --line-height-base, etc.
+ * // - Font vars: --font-sans, --font-weight-normal, etc.
+ * // - Radius vars: --radius-sm, --radius-md, etc.
+ * // - Shadow vars: --shadow-sm, --shadow-lg, etc.
+ * ```
+ */
+export function generateAllCssVariables(tokens: DesignTokens): Record<string, string> {
+  return {
+    ...generateColorVariables(tokens.colors),
+    ...generateSpacingVariables(tokens.spacing),
+    ...generateTypographyVariables(tokens.typography),
+    ...generateFontFamilyVariables(tokens.fontFamily),
+    ...generateFontWeightVariables(tokens.fontWeight),
+    ...generateRadiusVariables(tokens.radius),
+    ...generateShadowVariables(tokens.shadow),
+  }
+}
+
+/**
+ * Generates CSS from design tokens (Feature #25: Complete CSS Variable Generation)
+ *
+ * Generates all CSS custom properties from design tokens including:
+ * - Semantic colors (--background, --foreground, --primary, etc.)
+ * - Spacing scale (--spacing-1, --spacing-2, etc.)
+ * - Typography (--font-size-base, --line-height-base, etc.)
+ * - Font families (--font-sans, --font-serif, --font-mono)
+ * - Font weights (--font-weight-normal, --font-weight-bold, etc.)
+ * - Border radius (--radius-sm, --radius-md, etc.)
+ * - Box shadows (--shadow-sm, --shadow-lg, etc.)
+ *
+ * @example
+ * ```typescript
+ * const css = generateCss(tokens)
+ * // Returns:
+ * // :root {
+ * //   --background: hsl(0 0% 100%);
+ * //   --foreground: hsl(222.2 84% 4.9%);
+ * //   --spacing-1: 0.25rem;
+ * //   --spacing-2: 0.5rem;
+ * //   --font-size-base: 1rem;
+ * //   --line-height-base: 1.5;
+ * //   --font-sans: Inter, sans-serif;
+ * //   --radius-lg: 0.5rem;
+ * //   ...
+ * // }
+ * ```
  */
 export function generateCss(
   tokens: DesignTokens,
@@ -1839,15 +2059,75 @@ export function generateCss(
 
   lines.push(`${selector} {`)
 
-  // Color variables
+  // === Color Variables ===
+  lines.push("  /* Semantic Colors */")
   const colorVars = generateColorVariables(tokens.colors)
   for (const [name, value] of Object.entries(colorVars)) {
     lines.push(`  ${name}: ${value};`)
   }
 
-  // Radius variable (commonly used)
-  if (tokens.radius.lg) {
-    lines.push(`  --radius: ${tokens.radius.lg};`)
+  // === Spacing Variables (Feature #25) ===
+  const spacingVars = generateSpacingVariables(tokens.spacing)
+  if (Object.keys(spacingVars).length > 0) {
+    lines.push("")
+    lines.push("  /* Spacing Scale */")
+    for (const [name, value] of Object.entries(spacingVars)) {
+      lines.push(`  ${name}: ${value};`)
+    }
+  }
+
+  // === Typography Variables (Feature #25) ===
+  const typographyVars = generateTypographyVariables(tokens.typography)
+  if (Object.keys(typographyVars).length > 0) {
+    lines.push("")
+    lines.push("  /* Typography Scale */")
+    for (const [name, value] of Object.entries(typographyVars)) {
+      lines.push(`  ${name}: ${value};`)
+    }
+  }
+
+  // === Font Family Variables (Feature #25) ===
+  const fontFamilyVars = generateFontFamilyVariables(tokens.fontFamily)
+  if (Object.keys(fontFamilyVars).length > 0) {
+    lines.push("")
+    lines.push("  /* Font Families */")
+    for (const [name, value] of Object.entries(fontFamilyVars)) {
+      lines.push(`  ${name}: ${value};`)
+    }
+  }
+
+  // === Font Weight Variables (Feature #25) ===
+  const fontWeightVars = generateFontWeightVariables(tokens.fontWeight)
+  if (Object.keys(fontWeightVars).length > 0) {
+    lines.push("")
+    lines.push("  /* Font Weights */")
+    for (const [name, value] of Object.entries(fontWeightVars)) {
+      lines.push(`  ${name}: ${value};`)
+    }
+  }
+
+  // === Radius Variables (Feature #25) ===
+  const radiusVars = generateRadiusVariables(tokens.radius)
+  if (Object.keys(radiusVars).length > 0) {
+    lines.push("")
+    lines.push("  /* Border Radius */")
+    for (const [name, value] of Object.entries(radiusVars)) {
+      lines.push(`  ${name}: ${value};`)
+    }
+    // Also add --radius shorthand (commonly used by shadcn/ui)
+    if (tokens.radius.lg) {
+      lines.push(`  --radius: ${tokens.radius.lg};`)
+    }
+  }
+
+  // === Shadow Variables (Feature #25) ===
+  const shadowVars = generateShadowVariables(tokens.shadow)
+  if (Object.keys(shadowVars).length > 0) {
+    lines.push("")
+    lines.push("  /* Box Shadows */")
+    for (const [name, value] of Object.entries(shadowVars)) {
+      lines.push(`  ${name}: ${value};`)
+    }
   }
 
   lines.push("}")
