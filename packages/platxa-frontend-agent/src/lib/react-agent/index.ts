@@ -1271,3 +1271,38 @@ export type {
   UseDoubleStreamOptions,
   UseDoubleStreamReturn,
 } from "./streaming"
+
+// =============================================================================
+// State Graph (LangGraph-Style State Machine)
+// =============================================================================
+
+export { createStateGraph, END, START } from "./state-graph"
+
+export type {
+  BaseState,
+  StateMetadata,
+  ExecutionStep,
+  GraphError,
+  NodeFunction,
+  NodeConfig,
+  GraphNode,
+  RetryConfig,
+  EdgeType,
+  DirectEdge,
+  ConditionalEdge,
+  Edge,
+  EdgeRouter,
+  GraphConfig,
+  CheckpointConfig,
+  CheckpointHandler,
+  ExecuteOptions,
+  ExecuteResult,
+  CompiledGraph,
+  GraphVisualization,
+  ValidationResult as GraphValidationResult,
+  ValidationError as GraphValidationError,
+  ValidationWarning as GraphValidationWarning,
+  GraphEvent,
+  GraphEventListener,
+  StateGraphBuilder,
+} from "./state-graph"
