@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-2",
-  "title": "Implementation: Implement 5-iteration self-correction loop with quality thre...",
+  "title": "Implementation: Implement two-way GitHub repository synchronization",
   "context": {
     "spec_id": "feature-2",
     "feature_id": "2",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "Integration",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Loop continues until quality >= 80 or max 5 iterations; emits iteration events",
+        "type": "functional",
+        "criteria": "Push/pull themes to/from GitHub, branch support",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T17:50:04.539043"
+    "created_at": "2026-02-10T12:26:55.773282"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-2-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Implement 5-iteration self-correction loop with quality threshold (qualityScore >= 80 to pass)",
+      "description": "Review feature requirements: Implement two-way GitHub repository synchronization",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-2-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-2-3",
       "title": "Implement Feature",
-      "description": "Implement: Implement 5-iteration self-correction loop with quality threshold (qualityScore >= 80 to pass)",
+      "description": "Implement: Implement two-way GitHub repository synchronization",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-2-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-2-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Loop continues until quality >= 80 or max 5 iterations; emits iteration events', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'functional', 'criteria': 'Push/pull themes to/from GitHub, branch support', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Loop continues until quality >= 80 or max 5 iterations; emits iteration events",
+        "type": "functional",
+        "criteria": "Push/pull themes to/from GitHub, branch support",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T17:50:04.539094",
+  "created_at": "2026-02-10T12:26:55.773304",
   "lsp_impact": {}
 }

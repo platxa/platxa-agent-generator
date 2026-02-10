@@ -392,3 +392,70 @@ enum TransactionType {
   DEPLOYMENT           // Deployment to Odoo
   API_CALL             // API usage
 }
+
+// ============================================
+// GITHUB INTEGRATION
+// ============================================
+
+model GitHubConnection {
+  id            String   @id @default(cuid())
+  userId        String
+
+  // GitHub OAuth tokens
+  accessToken   String   // Encrypted access token
+  tokenType     String   @default("bearer")
+  scope         String   // Comma-separated scopes
+
+  // GitHub user info
+  githubId      Int      @unique
+  githubLogin   String
+  githubEmail   String?
+  githubAvatar  String?
+
+  // Token metadata
+  obtainedAt    DateTime @default(now())
+  expiresAt     DateTime?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId])
+  @@index([githubId])
+  @@index([githubLogin])
+}
+
+model GitHubRepository {
+  id            String   @id @default(cuid())
+  projectId     String   @unique
+
+  // Repository info
+  owner         String
+  repo          String
+  branch        String   @default("main")
+  fullName      String   // owner/repo
+  isPrivate     Boolean  @default(false)
+
+  // Sync state
+  lastSyncAt    DateTime?
+  lastCommitSha String?
+  syncStatus    GitHubSyncStatus @default(IDLE)
+
+  // Webhook
+  webhookId     Int?
+  webhookSecret String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([owner, repo, branch])
+  @@index([projectId])
+  @@index([syncStatus])
+}
+
+enum GitHubSyncStatus {
+  IDLE
+  SYNCING
+  CONFLICT
+  ERROR
+  UP_TO_DATE
+}

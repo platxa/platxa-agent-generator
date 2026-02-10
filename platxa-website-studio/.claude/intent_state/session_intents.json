@@ -1,67 +1,38 @@
 {
-  "session_id": "e30294dd2588",
+  "session_id": "20b296e633e6",
   "stack": {
     "session": {
-      "id": "77add0c31c34-533",
-      "text": "[Phase 6: Integration] Feature #196: Add architecture decision records (ADRs) for major decisions Criteria: ADRs for: agentic loop design, tool selection, HMR approach",
+      "id": "20b296e633e6-535",
+      "text": "[Integration] Feature #2: Implement two-way GitHub repository synchronization Criteria: Push/pull themes to/from GitHub, branch support",
       "level": "session",
       "status": "active",
       "confidence": 1.0,
-      "created_at": 1769889562.680855,
-      "updated_at": 1769889562.6808553,
+      "created_at": 1770706616.2288764,
+      "updated_at": 1770706616.2288764,
       "completed_at": null,
       "parent_id": null,
       "metadata": {
-        "feature_id": 196,
-        "category": "Phase 6: Integration"
+        "feature_id": 2,
+        "category": "Integration"
       },
       "keywords": []
     },
     "task": {
-      "id": "77add0c31c34-534",
-      "text": "Implement: Add architecture decision records (ADRs) for major decisions",
+      "id": "20b296e633e6-536",
+      "text": "Implement: Implement two-way GitHub repository synchronization",
       "level": "task",
-      "status": "completed",
+      "status": "active",
       "confidence": 1.0,
-      "created_at": 1769889562.6914263,
-      "updated_at": 1769890014.0325098,
-      "completed_at": 1769890014.0325093,
-      "parent_id": "77add0c31c34-533",
+      "created_at": 1770706616.233531,
+      "updated_at": 1770706616.233531,
+      "completed_at": null,
+      "parent_id": "20b296e633e6-535",
       "metadata": {},
       "keywords": []
     },
     "step": null
   },
   "history": [
-    {
-      "id": "04799d554232-35",
-      "text": "[Agent Intelligence] Feature #68: Add clarifying question generation before ambiguous or underspecified requests Criteria: Ambiguous prompt ('make it better') triggers clarifying questions instead of blind generation",
-      "level": "session",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769582613.1722336,
-      "updated_at": 1769582613.1722336,
-      "completed_at": null,
-      "parent_id": null,
-      "metadata": {
-        "feature_id": 68,
-        "category": "Agent Intelligence"
-      },
-      "keywords": []
-    },
-    {
-      "id": "04799d554232-36",
-      "text": "Implement: Add clarifying question generation before ambiguous or underspecified requests",
-      "level": "task",
-      "status": "active",
-      "confidence": 1.0,
-      "created_at": 1769582613.176816,
-      "updated_at": 1769582613.176816,
-      "completed_at": null,
-      "parent_id": "04799d554232-35",
-      "metadata": {},
-      "keywords": []
-    },
     {
       "id": "d00d0b7c4ac3-37",
       "text": "[Agent Intelligence] Feature #69: Implement self-correction from quality gate feedback with automatic retry Criteria: Quality gate failure feeds error details back to agent; agent regenerates with corrections applied",
@@ -7282,9 +7253,38 @@
       "parent_id": "77add0c31c34-533",
       "metadata": {},
       "keywords": []
+    },
+    {
+      "id": "20b296e633e6-535",
+      "text": "[Integration] Feature #2: Implement two-way GitHub repository synchronization Criteria: Push/pull themes to/from GitHub, branch support",
+      "level": "session",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1770706616.2288764,
+      "updated_at": 1770706616.2288764,
+      "completed_at": null,
+      "parent_id": null,
+      "metadata": {
+        "feature_id": 2,
+        "category": "Integration"
+      },
+      "keywords": []
+    },
+    {
+      "id": "20b296e633e6-536",
+      "text": "Implement: Implement two-way GitHub repository synchronization",
+      "level": "task",
+      "status": "active",
+      "confidence": 1.0,
+      "created_at": 1770706616.233531,
+      "updated_at": 1770706616.233531,
+      "completed_at": null,
+      "parent_id": "20b296e633e6-535",
+      "metadata": {},
+      "keywords": []
     }
   ],
-  "intent_counter": 534,
+  "intent_counter": 536,
   "created_at": 1769518375.3149886,
-  "updated_at": 1769890014.0325105
+  "updated_at": 1770706616.2335372
 }

@@ -41,6 +41,23 @@ export interface ProjectConfig {
 export type OdooStatus = "disconnected" | "connecting" | "connected" | "error";
 
 /**
+ * GitHub sync status
+ */
+export type GitHubSyncStatus = "idle" | "syncing" | "conflict" | "error" | "up-to-date";
+
+/**
+ * GitHub repository info
+ */
+export interface GitHubRepoInfo {
+  owner: string;
+  repo: string;
+  branch: string;
+  fullName: string;
+  lastSyncAt: string | null;
+  lastCommitSha: string | null;
+}
+
+/**
  * Project state interface
  */
 interface ProjectState {
@@ -59,6 +76,12 @@ interface ProjectState {
   odooStatus: OdooStatus;
   odooError: string | null;
 
+  // GitHub sync
+  githubRepo: GitHubRepoInfo | null;
+  githubSyncStatus: GitHubSyncStatus;
+  githubError: string | null;
+  pendingChanges: string[];  // Paths of modified files pending sync
+
   // Actions
   setProject: (projectId: string, name: string) => void;
   setProjectConfig: (config: ProjectConfig) => void;
@@ -71,6 +94,12 @@ interface ProjectState {
   setOdooConnection: (odooUrl: string, sidecarUrl: string) => void;
   setOdooStatus: (status: OdooStatus, error?: string) => void;
   resetProject: () => void;
+
+  // GitHub actions
+  setGitHubRepo: (repo: GitHubRepoInfo | null) => void;
+  setGitHubSyncStatus: (status: GitHubSyncStatus, error?: string) => void;
+  addPendingChange: (path: string) => void;
+  clearPendingChanges: () => void;
 }
 
 /**
@@ -283,6 +312,10 @@ export const useProjectStore = create<ProjectState>()(
       sidecarUrl: null,
       odooStatus: "disconnected",
       odooError: null,
+      githubRepo: null,
+      githubSyncStatus: "idle",
+      githubError: null,
+      pendingChanges: [],
 
       // Actions
       setProject: (projectId, name) =>
@@ -316,6 +349,10 @@ export const useProjectStore = create<ProjectState>()(
       updateFile: (path, content) =>
         set((state) => ({
           files: updateFileInTree(state.files, path, content),
+          // Track as pending change for GitHub sync
+          pendingChanges: state.pendingChanges.includes(path)
+            ? state.pendingChanges
+            : [...state.pendingChanges, path],
         })),
 
       deleteFile: (path) =>
@@ -350,7 +387,35 @@ export const useProjectStore = create<ProjectState>()(
           sidecarUrl: null,
           odooStatus: "disconnected",
           odooError: null,
+          githubRepo: null,
+          githubSyncStatus: "idle",
+          githubError: null,
+          pendingChanges: [],
         }),
+
+      // GitHub actions
+      setGitHubRepo: (repo) =>
+        set({
+          githubRepo: repo,
+          githubSyncStatus: repo ? "idle" : "idle",
+          githubError: null,
+        }),
+
+      setGitHubSyncStatus: (status, error) =>
+        set({
+          githubSyncStatus: status,
+          githubError: error || null,
+        }),
+
+      addPendingChange: (path) =>
+        set((state) => ({
+          pendingChanges: state.pendingChanges.includes(path)
+            ? state.pendingChanges
+            : [...state.pendingChanges, path],
+        })),
+
+      clearPendingChanges: () =>
+        set({ pendingChanges: [] }),
     }),
     {
       name: "platxa-project-storage",
