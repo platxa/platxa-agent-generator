@@ -38,6 +38,13 @@ import {
   type ValidationSummary,
   type SelfCorrectionOptions,
 } from "@/lib/ai/self-correction-loop";
+import {
+  evaluateWithCritic,
+  buildCorrectionPromptFromCritic,
+  formatCriticReport,
+  type CriticReport,
+} from "@/lib/ai/critic-agent";
+import { parseGeneratedFiles, type ParsedFile } from "@/lib/ai/parser";
 
 // =============================================================================
 // Self-Correction Configuration
@@ -394,13 +401,35 @@ async function runSelfCorrectionLoop(
   finalContent: string;
   attempts: CorrectionAttempt[];
   wasCorrrected: boolean;
+  criticReport?: CriticReport;
 }> {
   const attempts: CorrectionAttempt[] = [];
   let currentContent = generatedCode;
   let wasCorrrected = false;
+  let latestCriticReport: CriticReport | undefined;
 
   for (let iteration = 1; iteration <= MAX_CORRECTION_ITERATIONS; iteration++) {
-    // Validate current content
+    // CRITIC AGENT: Parse and evaluate generated files
+    let parsedFiles: ParsedFile[] = [];
+    try {
+      parsedFiles = parseGeneratedFiles(currentContent);
+    } catch {
+      console.log(`[SelfCorrection] Could not parse content for critic evaluation`);
+    }
+
+    // Run Critic Agent evaluation if we have parsed files
+    if (parsedFiles.length > 0) {
+      latestCriticReport = evaluateWithCritic(parsedFiles, iteration);
+      console.log(`[Critic] ${formatCriticReport(latestCriticReport).split('\n').slice(0, 3).join(' | ')}`);
+
+      // If critic says quality is acceptable, we can stop early
+      if (latestCriticReport.grade === 'A' || latestCriticReport.grade === 'B') {
+        console.log(`[Critic] Grade ${latestCriticReport.grade} - quality acceptable, skipping further iterations`);
+        break;
+      }
+    }
+
+    // Validate current content (existing validation)
     const validation = validateGeneratedCode(currentContent);
     const qualityScore = calculateQualityScore(validation);
 
@@ -447,8 +476,15 @@ async function runSelfCorrectionLoop(
       break;
     }
 
-    // Build correction prompt and call AI again
-    const correctionPrompt = buildCorrectionPrompt(originalPrompt, currentContent, validation);
+    // Build correction prompt with critic feedback if available
+    let correctionPrompt: string;
+    if (latestCriticReport && latestCriticReport.errorCount > 0) {
+      // Use critic-enhanced prompt for better feedback
+      correctionPrompt = buildCorrectionPromptFromCritic(originalPrompt, currentContent, latestCriticReport);
+      console.log(`[SelfCorrection] Using critic-enhanced correction prompt`);
+    } else {
+      correctionPrompt = buildCorrectionPrompt(originalPrompt, currentContent, validation);
+    }
 
     console.log(`[SelfCorrection] Attempting correction with ${validation.totalErrors} errors...`);
 
@@ -475,7 +511,7 @@ async function runSelfCorrectionLoop(
     }
   }
 
-  return { finalContent: currentContent, attempts, wasCorrrected };
+  return { finalContent: currentContent, attempts, wasCorrrected, criticReport: latestCriticReport };
 }
 
 /**

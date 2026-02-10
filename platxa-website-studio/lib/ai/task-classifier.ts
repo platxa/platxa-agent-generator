@@ -113,6 +113,36 @@ const TASK_PATTERNS: Record<TaskType, TaskPattern> = {
     baseWeight: 1.0,
   },
 
+  code_editing: {
+    keywords: [
+      "edit",
+      "modify",
+      "change",
+      "update",
+      "fix",
+      "refactor",
+      "rename",
+      "replace",
+      "adjust",
+      "tweak",
+      "alter",
+      "correct",
+      "patch",
+      "revise",
+      "rewrite",
+      "move",
+      "restructure",
+    ],
+    patterns: [
+      /(?:edit|modify|change|update|fix) (?:the |this |my )?(?:code|function|component|file)/i,
+      /(?:can you |please )?(?:refactor|rename|replace|adjust)/i,
+      /(?:make |do )(?:a |the )?(?:change|edit|modification|fix)/i,
+      /(?:change|update|modify) (?:it|this|that) to/i,
+    ],
+    negativeKeywords: ["create", "new", "generate", "write from scratch"],
+    baseWeight: 1.0,
+  },
+
   code_review: {
     keywords: [
       "review",
@@ -603,8 +633,12 @@ export class TaskClassifier {
     const hints: Record<string, string> = {
       "planning-code_generation":
         "Are you looking to plan/design the solution, or should I write the code directly?",
+      "code_generation-code_editing":
+        "Should I create new code from scratch or modify existing code?",
       "code_generation-code_review":
         "Should I write new code or review existing code?",
+      "code_editing-code_review":
+        "Should I make changes to the code or just review it?",
       "design_analysis-content_writing":
         "Are you asking about visual design or written content?",
       "chat-reasoning":
