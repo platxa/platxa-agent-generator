@@ -143,3 +143,28 @@ export {
   type TemplateFilterOptions,
   type CustomizedTemplate,
 } from "./template-library";
+
+// Theme Versioning (Feature #14)
+export {
+  ThemeVersionManager,
+  createThemeVersionManager,
+  getThemeVersionManager,
+  resetThemeVersionManager,
+  parseVersion,
+  formatVersion,
+  bumpVersion,
+  compareVersions,
+  formatVersionHistory,
+  formatVersionDiff,
+  type SemanticVersion,
+  type VersionBump,
+  type ChangeCategory,
+  type ThemeChange,
+  type ThemeVersion,
+  type ThemeState,
+  type VersionDiff,
+  type ThemeVersionHistory,
+  type RollbackResult,
+  type ThemeVersionManagerOptions,
+  type VersionEvent,
+} from "./theme-version-manager";
