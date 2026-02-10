@@ -187,10 +187,18 @@ export const SYNTAX_ERROR_PATTERNS: ErrorPattern[] = [
     extract: (m) => ({ message: m[1], file: m[2], line: parseInt(m[3]) }),
   },
   {
-    pattern: /SyntaxError:\s*(.+?)(?:\s+(?:at|in)\s+['"]?([^'"]+)['"]?)?/i,
+    // SyntaxError with file location (at/in 'file') - NOT optional
+    pattern: /SyntaxError:\s*(.+?)\s+(?:at|in)\s+['"]([^'"]+)['"]/i,
     type: "syntax_error",
     severity: "error",
     extract: (m) => ({ message: m[1], file: m[2] }),
+  },
+  {
+    // SyntaxError without file location - fallback pattern
+    pattern: /SyntaxError:\s*(.+)/i,
+    type: "syntax_error",
+    severity: "error",
+    extract: (m) => ({ message: m[1] }),
   },
   {
     pattern: /(?:Parse|Parsing)\s*error:\s*(.+?)\s*(?:in|at)\s*['"]?([^'":\n]+)['"]?(?::(\d+))?/i,
