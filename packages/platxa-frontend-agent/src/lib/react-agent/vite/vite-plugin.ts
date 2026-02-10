@@ -30,13 +30,14 @@
 import type { Plugin, ViteDevServer, ResolvedConfig } from "vite"
 import { resolveConfig as resolvePlatxaConfig } from "../brand/config"
 import { findAndLoadConfig, CONFIG_FILE_NAMES } from "../brand/config-loader"
+import { resolveBrand } from "../brand/loader"
 import {
   generateStaticStylesheet,
   processThemeForBuild,
 } from "../theme/theme-worker"
 import { getThemePreset } from "../theme/tokens"
-import type { FrontendConfig, ResolvedConfig as PlatxaResolvedConfig } from "../brand/types"
-import type { ThemeConfig } from "../theme/types"
+import type { FrontendConfig, ResolvedConfig as PlatxaResolvedConfig, BrandKitExport } from "../brand/types"
+import type { ThemeConfig, DesignTokens } from "../theme/types"
 
 // =============================================================================
 // TYPES
@@ -83,9 +84,13 @@ export interface PlatxaVitePluginOptions {
 interface PluginState {
   config: PlatxaResolvedConfig | null
   themeConfig: ThemeConfig | null
+  brandKit: BrandKitExport | null
+  tokens: DesignTokens | null
   cssContent: string
   configPath: string | null
   viteConfig: ResolvedConfig | null
+  /** Whether brand was resolved at build time (no runtime overhead) */
+  buildTimeResolved: boolean
 }
 
 // =============================================================================
@@ -152,9 +157,12 @@ export function platxaTheme(options: PlatxaVitePluginOptions = {}): Plugin {
   const state: PluginState = {
     config: null,
     themeConfig: null,
+    brandKit: null,
+    tokens: null,
     cssContent: "",
     configPath: null,
     viteConfig: null,
+    buildTimeResolved: false,
   }
 
   // Server reference for HMR
@@ -162,6 +170,11 @@ export function platxaTheme(options: PlatxaVitePluginOptions = {}): Plugin {
 
   /**
    * Load and process configuration
+   *
+   * Feature #23: Build-Time Resolution
+   * When a brand package is specified, it is resolved at build time,
+   * eliminating runtime resolution overhead. The CSS is generated
+   * statically and included in the build output.
    */
   async function loadConfig(rootDir: string): Promise<void> {
     try {
@@ -189,19 +202,51 @@ export function platxaTheme(options: PlatxaVitePluginOptions = {}): Plugin {
       // Resolve configuration
       state.config = resolvePlatxaConfig(userConfig ?? undefined)
 
-      // Get theme config based on resolved config
-      const themeConfig = getThemePreset(state.config.preset)
-      state.themeConfig = themeConfig
+      // =========================================================================
+      // BUILD-TIME BRAND RESOLUTION (Feature #23)
+      // =========================================================================
+      // When mode is "brand" and a package is specified, resolve it at build time.
+      // This eliminates runtime resolution overhead - all tokens are pre-computed.
+      // =========================================================================
+      if (state.config.mode === "brand" && state.config.brandPackage) {
+        console.log(`[platxa] Resolving brand kit at build time: ${state.config.brandPackage}`)
 
-      // Generate CSS
-      state.cssContent = generateStaticStylesheet(themeConfig)
+        const brandResult = await resolveBrand(state.config, {
+          throwOnError: false, // Graceful fallback
+        })
+
+        if (brandResult.status === "loaded") {
+          state.brandKit = brandResult.brandKit
+          state.tokens = brandResult.tokens
+          state.themeConfig = brandResult.themeConfig
+          state.buildTimeResolved = true
+
+          console.log(`[platxa] Brand kit resolved: ${brandResult.brandKit?.meta.name ?? "unknown"} v${brandResult.brandKit?.meta.version ?? "?"}`)
+        } else {
+          // Brand loading failed, fall back to theme preset
+          console.warn(`[platxa] Brand kit failed to load: ${brandResult.error}`)
+          console.warn(`[platxa] Falling back to preset: ${state.config.preset}`)
+
+          state.themeConfig = getThemePreset(state.config.preset)
+          state.buildTimeResolved = false
+        }
+      } else {
+        // No brand package - use theme preset (existing behavior)
+        state.themeConfig = getThemePreset(state.config.preset)
+        state.buildTimeResolved = state.config.mode === "builtin"
+      }
+
+      // Generate CSS from resolved theme config
+      if (state.themeConfig) {
+        state.cssContent = generateStaticStylesheet(state.themeConfig)
+      }
     } catch (error) {
       console.warn("[platxa] Failed to load config:", error)
       // Fall back to defaults
       state.config = resolvePlatxaConfig()
-      const defaultThemeConfig = getThemePreset("default")
-      state.themeConfig = defaultThemeConfig
-      state.cssContent = generateStaticStylesheet(defaultThemeConfig)
+      state.themeConfig = getThemePreset("default")
+      state.cssContent = generateStaticStylesheet(state.themeConfig)
+      state.buildTimeResolved = false
     }
   }
 
@@ -309,12 +354,22 @@ export function platxaTheme(options: PlatxaVitePluginOptions = {}): Plugin {
           ? processThemeForBuild(state.themeConfig)
           : null
 
+        // Brand kit meta (without the full object to reduce bundle size)
+        const brandMeta = state.brandKit?.meta ?? null
+
         return `
 // Generated by @platxa/frontend-agent
+// Build-time resolution: ${state.buildTimeResolved ? "YES (no runtime overhead)" : "NO"}
+
 export const themeConfig = ${JSON.stringify(state.themeConfig, null, 2)};
 export const platxaConfig = ${JSON.stringify(state.config, null, 2)};
 export const cssVariables = ${JSON.stringify(buildOutput?.cssVariables ?? {}, null, 2)};
 export const css = ${JSON.stringify(state.cssContent)};
+
+// Brand kit metadata (Feature #23: Build-Time Resolution)
+export const brandMeta = ${JSON.stringify(brandMeta, null, 2)};
+export const buildTimeResolved = ${state.buildTimeResolved};
+export const tokens = ${JSON.stringify(state.tokens, null, 2)};
 
 // Auto-inject CSS if enabled
 ${injectCss ? `
