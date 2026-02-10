@@ -1221,3 +1221,53 @@ export type {
   RuleInfo,
   AILintContext,
 } from "./mcp"
+
+// =============================================================================
+// Streaming (Double-Streaming with Sanitization)
+// =============================================================================
+
+export {
+  createDoubleStream,
+  createSanitizingTransform,
+  pipeWithSanitization,
+  escapeHtml,
+  escapeXml,
+  escapeJson,
+  escapeMarkdown,
+  stripHtml,
+  backendSanitize,
+  clientSanitize,
+  clientSanitizeSync,
+  sanitize,
+  sanitizeSync,
+  preloadDOMPurify,
+  DEFAULT_ALLOWED_TAGS,
+  DEFAULT_ALLOWED_ATTRIBUTES,
+  SAFE_URI_REGEX,
+  PROTOCOL_CODES,
+} from "./streaming"
+
+export type {
+  ChunkType,
+  StreamChunk,
+  TextChunk,
+  MetadataChunk,
+  FinishChunk,
+  ErrorChunk,
+  AnyChunk,
+  StreamMetadata,
+  StreamPhase,
+  FinishData,
+  StreamError,
+  ContentType,
+  SanitizeOptions,
+  SanitizeResult,
+  DOMPurifyConfig,
+  StreamSource,
+  StreamTransform,
+  StreamPipelineConfig,
+  StreamPipelineState,
+  DoubleStreamPipeline,
+  UseDoubleStreamOptions,
+  UseDoubleStreamReturn,
+} from "./streaming"
