@@ -136,6 +136,29 @@ export {
 } from "./i18n";
 
 // =============================================================================
+// MOBILE THEME GENERATOR EXPORTS
+// =============================================================================
+
+export {
+  // Core generation
+  generateMobileTheme,
+  createMobileThemeFromWeb,
+  // Validation
+  validateMobileThemeConfig,
+  // Presets
+  getMobileThemePresets,
+  // Types
+  type MobilePlatform,
+  type MobileComponentType,
+  type MobileThemeConfig,
+  type MobileTypography,
+  type TouchTargetConfig,
+  type MobileComponentStyles,
+  type MobileThemeResult,
+  type MobileThemeManifest,
+} from "./mobile-theme-generator";
+
+// =============================================================================
 // CONVENIENCE FUNCTIONS
 // =============================================================================
 
