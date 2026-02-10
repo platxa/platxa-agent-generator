@@ -2159,14 +2159,43 @@ export function generateDarkModeCss(
 }
 
 /**
- * Generates Tailwind v4 @theme block
+ * Generates Tailwind v4 @theme block (Feature #26: Complete Tailwind Integration)
+ *
+ * Creates a complete Tailwind v4 @theme directive with all design tokens:
+ * - Colors with --color-* prefix
+ * - Spacing with --spacing-* prefix
+ * - Typography with --text-* prefix (Tailwind v4 convention)
+ * - Font families with --font-* prefix
+ * - Font weights with --font-weight-* prefix
+ * - Border radius with --radius-* prefix
+ * - Box shadows with --shadow-* prefix
+ *
+ * @example
+ * ```typescript
+ * const tailwindTheme = generateTailwindTheme(tokens)
+ * // Returns:
+ * // @theme {
+ * //   --color-background: hsl(0 0% 100%);
+ * //   --color-primary: hsl(222.2 47.4% 11.2%);
+ * //   --spacing-1: 0.25rem;
+ * //   --spacing-4: 1rem;
+ * //   --text-base: 1rem;
+ * //   --text-base--line-height: 1.5;
+ * //   --font-sans: Inter, sans-serif;
+ * //   --font-weight-normal: 400;
+ * //   --radius-lg: 0.5rem;
+ * //   --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.05);
+ * // }
+ * ```
+ *
+ * @see https://tailwindcss.com/docs/theme for Tailwind v4 theme documentation
  */
 export function generateTailwindTheme(tokens: DesignTokens): string {
   const lines: string[] = []
 
   lines.push("@theme {")
 
-  // Colors
+  // === Colors (--color-*) ===
   lines.push("  /* Semantic Colors */")
   const colorVars = generateColorVariables(tokens.colors)
   for (const [name, value] of Object.entries(colorVars)) {
@@ -2174,28 +2203,34 @@ export function generateTailwindTheme(tokens: DesignTokens): string {
     lines.push(`  ${tailwindName}: ${value};`)
   }
 
-  // Radius
-  lines.push("")
-  lines.push("  /* Border Radius */")
-  for (const [key, value] of Object.entries(tokens.radius)) {
-    if (value) {
-      lines.push(`  --radius-${key}: ${value};`)
+  // === Spacing (--spacing-*) (Feature #26) ===
+  const spacingVars = generateSpacingVariables(tokens.spacing)
+  if (Object.keys(spacingVars).length > 0) {
+    lines.push("")
+    lines.push("  /* Spacing Scale */")
+    for (const [name, value] of Object.entries(spacingVars)) {
+      lines.push(`  ${name}: ${value};`)
     }
   }
 
-  // Shadows
-  if (tokens.shadow) {
+  // === Typography (--text-* for Tailwind v4) (Feature #26) ===
+  // Tailwind v4 uses --text-{size} for font sizes and --text-{size}--line-height for line heights
+  if (tokens.typography && Object.keys(tokens.typography).length > 0) {
     lines.push("")
-    lines.push("  /* Shadows */")
-    for (const [key, value] of Object.entries(tokens.shadow)) {
-      if (value) {
-        const shadowKey = key === "default" ? "DEFAULT" : key
-        lines.push(`  --shadow-${shadowKey}: ${value};`)
+    lines.push("  /* Typography Scale */")
+    for (const [key, value] of Object.entries(tokens.typography)) {
+      if (value && typeof value === "object") {
+        if (value.fontSize) {
+          lines.push(`  --text-${key}: ${value.fontSize};`)
+        }
+        if (value.lineHeight) {
+          lines.push(`  --text-${key}--line-height: ${value.lineHeight};`)
+        }
       }
     }
   }
 
-  // Font families
+  // === Font Families (--font-*) ===
   if (tokens.fontFamily) {
     lines.push("")
     lines.push("  /* Font Families */")
@@ -2203,6 +2238,36 @@ export function generateTailwindTheme(tokens: DesignTokens): string {
       if (value) {
         lines.push(`  --font-${key}: ${value};`)
       }
+    }
+  }
+
+  // === Font Weights (--font-weight-*) (Feature #26) ===
+  const fontWeightVars = generateFontWeightVariables(tokens.fontWeight)
+  if (Object.keys(fontWeightVars).length > 0) {
+    lines.push("")
+    lines.push("  /* Font Weights */")
+    for (const [name, value] of Object.entries(fontWeightVars)) {
+      lines.push(`  ${name}: ${value};`)
+    }
+  }
+
+  // === Border Radius (--radius-*) ===
+  const radiusVars = generateRadiusVariables(tokens.radius)
+  if (Object.keys(radiusVars).length > 0) {
+    lines.push("")
+    lines.push("  /* Border Radius */")
+    for (const [name, value] of Object.entries(radiusVars)) {
+      lines.push(`  ${name}: ${value};`)
+    }
+  }
+
+  // === Shadows (--shadow-*) ===
+  const shadowVars = generateShadowVariables(tokens.shadow)
+  if (Object.keys(shadowVars).length > 0) {
+    lines.push("")
+    lines.push("  /* Shadows */")
+    for (const [name, value] of Object.entries(shadowVars)) {
+      lines.push(`  ${name}: ${value};`)
     }
   }
 
