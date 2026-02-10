@@ -75,3 +75,31 @@ export {
   type PerformanceInsight,
   type ThemeDashboardData,
 } from "./theme-performance-analytics"
+
+// Competitive analysis
+export {
+  analyzeTheme,
+  getMarketComparison,
+  getCompetitiveInsights,
+  getCompetitiveDashboard,
+  type ThemeCategory,
+  type QualityDimension,
+  type MarketPosition,
+  type AdvantageType,
+  type ThemeForAnalysis,
+  type ThemeFeatureSet,
+  type QualityMetrics,
+  type MarketplaceTheme,
+  type FeatureGap,
+  type FeatureDifference,
+  type CompetitiveAdvantage,
+  type Recommendation,
+  type TrendAlignment,
+  type PriceRange,
+  type CompetitiveAnalysis,
+  type ThemeComparison,
+  type MarketOverview,
+  type ScoreHistoryPoint,
+  type KeyMetrics,
+  type CompetitiveDashboard,
+} from "./competitive-analysis"
