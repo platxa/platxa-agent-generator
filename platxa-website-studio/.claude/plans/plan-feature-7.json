@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-7",
-  "title": "Implementation: Create re-planning logic that incorporates error context to ...",
+  "title": "Implementation: Add image-to-code capability for website screenshots",
   "context": {
     "spec_id": "feature-7",
     "feature_id": "7",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "AI",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "replanWithErrors() generates new plan targeting specific error files/lines",
+        "type": "functional",
+        "criteria": "Upload screenshot, generate matching Odoo theme",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T18:02:23.583013"
+    "created_at": "2026-02-10T15:57:24.223839"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-7-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create re-planning logic that incorporates error context to generate corrective plan steps",
+      "description": "Review feature requirements: Add image-to-code capability for website screenshots",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-7-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-7-3",
       "title": "Implement Feature",
-      "description": "Implement: Create re-planning logic that incorporates error context to generate corrective plan steps",
+      "description": "Implement: Add image-to-code capability for website screenshots",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-7-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-7-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'replanWithErrors() generates new plan targeting specific error files/lines', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'functional', 'criteria': 'Upload screenshot, generate matching Odoo theme', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "replanWithErrors() generates new plan targeting specific error files/lines",
+        "type": "functional",
+        "criteria": "Upload screenshot, generate matching Odoo theme",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T18:02:23.583060",
+  "created_at": "2026-02-10T15:57:24.223869",
   "lsp_impact": {}
 }

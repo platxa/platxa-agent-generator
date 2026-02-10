@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-6",
-  "title": "Implementation: Add error injection system feeding validation failures back ...",
+  "title": "Implementation: Add Figma plugin for DTCG token extraction",
   "context": {
     "spec_id": "feature-6",
     "feature_id": "6",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "Design",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Errors include file path, line number, error message, and suggested fix area",
+        "type": "functional",
+        "criteria": "Export colors, typography, spacing from Figma as .tokens.json",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T17:59:29.769102"
+    "created_at": "2026-02-10T15:47:16.796529"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-6-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add error injection system feeding validation failures back to LLM context for fix generation",
+      "description": "Review feature requirements: Add Figma plugin for DTCG token extraction",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-6-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-6-3",
       "title": "Implement Feature",
-      "description": "Implement: Add error injection system feeding validation failures back to LLM context for fix generation",
+      "description": "Implement: Add Figma plugin for DTCG token extraction",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-6-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-6-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Errors include file path, line number, error message, and suggested fix area', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'functional', 'criteria': 'Export colors, typography, spacing from Figma as .tokens.json', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Errors include file path, line number, error message, and suggested fix area",
+        "type": "functional",
+        "criteria": "Export colors, typography, spacing from Figma as .tokens.json",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T17:59:29.769142",
+  "created_at": "2026-02-10T15:47:16.796575",
   "lsp_impact": {}
 }

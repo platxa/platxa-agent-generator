@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-02-10T15:23:50.187398",
+  "updated_at": "2026-02-10T16:09:20.150492",
   "plans": [
     {
       "id": "plan-feature-108",
@@ -36,10 +36,10 @@
     },
     {
       "id": "plan-feature-6",
-      "title": "Implementation: Add error injection system feeding validation failures back ...",
+      "title": "Implementation: Add Figma plugin for DTCG token extraction",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T17:59:29.769142",
+      "created_at": "2026-02-10T15:47:16.796575",
       "constitution_check": true
     },
     {
@@ -452,10 +452,10 @@
     },
     {
       "id": "plan-feature-8",
-      "title": "Implementation: Implement progress event emitter streaming status updates vi...",
+      "title": "Implementation: Implement Generator-Critic-Refinement agent pattern",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T14:58:54.435417",
+      "created_at": "2026-02-10T16:03:41.102791",
       "constitution_check": true
     },
     {
@@ -588,10 +588,10 @@
     },
     {
       "id": "plan-feature-9",
-      "title": "Implementation: Add iteration tracking with diminishing returns detection (q...",
+      "title": "Implementation: Train custom AutoFix model on Odoo error patterns",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T15:03:36.767098",
+      "created_at": "2026-02-10T16:09:20.149973",
       "constitution_check": true
     },
     {
@@ -828,10 +828,10 @@
     },
     {
       "id": "plan-feature-7",
-      "title": "Implementation: Create re-planning logic that incorporates error context to ...",
+      "title": "Implementation: Add image-to-code capability for website screenshots",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T18:02:23.583060",
+      "created_at": "2026-02-10T15:57:24.223869",
       "constitution_check": true
     },
     {
@@ -1204,10 +1204,10 @@
     },
     {
       "id": "plan-feature-21",
-      "title": "Implementation: Implement validate_qweb tool checking XML syntax, t-directiv...",
+      "title": "Implementation: Add path traversal detection for asset URLs",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T18:35:18.831806",
+      "created_at": "2026-02-10T15:42:04.974894",
       "constitution_check": true
     },
     {

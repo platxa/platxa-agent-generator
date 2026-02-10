@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-21",
-  "title": "Implementation: Implement validate_qweb tool checking XML syntax, t-directiv...",
+  "title": "Implementation: Add path traversal detection for asset URLs",
   "context": {
     "spec_id": "feature-21",
     "feature_id": "21",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "Security",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Validates t-if, t-foreach, t-call directives; checks template inheritance",
+        "type": "automated",
+        "criteria": "Detect and block ../..paths in static asset references",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T18:35:18.831755"
+    "created_at": "2026-02-10T15:42:04.974849"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-21-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Implement validate_qweb tool checking XML syntax, t-directive validity, and template references",
+      "description": "Review feature requirements: Add path traversal detection for asset URLs",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-21-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-21-3",
       "title": "Implement Feature",
-      "description": "Implement: Implement validate_qweb tool checking XML syntax, t-directive validity, and template references",
+      "description": "Implement: Add path traversal detection for asset URLs",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-21-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-21-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Validates t-if, t-foreach, t-call directives; checks template inheritance', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'automated', 'criteria': 'Detect and block ../..paths in static asset references', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Validates t-if, t-foreach, t-call directives; checks template inheritance",
+        "type": "automated",
+        "criteria": "Detect and block ../..paths in static asset references",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T18:35:18.831806",
+  "created_at": "2026-02-10T15:42:04.974894",
   "lsp_impact": {}
 }

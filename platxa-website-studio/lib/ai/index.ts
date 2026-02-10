@@ -118,3 +118,26 @@ export {
   type GCRIteration,
   type GCRResult,
 } from "./gcr-agent";
+
+// AutoFix Model for Odoo Error Patterns
+export {
+  AutoFixModel,
+  getAutoFixModel,
+  resetAutoFixModel,
+  autoFix,
+  detectErrors,
+  getPatternsForCategory,
+  hasFixRule,
+  getErrorCategories,
+  formatAutoFixResult,
+  type ErrorCategory,
+  type ErrorSeverity,
+  type FixConfidence,
+  type ErrorPattern,
+  type FixRule,
+  type FixContext,
+  type DetectedError,
+  type SuggestedFix,
+  type AutoFixResult,
+  type ModelStats,
+} from "./autofix-model";
