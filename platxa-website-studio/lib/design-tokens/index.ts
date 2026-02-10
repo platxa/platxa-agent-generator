@@ -94,3 +94,26 @@ export {
   validateContrast,
   bumpVersion,
 } from "./token-validator";
+
+// Figma Integration (Phase 6)
+export {
+  extractTokensFromFigmaFile,
+  extractTokensFromFigmaVariables,
+  fetchAndExtractTokens,
+  exportToTokensJson,
+  parseTokensJson,
+} from "./figma-extractor";
+
+export type {
+  FigmaColor,
+  FigmaPaint,
+  FigmaEffect,
+  FigmaTextStyle,
+  FigmaNode,
+  FigmaFile,
+  FigmaVariable,
+  FigmaVariableCollection,
+  FigmaVariablesResponse,
+  FigmaExtractionOptions,
+  FigmaExtractionResult,
+} from "./figma-extractor";
