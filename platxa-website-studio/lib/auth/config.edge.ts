@@ -1,5 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
-import { getAuthSecret } from "./env";
+import { getAuthSecret, isDemoMode } from "./env";
 
 /**
  * Edge-compatible auth config for middleware
@@ -17,6 +17,11 @@ export const authConfigEdge: NextAuthConfig = {
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
+      // Demo mode: bypass all authentication
+      if (isDemoMode()) {
+        return true;
+      }
+
       const isLoggedIn = !!auth?.user;
       const isOnStudio = nextUrl.pathname === "/" || nextUrl.pathname.startsWith("/studio");
       const isOnAuth = nextUrl.pathname.startsWith("/login") || nextUrl.pathname.startsWith("/signup");

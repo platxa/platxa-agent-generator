@@ -834,13 +834,20 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   // This causes duplicate template IDs and wasted code - merge them into single files
   const consolidatedFiles = consolidateDuplicateFiles(files);
 
+  // ROOT CAUSE FIX: Run ensureRequiredFiles DURING parsing, not just on export
+  // This fixes xpath-without-inherit_id, missing website.layout wrappers, missing
+  // manifest/init files IMMEDIATELY so the UI shows correct files
+  const validatedFiles = consolidatedFiles.length > 0
+    ? ensureRequiredFiles(consolidatedFiles)
+    : consolidatedFiles;
+
   // Final summary logging
   console.log("[Parser] ===== PARSING COMPLETE =====");
-  console.log("[Parser] Total files extracted:", consolidatedFiles.length);
-  consolidatedFiles.forEach((f, i) => {
+  console.log("[Parser] Total files extracted:", validatedFiles.length);
+  validatedFiles.forEach((f, i) => {
     console.log(`[Parser]   ${i + 1}. ${f.path} (${f.language}, ${f.content.length} chars)`);
   });
-  if (consolidatedFiles.length === 0) {
+  if (validatedFiles.length === 0) {
     console.log("[Parser] WARNING: No files extracted! Check AI output format.");
     console.log("[Parser] Input contained code blocks:", cleanedResponse.includes("```"));
     console.log("[Parser] Input contained <odoo>:", cleanedResponse.includes("<odoo"));
@@ -848,7 +855,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   }
 
   // Sort files by type (manifest first, then views, then assets)
-  return consolidatedFiles.sort((a, b) => {
+  return validatedFiles.sort((a, b) => {
     const order = (path: string): number => {
       if (path.includes("__manifest__")) return 0;
       if (path.includes("/views/")) return 1;
@@ -1243,11 +1250,17 @@ export function ensureValidOdooXml(content: string, filePath: string): string {
   // This MUST run BEFORE the early return below
   // ==========================================================================
   if (fixed.includes('<xpath') && !fixed.includes('inherit_id')) {
+    // Match template tags followed by xpath, allowing HTML comments and whitespace in between
     fixed = fixed.replace(
-      /<template\s+id=["']([^"']+)["']([^>]*)>\s*<xpath/gi,
-      (match, id, attrs) => {
-        console.log(`[Parser] ROOT CAUSE FIX: Added inherit_id to template '${id}' with xpath`);
-        return `<template id="${id}" inherit_id="website.homepage"${attrs}>\n    <xpath`;
+      /<template\s+id=["']([^"']+)["']([^>]*)>([\s\S]*?)<xpath/gi,
+      (match, id, attrs, between) => {
+        // Only fix if the content between template and xpath is just comments/whitespace
+        const stripped = between.replace(/<!--[\s\S]*?-->/g, '').trim();
+        if (stripped === '') {
+          console.log(`[Parser] ROOT CAUSE FIX: Added inherit_id to template '${id}' with xpath`);
+          return `<template id="${id}" inherit_id="website.homepage"${attrs}>${between}<xpath`;
+        }
+        return match;
       }
     );
   }
@@ -1283,7 +1296,9 @@ export function ensureValidOdooXml(content: string, filePath: string): string {
     }
 
     // Check if content is raw HTML (has section, div, header, etc. as direct children)
-    const hasRawHtml = /^\s*<(?:section|div|header|footer|main|article|nav)/i.test(innerContent.trim());
+    // Strip HTML comments first since LLMs often add <!-- Hero Section --> before content
+    const contentWithoutComments = innerContent.replace(/<!--[\s\S]*?-->/g, '').trim();
+    const hasRawHtml = /^\s*<(?:section|div|header|footer|main|article|nav)/i.test(contentWithoutComments);
 
     if (hasRawHtml) {
       const wrapped = `<template id="${templateId}"${attrs}>

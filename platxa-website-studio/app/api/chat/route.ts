@@ -1298,10 +1298,10 @@ export async function POST(req: Request) {
                     // AI SDK v3 data stream format
                     const aiChunk = `0:${JSON.stringify(data.message.content)}\n`;
                     if (!safeEnqueue(encoder.encode(aiChunk))) {
-                      // Client disconnected - but we still need to finish cleanly
-                      // Log and continue to send finish signal before closing
-                      console.log("[Ollama Stream] Client disconnected during streaming, will send finish signal anyway");
-                      // Don't return early - let the loop finish naturally
+                      // Client disconnected - stop reading from Ollama to save resources
+                      console.log("[Ollama Stream] Client disconnected, stopping stream read");
+                      reader.cancel();
+                      return;
                     }
                   }
                   if (data.done) {

@@ -2,7 +2,7 @@ import type { NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { db } from "@/lib/db";
 import { hashCredential, verifyCredential } from "./password";
-import { getAuthSecret } from "./env";
+import { getAuthSecret, isDemoMode } from "./env";
 
 /**
  * NextAuth.js configuration for Platxa Website Studio
@@ -15,6 +15,11 @@ export const authConfig: NextAuthConfig = {
   },
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
+      // Demo mode: bypass all authentication
+      if (isDemoMode()) {
+        return true;
+      }
+
       const isLoggedIn = !!auth?.user;
       const isOnStudio = nextUrl.pathname === "/" || nextUrl.pathname.startsWith("/studio");
       const isOnAuth = nextUrl.pathname.startsWith("/login") || nextUrl.pathname.startsWith("/signup");

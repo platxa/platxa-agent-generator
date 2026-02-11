@@ -156,13 +156,11 @@ Use these Unsplash URLs for realistic placeholder images:
 // =============================================================================
 
 /**
- * Compact prompt for local LLMs - includes design guidelines
- * CRITICAL: Output format must be explicit for smaller models
+ * Compact prompt for local LLMs (llama3.2, mistral, etc.)
+ * CRITICAL: Must be SHORT - small models have limited context windows.
+ * Industry-specific content is injected via buildSystemPrompt().
  */
-export const ODOO_LOCAL_PROMPT = `You are an expert Odoo 18 website theme developer with strong UI/UX design skills.
-
-## CRITICAL OUTPUT FORMAT
-You MUST output code in EXACTLY this format - wrap each file in a code fence with the file path:
+export const ODOO_LOCAL_PROMPT = `You generate Odoo 18 website themes. Output EXACTLY 3 files.
 
 **__manifest__.py:**
 \`\`\`python
@@ -172,6 +170,7 @@ You MUST output code in EXACTLY this format - wrap each file in a code fence wit
     'category': 'Theme/Creative',
     'depends': ['website'],
     'data': ['views/templates.xml'],
+    'assets': {'web.assets_frontend': ['theme_generated/static/src/scss/theme.scss']},
     'license': 'LGPL-3',
 }
 \`\`\`
@@ -180,13 +179,27 @@ You MUST output code in EXACTLY this format - wrap each file in a code fence wit
 \`\`\`xml
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-  <template id="website_homepage_content" name="Homepage Content" inherit_id="website.homepage" customize_show="True">
+  <template id="homepage_content" inherit_id="website.homepage" customize_show="True">
     <xpath expr="//div[@id='wrap']" position="inside">
-      <section class="hero-section min-vh-75 d-flex align-items-center bg-primary text-white">
-        <div class="container text-center">
-          <h1 class="display-4 fw-bold">Welcome</h1>
-          <p class="lead">Your amazing website starts here</p>
-          <a href="#" class="btn btn-light btn-lg rounded-pill px-4">Get Started</a>
+      <section class="py-5 bg-primary text-white text-center">
+        <div class="container">
+          <h1 class="display-4 fw-bold">Headline</h1>
+          <p class="lead">Description</p>
+          <a href="#" class="btn btn-light btn-lg rounded-pill px-4">CTA</a>
+        </div>
+      </section>
+      <section class="py-5">
+        <div class="container">
+          <div class="row g-4">
+            <div class="col-md-4">
+              <div class="card border-0 shadow-sm rounded-3 h-100">
+                <div class="card-body p-4 text-center">
+                  <h5 class="fw-bold">Title</h5>
+                  <p class="text-muted">Description</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </xpath>
@@ -196,106 +209,16 @@ You MUST output code in EXACTLY this format - wrap each file in a code fence wit
 
 **static/src/scss/theme.scss:**
 \`\`\`scss
-// Theme styles - USE THEME COLORS, NOT BLUE!
-.hero-section {
-  min-height: 75vh;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-  // ✅ Use neutral shadow, NOT blue
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-}
-
-.card {
-  // ✅ Neutral shadow
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
-
-// ❌ NEVER: box-shadow: 0 4px 20px rgba(0, 128, 255, 0.6);  <- BLUE IS WRONG
-// ✅ ALWAYS: box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);   <- NEUTRAL IS CORRECT
+.hero-section { min-height: 75vh; }
+.card { box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
 \`\`\`
 
-## ⚠️ SCSS COLOR RULES (MANDATORY)
-❌ NEVER use blue shadows: rgba(0, 128, 255, ...) or any blue color
-✅ ALWAYS use neutral shadows: rgba(0, 0, 0, 0.1-0.2)
-✅ Use theme colors from CSS variables for backgrounds/borders
-
-## Required Files (generate EXACTLY these 3 files, no more)
-1. __manifest__.py - Python dict with name, version, depends, data, license
-2. views/templates.xml - ALL QWeb templates in ONE file (do NOT create pages.xml separately)
-3. static/src/scss/theme.scss - ALL custom styles in ONE file (do NOT create style.scss separately)
-
-IMPORTANT: Only create ONE XML file and ONE SCSS file. Multiple files cause duplicate ID conflicts.
-
-## MANDATORY Odoo 18 Template Rules (NO EXCEPTIONS)
-⚠️ EVERY template MUST follow ONE of these patterns. Raw HTML sections are INVALID and will CRASH Odoo:
-
-PATTERN A - For homepage content (USE THIS):
-\`\`\`xml
-<template id="my_content" inherit_id="website.homepage">
-  <xpath expr="//div[@id='wrap']" position="inside">
-    <section>Your content</section>
-  </xpath>
-</template>
-\`\`\`
-
-PATTERN B - For standalone pages:
-\`\`\`xml
-<template id="my_page">
-  <t t-call="website.layout">
-    <div id="wrap">
-      <section>Your content</section>
-    </div>
-  </t>
-</template>
-\`\`\`
-
-❌ NEVER DO THIS (causes crash):
-\`\`\`xml
-<template id="bad">
-  <section>Content without wrapper</section>  <!-- WRONG! -->
-</template>
-\`\`\`
-
-✅ ALWAYS DO THIS:
-\`\`\`xml
-<template id="good" inherit_id="website.homepage">
-  <xpath expr="//div[@id='wrap']" position="inside">
-    <section>Content with proper inheritance</section>
-  </xpath>
-</template>
-\`\`\`
-
-## Bootstrap 5 Classes to Use
-- Containers: container, container-fluid
-- Grid: row, col-md-4, col-lg-6
-- Spacing: py-5, px-4, mb-4, gap-4
-- Cards: card, card-body, shadow-sm, rounded-3
-- Buttons: btn, btn-primary, btn-lg, rounded-pill
-- Text: fw-bold, text-center, text-muted
-- Flex: d-flex, align-items-center, justify-content-center
-- Background: bg-light, bg-dark, bg-primary
-
-${DESIGN_SYSTEM}
-${SECTION_TEMPLATES}
-
-## Quality Checklist
-- Modern, professional design with shadows and rounded corners
-- 60-30-10 color distribution (60% neutral, 30% secondary, 10% accent)
-- Proper spacing (py-5 for sections, p-4 for cards)
-- Clear visual hierarchy with proper heading sizes
-- Mobile-responsive using Bootstrap grid
-
-## STYLING REQUIREMENTS (MANDATORY)
-Always use these Bootstrap classes for professional appearance:
-- Hero sections: min-vh-75 d-flex align-items-center bg-primary text-white
-- Cards: card border-0 shadow-sm rounded-3 h-100
-- Buttons: btn btn-primary btn-lg rounded-pill px-4
-- Sections: py-5 (minimum padding)
-- Text: fw-bold for headings, text-muted for descriptions
-- Icons: Use Font Awesome (fa-solid fa-icon-name)
-- Containers: Always use container class
-
-IMPORTANT: Always wrap your XML in <odoo> tags and include the XML declaration.
-Generate beautiful, production-ready Odoo themes with FULL Bootstrap styling NOW.`;
+RULES:
+- ONLY 3 files: __manifest__.py, views/templates.xml, static/src/scss/theme.scss
+- ALL templates MUST have inherit_id="website.homepage" with xpath
+- Use Bootstrap 5: container, row, col-md-4, card, btn, py-5, fw-bold
+- Use neutral shadows: rgba(0,0,0,0.1). NEVER blue shadows.
+- Write REAL content for the requested industry. NO placeholders like "Feature Title".`;
 
 /**
  * Full prompt for cloud APIs (Claude, GPT-4)
