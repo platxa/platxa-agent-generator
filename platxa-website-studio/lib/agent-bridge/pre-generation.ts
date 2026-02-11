@@ -397,6 +397,7 @@ export function runPreGeneration(input: PreGenerationInput): PreGenerationResult
     designContext,
     brandTokens,
     enhancedPromptFragment,
+    industry,
     timestamp: new Date().toISOString(),
   };
 }

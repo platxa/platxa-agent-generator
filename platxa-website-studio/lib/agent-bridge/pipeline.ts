@@ -584,6 +584,11 @@ export class AgentPipeline {
   // Accessors
   // ---------------------------------------------------------------------------
 
+  /** Get the full pre-generation result (includes detected industry, brand tokens, etc.) */
+  getPreResult(): PreGenerationResult | null {
+    return this.preResult;
+  }
+
   /** Get the brand tokens from pre-generation (for UI display) */
   getBrandTokens(): BrandTokenContext | null {
     return this.preResult?.brandTokens ?? null;

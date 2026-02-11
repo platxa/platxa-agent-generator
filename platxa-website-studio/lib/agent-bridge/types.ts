@@ -121,6 +121,8 @@ export interface PreGenerationResult {
   designContext: import("./design-analyzer").DesignContext | null;
   brandTokens: BrandTokenContext;
   enhancedPromptFragment: string;
+  /** Auto-detected or explicitly provided industry (e.g. "restaurant", "tech") */
+  industry?: string;
   timestamp: string;
 }
 

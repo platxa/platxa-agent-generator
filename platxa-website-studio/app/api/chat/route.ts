@@ -1086,9 +1086,11 @@ export async function POST(req: Request) {
     }
 
     // Build system prompt with context (enhanced with brand tokens if pipeline ran)
+    // Use auto-detected industry from pipeline when client doesn't provide one
+    const effectiveIndustry = projectContext?.industry || pipeline?.getPreResult()?.industry;
     let basePrompt = buildSystemPrompt({
       projectName: projectContext?.projectName,
-      industry: projectContext?.industry,
+      industry: effectiveIndustry,
       colorPalette: projectContext?.colorPalette,
       existingFiles: projectContext?.existingFiles,
       designStyle: projectContext?.designStyle,
