@@ -81,16 +81,17 @@ const nextConfig: NextConfig = {
         key: 'Permissions-Policy',
         value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
       },
-      // Content Security Policy
+      // Content Security Policy - only enforce in production
+      // In development, use report-only to avoid blocking HMR, Sentry, local APIs
       {
-        key: 'Content-Security-Policy',
+        key: isDev ? 'Content-Security-Policy-Report-Only' : 'Content-Security-Policy',
         value: [
           "default-src 'self'",
           `script-src 'self' ${isDev ? "'unsafe-inline' 'unsafe-eval'" : "'unsafe-inline'"} https://cdn.jsdelivr.net`,
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
           "img-src 'self' data: blob: https://*.githubusercontent.com https://*.googleusercontent.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com",
           "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:",
-          `connect-src 'self' https://api.anthropic.com https://api.openai.com https://api.github.com ${isDev ? 'ws://localhost:* http://localhost:*' : ''}`,
+          `connect-src 'self' https://api.anthropic.com https://api.openai.com https://api.github.com https://*.ingest.sentry.io https://*.sentry.io ${isDev ? 'ws://localhost:* wss://localhost:* http://localhost:* http://127.0.0.1:*' : ''}`,
           "worker-src 'self' blob:",
           "frame-ancestors 'self'",
           "form-action 'self'",

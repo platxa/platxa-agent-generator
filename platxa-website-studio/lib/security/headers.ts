@@ -87,7 +87,9 @@ export function generateCSP(config: SecurityHeadersConfig = DEFAULT_CONFIG): str
       'https://api.anthropic.com', // Claude API
       'https://api.openai.com', // OpenAI API
       'https://api.github.com', // GitHub API
-      ...(process.env.NODE_ENV === 'development' ? ['ws://localhost:*', 'http://localhost:*'] : []),
+      'https://*.ingest.sentry.io', // Sentry error reporting
+      'https://*.sentry.io', // Sentry SDK
+      ...(process.env.NODE_ENV === 'development' ? ['ws://localhost:*', 'wss://localhost:*', 'http://localhost:*', 'http://127.0.0.1:*'] : []),
       ...(config.connectSrc || []),
     ],
 
