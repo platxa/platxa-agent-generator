@@ -541,9 +541,15 @@ function consolidateDuplicateFiles(files: ParsedFile[]): ParsedFile[] {
       action: 'create',
     });
   } else if (scssFiles.length === 1) {
-    // Also fix blue shadows in single file
+    // Normalize SCSS filename to theme.scss (LLMs output custom names like la_bella_cucina.scss)
+    // This ensures manifest asset path 'theme_generated/static/src/scss/theme.scss' always matches
+    const normalizedPath = scssFiles[0].path.replace(/\/scss\/[^/]+\.scss$/, '/scss/theme.scss');
+    if (normalizedPath !== scssFiles[0].path) {
+      console.log(`[Parser] ROOT CAUSE FIX: Normalized SCSS path ${scssFiles[0].path} -> ${normalizedPath}`);
+    }
     const fixedScss = {
       ...scssFiles[0],
+      path: normalizedPath,
       content: fixBlueShadowsInScss(scssFiles[0].content),
     };
     result.push(fixedScss);
@@ -1266,6 +1272,25 @@ export function ensureValidOdooXml(content: string, filePath: string): string {
   }
 
   // ==========================================================================
+  // ROOT CAUSE FIX #3: Unclosed </xpath> tags
+  // AI generates <xpath ...> with sections inside but forgets </xpath> before </template>
+  // This produces invalid XML that crashes Odoo's XML parser
+  // ==========================================================================
+  const xpathOpenCount = (fixed.match(/<xpath\s/gi) || []).length;
+  const xpathCloseCount = (fixed.match(/<\/xpath>/gi) || []).length;
+  if (xpathOpenCount > xpathCloseCount) {
+    const missing = xpathOpenCount - xpathCloseCount;
+    // Insert missing </xpath> before each </template> that has unclosed xpaths
+    fixed = fixed.replace(
+      /([ \t]*)<\/template>/gi,
+      (match, indent) => {
+        return `${indent}  </xpath>\n${indent}</template>`;
+      }
+    );
+    console.log(`[Parser] ROOT CAUSE FIX: Added ${missing} missing </xpath> closing tag(s) in ${filePath}`);
+  }
+
+  // ==========================================================================
   // ROOT CAUSE FIX #2: Raw HTML templates without website.layout wrapper
   // AI generates <template><section>...</section></template> without t-call
   // This causes templates to render WITHOUT Odoo header/footer/navigation
@@ -1316,6 +1341,80 @@ export function ensureValidOdooXml(content: string, filePath: string): string {
   // Apply all replacements (reverse order to preserve indices)
   for (const { original, replacement } of templateReplacements.reverse()) {
     fixed = fixed.replace(original, replacement);
+  }
+
+  // ==========================================================================
+  // ROOT CAUSE FIX #4: Tailwind CSS classes in Odoo templates
+  // LLMs (especially small ones) mix Tailwind and Bootstrap classes.
+  // Odoo uses Bootstrap 5, NOT Tailwind - these classes will not render.
+  // ==========================================================================
+  const tailwindToBootstrap: Record<string, string> = {
+    // Spacing - Tailwind uses arbitrary values, Bootstrap uses 0-5 scale
+    'py-10': 'py-5', 'py-8': 'py-5', 'py-12': 'py-5', 'py-16': 'py-5', 'py-20': 'py-5',
+    'px-10': 'px-5', 'px-8': 'px-5', 'px-12': 'px-5', 'px-16': 'px-5',
+    'mt-10': 'mt-5', 'mt-8': 'mt-5', 'mb-10': 'mb-5', 'mb-8': 'mb-5',
+    'gap-8': 'gap-4', 'gap-6': 'gap-4', 'gap-10': 'gap-4',
+    // Layout
+    'h-screen': 'min-vh-100', 'min-h-screen': 'min-vh-100',
+    'w-full': 'w-100', 'max-w-7xl': 'container',
+    // Flexbox
+    'flex': 'd-flex', 'inline-flex': 'd-inline-flex',
+    'flex-col': 'flex-column', 'flex-row': 'flex-row',
+    'items-center': 'align-items-center', 'items-start': 'align-items-start', 'items-end': 'align-items-end',
+    'justify-center': 'justify-content-center', 'justify-between': 'justify-content-between',
+    'justify-end': 'justify-content-end', 'justify-start': 'justify-content-start',
+    // Grid
+    'grid': 'd-grid', 'grid-cols-2': 'row', 'grid-cols-3': 'row', 'grid-cols-4': 'row',
+    // Background
+    'bg-cover': '', 'bg-center': '', 'bg-no-repeat': '',
+    // Text
+    'text-xl': 'fs-4', 'text-2xl': 'fs-3', 'text-3xl': 'fs-2', 'text-4xl': 'fs-1',
+    'text-sm': 'small', 'text-xs': 'small', 'text-lg': 'fs-5',
+    'font-bold': 'fw-bold', 'font-semibold': 'fw-semibold', 'font-medium': 'fw-medium',
+    'font-light': 'fw-light', 'font-normal': 'fw-normal',
+    'tracking-wide': '', 'tracking-tight': '', 'leading-tight': 'lh-sm', 'leading-relaxed': 'lh-lg',
+    // Opacity
+    'opacity-50': 'opacity-50', 'opacity-75': 'opacity-75', 'opacity-25': 'opacity-25',
+    // Borders
+    'rounded-lg': 'rounded-3', 'rounded-xl': 'rounded-4', 'rounded-2xl': 'rounded-4',
+    'rounded-full': 'rounded-circle', 'rounded-md': 'rounded-2',
+    // Display
+    'hidden': 'd-none', 'block': 'd-block', 'inline-block': 'd-inline-block',
+    // Overflow
+    'overflow-hidden': 'overflow-hidden',
+    // Position
+    'relative': 'position-relative', 'absolute': 'position-absolute', 'fixed': 'position-fixed',
+    // Cursor
+    'cursor-pointer': 'role="button"',
+  };
+
+  let tailwindFixCount = 0;
+  for (const [tw, bs] of Object.entries(tailwindToBootstrap)) {
+    // Match as whole class name (word boundary in class attribute context)
+    const twRegex = new RegExp(`(?<=\\s|"|')${tw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=\\s|"|')`, 'g');
+    const matches = fixed.match(twRegex);
+    if (matches) {
+      tailwindFixCount += matches.length;
+      fixed = fixed.replace(twRegex, bs);
+    }
+  }
+  // Clean up double spaces from empty replacements
+  if (tailwindFixCount > 0) {
+    fixed = fixed.replace(/class="([^"]*)"/g, (match, classes) => {
+      const cleaned = classes.replace(/\s{2,}/g, ' ').trim();
+      return `class="${cleaned}"`;
+    });
+    console.log(`[Parser] ROOT CAUSE FIX: Replaced ${tailwindFixCount} Tailwind classes with Bootstrap 5 equivalents in ${filePath}`);
+  }
+
+  // ==========================================================================
+  // ROOT CAUSE FIX #5: Placeholder URLs (example.com, placeholder.com)
+  // LLMs generate broken image URLs. Replace with Odoo-compatible paths.
+  // ==========================================================================
+  const placeholderUrlPattern = /(?:https?:\/\/)?(?:www\.)?(?:example\.com|placeholder\.com|placehold\.co|via\.placeholder\.com)[^\s"')]*\.(jpg|jpeg|png|gif|webp|svg)/gi;
+  if (placeholderUrlPattern.test(fixed)) {
+    fixed = fixed.replace(placeholderUrlPattern, '/web/image/website.s_cover_default_image');
+    console.log(`[Parser] ROOT CAUSE FIX: Replaced placeholder image URLs with Odoo defaults in ${filePath}`);
   }
 
   // Skip if already properly wrapped

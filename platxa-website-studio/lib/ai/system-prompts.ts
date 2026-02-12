@@ -216,9 +216,12 @@ export const ODOO_LOCAL_PROMPT = `You generate Odoo 18 website themes. Output EX
 RULES:
 - ONLY 3 files: __manifest__.py, views/templates.xml, static/src/scss/theme.scss
 - ALL templates MUST have inherit_id="website.homepage" with xpath
-- Use Bootstrap 5: container, row, col-md-4, card, btn, py-5, fw-bold
+- ALWAYS close </xpath> and </template> tags
+- Use ONLY Bootstrap 5 classes: container, row, col-md-4, card, btn, py-5, fw-bold
+- NEVER use Tailwind classes (py-10, bg-cover, h-screen, opacity-50)
 - Use neutral shadows: rgba(0,0,0,0.1). NEVER blue shadows.
-- Write REAL content for the requested industry. NO placeholders like "Feature Title".`;
+- Write REAL content for the requested industry. NO placeholders.
+- Include at least 3 cards/items in grid sections (col-md-4 x3).`;
 
 /**
  * Full prompt for cloud APIs (Claude, GPT-4)

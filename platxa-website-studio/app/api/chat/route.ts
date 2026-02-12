@@ -31,6 +31,7 @@ import {
 } from "@/lib/ai/model-orchestrator";
 import {
   validateGeneratedCode,
+  validateParsedFiles,
   buildCorrectionPrompt,
   calculateQualityScore,
   shouldAttemptCorrection,
@@ -442,8 +443,11 @@ async function runSelfCorrectionLoop(
       }
     }
 
-    // Validate current content (existing validation)
-    const validation = validateGeneratedCode(currentContent);
+    // Validate PARSED files (post-fix), not raw text
+    // This ensures parser fixes (xpath, Tailwind, unclosed tags) are reflected in validation
+    const validation = parsedFiles.length > 0
+      ? validateParsedFiles(parsedFiles)
+      : validateGeneratedCode(currentContent);
     const qualityScore = calculateQualityScore(validation);
 
     // Also validate against RAG patterns
@@ -723,7 +727,12 @@ async function streamClaudeResponse(
               ragPatterns
             );
 
-            const finalValidation = validateGeneratedCode(correctionResult.finalContent);
+            // Validate parsed (fixed) files, not raw text
+            let finalParsedFiles: ParsedFile[] = [];
+            try { finalParsedFiles = parseGeneratedFiles(correctionResult.finalContent); } catch {}
+            const finalValidation = finalParsedFiles.length > 0
+              ? validateParsedFiles(finalParsedFiles)
+              : validateGeneratedCode(correctionResult.finalContent);
             const finalQualityScore = calculateQualityScore(finalValidation);
 
             console.log(`[SelfCorrection] Final: ${formatValidationSummary(finalValidation)} (corrected: ${correctionResult.wasCorrrected})`);
@@ -1380,7 +1389,12 @@ export async function POST(req: Request) {
                   capturedRagPatterns
                 );
 
-                const finalValidation = validateGeneratedCode(correctionResult.finalContent);
+                // Validate parsed (fixed) files, not raw text
+                let finalParsedFiles: ParsedFile[] = [];
+                try { finalParsedFiles = parseGeneratedFiles(correctionResult.finalContent); } catch {}
+                const finalValidation = finalParsedFiles.length > 0
+                  ? validateParsedFiles(finalParsedFiles)
+                  : validateGeneratedCode(correctionResult.finalContent);
                 const finalQualityScore = calculateQualityScore(finalValidation);
 
                 console.log(`[SelfCorrection] Final: ${formatValidationSummary(finalValidation)} (corrected: ${correctionResult.wasCorrrected})`);

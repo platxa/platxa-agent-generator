@@ -12,6 +12,7 @@
 
 import { validateScss, type ScssValidationResult } from "@/lib/validators/scss-validator";
 import { validateQWeb, type QWebValidationResult } from "@/lib/preview/qweb-validation";
+import type { ParsedFile } from "./parser";
 
 // =============================================================================
 // Types
@@ -461,12 +462,68 @@ export function formatValidationSummary(validation: ValidationSummary): string {
   return parts.join(" | ");
 }
 
+/**
+ * Validates already-parsed files (post parser fixes).
+ * Use this instead of validateGeneratedCode() when you have ParsedFile[] from the parser,
+ * so validation runs on the FIXED content, not the raw AI response.
+ */
+export function validateParsedFiles(files: ParsedFile[]): ValidationSummary {
+  const results: FileValidationResult[] = [];
+
+  for (const file of files) {
+    const type = detectFileType(file.content, file.path);
+
+    let result: FileValidationResult;
+
+    switch (type) {
+      case "scss":
+        result = validateScssContent(file.content, file.path);
+        break;
+      case "qweb":
+      case "xml":
+        result = validateQWebContent(file.content, file.path);
+        break;
+      case "html":
+        result = validateHtmlContent(file.content, file.path);
+        break;
+      default:
+        result = {
+          file: file.path,
+          type: "unknown",
+          valid: true,
+          errors: [],
+          warnings: [],
+        };
+    }
+
+    results.push(result);
+  }
+
+  const totalErrors = results.reduce((sum, r) => sum + r.errors.length, 0);
+  const totalWarnings = results.reduce((sum, r) => sum + r.warnings.length, 0);
+  const allValid = results.every((r) => r.valid);
+
+  let errorPrompt = "";
+  if (!allValid) {
+    errorPrompt = buildErrorPrompt(results);
+  }
+
+  return {
+    allValid,
+    totalErrors,
+    totalWarnings,
+    results,
+    errorPrompt,
+  };
+}
+
 // =============================================================================
 // Exports
 // =============================================================================
 
 export default {
   validateGeneratedCode,
+  validateParsedFiles,
   extractCodeBlocks,
   buildCorrectionPrompt,
   calculateQualityScore,
