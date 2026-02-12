@@ -12,6 +12,7 @@ import {
   type DeployResult,
 } from "@/lib/agent-bridge/odoo-xmlrpc-deploy";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/utils/api-rate-limit";
+import { auth } from "@/lib/auth";
 
 // Simple XML-RPC implementation using fetch
 async function xmlrpcCall(
@@ -201,6 +202,15 @@ export async function GET(req: Request) {
  * POST /api/deploy - Deploy theme to Odoo
  */
 export async function POST(req: Request) {
+  // Session auth: require authenticated user for deployments
+  const session = await auth();
+  if (!session?.user?.id) {
+    return Response.json(
+      { error: "Authentication required", code: "UNAUTHORIZED" },
+      { status: 401 }
+    );
+  }
+
   // Rate limit: 5 requests per minute per IP (deployment is resource-intensive)
   const ip = getClientIp(req);
   const limit = checkRateLimit(`deploy:${ip}`, 5);

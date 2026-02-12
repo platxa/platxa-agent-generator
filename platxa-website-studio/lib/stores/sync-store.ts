@@ -36,6 +36,7 @@ export interface DeployEvent {
 interface SyncState {
   // Connection
   status: SyncStatus;
+  connectionError: string | null;
   sidecarUrl: string | null;
   authToken: string | null;
 
@@ -61,6 +62,7 @@ interface SyncState {
 export const useSyncStore = create<SyncState>((set, get) => ({
   // Initial state
   status: "disconnected",
+  connectionError: null,
   sidecarUrl: null,
   authToken: null,
   isDeploying: false,
@@ -85,15 +87,11 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   setStatus: (status, error) =>
     set({
       status,
+      connectionError: error || null,
     }),
 
   addDeployEvent: (event) =>
     set((state) => {
-      const newEvent: DeployEvent = {
-        ...event,
-        timestamp: new Date(),
-      };
-
       // Update deploying state based on event type
       let isDeploying = state.isDeploying;
 
@@ -116,6 +114,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   reset: () =>
     set({
       status: "disconnected",
+      connectionError: null,
       sidecarUrl: null,
       authToken: null,
       isDeploying: false,

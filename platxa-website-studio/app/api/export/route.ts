@@ -25,6 +25,7 @@ import { ensureRequiredFiles, consolidateExportFiles } from "@/lib/ai/parser";
 import type { ParsedFile } from "@/lib/ai/parser";
 import { scanFiles, type ScanResult } from "@/lib/security/code-scanner";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/utils/api-rate-limit";
+import { auth } from "@/lib/auth";
 
 // =============================================================================
 // TYPES
@@ -55,6 +56,12 @@ interface ExportRequestBody {
  * POST /api/export - Export theme as ZIP
  */
 export async function POST(req: Request) {
+  // Session auth: require authenticated user for exports
+  const session = await auth();
+  if (!session?.user?.id) {
+    return errorResponse("Authentication required", 401, "UNAUTHORIZED");
+  }
+
   // Rate limit: 10 requests per minute per IP (ZIP generation is expensive)
   const ip = getClientIp(req);
   const limit = checkRateLimit(`export:${ip}`, 10);

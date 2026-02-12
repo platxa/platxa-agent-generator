@@ -8,6 +8,7 @@ import {
   recordApiCall,
   type RateLimitState,
 } from "@/lib/agent-bridge/rate-limiter";
+import { getClientIp } from "@/lib/utils/api-rate-limit";
 
 // Credit System Integration
 import { auth } from "@/lib/auth";
@@ -78,15 +79,26 @@ const SELF_CORRECTION_OPTIONS: SelfCorrectionOptions = {
 const SIDECAR_BASE_URL = process.env.SIDECAR_BASE_URL || "";
 const ENABLE_AGENT_BRIDGE = process.env.ENABLE_AGENT_BRIDGE !== "false";
 
-// Rate limiting state (global for now - in production use per-user/session)
-let rateLimitState: RateLimitState = createRateLimitState({
+// Per-user rate limiting state keyed by userId (falls back to "anonymous")
+const rateLimitStates = new Map<string, RateLimitState>();
+const RATE_LIMIT_CONFIG = {
   maxRequestsPerMinute: 20,
   maxTokensPerMinute: 50000,
   sessionTokenBudget: 500000,
-});
+};
 
-// Generation recovery state (global for now - in production use per-session)
-let generationState: GenerationState = createGenerationState({ maxRetries: 3 });
+function getRateLimitState(userId: string): RateLimitState {
+  let state = rateLimitStates.get(userId);
+  if (!state) {
+    state = createRateLimitState(RATE_LIMIT_CONFIG);
+    rateLimitStates.set(userId, state);
+  }
+  return state;
+}
+
+function setRateLimitState(userId: string, state: RateLimitState): void {
+  rateLimitStates.set(userId, state);
+}
 
 // Increase timeout for local LLM (10 minutes max)
 export const maxDuration = 600;
@@ -592,7 +604,8 @@ async function streamClaudeResponse(
   modelId: string,
   originalUserMessage: string,
   ragPatterns: ExtractedPatterns,
-  creditContext?: { userId: string; projectId: string; isGeneration: boolean }
+  creditContext?: { userId: string; projectId: string; isGeneration: boolean },
+  rateLimitContext?: { key: string; state: RateLimitState; generationState: GenerationState }
 ): Promise<Response> {
   const client = getAnthropicClient();
   if (!client) {
@@ -769,17 +782,19 @@ async function streamClaudeResponse(
           }
         }
 
-        // Record API call for rate limiting
+        // Record API call for per-user rate limiting
         if (lastUsageStats.promptTokens > 0 || lastUsageStats.completionTokens > 0) {
-          const { state: newState, newAlerts } = recordApiCall(
-            rateLimitState,
-            lastUsageStats.promptTokens,
-            lastUsageStats.completionTokens,
-            modelId
-          );
-          rateLimitState = newState;
-          for (const alert of newAlerts) {
-            console.warn(`[RateLimit] Budget alert: ${alert.label} (${alert.currentUsage}/${alert.budgetLimit})`);
+          if (rateLimitContext) {
+            const { state: newState, newAlerts } = recordApiCall(
+              rateLimitContext.state,
+              lastUsageStats.promptTokens,
+              lastUsageStats.completionTokens,
+              modelId
+            );
+            setRateLimitState(rateLimitContext.key, newState);
+            for (const alert of newAlerts) {
+              console.warn(`[RateLimit] Budget alert: ${alert.label} (${alert.currentUsage}/${alert.budgetLimit})`);
+            }
           }
         }
 
@@ -827,8 +842,9 @@ async function streamClaudeResponse(
 
         // Feature #7: Handle generation failure with recovery
         const errorMessage = error instanceof Error ? error.message : "Stream processing failed";
+        const currentGenState = rateLimitContext?.generationState || createGenerationState({ maxRetries: 3 });
         const failureResult = handleGenerationFailure(
-          generationState,
+          currentGenState,
           errorMessage,
           "streaming",
           [], // affectedSections - determined by client
@@ -842,7 +858,6 @@ async function streamClaudeResponse(
             },
           }
         );
-        generationState = failureResult.state;
 
         if (!isStreamClosed) {
           // Emit recovery metadata to client
@@ -1001,17 +1016,6 @@ export async function POST(req: Request) {
       console.log(`[RAG] Extracted ${ragPatterns.directivesUsed.length} directive patterns, ${ragPatterns.scssVariables.length} SCSS variables`);
     }
 
-    // Check rate limit before proceeding
-    const estimatedTokens = 2000 + Math.ceil(ragContext.length / 4); // Include RAG context
-    const rateLimitCheck = checkRateLimit(rateLimitState, estimatedTokens);
-    if (!rateLimitCheck.allowed) {
-      return errorResponse(
-        rateLimitCheck.reason || "Rate limit exceeded",
-        429,
-        "RATE_LIMITED"
-      );
-    }
-
     // =========================================================================
     // CREDIT CHECK - Verify user has sufficient credits
     // =========================================================================
@@ -1045,6 +1049,22 @@ export async function POST(req: Request) {
       // Log but don't block - credits are optional for unauthenticated users
       console.warn("[Credits] Could not check credit balance:", creditError);
     }
+
+    // Per-user rate limiting (keyed by userId, falls back to IP)
+    const rateLimitKey = userId || getClientIp(req);
+    const rateLimitState = getRateLimitState(rateLimitKey);
+    const estimatedTokens = 2000 + Math.ceil(ragContext.length / 4);
+    const rateLimitCheck = checkRateLimit(rateLimitState, estimatedTokens);
+    if (!rateLimitCheck.allowed) {
+      return errorResponse(
+        rateLimitCheck.reason || "Rate limit exceeded",
+        429,
+        "RATE_LIMITED"
+      );
+    }
+
+    // Per-request generation recovery state (not shared across users)
+    let generationState: GenerationState = createGenerationState({ maxRetries: 3 });
 
     // Determine which AI provider to use
     // Priority: Claude API (if configured) > Ollama (local fallback)
@@ -1137,7 +1157,8 @@ export async function POST(req: Request) {
             userId,
             projectId: effectiveProjectId,
             isGeneration: isGenerationTask,
-          } : undefined
+          } : undefined,
+          { key: rateLimitKey, state: rateLimitState, generationState }
         );
       } catch (error) {
         console.error("Claude API error:", error);
@@ -1431,7 +1452,7 @@ export async function POST(req: Request) {
               }
             }
 
-            // Record API call for rate limiting
+            // Record API call for per-user rate limiting
             if (lastUsageStats.promptTokens > 0 || lastUsageStats.completionTokens > 0) {
               const { state: newState, newAlerts } = recordApiCall(
                 rateLimitState,
@@ -1439,7 +1460,7 @@ export async function POST(req: Request) {
                 lastUsageStats.completionTokens,
                 OLLAMA_MODEL
               );
-              rateLimitState = newState;
+              setRateLimitState(rateLimitKey, newState);
 
               // Log budget alerts if any
               for (const alert of newAlerts) {
@@ -1472,7 +1493,7 @@ export async function POST(req: Request) {
           } catch (error) {
             console.error("[Ollama Stream] ERROR in stream processing:", error);
 
-            // Feature #7: Handle generation failure with recovery
+            // Feature #7: Handle generation failure with recovery (per-request state)
             const errorMessage = error instanceof Error ? error.message : "Stream processing failed";
             const failureResult = handleGenerationFailure(
               generationState,
@@ -1489,7 +1510,6 @@ export async function POST(req: Request) {
                 },
               }
             );
-            generationState = failureResult.state;
 
             // Even on error, try to send finish signal so client knows stream ended
             // This is critical for the AI SDK useChat hook to set isLoading=false
@@ -1575,14 +1595,19 @@ export async function POST(req: Request) {
 /**
  * GET /api/chat - Health check with rate limit status
  */
-export async function GET() {
+export async function GET(req: Request) {
   const health = await checkOllamaHealth();
-  const totalTokens = rateLimitState.calls.reduce(
-    (sum, c) => sum + c.promptTokens + c.completionTokens, 0
-  );
-  const budgetUsed = rateLimitState.config.sessionTokenBudget > 0
-    ? (totalTokens / rateLimitState.config.sessionTokenBudget * 100).toFixed(1)
-    : "0";
+
+  // Aggregate rate limit stats across all users
+  let totalTokens = 0;
+  let totalRecentRequests = 0;
+  const now = Date.now();
+  for (const state of rateLimitStates.values()) {
+    totalTokens += state.calls.reduce(
+      (sum, c) => sum + c.promptTokens + c.completionTokens, 0
+    );
+    totalRecentRequests += state.calls.filter(c => c.timestamp > now - 60000).length;
+  }
 
   return new Response(
     JSON.stringify({
@@ -1591,13 +1616,11 @@ export async function GET() {
       ollamaUrl: OLLAMA_BASE_URL,
       error: health.error,
       rateLimit: {
-        requestsThisMinute: rateLimitState.calls.filter(
-          c => c.timestamp > Date.now() - 60000
-        ).length,
-        maxRequestsPerMinute: rateLimitState.config.maxRequestsPerMinute,
+        activeUsers: rateLimitStates.size,
+        requestsThisMinute: totalRecentRequests,
+        maxRequestsPerMinute: RATE_LIMIT_CONFIG.maxRequestsPerMinute,
         tokensUsed: totalTokens,
-        tokenBudget: rateLimitState.config.sessionTokenBudget,
-        budgetUsedPercent: budgetUsed,
+        tokenBudgetPerUser: RATE_LIMIT_CONFIG.sessionTokenBudget,
       },
     }),
     {
