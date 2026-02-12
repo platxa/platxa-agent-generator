@@ -19,6 +19,7 @@ import {
   formatValidationResult,
 } from "@/lib/odoo-skills";
 import type { GeneratedFile, ValidationResult } from "@/lib/odoo-skills";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/utils/api-rate-limit";
 
 // =============================================================================
 // TYPES
@@ -46,6 +47,13 @@ interface ValidateRequestBody {
  * POST /api/validate - Validate theme files
  */
 export async function POST(req: Request) {
+  // Rate limit: 30 requests per minute per IP
+  const ip = getClientIp(req);
+  const limit = checkRateLimit(`validate:${ip}`, 30);
+  if (!limit.allowed) {
+    return rateLimitResponse(limit.resetMs);
+  }
+
   try {
     // Parse request body
     let body: ValidateRequestBody;

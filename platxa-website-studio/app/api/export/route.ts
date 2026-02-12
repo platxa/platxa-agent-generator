@@ -24,6 +24,7 @@ import { processGeneratedFiles } from "@/lib/ai/quality-checker";
 import { ensureRequiredFiles, consolidateExportFiles } from "@/lib/ai/parser";
 import type { ParsedFile } from "@/lib/ai/parser";
 import { scanFiles, type ScanResult } from "@/lib/security/code-scanner";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/utils/api-rate-limit";
 
 // =============================================================================
 // TYPES
@@ -54,6 +55,13 @@ interface ExportRequestBody {
  * POST /api/export - Export theme as ZIP
  */
 export async function POST(req: Request) {
+  // Rate limit: 10 requests per minute per IP (ZIP generation is expensive)
+  const ip = getClientIp(req);
+  const limit = checkRateLimit(`export:${ip}`, 10);
+  if (!limit.allowed) {
+    return rateLimitResponse(limit.resetMs);
+  }
+
   try {
     // Parse request body
     let body: ExportRequestBody;

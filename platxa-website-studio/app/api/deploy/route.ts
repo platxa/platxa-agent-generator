@@ -11,6 +11,7 @@ import {
   type OdooConnection,
   type DeployResult,
 } from "@/lib/agent-bridge/odoo-xmlrpc-deploy";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/utils/api-rate-limit";
 
 // Simple XML-RPC implementation using fetch
 async function xmlrpcCall(
@@ -200,6 +201,13 @@ export async function GET(req: Request) {
  * POST /api/deploy - Deploy theme to Odoo
  */
 export async function POST(req: Request) {
+  // Rate limit: 5 requests per minute per IP (deployment is resource-intensive)
+  const ip = getClientIp(req);
+  const limit = checkRateLimit(`deploy:${ip}`, 5);
+  if (!limit.allowed) {
+    return rateLimitResponse(limit.resetMs);
+  }
+
   try {
     const body = await req.json();
     const {

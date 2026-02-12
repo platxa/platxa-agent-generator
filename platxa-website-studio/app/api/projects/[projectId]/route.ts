@@ -7,6 +7,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import {
+  getProject,
   getProjectWithFiles,
   updateProject,
   deleteProject,
@@ -54,6 +55,15 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Verify ownership before update
+    const existing = await getProject(projectId);
+    if (!existing) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+    if (existing.userId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const body = await req.json();
     const { name, description, industry, colorPalette, settings, status } = body;
 
@@ -83,6 +93,15 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Verify ownership before delete
+    const existing = await getProject(projectId);
+    if (!existing) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+    if (existing.userId !== session.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     await deleteProject(projectId);
