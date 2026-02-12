@@ -149,7 +149,6 @@ function consolidateFiles(files: FileNode[]): FileNode[] {
 
   // Consolidate XML files
   if (xmlFiles.length > 1) {
-    console.log("[ProjectStore] Consolidating", xmlFiles.length, "XML files into templates.xml");
     const seenTemplateIds = new Set<string>();
     const mergedTemplates: string[] = [];
 
@@ -163,7 +162,6 @@ function consolidateFiles(files: FileNode[]): FileNode[] {
           seenTemplateIds.add(templateId);
           mergedTemplates.push(match[0]);
         } else {
-          console.log("[ProjectStore] Skipping duplicate template ID:", templateId);
         }
       }
     }
@@ -184,7 +182,6 @@ function consolidateFiles(files: FileNode[]): FileNode[] {
 
   // Consolidate SCSS files
   if (scssFiles.length > 1) {
-    console.log("[ProjectStore] Consolidating", scssFiles.length, "SCSS files into theme.scss");
     consolidated.push({
       id: 'theme_generated/static/src/scss/theme.scss',
       name: 'theme.scss',
@@ -311,7 +308,6 @@ export const useProjectStore = create<ProjectState>()(
       // ROOT CAUSE FIX: Consolidate files before storing
       setFilesConsolidated: (files) => {
         const consolidated = consolidateFiles(files);
-        console.log("[ProjectStore] setFilesConsolidated:", files.length, "->", consolidated.length, "files");
         set({ files: consolidated });
       },
 

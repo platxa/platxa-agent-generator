@@ -125,7 +125,6 @@ function consolidateGeneratedFiles(
 
   // Consolidate XML files into single templates.xml
   if (xmlFiles.length > 1) {
-    console.log("[EditorStore] Consolidating", xmlFiles.length, "XML files into templates.xml");
     const seenTemplateIds = new Set<string>();
     const mergedTemplates: string[] = [];
 
@@ -138,7 +137,6 @@ function consolidateGeneratedFiles(
           seenTemplateIds.add(templateId);
           mergedTemplates.push(match[0]);
         } else {
-          console.log("[EditorStore] Skipping duplicate template ID:", templateId);
         }
       }
     }
@@ -156,7 +154,6 @@ function consolidateGeneratedFiles(
 
   // Consolidate SCSS files into single theme.scss
   if (scssFiles.length > 1) {
-    console.log("[EditorStore] Consolidating", scssFiles.length, "SCSS files into theme.scss");
     result.push({
       path: 'theme_generated/static/src/scss/theme.scss',
       content: scssFiles.map(f => `/* From: ${f.path} */\n${f.content}`).join('\n\n'),
@@ -384,15 +381,8 @@ export const useEditorStore = create<EditorState>()(
       // Bulk open generated files from AI
       openGeneratedFiles: (files) =>
         set((state) => {
-          console.log("[EditorStore] ===== openGeneratedFiles called =====");
-          console.log("[EditorStore] Incoming files:", files.length);
-          files.forEach(f => console.log(`[EditorStore]   - ${f.path}: ${f.content.length} chars`));
-
-          // ROOT CAUSE FIX: Consolidate duplicate XML and SCSS files IMMEDIATELY
-          // AI often generates both templates.xml AND pages.xml, or style.scss AND theme.scss
-          // This causes Odoo installation errors - fix at the source
+          // Consolidate duplicate XML and SCSS files before storing
           const consolidatedFiles = consolidateGeneratedFiles(files);
-          console.log("[EditorStore] After consolidation:", consolidatedFiles.length, "files");
 
           const newTabs = [...state.openTabs];
           const newFileContents = { ...state.fileContents };
@@ -422,12 +412,8 @@ export const useEditorStore = create<EditorState>()(
             newFileContents[file.path] = file.content;
           }
 
-          console.log("[EditorStore] New fileContents keys:", Object.keys(newFileContents));
-          console.log("[EditorStore] Total files in store:", Object.keys(newFileContents).length);
-
-          // CRITICAL: Update timestamp to force React re-renders
+          // Update timestamp to force React re-renders
           const updateTime = Date.now();
-          console.log("[EditorStore] Setting lastFileUpdate to:", updateTime);
 
           return {
             openTabs: newTabs,

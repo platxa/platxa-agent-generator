@@ -167,7 +167,6 @@ export function clearAllPlatxaStorage(): void {
       localStorage.removeItem(key);
     }
 
-    console.log(`[SafeStorage] Cleared ${keysToRemove.length} storage entries`);
   } catch (error) {
     console.error("[SafeStorage] Failed to clear storage:", error);
   }
