@@ -12,7 +12,7 @@
  */
 
 import type { ParsedFile } from "./parser";
-import type { Message, ProviderResponse } from "./providers";
+import type { ContentBlock, Message, ProviderResponse } from "./providers";
 import { AnthropicAdapter, OpenAIAdapter } from "./providers";
 import {
   evaluateWithCritic,
@@ -184,8 +184,8 @@ export class GeneratorAgent {
     }
 
     this.adapter = this.config.provider === "openai"
-      ? new OpenAIAdapter({ apiKey: envKey })
-      : new AnthropicAdapter({ apiKey: envKey });
+      ? new OpenAIAdapter({ getApiKey: () => envKey })
+      : new AnthropicAdapter({ getApiKey: () => envKey });
   }
 
   /**
@@ -197,14 +197,15 @@ export class GeneratorAgent {
       { role: "user", content: userPrompt },
     ];
 
-    const response = await this.adapter.chat(messages, {
+    const response = await this.adapter.complete({
       model: this.config.model!,
+      messages,
       maxTokens: this.config.maxTokens!,
       temperature: this.config.temperature,
     });
 
     const textContent = response.content.find(
-      (c): c is { type: "text"; text: string } => c.type === "text"
+      (c: ContentBlock): c is { type: "text"; text: string } => c.type === "text"
     );
 
     if (!textContent) {
@@ -233,14 +234,15 @@ export class GeneratorAgent {
       { role: "user", content: correctionPrompt },
     ];
 
-    const response = await this.adapter.chat(messages, {
+    const response = await this.adapter.complete({
       model: this.config.model!,
+      messages,
       maxTokens: this.config.maxTokens!,
       temperature: 0.3, // Lower temperature for corrections
     });
 
     const textContent = response.content.find(
-      (c): c is { type: "text"; text: string } => c.type === "text"
+      (c: ContentBlock): c is { type: "text"; text: string } => c.type === "text"
     );
 
     if (!textContent) {
@@ -280,8 +282,8 @@ export class RefinementAgent {
     }
 
     this.adapter = this.config.provider === "openai"
-      ? new OpenAIAdapter({ apiKey: envKey })
-      : new AnthropicAdapter({ apiKey: envKey });
+      ? new OpenAIAdapter({ getApiKey: () => envKey })
+      : new AnthropicAdapter({ getApiKey: () => envKey });
   }
 
   /**
@@ -336,14 +338,15 @@ Maintain the original structure and intent. Output only the refined code.
       { role: "user", content: refinementPrompt },
     ];
 
-    const response = await this.adapter.chat(messages, {
+    const response = await this.adapter.complete({
       model: this.config.model!,
+      messages,
       maxTokens: this.config.maxTokens!,
       temperature: 0.2, // Low temperature for precise refinement
     });
 
     const textContent = response.content.find(
-      (c): c is { type: "text"; text: string } => c.type === "text"
+      (c: ContentBlock): c is { type: "text"; text: string } => c.type === "text"
     );
 
     if (!textContent) {
@@ -417,8 +420,8 @@ export class GCROrchestrator {
   constructor(config: GCRConfig) {
     this.config = {
       generator: {
-        systemPrompt: DEFAULT_GENERATOR_PROMPT,
         ...config.generator,
+        systemPrompt: config.generator.systemPrompt || DEFAULT_GENERATOR_PROMPT,
       },
       critic: {
         maxIterations: 3,
@@ -453,7 +456,8 @@ export class GCROrchestrator {
       files.push({
         path: filename.trim(),
         content: content.trim(),
-        type: this.getFileType(filename),
+        language: this.getFileType(filename),
+        action: "create",
       });
     }
 
@@ -466,7 +470,8 @@ export class GCROrchestrator {
         files.push({
           path: filename.trim(),
           content: content.trim(),
-          type: this.getFileType(filename),
+          language: this.getFileType(filename),
+          action: "create",
         });
       }
     }

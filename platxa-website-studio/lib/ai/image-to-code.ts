@@ -318,21 +318,23 @@ export async function analyzeScreenshot(
   let response: ProviderResponse;
 
   if (provider === "anthropic") {
-    const adapter = new AnthropicAdapter({ apiKey });
-    response = await adapter.chat(messages, {
+    const adapter = new AnthropicAdapter({ getApiKey: () => apiKey });
+    response = await adapter.complete({
       model: options.model || "claude-3-5-sonnet-20241022",
+      messages,
       maxTokens: 4096,
     });
   } else {
-    const adapter = new OpenAIAdapter({ apiKey });
-    response = await adapter.chat(messages, {
+    const adapter = new OpenAIAdapter({ getApiKey: () => apiKey });
+    response = await adapter.complete({
       model: options.model || "gpt-4o",
+      messages,
       maxTokens: 4096,
     });
   }
 
   const textContent = response.content.find(
-    (c): c is { type: "text"; text: string } => c.type === "text"
+    (c: ContentBlock): c is { type: "text"; text: string } => c.type === "text"
   );
 
   if (!textContent) {
@@ -357,12 +359,16 @@ export function analysisToTokens(analysis: ScreenshotAnalysis): DesignTokenSet {
   const h1Typo = analysis.typography.find((t) => t.element === "h1");
 
   return assembleTokenSet({
-    brandName: "Generated Theme",
-    primaryColor,
-    secondaryColor,
-    fontFamily: bodyTypo?.fontFamily || "Inter",
-    headingFontFamily: h1Typo?.fontFamily,
-    baseSize: parseInt(bodyTypo?.fontSize || "16", 10),
+    name: "Generated Theme",
+    palette: {
+      primary: primaryColor,
+      secondary: secondaryColor,
+    },
+    typography: {
+      bodyFamily: bodyTypo?.fontFamily || "Inter",
+      headingFamily: h1Typo?.fontFamily || bodyTypo?.fontFamily || "Inter",
+      baseSize: parseInt(bodyTypo?.fontSize || "16", 10),
+    },
   });
 }
 
@@ -401,21 +407,23 @@ Generate the main theme QWeb template (views/templates.xml).`,
   let response: ProviderResponse;
 
   if (provider === "anthropic") {
-    const adapter = new AnthropicAdapter({ apiKey });
-    response = await adapter.chat(messages, {
+    const adapter = new AnthropicAdapter({ getApiKey: () => apiKey });
+    response = await adapter.complete({
       model: options.model || "claude-3-5-sonnet-20241022",
+      messages,
       maxTokens: 8192,
     });
   } else {
-    const adapter = new OpenAIAdapter({ apiKey });
-    response = await adapter.chat(messages, {
+    const adapter = new OpenAIAdapter({ getApiKey: () => apiKey });
+    response = await adapter.complete({
       model: options.model || "gpt-4o",
+      messages,
       maxTokens: 8192,
     });
   }
 
   const textContent = response.content.find(
-    (c): c is { type: "text"; text: string } => c.type === "text"
+    (c: ContentBlock): c is { type: "text"; text: string } => c.type === "text"
   );
 
   if (!textContent) {
@@ -471,21 +479,23 @@ Generate the main SCSS file (static/src/scss/theme.scss).`,
   let response: ProviderResponse;
 
   if (provider === "anthropic") {
-    const adapter = new AnthropicAdapter({ apiKey });
-    response = await adapter.chat(messages, {
+    const adapter = new AnthropicAdapter({ getApiKey: () => apiKey });
+    response = await adapter.complete({
       model: options.model || "claude-3-5-sonnet-20241022",
+      messages,
       maxTokens: 8192,
     });
   } else {
-    const adapter = new OpenAIAdapter({ apiKey });
-    response = await adapter.chat(messages, {
+    const adapter = new OpenAIAdapter({ getApiKey: () => apiKey });
+    response = await adapter.complete({
       model: options.model || "gpt-4o",
+      messages,
       maxTokens: 8192,
     });
   }
 
   const textContent = response.content.find(
-    (c): c is { type: "text"; text: string } => c.type === "text"
+    (c: ContentBlock): c is { type: "text"; text: string } => c.type === "text"
   );
 
   if (!textContent) {
@@ -634,9 +644,9 @@ export async function loadImageFromFile(
   const data = await fs.readFile(filePath);
   const base64 = data.toString("base64");
 
-  const ext = path.extname(filePath).toLowerCase().slice(1) as ImageFormat;
-  const mediaType: `image/${ImageFormat}` =
-    ext === "jpg" ? "image/jpeg" : (`image/${ext}` as `image/${ImageFormat}`);
+  const rawExt = path.extname(filePath).toLowerCase().slice(1);
+  const ext: ImageFormat = rawExt === "jpg" ? "jpeg" : (rawExt as ImageFormat);
+  const mediaType: `image/${ImageFormat}` = `image/${ext}`;
 
   return {
     type: "base64",

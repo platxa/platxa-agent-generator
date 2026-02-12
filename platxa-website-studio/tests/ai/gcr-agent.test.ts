@@ -22,8 +22,12 @@ import type { CriticReport } from "../../lib/ai/critic-agent";
 // Mock the provider adapters with proper class constructors
 vi.mock("../../lib/ai/providers", () => {
   const MockAdapter = class {
-    chat = async () => ({
+    complete = async () => ({
+      id: "mock",
+      model: "mock",
       content: [{ type: "text", text: "Generated content" }],
+      finishReason: "stop",
+      usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
     });
   };
   return {
@@ -42,12 +46,14 @@ const sampleValidFiles: ParsedFile[] = [
     'depends': ['website'],
     'data': ['views/templates.xml'],
 }`,
-    type: "python",
+    language: "python",
+    action: "create",
   },
   {
     path: "theme_test/__init__.py",
     content: "# -*- coding: utf-8 -*-",
-    type: "python",
+    language: "python",
+    action: "create",
   },
   {
     path: "theme_test/views/templates.xml",
@@ -60,7 +66,8 @@ const sampleValidFiles: ParsedFile[] = [
         </header>
     </template>
 </odoo>`,
-    type: "xml",
+    language: "xml",
+    action: "create",
   },
   {
     path: "theme_test/static/src/scss/theme.scss",
@@ -68,7 +75,8 @@ const sampleValidFiles: ParsedFile[] = [
     background: var(--primary);
     padding: 1rem;
 }`,
-    type: "scss",
+    language: "scss",
+    action: "create",
   },
 ];
 
@@ -78,7 +86,8 @@ const sampleInvalidFiles: ParsedFile[] = [
     content: `{
     'version': '17.0.1.0.0',
 }`,
-    type: "python",
+    language: "python",
+    action: "create",
   },
   {
     path: "theme_bad/views/templates.xml",
@@ -87,7 +96,8 @@ const sampleInvalidFiles: ParsedFile[] = [
         {{ name }}
     </div>
 </template>`,
-    type: "xml",
+    language: "xml",
+    action: "create",
   },
   {
     path: "theme_bad/static/src/scss/broken.scss",
@@ -96,7 +106,8 @@ const sampleInvalidFiles: ParsedFile[] = [
     .nested {
         color: blue;
 `,
-    type: "scss",
+    language: "scss",
+    action: "create",
   },
 ];
 
@@ -138,7 +149,7 @@ const sampleCriticReport: CriticReport = {
     qweb: { valid: false, errors: ["Missing root"], warnings: [] },
     scss: { valid: false, errors: ["Unbalanced"], warnings: [] },
     structure: { valid: true, errors: [], warnings: ["Missing init"] },
-    security: { passed: true, issues: [], summary: { total: 0, critical: 0, high: 0, medium: 0, low: 0 } },
+    security: { passed: true, issues: [], scannedFiles: 0, scanDuration: 0 },
   },
   timestamp: Date.now(),
   duration: 50,
@@ -209,7 +220,8 @@ describe("GCR Agent Pattern", () => {
         {
           path: "test.py",
           content: "name = 'YOUR_NAME_HERE'\nvalue = PLACEHOLDER",
-          type: "python",
+          language: "python",
+          action: "create",
         },
       ];
 
@@ -229,7 +241,8 @@ describe("GCR Agent Pattern", () => {
         {
           path: "test.scss",
           content: ".header { .nested { color: red;",
-          type: "scss",
+          language: "scss",
+          action: "create",
         },
       ];
 
@@ -250,7 +263,8 @@ describe("GCR Agent Pattern", () => {
         {
           path: "test.xml",
           content: "<odoo>\n<template id='test'>Content</template>",
-          type: "xml",
+          language: "xml",
+          action: "create",
         },
       ];
 
@@ -269,7 +283,8 @@ describe("GCR Agent Pattern", () => {
         {
           path: "test.py",
           content: "line1   \nline2    \nline3",
-          type: "python",
+          language: "python",
+          action: "create",
         },
       ];
 
@@ -291,7 +306,8 @@ describe("GCR Agent Pattern", () => {
         {
           path: "test.py",
           content: "line1\n\n\n\n\n\nline2",
-          type: "python",
+          language: "python",
+          action: "create",
         },
       ];
 

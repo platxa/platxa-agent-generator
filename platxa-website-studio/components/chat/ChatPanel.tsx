@@ -80,6 +80,8 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
         industry: projectConfig?.industry,
         colorPalette: projectConfig?.colorPalette,
         existingFiles: existingFilePaths.length > 0 ? existingFilePaths : undefined,
+        // Wire RAG pipeline: send actual file contents so the AI can reference existing code
+        fileContents: existingFilePaths.length > 0 ? fileContents : undefined,
       },
       // Include user preferences from cross-session memory (Feature #6)
       preferencePrompt: buildPreferencePrompt(),
@@ -207,6 +209,22 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
             isModified: true,
           }));
           setFilesConsolidated(fileNodes);
+
+          // Save files to database (if authenticated) - fire and forget
+          fetch(`/api/projects/${projectId}/files`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              files: files.map((f) => ({
+                path: f.path,
+                name: f.path.split("/").pop() || f.path,
+                content: f.content,
+                language: f.language,
+              })),
+            }),
+          }).catch(() => {
+            // Silently fail for demo mode (no auth)
+          });
 
           // Clear status after 15 seconds
           setTimeout(() => setGenerationStatus(null), 15000);

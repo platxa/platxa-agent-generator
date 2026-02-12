@@ -424,6 +424,8 @@ export const useProjectStore = create<ProjectState>()(
         projectId: state.projectId,
         projectName: state.projectName,
         projectConfig: state.projectConfig,
+        files: state.files,
+        activeFile: state.activeFile,
       }),
     }
   )

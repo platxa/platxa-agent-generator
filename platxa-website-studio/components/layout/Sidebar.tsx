@@ -12,6 +12,8 @@ import {
   Loader2,
   Moon,
   Sun,
+  Cloud,
+  Github,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
@@ -23,11 +25,12 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils/cn";
+
+export type SidebarPanel = "chat" | "explorer" | "deploy" | "github";
 
 interface SidebarProps {
-  activePanel: "chat" | "explorer";
-  onPanelChange: (panel: "chat" | "explorer") => void;
+  activePanel: SidebarPanel;
+  onPanelChange: (panel: SidebarPanel) => void;
   showPreview: boolean;
   onTogglePreview: () => void;
 }
@@ -40,8 +43,7 @@ export function Sidebar({
 }: SidebarProps) {
   const [isExporting, setIsExporting] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const { theme, setTheme, resolvedTheme } = useTheme();
-  const openTabs = useEditorStore((state) => state.openTabs);
+  const { setTheme, resolvedTheme } = useTheme();
   const fileContents = useEditorStore((state) => state.fileContents);
 
   // Avoid hydration mismatch for theme
@@ -50,11 +52,13 @@ export function Sidebar({
   }, []);
 
   const handleExport = async () => {
-    const filesToExport = openTabs
-      .filter((tab) => fileContents[tab.path])
-      .map((tab) => ({
-        path: tab.path,
-        content: fileContents[tab.path],
+    // Use ALL file contents, not just open tabs - ensures complete theme export
+    const allPaths = Object.keys(fileContents);
+    const filesToExport = allPaths
+      .filter((path) => fileContents[path])
+      .map((path) => ({
+        path,
+        content: fileContents[path],
       }));
 
     if (isExporting || filesToExport.length === 0) return;
@@ -168,6 +172,38 @@ export function Sidebar({
 
         <Separator className="my-2 w-8" />
 
+        {/* Deploy */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={activePanel === "deploy" ? "secondary" : "ghost"}
+              size="icon"
+              className="h-10 w-10"
+              onClick={() => onPanelChange("deploy")}
+            >
+              <Cloud className="w-5 h-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">Deploy to Odoo</TooltipContent>
+        </Tooltip>
+
+        {/* GitHub */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant={activePanel === "github" ? "secondary" : "ghost"}
+              size="icon"
+              className="h-10 w-10"
+              onClick={() => onPanelChange("github")}
+            >
+              <Github className="w-5 h-5" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="right">GitHub Sync</TooltipContent>
+        </Tooltip>
+
+        <Separator className="my-2 w-8" />
+
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -175,7 +211,7 @@ export function Sidebar({
               size="icon"
               className="h-10 w-10"
               onClick={handleExport}
-              disabled={isExporting || openTabs.length === 0}
+              disabled={isExporting || Object.keys(fileContents).length === 0}
             >
               {isExporting ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -185,7 +221,7 @@ export function Sidebar({
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right">
-            {openTabs.length === 0 ? "No files to export" : "Download as ZIP"}
+            {Object.keys(fileContents).length === 0 ? "No files to export" : "Download as ZIP"}
           </TooltipContent>
         </Tooltip>
       </div>

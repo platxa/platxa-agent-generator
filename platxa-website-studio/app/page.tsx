@@ -53,7 +53,27 @@ export default function HomePage() {
     if (!prompt.trim()) return;
 
     setIsLoading(true);
-    // Generate a project ID and navigate to studio
+    try {
+      // Try to create project in database (requires auth)
+      const res = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: prompt.trim().slice(0, 100),
+          description: prompt.trim(),
+        }),
+      });
+
+      if (res.ok) {
+        const { project } = await res.json();
+        router.push(`/studio/${project.id}?prompt=${encodeURIComponent(prompt)}`);
+        return;
+      }
+    } catch {
+      // Auth not available or API error - fall through to demo mode
+    }
+
+    // Fallback: demo mode with local-only project
     const projectId = `project-${Date.now()}`;
     router.push(`/studio/${projectId}?prompt=${encodeURIComponent(prompt)}`);
   };

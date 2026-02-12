@@ -126,7 +126,7 @@ export type {
   FigmaFile,
   FigmaVariable,
   FigmaVariableCollection,
-  FigmaVariablesResponse,
-  FigmaExtractionOptions,
+  FigmaVariableValue,
+  FigmaExtractorOptions,
   FigmaExtractionResult,
 } from "./figma-extractor";
