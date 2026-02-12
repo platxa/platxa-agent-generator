@@ -45,7 +45,6 @@ interface AgentState {
   // Results
   preGenerationResult: PreGenerationResult | null;
   postGenerationResult: PostGenerationResult | null;
-  lastPipelineResult: AgentPipelineResult | null;
 
   // Brand context (persists across messages in a session)
   brandContext: BrandTokenContext | null;
@@ -68,12 +67,7 @@ interface AgentState {
   completePipeline: (result: AgentPipelineResult) => void;
   /** Marks pipeline as complete without requiring full result (for simple completion signals) */
   markComplete: (message?: string) => void;
-  failPipeline: (error: string) => void;
   setBrandContext: (context: BrandTokenContext) => void;
-  /** Start recovery process */
-  startRecovery: (snapshotId: string | null) => void;
-  /** Complete recovery with result */
-  completeRecovery: (plan: RecoveryPlan, result: RecoveryResult) => void;
   reset: () => void;
 }
 
@@ -95,7 +89,6 @@ export const useAgentStore = create<AgentState>()((set) => ({
   agentStatus: null,
   preGenerationResult: null,
   postGenerationResult: null,
-  lastPipelineResult: null,
   brandContext: null,
   qualityScore: null,
   qualityReport: null,
@@ -136,7 +129,6 @@ export const useAgentStore = create<AgentState>()((set) => ({
   completePipeline: (result) =>
     set({
       pipelineStatus: "completed",
-      lastPipelineResult: result,
       agentStatus: {
         phase: "complete",
         message: "Generation complete",
@@ -156,53 +148,8 @@ export const useAgentStore = create<AgentState>()((set) => ({
       },
     }),
 
-  failPipeline: (error) =>
-    set({
-      pipelineStatus: "error",
-      lastError: error,
-      agentStatus: {
-        phase: "error",
-        message: error,
-        startedAt: new Date().toISOString(),
-      },
-    }),
-
   setBrandContext: (context) =>
     set({ brandContext: context }),
-
-  startRecovery: (snapshotId) =>
-    set((state) => ({
-      recoveryState: {
-        ...state.recoveryState,
-        isRecovering: true,
-        snapshotId,
-      },
-      agentStatus: {
-        phase: "analyzing",
-        message: "Recovering from failure...",
-        progress: 0,
-        startedAt: new Date().toISOString(),
-      },
-    })),
-
-  completeRecovery: (plan, result) =>
-    set((state) => ({
-      recoveryState: {
-        isRecovering: false,
-        lastPlan: plan,
-        lastResult: result,
-        attemptCount: state.recoveryState.attemptCount + 1,
-        snapshotId: null,
-      },
-      pipelineStatus: result.success ? "completed" : "error",
-      agentStatus: {
-        phase: result.success ? "complete" : "error",
-        message: result.message,
-        progress: result.success ? 100 : 0,
-        startedAt: new Date().toISOString(),
-      },
-      lastError: result.success ? null : result.message,
-    })),
 
   reset: () =>
     set({
@@ -210,7 +157,6 @@ export const useAgentStore = create<AgentState>()((set) => ({
       agentStatus: null,
       preGenerationResult: null,
       postGenerationResult: null,
-      lastPipelineResult: null,
       qualityScore: null,
       qualityReport: null,
       recoveryState: initialRecoveryState,

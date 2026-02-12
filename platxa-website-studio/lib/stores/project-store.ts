@@ -41,23 +41,6 @@ export interface ProjectConfig {
 export type OdooStatus = "disconnected" | "connecting" | "connected" | "error";
 
 /**
- * GitHub sync status
- */
-export type GitHubSyncStatus = "idle" | "syncing" | "conflict" | "error" | "up-to-date";
-
-/**
- * GitHub repository info
- */
-export interface GitHubRepoInfo {
-  owner: string;
-  repo: string;
-  branch: string;
-  fullName: string;
-  lastSyncAt: string | null;
-  lastCommitSha: string | null;
-}
-
-/**
  * Project state interface
  */
 interface ProjectState {
@@ -76,11 +59,8 @@ interface ProjectState {
   odooStatus: OdooStatus;
   odooError: string | null;
 
-  // GitHub sync
-  githubRepo: GitHubRepoInfo | null;
-  githubSyncStatus: GitHubSyncStatus;
-  githubError: string | null;
-  pendingChanges: string[];  // Paths of modified files pending sync
+  // Pending changes for sync
+  pendingChanges: string[];
 
   // Actions
   setProject: (projectId: string, name: string) => void;
@@ -95,9 +75,6 @@ interface ProjectState {
   setOdooStatus: (status: OdooStatus, error?: string) => void;
   resetProject: () => void;
 
-  // GitHub actions
-  setGitHubRepo: (repo: GitHubRepoInfo | null) => void;
-  setGitHubSyncStatus: (status: GitHubSyncStatus, error?: string) => void;
   addPendingChange: (path: string) => void;
   clearPendingChanges: () => void;
 }
@@ -312,9 +289,6 @@ export const useProjectStore = create<ProjectState>()(
       sidecarUrl: null,
       odooStatus: "disconnected",
       odooError: null,
-      githubRepo: null,
-      githubSyncStatus: "idle",
-      githubError: null,
       pendingChanges: [],
 
       // Actions
@@ -387,24 +361,7 @@ export const useProjectStore = create<ProjectState>()(
           sidecarUrl: null,
           odooStatus: "disconnected",
           odooError: null,
-          githubRepo: null,
-          githubSyncStatus: "idle",
-          githubError: null,
           pendingChanges: [],
-        }),
-
-      // GitHub actions
-      setGitHubRepo: (repo) =>
-        set({
-          githubRepo: repo,
-          githubSyncStatus: repo ? "idle" : "idle",
-          githubError: null,
-        }),
-
-      setGitHubSyncStatus: (status, error) =>
-        set({
-          githubSyncStatus: status,
-          githubError: error || null,
         }),
 
       addPendingChange: (path) =>

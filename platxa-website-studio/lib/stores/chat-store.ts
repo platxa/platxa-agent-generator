@@ -76,26 +76,11 @@ interface ChatState {
   qualityReport: QualityReport | null;
 
   // Actions
-  addMessage: (message: Omit<ChatMessage, "id" | "timestamp">) => void;
-  updateLastMessage: (content: MessageContent[]) => void;
-  appendToStream: (text: string) => void;
-  finalizeStream: () => void;
   setStreaming: (isStreaming: boolean) => void;
   setSuggestions: (suggestions: DesignSuggestion[]) => void;
-  clearSuggestions: () => void;
   setInputValue: (value: string) => void;
-  setInputDisabled: (disabled: boolean) => void;
   setAgentStatus: (status: AgentStatus | null) => void;
   setQualityReport: (report: QualityReport | null) => void;
-  clearMessages: () => void;
-  newSession: () => void;
-}
-
-/**
- * Generate unique message ID
- */
-function generateId(): string {
-  return `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
 /**
@@ -124,61 +109,6 @@ export const useChatStore = create<ChatState>()(
       qualityReport: null,
 
       // Actions
-      addMessage: (message) =>
-        set((state) => ({
-          messages: [
-            ...state.messages,
-            {
-              ...message,
-              id: generateId(),
-              timestamp: new Date().toISOString(),
-            },
-          ],
-          lastUpdated: new Date().toISOString(),
-        })),
-
-      updateLastMessage: (content) =>
-        set((state) => {
-          const messages = [...state.messages];
-          if (messages.length > 0) {
-            messages[messages.length - 1] = {
-              ...messages[messages.length - 1],
-              content,
-              isStreaming: false,
-            };
-          }
-          return { messages, lastUpdated: new Date().toISOString() };
-        }),
-
-      appendToStream: (text) =>
-        set((state) => ({
-          streamingContent: state.streamingContent + text,
-        })),
-
-      finalizeStream: () =>
-        set((state) => {
-          const messages = [...state.messages];
-          if (messages.length > 0 && state.streamingContent) {
-            const lastMessage = messages[messages.length - 1];
-            // Append streamed content to the last message
-            const newContent: MessageContent = {
-              type: "text",
-              content: state.streamingContent,
-            };
-            messages[messages.length - 1] = {
-              ...lastMessage,
-              content: [...lastMessage.content, newContent],
-              isStreaming: false,
-            };
-          }
-          return {
-            messages,
-            streamingContent: "",
-            isStreaming: false,
-            lastUpdated: new Date().toISOString(),
-          };
-        }),
-
       setStreaming: (isStreaming) =>
         set({
           isStreaming,
@@ -187,38 +117,12 @@ export const useChatStore = create<ChatState>()(
 
       setSuggestions: (suggestions) => set({ suggestions }),
 
-      clearSuggestions: () => set({ suggestions: [] }),
-
       setInputValue: (value) => set({ inputValue: value }),
-
-      setInputDisabled: (disabled) => set({ isInputDisabled: disabled }),
 
       setAgentStatus: (status) => set({ agentStatus: status }),
 
       setQualityReport: (report) => set({ qualityReport: report }),
 
-      clearMessages: () =>
-        set({
-          messages: [],
-          streamingContent: "",
-          isStreaming: false,
-          suggestions: [],
-          lastUpdated: new Date().toISOString(),
-        }),
-
-      newSession: () =>
-        set({
-          messages: [],
-          streamingContent: "",
-          isStreaming: false,
-          suggestions: [],
-          inputValue: "",
-          isInputDisabled: false,
-          agentStatus: null,
-          qualityReport: null,
-          sessionId: generateSessionId(),
-          lastUpdated: new Date().toISOString(),
-        }),
     }),
     {
       name: "platxa-chat-storage",

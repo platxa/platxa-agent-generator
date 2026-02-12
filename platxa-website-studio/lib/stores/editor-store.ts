@@ -84,8 +84,6 @@ interface EditorState {
   setSelection: (selection: SelectionRange | null) => void;
   setFileContent: (path: string, content: string) => void;
   getFileContent: (path: string) => string | undefined;
-  clearFileContent: (path: string) => void;
-  clearAllFileContents: () => void;
   toggleMinimap: () => void;
   toggleWordWrap: () => void;
   setFontSize: (size: number) => void;
@@ -350,15 +348,6 @@ export const useEditorStore = create<EditorState>()(
         })),
 
       getFileContent: (path) => get().fileContents[path],
-
-      clearFileContent: (path) =>
-        set((state) => {
-          const newFileContents = { ...state.fileContents };
-          delete newFileContents[path];
-          return { fileContents: newFileContents };
-        }),
-
-      clearAllFileContents: () => set({ fileContents: {} }),
 
       toggleMinimap: () => set((state) => ({ showMinimap: !state.showMinimap })),
 

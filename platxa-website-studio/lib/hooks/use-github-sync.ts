@@ -309,34 +309,3 @@ export function useGitHubSync(): UseGitHubSyncReturn {
   };
 }
 
-/**
- * Lightweight hook to check GitHub connection status
- */
-export function useGitHubConnection(): {
-  connected: boolean;
-  loading: boolean;
-  username: string | null;
-} {
-  const [status, setStatus] = useState({
-    connected: false,
-    loading: true,
-    username: null as string | null,
-  });
-
-  useEffect(() => {
-    fetch('/api/github')
-      .then(res => res.json())
-      .then(data => {
-        setStatus({
-          connected: data.connected,
-          loading: false,
-          username: data.connection?.githubLogin || null,
-        });
-      })
-      .catch(() => {
-        setStatus({ connected: false, loading: false, username: null });
-      });
-  }, []);
-
-  return status;
-}

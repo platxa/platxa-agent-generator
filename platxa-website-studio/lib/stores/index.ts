@@ -21,13 +21,9 @@ export {
 } from "./editor-store";
 export {
   useSyncStore,
-  selectLastDeployEvent,
-  selectAllFilesSynced,
-  selectFilesWithErrors,
   type SyncStatus,
   type DeployEvent,
   type DeployEventType,
-  type FileSyncStatus,
 } from "./sync-store";
 export {
   useAgentStore,

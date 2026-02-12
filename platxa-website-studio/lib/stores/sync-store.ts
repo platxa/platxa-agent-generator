@@ -31,16 +31,6 @@ export interface DeployEvent {
 }
 
 /**
- * File sync status
- */
-export interface FileSyncStatus {
-  path: string;
-  status: "pending" | "syncing" | "synced" | "error";
-  lastSynced?: Date;
-  error?: string;
-}
-
-/**
  * Sync state interface
  */
 interface SyncState {
@@ -48,16 +38,9 @@ interface SyncState {
   status: SyncStatus;
   sidecarUrl: string | null;
   authToken: string | null;
-  connectionError: string | null;
-
-  // File sync
-  fileSyncStatus: Map<string, FileSyncStatus>;
-  pendingWrites: string[];
 
   // Deploy events
-  deployEvents: DeployEvent[];
   isDeploying: boolean;
-  lastDeployTime: Date | null;
 
   // Preview
   previewUrl: string | null;
@@ -67,13 +50,7 @@ interface SyncState {
   connect: (sidecarUrl: string, authToken: string) => void;
   disconnect: () => void;
   setStatus: (status: SyncStatus, error?: string) => void;
-  setFileSyncStatus: (path: string, status: FileSyncStatus) => void;
-  addPendingWrite: (path: string) => void;
-  removePendingWrite: (path: string) => void;
   addDeployEvent: (event: Omit<DeployEvent, "timestamp">) => void;
-  clearDeployEvents: () => void;
-  setDeploying: (isDeploying: boolean) => void;
-  setPreviewUrl: (url: string | null) => void;
   setPreviewStatus: (status: "loading" | "ready" | "error") => void;
   reset: () => void;
 }
@@ -86,12 +63,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   status: "disconnected",
   sidecarUrl: null,
   authToken: null,
-  connectionError: null,
-  fileSyncStatus: new Map(),
-  pendingWrites: [],
-  deployEvents: [],
   isDeploying: false,
-  lastDeployTime: null,
   previewUrl: null,
   previewStatus: "loading",
 
@@ -101,7 +73,6 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       sidecarUrl,
       authToken,
       status: "connecting",
-      connectionError: null,
     }),
 
   disconnect: () =>
@@ -109,33 +80,12 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       status: "disconnected",
       sidecarUrl: null,
       authToken: null,
-      connectionError: null,
-      fileSyncStatus: new Map(),
-      pendingWrites: [],
     }),
 
   setStatus: (status, error) =>
     set({
       status,
-      connectionError: error || null,
     }),
-
-  setFileSyncStatus: (path, status) =>
-    set((state) => {
-      const newStatus = new Map(state.fileSyncStatus);
-      newStatus.set(path, status);
-      return { fileSyncStatus: newStatus };
-    }),
-
-  addPendingWrite: (path) =>
-    set((state) => ({
-      pendingWrites: [...state.pendingWrites, path],
-    })),
-
-  removePendingWrite: (path) =>
-    set((state) => ({
-      pendingWrites: state.pendingWrites.filter((p) => p !== path),
-    })),
 
   addDeployEvent: (event) =>
     set((state) => {
@@ -146,7 +96,6 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
       // Update deploying state based on event type
       let isDeploying = state.isDeploying;
-      let lastDeployTime = state.lastDeployTime;
 
       if (event.type === "deploy_started") {
         isDeploying = true;
@@ -155,21 +104,12 @@ export const useSyncStore = create<SyncState>((set, get) => ({
         event.type === "deploy_error"
       ) {
         isDeploying = false;
-        lastDeployTime = new Date();
       }
 
       return {
-        deployEvents: [...state.deployEvents.slice(-49), newEvent], // Keep last 50 events
         isDeploying,
-        lastDeployTime,
       };
     }),
-
-  clearDeployEvents: () => set({ deployEvents: [] }),
-
-  setDeploying: (isDeploying) => set({ isDeploying }),
-
-  setPreviewUrl: (url) => set({ previewUrl: url }),
 
   setPreviewStatus: (status) => set({ previewStatus: status }),
 
@@ -178,46 +118,8 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       status: "disconnected",
       sidecarUrl: null,
       authToken: null,
-      connectionError: null,
-      fileSyncStatus: new Map(),
-      pendingWrites: [],
-      deployEvents: [],
       isDeploying: false,
-      lastDeployTime: null,
       previewUrl: null,
       previewStatus: "loading",
     }),
 }));
-
-/**
- * Selector for getting the last deploy event
- */
-export const selectLastDeployEvent = (state: SyncState): DeployEvent | null => {
-  return state.deployEvents[state.deployEvents.length - 1] || null;
-};
-
-/**
- * Selector for checking if all files are synced
- */
-export const selectAllFilesSynced = (state: SyncState): boolean => {
-  if (state.pendingWrites.length > 0) return false;
-
-  for (const [, status] of state.fileSyncStatus) {
-    if (status.status !== "synced") return false;
-  }
-
-  return true;
-};
-
-/**
- * Selector for getting files with sync errors
- */
-export const selectFilesWithErrors = (state: SyncState): string[] => {
-  const errorFiles: string[] = [];
-  for (const [path, status] of state.fileSyncStatus) {
-    if (status.status === "error") {
-      errorFiles.push(path);
-    }
-  }
-  return errorFiles;
-};

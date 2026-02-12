@@ -8,16 +8,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
-  createMemory,
-  recordPreference,
-  recordRejection,
-  recordFavorite,
   getStrongPreferences,
   getTopFavorites,
   getRejections,
-  serializeMemory,
   deserializeMemory,
-  type PreferenceMemory,
   type PreferenceCategory,
   type PreferenceEntry,
   type FavoritePattern,
@@ -33,33 +27,7 @@ interface PreferenceState {
   // Serialized memory for persistence
   serializedMemory: SerializedMemory | null;
 
-  // Last update timestamp
-  lastUpdated: string | null;
-
   // Actions
-  /** Record a preference (explicit or inferred) */
-  addPreference: (
-    category: PreferenceCategory,
-    key: string,
-    value: string,
-    source?: "explicit" | "inferred"
-  ) => void;
-
-  /** Record a rejected option */
-  addRejection: (
-    category: PreferenceCategory,
-    key: string,
-    value: string,
-    reason?: string
-  ) => void;
-
-  /** Record a favorite pattern */
-  addFavorite: (
-    name: string,
-    category: PreferenceCategory,
-    tags?: string[]
-  ) => void;
-
   /** Get strong preferences (high confidence) */
   getStrong: (threshold?: number) => PreferenceEntry[];
 
@@ -68,9 +36,6 @@ interface PreferenceState {
 
   /** Get rejections by category */
   getRejectionsByCategory: (category: PreferenceCategory) => RejectedOption[];
-
-  /** Get the full memory object */
-  getMemory: () => PreferenceMemory;
 
   /** Build a prompt fragment from preferences */
   buildPreferencePrompt: () => string;
@@ -89,37 +54,6 @@ export const usePreferenceStore = create<PreferenceState>()(
   persist(
     (set, get) => ({
       serializedMemory: null,
-      lastUpdated: null,
-
-      addPreference: (category, key, value, source = "explicit") => {
-        const current = get().serializedMemory;
-        const memory = current ? deserializeMemory(current) : createMemory();
-        const updated = recordPreference(memory, category, key, value, source);
-        set({
-          serializedMemory: serializeMemory(updated),
-          lastUpdated: new Date().toISOString(),
-        });
-      },
-
-      addRejection: (category, key, value, reason) => {
-        const current = get().serializedMemory;
-        const memory = current ? deserializeMemory(current) : createMemory();
-        const updated = recordRejection(memory, category, key, value, reason);
-        set({
-          serializedMemory: serializeMemory(updated),
-          lastUpdated: new Date().toISOString(),
-        });
-      },
-
-      addFavorite: (name, category, tags = []) => {
-        const current = get().serializedMemory;
-        const memory = current ? deserializeMemory(current) : createMemory();
-        const updated = recordFavorite(memory, name, category, tags);
-        set({
-          serializedMemory: serializeMemory(updated),
-          lastUpdated: new Date().toISOString(),
-        });
-      },
 
       getStrong: (threshold = 0.7) => {
         const current = get().serializedMemory;
@@ -140,11 +74,6 @@ export const usePreferenceStore = create<PreferenceState>()(
         if (!current) return [];
         const memory = deserializeMemory(current);
         return getRejections(memory, category);
-      },
-
-      getMemory: () => {
-        const current = get().serializedMemory;
-        return current ? deserializeMemory(current) : createMemory();
       },
 
       buildPreferencePrompt: () => {
@@ -212,7 +141,6 @@ export const usePreferenceStore = create<PreferenceState>()(
       reset: () => {
         set({
           serializedMemory: null,
-          lastUpdated: null,
         });
       },
     }),
@@ -220,7 +148,6 @@ export const usePreferenceStore = create<PreferenceState>()(
       name: STORAGE_KEY,
       partialize: (state) => ({
         serializedMemory: state.serializedMemory,
-        lastUpdated: state.lastUpdated,
       }),
     }
   )
