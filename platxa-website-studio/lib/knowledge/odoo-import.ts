@@ -813,7 +813,7 @@ export function exportToScss(scss: ScssVariables): string {
   return lines.join('\n');
 }
 
-export default {
+const odooImport = {
   parseManifest,
   parseScssVariables,
   parseJsonExport,
@@ -827,3 +827,5 @@ export default {
   exportToJson,
   exportToScss,
 };
+
+export default odooImport;

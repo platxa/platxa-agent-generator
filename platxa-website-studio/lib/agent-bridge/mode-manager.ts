@@ -538,7 +538,7 @@ export function createModeManagerHook() {
           setModeState(event.currentMode);
         });
         return unsubscribe;
-      }, []);
+      }, [manager]);
 
       return {
         mode,

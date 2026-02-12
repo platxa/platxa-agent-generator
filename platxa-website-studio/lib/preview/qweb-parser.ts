@@ -574,7 +574,7 @@ export function cloneNode(node: QWebASTNode): QWebASTNode {
 // Exports
 // =============================================================================
 
-export default {
+const qwebParser = {
   parseQWeb,
   serializeAST,
   findNodes,
@@ -584,3 +584,5 @@ export default {
   transformAST,
   cloneNode,
 };
+
+export default qwebParser;

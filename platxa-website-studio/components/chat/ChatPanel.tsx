@@ -305,7 +305,7 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
         }
       }
     }
-  }, [isLoading, messages, projectName, openGeneratedFiles, setFiles]);
+  }, [isLoading, messages, projectId, projectName, openGeneratedFiles, setFiles]);
 
   // Custom submit handler with tracking
   const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {

@@ -521,7 +521,7 @@ export function validateParsedFiles(files: ParsedFile[]): ValidationSummary {
 // Exports
 // =============================================================================
 
-export default {
+const selfCorrectionLoop = {
   validateGeneratedCode,
   validateParsedFiles,
   extractCodeBlocks,
@@ -530,3 +530,5 @@ export default {
   shouldAttemptCorrection,
   formatValidationSummary,
 };
+
+export default selfCorrectionLoop;

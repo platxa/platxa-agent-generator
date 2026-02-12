@@ -14,6 +14,11 @@
  * Phase 2: Production-grade accessibility support
  */
 
+// axe-core runtime interface - axe-core has inconsistent default/named exports
+interface AxeRunnable {
+  run(context: Document | Element, options?: Record<string, unknown>): Promise<AxeResults>;
+}
+
 // axe-core types - using inline definitions for better compatibility
 interface AxeNodeResult {
   html: string;
@@ -349,8 +354,7 @@ export async function runA11yAuditInIframe(
 
   // Dynamically import axe-core
   const axeModule = await import("axe-core");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const axe = (axeModule as any).default || axeModule;
+  const axe = ((axeModule as Record<string, unknown>).default || axeModule) as AxeRunnable;
 
   // Get iframe document
   const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -692,7 +696,7 @@ function checkTabindex(html: string): A11yViolation[] {
 // Axe Options Builder
 // =============================================================================
 
-function buildAxeOptions(options: A11yAuditOptions): object {
+function buildAxeOptions(options: A11yAuditOptions): Record<string, unknown> {
   const tags: string[] = [];
 
   // Add WCAG level tags
@@ -839,7 +843,7 @@ export function getViolationsByCategory(
 // Exports
 // =============================================================================
 
-export default {
+const accessibilityEngine = {
   runA11yAudit,
   runA11yAuditInIframe,
   runStaticA11yAudit,
@@ -848,3 +852,5 @@ export default {
   getViolationsByImpact,
   getViolationsByCategory,
 };
+
+export default accessibilityEngine;

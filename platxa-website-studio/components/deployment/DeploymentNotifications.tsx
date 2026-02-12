@@ -246,6 +246,11 @@ function Toast({ notification, onDismiss }: ToastProps) {
   const [isExiting, setIsExiting] = useState(false);
   const [progress, setProgress] = useState(100);
 
+  const handleDismiss = useCallback(() => {
+    setIsExiting(true);
+    setTimeout(onDismiss, 200);
+  }, [onDismiss]);
+
   // Auto dismiss
   useEffect(() => {
     if (notification.duration && notification.duration > 0 && notification.type !== 'progress') {
@@ -265,7 +270,7 @@ function Toast({ notification, onDismiss }: ToastProps) {
 
       return () => clearInterval(interval);
     }
-  }, [notification.duration, notification.type]);
+  }, [notification.duration, notification.type, handleDismiss]);
 
   // Update progress for progress type
   useEffect(() => {
@@ -273,11 +278,6 @@ function Toast({ notification, onDismiss }: ToastProps) {
       setProgress(notification.progress);
     }
   }, [notification.progress, notification.type]);
-
-  const handleDismiss = () => {
-    setIsExiting(true);
-    setTimeout(onDismiss, 200);
-  };
 
   const typeStyles: Record<NotificationType, { bg: string; border: string; icon: string }> = {
     success: { bg: 'bg-green-50', border: 'border-green-200', icon: '✓' },
@@ -387,7 +387,7 @@ function DeploymentDetails({ deployment }: { deployment: DeploymentEvent }) {
 
       {deployment.commitMessage && (
         <div className="text-gray-600 truncate" title={deployment.commitMessage}>
-          "{deployment.commitMessage}"
+          &ldquo;{deployment.commitMessage}&rdquo;
         </div>
       )}
 

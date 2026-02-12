@@ -803,7 +803,7 @@ export function paletteToTailwindConfig(
 // Export
 // =============================================================================
 
-export default {
+const colorPaletteGenerator = {
   generatePalette,
   suggestPalettes,
   paletteToCSSVariables,
@@ -817,3 +817,5 @@ export default {
   isWCAGAAACompliant,
   getBestTextColor,
 };
+
+export default colorPaletteGenerator;

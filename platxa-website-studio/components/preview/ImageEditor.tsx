@@ -770,6 +770,7 @@ export function ImageEditor({
         >
           {hasImage ? (
             <>
+              {/* eslint-disable-next-line @next/next/no-img-element -- image editor requires native img for transforms */}
               <img
                 src={value}
                 alt={alt}

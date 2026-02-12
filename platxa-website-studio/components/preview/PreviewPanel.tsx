@@ -1182,7 +1182,8 @@ export function PreviewPanel() {
         controller.disconnect();
       };
     }
-  }, [iframeRef.current]); // Re-connect when iframe changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- ref.current is intentional: reconnect on initial mount
+  }, []);
 
   // HMR: Inject CSS updates without full reload when CSS files change
   useEffect(() => {
@@ -1277,7 +1278,7 @@ export function PreviewPanel() {
     console.log("[PreviewPanel] Generated HTML length:", html.length);
     console.log("[PreviewPanel] HTML contains sections:", html.includes("<section"));
     return html;
-  }, [isHydrated, fileContents, fileCount, fileKeys, lastFileUpdate, contentHash, previewMode, streamingPreview?.isStreaming, streamingPreview?.partialHtml, streamingPreview?.partialCss]);
+  }, [isHydrated, fileContents, fileCount, fileKeys, previewMode, streamingPreview?.isStreaming, streamingPreview?.partialHtml, streamingPreview?.partialCss]);
 
   // Create blob URL for standalone preview
   const previewBlobUrl = useMemo(() => {

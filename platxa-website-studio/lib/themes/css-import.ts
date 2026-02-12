@@ -1044,9 +1044,11 @@ export function mergeWithExistingTheme(
 // Export
 // =============================================================================
 
-export default {
+const cssImport = {
   importCSSTheme,
   importCSSFromFile,
   mergeWithExistingTheme,
   parseColorToHex,
 };
+
+export default cssImport;

@@ -176,6 +176,7 @@ function Avatar({ name, avatarUrl, size = "md" }: { name: string; avatarUrl?: st
 
   if (avatarUrl) {
     return (
+      // eslint-disable-next-line @next/next/no-img-element -- external avatar URLs with unknown dimensions
       <img
         src={avatarUrl}
         alt={name}
