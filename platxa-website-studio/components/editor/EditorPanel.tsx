@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { FileCode, Settings, Users } from "lucide-react";
 import { useEditorStore, useProjectStore } from "@/lib/stores";
 import { CodeEditor } from "./CodeEditor";
@@ -43,6 +43,7 @@ export function EditorPanel() {
   } = useEditorStore();
 
   const { files, updateFile } = useProjectStore();
+  const setFileContent = useEditorStore((s) => s.setFileContent);
 
   // Collaboration hook - enabled only when env var is set
   const collaborationEnabled = typeof window !== "undefined" && !!process.env.NEXT_PUBLIC_COLLAB_SERVER_URL;
@@ -126,6 +127,7 @@ export function EditorPanel() {
           onAccept={() => {
             if (activeTab && diffModified) {
               updateFile(activeTab, diffModified);
+              setFileContent(activeTab, diffModified);
             }
             hideDiffView();
           }}
@@ -178,7 +180,10 @@ export function EditorPanel() {
           <CodeEditor
             filePath={activeTab}
             content={activeFileContent}
-            onChange={(content) => updateFile(activeTab, content)}
+            onChange={(content) => {
+              updateFile(activeTab, content);
+              setFileContent(activeTab, content);
+            }}
             collaborators={collaboratorsInFile}
             onCursorChange={handleCursorChange}
             onSelectionChange={handleSelectionChange}

@@ -35,7 +35,7 @@ const QUICK_PROMPTS = [
 
 export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { projectName, projectConfig, setFilesConsolidated } = useProjectStore();
+  const { projectName, projectConfig, setFiles } = useProjectStore();
   const { suggestions, setSuggestions } = useChatStore();
   const { openGeneratedFiles, fileContents } = useEditorStore();
   const { startPipeline, setAgentStatus, markComplete, reset: resetAgentStore } = useAgentStore();
@@ -188,18 +188,16 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
             ],
           });
 
-          // Auto-open generated files in editor
+          // Auto-open generated files in editor (EditorStore handles consolidation)
           console.log("[ChatPanel] Opening files in editor...");
-          openGeneratedFiles(
-            files.map((f) => ({
-              path: f.path,
-              content: f.content,
-              language: f.language,
-            }))
-          );
+          const filesToOpen = files.map((f) => ({
+            path: f.path,
+            content: f.content,
+            language: f.language,
+          }));
+          openGeneratedFiles(filesToOpen);
 
-          // ROOT CAUSE FIX: Use consolidated bulk add to merge duplicate XML/SCSS files
-          // This prevents Odoo installation errors from duplicate template IDs
+          // Sync to ProjectStore (no second consolidation - EditorStore already did it)
           const fileNodes = files.map((file) => ({
             id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
             name: file.path.split("/").pop() || file.path,
@@ -208,9 +206,9 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
             content: file.content,
             isModified: true,
           }));
-          setFilesConsolidated(fileNodes);
+          setFiles(fileNodes);
 
-          // Save files to database (if authenticated) - fire and forget
+          // Save files to database (if authenticated)
           fetch(`/api/projects/${projectId}/files`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -222,8 +220,13 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
                 language: f.language,
               })),
             }),
-          }).catch(() => {
-            // Silently fail for demo mode (no auth)
+          }).then((res) => {
+            if (!res.ok && res.status !== 401 && res.status !== 403) {
+              console.error("[ChatPanel] Failed to save files to DB:", res.status, res.statusText);
+            }
+          }).catch((err) => {
+            // Network errors or demo mode (no auth) - log but don't crash
+            console.warn("[ChatPanel] DB save unavailable:", err.message || "network error");
           });
 
           // Clear status after 15 seconds
@@ -264,7 +267,7 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
                 language: fallbackFile.language,
               }]);
 
-              setFilesConsolidated([{
+              setFiles([{
                 id: `file-${Date.now()}-fallback`,
                 name: "ai_generated.xml",
                 path: fallbackFile.path,
@@ -302,7 +305,7 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
         }
       }
     }
-  }, [isLoading, messages, projectName, openGeneratedFiles, setFilesConsolidated]);
+  }, [isLoading, messages, projectName, openGeneratedFiles, setFiles]);
 
   // Custom submit handler with tracking
   const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {

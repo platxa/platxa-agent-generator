@@ -1,7 +1,8 @@
 "use client";
 
-import { use, useEffect } from "react";
+import { use, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 import { StudioLayout } from "@/components/layout";
 import { useProjectStore, useEditorStore } from "@/lib/stores";
 
@@ -19,11 +20,15 @@ export default function StudioPage({ params }: StudioPageProps) {
   const initialPrompt = searchParams.get("prompt") || undefined;
   const { setProject, setProjectConfig, setFiles, projectId: currentProjectId } = useProjectStore();
   const { openGeneratedFiles } = useEditorStore();
+  const [isLoading, setIsLoading] = useState(currentProjectId !== projectId);
 
   // Initialize project on mount - try loading from DB first
   useEffect(() => {
     // Skip if already loaded for this project
-    if (currentProjectId === projectId) return;
+    if (currentProjectId === projectId) {
+      setIsLoading(false);
+      return;
+    }
 
     async function loadProject() {
       try {
@@ -62,6 +67,7 @@ export default function StudioPage({ params }: StudioPageProps) {
               }))
             );
           }
+          setIsLoading(false);
           return;
         }
       } catch {
@@ -70,10 +76,23 @@ export default function StudioPage({ params }: StudioPageProps) {
 
       // Fallback: demo mode with local-only project
       setProject(projectId, `Project ${projectId.slice(-6)}`);
+      setIsLoading(false);
     }
 
     loadProject();
   }, [projectId, currentProjectId, setProject, setProjectConfig, setFiles, openGeneratedFiles]);
+
+  // Show loading state until project is initialized
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">Loading project...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <StudioLayout

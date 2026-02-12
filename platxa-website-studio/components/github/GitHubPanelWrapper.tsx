@@ -7,7 +7,7 @@
 import { useCallback } from "react";
 import { GitHubPanel } from "./GitHubPanel";
 import { useGitHubSync } from "@/lib/hooks/use-github-sync";
-import { useProjectStore } from "@/lib/stores";
+import { useProjectStore, useEditorStore } from "@/lib/stores";
 
 interface GitHubPanelWrapperProps {
   projectId: string;
@@ -16,6 +16,8 @@ interface GitHubPanelWrapperProps {
 export function GitHubPanelWrapper({ projectId }: GitHubPanelWrapperProps) {
   const github = useGitHubSync();
   const repo = github.getRepoForProject(projectId);
+  const { setFiles } = useProjectStore();
+  const openGeneratedFiles = useEditorStore((s) => s.openGeneratedFiles);
 
   const connectionStatus = github.connected
     ? repo ? "connected" : "disconnected"
@@ -30,12 +32,68 @@ export function GitHubPanelWrapper({ projectId }: GitHubPanelWrapperProps) {
   }, [github]);
 
   const handleSync = useCallback(async () => {
-    await github.sync(projectId);
-  }, [github, projectId]);
+    const result = await github.sync(projectId);
+    if (result?.pulled && result.pulled.length > 0) {
+      // Fetch updated files from the API and apply to stores
+      try {
+        const res = await fetch(`/api/projects/${projectId}`);
+        if (res.ok) {
+          const { project } = await res.json();
+          if (project.files?.length > 0) {
+            const fileNodes = project.files.map((f: { path: string; name: string; content: string }) => ({
+              id: f.path,
+              name: f.name || f.path.split("/").pop() || f.path,
+              path: f.path,
+              type: "file" as const,
+              content: f.content,
+            }));
+            setFiles(fileNodes);
+            openGeneratedFiles(
+              project.files.map((f: { path: string; content: string; language: string }) => ({
+                path: f.path,
+                content: f.content,
+                language: f.language || "xml",
+              }))
+            );
+          }
+        }
+      } catch (err) {
+        console.error("[GitHub] Failed to apply synced files:", err);
+      }
+    }
+  }, [github, projectId, setFiles, openGeneratedFiles]);
 
   const handlePull = useCallback(async () => {
-    await github.pull(projectId);
-  }, [github, projectId]);
+    const result = await github.pull(projectId);
+    if (result?.pulled && result.pulled.length > 0) {
+      // Fetch updated files from the API and apply to stores
+      try {
+        const res = await fetch(`/api/projects/${projectId}`);
+        if (res.ok) {
+          const { project } = await res.json();
+          if (project.files?.length > 0) {
+            const fileNodes = project.files.map((f: { path: string; name: string; content: string }) => ({
+              id: f.path,
+              name: f.name || f.path.split("/").pop() || f.path,
+              path: f.path,
+              type: "file" as const,
+              content: f.content,
+            }));
+            setFiles(fileNodes);
+            openGeneratedFiles(
+              project.files.map((f: { path: string; content: string; language: string }) => ({
+                path: f.path,
+                content: f.content,
+                language: f.language || "xml",
+              }))
+            );
+          }
+        }
+      } catch (err) {
+        console.error("[GitHub] Failed to apply pulled files:", err);
+      }
+    }
+  }, [github, projectId, setFiles, openGeneratedFiles]);
 
   const handlePush = useCallback(async () => {
     await github.push(projectId);
