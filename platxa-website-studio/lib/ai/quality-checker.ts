@@ -1162,7 +1162,7 @@ export function qualityCheck(
       if (!content.includes("'category':")) {
         content = content.replace(
           "'version':",
-          "'category': 'Theme/Creative',\n    'version':"
+          "'category': 'Website/Theme',\n    'version':"
         );
       }
     }

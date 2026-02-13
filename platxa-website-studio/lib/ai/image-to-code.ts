@@ -529,7 +529,7 @@ function generateManifest(
   return `{
     'name': '${themeName} Theme',
     'version': '${odooVersion}.1.0.0',
-    'category': 'Theme/Creative',
+    'category': 'Website/Theme',
     'summary': 'Auto-generated theme from screenshot analysis',
     'description': """
 ${analysis.description}

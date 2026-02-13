@@ -228,6 +228,12 @@ export async function exportTheme(options: ExportOptions): Promise<ExportResult>
       // Ensure we don't have double slashes or leading slashes
       relativePath = relativePath.replace(/^\/+/, '').replace(/\/+/g, '/');
 
+      // SECURITY: Block path traversal attempts (../ sequences)
+      if (relativePath.includes('..') || relativePath.startsWith('/')) {
+        console.warn(`[Export] Blocked path traversal attempt: ${file.path}`);
+        continue;
+      }
+
       themeFolder.file(relativePath, file.content);
       totalSize += file.content.length;
     }

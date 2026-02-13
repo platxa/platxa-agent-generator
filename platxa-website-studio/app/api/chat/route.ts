@@ -124,8 +124,8 @@ function detectIndustryFromMessage(message: string): string | undefined {
   return undefined;
 }
 
-// Increase timeout for local LLM (10 minutes max)
-export const maxDuration = 600;
+// Increase timeout for local LLM (15 minutes max — small models are very slow)
+export const maxDuration = 900;
 
 // AI Provider Configuration - reads from environment variables (secure)
 // Priority: 1. Claude API (fast, production quality) if ANTHROPIC_API_KEY env var is set
@@ -167,7 +167,7 @@ function resolveModelId(modelConfig: ModelConfig): { provider: "anthropic" | "op
 // Ollama configuration (fallback or primary if no Claude API key)
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL || "llama3.2:1b";
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
-const REQUEST_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes for generation (local LLMs are slow)
+const REQUEST_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes for generation (small local LLMs are very slow)
 
 // Initialize Anthropic client - uses ANTHROPIC_API_KEY from environment automatically
 // Returns null if env var not set, allowing graceful fallback to Ollama
@@ -774,20 +774,11 @@ async function streamClaudeResponse(
 
             console.log(`[SelfCorrection] Final: ${formatValidationSummary(finalValidation)} (corrected: ${correctionResult.wasCorrrected})`);
 
-            // If content was corrected, stream the corrected version
-            if (correctionResult.wasCorrrected && !isStreamClosed) {
-              // Send correction marker
-              const correctionMarker = `2:${JSON.stringify([{ selfCorrectionApplied: true, iterations: correctionResult.attempts.length }])}\n`;
-              safeEnqueue(encoder.encode(correctionMarker));
-
-              // Stream the corrected content (replace previous content)
-              const correctedChunk = `0:${JSON.stringify("\n\n---\n**[Auto-Corrected Version]**\n\n" + correctionResult.finalContent)}\n`;
-              safeEnqueue(encoder.encode(correctedChunk));
-            }
-
-            // Send validation metadata to client
+            // Send validation metadata and corrected content to client via 2: channel
+            // NOTE: Corrected content goes in metadata, NOT appended to 0: text stream.
+            // The client checks for correctedContent in streamData and uses it for parsing.
             if (!isStreamClosed) {
-              const validationData = {
+              const validationData: Record<string, unknown> = {
                 codeValidation: {
                   valid: finalValidation.allValid,
                   qualityScore: finalQualityScore,
@@ -798,6 +789,12 @@ async function streamClaudeResponse(
                   wasCorrected: correctionResult.wasCorrrected,
                 },
               };
+
+              // If corrected, include the full corrected content for the client to use
+              if (correctionResult.wasCorrrected) {
+                validationData.correctedContent = correctionResult.finalContent;
+              }
+
               const validationChunk = `2:${JSON.stringify([validationData])}\n`;
               safeEnqueue(encoder.encode(validationChunk));
             }
@@ -1201,13 +1198,14 @@ export async function POST(req: Request) {
     // OLLAMA PATH - Local LLM fallback (slower but free)
     // =====================================================================
 
-    // Build Ollama messages array
+    // ROOT CAUSE FIX: Only send the LAST user message to Ollama.
+    // Small models (1b-3b) get confused when they see previous assistant messages
+    // containing generated theme code — they mix content from different generations
+    // (e.g., law firm + restaurant in the same output). The system prompt already
+    // contains all instructions; previous conversation history only hurts.
     const ollamaMessages: OllamaMessage[] = [
       { role: "system", content: systemPrompt },
-      ...messages.map((msg: ChatMessage) => ({
-        role: msg.role as "user" | "assistant",
-        content: msg.content,
-      })),
+      { role: "user", content: userMessageContent },
     ];
 
     // Create abort controller for timeout
@@ -1446,20 +1444,9 @@ export async function POST(req: Request) {
 
                 console.log(`[SelfCorrection] Final: ${formatValidationSummary(finalValidation)} (corrected: ${correctionResult.wasCorrrected})`);
 
-                // If content was corrected, stream the corrected version
-                if (correctionResult.wasCorrrected && !isStreamClosed) {
-                  // Send correction marker
-                  const correctionMarker = `2:${JSON.stringify([{ selfCorrectionApplied: true, iterations: correctionResult.attempts.length }])}\n`;
-                  safeEnqueue(encoder.encode(correctionMarker));
-
-                  // Stream the corrected content
-                  const correctedChunk = `0:${JSON.stringify("\n\n---\n**[Auto-Corrected Version]**\n\n" + correctionResult.finalContent)}\n`;
-                  safeEnqueue(encoder.encode(correctedChunk));
-                }
-
-                // Send validation metadata to client
+                // Send validation metadata and corrected content to client via 2: channel
                 if (!isStreamClosed) {
-                  const validationData = {
+                  const validationData: Record<string, unknown> = {
                     codeValidation: {
                       valid: finalValidation.allValid,
                       qualityScore: finalQualityScore,
@@ -1470,6 +1457,11 @@ export async function POST(req: Request) {
                       wasCorrected: correctionResult.wasCorrrected,
                     },
                   };
+
+                  if (correctionResult.wasCorrrected) {
+                    validationData.correctedContent = correctionResult.finalContent;
+                  }
+
                   const validationChunk = `2:${JSON.stringify([validationData])}\n`;
                   safeEnqueue(encoder.encode(validationChunk));
                 }

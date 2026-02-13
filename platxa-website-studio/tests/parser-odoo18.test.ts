@@ -14,6 +14,8 @@ import { describe, it, expect } from "vitest";
 import {
   consolidateExportFiles,
   generateManifest,
+  extractManifestFields,
+  ensureRequiredFiles,
   type ParsedFile,
 } from "../lib/ai/parser";
 
@@ -654,5 +656,164 @@ describe("detectIndustryFromMessage (specification test)", () => {
     expect(
       detectIndustryFromMessage("Build a RESTAURANT website")
     ).toBe("restaurant");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractManifestFields -- AI manifest field extraction
+// ---------------------------------------------------------------------------
+
+describe("extractManifestFields", () => {
+  const sampleManifest = `# -*- coding: utf-8 -*-
+{
+    'name': 'Theme Oceanview',
+    'version': '18.0.1.0.0',
+    'category': 'Theme/Creative',
+    'summary': 'A modern ocean-inspired theme',
+    'description': '''
+        Stunning ocean-inspired theme with wave animations
+        and aquatic color palettes.
+    ''',
+    'author': 'Custom Studio',
+    'website': 'https://example.com',
+    'license': 'LGPL-3',
+    'depends': ['website', 'website_blog'],
+    'data': [],
+}`;
+
+  it("extracts summary from AI manifest", () => {
+    const fields = extractManifestFields(sampleManifest);
+    expect(fields.summary).toBe("A modern ocean-inspired theme");
+  });
+
+  it("extracts description from AI manifest", () => {
+    const fields = extractManifestFields(sampleManifest);
+    expect(fields.description).toContain("ocean-inspired theme");
+    expect(fields.description).toContain("aquatic color palettes");
+  });
+
+  it("extracts author from AI manifest", () => {
+    const fields = extractManifestFields(sampleManifest);
+    expect(fields.author).toBe("Custom Studio");
+  });
+
+  it("extracts website from AI manifest", () => {
+    const fields = extractManifestFields(sampleManifest);
+    expect(fields.website).toBe("https://example.com");
+  });
+
+  it("extracts extra depends beyond website", () => {
+    const fields = extractManifestFields(sampleManifest);
+    expect(fields.extraDepends).toEqual(["website_blog"]);
+  });
+
+  it("returns empty overrides for minimal manifest", () => {
+    const minimal = `{ 'name': 'Theme Test', 'depends': ['website'] }`;
+    const fields = extractManifestFields(minimal);
+    expect(fields.extraDepends).toBeUndefined();
+    expect(fields.description).toBeUndefined();
+  });
+
+  it("does not extract category (always regenerated)", () => {
+    const fields = extractManifestFields(sampleManifest);
+    expect(fields).not.toHaveProperty("category");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateManifest -- merge overrides
+// ---------------------------------------------------------------------------
+
+describe("generateManifest with overrides", () => {
+  const baseFiles: ParsedFile[] = [
+    makeXmlFile("layout.xml", "<odoo><template id='layout'>test</template></odoo>"),
+    makeScssFile("theme.scss", "body { color: red; }"),
+  ];
+
+  it("uses default values when no overrides provided", () => {
+    const manifest = generateManifest("Test Theme", baseFiles, "theme_test");
+    expect(manifest).toContain("'summary': 'AI-generated Odoo website theme'");
+    expect(manifest).toContain("'author': 'Platxa Studio'");
+    expect(manifest).toContain("'depends': ['website']");
+  });
+
+  it("merges AI summary into generated manifest", () => {
+    const manifest = generateManifest("Test Theme", baseFiles, "theme_test", {
+      summary: "Beautiful restaurant theme",
+    });
+    expect(manifest).toContain("'summary': 'Beautiful restaurant theme'");
+  });
+
+  it("merges AI author and website", () => {
+    const manifest = generateManifest("Test Theme", baseFiles, "theme_test", {
+      author: "My Studio",
+      website: "https://mystudio.dev",
+    });
+    expect(manifest).toContain("'author': 'My Studio'");
+    expect(manifest).toContain("'website': 'https://mystudio.dev'");
+  });
+
+  it("merges extra depends while keeping website", () => {
+    const manifest = generateManifest("Test Theme", baseFiles, "theme_test", {
+      extraDepends: ["website_blog", "website_sale"],
+    });
+    expect(manifest).toContain("'depends': ['website', 'website_blog', 'website_sale']");
+  });
+
+  it("always uses correct category regardless of overrides", () => {
+    const manifest = generateManifest("Test Theme", baseFiles, "theme_test", {
+      summary: "Custom summary",
+    });
+    expect(manifest).toContain("'category': 'Website/Theme'");
+  });
+
+  it("always uses correct version regardless of overrides", () => {
+    const manifest = generateManifest("Test Theme", baseFiles, "theme_test", {
+      summary: "Custom summary",
+    });
+    expect(manifest).toContain("'version': '18.0.1.0.0'");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ensureRequiredFiles -- manifest merge integration
+// ---------------------------------------------------------------------------
+
+describe("ensureRequiredFiles manifest merge", () => {
+  it("merges AI manifest fields when AI provides a manifest", () => {
+    const aiManifest: ParsedFile = {
+      path: "theme_generated/__manifest__.py",
+      content: `{
+    'name': 'Theme Oceanview',
+    'summary': 'Ocean-inspired modern theme',
+    'author': 'Riya Studio',
+    'depends': ['website', 'website_blog'],
+}`,
+      language: "python",
+      action: "create",
+    };
+    const xmlFile = makeXmlFile("layout.xml", "<odoo><template id='t'>test</template></odoo>");
+
+    const result = ensureRequiredFiles([aiManifest, xmlFile], "Theme Oceanview");
+    const manifest = result.find(f => f.path.includes("__manifest__"));
+
+    expect(manifest).toBeDefined();
+    expect(manifest!.content).toContain("'summary': 'Ocean-inspired modern theme'");
+    expect(manifest!.content).toContain("'author': 'Riya Studio'");
+    expect(manifest!.content).toContain("'website_blog'");
+    // Critical fields still correct
+    expect(manifest!.content).toContain("'category': 'Website/Theme'");
+    expect(manifest!.content).toContain("'version': '18.0.1.0.0'");
+  });
+
+  it("uses defaults when AI provides no manifest", () => {
+    const xmlFile = makeXmlFile("layout.xml", "<odoo><template id='t'>test</template></odoo>");
+
+    const result = ensureRequiredFiles([xmlFile], "Theme Simple");
+    const manifest = result.find(f => f.path.includes("__manifest__"));
+
+    expect(manifest).toBeDefined();
+    expect(manifest!.content).toContain("'summary': 'AI-generated Odoo website theme'");
+    expect(manifest!.content).toContain("'author': 'Platxa Studio'");
   });
 });

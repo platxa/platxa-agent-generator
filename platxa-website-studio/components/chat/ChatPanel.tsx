@@ -142,11 +142,25 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
         hasProcessedRef.current = messageId;
         console.log("[ChatPanel] ===== Generation complete, parsing files =====");
         console.log("[ChatPanel] Message ID:", messageId);
-        console.log("[ChatPanel] Message content length:", lastMessage.content.length);
-        console.log("[ChatPanel] First 500 chars:", lastMessage.content.substring(0, 500));
 
-        // Parse generated files from the AI response
-        let files = parseGeneratedFiles(lastMessage.content);
+        // If self-correction ran, use the corrected content instead of raw stream text
+        let contentToParse = lastMessage.content;
+        if (streamData && Array.isArray(streamData)) {
+          for (let i = streamData.length - 1; i >= 0; i--) {
+            const item = streamData[i] as Record<string, unknown> | null;
+            if (item && typeof item === "object" && "correctedContent" in item && typeof item.correctedContent === "string") {
+              console.log("[ChatPanel] Using self-corrected content for parsing");
+              contentToParse = item.correctedContent;
+              break;
+            }
+          }
+        }
+
+        console.log("[ChatPanel] Content length:", contentToParse.length);
+        console.log("[ChatPanel] First 500 chars:", contentToParse.substring(0, 500));
+
+        // Parse generated files from the AI response (or corrected version)
+        let files = parseGeneratedFiles(contentToParse);
         console.log("[ChatPanel] Parsed files count:", files.length);
 
         if (files.length > 0) {
@@ -305,7 +319,7 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
         }
       }
     }
-  }, [isLoading, messages, projectId, projectName, openGeneratedFiles, setFiles]);
+  }, [isLoading, messages, streamData, projectId, projectName, openGeneratedFiles, setFiles]);
 
   // Custom submit handler with tracking
   const handleSubmit = useCallback((e: React.FormEvent<HTMLFormElement>) => {

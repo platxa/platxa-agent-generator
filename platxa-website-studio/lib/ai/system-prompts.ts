@@ -163,13 +163,13 @@ Use these Unsplash URLs for realistic placeholder images:
  * Based on the official Odoo 18 theme tutorial (website_airproof):
  * https://www.odoo.com/documentation/18.0/developer/tutorials/website_theme.html
  */
-export const ODOO_LOCAL_PROMPT = `You generate Odoo 18 website themes. Output EXACTLY 4 files.
+export const ODOO_LOCAL_PROMPT = `You generate Odoo 18 website themes. Output EXACTLY 5 files.
 
 **__manifest__.py:**
 \`\`\`python
 {
     'name': 'Theme Name',
-    'version': '18.0.0',
+    'version': '18.0.1.0.0',
     'category': 'Website/Theme',
     'summary': 'Theme description',
     'depends': ['website'],
@@ -177,6 +177,9 @@ export const ODOO_LOCAL_PROMPT = `You generate Odoo 18 website themes. Output EX
     'assets': {
         'web._assets_primary_variables': [
             ('prepend', 'theme_generated/static/src/scss/primary_variables.scss'),
+        ],
+        'web._assets_frontend_helpers': [
+            ('prepend', 'theme_generated/static/src/scss/bootstrap_overridden.scss'),
         ],
         'web.assets_frontend': [
             'theme_generated/static/src/scss/theme.scss',
@@ -253,6 +256,16 @@ $o-theme-font-configs: (
 );
 \`\`\`
 
+**static/src/scss/bootstrap_overridden.scss:**
+\`\`\`scss
+// Bootstrap variable overrides (loaded before Bootstrap compiles)
+$border-radius: 0.5rem !default;
+$border-radius-lg: 0.75rem !default;
+$btn-border-radius: 10rem !default;
+$box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !default;
+$box-shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.12) !default;
+\`\`\`
+
 **static/src/scss/theme.scss:**
 \`\`\`scss
 // Custom theme styles
@@ -269,7 +282,7 @@ section[data-snippet="s_cover"] {
 \`\`\`
 
 RULES:
-- Output EXACTLY 4 files: __manifest__.py, views/templates.xml, primary_variables.scss, theme.scss
+- Output EXACTLY 5 files: __manifest__.py, views/templates.xml, primary_variables.scss, bootstrap_overridden.scss, theme.scss
 - Template MUST use inherit_id="website.homepage" with xpath position="replace"
 - Replace <div id="wrap"> with <div id="wrap" class="oe_structure"> containing sections
 - Use Odoo color classes: o_cc o_cc1, o_cc2, etc. on sections
@@ -278,6 +291,7 @@ RULES:
 - Use Bootstrap 5 classes: container, row, col-md-4, card, btn, py-5, fw-bold
 - NEVER use Tailwind classes or CSS custom properties (--primary)
 - Colors go in primary_variables.scss using $o-color-palettes, NOT :root vars
+- Bootstrap variable overrides go in bootstrap_overridden.scss with !default flag
 - Use neutral shadows: rgba(0,0,0,0.1). NEVER blue shadows.
 - Write REAL content for the requested industry. NO generic placeholders.
 - Include at least 3 cards/items in grid sections (col-md-4 x3).
