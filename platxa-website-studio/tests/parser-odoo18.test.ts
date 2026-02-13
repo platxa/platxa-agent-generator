@@ -902,3 +902,71 @@ describe("generateManifest exact basename matching (Fix 4)", () => {
     expect(manifest).toMatch(/web\.assets_frontend[\s\S]*?not_primary_variables_at_all\.scss/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Fix J: Manifest↔Files cross-check — data[] only references existing files
+// ---------------------------------------------------------------------------
+
+describe("generateManifest — manifest↔files cross-check (Fix J)", () => {
+  it("manifest only references XML files that actually exist in the file set", () => {
+    const files: ParsedFile[] = [
+      makeXmlFile("templates.xml", "<odoo></odoo>"),
+      makeScssFile("theme.scss", "body {}"),
+    ];
+
+    const manifest = generateManifest("Test Theme", files, "theme_test");
+
+    expect(manifest).toContain("views/templates.xml");
+    // Should NOT contain references to files not in the set
+    expect(manifest).not.toContain("views/snippets.xml");
+    expect(manifest).not.toContain("views/pages.xml");
+  });
+
+  it("filters out XML paths from data[] when the file does not exist", () => {
+    // Simulate: manifest generation with only SCSS files, no XML
+    const files: ParsedFile[] = [
+      makeScssFile("theme.scss", "body {}"),
+    ];
+
+    const manifest = generateManifest("Test Theme", files, "theme_test");
+
+    // The data section should be empty (no XML files in the set)
+    expect(manifest).toMatch(/'data':\s*\[\s*\]/);
+  });
+
+  it("includes all XML files that exist in the result set", () => {
+    const files: ParsedFile[] = [
+      makeXmlFile("templates.xml", "<odoo></odoo>"),
+      makeXmlFile("snippets.xml", "<odoo></odoo>", "theme_generated/views"),
+      makeScssFile("theme.scss", "body {}"),
+    ];
+
+    const manifest = generateManifest("Test Theme", files, "theme_test");
+
+    expect(manifest).toContain("views/templates.xml");
+    expect(manifest).toContain("views/snippets.xml");
+  });
+
+  it("ensureRequiredFiles produces manifest consistent with actual files", () => {
+    const inputFiles: ParsedFile[] = [
+      makeXmlFile("templates.xml", "<odoo><template id='t'>test</template></odoo>"),
+    ];
+
+    const result = ensureRequiredFiles(inputFiles, "Test Theme");
+    const manifest = result.find(f => f.path.includes("__manifest__"));
+    expect(manifest).toBeDefined();
+
+    // Extract data entries from manifest
+    const dataMatch = manifest!.content.match(/'data':\s*\[([\s\S]*?)\]/);
+    expect(dataMatch).toBeDefined();
+    const dataEntries = dataMatch![1].match(/'([^']+\.xml)'/g)?.map(e => e.replace(/'/g, '')) || [];
+
+    // Every XML referenced in data[] must exist as a file in result
+    const resultPaths = result.map(f =>
+      f.path.replace(/^theme_generated\//, "").replace(/^theme_[a-z0-9_]+\//i, "")
+    );
+    for (const entry of dataEntries) {
+      expect(resultPaths).toContain(entry);
+    }
+  });
+});

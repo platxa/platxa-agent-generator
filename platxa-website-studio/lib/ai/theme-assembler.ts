@@ -219,15 +219,58 @@ export function fixImages(html: string): string {
 }
 
 /**
+ * Strip raw <form> tags — Odoo 18 requires website.form widget for CSRF protection.
+ * Raw forms bypass security and won't submit correctly in Odoo.
+ * Replaces with a safe CTA button linking to /contactus.
+ */
+export function fixForms(html: string): string {
+  return html.replace(/<form\b[\s\S]*?<\/form>/gi,
+    '<div class="text-center py-3"><a href="/contactus" class="btn btn-primary btn-lg rounded-pill px-4">Contact Us</a></div>');
+}
+
+/**
+ * Strip inline <script> and <style> tags — XSS vector, breaks Odoo asset pipeline.
+ * JS belongs in web.assets_frontend bundle, CSS belongs in theme.scss.
+ */
+export function stripInlineTags(html: string): string {
+  let fixed = html;
+  fixed = fixed.replace(/<script\b[\s\S]*?<\/script>/gi, '');
+  fixed = fixed.replace(/<style\b[\s\S]*?<\/style>/gi, '');
+  return fixed;
+}
+
+/**
  * Apply all content-level fixes to HTML
  */
 function fixSectionContent(html: string): string {
   let fixed = html;
+  // Security: strip dangerous tags first
+  fixed = stripInlineTags(fixed);
+  fixed = fixForms(fixed);
+  // Content fixes
   fixed = fixTailwindClasses(fixed);
   fixed = fixPlaceholderUrls(fixed);
   fixed = fixImages(fixed);
   return fixed;
 }
+
+// =============================================================================
+// THEME ICON (for Odoo Apps list)
+// =============================================================================
+
+/**
+ * Default SVG icon for theme module — prevents broken image in Odoo Apps list.
+ * Simple paint-palette design that works at any size.
+ */
+export const THEME_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" rx="16" fill="#714B67"/>
+  <circle cx="64" cy="58" r="30" fill="none" stroke="#fff" stroke-width="4"/>
+  <circle cx="52" cy="48" r="5" fill="#E8C872"/>
+  <circle cx="68" cy="42" r="5" fill="#E86B6B"/>
+  <circle cx="78" cy="54" r="5" fill="#6BC8E8"/>
+  <circle cx="72" cy="68" r="5" fill="#6BE878"/>
+  <path d="M50 70 Q44 82 54 88 Q64 94 60 78Z" fill="#fff"/>
+</svg>`;
 
 // =============================================================================
 // TEMPLATES.XML ASSEMBLY
@@ -249,10 +292,27 @@ export function assembleTemplatesXml(sections: ExtractedSection[]): string {
     return "";
   }
 
-  const sectionBlocks = sections.map((section, i) => {
+  // Fix K: Apply content fixes once per section, then filter out empty shells.
+  // Root cause: stripInlineTags + fixForms can reduce a section to empty markup.
+  // We compute fixedContent once and reuse it for both filtering and rendering.
+  const processedSections = sections.map(section => ({
+    ...section,
+    fixedContent: fixSectionContent(section.innerHtml),
+  }));
+
+  const nonEmptySections = processedSections.filter(section => {
+    const textOnly = section.fixedContent.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+    return textOnly.length >= 30;
+  });
+
+  if (nonEmptySections.length === 0) {
+    return "";
+  }
+
+  const sectionBlocks = nonEmptySections.map((section, i) => {
     const ccNum = (i % 5) + 1;
     const padding = section.snippetType === "s_cover" ? "pt96 pb96" : "pt48 pb48";
-    const fixedContent = fixSectionContent(section.innerHtml);
+    const fixedContent = section.fixedContent;
 
     // Ensure content has a container wrapper
     let wrappedContent = fixedContent;
@@ -511,6 +571,10 @@ export function assembleThemeScss(existingScss: string | null): string {
     // Strip font-family declarations (fonts come from primary_variables.scss)
     fixed = fixed.replace(/\s*font-family\s*:[^;]+;/gi, '');
 
+    // Fix M: Strip hardcoded hex colors — these won't update when users change palette
+    // Only strip standalone color/background-color with hex values; preserve rgba(), var(), etc.
+    fixed = fixed.replace(/\s*(?:(?:background-)?color)\s*:\s*#[0-9a-fA-F]{3,8}\s*;/gi, '');
+
     return fixed.trim() + '\n';
   }
 
@@ -668,6 +732,14 @@ export function assembleThemeFiles(
       result.push(file);
     }
   }
+
+  // === Step 4: Add module icon (prevents broken image in Odoo Apps list) ===
+  result.push({
+    path: "theme_generated/static/description/icon.svg",
+    content: THEME_ICON_SVG,
+    language: "xml",
+    action: "create",
+  });
 
   return result;
 }

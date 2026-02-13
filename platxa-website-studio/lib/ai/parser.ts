@@ -1184,6 +1184,13 @@ export function generateManifest(themeName: string, files: ParsedFile[], moduleN
   // PRODUCTION-CRITICAL: Include ALL XML files in 'data' section
   // This includes views/, views/snippets/, views/pages/, data/, etc.
   // ROOT CAUSE FIX: Previous filter only matched views/ not views/snippets/
+  // Fix J: Build a set of actual file paths for cross-checking
+  const existingPaths = new Set(files.map(f => {
+    return f.path
+      .replace(/^theme_generated\//, "")
+      .replace(/^theme_[a-z0-9_]+\//i, "");
+  }));
+
   const xmlFiles = files
     .filter(f => f.path.endsWith(".xml"))
     .map(f => {
@@ -1194,7 +1201,13 @@ export function generateManifest(themeName: string, files: ParsedFile[], moduleN
       return `        '${relativePath}',`;
     })
     // Remove duplicates
-    .filter((path, index, self) => self.indexOf(path) === index);
+    .filter((path, index, self) => self.indexOf(path) === index)
+    // Fix J: Only include XML files that actually exist in the result set
+    // This prevents FileNotFoundError on Odoo install when manifest references missing files
+    .filter(entry => {
+      const relativePath = entry.match(/'([^']+)'/)?.[1];
+      return relativePath ? existingPaths.has(relativePath) : false;
+    });
 
   // SCSS/CSS/JS go in 'assets' section - MUST include module name prefix
   // PRODUCTION-CRITICAL: Asset paths must be moduleName/static/src/...

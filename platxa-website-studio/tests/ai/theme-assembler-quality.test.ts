@@ -4,9 +4,13 @@ import {
   assemblePrimaryVariablesScss,
   assembleTemplatesXml,
   fixImages,
+  fixForms,
+  stripInlineTags,
   extractSections,
   assembleThemeFiles,
+  THEME_ICON_SVG,
 } from "@/lib/ai/theme-assembler";
+import { parseGeneratedFiles, ensureRequiredFiles } from "@/lib/ai/parser";
 import type { ParsedFile } from "@/lib/ai/parser";
 
 // =============================================================================
@@ -119,7 +123,7 @@ describe("assembleTemplatesXml — container wrapper", () => {
   it("keeps sections that already have a container div", () => {
     const sections = [{
       snippetType: "s_cover",
-      innerHtml: '<div class="container text-center"><h1>Hello</h1></div>',
+      innerHtml: '<div class="container text-center"><h1>Welcome to Our Amazing Restaurant Experience</h1></div>',
       isFooter: false,
     }];
     const result = assembleTemplatesXml(sections);
@@ -131,7 +135,7 @@ describe("assembleTemplatesXml — container wrapper", () => {
   it("adds container div when section content lacks one", () => {
     const sections = [{
       snippetType: "s_three_columns",
-      innerHtml: '<h2 class="text-center">Features</h2><div class="row"><div class="col-md-4">Card</div></div>',
+      innerHtml: '<h2 class="text-center">Our Professional Services and Features</h2><div class="row"><div class="col-md-4">Consulting Card</div></div>',
       isFooter: false,
     }];
     const result = assembleTemplatesXml(sections);
@@ -140,9 +144,9 @@ describe("assembleTemplatesXml — container wrapper", () => {
 
   it("every section has a container child in output", () => {
     const sections = [
-      { snippetType: "s_cover", innerHtml: '<h1>Hero</h1>', isFooter: false },
-      { snippetType: "s_three_columns", innerHtml: '<div class="container"><h2>Features</h2></div>', isFooter: false },
-      { snippetType: "s_text_block", innerHtml: '<p>About us content</p>', isFooter: false },
+      { snippetType: "s_cover", innerHtml: '<h1>Welcome to Our Fine Dining Restaurant Experience</h1>', isFooter: false },
+      { snippetType: "s_three_columns", innerHtml: '<div class="container"><h2>Our Professional Services and Features</h2></div>', isFooter: false },
+      { snippetType: "s_text_block", innerHtml: '<p>About us content with a detailed description of our company and what we do</p>', isFooter: false },
     ];
     const result = assembleTemplatesXml(sections);
     // Extract all section blocks
@@ -378,5 +382,579 @@ describe("assembleThemeFiles — integration (all fixes applied)", () => {
     expect(primaryVars).toBeDefined();
     // Fix B: palette activation present
     expect(primaryVars!.content).toContain("$o-theme-color-palette-number: 'theme-custom' !default;");
+  });
+});
+
+// =============================================================================
+// Fix G: fixForms — strip raw <form> tags
+// =============================================================================
+
+describe("fixForms — raw form stripping", () => {
+  it("replaces <form>...</form> with CTA button", () => {
+    const input = `<form method="POST" action="/submit"><input type="text" name="email"><button type="submit">Send</button></form>`;
+    const result = fixForms(input);
+    expect(result).not.toContain("<form");
+    expect(result).not.toContain("</form>");
+    expect(result).toContain('href="/contactus"');
+    expect(result).toContain("btn btn-primary");
+  });
+
+  it("preserves non-form content around the form", () => {
+    const input = `<h2>Contact Us</h2><form method="POST"><input type="text"></form><p>We will respond within 24 hours.</p>`;
+    const result = fixForms(input);
+    expect(result).toContain("<h2>Contact Us</h2>");
+    expect(result).toContain("<p>We will respond within 24 hours.</p>");
+    expect(result).not.toContain("<form");
+  });
+
+  it("handles multiple forms in one block", () => {
+    const input = `<form action="/a"><input></form><p>Break</p><form action="/b"><input></form>`;
+    const result = fixForms(input);
+    expect(result).not.toContain("<form");
+    // Both replaced with CTA
+    const ctaCount = (result.match(/btn btn-primary/g) || []).length;
+    expect(ctaCount).toBe(2);
+  });
+});
+
+// =============================================================================
+// Fix H: stripInlineTags — strip <script> and <style>
+// =============================================================================
+
+describe("stripInlineTags — script/style stripping", () => {
+  it("strips <script> tags", () => {
+    const input = `<div>Hello</div><script>alert('xss')</script><p>World</p>`;
+    const result = stripInlineTags(input);
+    expect(result).not.toContain("<script");
+    expect(result).not.toContain("alert");
+    expect(result).toContain("<div>Hello</div>");
+    expect(result).toContain("<p>World</p>");
+  });
+
+  it("strips <style> tags", () => {
+    const input = `<div>Hello</div><style>body { color: red; }</style><p>World</p>`;
+    const result = stripInlineTags(input);
+    expect(result).not.toContain("<style");
+    expect(result).not.toContain("color: red");
+    expect(result).toContain("<div>Hello</div>");
+    expect(result).toContain("<p>World</p>");
+  });
+
+  it("preserves surrounding content intact", () => {
+    const input = `<h1>Title</h1><script src="evil.js"></script><style>.x{}</style><h2>Subtitle</h2>`;
+    const result = stripInlineTags(input);
+    expect(result).toBe("<h1>Title</h1><h2>Subtitle</h2>");
+  });
+});
+
+// =============================================================================
+// Fix I: icon.svg in assembleThemeFiles
+// =============================================================================
+
+describe("assembleThemeFiles — icon.svg (Fix I)", () => {
+  it("includes static/description/icon.svg in output", () => {
+    const xmlFile: ParsedFile = {
+      path: "views/templates.xml",
+      content: `<section data-snippet="s_cover"><div class="container"><h1>Hero headline with enough content to pass threshold checks</h1><p>And some paragraph text</p></div></section>`,
+      language: "xml",
+      action: "create",
+    };
+    const result = assembleThemeFiles([xmlFile]);
+    const iconFile = result.find(f => f.path.includes("icon.svg"));
+    expect(iconFile).toBeDefined();
+    expect(iconFile!.path).toBe("theme_generated/static/description/icon.svg");
+  });
+
+  it("icon.svg contains valid SVG content", () => {
+    expect(THEME_ICON_SVG).toContain("<svg");
+    expect(THEME_ICON_SVG).toContain("</svg>");
+    expect(THEME_ICON_SVG).toContain("xmlns=");
+  });
+});
+
+// =============================================================================
+// Fix K: empty sections filtered after content fixes
+// =============================================================================
+
+describe("assembleTemplatesXml — empty section filtering (Fix K)", () => {
+  it("filters out sections with < 30 chars of text content", () => {
+    const sections = [
+      {
+        snippetType: "s_cover",
+        innerHtml: '<div class="container"><h1>Welcome to Our Amazing Restaurant Experience</h1><p>Fine dining in the heart of the city with incredible service</p></div>',
+        isFooter: false,
+      },
+      {
+        // After stripInlineTags this section has only empty divs
+        snippetType: "s_text_block",
+        innerHtml: '<script>alert("hi")</script><style>.x{}</style>',
+        isFooter: false,
+      },
+    ];
+    const result = assembleTemplatesXml(sections);
+    const sectionMatches = result.match(/<section\b/g) || [];
+    expect(sectionMatches.length).toBe(1);
+    expect(result).toContain("s_cover");
+  });
+
+  it("preserves non-empty sections", () => {
+    const sections = [
+      {
+        snippetType: "s_three_columns",
+        innerHtml: '<div class="container"><h2>Our Services</h2><p>We offer a wide range of professional services to meet your needs</p></div>',
+        isFooter: false,
+      },
+    ];
+    const result = assembleTemplatesXml(sections);
+    expect(result).toContain("s_three_columns");
+    expect(result).toContain("Our Services");
+  });
+
+  it("returns empty string when all sections become empty", () => {
+    const sections = [
+      {
+        snippetType: "s_text_block",
+        innerHtml: '<script>alert(1)</script>',
+        isFooter: false,
+      },
+    ];
+    const result = assembleTemplatesXml(sections);
+    expect(result).toBe("");
+  });
+});
+
+// =============================================================================
+// Fix M: hex color stripping in assembleThemeScss
+// =============================================================================
+
+describe("assembleThemeScss — hex color stripping (Fix M)", () => {
+  it("strips color: #hex declarations", () => {
+    const input = `.title {\n  color: #c9302c;\n  font-size: 2rem;\n}`;
+    const result = assembleThemeScss(input);
+    expect(result).not.toMatch(/color:\s*#c9302c/);
+    expect(result).toContain("font-size: 2rem");
+  });
+
+  it("strips background-color: #hex declarations", () => {
+    const input = `.hero {\n  background-color: #f5f0e8;\n  padding: 2rem;\n}`;
+    const result = assembleThemeScss(input);
+    expect(result).not.toMatch(/background-color:\s*#f5f0e8/);
+    expect(result).toContain("padding: 2rem");
+  });
+
+  it("preserves rgba() color values", () => {
+    const input = `.card {\n  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);\n  color: #333;\n}`;
+    const result = assembleThemeScss(input);
+    expect(result).toContain("rgba(0, 0, 0, 0.1)");
+  });
+
+  it("preserves valid non-color selectors containing hex-like strings", () => {
+    const input = `section[data-snippet="s_cover"] {\n  min-height: 75vh;\n}`;
+    const result = assembleThemeScss(input);
+    expect(result).toContain('section[data-snippet="s_cover"]');
+    expect(result).toContain("min-height: 75vh");
+  });
+});
+
+// =============================================================================
+// Sprint 7 Integration: full pipeline with all fixes
+// =============================================================================
+
+describe("Sprint 7 Integration — forms + scripts + styles + empty sections + hex colors", () => {
+  it("cleans all problematic patterns in a single pipeline run", () => {
+    const messyXml: ParsedFile = {
+      path: "views/templates.xml",
+      content: `<section data-snippet="s_cover">
+  <div class="container text-center">
+    <h1 class="display-3 fw-bold">Welcome to Our Restaurant with Amazing Food</h1>
+    <p class="lead">Fine dining experience like no other with amazing food</p>
+    <form method="POST" action="/reserve"><input type="text" name="name"><button>Reserve</button></form>
+    <script>document.querySelector('form').addEventListener('submit', e => e.preventDefault())</script>
+    <style>.hero { color: red; }</style>
+  </div>
+</section>
+<section data-snippet="s_three_columns">
+  <div class="container">
+    <h2 class="text-center fw-bold mb-5">Our Menu Specials for This Season</h2>
+    <div class="row g-4">
+      <div class="col-md-4"><div class="card"><div class="card-body"><h5>Pasta Primavera</h5><p>Fresh seasonal vegetables tossed in a light sauce</p></div></div></div>
+      <div class="col-md-4"><div class="card"><div class="card-body"><h5>Grilled Salmon</h5><p>Atlantic salmon with herbs and lemon butter</p></div></div></div>
+      <div class="col-md-4"><div class="card"><div class="card-body"><h5>Tiramisu</h5><p>Classic Italian dessert with espresso and mascarpone</p></div></div></div>
+    </div>
+  </div>
+</section>
+<section data-snippet="s_text_block">
+  <script>trackPageView()</script>
+  <style>.hidden{display:none}</style>
+</section>`,
+      language: "xml",
+      action: "create",
+    };
+
+    const messyScss: ParsedFile = {
+      path: "static/src/scss/theme.scss",
+      content: `.hero {\n  color: #c9302c;\n  min-height: 75vh;\n}\n.card {\n  background-color: #f5f0e8;\n  border-radius: 0.5rem;\n}`,
+      language: "scss",
+      action: "create",
+    };
+
+    const result = assembleThemeFiles([messyXml, messyScss], "Theme Restaurant", "restaurant");
+
+    // Templates: no forms, scripts, styles
+    const templates = result.find(f => f.path.includes("templates.xml"));
+    expect(templates).toBeDefined();
+    expect(templates!.content).not.toContain("<form");
+    expect(templates!.content).not.toContain("<script");
+    expect(templates!.content).not.toContain("<style");
+    // Forms replaced with CTA
+    expect(templates!.content).toContain("/contactus");
+
+    // Empty section (only had script+style) should be filtered
+    const sectionBlocks = templates!.content.match(/<section\b/g) || [];
+    expect(sectionBlocks.length).toBe(2); // hero + menu, NOT the empty one
+
+    // theme.scss: no hex colors
+    const themeScss = result.find(f => f.path.includes("theme.scss"));
+    expect(themeScss).toBeDefined();
+    expect(themeScss!.content).not.toMatch(/color:\s*#c9302c/);
+    expect(themeScss!.content).not.toMatch(/background-color:\s*#f5f0e8/);
+    expect(themeScss!.content).toContain("min-height: 75vh");
+    expect(themeScss!.content).toContain("border-radius: 0.5rem");
+
+    // Icon present
+    const iconFile = result.find(f => f.path.includes("icon.svg"));
+    expect(iconFile).toBeDefined();
+  });
+});
+
+// =============================================================================
+// E2E Pipeline Validation: realistic AI response → parseGeneratedFiles → ensureRequiredFiles
+// Simulates actual production path with intentionally bad patterns
+// =============================================================================
+
+describe("E2E Pipeline — parseGeneratedFiles → ensureRequiredFiles (production path)", () => {
+  // Simulate realistic AI output with ALL known bad patterns
+  const REALISTIC_AI_RESPONSE = `Here's a complete Odoo 18 restaurant theme:
+
+\`\`\`xml file:views/templates.xml
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <template id="theme_restaurant_homepage" inherit_id="website.homepage" name="Restaurant Homepage">
+    <xpath expr="//div[@id='wrap']" position="replace">
+      <div id="wrap">
+        <section class="o_cc o_cc1" data-snippet="s_cover">
+          <div class="container text-center py-5">
+            <h1 class="display-3 fw-bold">Welcome to La Bella Cucina Italian Restaurant</h1>
+            <p class="lead mt-3">Experience authentic Italian dining with fresh ingredients and traditional recipes passed down through generations</p>
+            <form method="POST" action="/reserve">
+              <input type="text" name="name" placeholder="Your Name">
+              <input type="email" name="email" placeholder="Email">
+              <button type="submit" class="btn btn-primary">Make Reservation</button>
+            </form>
+            <script>
+              document.querySelector('form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                alert('Reserved!');
+              });
+            </script>
+            <style>
+              .hero-section { background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)); }
+            </style>
+          </div>
+        </section>
+        <section class="o_cc o_cc2" data-snippet="s_three_columns">
+          <div class="container py-5">
+            <h2 class="text-center fw-bold mb-5">Our Signature Dishes and Specialties</h2>
+            <div class="row g-4">
+              <div class="col-md-4">
+                <div class="card h-100 shadow-sm">
+                  <img src="images/pasta.jpg" class="card-img-top">
+                  <div class="card-body">
+                    <h5 class="card-title fw-bold">Pasta Carbonara</h5>
+                    <p class="card-text">Traditional Roman pasta with guanciale, eggs, and pecorino cheese</p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card h-100 shadow-sm">
+                  <img src="https://images.unsplash.com/photo-1504674900247?w=400" class="card-img-top">
+                  <div class="card-body">
+                    <h5 class="card-title fw-bold">Osso Buco</h5>
+                    <p class="card-text">Braised veal shanks with gremolata, served over saffron risotto</p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card h-100 shadow-sm">
+                  <img src="/static/images/tiramisu.jpg" class="card-img-top">
+                  <div class="card-body">
+                    <h5 class="card-title fw-bold">Tiramisu</h5>
+                    <p class="card-text">Classic Italian dessert with layers of espresso-soaked ladyfingers and mascarpone</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="o_cc o_cc3" data-snippet="s_text_block">
+          <script>trackPageView('restaurant-home')</script>
+          <style>.analytics-hidden { display: none; }</style>
+        </section>
+        <section class="o_cc o_cc4" data-snippet="s_text_image">
+          <div class="container py-5">
+            <div class="row align-items-center">
+              <div class="col-md-6">
+                <h2 class="fw-bold">Our Story and Heritage of Excellence</h2>
+                <p>Founded in 1985, La Bella Cucina has been serving authentic Italian cuisine for over four decades. Our recipes are inspired by the rich culinary traditions of Tuscany and Rome.</p>
+                <p>Every dish is prepared with the freshest locally-sourced ingredients and traditional cooking methods passed down through generations of Italian chefs.</p>
+              </div>
+              <div class="col-md-6">
+                <img src="images/restaurant.jpg" class="img-fluid rounded shadow">
+              </div>
+            </div>
+          </div>
+        </section>
+        <section class="o_cc o_cc5" data-snippet="s_call_to_action">
+          <div class="container text-center py-5">
+            <h2 class="fw-bold">Ready to Experience La Bella Cucina?</h2>
+            <p class="lead">Book your table today and enjoy an unforgettable dining experience</p>
+            <form method="POST" action="/book">
+              <input type="tel" name="phone" placeholder="Phone Number">
+              <textarea name="notes" placeholder="Special requests"></textarea>
+              <button class="btn btn-lg btn-primary">Book Now</button>
+            </form>
+          </div>
+        </section>
+      </div>
+    </xpath>
+  </template>
+</odoo>
+\`\`\`
+
+\`\`\`scss file:static/src/scss/primary_variables.scss
+$o-color-palettes: (
+  'theme-custom': (
+    'o-color-1': #c9302c,
+    'o-color-2': #8b4513,
+    'o-color-3': #d4a373,
+    'o-color-4': #fefae0,
+    'o-color-5': #1a1a1a,
+  ),
+);
+$o-theme-color-palette-number: 'theme-custom' !default;
+\`\`\`
+
+\`\`\`scss file:static/src/scss/theme.scss
+body {
+  font-family: 'Playfair Display', serif;
+  color: #1a1a1a;
+}
+
+.container {
+  max-width: 1140px;
+}
+
+:root {
+  --primary: #c9302c;
+  --secondary: #8b4513;
+}
+
+.hero-section {
+  min-height: 80vh;
+  color: #c9302c;
+  background-image: url(/images/hero-bg.jpg);
+  display: flex;
+  align-items: center;
+}
+
+.card {
+  font-family: 'Open Sans', sans-serif;
+  border-radius: 0.75rem;
+  background-color: #f5f0e8;
+  transition: transform 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+}
+
+section {
+  padding: 4rem 0;
+}
+\`\`\`
+
+\`\`\`python file:__manifest__.py
+{
+    'name': 'Theme La Bella Cucina',
+    'version': '18.0.1.0.0',
+    'category': 'Theme/Creative',
+    'summary': 'Elegant Italian restaurant theme',
+    'depends': ['website'],
+    'data': [
+        'views/templates.xml',
+        'views/snippets.xml',
+        'views/pages/menu.xml',
+    ],
+    'assets': {
+        'web.assets_frontend': [
+            'theme_la_bella_cucina/static/src/scss/primary_variables.scss',
+            'theme_la_bella_cucina/static/src/scss/theme.scss',
+        ],
+    },
+}
+\`\`\`
+
+This theme provides an elegant Italian restaurant experience with proper Odoo 18 structure.`;
+
+  it("full pipeline produces installable Odoo 18 module from messy AI output", () => {
+    // Step 1: Parse AI response (production parser)
+    const parsed = parseGeneratedFiles(REALISTIC_AI_RESPONSE);
+
+    // Verify parser extracted files
+    expect(parsed.length).toBeGreaterThanOrEqual(3);
+    const hasXml = parsed.some(f => f.path.endsWith(".xml"));
+    const hasScss = parsed.some(f => f.path.endsWith(".scss"));
+    expect(hasXml).toBe(true);
+    expect(hasScss).toBe(true);
+
+    // Step 2: Run through ensureRequiredFiles (production pipeline)
+    const result = ensureRequiredFiles(parsed, "Theme La Bella Cucina");
+
+    // =========================================================================
+    // SPRINT 7 QUALITY CHECKS
+    // =========================================================================
+
+    // --- Fix G: No raw <form> tags ---
+    const templates = result.find(f => f.path.includes("templates.xml"));
+    expect(templates).toBeDefined();
+    expect(templates!.content).not.toContain("<form");
+    expect(templates!.content).not.toContain("</form>");
+    // Forms should be replaced with CTA buttons
+    expect(templates!.content).toContain("/contactus");
+
+    // --- Fix H: No <script> or <style> tags ---
+    expect(templates!.content).not.toContain("<script");
+    expect(templates!.content).not.toContain("</script>");
+    expect(templates!.content).not.toContain("<style");
+    expect(templates!.content).not.toContain("</style>");
+
+    // --- Fix I: icon.svg present ---
+    const iconFile = result.find(f => f.path.includes("icon.svg"));
+    expect(iconFile).toBeDefined();
+    expect(iconFile!.content).toContain("<svg");
+
+    // --- Fix J: Manifest only references existing files ---
+    const manifest = result.find(f => f.path.includes("__manifest__"));
+    expect(manifest).toBeDefined();
+    // AI originally referenced views/snippets.xml and views/pages/menu.xml which don't exist
+    expect(manifest!.content).not.toContain("snippets.xml");
+    expect(manifest!.content).not.toContain("pages/menu.xml");
+    // But templates.xml should be referenced (it exists)
+    expect(manifest!.content).toContain("templates.xml");
+
+    // --- Fix J: Category is Website/Theme (not Theme/Creative from AI) ---
+    expect(manifest!.content).toContain("'category': 'Website/Theme'");
+
+    // --- Fix K: Empty sections filtered ---
+    // The section with only <script> + <style> should have been removed
+    // Count sections in output
+    const sectionMatches = templates!.content.match(/<section\b/g) || [];
+    // Original had 5 sections, one was empty (only script+style) = 4 should remain
+    expect(sectionMatches.length).toBeLessThan(5);
+    expect(sectionMatches.length).toBeGreaterThanOrEqual(2);
+
+    // --- Fix M: No hardcoded hex colors in theme.scss ---
+    const themeScss = result.find(f => f.path.includes("theme.scss"));
+    expect(themeScss).toBeDefined();
+    expect(themeScss!.content).not.toMatch(/(?:^|\s)color:\s*#[0-9a-fA-F]{3,8}\s*;/m);
+    expect(themeScss!.content).not.toMatch(/background-color:\s*#[0-9a-fA-F]{3,8}\s*;/m);
+    // But valid non-color properties should survive
+    expect(themeScss!.content).toContain("border-radius");
+
+    // =========================================================================
+    // EXISTING QUALITY CHECKS (Sprints 1-6)
+    // =========================================================================
+
+    // Fix A: No dangerous global CSS overrides
+    expect(themeScss!.content).not.toMatch(/^body\s*\{/m);
+    expect(themeScss!.content).not.toMatch(/^\.container\s*\{/m);
+    expect(themeScss!.content).not.toMatch(/^:root\s*\{/m);
+    expect(themeScss!.content).not.toContain("background-image");
+    expect(themeScss!.content).not.toContain("font-family");
+
+    // Fix B: Palette activation present
+    const primaryVars = result.find(f => f.path.includes("primary_variables.scss"));
+    expect(primaryVars).toBeDefined();
+    expect(primaryVars!.content).toContain("$o-color-palettes");
+    expect(primaryVars!.content).toContain("$o-theme-color-palette-number");
+
+    // Fix C: All sections have container wrappers
+    const sectionBlocks = templates!.content.match(/<section[^>]*>[\s\S]*?<\/section>/g) || [];
+    for (const block of sectionBlocks) {
+      expect(block).toMatch(/<div[^>]*class="[^"]*container/);
+    }
+
+    // Fix D: Images have proper attributes (alt, loading)
+    if (templates!.content.includes("<img")) {
+      expect(templates!.content).toMatch(/<img[^>]*alt=/);
+      expect(templates!.content).toMatch(/<img[^>]*loading="lazy"/);
+    }
+    // Broken relative image paths replaced with Odoo defaults
+    expect(templates!.content).not.toContain('src="images/');
+
+    // Structural: correct Odoo 18 structure
+    expect(templates!.content).toContain("inherit_id");
+    expect(templates!.content).toContain("website.homepage");
+    expect(templates!.content).toContain("xpath");
+    expect(templates!.content).toContain("o_cc");
+    expect(templates!.content).toContain("data-snippet");
+
+    // Manifest: correct asset bundle routing
+    expect(manifest!.content).toContain("web._assets_primary_variables");
+    expect(manifest!.content).toContain("prepend");
+    expect(manifest!.content).toContain("primary_variables.scss");
+
+    // __init__.py present
+    const initPy = result.find(f => f.path.includes("__init__.py"));
+    expect(initPy).toBeDefined();
+  });
+
+  it("no file in output contains XSS vectors", () => {
+    const parsed = parseGeneratedFiles(REALISTIC_AI_RESPONSE);
+    const result = ensureRequiredFiles(parsed, "Theme La Bella Cucina");
+
+    for (const file of result) {
+      if (file.path.endsWith(".xml")) {
+        expect(file.content).not.toContain("<script");
+        expect(file.content).not.toContain("javascript:");
+        expect(file.content).not.toContain("onerror=");
+        expect(file.content).not.toContain("onload=");
+      }
+    }
+  });
+
+  it("manifest data[] entries all correspond to actual files", () => {
+    const parsed = parseGeneratedFiles(REALISTIC_AI_RESPONSE);
+    const result = ensureRequiredFiles(parsed, "Theme La Bella Cucina");
+
+    const manifest = result.find(f => f.path.includes("__manifest__"));
+    expect(manifest).toBeDefined();
+
+    // Extract all data entries from manifest
+    const dataMatch = manifest!.content.match(/'data'\s*:\s*\[([\s\S]*?)\]/);
+    if (dataMatch) {
+      const entries = dataMatch[1].match(/'([^']+)'/g)?.map(e => e.replace(/'/g, '')) || [];
+
+      // Every data entry must correspond to a file in the result
+      const filePaths = new Set(result.map(f =>
+        f.path
+          .replace(/^theme_generated\//, "")
+          .replace(/^theme_[a-z0-9_]+\//i, "")
+      ));
+
+      for (const entry of entries) {
+        expect(filePaths.has(entry)).toBe(true);
+      }
+    }
   });
 });

@@ -301,6 +301,11 @@ RULES:
 - Images: MUST have alt="", class="img-fluid", loading="lazy"
 - Use Unsplash URLs for images, NEVER relative paths like images/foo.png
 
+FORBIDDEN in templates.xml:
+- NO raw <form> tags (Odoo uses website.form widget for CSRF protection)
+- NO <script> tags (JS goes in web.assets_frontend bundle)
+- NO <style> tags (CSS goes in theme.scss)
+
 FORBIDDEN in theme.scss:
 - NO body { } or html { } overrides
 - NO .container { } or .container-fluid { } overrides
@@ -472,6 +477,11 @@ ${DESIGN_SYSTEM}
 
 ${SECTION_TEMPLATES}
 
+## FORBIDDEN in Templates
+- NO raw <form> tags (Odoo uses website.form widget for CSRF protection)
+- NO <script> tags (JS goes in web.assets_frontend bundle)
+- NO <style> tags (CSS goes in theme.scss)
+
 ## Quality Standards
 1. Generate 5-7 complete sections with real industry-specific content
 2. All sections must have data-snippet attributes and o_cc color classes
@@ -611,6 +621,11 @@ ${getSnippetLibraryDoc()}
 - Bootstrap 5.3 is included by default
 - NEVER use Tailwind classes
 - Neutral shadows only: rgba(0,0,0,0.1). NEVER blue shadows.
+
+## FORBIDDEN in Templates
+- NO raw <form> tags (Odoo uses website.form widget for CSRF protection)
+- NO <script> tags (JS goes in web.assets_frontend bundle)
+- NO <style> tags (CSS goes in theme.scss)
 
 ## Quality Standards
 1. Generate 5-7 sections with REAL industry-specific content (no placeholders)
