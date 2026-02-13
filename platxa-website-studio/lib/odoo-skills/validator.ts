@@ -552,7 +552,8 @@ export function validateFileStructure(
   // Check for assets references in manifest
   const manifestFile = files.find((f) => f.path.endsWith("__manifest__.py"));
   if (manifestFile) {
-    const assetsMatch = manifestFile.content.match(/assets['"]\s*:\s*\{([^}]+)\}/s);
+    // Match nested asset bundles: 'assets': { 'bundle': [...], 'bundle2': [...] }
+    const assetsMatch = manifestFile.content.match(/['"]assets['"]\s*:\s*\{([\s\S]*?)\n\s{4}\}/);
     if (assetsMatch) {
       const assetsContent = assetsMatch[1];
       const assetPaths = assetsContent.match(/['"]([^'"]+\.(scss|css|js))['"]/g);

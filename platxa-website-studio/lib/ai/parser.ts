@@ -526,13 +526,36 @@ function consolidateDuplicateFiles(files: ParsedFile[]): ParsedFile[] {
     result.push(xmlFiles[0]);
   }
 
-  // Consolidate SCSS files into single theme.scss
-  if (scssFiles.length > 1) {
-    console.log("[Parser] Consolidating", scssFiles.length, "SCSS files into theme.scss");
-    let mergedScss = scssFiles
+  // Handle SCSS files: preserve Odoo asset-bundle-specific files, consolidate duplicates
+  // Odoo 18 requires separate SCSS files for different asset bundles:
+  //   - primary_variables.scss → web._assets_primary_variables (Odoo color palettes)
+  //   - bootstrap_overridden.scss → web._assets_frontend_helpers (Bootstrap overrides)
+  //   - theme.scss → web.assets_frontend (custom styles)
+  const ODOO_SCSS_FILES = ['primary_variables.scss', 'bootstrap_overridden.scss'];
+  const odooScssFiles: ParsedFile[] = [];
+  const genericScssFiles: ParsedFile[] = [];
+
+  for (const f of scssFiles) {
+    const filename = f.path.split('/').pop() || '';
+    if (ODOO_SCSS_FILES.includes(filename)) {
+      odooScssFiles.push(f);
+    } else {
+      genericScssFiles.push(f);
+    }
+  }
+
+  // Keep Odoo asset-bundle-specific SCSS files separate (fix blue shadows only)
+  for (const f of odooScssFiles) {
+    result.push({ ...f, content: fixBlueShadowsInScss(f.content) });
+    console.log(`[Parser] Preserved Odoo asset file: ${f.path}`);
+  }
+
+  // Consolidate remaining SCSS files into theme.scss
+  if (genericScssFiles.length > 1) {
+    console.log("[Parser] Consolidating", genericScssFiles.length, "generic SCSS files into theme.scss");
+    let mergedScss = genericScssFiles
       .map(f => `/* From: ${f.path} */\n${f.content}`)
       .join('\n\n');
-    // ROOT CAUSE FIX #3: Replace hardcoded blue shadows with neutral shadows
     mergedScss = fixBlueShadowsInScss(mergedScss);
     result.push({
       path: 'theme_generated/static/src/scss/theme.scss',
@@ -540,19 +563,17 @@ function consolidateDuplicateFiles(files: ParsedFile[]): ParsedFile[] {
       language: 'scss',
       action: 'create',
     });
-  } else if (scssFiles.length === 1) {
+  } else if (genericScssFiles.length === 1) {
     // Normalize SCSS filename to theme.scss (LLMs output custom names like la_bella_cucina.scss)
-    // This ensures manifest asset path 'theme_generated/static/src/scss/theme.scss' always matches
-    const normalizedPath = scssFiles[0].path.replace(/\/scss\/[^/]+\.scss$/, '/scss/theme.scss');
-    if (normalizedPath !== scssFiles[0].path) {
-      console.log(`[Parser] ROOT CAUSE FIX: Normalized SCSS path ${scssFiles[0].path} -> ${normalizedPath}`);
+    const normalizedPath = genericScssFiles[0].path.replace(/\/scss\/[^/]+\.scss$/, '/scss/theme.scss');
+    if (normalizedPath !== genericScssFiles[0].path) {
+      console.log(`[Parser] Normalized SCSS path ${genericScssFiles[0].path} -> ${normalizedPath}`);
     }
-    const fixedScss = {
-      ...scssFiles[0],
+    result.push({
+      ...genericScssFiles[0],
       path: normalizedPath,
-      content: fixBlueShadowsInScss(scssFiles[0].content),
-    };
-    result.push(fixedScss);
+      content: fixBlueShadowsInScss(genericScssFiles[0].content),
+    });
   }
 
   // Add other files unchanged
@@ -1153,26 +1174,48 @@ export function generateManifest(themeName: string, files: ParsedFile[], moduleN
     })
     .filter((path, index, self) => self.indexOf(path) === index); // Dedupe
 
+  // Route SCSS files to correct Odoo 18 asset bundles
+  const primaryVarsFiles = scssFiles.filter(f => f.includes('primary_variables'));
+  const bootstrapOverrideFiles = scssFiles.filter(f => f.includes('bootstrap_overridden'));
+  const frontendScssFiles = scssFiles.filter(f =>
+    !f.includes('primary_variables') && !f.includes('bootstrap_overridden')
+  );
+
   let assets = "";
   if (scssFiles.length > 0 || jsFiles.length > 0) {
-    const assetLines: string[] = [];
-    scssFiles.forEach(f => assetLines.push(`            '${f}',`));
-    jsFiles.forEach(f => assetLines.push(`            '${f}',`));
+    const bundles: string[] = [];
+
+    // Odoo color palettes → web._assets_primary_variables (prepend)
+    if (primaryVarsFiles.length > 0) {
+      const lines = primaryVarsFiles.map(f => `                ('prepend', '${f}'),`).join('\n');
+      bundles.push(`        'web._assets_primary_variables': [\n${lines}\n        ],`);
+    }
+
+    // Bootstrap overrides → web._assets_frontend_helpers (prepend)
+    if (bootstrapOverrideFiles.length > 0) {
+      const lines = bootstrapOverrideFiles.map(f => `                ('prepend', '${f}'),`).join('\n');
+      bundles.push(`        'web._assets_frontend_helpers': [\n${lines}\n        ],`);
+    }
+
+    // Custom styles + JS → web.assets_frontend
+    if (frontendScssFiles.length > 0 || jsFiles.length > 0) {
+      const lines: string[] = [];
+      frontendScssFiles.forEach(f => lines.push(`            '${f}',`));
+      jsFiles.forEach(f => lines.push(`            '${f}',`));
+      bundles.push(`        'web.assets_frontend': [\n${lines.join('\n')}\n        ],`);
+    }
+
     assets = `
     'assets': {
-        'web.assets_frontend': [
-${assetLines.join("\n")}
-        ],
+${bundles.join('\n')}
     },`;
   }
 
-  // ROOT CAUSE FIX: Don't reference banner.png that doesn't exist
-  // Only include 'images' key if we actually have images
   return `# -*- coding: utf-8 -*-
 {
     'name': '${themeName}',
     'version': '18.0.1.0.0',
-    'category': 'Theme/Creative',
+    'category': 'Website/Theme',
     'summary': 'AI-generated Odoo website theme',
     'description': '''
         Custom website theme generated by Platxa Website Studio.

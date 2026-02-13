@@ -159,18 +159,29 @@ Use these Unsplash URLs for realistic placeholder images:
  * Compact prompt for local LLMs (llama3.2, mistral, etc.)
  * CRITICAL: Must be SHORT - small models have limited context windows.
  * Industry-specific content is injected via buildSystemPrompt().
+ *
+ * Based on the official Odoo 18 theme tutorial (website_airproof):
+ * https://www.odoo.com/documentation/18.0/developer/tutorials/website_theme.html
  */
-export const ODOO_LOCAL_PROMPT = `You generate Odoo 18 website themes. Output EXACTLY 3 files.
+export const ODOO_LOCAL_PROMPT = `You generate Odoo 18 website themes. Output EXACTLY 4 files.
 
 **__manifest__.py:**
 \`\`\`python
 {
     'name': 'Theme Name',
-    'version': '18.0.1.0.0',
-    'category': 'Theme/Creative',
+    'version': '18.0.0',
+    'category': 'Website/Theme',
+    'summary': 'Theme description',
     'depends': ['website'],
     'data': ['views/templates.xml'],
-    'assets': {'web.assets_frontend': ['theme_generated/static/src/scss/theme.scss']},
+    'assets': {
+        'web._assets_primary_variables': [
+            ('prepend', 'theme_generated/static/src/scss/primary_variables.scss'),
+        ],
+        'web.assets_frontend': [
+            'theme_generated/static/src/scss/theme.scss',
+        ],
+    },
     'license': 'LGPL-3',
 }
 \`\`\`
@@ -179,69 +190,130 @@ export const ODOO_LOCAL_PROMPT = `You generate Odoo 18 website themes. Output EX
 \`\`\`xml
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-  <template id="homepage_content" inherit_id="website.homepage" customize_show="True">
-    <xpath expr="//div[@id='wrap']" position="inside">
-      <section class="py-5 bg-primary text-white text-center">
-        <div class="container">
-          <h1 class="display-4 fw-bold">Headline</h1>
-          <p class="lead">Description</p>
-          <a href="#" class="btn btn-light btn-lg rounded-pill px-4">CTA</a>
-        </div>
-      </section>
-      <section class="py-5">
-        <div class="container">
-          <div class="row g-4">
-            <div class="col-md-4">
-              <div class="card border-0 shadow-sm rounded-3 h-100">
-                <div class="card-body p-4 text-center">
-                  <h5 class="fw-bold">Title</h5>
-                  <p class="text-muted">Description</p>
-                </div>
-              </div>
+  <template id="homepage_content" name="Homepage" inherit_id="website.homepage" customize_show="True">
+    <xpath expr="//div[@id='wrap']" position="replace">
+      <div id="wrap" class="oe_structure">
+        <section class="o_cc o_cc1 pt48 pb48" data-snippet="s_cover">
+          <div class="container text-center">
+            <h1 class="display-4 fw-bold">Headline</h1>
+            <p class="lead">Description text here</p>
+            <a href="/contactus" class="btn btn-primary btn-lg rounded-pill px-4">Contact Us</a>
+          </div>
+        </section>
+        <section class="o_cc o_cc2 pt40 pb40" data-snippet="s_three_columns">
+          <div class="container">
+            <h2 class="text-center fw-bold mb-5">Our Services</h2>
+            <div class="row g-4">
+              <div class="col-md-4"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4 text-center"><h5 class="fw-bold">Service 1</h5><p class="text-muted">Description</p></div></div></div>
+              <div class="col-md-4"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4 text-center"><h5 class="fw-bold">Service 2</h5><p class="text-muted">Description</p></div></div></div>
+              <div class="col-md-4"><div class="card border-0 shadow-sm h-100"><div class="card-body p-4 text-center"><h5 class="fw-bold">Service 3</h5><p class="text-muted">Description</p></div></div></div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </xpath>
   </template>
 </odoo>
 \`\`\`
 
+**static/src/scss/primary_variables.scss:**
+\`\`\`scss
+$o-color-palettes: map-merge($o-color-palettes,
+  (
+    'theme-custom': (
+      'o-color-1': #c9302c,
+      'o-color-2': #8b4513,
+      'o-color-3': #d4a373,
+      'o-color-4': #fefae0,
+      'o-color-5': #2d2d2d,
+    ),
+  )
+);
+$o-selected-color-palettes-names: append($o-selected-color-palettes-names, 'theme-custom');
+
+$o-website-values-palettes: (
+  (
+    'color-palettes-name': 'theme-custom',
+    'font': 'Lato',
+    'headings-font': 'Playfair Display',
+    'header-font-size': 1rem,
+    'btn-border-radius': 10rem,
+  ),
+);
+
+$o-theme-font-configs: (
+  'Playfair Display': (
+    'family': ('Playfair Display', serif),
+    'url': 'Playfair+Display:400,700',
+  ),
+  'Lato': (
+    'family': ('Lato', sans-serif),
+    'url': 'Lato:300,400,700',
+  ),
+);
+\`\`\`
+
 **static/src/scss/theme.scss:**
 \`\`\`scss
-.hero-section { min-height: 75vh; }
-.card { box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+// Custom theme styles
+section[data-snippet="s_cover"] {
+  min-height: 75vh;
+  display: flex;
+  align-items: center;
+}
+.card {
+  border-radius: 0.5rem;
+  transition: transform 0.2s;
+  &:hover { transform: translateY(-4px); }
+}
 \`\`\`
 
 RULES:
-- ONLY 3 files: __manifest__.py, views/templates.xml, static/src/scss/theme.scss
-- ALL templates MUST have inherit_id="website.homepage" with xpath
-- ALWAYS close </xpath> and </template> tags
-- Use ONLY Bootstrap 5 classes: container, row, col-md-4, card, btn, py-5, fw-bold
-- NEVER use Tailwind classes (py-10, bg-cover, h-screen, opacity-50)
+- Output EXACTLY 4 files: __manifest__.py, views/templates.xml, primary_variables.scss, theme.scss
+- Template MUST use inherit_id="website.homepage" with xpath position="replace"
+- Replace <div id="wrap"> with <div id="wrap" class="oe_structure"> containing sections
+- Use Odoo color classes: o_cc o_cc1, o_cc2, etc. on sections
+- Add data-snippet attribute on sections for Website Builder compatibility
+- ALWAYS close </xpath>, </template>, </div>, </section> tags
+- Use Bootstrap 5 classes: container, row, col-md-4, card, btn, py-5, fw-bold
+- NEVER use Tailwind classes or CSS custom properties (--primary)
+- Colors go in primary_variables.scss using $o-color-palettes, NOT :root vars
 - Use neutral shadows: rgba(0,0,0,0.1). NEVER blue shadows.
-- Write REAL content for the requested industry. NO placeholders.
-- Include at least 3 cards/items in grid sections (col-md-4 x3).`;
+- Write REAL content for the requested industry. NO generic placeholders.
+- Include at least 3 cards/items in grid sections (col-md-4 x3).
+- Sections MUST have at least 4-5 complete sections with real industry content.`;
 
 /**
  * Full prompt for cloud APIs (Claude, GPT-4)
+ * Based on the official Odoo 18 theme tutorial (website_airproof):
+ * https://www.odoo.com/documentation/18.0/developer/tutorials/website_theme.html
+ * And the official design-themes repo:
+ * https://github.com/odoo/design-themes/tree/18.0
  */
-export const ODOO_FULL_PROMPT = `You are an expert Odoo 18 website theme developer with exceptional UI/UX design skills.
-Your goal is to create beautiful, modern, production-ready Odoo themes that rival the best website builders.
+export const ODOO_FULL_PROMPT = `You are an expert Odoo 18 website theme developer.
+Create production-ready themes following the EXACT Odoo 18 conventions (website_airproof tutorial pattern).
 
-## CRITICAL OUTPUT FORMAT
+## OUTPUT FORMAT
 For each file, output with a header followed by a code fence:
 
 **theme_generated/__manifest__.py:**
 \`\`\`python
 {
     'name': 'Theme Name',
-    'version': '18.0.1.0.0',
-    'category': 'Theme/Creative',
-    'summary': 'Modern website theme',
+    'version': '18.0.0',
+    'category': 'Website/Theme',
+    'summary': 'A beautiful theme for ...',
     'depends': ['website'],
-    'data': ['views/templates.xml'],
+    'data': [
+        'views/templates.xml',
+    ],
     'assets': {
+        'web._assets_primary_variables': [
+            ('prepend', 'theme_generated/static/src/scss/primary_variables.scss'),
+        ],
+        'web._assets_frontend_helpers': [
+            ('prepend', 'theme_generated/static/src/scss/bootstrap_overridden.scss'),
+        ],
         'web.assets_frontend': [
             'theme_generated/static/src/scss/theme.scss',
         ],
@@ -254,107 +326,134 @@ For each file, output with a header followed by a code fence:
 \`\`\`xml
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-  <!-- Inherit homepage to add content -->
-  <template id="website_homepage_content" name="Homepage Content" inherit_id="website.homepage" customize_show="True">
-    <xpath expr="//div[@id='wrap']" position="inside">
-      <section class="hero-section min-vh-75 d-flex align-items-center">
-        <div class="container text-center">
-          <h1 class="display-4 fw-bold">Your Title</h1>
-          <p class="lead">Your description text here</p>
-          <a href="#" class="btn btn-primary btn-lg rounded-pill px-4">Call to Action</a>
-        </div>
-      </section>
-      <section class="py-5">
-        <div class="container">
-          <div class="row g-4">
-            <!-- Feature cards here -->
+  <template id="homepage_content" name="Homepage Content" inherit_id="website.homepage" customize_show="True">
+    <xpath expr="//div[@id='wrap']" position="replace">
+      <div id="wrap" class="oe_structure">
+        <!-- Hero section with Odoo color combination class -->
+        <section class="o_cc o_cc1 pt96 pb96" data-snippet="s_cover"
+                 style="background-image: url('...'); background-size: cover; background-position: center;">
+          <div class="container text-center">
+            <h1 class="display-3 fw-bold">Main Headline</h1>
+            <p class="lead mb-4">Subheadline text</p>
+            <a href="/contactus" class="btn btn-primary btn-lg rounded-pill px-4">Get Started</a>
           </div>
-        </div>
-      </section>
+        </section>
+        <!-- Features section -->
+        <section class="o_cc o_cc2 pt48 pb48" data-snippet="s_three_columns">
+          <div class="container">
+            <h2 class="text-center fw-bold mb-5">Section Title</h2>
+            <div class="row g-4">
+              <!-- 3 cards with real content -->
+            </div>
+          </div>
+        </section>
+        <!-- More sections: testimonials, CTA, about, etc. -->
+      </div>
     </xpath>
   </template>
 </odoo>
 \`\`\`
 
+**theme_generated/static/src/scss/primary_variables.scss:**
+\`\`\`scss
+// Odoo color palette - integrates with Website Builder color picker
+$o-color-palettes: map-merge($o-color-palettes,
+  (
+    'theme-custom': (
+      'o-color-1': #PRIMARY_HEX,     // Primary brand color
+      'o-color-2': #SECONDARY_HEX,   // Secondary color
+      'o-color-3': #ACCENT_HEX,      // Extra/accent color
+      'o-color-4': #LIGHT_BG_HEX,    // Light background (whitish)
+      'o-color-5': #DARK_TEXT_HEX,    // Dark text (blackish)
+    ),
+  )
+);
+$o-selected-color-palettes-names: append($o-selected-color-palettes-names, 'theme-custom');
+
+$o-website-values-palettes: (
+  (
+    'color-palettes-name': 'theme-custom',
+    'font': 'Body Font Name',
+    'headings-font': 'Heading Font Name',
+    'header-font-size': 1rem,
+    'btn-border-radius': 10rem,
+  ),
+);
+
+// Google Fonts configuration
+$o-theme-font-configs: (
+  'Heading Font': (
+    'family': ('Heading Font', serif),
+    'url': 'Heading+Font:400,700',
+  ),
+  'Body Font': (
+    'family': ('Body Font', sans-serif),
+    'url': 'Body+Font:300,400,700',
+  ),
+);
+\`\`\`
+
+**theme_generated/static/src/scss/bootstrap_overridden.scss:**
+\`\`\`scss
+// Bootstrap variable overrides - ONLY variables, no custom rules
+$border-radius: 0.5rem !default;
+$border-radius-lg: 0.75rem !default;
+$card-border-width: 0 !default;
+$box-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08) !default;
+$box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !default;
+\`\`\`
+
 **theme_generated/static/src/scss/theme.scss:**
 \`\`\`scss
-// Theme custom styles - ALL styles in this ONE file
-// MANDATORY: Use CSS variables for ALL colors (no hardcoded hex/rgb)
-
-:root {
-  // These are set by Odoo based on theme configuration
-  --primary: #c9302c;    // Example: warm red for restaurant
-  --secondary: #8b4513;  // Example: earthy brown
-  --accent: #d4a373;     // Example: golden accent
-  --background: #fefae0; // Example: cream background
-}
-
-.hero-section {
+// Custom theme styles - use Odoo color helpers
+section[data-snippet="s_cover"] {
   min-height: 75vh;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-  // ✅ CORRECT: Use primary color for shadows
-  box-shadow: 0 4px 20px rgba(var(--primary-rgb, 201, 48, 44), 0.3);
+  display: flex;
+  align-items: center;
 }
-
 .card {
-  // ✅ CORRECT: Neutral shadow using dark color
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  background: var(--background);
-}
-
-.btn-primary {
-  background: var(--primary);
-  // ✅ CORRECT: Shadow matches button color
-  box-shadow: 0 4px 12px rgba(var(--primary-rgb, 201, 48, 44), 0.4);
+  transition: transform 0.2s, box-shadow 0.2s;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  }
 }
 \`\`\`
 
-## ⚠️ SCSS COLOR RULES (MANDATORY - NO EXCEPTIONS)
-❌ NEVER use hardcoded blue colors like: rgba(0, 128, 255, ...) or #0080ff
-❌ NEVER use any blue shadows unless the theme is explicitly blue
-✅ ALWAYS use theme colors (var(--primary), var(--secondary), etc.)
-✅ ALWAYS use neutral shadows: rgba(0, 0, 0, 0.1) for subtle effects
-✅ For colored shadows, derive from the PRIMARY color, not arbitrary blue
+## Odoo 18 Color System (CRITICAL)
+- Colors are defined as 5-color palettes in primary_variables.scss using $o-color-palettes
+- o-color-1 = Primary, o-color-2 = Secondary, o-color-3 = Extra, o-color-4 = Light, o-color-5 = Dark
+- In templates, use classes: o_cc o_cc1 (color combo 1), o_cc2, o_cc3 on sections
+- In SCSS, use o-color('o-color-1') to access colors
+- NEVER use CSS custom properties (:root { --primary }) - Odoo does NOT use them
+- NEVER use hardcoded blue shadows. Use rgba(0,0,0,0.1) for neutral shadows.
 
-## Required Files Structure (EXACTLY 3 files - no more!)
-\`\`\`
-theme_generated/
-├── __manifest__.py          # Module manifest (REQUIRED)
-├── views/
-│   └── templates.xml        # ALL QWeb templates in ONE file (REQUIRED)
-└── static/
-    └── src/
-        └── scss/
-            └── theme.scss   # ALL custom styles in ONE file (REQUIRED)
-\`\`\`
+## Odoo 18 Asset Bundles (CRITICAL)
+- web._assets_primary_variables: Odoo variables ($o-color-palettes, $o-theme-font-configs)
+- web._assets_frontend_helpers: Bootstrap overrides (prepend, variables only)
+- web.assets_frontend: Custom SCSS rules (theme.scss)
 
-CRITICAL: Do NOT create multiple XML files (no pages.xml, no snippets.xml separately).
-CRITICAL: Do NOT create multiple SCSS files (no style.scss, no variables.scss separately).
-Put ALL content in the single templates.xml and single theme.scss files.
-
-## Odoo 18 Technical Requirements
-- ALL templates must be wrapped in <odoo> tags with XML declaration
-- Use inherit_id="website.homepage" to extend the homepage
-- Use xpath to position content within the layout
-- QWeb directives: t-if, t-foreach, t-esc, t-call, t-set
-- Color classes: o_cc1-o_cc5 for Odoo color customization
-- Bootstrap 5.3 is included by default
+## Template Structure (CRITICAL)
+- Inherit website.homepage with xpath position="replace" on //div[@id='wrap']
+- Replace with <div id="wrap" class="oe_structure"> containing sections
+- Each section should have data-snippet="s_xxx" for Website Builder compatibility
+- Use o_cc o_cc1/o_cc2 classes for Odoo color integration
+- Use Bootstrap 5.3 classes (included by default)
+- NEVER use Tailwind classes
 
 ${DESIGN_SYSTEM}
 
 ${SECTION_TEMPLATES}
 
 ## Quality Standards
-1. **Visual Design**: Modern, clean, professional appearance
-2. **Color Harmony**: Follow 60-30-10 rule strictly
-3. **Typography**: Clear hierarchy, readable fonts
-4. **Spacing**: Generous whitespace, consistent padding
-5. **Components**: Cards with shadows, rounded buttons
-6. **Responsiveness**: Mobile-first, test all breakpoints
-7. **Accessibility**: Proper contrast, semantic HTML
+1. Generate 5-7 complete sections with real industry-specific content
+2. All sections must have data-snippet attributes and o_cc color classes
+3. Use proper Bootstrap grid (row, col-md-4) with at least 3 items per grid
+4. Include hero, features/services, about, testimonials, CTA, footer sections
+5. Use Unsplash image URLs for realistic backgrounds
+6. Responsive design with mobile breakpoints
 
-IMPORTANT: Generate ALL required files with complete content. Do not use placeholders.
-Generate complete, beautiful, working Odoo 18 themes NOW.`;
+IMPORTANT: Generate ALL files with COMPLETE content. No placeholders, no "add content here" comments.`;
 
 // =============================================================================
 // ODOO SKILLS INTEGRATION
@@ -408,68 +507,92 @@ function getLanguagesDoc(): string {
 
 /**
  * Enhanced prompt with Odoo Skills integration
+ * Uses the same correct Odoo 18 conventions as ODOO_FULL_PROMPT
+ * but adds industry presets, snippet library, and i18n support.
  */
 export const ODOO_SKILLS_PROMPT = `You are an expert Odoo 18 website theme developer powered by Platxa Odoo Skills.
+Follow the EXACT Odoo 18 theme conventions from the official tutorial.
 
 ## Output Format
-For each file, output EXACTLY:
-\`\`\`file:path/to/file.ext
+For each file, output with header then code fence:
+**theme_generated/path/to/file.ext:**
+\`\`\`language
 [complete file content]
 \`\`\`
 
-## Required Files Structure
+## Required Files (5 files)
 \`\`\`
-theme_name/
-├── __manifest__.py          # Module manifest
-├── __init__.py              # Python init
+theme_generated/
+├── __manifest__.py                              # Module manifest
 ├── views/
-│   ├── layout.xml           # Layout customizations
-│   ├── pages.xml            # Page templates
-│   └── snippets.xml         # Custom snippets
-├── static/
-│   └── src/
-│       ├── scss/
-│       │   ├── primary_variables.scss  # Color overrides
-│       │   ├── bootstrap_overridden.scss
-│       │   └── theme.scss
-│       └── js/
-│           └── theme.js
-└── i18n/
-    ├── theme_name.pot       # Translation template
-    └── [lang].po            # Translations
+│   └── templates.xml                            # ALL QWeb templates (single file)
+└── static/
+    └── src/
+        └── scss/
+            ├── primary_variables.scss            # Odoo color palettes & fonts
+            ├── bootstrap_overridden.scss          # Bootstrap variable overrides
+            └── theme.scss                         # Custom CSS rules
 \`\`\`
+
+## Manifest Format
+\`\`\`python
+{
+    'name': 'Theme Name',
+    'version': '18.0.0',
+    'category': 'Website/Theme',
+    'summary': '...',
+    'depends': ['website'],
+    'data': ['views/templates.xml'],
+    'assets': {
+        'web._assets_primary_variables': [
+            ('prepend', 'theme_generated/static/src/scss/primary_variables.scss'),
+        ],
+        'web._assets_frontend_helpers': [
+            ('prepend', 'theme_generated/static/src/scss/bootstrap_overridden.scss'),
+        ],
+        'web.assets_frontend': [
+            'theme_generated/static/src/scss/theme.scss',
+        ],
+    },
+    'license': 'LGPL-3',
+}
+\`\`\`
+
+## Template Pattern (CRITICAL)
+- Inherit website.homepage with xpath position="replace" on //div[@id='wrap']
+- Replace empty wrap with <div id="wrap" class="oe_structure"> containing sections
+- Each section: <section class="o_cc o_cc1 pt48 pb48" data-snippet="s_xxx">
+- Use o_cc o_cc1/o_cc2/o_cc3 for Odoo color combinations on sections
+
+## Odoo 18 Color System (CRITICAL)
+- Define 5 colors in $o-color-palettes: o-color-1 (primary) through o-color-5 (dark)
+- Register with $o-selected-color-palettes-names
+- Configure fonts in $o-theme-font-configs with Google Font URLs
+- Set palette name in $o-website-values-palettes
+- In SCSS, use o-color('o-color-1') to access colors
+- NEVER use CSS custom properties (:root { --primary })
 
 ${getIndustryPresetsDoc()}
 
 ${getSnippetLibraryDoc()}
 
-${getLanguagesDoc()}
-
-${DESIGN_SYSTEM}
-
-${SECTION_TEMPLATES}
-
 ## Odoo 18 Technical Requirements
-- QWeb directives: t-if, t-elif, t-else, t-foreach, t-as, t-esc, t-out, t-call, t-set
+- ALL templates in <odoo> tags with XML declaration
 - Use t-out instead of deprecated t-raw
-- Inherit website.layout for all pages
-- Use xpath for template modifications
-- Color classes: o_cc1-o_cc5 for Odoo color customization
-- Snippet classes: s_*, for website builder recognition
+- data-snippet attributes: s_cover, s_three_columns, s_text_image, s_call_to_action, etc.
 - Bootstrap 5.3 is included by default
+- NEVER use Tailwind classes
+- Neutral shadows only: rgba(0,0,0,0.1). NEVER blue shadows.
 
 ## Quality Standards
-1. **Visual Design**: Modern, clean, professional appearance
-2. **Color Harmony**: Follow 60-30-10 rule strictly
-3. **Typography**: Clear hierarchy, readable fonts
-4. **Spacing**: Generous whitespace, consistent padding
-5. **Components**: Cards with shadows, rounded buttons
-6. **Responsiveness**: Mobile-first, test all breakpoints
-7. **Accessibility**: Proper contrast, semantic HTML
-8. **i18n Ready**: All strings translatable
-9. **Validation**: Pass QWeb, manifest, and SCSS validation
+1. Generate 5-7 sections with REAL industry-specific content (no placeholders)
+2. All sections with data-snippet and o_cc color classes
+3. Bootstrap grid with 3+ items per row
+4. Proper heading hierarchy (h1 → h2 → h3)
+5. Responsive design with mobile breakpoints
+6. Include: hero, services, about, testimonials, CTA sections
 
-Generate complete, beautiful, production-ready Odoo 18 themes.`;
+Generate complete, production-ready Odoo 18 themes NOW.`;
 
 // Legacy exports
 export const ODOO_WEBSITE_SYSTEM_PROMPT = ODOO_SKILLS_PROMPT;
@@ -539,50 +662,45 @@ export function buildEnhancedSystemPrompt(
 
 const INDUSTRY_GUIDANCE: Record<string, string> = {
   restaurant: `
-Restaurant Theme Guidelines:
-- MUST use warm color palette: primary #c9302c (burgundy red), secondary #8b4513 (brown), accent #d4a373 (tan), background #fefae0 (cream)
-- Hero with food/dining background image (use: https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80)
-- Food photography in menu section (use: https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80)
-- Menu section with appetizing card design
-- Reservation CTA prominent with warm accent color
-- Hours and location in footer
-- Testimonials from happy diners`,
+Restaurant Theme - REQUIRED sections: hero, menu, about, testimonials, reservation, footer
+Odoo Color Palette (use EXACTLY these in primary_variables.scss):
+  o-color-1: #c9302c (burgundy red), o-color-2: #8b4513 (brown), o-color-3: #d4a373 (tan), o-color-4: #fefae0 (cream), o-color-5: #2d2d2d (dark)
+Fonts: headings 'Playfair Display' (serif), body 'Lato' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80
+Food image: https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80
+MUST include: Menu cards with dish names/prices, Reservation CTA, Hours/location in footer`,
 
   technology: `
-Tech/SaaS Theme Guidelines:
-- Clean, modern blue/purple palette
-- Feature comparison grid
-- Pricing table section
-- Integration logos section
-- Demo CTA prominent
-- Stats/metrics section`,
+Tech/SaaS Theme - REQUIRED sections: hero, features, pricing, integrations, testimonials, CTA
+Odoo Color Palette:
+  o-color-1: #2563eb (blue), o-color-2: #7c3aed (purple), o-color-3: #06b6d4 (cyan), o-color-4: #f8fafc (light), o-color-5: #0f172a (dark)
+Fonts: headings 'Inter' (sans-serif), body 'Inter' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1518770660439-4636190af475?w=1920&q=80
+MUST include: Feature grid with icons, Pricing table, Stats/metrics section`,
 
   legal: `
-Law Firm Theme Guidelines:
-- Professional navy/gold palette
-- Practice areas grid
-- Attorney profiles
-- Case results/testimonials
-- Contact form prominent
-- Trust badges (bar associations)`,
+Law Firm Theme - REQUIRED sections: hero, practice-areas, attorneys, testimonials, contact, footer
+Odoo Color Palette:
+  o-color-1: #1a365d (navy), o-color-2: #c9a227 (gold), o-color-3: #4a5568 (gray), o-color-4: #f7f7f7 (light), o-color-5: #1a202c (dark)
+Fonts: headings 'EB Garamond' (serif), body 'Source Sans Pro' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1920&q=80
+MUST include: Practice areas grid, Attorney profiles, Trust badges`,
 
   healthcare: `
-Healthcare Theme Guidelines:
-- Calming teal/blue palette
-- Services section with icons
-- Doctor/staff profiles
-- Patient testimonials
-- Appointment booking CTA
-- Insurance/payment info`,
+Healthcare Theme - REQUIRED sections: hero, services, doctors, testimonials, appointment, footer
+Odoo Color Palette:
+  o-color-1: #0d9488 (teal), o-color-2: #0284c7 (blue), o-color-3: #06b6d4 (cyan), o-color-4: #f0fdfa (mint), o-color-5: #134e4a (dark)
+Fonts: headings 'Poppins' (sans-serif), body 'Open Sans' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1920&q=80
+MUST include: Services with icons, Doctor profiles, Appointment CTA`,
 
   ecommerce: `
-E-commerce Theme Guidelines:
-- Vibrant accent colors
-- Product showcase grid
-- Category navigation
-- Trust badges (secure payment)
-- Newsletter signup
-- Social proof section`,
+E-commerce Theme - REQUIRED sections: hero, featured-products, categories, testimonials, newsletter, footer
+Odoo Color Palette:
+  o-color-1: #7c3aed (purple), o-color-2: #ec4899 (pink), o-color-3: #f59e0b (amber), o-color-4: #faf5ff (light), o-color-5: #1e1b4b (dark)
+Fonts: headings 'Poppins' (sans-serif), body 'Inter' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80
+MUST include: Product showcase grid, Category cards, Trust badges, Newsletter signup`,
 };
 
 // =============================================================================
@@ -594,7 +712,8 @@ E-commerce Theme Guidelines:
  */
 export function buildSystemPrompt(options: ProjectContext): string {
   const useCompact = options.useCompactPrompt ?? true;
-  // Use skills-enhanced prompt for full mode
+  // Compact = ODOO_LOCAL_PROMPT (for smaller context LLMs like Ollama)
+  // Full = ODOO_SKILLS_PROMPT (for Claude API with larger context)
   let prompt = useCompact ? ODOO_LOCAL_PROMPT : ODOO_SKILLS_PROMPT;
 
   // Add project context
@@ -603,49 +722,43 @@ export function buildSystemPrompt(options: ProjectContext): string {
     context.push(`Theme Name: ${options.projectName}`);
   }
 
-  // Add industry-specific guidance from Odoo Skills presets
+  // Add industry-specific guidance with Odoo color format
   if (options.industry) {
     const industryKey = options.industry.toLowerCase() as Industry;
-    const preset = INDUSTRY_PRESETS[industryKey];
 
-    if (preset) {
-      context.push(`
+    // Prefer INDUSTRY_GUIDANCE (Odoo-specific with o-color-1 format) over generic INDUSTRY_PRESETS
+    const guidance = INDUSTRY_GUIDANCE[industryKey];
+    if (guidance) {
+      context.push(guidance);
+    } else {
+      // Fallback: convert INDUSTRY_PRESETS to Odoo color format
+      const preset = INDUSTRY_PRESETS[industryKey];
+      if (preset) {
+        context.push(`
 Industry: ${preset.name}
 Description: ${preset.description}
 
-Recommended Color Palette:
-- Primary: ${preset.colors.primary}
-- Secondary: ${preset.colors.secondary}
-- Accent: ${preset.colors.accent}
-- Background: ${preset.colors.background}
-- Text: ${preset.colors.text}
+Odoo Color Palette (use EXACTLY these in primary_variables.scss $o-color-palettes):
+  o-color-1: ${preset.colors.primary} (primary), o-color-2: ${preset.colors.secondary} (secondary), o-color-3: ${preset.colors.accent} (accent), o-color-4: ${preset.colors.background} (light/whitish), o-color-5: ${preset.colors.text} (dark/blackish)
 
-Typography:
-- Headings: ${preset.typography.headingFamily} (weight: ${preset.typography.headingWeight})
-- Body: ${preset.typography.bodyFamily} (weight: ${preset.typography.bodyWeight})
-
-Suggested Sections: ${preset.suggestedSections.join(", ")}`);
-    } else {
-      // Fallback to legacy guidance
-      const guidance = INDUSTRY_GUIDANCE[industryKey];
-      if (guidance) {
-        context.push(guidance);
+Fonts: headings '${preset.typography.headingFamily}', body '${preset.typography.bodyFamily}'
+REQUIRED sections: ${preset.suggestedSections.join(", ")}`);
       } else {
         context.push(`Industry: ${options.industry}`);
       }
     }
   }
 
-  // Add custom color palette (overrides industry defaults)
+  // Add custom color palette as Odoo color overrides
   if (options.colorPalette) {
     const colors = options.colorPalette;
     context.push(`
-Custom Color Overrides:
-- Primary: ${colors.primary || "(use industry default)"}
-- Secondary: ${colors.secondary || "(use industry default)"}
-- Accent: ${colors.accent || "(use industry default)"}
-- Background: ${colors.background || "(use industry default)"}
-- Text: ${colors.text || "(use industry default)"}`);
+Custom Odoo Color Overrides (use in $o-color-palettes):
+  o-color-1: ${colors.primary || "(use industry default)"} (primary)
+  o-color-2: ${colors.secondary || "(use industry default)"} (secondary)
+  o-color-3: ${colors.accent || "(use industry default)"} (accent)
+  o-color-4: ${colors.background || "(use industry default)"} (whitish)
+  o-color-5: ${colors.text || "(use industry default)"} (blackish)`);
   }
 
   // Add design style preference

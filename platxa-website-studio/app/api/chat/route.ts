@@ -100,6 +100,30 @@ function setRateLimitState(userId: string, state: RateLimitState): void {
   rateLimitStates.set(userId, state);
 }
 
+/**
+ * Auto-detect industry from user message content when not explicitly provided.
+ * Matches common industry keywords to known industry presets.
+ */
+function detectIndustryFromMessage(message: string): string | undefined {
+  if (!message) return undefined;
+  const lower = message.toLowerCase();
+
+  const industryKeywords: Record<string, string[]> = {
+    restaurant: ["restaurant", "cafe", "bistro", "pizzeria", "food", "dining", "kitchen", "bakery", "catering"],
+    technology: ["tech", "saas", "software", "startup", "app", "digital", "ai", "cloud"],
+    legal: ["law firm", "lawyer", "attorney", "legal", "law office"],
+    healthcare: ["hospital", "clinic", "medical", "healthcare", "doctor", "dental", "pharmacy"],
+    ecommerce: ["e-commerce", "ecommerce", "online store", "shop", "retail", "marketplace"],
+  };
+
+  for (const [industry, keywords] of Object.entries(industryKeywords)) {
+    if (keywords.some(kw => lower.includes(kw))) {
+      return industry;
+    }
+  }
+  return undefined;
+}
+
 // Increase timeout for local LLM (10 minutes max)
 export const maxDuration = 600;
 
@@ -1115,15 +1139,17 @@ export async function POST(req: Request) {
     }
 
     // Build system prompt with context (enhanced with brand tokens if pipeline ran)
-    // Use auto-detected industry from pipeline when client doesn't provide one
-    const effectiveIndustry = projectContext?.industry || pipeline?.getPreResult()?.industry;
+    // Auto-detect industry from user message when client and pipeline don't provide one
+    const autoDetectedIndustry = detectIndustryFromMessage(userMessageContent);
+    const effectiveIndustry = projectContext?.industry || pipeline?.getPreResult()?.industry || autoDetectedIndustry;
+    // Use compact prompt for Ollama (smaller context), full prompt for Claude API
     let basePrompt = buildSystemPrompt({
       projectName: projectContext?.projectName,
       industry: effectiveIndustry,
       colorPalette: projectContext?.colorPalette,
       existingFiles: projectContext?.existingFiles,
       designStyle: projectContext?.designStyle,
-      useCompactPrompt: true,
+      useCompactPrompt: !useClaudeApi,
     });
 
     // Inject user preferences from cross-session memory (Feature #6)
