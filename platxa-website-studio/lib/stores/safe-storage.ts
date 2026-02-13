@@ -1,15 +1,19 @@
 /**
- * Production-grade safe localStorage wrapper
+ * Production-grade safe storage wrapper with IndexedDB fallback
  * Handles JSON parse errors, quota exceeded, and other storage failures gracefully
  *
- * This prevents "Unexpected end of JSON input" and other storage-related crashes
+ * Storage strategy:
+ * - Try localStorage first (fast, synchronous)
+ * - On QuotaExceededError, fall back to IndexedDB (larger quota)
+ * - Reads check localStorage first, then IDB
  */
 
 import type { StateStorage } from "zustand/middleware";
 
-/**
- * Validate that a string is valid JSON
- */
+// =============================================================================
+// JSON validation
+// =============================================================================
+
 function isValidJson(str: string): boolean {
   try {
     JSON.parse(str);
@@ -19,9 +23,134 @@ function isValidJson(str: string): boolean {
   }
 }
 
-/**
- * Safe localStorage wrapper that handles all error cases gracefully
- */
+// =============================================================================
+// IndexedDB adapter (lazy-initialized on first quota error)
+// =============================================================================
+
+const IDB_NAME = "platxa-storage";
+const IDB_STORE = "platxa-kv";
+
+let idbInstance: IDBDatabase | null = null;
+let idbInitPromise: Promise<IDBDatabase | null> | null = null;
+
+/** Check if IndexedDB is available (not in SSR or some private browsing modes) */
+export function isIdbAvailable(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return typeof indexedDB !== "undefined" && indexedDB !== null;
+  } catch {
+    return false;
+  }
+}
+
+function openIdb(): Promise<IDBDatabase | null> {
+  if (idbInstance) return Promise.resolve(idbInstance);
+  if (idbInitPromise) return idbInitPromise;
+
+  if (!isIdbAvailable()) return Promise.resolve(null);
+
+  idbInitPromise = new Promise<IDBDatabase | null>((resolve) => {
+    try {
+      const request = indexedDB.open(IDB_NAME, 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains(IDB_STORE)) {
+          db.createObjectStore(IDB_STORE);
+        }
+      };
+      request.onsuccess = () => {
+        idbInstance = request.result;
+        resolve(idbInstance);
+      };
+      request.onerror = () => {
+        console.warn("[SafeStorage] Failed to open IndexedDB:", request.error);
+        idbInitPromise = null;
+        resolve(null);
+      };
+    } catch {
+      idbInitPromise = null;
+      resolve(null);
+    }
+  });
+
+  return idbInitPromise;
+}
+
+function idbGet(key: string): Promise<string | null> {
+  return openIdb().then((db) => {
+    if (!db) return null;
+    return new Promise<string | null>((resolve) => {
+      try {
+        const tx = db.transaction(IDB_STORE, "readonly");
+        const store = tx.objectStore(IDB_STORE);
+        const request = store.get(key);
+        request.onsuccess = () => resolve(request.result ?? null);
+        request.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  });
+}
+
+function idbSet(key: string, value: string): Promise<boolean> {
+  return openIdb().then((db) => {
+    if (!db) return false;
+    return new Promise<boolean>((resolve) => {
+      try {
+        const tx = db.transaction(IDB_STORE, "readwrite");
+        const store = tx.objectStore(IDB_STORE);
+        const request = store.put(value, key);
+        request.onsuccess = () => resolve(true);
+        request.onerror = () => resolve(false);
+      } catch {
+        resolve(false);
+      }
+    });
+  });
+}
+
+function idbRemove(key: string): Promise<void> {
+  return openIdb().then((db) => {
+    if (!db) return;
+    return new Promise<void>((resolve) => {
+      try {
+        const tx = db.transaction(IDB_STORE, "readwrite");
+        const store = tx.objectStore(IDB_STORE);
+        const request = store.delete(key);
+        request.onsuccess = () => resolve();
+        request.onerror = () => resolve();
+      } catch {
+        resolve();
+      }
+    });
+  });
+}
+
+function idbClearAll(): Promise<void> {
+  return openIdb().then((db) => {
+    if (!db) return;
+    return new Promise<void>((resolve) => {
+      try {
+        const tx = db.transaction(IDB_STORE, "readwrite");
+        const store = tx.objectStore(IDB_STORE);
+        const request = store.clear();
+        request.onsuccess = () => resolve();
+        request.onerror = () => resolve();
+      } catch {
+        resolve();
+      }
+    });
+  });
+}
+
+// Track which keys have been promoted to IDB (avoid unnecessary IDB reads)
+const idbKeys = new Set<string>();
+
+// =============================================================================
+// Safe localStorage with IDB fallback
+// =============================================================================
+
 export const safeLocalStorage: StateStorage = {
   getItem: (name: string): string | null => {
     if (typeof window === "undefined") return null;
@@ -29,25 +158,25 @@ export const safeLocalStorage: StateStorage = {
     try {
       const value = localStorage.getItem(name);
 
-      // Return null if no value
-      if (!value) return null;
-
-      // Validate JSON before returning to prevent parse errors downstream
-      if (!isValidJson(value)) {
-        console.warn(`[SafeStorage] Invalid JSON in "${name}", clearing corrupted data`);
-        try {
-          localStorage.removeItem(name);
-        } catch {
-          // Ignore removal errors
+      if (value) {
+        if (!isValidJson(value)) {
+          console.warn(`[SafeStorage] Invalid JSON in "${name}", clearing corrupted data`);
+          try { localStorage.removeItem(name); } catch { /* ignore */ }
+          return null;
         }
-        return null;
+        return value;
       }
 
-      return value;
-    } catch (error) {
-      // Handle SecurityError (private browsing), QuotaExceededError, etc.
-      console.warn(`[SafeStorage] Failed to read "${name}":`, error);
+      // Only check IDB for keys we know were promoted there (avoids async for normal misses)
+      if (idbKeys.has(name)) {
+        return idbGet(name) as unknown as string | null;
+      }
+
       return null;
+    } catch (error) {
+      console.warn(`[SafeStorage] Failed to read "${name}":`, error);
+      // Try IDB as fallback for read errors too
+      return idbGet(name) as unknown as string | null;
     }
   },
 
@@ -55,7 +184,6 @@ export const safeLocalStorage: StateStorage = {
     if (typeof window === "undefined") return;
 
     try {
-      // Validate that we're storing valid JSON
       if (!isValidJson(value)) {
         console.warn(`[SafeStorage] Attempted to store invalid JSON in "${name}"`);
         return;
@@ -63,18 +191,13 @@ export const safeLocalStorage: StateStorage = {
 
       localStorage.setItem(name, value);
     } catch (error) {
-      // Handle QuotaExceededError
       if (error instanceof Error && error.name === "QuotaExceededError") {
-        console.warn(`[SafeStorage] Storage quota exceeded for "${name}", attempting cleanup`);
-
-        // Try to clear old data and retry
-        try {
-          // Clear this specific key and try again
-          localStorage.removeItem(name);
-          localStorage.setItem(name, value);
-        } catch {
-          console.error(`[SafeStorage] Failed to save "${name}" even after cleanup`);
-        }
+        console.warn(`[SafeStorage] Quota exceeded for "${name}", falling back to IndexedDB`);
+        idbKeys.add(name);
+        // Store in IDB instead (async, fire-and-forget)
+        idbSet(name, value).catch(() => {
+          console.error(`[SafeStorage] IDB fallback also failed for "${name}"`);
+        });
       } else {
         console.warn(`[SafeStorage] Failed to save "${name}":`, error);
       }
@@ -89,12 +212,17 @@ export const safeLocalStorage: StateStorage = {
     } catch (error) {
       console.warn(`[SafeStorage] Failed to remove "${name}":`, error);
     }
+
+    // Also remove from IDB
+    idbKeys.delete(name);
+    idbRemove(name).catch(() => { /* ignore */ });
   },
 };
 
-/**
- * Safe sessionStorage wrapper (same pattern)
- */
+// =============================================================================
+// Safe sessionStorage (unchanged - session data is small)
+// =============================================================================
+
 export const safeSessionStorage: StateStorage = {
   getItem: (name: string): string | null => {
     if (typeof window === "undefined") return null;
@@ -105,11 +233,7 @@ export const safeSessionStorage: StateStorage = {
 
       if (!isValidJson(value)) {
         console.warn(`[SafeStorage] Invalid JSON in session "${name}", clearing`);
-        try {
-          sessionStorage.removeItem(name);
-        } catch {
-          // Ignore
-        }
+        try { sessionStorage.removeItem(name); } catch { /* ignore */ }
         return null;
       }
 
@@ -145,9 +269,10 @@ export const safeSessionStorage: StateStorage = {
   },
 };
 
-/**
- * Clear all Platxa-related storage (useful for debugging/reset)
- */
+// =============================================================================
+// Clear all Platxa storage (localStorage + IDB)
+// =============================================================================
+
 export function clearAllPlatxaStorage(): void {
   if (typeof window === "undefined") return;
 
@@ -166,8 +291,16 @@ export function clearAllPlatxaStorage(): void {
     for (const key of keysToRemove) {
       localStorage.removeItem(key);
     }
-
   } catch (error) {
-    console.error("[SafeStorage] Failed to clear storage:", error);
+    console.error("[SafeStorage] Failed to clear localStorage:", error);
   }
+
+  // Also clear IDB store
+  idbKeys.clear();
+  idbClearAll().catch((error) => {
+    console.error("[SafeStorage] Failed to clear IndexedDB:", error);
+  });
 }
+
+// Export IDB helpers for testing
+export const _idbHelpers = { openIdb, idbGet, idbSet, idbRemove, idbClearAll, idbKeys };

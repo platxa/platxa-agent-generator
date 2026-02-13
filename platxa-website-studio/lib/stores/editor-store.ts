@@ -99,77 +99,6 @@ interface EditorState {
 }
 
 /**
- * ROOT CAUSE FIX: Consolidate duplicate XML and SCSS files
- * AI often generates both templates.xml AND pages.xml with duplicate template IDs
- * This merges them into single canonical files BEFORE storing
- */
-function consolidateGeneratedFiles(
-  files: Array<{ path: string; content: string; language: string }>
-): Array<{ path: string; content: string; language: string }> {
-  const xmlFiles: typeof files = [];
-  const scssFiles: typeof files = [];
-  const otherFiles: typeof files = [];
-
-  // Categorize files
-  for (const file of files) {
-    if (file.path.endsWith('.xml') && file.path.includes('/views/')) {
-      xmlFiles.push(file);
-    } else if (file.path.endsWith('.scss') || file.path.endsWith('.css')) {
-      scssFiles.push(file);
-    } else {
-      otherFiles.push(file);
-    }
-  }
-
-  const result: typeof files = [];
-
-  // Consolidate XML files into single templates.xml
-  if (xmlFiles.length > 1) {
-    const seenTemplateIds = new Set<string>();
-    const mergedTemplates: string[] = [];
-
-    for (const xmlFile of xmlFiles) {
-      const templateRegex = /<template\s+[^>]*id=["']([^"']+)["'][^>]*>[\s\S]*?<\/template>/gi;
-      let match;
-      while ((match = templateRegex.exec(xmlFile.content)) !== null) {
-        const templateId = match[1];
-        if (!seenTemplateIds.has(templateId)) {
-          seenTemplateIds.add(templateId);
-          mergedTemplates.push(match[0]);
-        } else {
-        }
-      }
-    }
-
-    if (mergedTemplates.length > 0) {
-      result.push({
-        path: 'theme_generated/views/templates.xml',
-        content: `<?xml version="1.0" encoding="utf-8"?>\n<odoo>\n  ${mergedTemplates.join('\n\n  ')}\n</odoo>`,
-        language: 'xml',
-      });
-    }
-  } else if (xmlFiles.length === 1) {
-    result.push(xmlFiles[0]);
-  }
-
-  // Consolidate SCSS files into single theme.scss
-  if (scssFiles.length > 1) {
-    result.push({
-      path: 'theme_generated/static/src/scss/theme.scss',
-      content: scssFiles.map(f => `/* From: ${f.path} */\n${f.content}`).join('\n\n'),
-      language: 'scss',
-    });
-  } else if (scssFiles.length === 1) {
-    result.push(scssFiles[0]);
-  }
-
-  // Add other files unchanged
-  result.push(...otherFiles);
-
-  return result;
-}
-
-/**
  * Detect language from file path
  */
 function detectLanguage(path: string): string {
@@ -378,17 +307,14 @@ export const useEditorStore = create<EditorState>()(
       clearSnippetRegenRequest: () =>
         set({ snippetRegenRequest: null }),
 
-      // Bulk open generated files from AI
+      // Bulk open generated files from AI (expects already-consolidated files)
       openGeneratedFiles: (files) =>
         set((state) => {
-          // Consolidate duplicate XML and SCSS files before storing
-          const consolidatedFiles = consolidateGeneratedFiles(files);
-
           const newTabs = [...state.openTabs];
           const newFileContents = { ...state.fileContents };
           let firstNewTab: string | null = null;
 
-          for (const file of consolidatedFiles) {
+          for (const file of files) {
             // Check if tab already exists
             const existingTab = newTabs.find((t) => t.path === file.path);
 

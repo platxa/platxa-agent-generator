@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import type { Message } from "ai";
 import { User, Bot, FileCode } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -11,7 +11,7 @@ interface MessageBubbleProps {
   message: Message;
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export const MessageBubble = memo(function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === "user";
 
   // Get message content as string (AI SDK v3 - content is always a string)
@@ -83,4 +83,4 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       </div>
     </div>
   );
-}
+});

@@ -31,7 +31,10 @@ export {
   selectAgentPhase,
   selectQualityScore,
   selectBrandColors,
+  selectIsRecovering,
+  selectLastRecoveryResult,
   type PipelineStatus,
+  type RecoveryState,
 } from "./agent-store";
 export {
   usePreferenceStore,

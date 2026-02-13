@@ -68,6 +68,13 @@ interface AgentState {
   /** Marks pipeline as complete without requiring full result (for simple completion signals) */
   markComplete: (message?: string) => void;
   setBrandContext: (context: BrandTokenContext) => void;
+
+  // Recovery actions
+  startRecovery: (plan: RecoveryPlan) => void;
+  completeRecovery: (result: RecoveryResult) => void;
+  setSnapshotId: (id: string) => void;
+  failPipeline: (error: string) => void;
+
   reset: () => void;
 }
 
@@ -150,6 +157,45 @@ export const useAgentStore = create<AgentState>()((set) => ({
 
   setBrandContext: (context) =>
     set({ brandContext: context }),
+
+  startRecovery: (plan) =>
+    set((state) => ({
+      recoveryState: {
+        ...state.recoveryState,
+        isRecovering: true,
+        lastPlan: plan,
+        attemptCount: state.recoveryState.attemptCount + 1,
+      },
+    })),
+
+  completeRecovery: (result) =>
+    set((state) => ({
+      recoveryState: {
+        ...state.recoveryState,
+        isRecovering: false,
+        lastResult: result,
+      },
+    })),
+
+  setSnapshotId: (id) =>
+    set((state) => ({
+      recoveryState: {
+        ...state.recoveryState,
+        snapshotId: id,
+      },
+    })),
+
+  failPipeline: (error) =>
+    set({
+      pipelineStatus: "error",
+      lastError: error,
+      agentStatus: {
+        phase: "error",
+        message: error,
+        progress: 0,
+        startedAt: new Date().toISOString(),
+      },
+    }),
 
   reset: () =>
     set({

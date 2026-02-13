@@ -10,9 +10,10 @@ import { ChatInput } from "./ChatInput";
 import { StreamingIndicator } from "./StreamingIndicator";
 import { AgentPhaseIndicator } from "./AgentPhaseIndicator";
 import { DesignSuggestions } from "./DesignSuggestions";
-import { useChatStore, useProjectStore, useEditorStore, useEditorStoreHydration, useAgentStore, usePreferenceStore } from "@/lib/stores";
+import { useChatStore, useProjectStore, useEditorStore, useEditorStoreHydration, useAgentStore, usePreferenceStore, selectIsRecovering, selectLastRecoveryResult } from "@/lib/stores";
+import { createRecoveryPlan, type FailureContext } from "@/lib/agent-bridge/rollback-recovery";
 import { useStreamingPreviewSafe } from "@/lib/preview/client";
-import { parseGeneratedFiles, validateOdooTheme, formatFilesForDisplay, generateManifest, type ParsedFile } from "@/lib/ai/parser";
+import { parseGeneratedFiles, validateOdooTheme, formatFilesForDisplay, generateManifest, consolidateExportFiles, type ParsedFile } from "@/lib/ai/parser";
 import { cn } from "@/lib/utils/cn";
 
 interface ChatPanelProps {
@@ -38,7 +39,9 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
   const { projectName, projectConfig, setFiles } = useProjectStore();
   const { suggestions, setSuggestions } = useChatStore();
   const { openGeneratedFiles, fileContents } = useEditorStore();
-  const { startPipeline, setAgentStatus, markComplete, reset: resetAgentStore } = useAgentStore();
+  const { startPipeline, setAgentStatus, markComplete, reset: resetAgentStore, failPipeline, startRecovery, completeRecovery } = useAgentStore();
+  const isRecovering = useAgentStore(selectIsRecovering);
+  const lastRecoveryResult = useAgentStore(selectLastRecoveryResult);
   const { buildPreferencePrompt } = usePreferenceStore();
   const streamingPreview = useStreamingPreviewSafe();
 
@@ -99,13 +102,72 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
       streamingPreview?.endStreaming();
       // Mark agent as complete using the proper action
       markComplete();
+
+      // If we were recovering (auto-retry), mark recovery as complete
+      const recoveryState = useAgentStore.getState().recoveryState;
+      if (recoveryState.isRecovering) {
+        completeRecovery({
+          success: true,
+          strategyUsed: recoveryState.lastPlan?.strategy ?? "retry",
+          usedFallback: false,
+          recoveredSections: [],
+          unrecoveredSections: [],
+          durationMs: 0,
+          message: "Generation succeeded after retry",
+        });
+      }
       // Note: File parsing is handled by useEffect watching messages for reliability
     },
     onError: (error: Error) => {
       setStreamStartTime(undefined);
       console.error("Chat error:", error);
-      // Reset agent store on error
-      resetAgentStore();
+
+      // Set pipeline to error state (not full reset — preserves recovery context)
+      const errorMsg = error.message || "An unexpected error occurred";
+      failPipeline(errorMsg);
+
+      // If a retry was in progress, mark recovery as failed
+      const wasRecovering = useAgentStore.getState().recoveryState.isRecovering;
+      if (wasRecovering) {
+        completeRecovery({
+          success: false,
+          strategyUsed: useAgentStore.getState().recoveryState.lastPlan?.strategy ?? "retry",
+          usedFallback: false,
+          recoveredSections: [],
+          unrecoveredSections: [],
+          durationMs: 0,
+          message: `Retry failed: ${errorMsg}`,
+        });
+      }
+
+      // Read actual attempt count from store to prevent infinite retries
+      const currentAttempts = useAgentStore.getState().recoveryState.attemptCount;
+      const maxRetries = 3;
+
+      // Build failure context for recovery strategy selection
+      const failureContext: FailureContext = {
+        error: errorMsg,
+        phase: "streaming",
+        affectedSections: [],
+        hasPartialOutput: messages.length > 0 && messages[messages.length - 1]?.role === "assistant",
+        hasSnapshot: false,
+        hasGitHistory: false,
+        hasYjsHistory: false,
+        retryCount: currentAttempts,
+        maxRetries,
+      };
+
+      // Select and potentially auto-execute recovery
+      const plan = createRecoveryPlan(failureContext);
+      if (plan.autoExecute && plan.strategy === "retry" && currentAttempts < maxRetries) {
+        startRecovery(plan);
+        // Auto-retry: reload the last message after delay
+        // Note: completeRecovery is NOT called here — the next onFinish/onError
+        // cycle will handle the outcome of the retry
+        setTimeout(() => {
+          reload();
+        }, 1000);
+      }
 
       try {
         if (error.message) {
@@ -114,7 +176,7 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
         }
       } catch {
         setApiError({
-          error: error.message || "An unexpected error occurred",
+          error: errorMsg,
           code: "UNKNOWN"
         });
       }
@@ -188,11 +250,16 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
             }
           }
 
-          // Re-validate after auto-recovery
-          const finalValidation = validateOdooTheme(files);
+          // Single consolidation point: consolidate ONCE via parser.ts
+          // MUST happen BEFORE validation/status/stores/DB — everything downstream uses this
+          const consolidatedFiles = consolidateExportFiles(files);
+          console.log("[ChatPanel] Consolidated to", consolidatedFiles.length, "files");
+
+          // Re-validate after consolidation + auto-recovery
+          const finalValidation = validateOdooTheme(consolidatedFiles);
 
           setGenerationStatus({
-            files: files.length,
+            files: consolidatedFiles.length,
             isValid: finalValidation.isValid,
             warnings: [
               ...finalValidation.warnings,
@@ -202,17 +269,17 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
             ],
           });
 
-          // Auto-open generated files in editor (EditorStore handles consolidation)
+          // Open consolidated files in editor (no re-consolidation)
           console.log("[ChatPanel] Opening files in editor...");
-          const filesToOpen = files.map((f) => ({
+          const filesToOpen = consolidatedFiles.map((f) => ({
             path: f.path,
             content: f.content,
             language: f.language,
           }));
           openGeneratedFiles(filesToOpen);
 
-          // Sync to ProjectStore (no second consolidation - EditorStore already did it)
-          const fileNodes = files.map((file) => ({
+          // Sync same consolidated files to ProjectStore
+          const fileNodes = consolidatedFiles.map((file) => ({
             id: `file-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
             name: file.path.split("/").pop() || file.path,
             path: file.path,
@@ -227,7 +294,7 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              files: files.map((f) => ({
+              files: consolidatedFiles.map((f) => ({
                 path: f.path,
                 name: f.path.split("/").pop() || f.path,
                 content: f.content,
@@ -577,6 +644,43 @@ export function ChatPanel({ projectId, initialPrompt }: ChatPanelProps) {
               <p className="mt-2 text-xs text-muted-foreground">
                 Files opened in editor. Check Preview to see results.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recovery Status */}
+      {isRecovering && (
+        <div className="mx-4 mb-4 p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 scale-in">
+          <div className="flex items-center gap-3">
+            <RefreshCw className="w-5 h-5 text-blue-500 animate-spin" />
+            <div>
+              <p className="font-medium text-blue-600 dark:text-blue-400">Recovering...</p>
+              <p className="text-sm text-muted-foreground">Attempting automatic recovery</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Recovery Result */}
+      {lastRecoveryResult && !isRecovering && (
+        <div className={cn(
+          "mx-4 mb-4 p-4 rounded-2xl border scale-in",
+          lastRecoveryResult.success
+            ? "bg-emerald-500/5 border-emerald-500/20"
+            : "bg-amber-500/5 border-amber-500/20"
+        )}>
+          <div className="flex items-center gap-3">
+            {lastRecoveryResult.success ? (
+              <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+            ) : (
+              <AlertTriangle className="w-5 h-5 text-amber-500" />
+            )}
+            <div>
+              <p className="font-medium text-sm">
+                {lastRecoveryResult.success ? "Recovery succeeded" : "Recovery failed"}
+              </p>
+              <p className="text-xs text-muted-foreground">{lastRecoveryResult.message}</p>
             </div>
           </div>
         </div>
