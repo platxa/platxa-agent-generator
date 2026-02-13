@@ -1,13 +1,14 @@
 /**
- * GET /api/projects - List user's projects
+ * GET /api/projects - List user's projects (with optional pagination)
  * POST /api/projects - Create new project
  */
 
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { createProject, getUserProjects } from "@/lib/services/project-service";
+import { createProject, getUserProjects, type PaginatedResult } from "@/lib/services/project-service";
+import { generateETag, isNotModified, notModifiedResponse, setCacheHeaders, PRIVATE_SHORT } from "@/lib/utils/http-cache";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const session = await auth();
 
@@ -15,9 +16,37 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const projects = await getUserProjects(session.user.id);
+    // Parse optional pagination params
+    const url = new URL(req.url);
+    const limitParam = url.searchParams.get("limit");
+    const cursor = url.searchParams.get("cursor") || undefined;
 
-    return NextResponse.json({ projects });
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const paginationOptions = limit ? { limit, cursor } : undefined;
+
+    const result = await getUserProjects(session.user.id, paginationOptions);
+
+    // Generate ETag for conditional requests
+    const etag = generateETag(result);
+    if (isNotModified(req, etag)) {
+      return notModifiedResponse(etag, PRIVATE_SHORT);
+    }
+
+    // Return paginated or flat shape depending on whether pagination was requested
+    let response: NextResponse;
+    if (paginationOptions && !Array.isArray(result)) {
+      const paginated = result as PaginatedResult<unknown>;
+      response = NextResponse.json({
+        projects: paginated.items,
+        nextCursor: paginated.nextCursor,
+        hasMore: paginated.hasMore,
+      });
+    } else {
+      response = NextResponse.json({ projects: result });
+    }
+
+    // Cache-Control: private, max-age=30, stale-while-revalidate=60
+    return setCacheHeaders(response, PRIVATE_SHORT, etag);
   } catch (error) {
     console.error("Error fetching projects:", error);
     return NextResponse.json(

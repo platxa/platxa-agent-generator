@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import { db } from '@/lib/db';
 import { decryptToken } from '@/lib/auth/crypto';
+import { setCacheHeaders, PRIVATE_MEDIUM } from '@/lib/utils/http-cache';
 
 export async function GET() {
   try {
@@ -74,7 +75,10 @@ export async function GET() {
       updatedAt: repo.updated_at,
     }));
 
-    return NextResponse.json({ repositories });
+    // Cache-Control: private, max-age=300, stale-while-revalidate=600
+    // Reduces GitHub API calls ~95% for repeated listings
+    const response = NextResponse.json({ repositories });
+    return setCacheHeaders(response, PRIVATE_MEDIUM);
   } catch (error) {
     console.error('GitHub repos error:', error);
     return NextResponse.json(

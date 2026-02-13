@@ -1,5 +1,5 @@
 /**
- * GET /api/projects/[projectId]/files - Get all project files
+ * GET /api/projects/[projectId]/files - Get project files (with optional pagination)
  * POST /api/projects/[projectId]/files - Save files to project
  */
 
@@ -9,12 +9,21 @@ import {
   getProjectFiles,
   saveFiles,
   getProject,
+  type PaginatedResult,
 } from "@/lib/services/project-service";
 import { validateFiles } from "@/lib/utils/request-validation";
+import { setCacheHeaders } from "@/lib/utils/http-cache";
+import type { ProjectFile } from "@prisma/client";
 
 interface RouteParams {
   params: Promise<{ projectId: string }>;
 }
+
+const FILES_CACHE = {
+  maxAge: 60,
+  staleWhileRevalidate: 120,
+  scope: "private" as const,
+};
 
 export async function GET(req: Request, { params }: RouteParams) {
   try {
@@ -31,9 +40,29 @@ export async function GET(req: Request, { params }: RouteParams) {
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    const files = await getProjectFiles(projectId);
+    // Parse optional pagination params
+    const url = new URL(req.url);
+    const limitParam = url.searchParams.get("limit");
+    const cursor = url.searchParams.get("cursor") || undefined;
 
-    return NextResponse.json({ files });
+    const limit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const paginationOptions = limit ? { limit, cursor } : undefined;
+
+    const result = await getProjectFiles(projectId, paginationOptions);
+
+    let response: NextResponse;
+    if (paginationOptions && !Array.isArray(result)) {
+      const paginated = result as PaginatedResult<ProjectFile>;
+      response = NextResponse.json({
+        files: paginated.items,
+        nextCursor: paginated.nextCursor,
+        hasMore: paginated.hasMore,
+      });
+    } else {
+      response = NextResponse.json({ files: result });
+    }
+
+    return setCacheHeaders(response, FILES_CACHE);
   } catch (error) {
     console.error("Error fetching files:", error);
     return NextResponse.json(

@@ -9,6 +9,7 @@ import {
   type RateLimitState,
 } from "@/lib/agent-bridge/rate-limiter";
 import { getClientIp } from "@/lib/utils/api-rate-limit";
+import { LRUCache } from "@/lib/utils/lru-cache";
 
 // Credit System Integration
 import { auth } from "@/lib/auth";
@@ -80,7 +81,8 @@ const SIDECAR_BASE_URL = process.env.SIDECAR_BASE_URL || "";
 const ENABLE_AGENT_BRIDGE = process.env.ENABLE_AGENT_BRIDGE !== "false";
 
 // Per-user rate limiting state keyed by userId (falls back to "anonymous")
-const rateLimitStates = new Map<string, RateLimitState>();
+// LRU-bounded: max 1000 users, 1-hour TTL — prevents unbounded memory growth
+const rateLimitStates = new LRUCache<string, RateLimitState>({ maxSize: 1000, ttl: 60 * 60 * 1000 });
 const RATE_LIMIT_CONFIG = {
   maxRequestsPerMinute: 20,
   maxTokensPerMinute: 50000,
@@ -223,8 +225,8 @@ interface RAGCacheEntry {
   fileCount: number;
 }
 
-const ragCache = new Map<string, RAGCacheEntry>();
-const RAG_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// LRU-bounded: max 50 pipelines, 5-min TTL — prevents unbounded memory growth
+const ragCache = new LRUCache<string, RAGCacheEntry>({ maxSize: 50, ttl: 5 * 60 * 1000 });
 
 /**
  * Gets or creates a RAG pipeline for the project
@@ -237,18 +239,17 @@ function getRAGPipeline(
     return null;
   }
 
+  // LRU cache handles TTL expiry automatically on get()
   const cached = ragCache.get(projectId);
-  const now = Date.now();
 
-  // Use cached if fresh and same file count
-  if (cached && now - cached.lastUpdated < RAG_CACHE_TTL) {
+  if (cached) {
     const newFileCount = Object.keys(fileContents).length;
     if (cached.fileCount === newFileCount) {
       return cached.pipeline;
     }
     // File count changed, reindex
     cached.pipeline.reindex(fileContents);
-    cached.lastUpdated = now;
+    cached.lastUpdated = Date.now();
     cached.fileCount = newFileCount;
     return cached.pipeline;
   }

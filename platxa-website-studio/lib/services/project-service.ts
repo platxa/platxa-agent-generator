@@ -30,6 +30,21 @@ export interface SaveFileInput {
   isGenerated?: boolean;
 }
 
+export interface PaginationOptions {
+  /** Max items per page (clamped to 200) */
+  limit?: number;
+  /** Cursor for next page */
+  cursor?: string;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+const MAX_PAGE_SIZE = 200;
+
 /**
  * Create a new project
  */
@@ -69,21 +84,41 @@ export async function getProject(id: string): Promise<Project | null> {
 }
 
 /**
- * Get all projects for a user
+ * Get projects for a user.
+ * When `options.limit` is provided, returns paginated results.
+ * Default (no options) returns all items for backward compatibility.
  */
-export async function getUserProjects(userId: string) {
-  return db.project.findMany({
-    where: {
-      userId,
-      status: { not: "DELETED" },
-    },
+export async function getUserProjects(
+  userId: string,
+  options?: PaginationOptions
+): Promise<PaginatedResult<Awaited<ReturnType<typeof db.project.findMany>>[number]> | Awaited<ReturnType<typeof db.project.findMany>>> {
+  // No pagination — return all (backward-compatible)
+  if (!options?.limit) {
+    return db.project.findMany({
+      where: { userId, status: { not: "DELETED" } },
+      orderBy: { updatedAt: "desc" },
+      include: { _count: { select: { files: true, deployments: true } } },
+    });
+  }
+
+  const limit = Math.min(options.limit, MAX_PAGE_SIZE);
+
+  const items = await db.project.findMany({
+    where: { userId, status: { not: "DELETED" } },
     orderBy: { updatedAt: "desc" },
-    include: {
-      _count: {
-        select: { files: true, deployments: true },
-      },
-    },
+    include: { _count: { select: { files: true, deployments: true } } },
+    take: limit + 1,
+    ...(options.cursor ? { cursor: { id: options.cursor }, skip: 1 } : {}),
   });
+
+  const hasMore = items.length > limit;
+  if (hasMore) items.pop();
+
+  return {
+    items,
+    nextCursor: hasMore ? items[items.length - 1].id : null,
+    hasMore,
+  };
 }
 
 /**
@@ -160,13 +195,41 @@ export async function saveFiles(
 }
 
 /**
- * Get all files for a project
+ * Get files for a project.
+ * When `options.limit` is provided, returns paginated results.
+ * Default (no options) returns all files (needed by createSnapshot).
  */
-export async function getProjectFiles(projectId: string): Promise<ProjectFile[]> {
-  return db.projectFile.findMany({
+export async function getProjectFiles(
+  projectId: string,
+  options?: PaginationOptions
+): Promise<PaginatedResult<ProjectFile> | ProjectFile[]> {
+  // No pagination — return all (backward-compatible, used by createSnapshot)
+  if (!options?.limit) {
+    return db.projectFile.findMany({
+      where: { projectId },
+      orderBy: { path: "asc" },
+    });
+  }
+
+  const limit = Math.min(options.limit, MAX_PAGE_SIZE);
+
+  const items = await db.projectFile.findMany({
     where: { projectId },
     orderBy: { path: "asc" },
+    take: limit + 1,
+    ...(options.cursor
+      ? { cursor: { projectId_path: { projectId, path: options.cursor } }, skip: 1 }
+      : {}),
   });
+
+  const hasMore = items.length > limit;
+  if (hasMore) items.pop();
+
+  return {
+    items,
+    nextCursor: hasMore ? items[items.length - 1].path : null,
+    hasMore,
+  };
 }
 
 /**

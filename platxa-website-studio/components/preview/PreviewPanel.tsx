@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, type RefObject } from "react";
 import {
   RefreshCw,
   ExternalLink,
@@ -30,6 +30,8 @@ import { useStreamingPreviewSafe, QWebRuntime, detectSnippets, replaceImagesWith
 import { usePreviewHotReload } from "@/lib/hooks";
 import { HMR_RUNTIME_SCRIPT, HMRRuntimeController } from "@/lib/preview/hmr-runtime";
 import { cn } from "@/lib/utils/cn";
+import { useDebouncedCallback } from "@/lib/utils/debounce";
+import { useAbortableFetch } from "@/lib/hooks/use-abortable-fetch";
 import {
   DeviceFrame,
   DeviceSelector,
@@ -1137,6 +1139,9 @@ export function PreviewPanel() {
   // Element inspector
   const { isEnabled: inspectorEnabled, toggle: toggleInspector, disable: disableInspector } = useElementInspector();
 
+  // Abortable fetch — auto-cancels stale requests on unmount
+  const { abortAll: abortStaleRequests } = useAbortableFetch();
+
   // HMR Controller: Initialize and connect to iframe for live CSS/HTML updates
   useEffect(() => {
     // Create controller if not exists
@@ -1186,30 +1191,37 @@ export function PreviewPanel() {
   }, []);
 
   // HMR: Inject CSS updates without full reload when CSS files change
-  useEffect(() => {
-    if (!hmrControllerRef.current?.isReady()) return;
+  // Debounced to prevent DOM thrashing during AI streaming (100+ updates/sec)
+  const debouncedCssInject = useDebouncedCallback(
+    () => {
+      if (!hmrControllerRef.current?.isReady()) return;
 
-    // Extract CSS from fileContents and inject via HMR
-    const cssFiles = Object.entries(fileContents).filter(
-      ([path]) => path.endsWith(".css") || path.endsWith(".scss")
-    );
+      const cssFiles = Object.entries(fileContents).filter(
+        ([path]) => path.endsWith(".css") || path.endsWith(".scss")
+      );
 
-    if (cssFiles.length > 0) {
-      let combinedCss = "";
-      for (const [path, content] of cssFiles) {
-        if (path.endsWith(".scss")) {
-          const { css, variables } = convertScssVariables(content);
-          combinedCss += variables + css;
-        } else {
-          combinedCss += content;
+      if (cssFiles.length > 0) {
+        let combinedCss = "";
+        for (const [path, content] of cssFiles) {
+          if (path.endsWith(".scss")) {
+            const { css, variables } = convertScssVariables(content);
+            combinedCss += variables + css;
+          } else {
+            combinedCss += content;
+          }
         }
-      }
 
-      // Inject CSS via HMR (no reload needed)
-      hmrControllerRef.current.injectCss(combinedCss, "platxa-live-css");
-      console.log("[HMR] Live CSS injected:", combinedCss.length, "chars");
-    }
-  }, [fileContents]);
+        hmrControllerRef.current.injectCss(combinedCss, "platxa-live-css");
+        console.log("[HMR] Live CSS injected:", combinedCss.length, "chars");
+      }
+    },
+    300,
+    [fileContents]
+  );
+
+  useEffect(() => {
+    debouncedCssInject();
+  }, [debouncedCssInject, fileContents]);
 
   // Get current device model for orientation support check
   const currentDeviceModel = deviceId ? getDeviceById(deviceId) : getDefaultDevice(device);
@@ -1295,6 +1307,13 @@ export function PreviewPanel() {
       }
     };
   }, [previewBlobUrl]);
+
+  // Abort stale requests when preview mode changes
+  useEffect(() => {
+    return () => {
+      abortStaleRequests();
+    };
+  }, [previewMode, abortStaleRequests]);
 
   // Refresh preview
   const refreshPreview = useCallback(() => {
