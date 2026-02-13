@@ -104,4 +104,10 @@ export class LRUCache<K, V> {
   keys(): IterableIterator<K> {
     return this.map.keys();
   }
+
+  *values(): IterableIterator<V> {
+    for (const entry of this.map.values()) {
+      yield entry.value;
+    }
+  }
 }
