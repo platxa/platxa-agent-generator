@@ -263,7 +263,7 @@ function getRAGPipeline(
 
   ragCache.set(projectId, {
     pipeline,
-    lastUpdated: now,
+    lastUpdated: Date.now(),
     fileCount: Object.keys(fileContents).length,
   });
 
