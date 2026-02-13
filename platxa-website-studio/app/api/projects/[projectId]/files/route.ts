@@ -10,6 +10,7 @@ import {
   saveFiles,
   getProject,
 } from "@/lib/services/project-service";
+import { validateFiles } from "@/lib/utils/request-validation";
 
 interface RouteParams {
   params: Promise<{ projectId: string }>;
@@ -58,20 +59,13 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
 
     const body = await req.json();
-    const { files } = body as {
-      files: Array<{
-        path: string;
-        name: string;
-        content: string;
-        language: string;
-      }>;
-    };
 
-    if (!files || !Array.isArray(files)) {
-      return NextResponse.json({ error: "Files array is required" }, { status: 400 });
+    const validation = validateFiles(body.files);
+    if (!validation.valid) {
+      return NextResponse.json({ error: validation.error }, { status: 400 });
     }
 
-    const savedFiles = await saveFiles(projectId, files);
+    const savedFiles = await saveFiles(projectId, validation.files!);
 
     return NextResponse.json({ files: savedFiles }, { status: 201 });
   } catch (error) {

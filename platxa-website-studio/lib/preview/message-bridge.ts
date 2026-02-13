@@ -73,6 +73,19 @@ export interface MessageBridgeConfig {
   debug?: boolean;
 }
 
+/** Circuit breaker state */
+export type CircuitState = "closed" | "open" | "half-open";
+
+/** Circuit breaker configuration */
+export interface CircuitBreakerConfig {
+  /** Number of consecutive failures before opening circuit (default: 3) */
+  failureThreshold: number;
+  /** Time in ms before transitioning from open to half-open (default: 30000) */
+  resetTimeout: number;
+  /** Whether circuit breaker is enabled (default: true) */
+  enabled: boolean;
+}
+
 // =============================================================================
 // ParentBridge Class
 // =============================================================================
@@ -109,6 +122,16 @@ export class ParentBridge {
   private messageListener: ((event: MessageEvent) => void) | null = null;
   private messageCounter = 0;
 
+  // Circuit breaker state
+  private circuitBreakerConfig: CircuitBreakerConfig = {
+    failureThreshold: 3,
+    resetTimeout: 30000,
+    enabled: true,
+  };
+  private _circuitState: CircuitState = "closed";
+  private consecutiveFailures = 0;
+  private resetTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor(iframe: HTMLIFrameElement, config: MessageBridgeConfig = {}) {
     this.iframe = iframe;
     this.config = {
@@ -118,6 +141,65 @@ export class ParentBridge {
       debug: config.debug ?? false,
     };
     this.setupListener();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Circuit Breaker
+  // ---------------------------------------------------------------------------
+
+  /** Get the current circuit breaker state */
+  getCircuitState(): CircuitState {
+    return this._circuitState;
+  }
+
+  /** Manually reset the circuit breaker to closed state */
+  resetCircuit(): void {
+    this._circuitState = "closed";
+    this.consecutiveFailures = 0;
+    if (this.resetTimer) {
+      clearTimeout(this.resetTimer);
+      this.resetTimer = null;
+    }
+  }
+
+  /** Configure circuit breaker settings */
+  configureCircuitBreaker(config: Partial<CircuitBreakerConfig>): void {
+    Object.assign(this.circuitBreakerConfig, config);
+    if (!this.circuitBreakerConfig.enabled) {
+      this.resetCircuit();
+    }
+  }
+
+  private recordFailure(): void {
+    if (!this.circuitBreakerConfig.enabled) return;
+    this.consecutiveFailures++;
+    if (this.consecutiveFailures >= this.circuitBreakerConfig.failureThreshold) {
+      this._circuitState = "open";
+      this.log("Circuit breaker opened after", this.consecutiveFailures, "failures");
+      this.startResetTimer();
+    }
+  }
+
+  private recordSuccess(): void {
+    if (!this.circuitBreakerConfig.enabled) return;
+    if (this._circuitState === "half-open") {
+      this._circuitState = "closed";
+      this.log("Circuit breaker closed after successful test request");
+    }
+    this.consecutiveFailures = 0;
+  }
+
+  private startResetTimer(): void {
+    if (this.resetTimer) {
+      clearTimeout(this.resetTimer);
+    }
+    this.resetTimer = setTimeout(() => {
+      if (this._circuitState === "open") {
+        this._circuitState = "half-open";
+        this.log("Circuit breaker half-open, allowing test request");
+      }
+      this.resetTimer = null;
+    }, this.circuitBreakerConfig.resetTimeout);
   }
 
   // ---------------------------------------------------------------------------
@@ -146,6 +228,11 @@ export class ParentBridge {
     payload?: T,
     timeout?: number
   ): Promise<R> {
+    // Circuit breaker check
+    if (this.circuitBreakerConfig.enabled && this._circuitState === "open") {
+      return Promise.reject(new Error("Circuit breaker is open"));
+    }
+
     return new Promise((resolve, reject) => {
       const messageId = this.generateId();
       const timeoutMs = timeout ?? this.config.defaultTimeout;
@@ -159,12 +246,19 @@ export class ParentBridge {
 
       const timeoutHandle = setTimeout(() => {
         this.pendingRequests.delete(messageId);
+        this.recordFailure();
         reject(new Error(`Request '${command}' timed out after ${timeoutMs}ms`));
       }, timeoutMs);
 
       this.pendingRequests.set(messageId, {
-        resolve: resolve as (value: unknown) => void,
-        reject,
+        resolve: (value: unknown) => {
+          this.recordSuccess();
+          resolve(value as R);
+        },
+        reject: (error: Error) => {
+          this.recordFailure();
+          reject(error);
+        },
         timeout: timeoutHandle,
       });
 
@@ -232,6 +326,12 @@ export class ParentBridge {
     if (this.messageListener) {
       window.removeEventListener("message", this.messageListener);
       this.messageListener = null;
+    }
+
+    // Clean up circuit breaker timer
+    if (this.resetTimer) {
+      clearTimeout(this.resetTimer);
+      this.resetTimer = null;
     }
 
     // Reject all pending requests

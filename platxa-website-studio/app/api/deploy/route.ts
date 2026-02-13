@@ -13,6 +13,8 @@ import {
 } from "@/lib/agent-bridge/odoo-xmlrpc-deploy";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/utils/api-rate-limit";
 import { auth } from "@/lib/auth";
+import { validateUrl } from "@/lib/utils/url-validator";
+import { createLogger, loggerFromRequest } from "@/lib/utils/logger";
 
 // Simple XML-RPC implementation using fetch
 async function xmlrpcCall(
@@ -161,6 +163,15 @@ export async function GET(req: Request) {
     });
   }
 
+  // SSRF protection: validate URL before making requests
+  const urlCheck = validateUrl(odooUrl);
+  if (!urlCheck.valid) {
+    return Response.json(
+      { connected: false, error: `Invalid Odoo URL: ${urlCheck.error}` },
+      { status: 400 }
+    );
+  }
+
   try {
     // Test connection by calling version endpoint
     const versionResponse = await fetch(`${odooUrl}/web/webclient/version_info`, {
@@ -218,6 +229,8 @@ export async function POST(req: Request) {
     return rateLimitResponse(limit.resetMs);
   }
 
+  const logger = loggerFromRequest(req, "deploy");
+
   try {
     const body = await req.json();
     const {
@@ -246,9 +259,19 @@ export async function POST(req: Request) {
       return Response.json({ error: "moduleArchive (base64 ZIP) is required" }, { status: 400 });
     }
 
+    // SSRF protection: validate URL before building connection
+    const targetUrl = odooUrl || process.env.NEXT_PUBLIC_ODOO_URL || "http://localhost:8069";
+    const urlCheck = validateUrl(targetUrl);
+    if (!urlCheck.valid) {
+      return Response.json(
+        { error: `Invalid Odoo URL: ${urlCheck.error}` },
+        { status: 400 }
+      );
+    }
+
     // Build connection config
     const connection: OdooConnection = {
-      url: odooUrl || process.env.NEXT_PUBLIC_ODOO_URL || "http://localhost:8069",
+      url: targetUrl,
       database: database || process.env.ODOO_DATABASE || "odoo",
       username: username || process.env.ODOO_USERNAME || "admin",
       password: apiKey || process.env.ODOO_API_KEY || "",
@@ -271,13 +294,13 @@ export async function POST(req: Request) {
       upload: fileUploader,
       activateTheme: activateTheme ?? true,
       onStepUpdate: (step) => {
-        console.log(`[Deploy] ${step.label}: ${step.status}`);
+        logger.info("Deploy step", { label: step.label, status: step.status });
       },
     });
 
     return Response.json(result, { status: result.success ? 200 : 500 });
   } catch (error) {
-    console.error("Deploy error:", error);
+    logger.error("Deploy failed", error instanceof Error ? error : new Error(String(error)));
     return Response.json(
       {
         success: false,
