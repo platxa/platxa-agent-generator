@@ -91,6 +91,29 @@ const VALID_LICENSES = [
 ];
 
 /**
+ * Valid Odoo 18 asset bundle names
+ */
+export const VALID_ASSET_BUNDLES = [
+  "web.assets_frontend",
+  "web._assets_primary_variables",
+  "web._assets_frontend_helpers",
+  "website.assets_frontend",
+  "website.assets_editor",
+  "web.assets_backend",
+  "web.assets_common",
+  "web.assets_frontend_minimal",
+  "web.assets_frontend_lazy",
+];
+
+/**
+ * Bundles that MUST use (prepend, path) tuple format
+ */
+export const PREPEND_ONLY_BUNDLES = [
+  "web._assets_primary_variables",
+  "web._assets_frontend_helpers",
+];
+
+/**
  * Deprecated QWeb patterns to avoid
  */
 const DEPRECATED_PATTERNS = [
@@ -268,6 +291,72 @@ export function validateQWebTemplate(
 }
 
 /**
+ * Validate asset bundle names in a manifest file.
+ * Checks that bundle names are valid Odoo 18 bundles and that
+ * prepend-only bundles use the tuple format.
+ */
+export function validateAssetBundles(
+  content: string,
+  filePath: string
+): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+
+  // Extract the 'assets' dict block from manifest content
+  const assetsMatch = content.match(/['"]assets['"]\s*:\s*\{([\s\S]*?)\n\s{4}\}/);
+  if (!assetsMatch) return issues;
+
+  const assetsBlock = assetsMatch[1];
+
+  // Find all bundle name keys: 'web.assets_frontend': [...]
+  const bundlePattern = /['"]([a-z_][a-z0-9_.]*)['"]\s*:\s*\[/g;
+  let match;
+  while ((match = bundlePattern.exec(assetsBlock)) !== null) {
+    const bundleName = match[1];
+    const bundleOffset = (assetsMatch.index || 0) + match.index;
+    const lineNum = content.substring(0, bundleOffset).split("\n").length;
+
+    // Check if bundle name is valid
+    if (!VALID_ASSET_BUNDLES.includes(bundleName)) {
+      issues.push({
+        severity: "warning",
+        code: "MANIFEST007",
+        message: `Unknown asset bundle: '${bundleName}'`,
+        file: filePath,
+        line: lineNum,
+        suggestion: `Valid bundles: ${VALID_ASSET_BUNDLES.join(", ")}`,
+      });
+    }
+
+    // Check prepend-only bundles have tuple format
+    if (PREPEND_ONLY_BUNDLES.includes(bundleName)) {
+      // Find the content of this bundle's array
+      const afterKey = assetsBlock.substring(match.index + match[0].length);
+      const arrayEnd = afterKey.indexOf("]");
+      if (arrayEnd !== -1) {
+        const arrayContent = afterKey.substring(0, arrayEnd);
+        // Tuple format: ('prepend', 'path/to/file.scss') or ("prepend", ...)
+        const hasPrependTuple = /\(\s*['"]prepend['"]\s*,/.test(arrayContent);
+        // Plain string format: 'path/to/file.scss'
+        const hasPlainString = /^\s*['"][^(]/.test(arrayContent.trim());
+
+        if (hasPlainString && !hasPrependTuple) {
+          issues.push({
+            severity: "error",
+            code: "MANIFEST008",
+            message: `Bundle '${bundleName}' requires (prepend, path) tuple format`,
+            file: filePath,
+            line: lineNum,
+            suggestion: `Use ('prepend', 'path/to/file.scss') instead of plain strings for ${bundleName}`,
+          });
+        }
+      }
+    }
+  }
+
+  return issues;
+}
+
+/**
  * Validate manifest file
  */
 export function validateManifest(
@@ -365,6 +454,9 @@ export function validateManifest(
       suggestion: "Add 'installable': True for clarity",
     });
   }
+
+  // Validate asset bundle names
+  issues.push(...validateAssetBundles(content, filePath));
 
   return issues;
 }

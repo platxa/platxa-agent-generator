@@ -42,6 +42,10 @@ vi.mock("@/lib/ai/parser", () => ({
   consolidateExportFiles: vi.fn().mockImplementation((files: any[]) => files),
 }));
 
+vi.mock("@/lib/ai/theme-assembler", () => ({
+  assembleThemeFiles: vi.fn().mockImplementation((files: any[]) => files),
+}));
+
 vi.mock("@/lib/security/code-scanner", () => ({
   scanFiles: vi.fn().mockReturnValue({
     passed: true,
@@ -51,11 +55,20 @@ vi.mock("@/lib/security/code-scanner", () => ({
   }),
 }));
 
+vi.mock("@/lib/validators/scss-validator", () => ({
+  validateScssBatch: vi.fn().mockReturnValue({
+    allValid: true,
+    results: [],
+    totalErrors: 0,
+  }),
+}));
+
 import { GET, POST } from "@/app/api/export/route";
 import { auth } from "@/lib/auth";
 import { checkRateLimit } from "@/lib/utils/api-rate-limit";
 import { exportTheme } from "@/lib/export";
 import { scanFiles } from "@/lib/security/code-scanner";
+import { validateScssBatch } from "@/lib/validators/scss-validator";
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -215,6 +228,87 @@ describe("POST /api/export", () => {
     expect(res.status).toBe(500);
     const json = await res.json();
     expect(json.error).toContain("ZIP creation failed");
+  });
+
+  // ── SCSS validation (warn-only) ───────────────────────────────────
+
+  it("sets no SCSS headers when all SCSS is valid", async () => {
+    vi.mocked(exportTheme).mockResolvedValue({
+      success: true,
+      blob: new Blob(["zip"]),
+      stats: { fileCount: 1, totalSize: 100, validationErrors: 0, validationWarnings: 0 },
+    });
+    vi.mocked(validateScssBatch).mockReturnValue({
+      allValid: true,
+      results: [],
+      totalErrors: 0,
+    });
+    const body = {
+      themeName: "theme_my_site",
+      files: [{ path: "static/src/scss/theme.scss", content: "body { color: red; }", type: "scss" }],
+    };
+    const res = await POST(makePost(body));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("X-Scss-Errors")).toBeNull();
+  });
+
+  it("sets X-Scss-Errors header when SCSS has errors but still exports", async () => {
+    vi.mocked(exportTheme).mockResolvedValue({
+      success: true,
+      blob: new Blob(["zip"]),
+      stats: { fileCount: 1, totalSize: 100, validationErrors: 0, validationWarnings: 0 },
+    });
+    vi.mocked(validateScssBatch).mockReturnValue({
+      allValid: false,
+      results: [{
+        valid: false,
+        file: "theme.scss",
+        errors: [{ message: "Invalid property", line: 5, column: 1, file: "theme.scss", context: null }],
+        css: null,
+      }],
+      totalErrors: 1,
+    });
+    const body = {
+      themeName: "theme_my_site",
+      files: [{ path: "static/src/scss/theme.scss", content: "body { invalid; }", type: "scss" }],
+    };
+    const res = await POST(makePost(body));
+    // Export still succeeds (warn-only)
+    expect(res.status).toBe(200);
+    expect(res.headers.get("X-Scss-Errors")).toBe("1");
+    expect(res.headers.get("X-Scss-Warnings")).toContain("Invalid property");
+  });
+
+  it("calls validateScssBatch with Odoo variable stubs prepended", async () => {
+    vi.mocked(exportTheme).mockResolvedValue({
+      success: true,
+      blob: new Blob(["zip"]),
+      stats: { fileCount: 1, totalSize: 100, validationErrors: 0, validationWarnings: 0 },
+    });
+    const body = {
+      themeName: "theme_my_site",
+      files: [{ path: "static/src/scss/primary_variables.scss", content: "$custom: red;", type: "scss" }],
+    };
+    await POST(makePost(body));
+    expect(validateScssBatch).toHaveBeenCalledTimes(1);
+    const callArg = vi.mocked(validateScssBatch).mock.calls[0][0];
+    expect(callArg[0].content).toContain("$o-color-palettes");
+    expect(callArg[0].content).toContain("$o-color-1");
+    expect(callArg[0].content).toContain("$custom: red;");
+  });
+
+  it("does not call validateScssBatch when no SCSS files present", async () => {
+    vi.mocked(exportTheme).mockResolvedValue({
+      success: true,
+      blob: new Blob(["zip"]),
+      stats: { fileCount: 1, totalSize: 100, validationErrors: 0, validationWarnings: 0 },
+    });
+    const body = {
+      themeName: "theme_my_site",
+      files: [{ path: "views/layout.xml", content: "<t/>", type: "xml" }],
+    };
+    await POST(makePost(body));
+    expect(validateScssBatch).not.toHaveBeenCalled();
   });
 });
 

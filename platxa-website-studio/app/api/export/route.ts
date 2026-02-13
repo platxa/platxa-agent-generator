@@ -21,11 +21,30 @@
 import { exportTheme, validateBeforeExport, exportAsJson } from "@/lib/export";
 import type { GeneratedFile } from "@/lib/odoo-skills";
 import { processGeneratedFiles } from "@/lib/ai/quality-checker";
-import { ensureRequiredFiles, consolidateExportFiles } from "@/lib/ai/parser";
+import { ensureRequiredFiles } from "@/lib/ai/parser";
 import type { ParsedFile } from "@/lib/ai/parser";
+import { assembleThemeFiles } from "@/lib/ai/theme-assembler";
 import { scanFiles, type ScanResult } from "@/lib/security/code-scanner";
+import { validateScssBatch } from "@/lib/validators/scss-validator";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/utils/api-rate-limit";
 import { auth } from "@/lib/auth";
+
+/**
+ * Odoo SCSS variable stubs — prepended before compilation to avoid
+ * false positives from `$o-` variables that Odoo defines at runtime.
+ */
+const ODOO_SCSS_STUBS = `
+$o-color-palettes: () !default;
+$o-color-1: #000 !default;
+$o-color-2: #000 !default;
+$o-color-3: #000 !default;
+$o-color-4: #000 !default;
+$o-color-5: #000 !default;
+$o-theme-navbar-color-mode: '' !default;
+$o-theme-navbar-bg-color: #000 !default;
+$o-theme-font: '' !default;
+$o-theme-headings-font: '' !default;
+`;
 
 // =============================================================================
 // TYPES
@@ -121,11 +140,10 @@ export async function POST(req: Request) {
       businessName: body.themeName.replace(/^theme_/, "").replace(/_/g, " "),
     });
 
-    // Step 2.5: ROOT CAUSE FIX - Consolidate duplicate XML and SCSS files
-    // AI often generates both templates.xml AND pages.xml, or style.scss AND theme.scss
-    // This merges them into single files to prevent Odoo installation errors
-    const consolidatedFiles = consolidateExportFiles(qualityResult.files);
-    console.log(`[Export] Consolidated ${qualityResult.files.length} files into ${consolidatedFiles.length} files`);
+    // Step 2.5: Template-based assembly — rebuild files from correct Odoo 18 templates
+    // Extracts content from AI output and guarantees correct structure
+    const consolidatedFiles = assembleThemeFiles(qualityResult.files, body.themeName);
+    console.log(`[Export] Assembled ${qualityResult.files.length} files into ${consolidatedFiles.length} theme files`);
 
     // Step 2.6: Security scan for vulnerabilities in generated code
     // SECURITY: Scan for XSS, SQL injection, path traversal, etc.
@@ -156,6 +174,29 @@ export async function POST(req: Request) {
 
     // Step 3: Ensure all required files exist (manifest, __init__.py, etc.)
     const completeFiles = ensureRequiredFiles(consolidatedFiles, body.themeName);
+
+    // Step 3.5: SCSS compilation validation (warn-only, never blocks export)
+    const scssFiles = completeFiles.filter(f => f.path.endsWith('.scss'));
+    let scssErrorCount = 0;
+    let scssErrorDetails: string[] = [];
+    if (scssFiles.length > 0) {
+      const scssWithStubs = scssFiles.map(f => ({
+        path: f.path,
+        content: ODOO_SCSS_STUBS + f.content,
+      }));
+      const scssResult = validateScssBatch(scssWithStubs);
+      if (!scssResult.allValid) {
+        scssErrorCount = scssResult.totalErrors;
+        scssErrorDetails = scssResult.results
+          .filter(r => !r.valid)
+          .flatMap(r => r.errors.map(e => `${r.file}:${e.line ?? '?'} ${e.message}`))
+          .slice(0, 3);
+        console.warn(`[Export] SCSS validation: ${scssErrorCount} error(s) in ${scssFiles.length} files`);
+        scssErrorDetails.forEach(d => console.warn(`[Export]   ${d}`));
+      } else {
+        console.log(`[Export] SCSS validation passed (${scssFiles.length} files)`);
+      }
+    }
 
     // Step 4: Convert back to GeneratedFile format
     // PRODUCTION-CRITICAL: Normalize ALL paths to use target themeName
@@ -235,15 +276,22 @@ export async function POST(req: Request) {
     }
 
     // Return ZIP file
+    const responseHeaders: Record<string, string> = {
+      "Content-Type": "application/zip",
+      "Content-Disposition": `attachment; filename="${body.themeName}.zip"`,
+      "X-Export-Stats": JSON.stringify(result.stats),
+      "X-Validation-Errors": String(result.stats.validationErrors),
+      "X-Validation-Warnings": String(result.stats.validationWarnings),
+    };
+
+    if (scssErrorCount > 0) {
+      responseHeaders["X-Scss-Errors"] = String(scssErrorCount);
+      responseHeaders["X-Scss-Warnings"] = scssErrorDetails.join(" | ");
+    }
+
     return new Response(result.blob, {
       status: 200,
-      headers: {
-        "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="${body.themeName}.zip"`,
-        "X-Export-Stats": JSON.stringify(result.stats),
-        "X-Validation-Errors": String(result.stats.validationErrors),
-        "X-Validation-Warnings": String(result.stats.validationWarnings),
-      },
+      headers: responseHeaders,
     });
   } catch (error) {
     console.error("Export API error:", error);

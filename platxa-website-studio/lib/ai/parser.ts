@@ -9,6 +9,9 @@
  * 4. Plain code blocks - Content-based inference for Odoo themes
  */
 
+import { assembleThemeFiles } from "./theme-assembler";
+import { convertTailwindToBootstrap } from "./tailwind-bootstrap-map";
+
 export interface ParsedFile {
   path: string;
   content: string;
@@ -856,25 +859,48 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
     }
   }
 
-  // ROOT CAUSE FIX: Consolidate duplicate XML and SCSS files
-  // AI sometimes generates both templates.xml and pages.xml, or style.scss and theme.scss
-  // This causes duplicate template IDs and wasted code - merge them into single files
-  const consolidatedFiles = consolidateDuplicateFiles(files);
+  // ==========================================================================
+  // ROOT CAUSE FIX: Template-based assembly
+  //
+  // Instead of patching broken AI output with regex band-aids, we:
+  //   1. Extract CONTENT from whatever the AI generated (sections, text, colors)
+  //   2. Rebuild all files from correct Odoo 18 templates
+  //
+  // This guarantees correct structure regardless of AI output quality:
+  //   - Correct inherit_id, xpath, o_cc classes, data-snippet attributes
+  //   - Correct SCSS $o-color-palettes format in the right asset bundle
+  //   - Correct manifest with proper asset bundle routing
+  //   - All tags properly closed
+  // ==========================================================================
 
-  // ROOT CAUSE FIX: Run ensureRequiredFiles DURING parsing, not just on export
-  // This fixes xpath-without-inherit_id, missing website.layout wrappers, missing
-  // manifest/init files IMMEDIATELY so the UI shows correct files
-  const validatedFiles = consolidatedFiles.length > 0
-    ? ensureRequiredFiles(consolidatedFiles)
-    : consolidatedFiles;
+  // Detect industry from file content for color/font defaults
+  const detectedIndustry = detectIndustryFromFiles(files);
+
+  // Extract theme name from AI manifest (if present)
+  const manifestFile = files.find(f => f.path.includes("__manifest__"));
+  let themeName = "Theme Generated";
+  if (manifestFile) {
+    const nameMatch = manifestFile.content.match(/['"]name['"]\s*:\s*['"]([^'"]+)['"]/);
+    if (nameMatch?.[1]) themeName = nameMatch[1];
+  }
+
+  // Assemble theme from correct templates + AI content
+  const assembledFiles = files.length > 0
+    ? assembleThemeFiles(files, themeName, detectedIndustry)
+    : files;
+
+  // Add manifest and __init__.py
+  const finalFiles = assembledFiles.length > 0
+    ? ensureRequiredFiles(assembledFiles, themeName)
+    : assembledFiles;
 
   // Final summary logging
-  console.log("[Parser] ===== PARSING COMPLETE =====");
-  console.log("[Parser] Total files extracted:", validatedFiles.length);
-  validatedFiles.forEach((f, i) => {
+  console.log("[Parser] ===== PARSING COMPLETE (template-assembled) =====");
+  console.log("[Parser] Total files:", finalFiles.length);
+  finalFiles.forEach((f, i) => {
     console.log(`[Parser]   ${i + 1}. ${f.path} (${f.language}, ${f.content.length} chars)`);
   });
-  if (validatedFiles.length === 0) {
+  if (finalFiles.length === 0) {
     console.log("[Parser] WARNING: No files extracted! Check AI output format.");
     console.log("[Parser] Input contained code blocks:", cleanedResponse.includes("```"));
     console.log("[Parser] Input contained <odoo>:", cleanedResponse.includes("<odoo"));
@@ -882,7 +908,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   }
 
   // Sort files by type (manifest first, then views, then assets)
-  return validatedFiles.sort((a, b) => {
+  return finalFiles.sort((a, b) => {
     const order = (path: string): number => {
       if (path.includes("__manifest__")) return 0;
       if (path.includes("/views/")) return 1;
@@ -892,6 +918,27 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
     };
     return order(a.path) - order(b.path);
   });
+}
+
+/**
+ * Detect industry from parsed file content (for color/font defaults in assembler)
+ */
+function detectIndustryFromFiles(files: ParsedFile[]): string | undefined {
+  const allContent = files.map(f => f.content).join(' ').toLowerCase();
+
+  const industryPatterns: Record<string, string[]> = {
+    restaurant: ["restaurant", "menu", "dish", "cuisine", "chef", "dining", "reservation", "appetit", "food"],
+    technology: ["saas", "software", "startup", "cloud", "api", "platform", "dashboard", "analytics"],
+    legal: ["law firm", "attorney", "lawyer", "legal", "practice area", "justice", "court"],
+    healthcare: ["hospital", "clinic", "doctor", "medical", "patient", "health", "appointment"],
+    ecommerce: ["e-commerce", "ecommerce", "product", "shop", "cart", "store", "buy now"],
+  };
+
+  for (const [industry, keywords] of Object.entries(industryPatterns)) {
+    const matchCount = keywords.filter(kw => allContent.includes(kw)).length;
+    if (matchCount >= 2) return industry;
+  }
+  return undefined;
 }
 
 /**
@@ -999,107 +1046,38 @@ export function generateInitPy(): string {
 }
 
 /**
- * Ensure all required Odoo module files exist AND are valid
- * PRODUCTION-GRADE: Validates and fixes ALL files before export
+ * Ensure all required Odoo module files exist (manifest, __init__.py)
+ *
+ * NOTE: XML/SCSS structural fixes are now handled by theme-assembler.ts.
+ * This function only adds the manifest and __init__.py boilerplate.
  */
 export function ensureRequiredFiles(files: ParsedFile[], themeName: string = "Theme Generated"): ParsedFile[] {
   const result: ParsedFile[] = [];
-  const paths = files.map(f => f.path);
 
   // Derive module name from theme name
-  // PRODUCTION-CRITICAL: Preserve underscores in module names!
-  // theme_custom -> theme_custom (not theme_themecustom)
   const moduleName = themeName
     .toLowerCase()
-    .replace(/[^a-z0-9_\s]/g, '')  // Keep underscores!
+    .replace(/[^a-z0-9_\s]/g, '')
     .replace(/\s+/g, '_');
   const finalModuleName = moduleName.startsWith('theme_') ? moduleName : `theme_${moduleName}`;
 
-  // STEP 1: Validate and fix ALL XML files first
-  const validatedFiles: ParsedFile[] = [];
+  // ALWAYS generate manifest — guarantees correct category, asset bundles, prepend tuples
+  const manifestContent = generateManifest(themeName, files, finalModuleName);
+  result.push({
+    path: "theme_generated/__manifest__.py",
+    content: manifestContent,
+    language: "python",
+    action: "create",
+  });
+
+  // Add all non-manifest files from assembler
   for (const file of files) {
-    if (file.path.endsWith(".xml")) {
-      // CRITICAL: Ensure valid Odoo XML structure
-      const fixedContent = ensureValidOdooXml(file.content, file.path);
-      validatedFiles.push({
-        ...file,
-        content: fixedContent,
-      });
-    } else {
-      validatedFiles.push(file);
+    if (!file.path.includes("__manifest__")) {
+      result.push(file);
     }
   }
 
-  // STEP 2: Check for __manifest__.py - PRODUCTION-CRITICAL validation
-  // ROOT CAUSE: AI-generated manifests often lack assets section or have incomplete data arrays
-  const manifestIdx = validatedFiles.findIndex(f => f.path.includes("__manifest__.py"));
-
-  // Count XML files that should be in data array
-  const xmlFilesCount = validatedFiles.filter(f => f.path.endsWith(".xml")).length;
-  // Count CSS/SCSS/JS files that should be in assets section
-  const assetFilesCount = validatedFiles.filter(f =>
-    f.path.endsWith(".scss") || f.path.endsWith(".css") || f.path.endsWith(".js")
-  ).length;
-
-  // Validate manifest has ALL required components
-  let hasValidManifest = false;
-  if (manifestIdx >= 0) {
-    const manifestContent = validatedFiles[manifestIdx].content;
-
-    // Basic required fields
-    const hasVersion = manifestContent.includes("'version'");
-    const hasDepends = manifestContent.includes("'depends'");
-    const hasLicense = manifestContent.includes("'license'");
-
-    // CRITICAL: Check if data array has roughly correct number of XML files
-    const dataArrayMatch = manifestContent.match(/'data'\s*:\s*\[([\s\S]*?)\]/);
-    const dataArrayContent = dataArrayMatch ? dataArrayMatch[1] : "";
-    const dataEntriesCount = (dataArrayContent.match(/\.xml/g) || []).length;
-
-    // CRITICAL: Check if assets section exists when asset files exist
-    const hasAssetsSection = manifestContent.includes("'assets':");
-    const needsAssets = assetFilesCount > 0;
-
-    // Manifest is invalid if:
-    // 1. Missing basic fields
-    // 2. Data array is significantly incomplete (missing > 30% of XML files)
-    // 3. Missing assets section when CSS/SCSS/JS files exist
-    const dataIsComplete = dataEntriesCount >= Math.floor(xmlFilesCount * 0.7);
-    const assetsIsValid = !needsAssets || hasAssetsSection;
-
-    hasValidManifest = hasVersion && hasDepends && hasLicense && dataIsComplete && assetsIsValid;
-
-    if (!hasValidManifest) {
-      console.log(`[Parser] Manifest validation failed:`,
-        `version=${hasVersion}, depends=${hasDepends}, license=${hasLicense}`,
-        `dataComplete=${dataIsComplete} (${dataEntriesCount}/${xmlFilesCount})`,
-        `assetsValid=${assetsIsValid} (hasSection=${hasAssetsSection}, needs=${needsAssets})`
-      );
-    }
-  }
-
-  if (!hasValidManifest) {
-    // Generate proper manifest with correct module name for asset paths
-    const manifestContent = generateManifest(themeName, validatedFiles, finalModuleName);
-    result.push({
-      path: "theme_generated/__manifest__.py",
-      content: manifestContent,
-      language: "python",
-      action: "create",
-    });
-  }
-
-  // STEP 3: Add all validated files (except old invalid manifest)
-  for (const file of validatedFiles) {
-    if (file.path.includes("__manifest__.py") && !hasValidManifest) {
-      continue; // Skip invalid manifest, we added a new one
-    }
-    result.push(file);
-  }
-
-  // STEP 4: Check for ROOT __init__.py (REQUIRED for Odoo modules)
-  // PRODUCTION-CRITICAL: Must check for ROOT init, not just any __init__.py
-  // ROOT CAUSE FIX: models/__init__.py was matching, but root __init__.py was missing
+  // Ensure root __init__.py exists
   const hasRootInit = result.some(f =>
     f.path === "theme_generated/__init__.py" ||
     f.path.match(/^theme_[a-z0-9_]+\/__init__\.py$/i) ||
@@ -1114,7 +1092,7 @@ export function ensureRequiredFiles(files: ParsedFile[], themeName: string = "Th
     });
   }
 
-  // STEP 5: Ensure models/__init__.py exists if models/ directory has files
+  // Ensure models/__init__.py if models/ directory has files
   const hasModelsDir = result.some(f => f.path.includes("/models/") && !f.path.endsWith("__init__.py"));
   const hasModelsInit = result.some(f => f.path.includes("models/__init__.py"));
   if (hasModelsDir && !hasModelsInit) {
@@ -1391,64 +1369,7 @@ export function ensureValidOdooXml(content: string, filePath: string): string {
   // LLMs (especially small ones) mix Tailwind and Bootstrap classes.
   // Odoo uses Bootstrap 5, NOT Tailwind - these classes will not render.
   // ==========================================================================
-  const tailwindToBootstrap: Record<string, string> = {
-    // Spacing - Tailwind uses arbitrary values, Bootstrap uses 0-5 scale
-    'py-10': 'py-5', 'py-8': 'py-5', 'py-12': 'py-5', 'py-16': 'py-5', 'py-20': 'py-5',
-    'px-10': 'px-5', 'px-8': 'px-5', 'px-12': 'px-5', 'px-16': 'px-5',
-    'mt-10': 'mt-5', 'mt-8': 'mt-5', 'mb-10': 'mb-5', 'mb-8': 'mb-5',
-    'gap-8': 'gap-4', 'gap-6': 'gap-4', 'gap-10': 'gap-4',
-    // Layout
-    'h-screen': 'min-vh-100', 'min-h-screen': 'min-vh-100',
-    'w-full': 'w-100', 'max-w-7xl': 'container',
-    // Flexbox
-    'flex': 'd-flex', 'inline-flex': 'd-inline-flex',
-    'flex-col': 'flex-column', 'flex-row': 'flex-row',
-    'items-center': 'align-items-center', 'items-start': 'align-items-start', 'items-end': 'align-items-end',
-    'justify-center': 'justify-content-center', 'justify-between': 'justify-content-between',
-    'justify-end': 'justify-content-end', 'justify-start': 'justify-content-start',
-    // Grid
-    'grid': 'd-grid', 'grid-cols-2': 'row', 'grid-cols-3': 'row', 'grid-cols-4': 'row',
-    // Background
-    'bg-cover': '', 'bg-center': '', 'bg-no-repeat': '',
-    // Text
-    'text-xl': 'fs-4', 'text-2xl': 'fs-3', 'text-3xl': 'fs-2', 'text-4xl': 'fs-1',
-    'text-sm': 'small', 'text-xs': 'small', 'text-lg': 'fs-5',
-    'font-bold': 'fw-bold', 'font-semibold': 'fw-semibold', 'font-medium': 'fw-medium',
-    'font-light': 'fw-light', 'font-normal': 'fw-normal',
-    'tracking-wide': '', 'tracking-tight': '', 'leading-tight': 'lh-sm', 'leading-relaxed': 'lh-lg',
-    // Opacity
-    'opacity-50': 'opacity-50', 'opacity-75': 'opacity-75', 'opacity-25': 'opacity-25',
-    // Borders
-    'rounded-lg': 'rounded-3', 'rounded-xl': 'rounded-4', 'rounded-2xl': 'rounded-4',
-    'rounded-full': 'rounded-circle', 'rounded-md': 'rounded-2',
-    // Display
-    'hidden': 'd-none', 'block': 'd-block', 'inline-block': 'd-inline-block',
-    // Overflow
-    'overflow-hidden': 'overflow-hidden',
-    // Position
-    'relative': 'position-relative', 'absolute': 'position-absolute', 'fixed': 'position-fixed',
-    // Cursor
-    'cursor-pointer': 'role="button"',
-  };
-
-  let tailwindFixCount = 0;
-  for (const [tw, bs] of Object.entries(tailwindToBootstrap)) {
-    // Match as whole class name (word boundary in class attribute context)
-    const twRegex = new RegExp(`(?<=\\s|"|')${tw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?=\\s|"|')`, 'g');
-    const matches = fixed.match(twRegex);
-    if (matches) {
-      tailwindFixCount += matches.length;
-      fixed = fixed.replace(twRegex, bs);
-    }
-  }
-  // Clean up double spaces from empty replacements
-  if (tailwindFixCount > 0) {
-    fixed = fixed.replace(/class="([^"]*)"/g, (match, classes) => {
-      const cleaned = classes.replace(/\s{2,}/g, ' ').trim();
-      return `class="${cleaned}"`;
-    });
-    console.log(`[Parser] ROOT CAUSE FIX: Replaced ${tailwindFixCount} Tailwind classes with Bootstrap 5 equivalents in ${filePath}`);
-  }
+  fixed = convertTailwindToBootstrap(fixed);
 
   // ==========================================================================
   // ROOT CAUSE FIX #5: Placeholder URLs (example.com, placeholder.com)
