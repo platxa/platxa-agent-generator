@@ -233,6 +233,7 @@ $o-color-palettes: map-merge($o-color-palettes,
   )
 );
 $o-selected-color-palettes-names: append($o-selected-color-palettes-names, 'theme-custom');
+$o-theme-color-palette-number: 'theme-custom' !default;
 
 $o-website-values-palettes: (
   (
@@ -295,7 +296,18 @@ RULES:
 - Use neutral shadows: rgba(0,0,0,0.1). NEVER blue shadows.
 - Write REAL content for the requested industry. NO generic placeholders.
 - Include at least 3 cards/items in grid sections (col-md-4 x3).
-- Sections MUST have at least 4-5 complete sections with real industry content.`;
+- Sections MUST have at least 4-5 complete sections with real industry content.
+- Every <section> MUST contain a <div class="container"> as first child
+- Images: MUST have alt="", class="img-fluid", loading="lazy"
+- Use Unsplash URLs for images, NEVER relative paths like images/foo.png
+
+FORBIDDEN in theme.scss:
+- NO body { } or html { } overrides
+- NO .container { } or .container-fluid { } overrides
+- NO font-family declarations (fonts come from primary_variables.scss)
+- NO background-image in CSS (use inline style on HTML elements)
+- NO :root { } or CSS custom properties
+- NO hardcoded hex colors (use o-color('o-color-1') in SCSS)`;
 
 /**
  * Full prompt for cloud APIs (Claude, GPT-4)
@@ -383,6 +395,7 @@ $o-color-palettes: map-merge($o-color-palettes,
   )
 );
 $o-selected-color-palettes-names: append($o-selected-color-palettes-names, 'theme-custom');
+$o-theme-color-palette-number: 'theme-custom' !default;
 
 $o-website-values-palettes: (
   (
@@ -581,6 +594,7 @@ theme_generated/
 ## Odoo 18 Color System (CRITICAL)
 - Define 5 colors in $o-color-palettes: o-color-1 (primary) through o-color-5 (dark)
 - Register with $o-selected-color-palettes-names
+- Activate with $o-theme-color-palette-number: 'theme-custom' !default;
 - Configure fonts in $o-theme-font-configs with Google Font URLs
 - Set palette name in $o-website-values-palettes
 - In SCSS, use o-color('o-color-1') to access colors

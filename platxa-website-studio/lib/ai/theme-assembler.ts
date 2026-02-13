@@ -199,12 +199,33 @@ export function fixPlaceholderUrls(html: string): string {
 }
 
 /**
+ * Fix image tags: add missing alt, img-fluid, loading="lazy", fix broken paths
+ */
+export function fixImages(html: string): string {
+  let fixed = html;
+  // Add alt="" to img tags missing alt attribute
+  fixed = fixed.replace(/<img(?![^>]*\balt\b)([^>]*?)(\s*\/?>)/gi, '<img alt=""$1$2');
+  // Add img-fluid class to img tags that have a class but missing img-fluid
+  fixed = fixed.replace(/<img(?![^>]*class="[^"]*img-fluid)([^>]*?)class="([^"]*)"([^>]*?)(\s*\/?>)/gi,
+    '<img$1class="$2 img-fluid"$3$4');
+  // Add class="img-fluid" to img tags with no class at all
+  fixed = fixed.replace(/<img(?![^>]*\bclass\b)([^>]*?)(\s*\/?>)/gi, '<img class="img-fluid"$1$2');
+  // Add loading="lazy" to img tags missing it
+  fixed = fixed.replace(/<img(?![^>]*\bloading\b)([^>]*?)(\s*\/?>)/gi, '<img loading="lazy"$1$2');
+  // Fix broken relative paths (images/foo.png → /web/image/website.s_cover_default_image)
+  fixed = fixed.replace(/src="(?!https?:\/\/|\/web\/|\/)[^"]*\.(?:jpg|jpeg|png|gif|webp|svg)"/gi,
+    'src="/web/image/website.s_cover_default_image"');
+  return fixed;
+}
+
+/**
  * Apply all content-level fixes to HTML
  */
 function fixSectionContent(html: string): string {
   let fixed = html;
   fixed = fixTailwindClasses(fixed);
   fixed = fixPlaceholderUrls(fixed);
+  fixed = fixImages(fixed);
   return fixed;
 }
 
@@ -233,8 +254,14 @@ export function assembleTemplatesXml(sections: ExtractedSection[]): string {
     const padding = section.snippetType === "s_cover" ? "pt96 pb96" : "pt48 pb48";
     const fixedContent = fixSectionContent(section.innerHtml);
 
+    // Ensure content has a container wrapper
+    let wrappedContent = fixedContent;
+    if (!/<div[^>]*class="[^"]*container[^"]*"/.test(fixedContent)) {
+      wrappedContent = `<div class="container">\n${fixedContent}\n</div>`;
+    }
+
     // Indent inner content properly (8 spaces for section children)
-    const indentedContent = fixedContent
+    const indentedContent = wrappedContent
       .split('\n')
       .map(line => line.trim() ? `          ${line}` : '')
       .filter(Boolean)
@@ -380,6 +407,7 @@ $o-color-palettes: map-merge($o-color-palettes,
   )
 );
 $o-selected-color-palettes-names: append($o-selected-color-palettes-names, 'theme-custom');
+$o-theme-color-palette-number: 'theme-custom' !default;
 
 $o-website-values-palettes: (
   (
@@ -471,6 +499,18 @@ export function assembleThemeScss(existingScss: string | null): string {
     fixed = fixed.replace(/\$o-website-values-palettes[\s\S]*?;/g, '');
     fixed = fixed.replace(/\$o-theme-font-configs[\s\S]*?;/g, '');
 
+    // Strip dangerous global overrides that break Odoo
+    fixed = fixed.replace(/^body\s*\{[^}]*\}/gm, '');
+    fixed = fixed.replace(/^html\s*\{[^}]*\}/gm, '');
+    fixed = fixed.replace(/^\.container\s*\{[^}]*\}/gm, '');
+    fixed = fixed.replace(/^\.container-fluid\s*\{[^}]*\}/gm, '');
+    // Strip background-image in CSS rules (should be inline style on HTML elements)
+    fixed = fixed.replace(/\s*background-image\s*:\s*url\([^)]*\)\s*;?/gi, '');
+    // Strip :root custom properties (Odoo doesn't use them)
+    fixed = fixed.replace(/^:root\s*\{[^}]*\}/gm, '');
+    // Strip font-family declarations (fonts come from primary_variables.scss)
+    fixed = fixed.replace(/\s*font-family\s*:[^;]+;/gi, '');
+
     return fixed.trim() + '\n';
   }
 
@@ -525,15 +565,28 @@ export function assembleThemeFiles(
     allSections.push(...sections);
   }
 
-  // Dedupe sections by content similarity
+  // Dedupe sections: prefer first of each snippet type, max 8 total
   const uniqueSections: ExtractedSection[] = [];
-  const seenKeys = new Set<string>();
+  const seenSnippetTypes = new Map<string, number>();
+  const MAX_SECTIONS = 8;
+  const MAX_PER_TYPE = 2;
+
   for (const section of allSections) {
-    const key = section.innerHtml.replace(/\s+/g, ' ').substring(0, 100);
-    if (!seenKeys.has(key)) {
-      seenKeys.add(key);
-      uniqueSections.push(section);
-    }
+    if (uniqueSections.length >= MAX_SECTIONS) break;
+
+    const typeCount = seenSnippetTypes.get(section.snippetType) || 0;
+    if (typeCount >= MAX_PER_TYPE) continue;
+
+    // Content similarity check (normalized first 150 chars)
+    const contentKey = section.innerHtml.replace(/\s+/g, ' ').trim().substring(0, 150);
+    const isDuplicate = uniqueSections.some(existing => {
+      const existingKey = existing.innerHtml.replace(/\s+/g, ' ').trim().substring(0, 150);
+      return existingKey === contentKey;
+    });
+    if (isDuplicate) continue;
+
+    seenSnippetTypes.set(section.snippetType, typeCount + 1);
+    uniqueSections.push(section);
   }
 
   // Assemble templates.xml (only if we have sections)
