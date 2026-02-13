@@ -181,6 +181,108 @@ describe("POST /api/export", () => {
     expect(res.status).toBe(200);
   });
 
+  // ── Per-file validation (Fix 1) ────────────────────────────────────
+
+  it("returns 400 when file path is null", async () => {
+    const res = await POST(makePost({
+      themeName: "theme_my_site",
+      files: [{ path: null, content: "<t/>", type: "xml" }],
+    }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("files[0].path");
+  });
+
+  it("returns 400 when file path is a number", async () => {
+    const res = await POST(makePost({
+      themeName: "theme_my_site",
+      files: [{ path: 123, content: "<t/>", type: "xml" }],
+    }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("files[0].path");
+  });
+
+  it("returns 400 when file path is empty string", async () => {
+    const res = await POST(makePost({
+      themeName: "theme_my_site",
+      files: [{ path: "", content: "<t/>", type: "xml" }],
+    }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("files[0].path");
+  });
+
+  it("returns 400 when file content is null", async () => {
+    const res = await POST(makePost({
+      themeName: "theme_my_site",
+      files: [{ path: "views/layout.xml", content: null, type: "xml" }],
+    }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("files[0].content");
+  });
+
+  it("returns 400 when file content is a number", async () => {
+    const res = await POST(makePost({
+      themeName: "theme_my_site",
+      files: [{ path: "views/layout.xml", content: 42, type: "xml" }],
+    }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("files[0].content");
+  });
+
+  it("returns 400 when file type is missing", async () => {
+    const res = await POST(makePost({
+      themeName: "theme_my_site",
+      files: [{ path: "views/layout.xml", content: "<t/>" }],
+    }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("files[0].type");
+  });
+
+  it("returns 400 for unsupported file type", async () => {
+    const res = await POST(makePost({
+      themeName: "theme_my_site",
+      files: [{ path: "readme.md", content: "# readme", type: "md" }],
+    }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("files[0].type");
+    expect(json.error).toContain("md");
+  });
+
+  it("passes all allowed file types", async () => {
+    vi.mocked(exportTheme).mockResolvedValue({
+      success: true,
+      blob: new Blob(["zip"]),
+      stats: { fileCount: 1, totalSize: 100, validationErrors: 0, validationWarnings: 0 },
+    });
+    const types = ["xml", "py", "scss", "css", "js", "po", "pot", "png", "svg"];
+    for (const t of types) {
+      const res = await POST(makePost({
+        themeName: "theme_my_site",
+        files: [{ path: `file.${t}`, content: "data", type: t }],
+      }));
+      expect(res.status).not.toBe(400);
+    }
+  });
+
+  it("includes file index in validation error message", async () => {
+    const res = await POST(makePost({
+      themeName: "theme_my_site",
+      files: [
+        { path: "views/layout.xml", content: "<t/>", type: "xml" },
+        { path: null, content: "data", type: "xml" },
+      ],
+    }));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("files[1]");
+  });
+
   // ── Security scan ──────────────────────────────────────────────────
 
   it("returns 400 when critical security issues found", async () => {
@@ -194,6 +296,71 @@ describe("POST /api/export", () => {
     expect(res.status).toBe(400);
     const json = await res.json();
     expect(json.error).toContain("Security scan failed");
+  });
+
+  it("returns 400 when high severity security issues found (Fix 3)", async () => {
+    vi.mocked(scanFiles).mockReturnValue({
+      passed: false,
+      issues: [{ id: "XSS-002", severity: "high", message: "Reflected XSS", file: "x.xml", line: 5, rule: "xss" }],
+      scannedFiles: 1,
+      scanDuration: 3,
+    } as any);
+    const res = await POST(makePost(validBody));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("Security scan failed");
+    expect(json.error).toContain("high");
+  });
+
+  it("passes export when only medium severity issues found (Fix 3)", async () => {
+    vi.mocked(exportTheme).mockResolvedValue({
+      success: true,
+      blob: new Blob(["zip"]),
+      stats: { fileCount: 1, totalSize: 100, validationErrors: 0, validationWarnings: 0 },
+    });
+    vi.mocked(scanFiles).mockReturnValue({
+      passed: false,
+      issues: [{ id: "SEC-010", severity: "medium", message: "Inline event handler", file: "x.xml", line: 3, rule: "events" }],
+      scannedFiles: 1,
+      scanDuration: 2,
+    } as any);
+    const res = await POST(makePost(validBody));
+    expect(res.status).toBe(200);
+  });
+
+  it("sets X-Security-Warnings header for medium severity issues (Fix 3)", async () => {
+    vi.mocked(exportTheme).mockResolvedValue({
+      success: true,
+      blob: new Blob(["zip"]),
+      stats: { fileCount: 1, totalSize: 100, validationErrors: 0, validationWarnings: 0 },
+    });
+    vi.mocked(scanFiles).mockReturnValue({
+      passed: false,
+      issues: [{ id: "SEC-010", severity: "medium", message: "Inline handler", file: "x.xml", line: 3, rule: "events" }],
+      scannedFiles: 1,
+      scanDuration: 2,
+    } as any);
+    const res = await POST(makePost(validBody));
+    expect(res.status).toBe(200);
+    expect(res.headers.get("X-Security-Warnings")).toContain("SEC-010");
+    expect(res.headers.get("X-Security-Warnings")).toContain("Inline handler");
+  });
+
+  it("includes both critical and high counts in security error message (Fix 3)", async () => {
+    vi.mocked(scanFiles).mockReturnValue({
+      passed: false,
+      issues: [
+        { id: "XSS-001", severity: "critical", message: "XSS", file: "a.xml", line: 1, rule: "xss" },
+        { id: "SQL-001", severity: "high", message: "SQL injection", file: "b.xml", line: 2, rule: "sqli" },
+      ],
+      scannedFiles: 2,
+      scanDuration: 4,
+    } as any);
+    const res = await POST(makePost(validBody));
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json.error).toContain("1 critical");
+    expect(json.error).toContain("1 high");
   });
 
   // ── Successful exports ─────────────────────────────────────────────
@@ -292,8 +459,28 @@ describe("POST /api/export", () => {
     await POST(makePost(body));
     expect(validateScssBatch).toHaveBeenCalledTimes(1);
     const callArg = vi.mocked(validateScssBatch).mock.calls[0][0];
+    // Original Odoo vars
     expect(callArg[0].content).toContain("$o-color-palettes");
     expect(callArg[0].content).toContain("$o-color-1");
+    // Expanded Bootstrap typography stubs (Fix 2)
+    expect(callArg[0].content).toContain("$font-size-base");
+    expect(callArg[0].content).toContain("$h1-font-size");
+    expect(callArg[0].content).toContain("$headings-font-weight");
+    // Expanded Bootstrap layout stubs (Fix 2)
+    expect(callArg[0].content).toContain("$border-radius");
+    expect(callArg[0].content).toContain("$spacer");
+    // Expanded Bootstrap shadows stubs (Fix 2)
+    expect(callArg[0].content).toContain("$box-shadow-sm");
+    expect(callArg[0].content).toContain("$box-shadow-lg");
+    // Expanded Bootstrap transitions stubs (Fix 2)
+    expect(callArg[0].content).toContain("$transition-base");
+    // Expanded Bootstrap buttons stubs (Fix 2)
+    expect(callArg[0].content).toContain("$btn-padding-y");
+    expect(callArg[0].content).toContain("$btn-border-radius");
+    // Expanded Bootstrap cards/navbar stubs (Fix 2)
+    expect(callArg[0].content).toContain("$card-border-radius");
+    expect(callArg[0].content).toContain("$navbar-padding-y");
+    // User content preserved
     expect(callArg[0].content).toContain("$custom: red;");
   });
 

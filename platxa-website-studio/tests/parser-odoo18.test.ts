@@ -16,6 +16,7 @@ import {
   generateManifest,
   extractManifestFields,
   ensureRequiredFiles,
+  getBasename,
   type ParsedFile,
 } from "../lib/ai/parser";
 
@@ -815,5 +816,89 @@ describe("ensureRequiredFiles manifest merge", () => {
     expect(manifest).toBeDefined();
     expect(manifest!.content).toContain("'summary': 'AI-generated Odoo website theme'");
     expect(manifest!.content).toContain("'author': 'Platxa Studio'");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// getBasename -- exact filename extraction (Fix 4)
+// ---------------------------------------------------------------------------
+
+describe("getBasename", () => {
+  it("extracts filename from a full path", () => {
+    expect(getBasename("theme_generated/static/src/scss/primary_variables.scss")).toBe("primary_variables.scss");
+  });
+
+  it("returns the string itself when no slashes", () => {
+    expect(getBasename("theme.scss")).toBe("theme.scss");
+  });
+
+  it("returns empty string for empty input", () => {
+    expect(getBasename("")).toBe("");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// generateManifest -- exact basename matching (Fix 4)
+// ---------------------------------------------------------------------------
+
+describe("generateManifest exact basename matching (Fix 4)", () => {
+  it("routes primary_variables.scss to primary_variables bundle", () => {
+    const files: ParsedFile[] = [
+      makeScssFile("primary_variables.scss", "$o-color-1: #000;"),
+    ];
+    const manifest = generateManifest("Test", files, "theme_test");
+    expect(manifest).toContain("web._assets_primary_variables");
+    expect(manifest).toContain("primary_variables.scss");
+  });
+
+  it("does NOT misroute my_primary_variables_helper.scss to primary_variables bundle", () => {
+    const files: ParsedFile[] = [{
+      path: "theme_generated/static/src/scss/my_primary_variables_helper.scss",
+      content: "body { color: red; }",
+      language: "scss",
+      action: "create",
+    }];
+    const manifest = generateManifest("Test", files, "theme_test");
+    // Should go to web.assets_frontend, NOT web._assets_primary_variables
+    expect(manifest).not.toContain("web._assets_primary_variables");
+    expect(manifest).toContain("web.assets_frontend");
+    expect(manifest).toContain("my_primary_variables_helper.scss");
+  });
+
+  it("does NOT misroute custom_bootstrap_overridden_utils.scss to frontend_helpers bundle", () => {
+    const files: ParsedFile[] = [{
+      path: "theme_generated/static/src/scss/custom_bootstrap_overridden_utils.scss",
+      content: "body { font-size: 16px; }",
+      language: "scss",
+      action: "create",
+    }];
+    const manifest = generateManifest("Test", files, "theme_test");
+    // Should go to web.assets_frontend, NOT web._assets_frontend_helpers
+    expect(manifest).not.toContain("web._assets_frontend_helpers");
+    expect(manifest).toContain("web.assets_frontend");
+  });
+
+  it("correctly routes all three SCSS types with exact matching", () => {
+    const files: ParsedFile[] = [
+      makeScssFile("primary_variables.scss", "$o-color-1: #000;"),
+      makeScssFile("bootstrap_overridden.scss", "$border-radius: 0;"),
+      makeScssFile("theme.scss", "body { color: red; }"),
+      // Edge case: file whose name contains "primary_variables" as substring
+      {
+        path: "theme_generated/static/src/scss/not_primary_variables_at_all.scss",
+        content: ".custom { display: flex; }",
+        language: "scss",
+        action: "create",
+      },
+    ];
+    const manifest = generateManifest("Test", files, "theme_test");
+
+    // primary_variables.scss -> prepend bundle
+    expect(manifest).toMatch(/web\._assets_primary_variables[\s\S]*?primary_variables\.scss/);
+    // bootstrap_overridden.scss -> helpers bundle
+    expect(manifest).toMatch(/web\._assets_frontend_helpers[\s\S]*?bootstrap_overridden\.scss/);
+    // theme.scss + not_primary_variables_at_all.scss -> frontend bundle
+    expect(manifest).toMatch(/web\.assets_frontend[\s\S]*?theme\.scss/);
+    expect(manifest).toMatch(/web\.assets_frontend[\s\S]*?not_primary_variables_at_all\.scss/);
   });
 });

@@ -33,7 +33,17 @@ import { auth } from "@/lib/auth";
  * Odoo SCSS variable stubs — prepended before compilation to avoid
  * false positives from `$o-` variables that Odoo defines at runtime.
  */
+/**
+ * Allowed file types in export requests.
+ * Any file with a type not in this set is rejected with 400.
+ */
+const ALLOWED_FILE_TYPES = new Set([
+  "xml", "py", "scss", "css", "js", "po", "pot", "png", "svg",
+]);
+
 const ODOO_SCSS_STUBS = `
+// Odoo runtime variables
+$o-selected-color-palettes-names: () !default;
 $o-color-palettes: () !default;
 $o-color-1: #000 !default;
 $o-color-2: #000 !default;
@@ -44,6 +54,51 @@ $o-theme-navbar-color-mode: '' !default;
 $o-theme-navbar-bg-color: #000 !default;
 $o-theme-font: '' !default;
 $o-theme-headings-font: '' !default;
+
+// Bootstrap typography
+$font-size-base: 1rem !default;
+$h1-font-size: 2.5rem !default;
+$h2-font-size: 2rem !default;
+$h3-font-size: 1.75rem !default;
+$h4-font-size: 1.5rem !default;
+$h5-font-size: 1.25rem !default;
+$h6-font-size: 1rem !default;
+$headings-font-weight: 500 !default;
+
+// Bootstrap layout
+$border-radius: 0.375rem !default;
+$border-radius-sm: 0.25rem !default;
+$border-radius-lg: 0.5rem !default;
+$border-radius-xl: 1rem !default;
+$border-radius-pill: 50rem !default;
+$spacer: 1rem !default;
+
+// Bootstrap shadows
+$box-shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !default;
+$box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !default;
+$box-shadow-lg: 0 1rem 3rem rgba(0, 0, 0, 0.175) !default;
+
+// Bootstrap transitions
+$transition-base: all 0.2s ease-in-out !default;
+$transition-fade: opacity 0.15s linear !default;
+$transition-collapse: height 0.35s ease !default;
+
+// Bootstrap buttons
+$btn-padding-y: 0.375rem !default;
+$btn-padding-x: 0.75rem !default;
+$btn-font-weight: 400 !default;
+$btn-border-radius: 0.375rem !default;
+
+// Bootstrap cards & navbar
+$card-border-radius: 0.375rem !default;
+$card-spacer-y: 1rem !default;
+$card-spacer-x: 1rem !default;
+$navbar-padding-y: 0.5rem !default;
+$navbar-padding-x: 0 !default;
+
+// Bootstrap grid
+$grid-gutter-width: 1.5rem !default;
+$container-padding-x: 0.75rem !default;
 `;
 
 // =============================================================================
@@ -119,6 +174,23 @@ export async function POST(req: Request) {
       );
     }
 
+    // Validate individual file objects
+    for (let i = 0; i < body.files.length; i++) {
+      const f = body.files[i];
+      if (!f.path || typeof f.path !== "string") {
+        return errorResponse(`files[${i}].path must be a non-empty string`, 400);
+      }
+      if (typeof f.content !== "string") {
+        return errorResponse(`files[${i}].content must be a string`, 400);
+      }
+      if (!f.type || !ALLOWED_FILE_TYPES.has(f.type)) {
+        return errorResponse(
+          `files[${i}].type '${String(f.type ?? "")}' is not supported. Allowed: ${[...ALLOWED_FILE_TYPES].join(", ")}`,
+          400
+        );
+      }
+    }
+
     // PRODUCTION-CRITICAL: Apply quality fixes BEFORE validation
     // ROOT CAUSE FIX: Files must be auto-fixed before any validation runs
 
@@ -151,23 +223,23 @@ export async function POST(req: Request) {
       consolidatedFiles.map(f => ({ path: f.path, content: f.content }))
     );
 
-    if (!securityScan.passed) {
-      const criticalCount = securityScan.issues.filter(i => i.severity === 'critical').length;
-      const highCount = securityScan.issues.filter(i => i.severity === 'high').length;
-      console.warn(`[Export] Security scan found ${criticalCount} critical, ${highCount} high severity issues`);
+    const criticalCount = securityScan.issues.filter(i => i.severity === 'critical').length;
+    const highCount = securityScan.issues.filter(i => i.severity === 'high').length;
+    const mediumCount = securityScan.issues.filter(i => i.severity === 'medium').length;
 
-      // Block export if critical security issues found
-      if (criticalCount > 0) {
-        return errorResponse(
-          `Security scan failed: ${criticalCount} critical issue(s) found. ` +
-          securityScan.issues
-            .filter(i => i.severity === 'critical')
-            .map(i => `${i.id}: ${i.message}`)
-            .slice(0, 3)
-            .join('; '),
-          400
-        );
-      }
+    if (criticalCount > 0 || highCount > 0) {
+      console.warn(`[Export] Security scan found ${criticalCount} critical, ${highCount} high severity issues`);
+      return errorResponse(
+        `Security scan failed: ${criticalCount} critical, ${highCount} high severity issue(s) found. ` +
+        securityScan.issues
+          .filter(i => i.severity === 'critical' || i.severity === 'high')
+          .map(i => `${i.id}: ${i.message}`)
+          .slice(0, 3)
+          .join('; '),
+        400
+      );
+    } else if (!securityScan.passed) {
+      console.warn(`[Export] Security scan: ${mediumCount} medium severity issues (warn-only)`);
     } else {
       console.log(`[Export] Security scan passed (${securityScan.scannedFiles} files, ${securityScan.scanDuration}ms)`);
     }
@@ -287,6 +359,14 @@ export async function POST(req: Request) {
     if (scssErrorCount > 0) {
       responseHeaders["X-Scss-Errors"] = String(scssErrorCount);
       responseHeaders["X-Scss-Warnings"] = scssErrorDetails.join(" | ");
+    }
+
+    if (mediumCount > 0) {
+      responseHeaders["X-Security-Warnings"] = securityScan.issues
+        .filter(i => i.severity === 'medium')
+        .map(i => `${i.id}: ${i.message}`)
+        .slice(0, 5)
+        .join('; ');
     }
 
     return new Response(result.blob, {

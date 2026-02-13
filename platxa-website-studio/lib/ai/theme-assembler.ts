@@ -16,6 +16,7 @@
  */
 
 import type { ParsedFile } from "./parser";
+import { getBasename } from "./parser";
 import { convertTailwindToBootstrap } from "./tailwind-bootstrap-map";
 
 // =============================================================================
@@ -566,16 +567,17 @@ export function assembleThemeFiles(
   );
 
   // Find existing primary_variables content (AI may have generated correct format)
-  const primaryVarsFile = scssFiles.find(f => f.path.includes('primary_variables'));
+  // Use exact basename matching to avoid misrouting e.g. my_primary_variables_helper.scss
+  const primaryVarsFile = scssFiles.find(f => getBasename(f.path) === 'primary_variables.scss');
   // Find any SCSS that has $o-color-palettes (might be in wrong file)
   const scssWithOdooVars = scssFiles.find(f => f.content.includes('$o-color-palettes'));
   // Find other SCSS (theme styles)
   const themeScssFile = scssFiles.find(f =>
-    !f.path.includes('primary_variables') &&
-    !f.path.includes('bootstrap_overridden') &&
+    getBasename(f.path) !== 'primary_variables.scss' &&
+    getBasename(f.path) !== 'bootstrap_overridden.scss' &&
     !f.content.includes('$o-color-palettes')
   );
-  const bootstrapFile = scssFiles.find(f => f.path.includes('bootstrap_overridden'));
+  const bootstrapFile = scssFiles.find(f => getBasename(f.path) === 'bootstrap_overridden.scss');
 
   // Assemble primary_variables.scss — always from template
   const primaryVarsSource = primaryVarsFile?.content || scssWithOdooVars?.content || null;

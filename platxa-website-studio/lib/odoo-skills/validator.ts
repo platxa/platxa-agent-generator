@@ -132,6 +132,67 @@ const SECURITY_PATTERNS = [
 ];
 
 // =============================================================================
+// HELPERS
+// =============================================================================
+
+/**
+ * Extract the content of a dict block (e.g. 'assets': { ... }) from Python-ish
+ * manifest content using balanced brace counting.
+ *
+ * Handles any indentation (2-space, 4-space, tabs, minified) and skips braces
+ * inside string literals so they don't break the count.
+ *
+ * @returns The inner content between the braces, or null if the key is not found
+ *          or braces are unbalanced.
+ */
+export function extractDictBlock(content: string, key: string): string | null {
+  // Find the key followed by a colon and opening brace
+  const keyPattern = new RegExp(`['"]${key}['"]\\s*:\\s*\\{`);
+  const keyMatch = keyPattern.exec(content);
+  if (!keyMatch) return null;
+
+  // Start scanning right after the opening brace
+  const startIdx = keyMatch.index + keyMatch[0].length;
+  let depth = 1;
+  let i = startIdx;
+
+  while (i < content.length && depth > 0) {
+    const ch = content[i];
+
+    // Skip string literals (single or double quoted, including triple-quoted)
+    if (ch === "'" || ch === '"') {
+      const triple = content.slice(i, i + 3);
+      if (triple === "'''" || triple === '"""') {
+        // Triple-quoted string
+        const endTriple = content.indexOf(triple, i + 3);
+        if (endTriple === -1) return null; // Unterminated
+        i = endTriple + 3;
+        continue;
+      }
+      // Single-quoted string — scan to matching close, respecting backslash escapes
+      const quote = ch;
+      i++;
+      while (i < content.length && content[i] !== quote) {
+        if (content[i] === '\\') i++; // skip escaped char
+        i++;
+      }
+      i++; // skip closing quote
+      continue;
+    }
+
+    if (ch === '{') depth++;
+    else if (ch === '}') depth--;
+
+    if (depth > 0) i++;
+    // When depth === 0 we've found the matching close brace; don't advance past it
+  }
+
+  if (depth !== 0) return null; // Unbalanced
+
+  return content.slice(startIdx, i);
+}
+
+// =============================================================================
 // VALIDATORS
 // =============================================================================
 
@@ -301,18 +362,19 @@ export function validateAssetBundles(
 ): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
 
-  // Extract the 'assets' dict block from manifest content
-  const assetsMatch = content.match(/['"]assets['"]\s*:\s*\{([\s\S]*?)\n\s{4}\}/);
-  if (!assetsMatch) return issues;
+  // Extract the 'assets' dict block using balanced brace counting
+  const assetsBlock = extractDictBlock(content, "assets");
+  if (!assetsBlock) return issues;
 
-  const assetsBlock = assetsMatch[1];
+  // Find where the assets block starts in the original content for line numbers
+  const assetsBlockStart = content.indexOf(assetsBlock);
 
   // Find all bundle name keys: 'web.assets_frontend': [...]
   const bundlePattern = /['"]([a-z_][a-z0-9_.]*)['"]\s*:\s*\[/g;
   let match;
   while ((match = bundlePattern.exec(assetsBlock)) !== null) {
     const bundleName = match[1];
-    const bundleOffset = (assetsMatch.index || 0) + match.index;
+    const bundleOffset = assetsBlockStart + match.index;
     const lineNum = content.substring(0, bundleOffset).split("\n").length;
 
     // Check if bundle name is valid
@@ -644,10 +706,9 @@ export function validateFileStructure(
   // Check for assets references in manifest
   const manifestFile = files.find((f) => f.path.endsWith("__manifest__.py"));
   if (manifestFile) {
-    // Match nested asset bundles: 'assets': { 'bundle': [...], 'bundle2': [...] }
-    const assetsMatch = manifestFile.content.match(/['"]assets['"]\s*:\s*\{([\s\S]*?)\n\s{4}\}/);
-    if (assetsMatch) {
-      const assetsContent = assetsMatch[1];
+    // Extract asset bundles using balanced brace counting
+    const assetsContent = extractDictBlock(manifestFile.content, "assets");
+    if (assetsContent) {
       const assetPaths = assetsContent.match(/['"]([^'"]+\.(scss|css|js))['"]/g);
 
       assetPaths?.forEach((assetPath) => {

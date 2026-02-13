@@ -12,6 +12,14 @@
 import { assembleThemeFiles } from "./theme-assembler";
 import { convertTailwindToBootstrap } from "./tailwind-bootstrap-map";
 
+/**
+ * Extract the basename (last path segment) from a file path.
+ * Used for exact filename matching instead of substring `.includes()`.
+ */
+export function getBasename(filePath: string): string {
+  return filePath.split('/').pop() || '';
+}
+
 export interface ParsedFile {
   path: string;
   content: string;
@@ -1212,11 +1220,11 @@ export function generateManifest(themeName: string, files: ParsedFile[], moduleN
     })
     .filter((path, index, self) => self.indexOf(path) === index); // Dedupe
 
-  // Route SCSS files to correct Odoo 18 asset bundles
-  const primaryVarsFiles = scssFiles.filter(f => f.includes('primary_variables'));
-  const bootstrapOverrideFiles = scssFiles.filter(f => f.includes('bootstrap_overridden'));
+  // Route SCSS files to correct Odoo 18 asset bundles (exact basename matching)
+  const primaryVarsFiles = scssFiles.filter(f => getBasename(f) === 'primary_variables.scss');
+  const bootstrapOverrideFiles = scssFiles.filter(f => getBasename(f) === 'bootstrap_overridden.scss');
   const frontendScssFiles = scssFiles.filter(f =>
-    !f.includes('primary_variables') && !f.includes('bootstrap_overridden')
+    getBasename(f) !== 'primary_variables.scss' && getBasename(f) !== 'bootstrap_overridden.scss'
   );
 
   let assets = "";
