@@ -499,11 +499,14 @@ export function calculateQualityScore(validation: ValidationSummary): number {
 // =============================================================================
 
 /**
- * Checks if correction should be attempted based on validation
+ * Checks if correction should be attempted based on validation.
+ * Includes divergence detection: if the current iteration introduced
+ * more errors than the previous one, stop and use the best-so-far output.
  */
 export function shouldAttemptCorrection(
   validation: ValidationSummary,
-  options: SelfCorrectionOptions = {}
+  options: SelfCorrectionOptions = {},
+  previousValidation?: ValidationSummary
 ): boolean {
   const { minQualityScore = 80 } = options;
 
@@ -517,6 +520,19 @@ export function shouldAttemptCorrection(
   if (score >= minQualityScore) {
     // Score is acceptable even with some warnings
     return false;
+  }
+
+  // Divergence detection: if this iteration made quality WORSE, stop
+  if (previousValidation) {
+    const previousScore = calculateQualityScore(previousValidation);
+    if (score < previousScore) {
+      // Quality degraded — correction is diverging
+      return false;
+    }
+    // Also detect oscillation: same error count means no progress
+    if (validation.totalErrors >= previousValidation.totalErrors && previousValidation.totalErrors > 0) {
+      return false;
+    }
   }
 
   // Attempt correction if there are errors
