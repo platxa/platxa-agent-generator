@@ -63,15 +63,21 @@ import {
 // Self-Correction Configuration
 // =============================================================================
 
-/** Maximum correction iterations before giving up */
-const MAX_CORRECTION_ITERATIONS = 3;
+/** Default correction iterations for acceptable-quality themes */
+const DEFAULT_CORRECTION_ITERATIONS = 3;
+
+/** Extended correction iterations for low-quality themes (score < 60) */
+const EXTENDED_CORRECTION_ITERATIONS = 5;
+
+/** Score threshold below which extended iterations are used */
+const LOW_QUALITY_THRESHOLD = 60;
 
 /** Minimum quality score to accept (0-100) */
 const MIN_QUALITY_SCORE = 80;
 
 /** Self-correction options */
 const SELF_CORRECTION_OPTIONS: SelfCorrectionOptions = {
-  maxIterations: MAX_CORRECTION_ITERATIONS,
+  maxIterations: DEFAULT_CORRECTION_ITERATIONS,
   minQualityScore: MIN_QUALITY_SCORE,
   includeWarnings: false,
 };
@@ -458,8 +464,9 @@ async function runSelfCorrectionLoop(
   let currentContent = generatedCode;
   let wasCorrrected = false;
   let latestCriticReport: CriticReport | undefined;
+  let maxIterations = DEFAULT_CORRECTION_ITERATIONS;
 
-  for (let iteration = 1; iteration <= MAX_CORRECTION_ITERATIONS; iteration++) {
+  for (let iteration = 1; iteration <= maxIterations; iteration++) {
     // CRITIC AGENT: Parse and evaluate generated files
     let parsedFiles: ParsedFile[] = [];
     try {
@@ -518,6 +525,12 @@ async function runSelfCorrectionLoop(
 
     console.log(`[SelfCorrection] Iteration ${iteration}: ${formatValidationSummary(validation)}`);
 
+    // Adaptive iteration limit: extend to 5 for low-quality themes on first evaluation
+    if (iteration === 1 && qualityScore < LOW_QUALITY_THRESHOLD) {
+      maxIterations = EXTENDED_CORRECTION_ITERATIONS;
+      console.log(`[SelfCorrection] Low quality (${qualityScore}/100), extending to ${maxIterations} iterations`);
+    }
+
     // Check if we should stop
     if (!shouldAttemptCorrection(validation, SELF_CORRECTION_OPTIONS)) {
       console.log(`[SelfCorrection] Quality acceptable (score: ${qualityScore}), stopping loop`);
@@ -525,8 +538,8 @@ async function runSelfCorrectionLoop(
     }
 
     // Don't attempt correction on last iteration
-    if (iteration === MAX_CORRECTION_ITERATIONS) {
-      console.log(`[SelfCorrection] Max iterations reached, returning best effort`);
+    if (iteration === maxIterations) {
+      console.log(`[SelfCorrection] Max iterations (${maxIterations}) reached, returning best effort`);
       break;
     }
 
