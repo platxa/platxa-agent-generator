@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-24",
-  "title": "Implementation: Create inspect_logs tool aggregating SCSS, QWeb, Odoo, and p...",
+  "title": "Implementation: Add theme versioning: save snapshots of generated themes wit...",
   "context": {
     "spec_id": "feature-24",
     "feature_id": "24",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "Feature/VersionControl",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Returns recent logs from all sources with severity classification",
+        "type": "manual",
+        "criteria": "Users can save, compare, and restore previous theme versions",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-29T15:16:09.714113"
+    "created_at": "2026-02-16T14:29:22.984389"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-24-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create inspect_logs tool aggregating SCSS, QWeb, Odoo, and preview errors",
+      "description": "Review feature requirements: Add theme versioning: save snapshots of generated themes with diff comparison between versions",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -58,7 +58,7 @@
     {
       "id": "task-24-3",
       "title": "Implement Feature",
-      "description": "Implement: Create inspect_logs tool aggregating SCSS, QWeb, Odoo, and preview errors",
+      "description": "Implement: Add theme versioning: save snapshots of generated themes with diff comparison between versions",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -88,14 +88,14 @@
     {
       "id": "task-24-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Returns recent logs from all sources with severity classification', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Users can save, compare, and restore previous theme versions', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Returns recent logs from all sources with severity classification",
+        "type": "manual",
+        "criteria": "Users can save, compare, and restore previous theme versions",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-29T15:16:09.714143",
+  "created_at": "2026-02-16T14:29:22.984419",
   "lsp_impact": {}
 }

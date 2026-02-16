@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-25",
-  "title": "Implementation: Implement web_search tool for fetching Odoo documentation an...",
+  "title": "Implementation: Prepare Odoo Apps Store listing: create marketplace-ready mo...",
   "context": {
     "spec_id": "feature-25",
     "feature_id": "25",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "GTM/Marketplace",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Returns top 5 search results; supports site: filtering for odoo.com",
+        "type": "manual",
+        "criteria": "Module passes Odoo Apps Store review requirements and is listed publicly",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-30T14:45:56.435784"
+    "created_at": "2026-02-16T12:35:53.551459"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-25-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Implement web_search tool for fetching Odoo documentation and examples",
+      "description": "Review feature requirements: Prepare Odoo Apps Store listing: create marketplace-ready module with screenshots, description, and pricing tier",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -58,7 +58,7 @@
     {
       "id": "task-25-3",
       "title": "Implement Feature",
-      "description": "Implement: Implement web_search tool for fetching Odoo documentation and examples",
+      "description": "Implement: Prepare Odoo Apps Store listing: create marketplace-ready module with screenshots, description, and pricing tier",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -88,14 +88,14 @@
     {
       "id": "task-25-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Returns top 5 search results; supports site: filtering for odoo.com', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Module passes Odoo Apps Store review requirements and is listed publicly', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Returns top 5 search results; supports site: filtering for odoo.com",
+        "type": "manual",
+        "criteria": "Module passes Odoo Apps Store review requirements and is listed publicly",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-30T14:45:56.435811",
+  "created_at": "2026-02-16T12:35:53.551482",
   "lsp_impact": {}
 }

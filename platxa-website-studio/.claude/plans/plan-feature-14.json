@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-14",
-  "title": "Implementation: Add theme versioning and change history tracking",
+  "title": "Implementation: Consolidate 7 parser strategies into 2-pass approach: collec...",
   "context": {
     "spec_id": "feature-14",
     "feature_id": "14",
     "dependencies": [],
     "metadata": {
-      "category": "Versioning",
+      "category": "Performance/Parser",
       "verification_criteria": {
-        "type": "functional",
-        "criteria": "Track theme versions, diff between versions, rollback",
+        "type": "test",
+        "criteria": "Parser produces identical output with 40% less code, handles 100-block responses in <500ms",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-02-10T16:34:42.832644"
+    "created_at": "2026-02-16T12:29:19.977722"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-14-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add theme versioning and change history tracking",
+      "description": "Review feature requirements: Consolidate 7 parser strategies into 2-pass approach: collect ALL code blocks first, then deduplicate by content hash",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -58,7 +58,7 @@
     {
       "id": "task-14-3",
       "title": "Implement Feature",
-      "description": "Implement: Add theme versioning and change history tracking",
+      "description": "Implement: Consolidate 7 parser strategies into 2-pass approach: collect ALL code blocks first, then deduplicate by content hash",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -88,14 +88,14 @@
     {
       "id": "task-14-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'functional', 'criteria': 'Track theme versions, diff between versions, rollback', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Parser produces identical output with 40% less code, handles 100-block responses in <500ms', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "functional",
-        "criteria": "Track theme versions, diff between versions, rollback",
+        "type": "test",
+        "criteria": "Parser produces identical output with 40% less code, handles 100-block responses in <500ms",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-02-10T16:34:42.832697",
+  "created_at": "2026-02-16T12:29:19.977750",
   "lsp_impact": {}
 }

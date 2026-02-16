@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-11",
-  "title": "Implementation: Create ToolExecutor base class with common execution pattern...",
+  "title": "Implementation: Add FORBIDDEN examples section to prompts showing common wro...",
   "context": {
     "spec_id": "feature-11",
     "feature_id": "11",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "Quality/Prompts",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "ToolExecutor provides execute() with automatic timeout, retry, and result caching",
+        "type": "manual",
+        "criteria": "Forbidden patterns appear less than 5% of the time in generated output",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T18:05:37.570397"
+    "created_at": "2026-02-16T12:45:30.028107"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-11-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create ToolExecutor base class with common execution patterns (timeout, retry, caching)",
+      "description": "Review feature requirements: Add FORBIDDEN examples section to prompts showing common wrong outputs (CSS vars, Tailwind classes, wrong category)",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-11-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-11-3",
       "title": "Implement Feature",
-      "description": "Implement: Create ToolExecutor base class with common execution patterns (timeout, retry, caching)",
+      "description": "Implement: Add FORBIDDEN examples section to prompts showing common wrong outputs (CSS vars, Tailwind classes, wrong category)",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-11-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-11-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'ToolExecutor provides execute() with automatic timeout, retry, and result caching', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Forbidden patterns appear less than 5% of the time in generated output', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "ToolExecutor provides execute() with automatic timeout, retry, and result caching",
+        "type": "manual",
+        "criteria": "Forbidden patterns appear less than 5% of the time in generated output",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T18:05:37.570445",
+  "created_at": "2026-02-16T12:45:30.028130",
   "lsp_impact": {}
 }

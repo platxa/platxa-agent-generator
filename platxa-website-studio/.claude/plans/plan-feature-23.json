@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-23",
-  "title": "Implementation: Implement preview_render tool generating screenshot of curre...",
+  "title": "Implementation: Implement WCAG AA accessibility audit: automated color contr...",
   "context": {
     "spec_id": "feature-23",
     "feature_id": "23",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "Feature/Accessibility",
       "verification_criteria": {
         "type": "test",
-        "criteria": "Returns screenshot URL and rendered HTML for specified page/viewport",
+        "criteria": "Accessibility validator catches contrast ratio failures and missing ARIA labels",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-29T15:12:42.633366"
+    "created_at": "2026-02-16T14:13:22.999285"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-23-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Implement preview_render tool generating screenshot of current theme state",
+      "description": "Review feature requirements: Implement WCAG AA accessibility audit: automated color contrast checking (4.5:1), ARIA labels, keyboard navigation",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -58,7 +58,7 @@
     {
       "id": "task-23-3",
       "title": "Implement Feature",
-      "description": "Implement: Implement preview_render tool generating screenshot of current theme state",
+      "description": "Implement: Implement WCAG AA accessibility audit: automated color contrast checking (4.5:1), ARIA labels, keyboard navigation",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -88,14 +88,14 @@
     {
       "id": "task-23-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Returns screenshot URL and rendered HTML for specified page/viewport', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Accessibility validator catches contrast ratio failures and missing ARIA labels', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "test",
-        "criteria": "Returns screenshot URL and rendered HTML for specified page/viewport",
+        "criteria": "Accessibility validator catches contrast ratio failures and missing ARIA labels",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-29T15:12:42.633443",
+  "created_at": "2026-02-16T14:13:22.999310",
   "lsp_impact": {}
 }

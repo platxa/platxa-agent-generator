@@ -1,6 +1,6 @@
 {
   "version": "1.0",
-  "updated_at": "2026-02-10T16:34:42.833949",
+  "updated_at": "2026-02-16T14:30:35.196684",
   "plans": [
     {
       "id": "plan-feature-108",
@@ -36,10 +36,10 @@
     },
     {
       "id": "plan-feature-6",
-      "title": "Implementation: Add Figma plugin for DTCG token extraction",
+      "title": "Implementation: Add semantic validator: check o_cc color classes are in vali...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-02-10T15:47:16.796575",
+      "created_at": "2026-02-16T12:12:47.104984",
       "constitution_check": true
     },
     {
@@ -76,10 +76,10 @@
     },
     {
       "id": "plan-feature-11",
-      "title": "Implementation: Create ToolExecutor base class with common execution pattern...",
+      "title": "Implementation: Add FORBIDDEN examples section to prompts showing common wro...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T18:05:37.570445",
+      "created_at": "2026-02-16T12:45:30.028130",
       "constitution_check": true
     },
     {
@@ -100,10 +100,10 @@
     },
     {
       "id": "plan-feature-17",
-      "title": "Implementation: Implement search_codebase tool using ripgrep for fast text s...",
+      "title": "Implementation: Add ring buffer to rate limiter ApiCall[] history with max 1...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T18:13:01.515938",
+      "created_at": "2026-02-16T14:25:26.274345",
       "constitution_check": true
     },
     {
@@ -212,18 +212,18 @@
     },
     {
       "id": "plan-feature-34",
-      "title": "Implementation: Add relevance ranking for context items based on recency and...",
+      "title": "Implementation: Add ecommerce theme support: product catalog, cart, checkout...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-30T15:00:18.973563",
+      "created_at": "2026-02-16T12:38:31.288279",
       "constitution_check": true
     },
     {
       "id": "plan-feature-4",
-      "title": "Implementation: Add XSS detection for QWeb template output",
+      "title": "Implementation: Validate manifest asset paths - reject any path containing ....",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-02-10T15:07:01.129706",
+      "created_at": "2026-02-16T12:09:49.830698",
       "constitution_check": true
     },
     {
@@ -244,18 +244,18 @@
     },
     {
       "id": "plan-feature-28",
-      "title": "Implementation: Implement intent classification using keyword matching + LLM...",
+      "title": "Implementation: Add test coverage for self-correction divergence: verify loo...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T15:31:57.295000",
+      "created_at": "2026-02-16T14:16:57.562870",
       "constitution_check": true
     },
     {
       "id": "plan-feature-22",
-      "title": "Implementation: Create compile_scss tool using dart-sass with Odoo variable ...",
+      "title": "Implementation: Add interactive preview with hot-module-replacement: theme c...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T18:43:04.645294",
+      "created_at": "2026-02-16T14:13:05.419866",
       "constitution_check": true
     },
     {
@@ -388,18 +388,18 @@
     },
     {
       "id": "plan-feature-27",
-      "title": "Implementation: Create ModeRouter class detecting plan vs agent intent from ...",
+      "title": "Implementation: Add test coverage for ReDoS scenarios: verify parser handles...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T15:26:21.957345",
+      "created_at": "2026-02-16T12:36:07.341587",
       "constitution_check": true
     },
     {
       "id": "plan-feature-24",
-      "title": "Implementation: Create inspect_logs tool aggregating SCSS, QWeb, Odoo, and p...",
+      "title": "Implementation: Add theme versioning: save snapshots of generated themes wit...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T15:16:09.714143",
+      "created_at": "2026-02-16T14:29:22.984419",
       "constitution_check": true
     },
     {
@@ -420,10 +420,10 @@
     },
     {
       "id": "plan-feature-30",
-      "title": "Implementation: Create mode-specific context preparation (plan: read-only, a...",
+      "title": "Implementation: Implement streamObject for structured theme metadata extract...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T15:34:37.245926",
+      "created_at": "2026-02-16T14:29:54.262267",
       "constitution_check": true
     },
     {
@@ -436,10 +436,10 @@
     },
     {
       "id": "plan-feature-19",
-      "title": "Implementation: Implement write_file tool with automatic Yjs document sync f...",
+      "title": "Implementation: Implement brand kit integration: upload logo, extract colors...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T18:27:46.867085",
+      "created_at": "2026-02-16T12:35:08.973366",
       "constitution_check": true
     },
     {
@@ -452,10 +452,10 @@
     },
     {
       "id": "plan-feature-8",
-      "title": "Implementation: Implement Generator-Critic-Refinement agent pattern",
+      "title": "Implementation: Implement weighted quality scoring: critical errors=50%, hig...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-02-10T16:03:41.102791",
+      "created_at": "2026-02-16T12:15:03.249461",
       "constitution_check": true
     },
     {
@@ -476,10 +476,10 @@
     },
     {
       "id": "plan-feature-3",
-      "title": "Implementation: Add SQL injection detection to quality checker for Odoo ORM ...",
+      "title": "Implementation: Add per-request token limit (max 10,000 tokens) to rate limi...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-02-10T15:06:38.802302",
+      "created_at": "2026-02-16T12:07:15.461459",
       "constitution_check": true
     },
     {
@@ -516,10 +516,10 @@
     },
     {
       "id": "plan-feature-18",
-      "title": "Implementation: Create read_file tool with optional line range support for f...",
+      "title": "Implementation: Implement direct Odoo deployment: deploy generated theme to ...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-28T18:23:43.898539",
+      "created_at": "2026-02-16T12:34:23.868782",
       "constitution_check": true
     },
     {
@@ -532,10 +532,10 @@
     },
     {
       "id": "plan-feature-14",
-      "title": "Implementation: Add theme versioning and change history tracking",
+      "title": "Implementation: Consolidate 7 parser strategies into 2-pass approach: collec...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-02-10T16:34:42.832697",
+      "created_at": "2026-02-16T12:29:19.977750",
       "constitution_check": true
     },
     {
@@ -588,10 +588,10 @@
     },
     {
       "id": "plan-feature-9",
-      "title": "Implementation: Train custom AutoFix model on Odoo error patterns",
+      "title": "Implementation: Increase MAX_CORRECTION_ITERATIONS from 3 to 5 for themes sc...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-02-10T16:09:20.149973",
+      "created_at": "2026-02-16T12:22:29.010878",
       "constitution_check": true
     },
     {
@@ -780,10 +780,10 @@
     },
     {
       "id": "plan-feature-31",
-      "title": "Implementation: Implement seamless handoff from plan mode approval to agent ...",
+      "title": "Implementation: Add A/B testing capability: generate variant themes for same...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T15:40:25.404700",
+      "created_at": "2026-02-16T14:30:09.986500",
       "constitution_check": true
     },
     {
@@ -828,10 +828,10 @@
     },
     {
       "id": "plan-feature-7",
-      "title": "Implementation: Add image-to-code capability for website screenshots",
+      "title": "Implementation: Add semantic validator: check data-snippet values are valid ...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-02-10T15:57:24.223869",
+      "created_at": "2026-02-16T12:41:26.732522",
       "constitution_check": true
     },
     {
@@ -892,10 +892,10 @@
     },
     {
       "id": "plan-feature-23",
-      "title": "Implementation: Implement preview_render tool generating screenshot of curre...",
+      "title": "Implementation: Implement WCAG AA accessibility audit: automated color contr...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T15:12:42.633443",
+      "created_at": "2026-02-16T14:13:22.999310",
       "constitution_check": true
     },
     {
@@ -908,10 +908,10 @@
     },
     {
       "id": "plan-feature-32",
-      "title": "Implementation: Create ContextManager tracking accumulated knowledge across ...",
+      "title": "Implementation: Implement Odoo partner program integration: API for partners...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T15:43:49.836841",
+      "created_at": "2026-02-16T14:24:51.165003",
       "constitution_check": true
     },
     {
@@ -932,10 +932,10 @@
     },
     {
       "id": "plan-feature-12",
-      "title": "Implementation: Implement tool result caching with 5-minute TTL to avoid red...",
+      "title": "Implementation: Inject industry color hex codes and font names directly into...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T15:07:45.487657",
+      "created_at": "2026-02-16T12:27:28.295313",
       "constitution_check": true
     },
     {
@@ -956,10 +956,10 @@
     },
     {
       "id": "plan-feature-33",
-      "title": "Implementation: Implement context pruning keeping total tokens under 80% of ...",
+      "title": "Implementation: Add content inference confidence scoring: when snippet type ...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T15:47:16.217003",
+      "created_at": "2026-02-16T14:25:06.238291",
       "constitution_check": true
     },
     {
@@ -988,10 +988,10 @@
     },
     {
       "id": "plan-feature-26",
-      "title": "Implementation: Create test_odoo tool for Docker-based module installation a...",
+      "title": "Implementation: Add multi-language theme generation: support i18n translatio...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T15:21:03.176028",
+      "created_at": "2026-02-16T14:16:37.839111",
       "constitution_check": true
     },
     {
@@ -1188,10 +1188,10 @@
     },
     {
       "id": "plan-feature-10",
-      "title": "Implementation: Create finalization logic producing AgentResult with success...",
+      "title": "Implementation: Add output contract to system prompts: specify exact file co...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-29T15:06:10.169027",
+      "created_at": "2026-02-16T12:25:23.717866",
       "constitution_check": true
     },
     {
@@ -1204,10 +1204,10 @@
     },
     {
       "id": "plan-feature-21",
-      "title": "Implementation: Add path traversal detection for asset URLs",
+      "title": "Implementation: Expand snippet library from 50 to 150+ patterns covering pri...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-02-10T15:42:04.974894",
+      "created_at": "2026-02-16T14:08:45.819491",
       "constitution_check": true
     },
     {
@@ -1364,10 +1364,10 @@
     },
     {
       "id": "plan-feature-25",
-      "title": "Implementation: Implement web_search tool for fetching Odoo documentation an...",
+      "title": "Implementation: Prepare Odoo Apps Store listing: create marketplace-ready mo...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-30T14:45:56.435811",
+      "created_at": "2026-02-16T12:35:53.551482",
       "constitution_check": true
     },
     {
@@ -1428,10 +1428,10 @@
     },
     {
       "id": "plan-feature-29",
-      "title": "Implementation: Add mode switching UI with clear visual indicators (plan ico...",
+      "title": "Implementation: Add test coverage for concurrent rate limiting: verify threa...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-30T14:52:18.582591",
+      "created_at": "2026-02-16T14:21:35.572231",
       "constitution_check": true
     },
     {
@@ -1452,10 +1452,10 @@
     },
     {
       "id": "plan-feature-35",
-      "title": "Implementation: Create context serialization optimized for LLM injection (co...",
+      "title": "Implementation: Implement font upload support: allow custom font files beyon...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-30T15:06:12.405317",
+      "created_at": "2026-02-16T14:30:35.196284",
       "constitution_check": true
     },
     {
@@ -1532,10 +1532,10 @@
     },
     {
       "id": "plan-feature-15",
-      "title": "Implementation: Implement tool error recovery with exponential backoff retry...",
+      "title": "Implementation: Add ReDoS protection: set timeout on regex execution or use ...",
       "progress": 0.0,
       "tasks_count": 5,
-      "created_at": "2026-01-30T14:13:12.492105",
+      "created_at": "2026-02-16T12:29:49.811400",
       "constitution_check": true
     },
     {

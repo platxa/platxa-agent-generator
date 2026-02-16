@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-3",
-  "title": "Implementation: Add SQL injection detection to quality checker for Odoo ORM ...",
+  "title": "Implementation: Add per-request token limit (max 10,000 tokens) to rate limi...",
   "context": {
     "spec_id": "feature-3",
     "feature_id": "3",
     "dependencies": [],
     "metadata": {
-      "category": "Security",
+      "category": "Security/RateLimiter",
       "verification_criteria": {
-        "type": "automated",
-        "criteria": "Detect and warn on unsafe ORM patterns",
+        "type": "test",
+        "criteria": "Requests exceeding 10K tokens are rejected with 429 status",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-02-10T15:06:38.802261"
+    "created_at": "2026-02-16T12:07:15.461433"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-3-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add SQL injection detection to quality checker for Odoo ORM calls",
+      "description": "Review feature requirements: Add per-request token limit (max 10,000 tokens) to rate limiter to prevent single-request exhaustion",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -58,7 +58,7 @@
     {
       "id": "task-3-3",
       "title": "Implement Feature",
-      "description": "Implement: Add SQL injection detection to quality checker for Odoo ORM calls",
+      "description": "Implement: Add per-request token limit (max 10,000 tokens) to rate limiter to prevent single-request exhaustion",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -88,14 +88,14 @@
     {
       "id": "task-3-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'automated', 'criteria': 'Detect and warn on unsafe ORM patterns', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Requests exceeding 10K tokens are rejected with 429 status', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "automated",
-        "criteria": "Detect and warn on unsafe ORM patterns",
+        "type": "test",
+        "criteria": "Requests exceeding 10K tokens are rejected with 429 status",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-02-10T15:06:38.802302",
+  "created_at": "2026-02-16T12:07:15.461459",
   "lsp_impact": {}
 }

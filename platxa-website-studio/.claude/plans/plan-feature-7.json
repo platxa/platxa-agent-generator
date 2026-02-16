@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-7",
-  "title": "Implementation: Add image-to-code capability for website screenshots",
+  "title": "Implementation: Add semantic validator: check data-snippet values are valid ...",
   "context": {
     "spec_id": "feature-7",
     "feature_id": "7",
     "dependencies": [],
     "metadata": {
-      "category": "AI",
+      "category": "Quality/Validator",
       "verification_criteria": {
-        "type": "functional",
-        "criteria": "Upload screenshot, generate matching Odoo theme",
+        "type": "test",
+        "criteria": "Invalid snippet types detected and replaced with nearest valid alternative",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-02-10T15:57:24.223839"
+    "created_at": "2026-02-16T12:41:26.732499"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-7-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add image-to-code capability for website screenshots",
+      "description": "Review feature requirements: Add semantic validator: check data-snippet values are valid Odoo snippet types (s_cover, s_three_columns, etc.)",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -58,7 +58,7 @@
     {
       "id": "task-7-3",
       "title": "Implement Feature",
-      "description": "Implement: Add image-to-code capability for website screenshots",
+      "description": "Implement: Add semantic validator: check data-snippet values are valid Odoo snippet types (s_cover, s_three_columns, etc.)",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -88,14 +88,14 @@
     {
       "id": "task-7-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'functional', 'criteria': 'Upload screenshot, generate matching Odoo theme', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Invalid snippet types detected and replaced with nearest valid alternative', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "functional",
-        "criteria": "Upload screenshot, generate matching Odoo theme",
+        "type": "test",
+        "criteria": "Invalid snippet types detected and replaced with nearest valid alternative",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-02-10T15:57:24.223869",
+  "created_at": "2026-02-16T12:41:26.732522",
   "lsp_impact": {}
 }

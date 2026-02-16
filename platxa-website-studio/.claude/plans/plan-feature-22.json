@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-22",
-  "title": "Implementation: Create compile_scss tool using dart-sass with Odoo variable ...",
+  "title": "Implementation: Add interactive preview with hot-module-replacement: theme c...",
   "context": {
     "spec_id": "feature-22",
     "feature_id": "22",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "Feature/Preview",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Compiles SCSS with Odoo imports; returns CSS or errors with line numbers",
+        "type": "manual",
+        "criteria": "SCSS changes visible in preview within 500ms without full page reload",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T18:43:04.645241"
+    "created_at": "2026-02-16T14:13:05.419844"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-22-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Create compile_scss tool using dart-sass with Odoo variable imports",
+      "description": "Review feature requirements: Add interactive preview with hot-module-replacement: theme changes reflected in preview iframe within 500ms",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-22-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-22-3",
       "title": "Implement Feature",
-      "description": "Implement: Create compile_scss tool using dart-sass with Odoo variable imports",
+      "description": "Implement: Add interactive preview with hot-module-replacement: theme changes reflected in preview iframe within 500ms",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-22-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-22-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Compiles SCSS with Odoo imports; returns CSS or errors with line numbers', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'SCSS changes visible in preview within 500ms without full page reload', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Compiles SCSS with Odoo imports; returns CSS or errors with line numbers",
+        "type": "manual",
+        "criteria": "SCSS changes visible in preview within 500ms without full page reload",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T18:43:04.645294",
+  "created_at": "2026-02-16T14:13:05.419866",
   "lsp_impact": {}
 }

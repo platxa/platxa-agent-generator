@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-9",
-  "title": "Implementation: Train custom AutoFix model on Odoo error patterns",
+  "title": "Implementation: Increase MAX_CORRECTION_ITERATIONS from 3 to 5 for themes sc...",
   "context": {
     "spec_id": "feature-9",
     "feature_id": "9",
     "dependencies": [],
     "metadata": {
-      "category": "AI",
+      "category": "Quality/SelfCorrection",
       "verification_criteria": {
-        "type": "automated",
-        "criteria": "Model achieves >90% fix accuracy on Odoo-specific errors",
+        "type": "test",
+        "criteria": "Theme failure rate drops from 20% to under 8% with additional iterations",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-02-10T16:09:20.149943"
+    "created_at": "2026-02-16T12:22:29.010858"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-9-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Train custom AutoFix model on Odoo error patterns",
+      "description": "Review feature requirements: Increase MAX_CORRECTION_ITERATIONS from 3 to 5 for themes scoring below 60/100",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -58,7 +58,7 @@
     {
       "id": "task-9-3",
       "title": "Implement Feature",
-      "description": "Implement: Train custom AutoFix model on Odoo error patterns",
+      "description": "Implement: Increase MAX_CORRECTION_ITERATIONS from 3 to 5 for themes scoring below 60/100",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -88,14 +88,14 @@
     {
       "id": "task-9-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'automated', 'criteria': 'Model achieves >90% fix accuracy on Odoo-specific errors', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Theme failure rate drops from 20% to under 8% with additional iterations', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "automated",
-        "criteria": "Model achieves >90% fix accuracy on Odoo-specific errors",
+        "type": "test",
+        "criteria": "Theme failure rate drops from 20% to under 8% with additional iterations",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-02-10T16:09:20.149973",
+  "created_at": "2026-02-16T12:22:29.010878",
   "lsp_impact": {}
 }

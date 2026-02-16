@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-31",
-  "title": "Implementation: Implement seamless handoff from plan mode approval to agent ...",
+  "title": "Implementation: Add A/B testing capability: generate variant themes for same...",
   "context": {
     "spec_id": "feature-31",
     "feature_id": "31",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "Feature/ABTesting",
       "verification_criteria": {
-        "type": "test",
-        "criteria": "Approved plan transfers to agent with selected option and full context",
+        "type": "manual",
+        "criteria": "Users can generate 2 theme variants and compare side-by-side",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-29T15:40:25.404576"
+    "created_at": "2026-02-16T14:30:09.986475"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-31-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Implement seamless handoff from plan mode approval to agent mode execution",
+      "description": "Review feature requirements: Add A/B testing capability: generate variant themes for same industry and compare conversion metrics",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -58,7 +58,7 @@
     {
       "id": "task-31-3",
       "title": "Implement Feature",
-      "description": "Implement: Implement seamless handoff from plan mode approval to agent mode execution",
+      "description": "Implement: Add A/B testing capability: generate variant themes for same industry and compare conversion metrics",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -88,14 +88,14 @@
     {
       "id": "task-31-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Approved plan transfers to agent with selected option and full context', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Users can generate 2 theme variants and compare side-by-side', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "test",
-        "criteria": "Approved plan transfers to agent with selected option and full context",
+        "type": "manual",
+        "criteria": "Users can generate 2 theme variants and compare side-by-side",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-29T15:40:25.404700",
+  "created_at": "2026-02-16T14:30:09.986500",
   "lsp_impact": {}
 }

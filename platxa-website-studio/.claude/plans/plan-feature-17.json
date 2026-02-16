@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-17",
-  "title": "Implementation: Implement search_codebase tool using ripgrep for fast text s...",
+  "title": "Implementation: Add ring buffer to rate limiter ApiCall[] history with max 1...",
   "context": {
     "spec_id": "feature-17",
     "feature_id": "17",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "Performance/RateLimiter",
       "verification_criteria": {
         "type": "test",
-        "criteria": "Returns top 10 results with { path, snippet, relevance }; supports glob filtering",
+        "criteria": "Memory usage stays under 5MB with 1000 concurrent users",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-28T18:13:01.515892"
+    "created_at": "2026-02-16T14:25:26.274323"
   },
   "phases": [
     "research",
@@ -28,14 +28,17 @@
     {
       "id": "task-17-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Implement search_codebase tool using ripgrep for fast text search with semantic ranking",
+      "description": "Review feature requirements: Add ring buffer to rate limiter ApiCall[] history with max 100 entries per user",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
       "estimated_effort": "small",
       "verification": "Requirements understood, approach identified",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-17-2",
@@ -47,19 +50,25 @@
       "estimated_effort": "small",
       "verification": "Existing patterns identified, no duplication",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-17-3",
       "title": "Implement Feature",
-      "description": "Implement: Implement search_codebase tool using ripgrep for fast text search with semantic ranking",
+      "description": "Implement: Add ring buffer to rate limiter ApiCall[] history with max 100 entries per user",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
       "estimated_effort": "medium",
       "verification": "Code complete and type-checked",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-17-4",
@@ -71,30 +80,36 @@
       "estimated_effort": "small",
       "verification": "Tests pass, coverage adequate",
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     },
     {
       "id": "task-17-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Returns top 10 results with { path, snippet, relevance }; supports glob filtering', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Memory usage stays under 5MB with 1000 concurrent users', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "test",
-        "criteria": "Returns top 10 results with { path, snippet, relevance }; supports glob filtering",
+        "criteria": "Memory usage stays under 5MB with 1000 concurrent users",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       },
       "files": [],
-      "completed_at": null
+      "completed_at": null,
+      "started_at": null,
+      "blocked_reason": null,
+      "skip_reason": null
     }
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-28T18:13:01.515938",
+  "created_at": "2026-02-16T14:25:26.274345",
   "lsp_impact": {}
 }

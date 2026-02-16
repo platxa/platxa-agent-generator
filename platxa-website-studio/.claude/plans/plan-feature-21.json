@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-21",
-  "title": "Implementation: Add path traversal detection for asset URLs",
+  "title": "Implementation: Expand snippet library from 50 to 150+ patterns covering pri...",
   "context": {
     "spec_id": "feature-21",
     "feature_id": "21",
     "dependencies": [],
     "metadata": {
-      "category": "Security",
+      "category": "Feature/Components",
       "verification_criteria": {
-        "type": "automated",
-        "criteria": "Detect and block ../..paths in static asset references",
+        "type": "manual",
+        "criteria": "Each new snippet renders correctly with Odoo color classes and data-snippet attributes",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-02-10T15:42:04.974849"
+    "created_at": "2026-02-16T14:08:45.819468"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-21-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Add path traversal detection for asset URLs",
+      "description": "Review feature requirements: Expand snippet library from 50 to 150+ patterns covering pricing tables, team grids, portfolio galleries, blog cards",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -58,7 +58,7 @@
     {
       "id": "task-21-3",
       "title": "Implement Feature",
-      "description": "Implement: Add path traversal detection for asset URLs",
+      "description": "Implement: Expand snippet library from 50 to 150+ patterns covering pricing tables, team grids, portfolio galleries, blog cards",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -88,14 +88,14 @@
     {
       "id": "task-21-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'automated', 'criteria': 'Detect and block ../..paths in static asset references', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'manual', 'criteria': 'Each new snippet renders correctly with Odoo color classes and data-snippet attributes', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
-        "type": "automated",
-        "criteria": "Detect and block ../..paths in static asset references",
+        "type": "manual",
+        "criteria": "Each new snippet renders correctly with Odoo color classes and data-snippet attributes",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-02-10T15:42:04.974894",
+  "created_at": "2026-02-16T14:08:45.819491",
   "lsp_impact": {}
 }

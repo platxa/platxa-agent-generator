@@ -1,22 +1,22 @@
 {
   "id": "plan-feature-28",
-  "title": "Implementation: Implement intent classification using keyword matching + LLM...",
+  "title": "Implementation: Add test coverage for self-correction divergence: verify loo...",
   "context": {
     "spec_id": "feature-28",
     "feature_id": "28",
     "dependencies": [],
     "metadata": {
-      "category": "Phase 1: Agentic Core",
+      "category": "Testing/SelfCorrection",
       "verification_criteria": {
         "type": "test",
-        "criteria": "Keywords: explore/options/what-if \u2192 plan; create/build/add \u2192 agent",
+        "criteria": "Loop detects divergence and stops with best-so-far output instead of continuing",
         "completed": false,
         "evidence": null,
         "verified_at": null,
         "requirements_addressed": []
       }
     },
-    "created_at": "2026-01-29T15:31:57.294959"
+    "created_at": "2026-02-16T14:16:57.562847"
   },
   "phases": [
     "research",
@@ -28,7 +28,7 @@
     {
       "id": "task-28-1",
       "title": "Analyze Requirements",
-      "description": "Review feature requirements: Implement intent classification using keyword matching + LLM fallback",
+      "description": "Review feature requirements: Add test coverage for self-correction divergence: verify loop detects when iteration N introduces new errors",
       "step_type": "setup",
       "status": "pending",
       "order": 0,
@@ -58,7 +58,7 @@
     {
       "id": "task-28-3",
       "title": "Implement Feature",
-      "description": "Implement: Implement intent classification using keyword matching + LLM fallback",
+      "description": "Implement: Add test coverage for self-correction divergence: verify loop detects when iteration N introduces new errors",
       "step_type": "implement",
       "status": "pending",
       "order": 2,
@@ -88,14 +88,14 @@
     {
       "id": "task-28-5",
       "title": "Verify Acceptance Criteria",
-      "description": "Verify: {'type': 'test', 'criteria': 'Keywords: explore/options/what-if \u2192 plan; create/build/add \u2192 agent', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
+      "description": "Verify: {'type': 'test', 'criteria': 'Loop detects divergence and stops with best-so-far output instead of continuing', 'completed': False, 'evidence': None, 'verified_at': None, 'requirements_addressed': []}",
       "step_type": "test",
       "status": "pending",
       "order": 4,
       "estimated_effort": "small",
       "verification": {
         "type": "test",
-        "criteria": "Keywords: explore/options/what-if \u2192 plan; create/build/add \u2192 agent",
+        "criteria": "Loop detects divergence and stops with best-so-far output instead of continuing",
         "completed": false,
         "evidence": null,
         "verified_at": null,
@@ -110,6 +110,6 @@
   ],
   "constitution_check": true,
   "notes": "",
-  "created_at": "2026-01-29T15:31:57.295000",
+  "created_at": "2026-02-16T14:16:57.562870",
   "lsp_impact": {}
 }
