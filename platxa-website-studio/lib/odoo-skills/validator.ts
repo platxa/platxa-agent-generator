@@ -433,19 +433,19 @@ export function validateQWebTemplate(
     }
   }
 
-  // Check o_cc color class range (valid: o_cc1-o_cc4 only)
+  // Check o_cc color class range (valid: o_cc1-o_cc5 in Odoo 18)
   const occPattern = /\bo_cc(\d+)\b/g;
   for (const occMatch of content.matchAll(occPattern)) {
     const colorNum = parseInt(occMatch[1], 10);
-    if (colorNum < 1 || colorNum > 4) {
+    if (colorNum < 1 || colorNum > 5) {
       const lineNum = content.substring(0, occMatch.index!).split("\n").length;
       issues.push({
         severity: "error",
         code: "QWEB010",
-        message: `Invalid color class o_cc${colorNum} — only o_cc1 through o_cc4 are valid in Odoo 18`,
+        message: `Invalid color class o_cc${colorNum} — only o_cc1 through o_cc5 are valid in Odoo 18`,
         file: filePath,
         line: lineNum,
-        suggestion: `Replace with o_cc1, o_cc2, o_cc3, or o_cc4`,
+        suggestion: `Replace with o_cc1, o_cc2, o_cc3, o_cc4, or o_cc5`,
       });
     }
   }

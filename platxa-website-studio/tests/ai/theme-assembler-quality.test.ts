@@ -295,10 +295,13 @@ describe("assembleThemeFiles — section deduplication", () => {
     expect(templatesFile!.content).toContain("s_text_block");
   });
 
-  it("empty input returns no templates.xml", () => {
+  it("empty input returns fallback minimal homepage", () => {
     const result = assembleThemeFiles([]);
     const templatesFile = result.find(f => f.path.includes("templates.xml"));
-    expect(templatesFile).toBeUndefined();
+    expect(templatesFile).toBeDefined();
+    expect(templatesFile!.content).toContain('inherit_id="website.homepage"');
+    expect(templatesFile!.content).toContain('<xpath');
+    expect(templatesFile!.content).toContain('s_cover');
   });
 });
 

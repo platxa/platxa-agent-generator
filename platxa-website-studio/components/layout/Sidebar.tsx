@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
-import { useEditorStore } from "@/lib/stores";
+import { useEditorStore, useProjectStore } from "@/lib/stores";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -45,6 +45,7 @@ export function Sidebar({
   const [mounted, setMounted] = useState(false);
   const { setTheme, resolvedTheme } = useTheme();
   const fileContents = useEditorStore((state) => state.fileContents);
+  const projectConfig = useProjectStore((state) => state.projectConfig);
 
   // Avoid hydration mismatch for theme
   useEffect(() => {
@@ -81,8 +82,9 @@ export function Sidebar({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           themeName,
+          industry: projectConfig?.industry,
           files: exportFiles,
-          options: { validate: true, includeReadme: true },
+          options: { validate: true },
         }),
       });
 

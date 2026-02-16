@@ -86,6 +86,54 @@ function detectSnippetType(html: string): string {
 }
 
 /**
+ * Extract balanced blocks of a given tag from HTML content.
+ * Handles nested tags correctly by counting depth.
+ * Returns array of { outerHtml, innerHtml, startIndex }.
+ */
+function extractBalancedBlocks(content: string, tagName: string): Array<{ outerHtml: string; innerHtml: string }> {
+  const results: Array<{ outerHtml: string; innerHtml: string }> = [];
+  const openPattern = new RegExp(`<${tagName}\\b[^>]*>`, 'gi');
+  let openMatch;
+
+  while ((openMatch = openPattern.exec(content)) !== null) {
+    const openTag = openMatch[0];
+    const innerStart = openMatch.index + openTag.length;
+    let depth = 1;
+    let i = innerStart;
+    const closeTag = `</${tagName}>`;
+    const openTag2 = `<${tagName}`;
+
+    while (i < content.length && depth > 0) {
+      const closeIdx = content.indexOf(closeTag, i);
+      const nextOpenIdx = content.toLowerCase().indexOf(openTag2.toLowerCase(), i);
+
+      if (closeIdx === -1) break; // Unclosed tag, bail
+
+      if (nextOpenIdx !== -1 && nextOpenIdx < closeIdx) {
+        // Found a nested open tag before the next close
+        depth++;
+        i = nextOpenIdx + openTag2.length;
+      } else {
+        // Found a close tag
+        depth--;
+        if (depth === 0) {
+          const innerHtml = content.substring(innerStart, closeIdx);
+          const outerEnd = closeIdx + closeTag.length;
+          const outerHtml = content.substring(openMatch.index, outerEnd);
+          results.push({ outerHtml, innerHtml });
+          // Advance regex past this entire block so nested tags aren't
+          // re-extracted as standalone blocks (prevents duplicate content)
+          openPattern.lastIndex = outerEnd;
+        }
+        i = closeIdx + closeTag.length;
+      }
+    }
+  }
+
+  return results;
+}
+
+/**
  * Extract sections from AI-generated content (XML, HTML, or mixed)
  *
  * Handles all formats:
@@ -94,23 +142,24 @@ function detectSnippetType(html: string): string {
  * 3. Raw sections: <section>...<section>...
  * 4. Footer/header blocks: <footer>..., <header>...
  * 5. Plain div content: <div class="container">...
+ *
+ * Uses balanced tag extraction to correctly handle nested sections.
  */
 export function extractSections(content: string): ExtractedSection[] {
   const sections: ExtractedSection[] = [];
   const seenContent = new Set<string>();
 
-  // Phase 1: Extract <section> blocks
-  const sectionRegex = /<section\b[^>]*>([\s\S]*?)<\/section>/gi;
-  let match;
-  while ((match = sectionRegex.exec(content)) !== null) {
-    const innerHtml = match[1].trim();
+  // Phase 1: Extract <section> blocks (balanced, handles nesting)
+  const sectionBlocks = extractBalancedBlocks(content, 'section');
+  for (const block of sectionBlocks) {
+    const innerHtml = block.innerHtml.trim();
     if (!innerHtml || innerHtml.length < 20) continue;
 
     const contentKey = innerHtml.substring(0, 80);
     if (seenContent.has(contentKey)) continue;
     seenContent.add(contentKey);
 
-    const snippetType = detectSnippetType(match[0]);
+    const snippetType = detectSnippetType(block.outerHtml);
     sections.push({
       snippetType,
       innerHtml,
@@ -119,9 +168,9 @@ export function extractSections(content: string): ExtractedSection[] {
   }
 
   // Phase 2: Extract <footer> blocks (if not already found as sections)
-  const footerRegex = /<footer\b[^>]*>([\s\S]*?)<\/footer>/gi;
-  while ((match = footerRegex.exec(content)) !== null) {
-    const innerHtml = match[1].trim();
+  const footerBlocks = extractBalancedBlocks(content, 'footer');
+  for (const block of footerBlocks) {
+    const innerHtml = block.innerHtml.trim();
     if (!innerHtml || innerHtml.length < 20) continue;
 
     const contentKey = innerHtml.substring(0, 80);
@@ -137,29 +186,34 @@ export function extractSections(content: string): ExtractedSection[] {
 
   // Phase 3: Extract <header>/<nav> blocks (if no hero section found)
   if (!sections.some(s => s.snippetType === SNIPPET_TYPES.hero)) {
-    const headerRegex = /<(?:header|nav)\b[^>]*>([\s\S]*?)<\/(?:header|nav)>/gi;
-    while ((match = headerRegex.exec(content)) !== null) {
-      const innerHtml = match[1].trim();
-      if (!innerHtml || innerHtml.length < 20) continue;
+    for (const tag of ['header', 'nav'] as const) {
+      const headerBlocks = extractBalancedBlocks(content, tag);
+      for (const block of headerBlocks) {
+        const innerHtml = block.innerHtml.trim();
+        if (!innerHtml || innerHtml.length < 20) continue;
 
-      const contentKey = innerHtml.substring(0, 80);
-      if (seenContent.has(contentKey)) continue;
-      seenContent.add(contentKey);
+        const contentKey = innerHtml.substring(0, 80);
+        if (seenContent.has(contentKey)) continue;
+        seenContent.add(contentKey);
 
-      sections.push({
-        snippetType: SNIPPET_TYPES.hero,
-        innerHtml,
-        isFooter: false,
-      });
+        sections.push({
+          snippetType: SNIPPET_TYPES.hero,
+          innerHtml,
+          isFooter: false,
+        });
+      }
     }
   }
 
   // Phase 4: If no sections found, try to extract standalone <div class="container"> blocks
   if (sections.length === 0) {
-    const containerRegex = /<div\b[^>]*class="[^"]*container[^"]*"[^>]*>([\s\S]*?)<\/div>/gi;
+    const divBlocks = extractBalancedBlocks(content, 'div');
     let idx = 0;
-    while ((match = containerRegex.exec(content)) !== null) {
-      const innerHtml = match[0].trim(); // Keep the whole container div
+    for (const block of divBlocks) {
+      // Only keep divs with a container class
+      if (!/class="[^"]*container[^"]*"/.test(block.outerHtml)) continue;
+
+      const innerHtml = block.outerHtml.trim(); // Keep the whole container div
       if (!innerHtml || innerHtml.length < 30) continue;
 
       const contentKey = innerHtml.substring(0, 80);
@@ -240,6 +294,24 @@ export function stripInlineTags(html: string): string {
 }
 
 /**
+ * Escape bare & characters in HTML content so the XML is well-formed.
+ * Preserves existing entities (&amp; &lt; &gt; &quot; &apos; &#NNN; &#xHHH;).
+ */
+export function escapeXmlEntities(html: string): string {
+  return html.replace(/&(?!(?:amp|lt|gt|quot|apos|#\d+|#x[0-9a-fA-F]+);)/gi, '&amp;');
+}
+
+/**
+ * Self-close XML void tags — required for strict XML parsing in Odoo's QWeb engine.
+ * HTML allows <img>, <br>, <hr> etc. without closing, but XML requires <img />.
+ */
+export function selfCloseVoidTags(html: string): string {
+  const voidTags = ['img', 'br', 'hr', 'input', 'meta', 'link', 'area', 'base', 'col', 'embed', 'param', 'source', 'track', 'wbr'];
+  const pattern = new RegExp(`<(${voidTags.join('|')})\\b([^>]*?)\\s*(?<!/)>`, 'gi');
+  return html.replace(pattern, '<$1$2 />');
+}
+
+/**
  * Apply all content-level fixes to HTML
  */
 function fixSectionContent(html: string): string {
@@ -251,6 +323,10 @@ function fixSectionContent(html: string): string {
   fixed = fixTailwindClasses(fixed);
   fixed = fixPlaceholderUrls(fixed);
   fixed = fixImages(fixed);
+  // XML well-formedness: escape bare & characters
+  fixed = escapeXmlEntities(fixed);
+  // XML compliance: self-close void tags (<img>, <br>, <hr>, etc.)
+  fixed = selfCloseVoidTags(fixed);
   return fixed;
 }
 
@@ -344,6 +420,35 @@ ${sectionBlocks}
 </odoo>`;
 }
 
+/**
+ * Quick XML well-formedness check: verify all non-void tags are balanced.
+ * Returns true if well-formed, false if mismatched tags detected.
+ */
+export function isXmlWellFormed(xml: string): boolean {
+  const voidTags = new Set(["br", "hr", "img", "input", "meta", "link", "area", "base", "col", "embed", "param", "source", "track", "wbr"]);
+  const stack: string[] = [];
+  const tagRegex = /<\/?([a-zA-Z][a-zA-Z0-9-]*)[^>]*\/?>/g;
+  let match;
+
+  while ((match = tagRegex.exec(xml)) !== null) {
+    const full = match[0];
+    const tag = match[1].toLowerCase();
+
+    // Skip self-closing, comments, processing instructions
+    if (full.endsWith("/>") || full.startsWith("<!") || full.startsWith("<?")) continue;
+    if (voidTags.has(tag)) continue;
+
+    if (full.startsWith("</")) {
+      if (stack.length === 0 || stack[stack.length - 1] !== tag) return false;
+      stack.pop();
+    } else {
+      stack.push(tag);
+    }
+  }
+
+  return stack.length === 0;
+}
+
 // =============================================================================
 // PRIMARY_VARIABLES.SCSS ASSEMBLY
 // =============================================================================
@@ -367,23 +472,54 @@ interface OdooFonts {
  * Industry default color palettes (Odoo o-color format)
  */
 const INDUSTRY_COLORS: Record<string, OdooColorPalette> = {
-  restaurant: { primary: "#c9302c", secondary: "#8b4513", accent: "#d4a373", light: "#fefae0", dark: "#2d2d2d" },
-  technology: { primary: "#2563eb", secondary: "#7c3aed", accent: "#06b6d4", light: "#f8fafc", dark: "#0f172a" },
-  legal:      { primary: "#1a365d", secondary: "#c9a227", accent: "#4a5568", light: "#f7f7f7", dark: "#1a202c" },
-  healthcare: { primary: "#0d9488", secondary: "#0284c7", accent: "#06b6d4", light: "#f0fdfa", dark: "#134e4a" },
-  ecommerce:  { primary: "#7c3aed", secondary: "#ec4899", accent: "#f59e0b", light: "#faf5ff", dark: "#1e1b4b" },
+  restaurant:   { primary: "#c9302c", secondary: "#8b4513", accent: "#d4a373", light: "#fefae0", dark: "#2d2d2d" },
+  technology:   { primary: "#2563eb", secondary: "#7c3aed", accent: "#06b6d4", light: "#f8fafc", dark: "#0f172a" },
+  legal:        { primary: "#1e3a5f", secondary: "#c9a227", accent: "#2d4a6f", light: "#f7f7f7", dark: "#1a1a1a" },
+  healthcare:   { primary: "#0d9488", secondary: "#0284c7", accent: "#14b8a6", light: "#f0fdfa", dark: "#134e4a" },
+  ecommerce:    { primary: "#7c3aed", secondary: "#ec4899", accent: "#f59e0b", light: "#faf5ff", dark: "#1e1b4b" },
+  education:    { primary: "#4f46e5", secondary: "#0891b2", accent: "#f97316", light: "#f5f5ff", dark: "#1e1b4b" },
+  realestate:   { primary: "#0f766e", secondary: "#b45309", accent: "#14b8a6", light: "#f7f9f9", dark: "#134e4a" },
+  fitness:      { primary: "#dc2626", secondary: "#1f2937", accent: "#f59e0b", light: "#fafafa", dark: "#111827" },
+  creative:     { primary: "#be185d", secondary: "#7c3aed", accent: "#06b6d4", light: "#fdf4ff", dark: "#1f2937" },
+  nonprofit:    { primary: "#0891b2", secondary: "#059669", accent: "#f97316", light: "#ecfeff", dark: "#164e63" },
+  beauty:       { primary: "#be185d", secondary: "#a21caf", accent: "#e879a4", light: "#fdf2f8", dark: "#1f2937" },
+  automotive:   { primary: "#1e3a8a", secondary: "#dc2626", accent: "#f59e0b", light: "#f8fafc", dark: "#0f172a" },
+  finance:      { primary: "#0c4a6e", secondary: "#115e59", accent: "#0284c7", light: "#f0f9ff", dark: "#0c4a6e" },
+  construction: { primary: "#d97706", secondary: "#374151", accent: "#f59e0b", light: "#fafaf9", dark: "#1c1917" },
+  travel:       { primary: "#0369a1", secondary: "#059669", accent: "#f97316", light: "#f0f9ff", dark: "#0c4a6e" },
+  photography:  { primary: "#18181b", secondary: "#a1a1aa", accent: "#e4e4e7", light: "#fafafa", dark: "#18181b" },
+  generic:      { primary: "#2563eb", secondary: "#64748b", accent: "#10b981", light: "#f8fafc", dark: "#1e293b" },
 };
 
 const INDUSTRY_FONTS: Record<string, OdooFonts> = {
-  restaurant: { heading: "Playfair Display", headingFallback: "serif", body: "Lato", bodyFallback: "sans-serif" },
-  technology: { heading: "Inter", headingFallback: "sans-serif", body: "Inter", bodyFallback: "sans-serif" },
-  legal:      { heading: "EB Garamond", headingFallback: "serif", body: "Source Sans Pro", bodyFallback: "sans-serif" },
-  healthcare: { heading: "Poppins", headingFallback: "sans-serif", body: "Open Sans", bodyFallback: "sans-serif" },
-  ecommerce:  { heading: "Poppins", headingFallback: "sans-serif", body: "Inter", bodyFallback: "sans-serif" },
+  restaurant:   { heading: "Playfair Display", headingFallback: "serif", body: "Lato", bodyFallback: "sans-serif" },
+  technology:   { heading: "Inter", headingFallback: "sans-serif", body: "Inter", bodyFallback: "sans-serif" },
+  legal:        { heading: "Merriweather", headingFallback: "serif", body: "Source Sans Pro", bodyFallback: "sans-serif" },
+  healthcare:   { heading: "Nunito", headingFallback: "sans-serif", body: "Open Sans", bodyFallback: "sans-serif" },
+  ecommerce:    { heading: "Poppins", headingFallback: "sans-serif", body: "Poppins", bodyFallback: "sans-serif" },
+  education:    { heading: "Nunito", headingFallback: "sans-serif", body: "Nunito", bodyFallback: "sans-serif" },
+  realestate:   { heading: "Cormorant Garamond", headingFallback: "serif", body: "Montserrat", bodyFallback: "sans-serif" },
+  fitness:      { heading: "Oswald", headingFallback: "sans-serif", body: "Roboto", bodyFallback: "sans-serif" },
+  creative:     { heading: "Space Grotesk", headingFallback: "sans-serif", body: "DM Sans", bodyFallback: "sans-serif" },
+  nonprofit:    { heading: "Nunito", headingFallback: "sans-serif", body: "Open Sans", bodyFallback: "sans-serif" },
+  beauty:       { heading: "Cormorant Garamond", headingFallback: "serif", body: "Lato", bodyFallback: "sans-serif" },
+  automotive:   { heading: "Rajdhani", headingFallback: "sans-serif", body: "Roboto", bodyFallback: "sans-serif" },
+  finance:      { heading: "IBM Plex Sans", headingFallback: "sans-serif", body: "IBM Plex Sans", bodyFallback: "sans-serif" },
+  construction: { heading: "Oswald", headingFallback: "sans-serif", body: "Open Sans", bodyFallback: "sans-serif" },
+  travel:       { heading: "Montserrat", headingFallback: "sans-serif", body: "Open Sans", bodyFallback: "sans-serif" },
+  photography:  { heading: "Libre Baskerville", headingFallback: "serif", body: "Karla", bodyFallback: "sans-serif" },
+  generic:      { heading: "Inter", headingFallback: "sans-serif", body: "Inter", bodyFallback: "sans-serif" },
 };
 
 const DEFAULT_COLORS: OdooColorPalette = { primary: "#0d6efd", secondary: "#6c757d", accent: "#198754", light: "#f8f9fa", dark: "#212529" };
 const DEFAULT_FONTS: OdooFonts = { heading: "Poppins", headingFallback: "sans-serif", body: "Open Sans", bodyFallback: "sans-serif" };
+
+/**
+ * Validate a CSS hex color string (#RGB or #RRGGBB)
+ */
+function isValidHex(color: string | null): color is string {
+  return color !== null && /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(color);
+}
 
 /**
  * Extract color values from AI-generated SCSS (if it has $o-color-palettes)
@@ -399,16 +535,43 @@ function extractColorsFromScss(scss: string): OdooColorPalette | null {
   };
 
   const primary = extract("o-color-1");
+  if (!isValidHex(primary)) return null; // Need at least a valid primary color
+
   const secondary = extract("o-color-2");
-  if (!primary) return null; // Need at least primary color
+  const accent = extract("o-color-3");
+  const light = extract("o-color-4");
+  const dark = extract("o-color-5");
 
   return {
     primary,
-    secondary: secondary || DEFAULT_COLORS.secondary,
-    accent: extract("o-color-3") || DEFAULT_COLORS.accent,
-    light: extract("o-color-4") || DEFAULT_COLORS.light,
-    dark: extract("o-color-5") || DEFAULT_COLORS.dark,
+    secondary: isValidHex(secondary) ? secondary : DEFAULT_COLORS.secondary,
+    accent: isValidHex(accent) ? accent : DEFAULT_COLORS.accent,
+    light: isValidHex(light) ? light : DEFAULT_COLORS.light,
+    dark: isValidHex(dark) ? dark : DEFAULT_COLORS.dark,
   };
+}
+
+/**
+ * Sanitize a font name for safe SCSS injection.
+ * Only allows alphanumeric, spaces, hyphens, periods, and commas.
+ */
+function sanitizeFontName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9 \-.,]/g, '').trim();
+}
+
+/**
+ * Detect if a font name is a serif font.
+ * Checks both the name (contains "serif") and a list of known serif families.
+ */
+function isSerifFont(fontName: string): boolean {
+  const lower = fontName.toLowerCase();
+  if (lower.includes("serif")) return true;
+  const knownSerif = [
+    "playfair display", "eb garamond", "merriweather", "cormorant garamond",
+    "libre baskerville", "lora", "crimson text", "georgia", "times",
+    "bodoni", "didot", "garamond", "palatino",
+  ];
+  return knownSerif.some(s => lower.includes(s));
 }
 
 /**
@@ -419,11 +582,14 @@ function extractFontsFromScss(scss: string): OdooFonts | null {
   const bodyMatch = scss.match(/['"]font['"]\s*:\s*['"]([^'"]+)['"]/);
   if (!headingMatch && !bodyMatch) return null;
 
+  const heading = sanitizeFontName(headingMatch?.[1] || DEFAULT_FONTS.heading);
+  const body = sanitizeFontName(bodyMatch?.[1] || DEFAULT_FONTS.body);
+
   return {
-    heading: headingMatch?.[1] || DEFAULT_FONTS.heading,
-    headingFallback: headingMatch?.[1]?.toLowerCase().includes("serif") ? "serif" : "sans-serif",
-    body: bodyMatch?.[1] || DEFAULT_FONTS.body,
-    bodyFallback: "sans-serif",
+    heading: heading || DEFAULT_FONTS.heading,
+    headingFallback: isSerifFont(heading) ? "serif" : "sans-serif",
+    body: body || DEFAULT_FONTS.body,
+    bodyFallback: isSerifFont(body) ? "serif" : "sans-serif",
   };
 }
 
@@ -575,7 +741,14 @@ export function assembleThemeScss(existingScss: string | null): string {
     // Only strip standalone color/background-color with hex values; preserve rgba(), var(), etc.
     fixed = fixed.replace(/\s*(?:(?:background-)?color)\s*:\s*#[0-9a-fA-F]{3,8}\s*;/gi, '');
 
-    return fixed.trim() + '\n';
+    // Strip empty rulesets left behind after stripping (e.g. `.card { }`)
+    fixed = fixed.replace(/[^{};\n]+\s*\{\s*\}/g, '');
+
+    // If stripping left only whitespace/comments, fall through to default
+    const meaningful = fixed.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+    if (meaningful.length > 20) {
+      return fixed.trim() + '\n';
+    }
   }
 
   // Default theme.scss
@@ -656,12 +829,17 @@ export function assembleThemeFiles(
   // Assemble templates.xml (only if we have sections)
   if (uniqueSections.length > 0) {
     const templatesXml = assembleTemplatesXml(uniqueSections);
-    result.push({
-      path: "theme_generated/views/templates.xml",
-      content: templatesXml,
-      language: "xml",
-      action: "create",
-    });
+    if (templatesXml && isXmlWellFormed(templatesXml)) {
+      result.push({
+        path: "theme_generated/views/templates.xml",
+        content: templatesXml,
+        language: "xml",
+        action: "create",
+      });
+    } else if (templatesXml) {
+      // XML assembled but failed well-formedness — log and let fallback handle it
+      console.warn("[Assembler] Assembled XML failed well-formedness check, falling back");
+    }
   } else if (xmlFiles.length > 0) {
     // Fallback: keep the first XML file with minimal fixes
     const firstXml = xmlFiles[0];
@@ -673,6 +851,31 @@ export function assembleThemeFiles(
     result.push({
       path: "theme_generated/views/templates.xml",
       content,
+      language: "xml",
+      action: "create",
+    });
+  }
+
+  // Fallback: if no templates.xml was produced, generate a minimal valid homepage
+  if (!result.some(f => f.path.endsWith('templates.xml'))) {
+    result.push({
+      path: "theme_generated/views/templates.xml",
+      content: `<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <template id="homepage_content" name="Homepage" inherit_id="website.homepage" customize_show="True">
+    <xpath expr="//div[@id='wrap']" position="replace">
+      <div id="wrap" class="oe_structure">
+        <section class="o_cc o_cc1 pt96 pb96" data-snippet="s_cover">
+          <div class="container text-center">
+            <h1 class="display-3 fw-bold">Welcome</h1>
+            <p class="lead">Your new website is ready to customize.</p>
+            <a href="/contactus" class="btn btn-primary btn-lg rounded-pill mt-3">Get Started</a>
+          </div>
+        </section>
+      </div>
+    </xpath>
+  </template>
+</odoo>`,
       language: "xml",
       action: "create",
     });
@@ -727,11 +930,12 @@ export function assembleThemeFiles(
     !f.path.includes('__manifest__') && !f.path.includes('__init__') &&
     f.language !== 'xml' && f.language !== 'html'
   );
-  for (const file of otherFiles) {
-    if (file.path.endsWith('.js')) {
-      result.push(file);
-    }
-  }
+  // Skip JS/TS files — Odoo 18 website themes use SCSS for styling and
+  // XML QWeb templates for structure. AI-generated JS often contains
+  // unsafe patterns (innerHTML, eval) that fail security scans and are
+  // unnecessary for theme functionality.
+  // If JS is truly needed, it should go through the asset bundle system
+  // and be registered in __manifest__.py, not generated ad-hoc.
 
   // === Step 4: Add module icon (prevents broken image in Odoo Apps list) ===
   result.push({

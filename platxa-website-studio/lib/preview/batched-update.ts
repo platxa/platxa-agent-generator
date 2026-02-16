@@ -423,9 +423,11 @@ export class BatchedUpdateSystem {
     }
 
     switch (update.type) {
-      case 'html':
-        element.innerHTML = update.payload as string;
+      case 'html': {
+        const doc = new DOMParser().parseFromString(update.payload as string, 'text/html');
+        element.replaceChildren(...Array.from(doc.body.childNodes));
         break;
+      }
       case 'css':
         if (element instanceof HTMLStyleElement) {
           element.textContent = update.payload as string;
@@ -442,10 +444,12 @@ export class BatchedUpdateSystem {
         if (classes.add) element.classList.add(...classes.add);
         if (classes.remove) element.classList.remove(...classes.remove);
         break;
-      case 'snippet':
-        // Snippet updates use morphdom for efficient diffing
-        element.innerHTML = update.payload as string;
+      case 'snippet': {
+        // Snippet updates use DOMParser for safe HTML parsing
+        const snippetDoc = new DOMParser().parseFromString(update.payload as string, 'text/html');
+        element.replaceChildren(...Array.from(snippetDoc.body.childNodes));
         break;
+      }
     }
   }
 

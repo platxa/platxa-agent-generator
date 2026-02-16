@@ -435,7 +435,7 @@ describe("generateManifest", () => {
   });
 
   describe("JS files", () => {
-    it("routes JS files to web.assets_frontend bundle", () => {
+    it("excludes JS files from manifest — Odoo 18 themes don't need custom JS", () => {
       const files: ParsedFile[] = [
         {
           path: "theme_generated/static/src/js/theme.js",
@@ -447,8 +447,8 @@ describe("generateManifest", () => {
 
       const manifest = generateManifest("Test Theme", files);
 
-      expect(manifest).toContain("web.assets_frontend");
-      expect(manifest).toContain("theme_generated/static/src/js/theme.js");
+      // JS files should NOT appear in manifest
+      expect(manifest).not.toContain("theme.js");
     });
   });
 
@@ -488,12 +488,6 @@ describe("generateManifest", () => {
           "$btn-border-radius: 0.25rem;"
         ),
         makeScssFile("theme.scss", "body { font-family: sans-serif; }"),
-        {
-          path: "theme_generated/static/src/js/theme.js",
-          content: "console.log('init');",
-          language: "javascript",
-          action: "create",
-        },
         makeXmlFile("templates.xml", "<odoo></odoo>"),
       ];
 
@@ -520,9 +514,9 @@ describe("generateManifest", () => {
       expect(manifest).toContain(
         "'theme_restaurant/static/src/scss/theme.scss'"
       );
-      expect(manifest).toContain(
-        "'theme_restaurant/static/src/js/theme.js'"
-      );
+
+      // JS files should NOT be in manifest
+      expect(manifest).not.toContain("theme.js");
 
       // Metadata
       expect(manifest).toContain("'category': 'Website/Theme'");

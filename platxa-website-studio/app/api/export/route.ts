@@ -107,6 +107,7 @@ $container-padding-x: 0.75rem !default;
 
 interface ExportRequestBody {
   themeName: string;
+  industry?: string;
   files: Array<{
     path: string;
     content: string;
@@ -212,10 +213,65 @@ export async function POST(req: Request) {
       businessName: body.themeName.replace(/^theme_/, "").replace(/_/g, " "),
     });
 
-    // Step 2.5: Template-based assembly — rebuild files from correct Odoo 18 templates
-    // Extracts content from AI output and guarantees correct structure
-    const consolidatedFiles = assembleThemeFiles(qualityResult.files, body.themeName);
-    console.log(`[Export] Assembled ${qualityResult.files.length} files into ${consolidatedFiles.length} theme files`);
+    // Step 2.5: Auto-detect industry from AI output if not provided by frontend.
+    // In demo mode, projectConfig is null so industry isn't sent in the export request.
+    // Fall back to detecting it from template content (restaurant keywords, tech keywords, etc.)
+    let effectiveIndustry = body.industry;
+    if (!effectiveIndustry) {
+      const allContent = qualityResult.files.map(f => f.content).join(" ").toLowerCase();
+      const industryHints: Record<string, string[]> = {
+        restaurant: ["restaurant", "menu", "reservation", "dish", "chef", "dining", "cuisine"],
+        technology: ["saas", "software", "api", "cloud", "startup", "platform", "integration"],
+        legal: ["law", "attorney", "lawyer", "legal", "practice area", "case result"],
+        healthcare: ["medical", "doctor", "patient", "clinic", "health", "appointment"],
+        ecommerce: ["shop", "product", "cart", "price", "buy", "store", "deal"],
+        education: ["course", "student", "learn", "program", "instructor", "enrollment"],
+        realestate: ["property", "listing", "agent", "real estate", "mortgage", "home"],
+        fitness: ["gym", "workout", "fitness", "training", "class", "trainer"],
+        beauty: ["salon", "beauty", "spa", "treatment", "hair", "skincare"],
+        automotive: ["vehicle", "car", "dealer", "inventory", "financing", "auto"],
+        finance: ["finance", "investment", "banking", "rate", "loan", "insurance"],
+        construction: ["construction", "project", "building", "contractor", "renovation"],
+        travel: ["travel", "destination", "tour", "booking", "vacation", "trip"],
+        photography: ["photo", "portfolio", "gallery", "shoot", "portrait", "studio"],
+        nonprofit: ["donate", "mission", "volunteer", "impact", "cause", "charity"],
+        creative: ["portfolio", "design", "creative", "illustration", "branding"],
+      };
+      for (const [industry, keywords] of Object.entries(industryHints)) {
+        if (keywords.some(kw => allContent.includes(kw))) {
+          effectiveIndustry = industry;
+          break;
+        }
+      }
+      if (effectiveIndustry) {
+        console.log(`[Export] Auto-detected industry: ${effectiveIndustry}`);
+      }
+    }
+
+    // ALWAYS run through assembler — produces the correct Odoo 18
+    // file set (templates.xml, primary_variables.scss, bootstrap_overridden.scss,
+    // theme.scss, icon.svg). Even if AI output looks assembled, it may contain
+    // extra files (pages.xml, product_page.xml, style.scss) that would break
+    // deployment. The assembler is idempotent and merges all useful content.
+    const assembledFiles = assembleThemeFiles(qualityResult.files, body.themeName, effectiveIndustry);
+
+    // Enforce strict file whitelist — Odoo 18 website themes only need these files.
+    // This prevents AI-generated junk (extra XML, JS, CSS, .gitignore, README)
+    // from reaching the final export.
+    const ALLOWED_PATTERNS = [
+      /views\/templates\.xml$/,
+      /static\/src\/scss\/primary_variables\.scss$/,
+      /static\/src\/scss\/bootstrap_overridden\.scss$/,
+      /static\/src\/scss\/theme\.scss$/,
+      /static\/description\/icon\.svg$/,
+      /__manifest__\.py$/,
+      /__init__\.py$/,
+    ];
+    const consolidatedFiles = assembledFiles.filter(f =>
+      ALLOWED_PATTERNS.some(pattern => pattern.test(f.path))
+    );
+    const stripped = assembledFiles.length - consolidatedFiles.length;
+    console.log(`[Export] Assembled ${qualityResult.files.length} AI files into ${consolidatedFiles.length} theme files${stripped > 0 ? ` (stripped ${stripped} non-essential files)` : ''}`);
 
     // Step 2.6: Security scan for vulnerabilities in generated code
     // SECURITY: Scan for XSS, SQL injection, path traversal, etc.
@@ -337,8 +393,8 @@ export async function POST(req: Request) {
       themeName: body.themeName,
       files,
       validate: body.options?.validate ?? true,
-      includeReadme: body.options?.includeReadme ?? true,
-      includeGitignore: body.options?.includeGitignore ?? true,
+      includeReadme: body.options?.includeReadme ?? false,
+      includeGitignore: body.options?.includeGitignore ?? false,
       author: body.options?.author,
       website: body.options?.website,
     });

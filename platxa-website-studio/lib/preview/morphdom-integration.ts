@@ -212,10 +212,9 @@ export class MorphdomIntegration {
       const options = this.buildMorphdomOptions();
 
       if (typeof newContent === "string") {
-        // Parse HTML string to element
-        const template = document.createElement("template");
-        template.innerHTML = newContent.trim();
-        const newElement = template.content.firstElementChild;
+        // Parse HTML string safely via DOMParser
+        const parsed = new DOMParser().parseFromString(newContent.trim(), "text/html");
+        const newElement = parsed.body.firstElementChild;
 
         if (!newElement) {
           throw new Error("Invalid HTML: no root element found");
@@ -400,9 +399,8 @@ export function morphWithDefaults(
   };
 
   if (typeof toNode === "string") {
-    const template = document.createElement("template");
-    template.innerHTML = toNode.trim();
-    const newElement = template.content.firstElementChild;
+    const parsed = new DOMParser().parseFromString(toNode.trim(), "text/html");
+    const newElement = parsed.body.firstElementChild;
     if (!newElement) {
       throw new Error("Invalid HTML: no root element found");
     }

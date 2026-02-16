@@ -151,9 +151,8 @@ export function generateHMRRuntimeScript(config: HMRRuntimeConfig = {}): string 
     try {
       if (config.useMorphdom && typeof morphdom !== 'undefined') {
         // Use morphdom for efficient DOM diffing
-        var temp = document.createElement('div');
-        temp.innerHTML = html;
-        var newElement = temp.firstElementChild;
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var newElement = doc.body.firstElementChild;
         if (newElement) {
           morphdom(element, newElement, {
             onBeforeElUpdated: function(fromEl, toEl) {
@@ -166,8 +165,12 @@ export function generateHMRRuntimeScript(config: HMRRuntimeConfig = {}): string 
           });
         }
       } else {
-        // Fallback to innerHTML replacement
-        element.outerHTML = html;
+        // Fallback to safe DOM replacement
+        var fallbackDoc = new DOMParser().parseFromString(html, 'text/html');
+        var replacement = fallbackDoc.body.firstElementChild;
+        if (replacement) {
+          element.replaceWith(replacement);
+        }
       }
 
       log('Updated snippet:', snippetId);

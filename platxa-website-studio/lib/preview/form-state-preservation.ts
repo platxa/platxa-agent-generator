@@ -367,7 +367,8 @@ export class FormStatePreserver {
           element.value = state.value;
         }
       } else if (element.hasAttribute('contenteditable')) {
-        element.innerHTML = state.value;
+        const doc = new DOMParser().parseFromString(state.value, 'text/html');
+        element.replaceChildren(...Array.from(doc.body.childNodes));
       }
 
       return true;

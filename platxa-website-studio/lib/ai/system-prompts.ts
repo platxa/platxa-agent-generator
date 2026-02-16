@@ -754,12 +754,14 @@ Custom Odoo Color Overrides (use in $o-color-palettes):
     } : undefined);
 
     if (colors?.primary) {
-      // Replace hardcoded example colors in the template
-      prompt = prompt.replace("#c9302c", colors.primary);
-      prompt = prompt.replace("#8b4513", colors.secondary || "#8b4513");
-      prompt = prompt.replace("#d4a373", colors.accent || "#d4a373");
-      prompt = prompt.replace("#fefae0", colors.background || "#fefae0");
-      prompt = prompt.replace("#2d2d2d", colors.text || "#2d2d2d");
+      // Replace ALL occurrences of hardcoded example colors in the template.
+      // Without /g, only the first occurrence was replaced — leaving conflicting
+      // color values that confused small LLMs into using the wrong colors.
+      prompt = prompt.replace(/#c9302c/gi, colors.primary);
+      prompt = prompt.replace(/#8b4513/gi, colors.secondary || "#8b4513");
+      prompt = prompt.replace(/#d4a373/gi, colors.accent || "#d4a373");
+      prompt = prompt.replace(/#fefae0/gi, colors.background || "#fefae0");
+      prompt = prompt.replace(/#2d2d2d/gi, colors.text || "#2d2d2d");
     }
 
     if (preset) {

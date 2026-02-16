@@ -1254,17 +1254,8 @@ export function generateManifest(themeName: string, files: ParsedFile[], moduleN
     .filter(path => sanitizeFilePath(path) !== null) // Reject traversal paths
     .filter((path, index, self) => self.indexOf(path) === index); // Dedupe
 
-  const jsFiles = files
-    .filter(f => f.path.endsWith(".js"))
-    .map(f => {
-      // Remove theme_generated/ or any theme_* prefix, keep static/src/...
-      const relativePath = f.path
-        .replace(/^theme_generated\//, "")
-        .replace(/^theme_[a-z0-9_]+\//i, "");
-      return `${moduleName}/${relativePath}`;
-    })
-    .filter(path => sanitizeFilePath(path) !== null) // Reject traversal paths
-    .filter((path, index, self) => self.indexOf(path) === index); // Dedupe
+  // JS files excluded — Odoo 18 website themes don't need custom JavaScript
+  const jsFiles: string[] = [];
 
   // Route SCSS files to correct Odoo 18 asset bundles (exact basename matching)
   const primaryVarsFiles = scssFiles.filter(f => getBasename(f) === 'primary_variables.scss');
@@ -1310,20 +1301,27 @@ ${bundles.join('\n')}
   const website = overrides?.website || 'https://platxa.com';
   const license = overrides?.license || 'LGPL-3';
   const depends = ['website', ...(overrides?.extraDepends || [])];
-  const dependsStr = depends.map(d => `'${d}'`).join(', ');
+  // Sanitize depend names: only allow alphanumeric, underscore, dot
+  const safeDepends = depends.filter(d => /^[a-z][a-z0-9_.]*$/i.test(d));
+  const dependsStr = safeDepends.map(d => `'${d}'`).join(', ');
+
+  // Escape strings for Python single-quoted context (\ → \\, ' → \')
+  const esc = (s: string): string => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  // Escape for triple-quoted context (only ''' is dangerous)
+  const escTriple = (s: string): string => s.replace(/'''/g, "\\'''");
 
   return `# -*- coding: utf-8 -*-
 {
-    'name': '${themeName}',
+    'name': '${esc(themeName)}',
     'version': '18.0.1.0.0',
     'category': 'Website/Theme',
-    'summary': '${summary}',
+    'summary': '${esc(summary)}',
     'description': '''
-        ${description}
+        ${escTriple(description)}
     ''',
-    'author': '${author}',
-    'website': '${website}',
-    'license': '${license}',
+    'author': '${esc(author)}',
+    'website': '${esc(website)}',
+    'license': '${esc(license)}',
     'depends': [${dependsStr}],
     'data': [
 ${xmlFiles.join("\n")}

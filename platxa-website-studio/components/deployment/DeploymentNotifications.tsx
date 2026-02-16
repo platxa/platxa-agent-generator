@@ -563,7 +563,7 @@ export function showDeploymentToast(
   const root = document.createElement('div');
   container.appendChild(root);
 
-  // Simple DOM-based toast rendering for standalone use
+  // Safe DOM-based toast rendering (no innerHTML to prevent XSS)
   const toast = document.createElement('div');
   toast.className = `p-4 rounded-lg shadow-lg border ${
     notification.type === 'success' ? 'bg-green-50 border-green-200' :
@@ -571,25 +571,48 @@ export function showDeploymentToast(
     'bg-blue-50 border-blue-200'
   }`;
 
-  toast.innerHTML = `
-    <div class="flex items-start gap-3">
-      <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm ${
-        notification.type === 'success' ? 'bg-green-500' :
-        notification.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
-      }">
-        ${notification.type === 'success' ? '✓' : notification.type === 'error' ? '✕' : 'ℹ'}
-      </div>
-      <div class="flex-1">
-        <h4 class="font-semibold text-gray-900 text-sm">${notification.title}</h4>
-        <p class="text-gray-600 text-sm mt-0.5">${notification.message}</p>
-      </div>
-      <button onclick="this.parentElement.parentElement.parentElement.remove()" class="text-gray-400 hover:text-gray-600">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-        </svg>
-      </button>
-    </div>
-  `;
+  const row = document.createElement('div');
+  row.className = 'flex items-start gap-3';
+
+  const icon = document.createElement('div');
+  icon.className = `w-6 h-6 rounded-full flex items-center justify-center text-white text-sm ${
+    notification.type === 'success' ? 'bg-green-500' :
+    notification.type === 'error' ? 'bg-red-500' : 'bg-blue-500'
+  }`;
+  icon.textContent = notification.type === 'success' ? '\u2713' : notification.type === 'error' ? '\u2715' : '\u2139';
+
+  const body = document.createElement('div');
+  body.className = 'flex-1';
+  const title = document.createElement('h4');
+  title.className = 'font-semibold text-gray-900 text-sm';
+  title.textContent = notification.title;
+  const msg = document.createElement('p');
+  msg.className = 'text-gray-600 text-sm mt-0.5';
+  msg.textContent = notification.message;
+  body.appendChild(title);
+  body.appendChild(msg);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'text-gray-400 hover:text-gray-600';
+  closeBtn.addEventListener('click', () => container.remove());
+  closeBtn.setAttribute('aria-label', 'Close notification');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'w-4 h-4');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  path.setAttribute('stroke-linecap', 'round');
+  path.setAttribute('stroke-linejoin', 'round');
+  path.setAttribute('stroke-width', '2');
+  path.setAttribute('d', 'M6 18L18 6M6 6l12 12');
+  svg.appendChild(path);
+  closeBtn.appendChild(svg);
+
+  row.appendChild(icon);
+  row.appendChild(body);
+  row.appendChild(closeBtn);
+  toast.appendChild(row);
 
   root.appendChild(toast);
 

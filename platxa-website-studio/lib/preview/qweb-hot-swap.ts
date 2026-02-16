@@ -247,9 +247,10 @@ export function hotSwapHTML(
     // Capture state before swap
     const preSwapState = capturePreSwapState(target);
 
-    // Create a temporary container for the new HTML
+    // Create a temporary container for the new HTML (DOMParser for safe parsing)
+    const parsedDoc = new DOMParser().parseFromString(newHTML, 'text/html');
     const temp = document.createElement('div');
-    temp.innerHTML = newHTML;
+    temp.append(...Array.from(parsedDoc.body.childNodes));
 
     // Use morphdom to efficiently diff and patch the DOM
     morphdom(target, temp, {
@@ -444,8 +445,9 @@ export const HTML_INJECT_SCRIPT = `
       var options = e.data.options || {};
       var preState = captureState(target);
 
+      var doc = new DOMParser().parseFromString(e.data.html || '', 'text/html');
       var temp = document.createElement('div');
-      temp.innerHTML = e.data.html || '';
+      temp.append(...Array.from(doc.body.childNodes));
 
       if (typeof morphdom === 'function') {
         morphdom(target, temp, {
@@ -465,7 +467,8 @@ export const HTML_INJECT_SCRIPT = `
           }
         });
       } else {
-        target.innerHTML = e.data.html || '';
+        var fallbackDoc = new DOMParser().parseFromString(e.data.html || '', 'text/html');
+        target.replaceChildren(...Array.from(fallbackDoc.body.childNodes));
       }
 
       restoreState(target, preState, options);

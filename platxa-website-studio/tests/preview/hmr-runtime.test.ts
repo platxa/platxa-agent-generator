@@ -141,10 +141,10 @@ describe("generateHMRRuntimeScript", () => {
       expect(script).toContain("morphdom(element, newElement");
     });
 
-    it("falls back to outerHTML", () => {
+    it("falls back to safe DOM replacement", () => {
       const script = generateHMRRuntimeScript();
 
-      expect(script).toContain("element.outerHTML = html");
+      expect(script).toContain("element.replaceWith(replacement)");
     });
 
     it("posts snippet-updated message", () => {
