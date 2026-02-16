@@ -467,6 +467,83 @@ export function validateQWebTemplate(
     }
   }
 
+  // =========================================================================
+  // Accessibility checks (WCAG AA)
+  // =========================================================================
+
+  // A11Y001: Images missing alt attribute
+  for (let i = 0; i < lines.length; i++) {
+    const imgMatches = lines[i].matchAll(/<img\b[^>]*>/gi);
+    for (const imgMatch of imgMatches) {
+      const tag = imgMatch[0];
+      if (!/\balt\s*=/i.test(tag)) {
+        issues.push({
+          severity: "warning",
+          code: "A11Y001",
+          message: "Image missing alt attribute (WCAG 1.1.1)",
+          file: filePath,
+          line: i + 1,
+          suggestion: 'Add alt="" for decorative images or descriptive alt text for meaningful images',
+        });
+      }
+    }
+  }
+
+  // A11Y002: Interactive elements missing accessible labels
+  for (let i = 0; i < lines.length; i++) {
+    // Buttons without text or aria-label
+    const buttonMatches = lines[i].matchAll(/<button\b[^>]*>\s*<\/button>/gi);
+    for (const btnMatch of buttonMatches) {
+      const tag = btnMatch[0];
+      if (!/\baria-label\s*=/i.test(tag) && !/\btitle\s*=/i.test(tag)) {
+        issues.push({
+          severity: "warning",
+          code: "A11Y002",
+          message: "Empty button missing aria-label (WCAG 4.1.2)",
+          file: filePath,
+          line: i + 1,
+          suggestion: "Add aria-label or visible text content to the button",
+        });
+      }
+    }
+
+    // Links with only an icon (no text)
+    const iconLinkMatches = lines[i].matchAll(/<a\b[^>]*>\s*<i\b[^>]*>\s*<\/i>\s*<\/a>/gi);
+    for (const linkMatch of iconLinkMatches) {
+      const tag = linkMatch[0];
+      if (!/\baria-label\s*=/i.test(tag) && !/\btitle\s*=/i.test(tag)) {
+        issues.push({
+          severity: "warning",
+          code: "A11Y002",
+          message: "Icon-only link missing aria-label (WCAG 4.1.2)",
+          file: filePath,
+          line: i + 1,
+          suggestion: "Add aria-label to describe the link purpose",
+        });
+      }
+    }
+  }
+
+  // A11Y003: Missing heading hierarchy (h1 should come before h2, etc.)
+  let lastHeadingLevel = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const headingMatch = lines[i].match(/<h([1-6])\b/i);
+    if (headingMatch) {
+      const level = parseInt(headingMatch[1], 10);
+      if (lastHeadingLevel > 0 && level > lastHeadingLevel + 1) {
+        issues.push({
+          severity: "warning",
+          code: "A11Y003",
+          message: `Heading level skipped: h${lastHeadingLevel} → h${level} (WCAG 1.3.1)`,
+          file: filePath,
+          line: i + 1,
+          suggestion: `Use h${lastHeadingLevel + 1} instead of h${level} for proper heading hierarchy`,
+        });
+      }
+      lastHeadingLevel = level;
+    }
+  }
+
   return issues;
 }
 

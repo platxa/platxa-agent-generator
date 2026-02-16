@@ -440,6 +440,10 @@ const ERROR_CODE_SEVERITY: Record<string, ErrorSeverity> = {
   SCSS004: "medium",      // Deprecated variables
   SCSS005: "low",         // Hardcoded colors
   QWEB011: "low",        // Unknown snippet type
+  // Accessibility - Low/Medium
+  A11Y001: "low",         // Image missing alt attribute
+  A11Y002: "low",         // Interactive element missing aria-label
+  A11Y003: "low",         // Heading hierarchy skipped
   // Structure - Critical
   STRUCT001: "critical",  // Missing required file
   STRUCT003: "high",      // Data file referenced but not found
