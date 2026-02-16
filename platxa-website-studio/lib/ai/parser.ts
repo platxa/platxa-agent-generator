@@ -327,18 +327,14 @@ function sanitizeOdooContent(content: string): string | null {
 
     // Extract sections from the cleaned content
     const sections: string[] = [];
-    const sectionRegex = /<section[^>]*>[\s\S]*?<\/section>/gi;
-    let sectionMatch: RegExpExecArray | null;
-    while ((sectionMatch = sectionRegex.exec(cleaned)) !== null) {
+    for (const sectionMatch of cleaned.matchAll(/<section[^>]*>[\s\S]*?<\/section>/gi)) {
       sections.push(sectionMatch[0]);
     }
 
     // Also extract divs with common classes
-    const divRegex = /<div[^>]*class="[^"]*(?:hero|banner|features?|about|contact|footer|header)[^"]*"[^>]*>[\s\S]*?<\/div>/gi;
-    let divMatch: RegExpExecArray | null;
-    while ((divMatch = divRegex.exec(cleaned)) !== null) {
+    for (const divMatch of cleaned.matchAll(/<div[^>]*class="[^"]*(?:hero|banner|features?|about|contact|footer|header)[^"]*"[^>]*>[\s\S]*?<\/div>/gi)) {
       // Avoid duplicates
-      if (!sections.some(s => s.includes(divMatch![0]))) {
+      if (!sections.some(s => s.includes(divMatch[0]))) {
         sections.push(divMatch[0]);
       }
     }
@@ -508,9 +504,7 @@ function consolidateDuplicateFiles(files: ParsedFile[]): ParsedFile[] {
 
     for (const xmlFile of xmlFiles) {
       // Extract templates from this file, avoiding duplicates
-      const templateRegex = /<template\s+[^>]*id=["']([^"']+)["'][^>]*>[\s\S]*?<\/template>/gi;
-      let match;
-      while ((match = templateRegex.exec(xmlFile.content)) !== null) {
+      for (const match of xmlFile.content.matchAll(/<template\s+[^>]*id=["']([^"']+)["'][^>]*>[\s\S]*?<\/template>/gi)) {
         const templateId = match[1];
         if (!seenTemplateIds.has(templateId)) {
           seenTemplateIds.add(templateId);
@@ -675,19 +669,14 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   };
 
   // Strategy 1: Explicit file path format - ```lang file:path/to/file.ext
-  const fileBlockRegex = /```(\w+)?\s*file:\s*([^\n]+)\n([\s\S]*?)```/gi;
-  let match;
-
-  while ((match = fileBlockRegex.exec(cleanedResponse)) !== null) {
+  for (const match of cleanedResponse.matchAll(/```(\w+)?\s*file:\s*([^\n]+)\n([\s\S]*?)```/gi)) {
     const [, lang, filePath, content] = match;
     const path = buildFullPath(normalizePath(filePath));
     addFile(path, content, lang || detectLanguage(path));
   }
 
   // Strategy 2: Comment-based file path - ```lang\n# file: path or // file: path
-  const commentFileRegex = /```(\w+)\n\s*(?:#|\/\/|<!--)\s*file:\s*([^\n>]+)(?:-->)?\n([\s\S]*?)```/gi;
-
-  while ((match = commentFileRegex.exec(cleanedResponse)) !== null) {
+  for (const match of cleanedResponse.matchAll(/```(\w+)\n\s*(?:#|\/\/|<!--)\s*file:\s*([^\n>]+)(?:-->)?\n([\s\S]*?)```/gi)) {
     const [, language, filePath, content] = match;
     const path = buildFullPath(normalizePath(filePath));
     // Remove the file comment from content
@@ -698,10 +687,8 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   // Strategy 3: Header-based format - **filename:**\n```lang or ### filename\n```lang
   // ROOT CAUSE FIX: Changed \n+ to \n* to allow headers immediately followed by code fence
   // Some LLMs output: **file.py:**```python instead of **file.py:**\n```python
-  const headerBlockRegex = /(?:\*\*([^*\n]+)\*\*:?|#{1,4}\s+([^\n]+))[\s\n]*```(\w+)\n([\s\S]*?)```/gi;
-
   console.log("[Parser] Strategy 3: Searching for header-based format...");
-  while ((match = headerBlockRegex.exec(cleanedResponse)) !== null) {
+  for (const match of cleanedResponse.matchAll(/(?:\*\*([^*\n]+)\*\*:?|#{1,4}\s+([^\n]+))[\s\n]*```(\w+)\n([\s\S]*?)```/gi)) {
     const [fullMatch, boldHeader, hashHeader, language, content] = match;
     const header = boldHeader || hashHeader || "";
     console.log("[Parser] Strategy 3 match - header:", header, "lang:", language, "content length:", content.length);
@@ -717,9 +704,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   }
 
   // Strategy 4: Inline file marker - File: path/to/file.ext or Filename: file.ext
-  const inlineFileRegex = /(?:file(?:name)?|path):\s*([^\n]+\.[a-z0-9]+)\s*\n+```(\w+)\n([\s\S]*?)```/gi;
-
-  while ((match = inlineFileRegex.exec(cleanedResponse)) !== null) {
+  for (const match of cleanedResponse.matchAll(/(?:file(?:name)?|path):\s*([^\n]+\.[a-z0-9]+)\s*\n+```(\w+)\n([\s\S]*?)```/gi)) {
     const [, filePath, language, content] = match;
     const path = buildFullPath(normalizePath(filePath));
     addFile(path, content, language);
@@ -727,12 +712,11 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
 
   // Strategy 5: Plain code blocks - content-based inference (ALWAYS try this)
   // This is critical for LLMs that don't follow formatting instructions
-  const plainBlockRegex = /```(\w+)\n([\s\S]*?)```/g;
   let blockIndex = 0;
 
   console.log("[Parser] Strategy 5: Searching for plain code blocks...");
-  while ((match = plainBlockRegex.exec(cleanedResponse)) !== null) {
-    const [fullMatch, language, content] = match;
+  for (const match of cleanedResponse.matchAll(/```(\w+)\n([\s\S]*?)```/g)) {
+    const [, language, content] = match;
 
     // Skip if this block was already captured by other strategies
     const contentTrimmed = content.trim();
@@ -768,9 +752,7 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
 
   // Strategy 5b: Code blocks WITHOUT language specifier (common with small models)
   // Matches ``` followed by newline and content (no language word)
-  const noLangBlockRegex = /```\n([\s\S]*?)```/g;
-
-  while ((match = noLangBlockRegex.exec(cleanedResponse)) !== null) {
+  for (const match of cleanedResponse.matchAll(/```\n([\s\S]*?)```/g)) {
     const [, content] = match;
     const contentTrimmed = content.trim();
 
@@ -816,10 +798,9 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
   // Some LLMs output raw XML without proper fencing
   if (files.length === 0) {
     // Look for <odoo> blocks
-    const odooBlockRegex = /<odoo[^>]*>[\s\S]*?<\/odoo>/gi;
     let odooIndex = 0;
 
-    while ((match = odooBlockRegex.exec(cleanedResponse)) !== null) {
+    for (const match of cleanedResponse.matchAll(/<odoo[^>]*>[\s\S]*?<\/odoo>/gi)) {
       const content = match[0];
       const path = `theme_generated/views/template_${odooIndex + 1}.xml`;
       if (addFile(path, content, "xml")) {
@@ -829,10 +810,9 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
 
     // Look for standalone <template> blocks
     if (files.length === 0) {
-      const templateBlockRegex = /<template[^>]*>[\s\S]*?<\/template>/gi;
       let templateIndex = 0;
 
-      while ((match = templateBlockRegex.exec(cleanedResponse)) !== null) {
+      for (const match of cleanedResponse.matchAll(/<template[^>]*>[\s\S]*?<\/template>/gi)) {
         const content = match[0];
         const wrappedContent = `<?xml version="1.0" encoding="utf-8"?>\n<odoo>\n  ${content}\n</odoo>`;
         const path = `theme_generated/views/template_${templateIndex + 1}.xml`;
@@ -845,10 +825,9 @@ export function parseGeneratedFiles(response: string): ParsedFile[] {
     // Strategy 7: Raw HTML sections (common with small models like llama3.2:1b)
     // Look for <section>, <div class="hero">, <header>, <footer> etc.
     if (files.length === 0) {
-      const htmlSectionRegex = /<(section|header|footer|nav|main|article|div\s+class=["'][^"']*(?:hero|banner|feature|service|about|contact|testimonial)[^"']*["'])[^>]*>[\s\S]*?<\/\1>/gi;
       let sectionIndex = 0;
 
-      while ((match = htmlSectionRegex.exec(cleanedResponse)) !== null) {
+      for (const match of cleanedResponse.matchAll(/<(section|header|footer|nav|main|article|div\s+class=["'][^"']*(?:hero|banner|feature|service|about|contact|testimonial)[^"']*["'])[^>]*>[\s\S]*?<\/\1>/gi)) {
         const content = match[0];
         const tagType = match[1].toLowerCase();
         const sectionName = tagType.includes("hero") ? "hero" :
@@ -1318,24 +1297,20 @@ export function repairCorruptedXmlAttributes(content: string): { content: string
 
   let iterations = 0;
   while (corruptedAttrPattern.test(fixed) && iterations < 10) {
-    corruptedAttrPattern.lastIndex = 0; // Reset regex state
     fixed = fixed.replace(corruptedAttrPattern, (match, before, after) => {
       wasFixed = true;
       return `${before}"${after}`;
     });
+    corruptedAttrPattern.lastIndex = 0; // Reset after replace for next test()
     iterations++;
   }
 
   // Also fix: ="value"text"value"> pattern more aggressively
   // Matches: ="something"GARBAGE"othertext" and replaces with ="something"
-  const attrGarbagePattern = /="([^"]{1,100})"[^"<>=\s]{1,100}"[^"<>=]*"/g;
-  if (attrGarbagePattern.test(fixed)) {
-    attrGarbagePattern.lastIndex = 0;
-    fixed = fixed.replace(attrGarbagePattern, (match, validValue) => {
-      wasFixed = true;
-      return `="${validValue}"`;
-    });
-  }
+  fixed = fixed.replace(/="([^"]{1,100})"[^"<>=\s]{1,100}"[^"<>=]*"/g, (match, validValue) => {
+    wasFixed = true;
+    return `="${validValue}"`;
+  });
 
   // Fix broken t-esc with garbage: <t t-esc="var"garbage> -> <t t-esc="var"/>
   fixed = fixed.replace(/<t\s+t-esc="([^"]+)"[^/>\s][^>]*>/g, (match, varName) => {
@@ -1408,11 +1383,9 @@ export function ensureValidOdooXml(content: string, filePath: string): string {
   // MUST match templates with MULTIPLE sections (previous regex only caught single)
   // ==========================================================================
   // Match ALL templates, then check if they need wrapping
-  const allTemplatesPattern = /<template\s+id=["']([^"']+)["']([^>]*)>([\s\S]*?)<\/template>/gi;
-  let templateMatch;
   const templateReplacements: Array<{original: string, replacement: string}> = [];
 
-  while ((templateMatch = allTemplatesPattern.exec(fixed)) !== null) {
+  for (const templateMatch of fixed.matchAll(/<template\s+id=["']([^"']+)["']([^>]*)>([\s\S]*?)<\/template>/gi)) {
     const [fullMatch, templateId, attrs, innerContent] = templateMatch;
 
     // Skip if already has inherit_id (it's an extension template)
