@@ -79,6 +79,22 @@ export interface ValidationEngineConfig {
 /** Built-in validator types */
 export type ValidatorType = 'qweb' | 'scss' | 'accessibility' | 'odoo_structure';
 
+/** Severity-based score deductions for per-validator scoring */
+const VALIDATOR_SEVERITY_DEDUCTIONS: Record<string, number> = {
+  critical: 50,
+  error: 20,
+};
+
+/** Calculates validator score using severity-weighted deductions */
+function calculateValidatorScore(errors: ValidationError[]): number {
+  if (errors.length === 0) return 100;
+  let deduction = 0;
+  for (const error of errors) {
+    deduction += VALIDATOR_SEVERITY_DEDUCTIONS[error.severity] ?? 20;
+  }
+  return Math.max(0, 100 - deduction);
+}
+
 // ============================================================================
 // Default Validators
 // ============================================================================
@@ -134,7 +150,7 @@ async function validateQWeb(
     }
   }
 
-  const score = errors.length === 0 ? 100 : Math.max(0, 100 - errors.length * 20);
+  const score = calculateValidatorScore(errors);
 
   return {
     name: 'qweb',
@@ -207,7 +223,7 @@ async function validateScss(
     }
   }
 
-  const score = errors.length === 0 ? 100 : Math.max(0, 100 - errors.length * 25);
+  const score = calculateValidatorScore(errors);
 
   return {
     name: 'scss',
@@ -292,7 +308,7 @@ async function validateAccessibility(
     }
   }
 
-  const score = errors.length === 0 ? 100 : Math.max(0, 100 - errors.length * 15);
+  const score = calculateValidatorScore(errors);
 
   return {
     name: 'accessibility',
@@ -391,7 +407,7 @@ async function validateOdooStructure(
     }
   }
 
-  const score = errors.length === 0 ? 100 : Math.max(0, 100 - errors.length * 20);
+  const score = calculateValidatorScore(errors);
 
   return {
     name: 'odoo_structure',

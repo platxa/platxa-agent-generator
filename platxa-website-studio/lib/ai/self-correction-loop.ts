@@ -27,12 +27,16 @@ export interface FileValidationResult {
   warnings: string[];
 }
 
+/** Error severity levels for weighted quality scoring */
+export type ErrorSeverity = "critical" | "high" | "medium" | "low";
+
 /** A validation error with context */
 export interface ValidationError {
   message: string;
   line?: number;
   column?: number;
   code?: string;
+  severity?: ErrorSeverity;
   suggestion?: string;
 }
 
@@ -388,25 +392,101 @@ Corrected code:`;
 // Quality Score Calculation
 // =============================================================================
 
+/** Deduction points per severity level */
+const SEVERITY_WEIGHTS: Record<ErrorSeverity, number> = {
+  critical: 50,
+  high: 20,
+  medium: 10,
+  low: 5,
+};
+
 /**
- * Calculates a quality score based on validation results
- * Score is 0-100, higher is better
+ * Maps error codes to severity levels.
+ * Critical: structural/security issues that break the theme
+ * High: functional issues that cause runtime errors
+ * Medium: convention violations that may cause problems
+ * Low: cosmetic/best-practice issues
+ */
+const ERROR_CODE_SEVERITY: Record<string, ErrorSeverity> = {
+  // QWeb - Critical (structural)
+  QWEB002: "critical",   // Missing <odoo> root
+  QWEB003: "critical",   // Mismatched closing tags
+  QWEB004: "critical",   // Unclosed tags
+  QWEB006: "critical",   // Security patterns (XSS)
+  QWEB009: "critical",   // Unknown inherit_id target
+  // QWeb - High (functional)
+  QWEB007: "high",       // t-foreach without t-as
+  QWEB010: "high",       // Invalid o_cc color class
+  // QWeb - Medium (conventions)
+  QWEB001: "medium",     // Missing XML declaration
+  QWEB005: "medium",     // Deprecated patterns
+  QWEB008: "low",        // inherit_id without xpath (warning-level)
+  // Manifest - Critical
+  MANIFEST001: "critical", // Missing required field
+  MANIFEST007: "critical", // Path traversal
+  MANIFEST008: "high",    // Bundle requires tuple format
+  // Manifest - Medium
+  MANIFEST003: "medium",  // Invalid version format
+  MANIFEST004: "medium",  // Unknown license
+  MANIFEST005: "medium",  // Missing website dependency
+  // Manifest - Low
+  MANIFEST002: "low",     // Missing recommended field
+  MANIFEST006: "low",     // Missing installable flag
+  // SCSS - Critical
+  SCSS001: "critical",    // Unexpected closing brace
+  SCSS002: "critical",    // Unclosed brace
+  // SCSS - Low
+  SCSS003: "low",         // Excessive !important
+  SCSS004: "medium",      // Deprecated variables
+  SCSS005: "low",         // Hardcoded colors
+  // Structure - Critical
+  STRUCT001: "critical",  // Missing required file
+  STRUCT003: "high",      // Data file referenced but not found
+  // Structure - Medium
+  STRUCT002: "medium",    // Asset file referenced but not found
+};
+
+/**
+ * Infers severity from an error code, falling back to "high" for unknown codes.
+ */
+export function getErrorSeverity(error: ValidationError): ErrorSeverity {
+  if (error.severity) return error.severity;
+  if (error.code && error.code in ERROR_CODE_SEVERITY) {
+    return ERROR_CODE_SEVERITY[error.code];
+  }
+  return "high"; // Unknown errors default to high — better safe than silent
+}
+
+/**
+ * Calculates a quality score based on validation results.
+ * Uses weighted severity deductions instead of flat per-error penalties.
+ * Score is 0-100, higher is better.
+ *
+ * Severity weights:
+ *   critical = -50 pts  (structural/security breaks)
+ *   high     = -20 pts  (functional errors)
+ *   medium   = -10 pts  (convention violations)
+ *   low      = -5  pts  (cosmetic/best-practice)
  */
 export function calculateQualityScore(validation: ValidationSummary): number {
   if (validation.allValid && validation.totalErrors === 0) {
     return 100;
   }
 
-  // Start with 100 and deduct points
   let score = 100;
 
-  // Deduct 15 points per error (capped at 75 points deduction)
-  score -= Math.min(75, validation.totalErrors * 15);
+  // Weighted deductions from errors based on severity
+  for (const result of validation.results) {
+    for (const error of result.errors) {
+      const severity = getErrorSeverity(error);
+      score -= SEVERITY_WEIGHTS[severity];
+    }
+  }
 
   // Deduct 2 points per warning (capped at 20 points deduction)
   score -= Math.min(20, validation.totalWarnings * 2);
 
-  return Math.max(0, score);
+  return Math.max(0, Math.min(100, score));
 }
 
 // =============================================================================
@@ -527,6 +607,7 @@ const selfCorrectionLoop = {
   extractCodeBlocks,
   buildCorrectionPrompt,
   calculateQualityScore,
+  getErrorSeverity,
   shouldAttemptCorrection,
   formatValidationSummary,
 };
