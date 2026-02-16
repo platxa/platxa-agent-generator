@@ -271,35 +271,71 @@ function extractFilenameFromHeader(header: string): string | null {
 }
 
 /**
+ * Sanitize a filename/path to prevent directory traversal attacks.
+ * Rejects .., absolute paths, and other escape sequences.
+ * Returns a safe relative path or null if the input is malicious.
+ */
+function sanitizeFilePath(input: string): string | null {
+  // Reject absolute paths
+  if (input.startsWith("/") || /^[a-zA-Z]:/.test(input)) {
+    console.warn("[Parser] Rejected absolute path:", input);
+    return null;
+  }
+
+  // Reject any path segment that is ".." (directory traversal)
+  const segments = input.split("/");
+  if (segments.some(s => s === ".." || s === ".")) {
+    console.warn("[Parser] Rejected path traversal attempt:", input);
+    return null;
+  }
+
+  // Reject null bytes and other control characters
+  if (/[\x00-\x1f]/.test(input)) {
+    console.warn("[Parser] Rejected path with control characters:", input);
+    return null;
+  }
+
+  return input;
+}
+
+/**
  * Build full Odoo theme path from a simple filename
  */
 function buildFullPath(filename: string): string {
-  if (filename.includes("/")) {
+  // Sanitize against path traversal before any path construction
+  const sanitized = sanitizeFilePath(filename);
+  if (!sanitized) {
+    // Return a safe fallback path for rejected inputs
+    const safeBase = filename.replace(/[^a-z0-9._-]/gi, "_").replace(/^_+/, "");
+    return `theme_generated/files/${safeBase || "untrusted_file.txt"}`;
+  }
+
+  if (sanitized.includes("/")) {
     // Already has path structure
-    if (!filename.startsWith("theme_generated/") && !filename.startsWith("theme_")) {
-      return `theme_generated/${filename}`;
+    if (!sanitized.startsWith("theme_generated/") && !sanitized.startsWith("theme_")) {
+      return `theme_generated/${sanitized}`;
     }
-    return filename;
+    return sanitized;
   }
 
   // Infer directory structure based on file type
-  if (filename === "__manifest__.py" || filename.endsWith("manifest.py")) {
-    return `theme_generated/${filename.replace("manifest.py", "__manifest__.py")}`;
+  if (sanitized === "__manifest__.py" || sanitized.endsWith("manifest.py")) {
+    return `theme_generated/${sanitized.replace("manifest.py", "__manifest__.py")}`;
   }
-  if (filename.endsWith(".xml")) {
-    return `theme_generated/views/${filename}`;
+  if (sanitized.endsWith(".xml")) {
+    return `theme_generated/views/${sanitized}`;
   }
-  if (filename.endsWith(".scss") || filename.endsWith(".css") || filename.endsWith(".sass")) {
-    return `theme_generated/static/src/scss/${filename}`;
+  if (sanitized.endsWith(".scss") || sanitized.endsWith(".css") || sanitized.endsWith(".sass")) {
+    return `theme_generated/static/src/scss/${sanitized}`;
   }
-  if (filename.endsWith(".js")) {
-    return `theme_generated/static/src/js/${filename}`;
+  if (sanitized.endsWith(".js")) {
+    return `theme_generated/static/src/js/${sanitized}`;
   }
-  if (filename.endsWith(".py")) {
-    return `theme_generated/models/${filename}`;
+  if (sanitized.endsWith(".py")) {
+    return `theme_generated/models/${sanitized}`;
   }
 
-  return `theme_generated/${filename}`;
+  return `theme_generated/${sanitized}`;
 }
 
 /**
@@ -1199,6 +1235,7 @@ export function generateManifest(themeName: string, files: ParsedFile[], moduleN
         .replace(/^theme_[a-z0-9_]+\//i, "");
       return `${moduleName}/${relativePath}`;
     })
+    .filter(path => sanitizeFilePath(path) !== null) // Reject traversal paths
     .filter((path, index, self) => self.indexOf(path) === index); // Dedupe
 
   const jsFiles = files
@@ -1210,6 +1247,7 @@ export function generateManifest(themeName: string, files: ParsedFile[], moduleN
         .replace(/^theme_[a-z0-9_]+\//i, "");
       return `${moduleName}/${relativePath}`;
     })
+    .filter(path => sanitizeFilePath(path) !== null) // Reject traversal paths
     .filter((path, index, self) => self.indexOf(path) === index); // Dedupe
 
   // Route SCSS files to correct Odoo 18 asset bundles (exact basename matching)
