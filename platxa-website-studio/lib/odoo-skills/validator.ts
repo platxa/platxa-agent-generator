@@ -572,6 +572,23 @@ export function validateManifest(
     });
   }
 
+  // Validate manifest paths for traversal attacks
+  const pathPattern = /'([^']+\.[a-z]{1,5})'/g;
+  for (const pathMatch of content.matchAll(pathPattern)) {
+    const assetPath = pathMatch[1];
+    if (assetPath.includes("..") || assetPath.startsWith("/") || /^[a-zA-Z]:/.test(assetPath)) {
+      const lineNum = content.substring(0, pathMatch.index!).split("\n").length;
+      issues.push({
+        severity: "error",
+        code: "MANIFEST007",
+        message: `Unsafe path in manifest: "${assetPath}" — path traversal or absolute path detected`,
+        file: filePath,
+        line: lineNum,
+        suggestion: "All manifest paths must be relative within the module directory (e.g., views/templates.xml)",
+      });
+    }
+  }
+
   // Validate asset bundle names
   issues.push(...validateAssetBundles(content, filePath));
 

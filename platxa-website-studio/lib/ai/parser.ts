@@ -1222,6 +1222,11 @@ export function generateManifest(themeName: string, files: ParsedFile[], moduleN
     .filter(entry => {
       const relativePath = entry.match(/'([^']+)'/)?.[1];
       return relativePath ? existingPaths.has(relativePath) : false;
+    })
+    // Reject path traversal attempts in XML paths
+    .filter(entry => {
+      const relativePath = entry.match(/'([^']+)'/)?.[1];
+      return relativePath ? sanitizeFilePath(relativePath) !== null : false;
     });
 
   // SCSS/CSS/JS go in 'assets' section - MUST include module name prefix
