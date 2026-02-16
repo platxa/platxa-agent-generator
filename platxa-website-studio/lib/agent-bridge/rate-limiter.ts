@@ -14,6 +14,8 @@ export interface RateLimitConfig {
   maxRequestsPerMinute: number;
   /** Max tokens per minute */
   maxTokensPerMinute: number;
+  /** Max tokens per single request (prevents single-request exhaustion) */
+  maxTokensPerRequest: number;
   /** Session token budget (total allowed) */
   sessionTokenBudget: number;
   /** Cost per 1K prompt tokens (USD) */
@@ -27,6 +29,7 @@ export interface RateLimitConfig {
 export const DEFAULT_RATE_CONFIG: RateLimitConfig = {
   maxRequestsPerMinute: 30,
   maxTokensPerMinute: 100000,
+  maxTokensPerRequest: 10000,
   sessionTokenBudget: 1000000,
   promptCostPer1K: 0.003,
   completionCostPer1K: 0.015,
@@ -129,6 +132,15 @@ export function checkRateLimit(
   now: number = Date.now(),
 ): RateLimitDecision {
   const { config } = state;
+
+  // Check per-request token limit
+  if (estimatedTokens > config.maxTokensPerRequest) {
+    return {
+      allowed: false,
+      reason: `Per-request limit: ${estimatedTokens} tokens exceeds max ${config.maxTokensPerRequest} per request`,
+    };
+  }
+
   const oneMinuteMs = 60_000;
   const recentCalls = getCallsInWindow(state, oneMinuteMs, now);
 
