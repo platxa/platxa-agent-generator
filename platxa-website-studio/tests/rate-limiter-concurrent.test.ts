@@ -30,8 +30,7 @@ describe("Concurrent rate limiting", () => {
           // Record the call so subsequent checks see it
           const result = recordApiCall(state, 50, 50, "test", now);
           // Update state in-place (calls array is mutated by recordApiCall)
-          state.calls = result.state.calls;
-          state.callCounter = result.state.callCounter;
+          Object.assign(state, result.state);
           allowed++;
         } else {
           denied++;
@@ -79,8 +78,7 @@ describe("Concurrent rate limiting", () => {
         const decision = checkRateLimit(state, 2000, now);
         if (decision.allowed) {
           const result = recordApiCall(state, 1000, 1000, "test", now);
-          state.calls = result.state.calls;
-          state.callCounter = result.state.callCounter;
+          Object.assign(state, result.state);
           allowed++;
         }
       }
@@ -120,8 +118,7 @@ describe("Concurrent rate limiting", () => {
         const decision = checkRateLimit(state, 1000, now);
         if (decision.allowed) {
           const result = recordApiCall(state, 500, 500, "test", now);
-          state.calls = result.state.calls;
-          state.callCounter = result.state.callCounter;
+          Object.assign(state, result.state);
           allowed++;
         }
       }
@@ -147,10 +144,7 @@ describe("Concurrent rate limiting", () => {
         const decision = checkRateLimit(state, 1000, now);
         if (decision.allowed) {
           const result = recordApiCall(state, 500, 500, "test", now);
-          state.calls = result.state.calls;
-          state.callCounter = result.state.callCounter;
-          state.firedAlerts = result.state.firedAlerts;
-          state.alerts = result.state.alerts;
+          Object.assign(state, result.state);
           allAlerts.push(...result.newAlerts);
         }
       }
@@ -176,10 +170,7 @@ describe("Concurrent rate limiting", () => {
         const decision = checkRateLimit(state, 1000, now);
         if (decision.allowed) {
           const result = recordApiCall(state, 500, 500, "test", now);
-          state.calls = result.state.calls;
-          state.callCounter = result.state.callCounter;
-          state.firedAlerts = result.state.firedAlerts;
-          state.alerts = result.state.alerts;
+          Object.assign(state, result.state);
           allAlerts.push(...result.newAlerts);
         }
       }
@@ -200,8 +191,7 @@ describe("Concurrent rate limiting", () => {
         const decision = checkRateLimit(state, 100, now);
         if (decision.allowed) {
           const result = recordApiCall(state, 50, 50, "test", now + i);
-          state.calls = result.state.calls;
-          state.callCounter = result.state.callCounter;
+          Object.assign(state, result.state);
           recorded++;
         }
       }
@@ -217,13 +207,75 @@ describe("Concurrent rate limiting", () => {
 
       for (let i = 0; i < 50; i++) {
         const result = recordApiCall(state, 50, 50, "test", now + i);
-        state.calls = result.state.calls;
-        state.callCounter = result.state.callCounter;
+        Object.assign(state, result.state);
       }
 
       const ids = state.calls.map((c) => c.id);
       const uniqueIds = new Set(ids);
       expect(uniqueIds.size).toBe(50);
+    });
+  });
+
+  describe("ring buffer memory cap", () => {
+    it("caps calls array at MAX_CALL_HISTORY entries", () => {
+      const state = createRateLimitState({
+        maxRequestsPerMinute: 200,
+        maxTokensPerMinute: 10000000,
+        maxTokensPerRequest: 100000,
+        sessionTokenBudget: 10000000,
+      });
+
+      // Record 150 calls — should cap at 100
+      for (let i = 0; i < 150; i++) {
+        const result = recordApiCall(state, 50, 50, "test", 1000000 + i);
+        Object.assign(state, result.state);
+      }
+
+      expect(state.calls.length).toBeLessThanOrEqual(100);
+      expect(state.callCounter).toBe(150); // counter keeps incrementing
+    });
+
+    it("preserves lifetime token counts after eviction", () => {
+      const state = createRateLimitState({
+        maxRequestsPerMinute: 200,
+        maxTokensPerMinute: 10000000,
+        maxTokensPerRequest: 100000,
+        sessionTokenBudget: 10000000,
+      });
+
+      // Record 150 calls × 100 tokens each = 15000 lifetime tokens
+      for (let i = 0; i < 150; i++) {
+        const result = recordApiCall(state, 50, 50, "test", 1000000 + i);
+        Object.assign(state, result.state);
+      }
+
+      // Lifetime should track all 150 calls even though array is capped
+      expect(state.lifetimePromptTokens).toBe(150 * 50);
+      expect(state.lifetimeCompletionTokens).toBe(150 * 50);
+    });
+
+    it("budget check uses lifetime tokens not array sum", () => {
+      const state = createRateLimitState({
+        maxRequestsPerMinute: 200,
+        maxTokensPerMinute: 10000000,
+        maxTokensPerRequest: 100000,
+        sessionTokenBudget: 10000, // 10K budget
+      });
+
+      // Record 120 calls × 100 tokens = 12000 tokens (exceeds 10K budget)
+      // Spread across time windows so per-minute limits don't block
+      for (let i = 0; i < 120; i++) {
+        const now = 1000000 + i * 61_000;
+        const decision = checkRateLimit(state, 100, now);
+        if (decision.allowed) {
+          const result = recordApiCall(state, 50, 50, "test", now);
+          Object.assign(state, result.state);
+        }
+      }
+
+      // Even though calls array is capped at 100, budget should be enforced
+      // based on lifetime tokens (100 calls × 100 tokens = 10000 = budget)
+      expect(state.lifetimePromptTokens + state.lifetimeCompletionTokens).toBe(10000);
     });
   });
 });

@@ -77,8 +77,11 @@ export interface CostBreakdown {
   totalCost: number;
 }
 
+/** Max recent calls to keep in memory (ring buffer cap) */
+export const MAX_CALL_HISTORY = 100;
+
 export interface RateLimitState {
-  /** All recorded API calls */
+  /** Recent API calls (capped at MAX_CALL_HISTORY) */
   calls: ApiCall[];
   /** Config */
   config: RateLimitConfig;
@@ -88,6 +91,10 @@ export interface RateLimitState {
   alerts: BudgetAlert[];
   /** Call counter for ID generation */
   callCounter: number;
+  /** Lifetime prompt tokens (survives ring buffer eviction) */
+  lifetimePromptTokens: number;
+  /** Lifetime completion tokens (survives ring buffer eviction) */
+  lifetimeCompletionTokens: number;
 }
 
 export type RateLimitDecision = {
@@ -108,6 +115,8 @@ export function createRateLimitState(config: Partial<RateLimitConfig> = {}): Rat
     firedAlerts: new Set(),
     alerts: [],
     callCounter: 0,
+    lifetimePromptTokens: 0,
+    lifetimeCompletionTokens: 0,
   };
 }
 
@@ -205,8 +214,16 @@ export function recordApiCall(
     model,
   };
 
-  const calls = [...state.calls, call];
-  const totalTokens = calls.reduce((s, c) => s + c.promptTokens + c.completionTokens, 0);
+  // Ring buffer: keep only the most recent MAX_CALL_HISTORY entries
+  let calls = [...state.calls, call];
+  if (calls.length > MAX_CALL_HISTORY) {
+    calls = calls.slice(calls.length - MAX_CALL_HISTORY);
+  }
+
+  // Accumulate lifetime tokens (survives ring buffer eviction)
+  const lifetimePromptTokens = state.lifetimePromptTokens + promptTokens;
+  const lifetimeCompletionTokens = state.lifetimeCompletionTokens + completionTokens;
+  const totalTokens = lifetimePromptTokens + lifetimeCompletionTokens;
   const budget = state.config.sessionTokenBudget;
 
   // Check alert thresholds
@@ -234,6 +251,8 @@ export function recordApiCall(
       firedAlerts,
       alerts: [...state.alerts, ...newAlerts],
       callCounter: nextCounter,
+      lifetimePromptTokens,
+      lifetimeCompletionTokens,
     },
     newAlerts,
   };
@@ -243,25 +262,20 @@ export function recordApiCall(
 // Cost Tracking
 // =============================================================================
 
-/** Computes total tokens used in session. */
+/** Computes total tokens used in session (uses lifetime accumulators). */
 export function getTotalTokens(state: RateLimitState): number {
-  return state.calls.reduce((s, c) => s + c.promptTokens + c.completionTokens, 0);
+  return state.lifetimePromptTokens + state.lifetimeCompletionTokens;
 }
 
-/** Computes cost breakdown for all recorded calls. */
+/** Computes cost breakdown for all recorded calls (uses lifetime accumulators). */
 export function getCostBreakdown(state: RateLimitState): CostBreakdown {
-  let promptTokens = 0;
-  let completionTokens = 0;
-  for (const call of state.calls) {
-    promptTokens += call.promptTokens;
-    completionTokens += call.completionTokens;
-  }
-  const promptCost = (promptTokens / 1000) * state.config.promptCostPer1K;
-  const completionCost = (completionTokens / 1000) * state.config.completionCostPer1K;
+  const { lifetimePromptTokens, lifetimeCompletionTokens } = state;
+  const promptCost = (lifetimePromptTokens / 1000) * state.config.promptCostPer1K;
+  const completionCost = (lifetimeCompletionTokens / 1000) * state.config.completionCostPer1K;
   return {
-    promptTokens,
-    completionTokens,
-    totalTokens: promptTokens + completionTokens,
+    promptTokens: lifetimePromptTokens,
+    completionTokens: lifetimeCompletionTokens,
+    totalTokens: lifetimePromptTokens + lifetimeCompletionTokens,
     promptCost,
     completionCost,
     totalCost: promptCost + completionCost,
