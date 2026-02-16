@@ -1328,35 +1328,45 @@ ${xmlFiles.join("\n")}
  * Detect and repair corrupted XML attributes
  * ROOT CAUSE: Previous duplicate fixer corrupted attributes by replacing text inside quotes
  * Pattern: attribute="value"GARBAGE"anothervalue" -> attribute="value"
+ *
+ * ReDoS protection: All regex patterns use bounded quantifiers ({1,N}) to prevent
+ * catastrophic backtracking on pathological input.
  */
 export function repairCorruptedXmlAttributes(content: string): { content: string; fixed: boolean } {
+  // ReDoS guard: skip repair on excessively large content
+  if (content.length > 500_000) {
+    return { content, fixed: false };
+  }
+
   let fixed = content;
   let wasFixed = false;
 
   // Pattern: attribute="value" followed by unquoted text then another "value"
   // Example: t-esc="product.description"Exceptional service!"display-6 fw-bold mb-3">
   // Should become: t-esc="product.description"/>
-  const corruptedAttrPattern = /(<[^>]*\s+[a-z-]+="[^"]*)"[^"<>]*"[^"]*"([^>]*>)/gi;
+  // ReDoS-safe: all quantifiers are bounded
+  const corruptedAttrPattern = /(<[^>]{1,500}\s+[a-z-]{1,30}="[^"]{1,200})"[^"<>]{0,200}"[^"]{0,200}"([^>]{0,500}>)/gi;
 
   let iterations = 0;
-  while (corruptedAttrPattern.test(fixed) && iterations < 10) {
+  while (corruptedAttrPattern.test(fixed) && iterations < 5) {
     fixed = fixed.replace(corruptedAttrPattern, (match, before, after) => {
       wasFixed = true;
       return `${before}"${after}`;
     });
-    corruptedAttrPattern.lastIndex = 0; // Reset after replace for next test()
+    corruptedAttrPattern.lastIndex = 0;
     iterations++;
   }
 
   // Also fix: ="value"text"value"> pattern more aggressively
-  // Matches: ="something"GARBAGE"othertext" and replaces with ="something"
-  fixed = fixed.replace(/="([^"]{1,100})"[^"<>=\s]{1,100}"[^"<>=]*"/g, (match, validValue) => {
+  // ReDoS-safe: all quantifiers already bounded
+  fixed = fixed.replace(/="([^"]{1,100})"[^"<>=\s]{1,100}"[^"<>=]{0,100}"/g, (match, validValue) => {
     wasFixed = true;
     return `="${validValue}"`;
   });
 
   // Fix broken t-esc with garbage: <t t-esc="var"garbage> -> <t t-esc="var"/>
-  fixed = fixed.replace(/<t\s+t-esc="([^"]+)"[^/>\s][^>]*>/g, (match, varName) => {
+  // ReDoS-safe: bounded quantifiers
+  fixed = fixed.replace(/<t\s+t-esc="([^"]{1,200})"[^/>\s][^>]{0,200}>/g, (match, varName) => {
     wasFixed = true;
     return `<t t-esc="${varName}"/>`;
   });
