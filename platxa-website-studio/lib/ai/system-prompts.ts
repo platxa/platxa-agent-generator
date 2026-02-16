@@ -761,12 +761,20 @@ Hero image: https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1920&
 MUST include: Services with icons, Doctor profiles, Appointment CTA`,
 
   ecommerce: `
-E-commerce Theme - REQUIRED sections: hero, featured-products, categories, testimonials, newsletter, footer
+E-commerce Theme - REQUIRED sections: hero, featured-products, categories, deals, testimonials, newsletter, footer
 Odoo Color Palette:
   o-color-1: #7c3aed (purple), o-color-2: #ec4899 (pink), o-color-3: #f59e0b (amber), o-color-4: #faf5ff (light), o-color-5: #1e1b4b (dark)
 Fonts: headings 'Poppins' (sans-serif), body 'Inter' (sans-serif)
 Hero image: https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80
-MUST include: Product showcase grid, Category cards, Trust badges, Newsletter signup`,
+MUST include: Product showcase grid (3-4 cards with price, image, CTA), Category cards, Trust/payment badges, Newsletter signup
+Odoo E-commerce Integration:
+  - Add 'website_sale' to depends in __manifest__.py for shop functionality
+  - Product grid: use <section data-snippet="s_three_columns"> with product-style cards
+  - Each product card: image, name, price badge, "Add to Cart" button styled with btn-primary
+  - Categories section: icon + name cards linking to /shop?category=X
+  - Trust section: payment icons (Visa, Mastercard, PayPal), SSL badge, money-back guarantee
+  - Include "Shop Now" CTA buttons linking to /shop
+  - Deals/promotions: highlight with o_cc3 accent color background`,
 };
 
 // =============================================================================
