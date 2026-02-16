@@ -91,6 +91,49 @@ const VALID_LICENSES = [
 ];
 
 /**
+ * Valid Odoo inherit_id targets for website themes.
+ * These are the known base views that themes can legitimately inherit from.
+ */
+export const VALID_INHERIT_TARGETS = new Set([
+  // Core website views
+  "website.homepage",
+  "website.layout",
+  "website.footer",
+  "website.footer_custom",
+  "website.header",
+  "website.navbar",
+  "website.login",
+  "website.show_sign",
+  "website.user_navbar",
+  "website.contact",
+  "website.contactus",
+  "website.404",
+  "website.page_404",
+  // Portal views
+  "portal.portal_breadcrumbs",
+  "portal.portal_layout",
+  "portal.portal_my_home",
+  "portal.portal_sidebar",
+  // Web views
+  "web.frontend_layout",
+  "web.layout",
+  // eCommerce views
+  "website_sale.products",
+  "website_sale.product",
+  "website_sale.cart",
+  "website_sale.checkout",
+  "website_sale.payment",
+  "website_sale.confirmation",
+  // Blog views
+  "website_blog.blog_post_short",
+  "website_blog.blog_post_complete",
+  "website_blog.blog_cover",
+  // Event views
+  "website_event.index",
+  "website_event.event_right_column",
+]);
+
+/**
  * Valid Odoo 18 asset bundle names
  */
 export const VALID_ASSET_BUNDLES = [
@@ -332,11 +375,11 @@ export function validateQWebTemplate(
 
   // Check template inheritance
   const inheritPattern = /inherit_id="([^"]+)"/g;
-  let inheritMatch;
-  while ((inheritMatch = inheritPattern.exec(content)) !== null) {
+  for (const inheritMatch of content.matchAll(inheritPattern)) {
     const inheritId = inheritMatch[1];
+    const lineNum = content.substring(0, inheritMatch.index!).split("\n").length;
+
     if (!content.includes("<xpath")) {
-      const lineNum = content.substring(0, inheritMatch.index).split("\n").length;
       issues.push({
         severity: "warning",
         code: "QWEB008",
@@ -344,6 +387,18 @@ export function validateQWebTemplate(
         file: filePath,
         line: lineNum,
         suggestion: "Add xpath expressions to modify the inherited template",
+      });
+    }
+
+    // Semantic validation: check inherit_id target is a known Odoo view
+    if (!VALID_INHERIT_TARGETS.has(inheritId)) {
+      issues.push({
+        severity: "error",
+        code: "QWEB009",
+        message: `Unknown inherit_id target "${inheritId}" — may not exist in Odoo`,
+        file: filePath,
+        line: lineNum,
+        suggestion: `Use a known view like "website.homepage" or "website.layout". Valid targets include: ${[...VALID_INHERIT_TARGETS].slice(0, 5).join(", ")}...`,
       });
     }
   }
