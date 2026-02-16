@@ -3,6 +3,7 @@ export {
   DESIGN_ANALYZER_PROMPT,
   CODE_REVIEWER_PROMPT,
   buildSystemPrompt,
+  buildOdooPrompt,
 } from "./system-prompts";
 
 export {
