@@ -317,6 +317,20 @@ FORBIDDEN in templates.xml:
 - NO raw <form> tags (Odoo uses website.form widget for CSRF protection)
 - NO <script> tags (JS goes in web.assets_frontend bundle)
 - NO <style> tags (CSS goes in theme.scss)
+- NO Tailwind classes (no "flex", "p-4", "bg-blue-500", "text-center" etc.)
+- NO CSS custom properties in inline styles (no style="color: var(--primary)")
+
+WRONG template examples (DO NOT generate these):
+  WRONG: <div class="flex items-center p-4 bg-blue-500">  ← Tailwind
+  RIGHT: <div class="d-flex align-items-center p-3 bg-primary">  ← Bootstrap 5
+  WRONG: <section class="hero-section">  ← Missing o_cc and data-snippet
+  RIGHT: <section class="o_cc o_cc1" data-snippet="s_cover">
+  WRONG: 'category': 'Theme/Creative'  ← Wrong category
+  RIGHT: 'category': 'Website/Theme'
+  WRONG: <template id="homepage" inherit_id="website.layout">  ← Wrong target
+  RIGHT: <template id="homepage" inherit_id="website.homepage">
+  WRONG: t-raw="variable"  ← Deprecated
+  RIGHT: t-out="variable"
 
 FORBIDDEN in theme.scss:
 - NO body { } or html { } overrides
@@ -324,7 +338,15 @@ FORBIDDEN in theme.scss:
 - NO font-family declarations (fonts come from primary_variables.scss)
 - NO background-image in CSS (use inline style on HTML elements)
 - NO :root { } or CSS custom properties
-- NO hardcoded hex colors (use o-color('o-color-1') in SCSS)`;
+- NO hardcoded hex colors (use o-color('o-color-1') in SCSS)
+
+WRONG SCSS examples (DO NOT generate these):
+  WRONG: :root { --primary: #c9302c; }  ← CSS custom properties
+  RIGHT: (use $o-color-palettes SCSS map in primary_variables.scss)
+  WRONG: body { font-family: 'Lato', sans-serif; }  ← Font in theme.scss
+  RIGHT: (fonts go in primary_variables.scss via $o-theme-font variables)
+  WRONG: .hero { background-color: #c9302c; }  ← Hardcoded hex
+  RIGHT: .hero { background-color: o-color('o-color-1'); }`;
 
 /**
  * Full prompt for cloud APIs (Claude, GPT-4)
@@ -493,6 +515,20 @@ ${SECTION_TEMPLATES}
 - NO raw <form> tags (Odoo uses website.form widget for CSRF protection)
 - NO <script> tags (JS goes in web.assets_frontend bundle)
 - NO <style> tags (CSS goes in theme.scss)
+- NO Tailwind classes (no "flex", "p-4", "bg-blue-500")
+- NO CSS custom properties (no var(--primary))
+
+WRONG → RIGHT examples:
+  WRONG: <div class="flex items-center p-4">  ← Tailwind
+  RIGHT: <div class="d-flex align-items-center p-3">  ← Bootstrap 5
+  WRONG: 'category': 'Theme/Creative'
+  RIGHT: 'category': 'Website/Theme'
+  WRONG: <section class="hero-section">
+  RIGHT: <section class="o_cc o_cc1" data-snippet="s_cover">
+  WRONG: :root { --primary: #c9302c; }  ← CSS vars in SCSS
+  RIGHT: Use $o-color-palettes map in primary_variables.scss
+  WRONG: body { font-family: 'Lato'; }  ← Font in theme.scss
+  RIGHT: Use $o-theme-font variables in primary_variables.scss
 
 ## Quality Standards
 1. Generate 5-7 complete sections with real industry-specific content
@@ -638,6 +674,23 @@ ${getSnippetLibraryDoc()}
 - NO raw <form> tags (Odoo uses website.form widget for CSRF protection)
 - NO <script> tags (JS goes in web.assets_frontend bundle)
 - NO <style> tags (CSS goes in theme.scss)
+- NO Tailwind classes (no "flex", "p-4", "bg-blue-500")
+- NO CSS custom properties (no var(--primary))
+- NO t-raw (use t-out instead)
+
+WRONG → RIGHT examples:
+  WRONG: <div class="flex items-center p-4">  ← Tailwind
+  RIGHT: <div class="d-flex align-items-center p-3">  ← Bootstrap 5
+  WRONG: 'category': 'Theme/Creative'
+  RIGHT: 'category': 'Website/Theme'
+  WRONG: <section class="hero-section">
+  RIGHT: <section class="o_cc o_cc1" data-snippet="s_cover">
+  WRONG: :root { --primary: #c9302c; }  ← CSS vars in SCSS
+  RIGHT: Use $o-color-palettes map in primary_variables.scss
+  WRONG: body { font-family: 'Lato'; }  ← Font in theme.scss
+  RIGHT: Use $o-theme-font variables in primary_variables.scss
+  WRONG: .hero { background-color: #c9302c; }  ← Hardcoded hex
+  RIGHT: .hero { background-color: o-color('o-color-1'); }
 
 ## Quality Standards
 1. Generate 5-7 sections with REAL industry-specific content (no placeholders)
