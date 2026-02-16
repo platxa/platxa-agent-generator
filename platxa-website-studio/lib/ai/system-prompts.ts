@@ -282,8 +282,20 @@ section[data-snippet="s_cover"] {
 }
 \`\`\`
 
+## OUTPUT CONTRACT (STRICT)
+You MUST output EXACTLY 5 files with these exact names, sizes, and required patterns:
+
+| # | File Path | Size Range | Required Patterns |
+|---|-----------|-----------|-------------------|
+| 1 | __manifest__.py | 400-800 chars | 'category': 'Website/Theme', 'version': '18.0., 'depends': ['website'] |
+| 2 | views/templates.xml | 2000-8000 chars | <?xml, <odoo>, inherit_id="website.homepage", <xpath, </xpath>, </template>, </odoo> |
+| 3 | static/src/scss/primary_variables.scss | 400-1500 chars | $o-color-palettes, o-color-1 through o-color-5, $o-selected-color-palettes-names |
+| 4 | static/src/scss/bootstrap_overridden.scss | 100-600 chars | !default on every declaration |
+| 5 | static/src/scss/theme.scss | 100-2000 chars | NO body{}, NO :root{}, NO font-family |
+
+VIOLATION = REJECT. Missing files, wrong names, or missing patterns trigger self-correction.
+
 RULES:
-- Output EXACTLY 5 files: __manifest__.py, views/templates.xml, primary_variables.scss, bootstrap_overridden.scss, theme.scss
 - Template MUST use inherit_id="website.homepage" with xpath position="replace"
 - Replace <div id="wrap"> with <div id="wrap" class="oe_structure"> containing sections
 - Use Odoo color classes: o_cc o_cc1, o_cc2, etc. on sections
@@ -634,6 +646,17 @@ ${getSnippetLibraryDoc()}
 4. Proper heading hierarchy (h1 → h2 → h3)
 5. Responsive design with mobile breakpoints
 6. Include: hero, services, about, testimonials, CTA sections
+
+## OUTPUT CONTRACT (STRICT)
+You MUST output EXACTLY 5 files. Missing files, wrong names, or missing patterns trigger self-correction.
+
+| # | File Path | Size Range | Required Patterns |
+|---|-----------|-----------|-------------------|
+| 1 | theme_generated/__manifest__.py | 400-800 chars | 'category': 'Website/Theme', 'version': '18.0., 'depends': ['website'] |
+| 2 | theme_generated/views/templates.xml | 2000-8000 chars | <?xml, <odoo>, inherit_id="website.homepage", <xpath, </xpath>, </template>, </odoo> |
+| 3 | theme_generated/static/src/scss/primary_variables.scss | 400-1500 chars | $o-color-palettes, o-color-1 through o-color-5, $o-selected-color-palettes-names |
+| 4 | theme_generated/static/src/scss/bootstrap_overridden.scss | 100-600 chars | !default on every declaration |
+| 5 | theme_generated/static/src/scss/theme.scss | 100-2000 chars | NO body{}, NO :root{}, NO font-family |
 
 Generate complete, production-ready Odoo 18 themes NOW.`;
 
