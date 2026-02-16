@@ -160,6 +160,10 @@ export const VALID_SNIPPET_TYPES = new Set([
   "s_features_grid", "s_features_list", "s_stats",
   "s_testimonials", "s_clients", "s_cta_box",
   "s_newsletter", "s_pricing", "s_team", "s_faq",
+  "s_portfolio_grid", "s_gallery_carousel", "s_blog_cards",
+  "s_contact_form", "s_logos_bar", "s_banner_split",
+  "s_cta_banner", "s_footer_columns", "s_product_cards",
+  "s_map_section", "s_counters",
 ]);
 
 export const VALID_ASSET_BUNDLES = [

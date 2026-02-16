@@ -719,6 +719,510 @@ export const SNIPPET_LIBRARY: Record<string, SnippetConfig> = {
 </section>`,
     options: [],
   },
+
+  // -------------------------------------------------------------------------
+  // Portfolio / Gallery Snippets
+  // -------------------------------------------------------------------------
+
+  s_portfolio_grid: {
+    id: "s_portfolio_grid",
+    name: "Portfolio Grid",
+    category: "content",
+    description: "Masonry-style portfolio gallery with category filters",
+    template: `
+<section class="s_portfolio_grid section-padding o_cc o_cc1" data-snippet="s_portfolio_grid">
+    <div class="container">
+        <div class="section-title text-center mb-5">
+            <h2 class="fw-bold o_default_snippet_text">Our Work</h2>
+            <p class="text-muted o_default_snippet_text">Explore our latest projects</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm rounded-3 overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600" alt="" class="img-fluid" loading="lazy"/>
+                    <div class="card-body p-3">
+                        <h5 class="card-title fw-bold o_default_snippet_text">Project Alpha</h5>
+                        <p class="text-muted small o_default_snippet_text">Web Design</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm rounded-3 overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1551434678-e076c223a692?w=600" alt="" class="img-fluid" loading="lazy"/>
+                    <div class="card-body p-3">
+                        <h5 class="card-title fw-bold o_default_snippet_text">Project Beta</h5>
+                        <p class="text-muted small o_default_snippet_text">Branding</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm rounded-3 overflow-hidden">
+                    <img src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=600" alt="" class="img-fluid" loading="lazy"/>
+                    <div class="card-body p-3">
+                        <h5 class="card-title fw-bold o_default_snippet_text">Project Gamma</h5>
+                        <p class="text-muted small o_default_snippet_text">Development</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>`,
+    options: [],
+  },
+
+  s_gallery_carousel: {
+    id: "s_gallery_carousel",
+    name: "Gallery Carousel",
+    category: "content",
+    description: "Image carousel with navigation arrows",
+    template: `
+<section class="s_gallery_carousel section-padding o_cc o_cc1" data-snippet="s_gallery_carousel">
+    <div class="container">
+        <div class="section-title text-center mb-5">
+            <h2 class="fw-bold o_default_snippet_text">Gallery</h2>
+        </div>
+        <div id="galleryCarousel" class="carousel slide" data-bs-ride="carousel">
+            <div class="carousel-inner rounded-3 overflow-hidden">
+                <div class="carousel-item active">
+                    <img src="https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200" alt="" class="d-block w-100 img-fluid" loading="lazy"/>
+                </div>
+                <div class="carousel-item">
+                    <img src="https://images.unsplash.com/photo-1497215842964-222b430dc094?w=1200" alt="" class="d-block w-100 img-fluid" loading="lazy"/>
+                </div>
+                <div class="carousel-item">
+                    <img src="https://images.unsplash.com/photo-1497366811353-6870744d04b2?w=1200" alt="" class="d-block w-100 img-fluid" loading="lazy"/>
+                </div>
+            </div>
+            <button class="carousel-control-prev" type="button" data-bs-target="#galleryCarousel" data-bs-slide="prev">
+                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Previous</span>
+            </button>
+            <button class="carousel-control-next" type="button" data-bs-target="#galleryCarousel" data-bs-slide="next">
+                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                <span class="visually-hidden">Next</span>
+            </button>
+        </div>
+    </div>
+</section>`,
+    options: [],
+  },
+
+  // -------------------------------------------------------------------------
+  // Blog / Content Card Snippets
+  // -------------------------------------------------------------------------
+
+  s_blog_cards: {
+    id: "s_blog_cards",
+    name: "Blog Cards",
+    category: "content",
+    description: "Blog post cards with image, date, and excerpt",
+    template: `
+<section class="s_blog_cards section-padding o_cc o_cc1" data-snippet="s_blog_cards">
+    <div class="container">
+        <div class="section-title text-center mb-5">
+            <h2 class="fw-bold o_default_snippet_text">Latest Articles</h2>
+            <p class="text-muted o_default_snippet_text">Stay up to date with our insights</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm rounded-3 overflow-hidden h-100">
+                    <img src="https://images.unsplash.com/photo-1432821596592-e2c18b78144f?w=600" alt="" class="card-img-top img-fluid" loading="lazy"/>
+                    <div class="card-body p-4">
+                        <span class="badge bg-primary bg-opacity-10 text-primary mb-2 o_default_snippet_text">Tips</span>
+                        <h5 class="card-title fw-bold o_default_snippet_text">Getting Started Guide</h5>
+                        <p class="text-muted small o_default_snippet_text">Everything you need to know to hit the ground running with our platform.</p>
+                        <a href="#" class="text-primary text-decoration-none fw-semibold">Read More →</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm rounded-3 overflow-hidden h-100">
+                    <img src="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600" alt="" class="card-img-top img-fluid" loading="lazy"/>
+                    <div class="card-body p-4">
+                        <span class="badge bg-primary bg-opacity-10 text-primary mb-2 o_default_snippet_text">Strategy</span>
+                        <h5 class="card-title fw-bold o_default_snippet_text">Best Practices for Growth</h5>
+                        <p class="text-muted small o_default_snippet_text">Proven strategies that successful businesses use to scale efficiently.</p>
+                        <a href="#" class="text-primary text-decoration-none fw-semibold">Read More →</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm rounded-3 overflow-hidden h-100">
+                    <img src="https://images.unsplash.com/photo-1553877522-43269d4ea984?w=600" alt="" class="card-img-top img-fluid" loading="lazy"/>
+                    <div class="card-body p-4">
+                        <span class="badge bg-primary bg-opacity-10 text-primary mb-2 o_default_snippet_text">News</span>
+                        <h5 class="card-title fw-bold o_default_snippet_text">Product Update: New Features</h5>
+                        <p class="text-muted small o_default_snippet_text">We just shipped exciting new features that our users have been requesting.</p>
+                        <a href="#" class="text-primary text-decoration-none fw-semibold">Read More →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>`,
+    options: [],
+  },
+
+  // -------------------------------------------------------------------------
+  // Contact / Location Snippets
+  // -------------------------------------------------------------------------
+
+  s_contact_form: {
+    id: "s_contact_form",
+    name: "Contact Section",
+    category: "content",
+    description: "Contact information with map placeholder and details",
+    template: `
+<section class="s_contact_form section-padding o_cc o_cc1" data-snippet="s_contact_form">
+    <div class="container">
+        <div class="section-title text-center mb-5">
+            <h2 class="fw-bold o_default_snippet_text">Get In Touch</h2>
+            <p class="text-muted o_default_snippet_text">We'd love to hear from you</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="text-center p-4">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fa fa-map-marker fa-lg text-primary"></i>
+                    </div>
+                    <h5 class="fw-bold o_default_snippet_text">Address</h5>
+                    <p class="text-muted o_default_snippet_text">123 Business Street<br/>City, State 12345</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center p-4">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fa fa-phone fa-lg text-primary"></i>
+                    </div>
+                    <h5 class="fw-bold o_default_snippet_text">Phone</h5>
+                    <p class="text-muted o_default_snippet_text">+1 (555) 123-4567</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="text-center p-4">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 60px; height: 60px;">
+                        <i class="fa fa-envelope fa-lg text-primary"></i>
+                    </div>
+                    <h5 class="fw-bold o_default_snippet_text">Email</h5>
+                    <p class="text-muted o_default_snippet_text">hello@example.com</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>`,
+    options: [],
+  },
+
+  // -------------------------------------------------------------------------
+  // Social Proof Snippets
+  // -------------------------------------------------------------------------
+
+  s_logos_bar: {
+    id: "s_logos_bar",
+    name: "Logo Bar",
+    category: "social",
+    description: "Row of partner/client logos",
+    template: `
+<section class="s_logos_bar py-4 o_cc o_cc2" data-snippet="s_logos_bar">
+    <div class="container">
+        <p class="text-center text-muted mb-4 o_default_snippet_text">Trusted by leading companies</p>
+        <div class="row align-items-center justify-content-center g-4">
+            <div class="col-4 col-md-2 text-center">
+                <span class="text-muted fw-bold fs-5 o_default_snippet_text">Brand 1</span>
+            </div>
+            <div class="col-4 col-md-2 text-center">
+                <span class="text-muted fw-bold fs-5 o_default_snippet_text">Brand 2</span>
+            </div>
+            <div class="col-4 col-md-2 text-center">
+                <span class="text-muted fw-bold fs-5 o_default_snippet_text">Brand 3</span>
+            </div>
+            <div class="col-4 col-md-2 text-center">
+                <span class="text-muted fw-bold fs-5 o_default_snippet_text">Brand 4</span>
+            </div>
+            <div class="col-4 col-md-2 text-center">
+                <span class="text-muted fw-bold fs-5 o_default_snippet_text">Brand 5</span>
+            </div>
+            <div class="col-4 col-md-2 text-center">
+                <span class="text-muted fw-bold fs-5 o_default_snippet_text">Brand 6</span>
+            </div>
+        </div>
+    </div>
+</section>`,
+    options: [],
+  },
+
+  // -------------------------------------------------------------------------
+  // Process / Timeline Snippets
+  // -------------------------------------------------------------------------
+
+  s_process_steps: {
+    id: "s_process_steps",
+    name: "Process Steps",
+    category: "features",
+    description: "Numbered process/how-it-works steps",
+    template: `
+<section class="s_process_steps section-padding o_cc o_cc1" data-snippet="s_process_steps">
+    <div class="container">
+        <div class="section-title text-center mb-5">
+            <h2 class="fw-bold o_default_snippet_text">How It Works</h2>
+            <p class="text-muted o_default_snippet_text">Simple steps to get started</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4 text-center">
+                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3 fw-bold fs-4" style="width: 60px; height: 60px;">1</div>
+                <h5 class="fw-bold o_default_snippet_text">Sign Up</h5>
+                <p class="text-muted o_default_snippet_text">Create your free account in minutes with just your email address.</p>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3 fw-bold fs-4" style="width: 60px; height: 60px;">2</div>
+                <h5 class="fw-bold o_default_snippet_text">Configure</h5>
+                <p class="text-muted o_default_snippet_text">Set up your preferences and customize the experience to your needs.</p>
+            </div>
+            <div class="col-md-4 text-center">
+                <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3 fw-bold fs-4" style="width: 60px; height: 60px;">3</div>
+                <h5 class="fw-bold o_default_snippet_text">Launch</h5>
+                <p class="text-muted o_default_snippet_text">Go live and start seeing results from day one with our support.</p>
+            </div>
+        </div>
+    </div>
+</section>`,
+    options: [],
+  },
+
+  // -------------------------------------------------------------------------
+  // Banner / CTA Variants
+  // -------------------------------------------------------------------------
+
+  s_banner_split: {
+    id: "s_banner_split",
+    name: "Banner Split",
+    category: "structure",
+    description: "Split banner with text on one side and image on the other",
+    template: `
+<section class="s_banner_split o_cc o_cc1" data-snippet="s_banner_split">
+    <div class="container py-5">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6">
+                <span class="badge bg-primary bg-opacity-10 text-primary mb-3 px-3 py-2 rounded-pill o_default_snippet_text">About Us</span>
+                <h2 class="display-5 fw-bold mb-4 o_default_snippet_text">We Build Solutions That Matter</h2>
+                <p class="text-muted mb-4 o_default_snippet_text">Our team of experts is dedicated to delivering exceptional results. With years of experience and a passion for innovation, we help businesses transform their digital presence.</p>
+                <a href="#" class="btn btn-primary rounded-pill px-4">Learn More</a>
+            </div>
+            <div class="col-lg-6">
+                <img src="https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=800" alt="" class="img-fluid rounded-3 shadow" loading="lazy"/>
+            </div>
+        </div>
+    </div>
+</section>`,
+    options: [],
+  },
+
+  s_cta_banner: {
+    id: "s_cta_banner",
+    name: "CTA Banner",
+    category: "structure",
+    description: "Full-width call-to-action banner with background",
+    template: `
+<section class="s_cta_banner py-5 o_cc o_cc3" data-snippet="s_cta_banner">
+    <div class="container text-center py-4">
+        <h2 class="display-6 fw-bold mb-3 o_default_snippet_text">Ready to Get Started?</h2>
+        <p class="lead mb-4 mx-auto o_default_snippet_text" style="max-width: 600px;">Join thousands of satisfied customers who have already transformed their business.</p>
+        <div class="d-flex gap-3 justify-content-center flex-wrap">
+            <a href="#" class="btn btn-light btn-lg rounded-pill px-4 fw-semibold">Start Free Trial</a>
+            <a href="#" class="btn btn-outline-light btn-lg rounded-pill px-4">Contact Sales</a>
+        </div>
+    </div>
+</section>`,
+    options: [],
+  },
+
+  // -------------------------------------------------------------------------
+  // Footer Snippets
+  // -------------------------------------------------------------------------
+
+  s_footer_columns: {
+    id: "s_footer_columns",
+    name: "Footer Columns",
+    category: "structure",
+    description: "Multi-column footer with links and social icons",
+    template: `
+<section class="s_footer_columns pt-5 pb-3 o_cc o_cc4" data-snippet="s_footer_columns">
+    <div class="container">
+        <div class="row g-4 mb-4">
+            <div class="col-lg-4">
+                <h5 class="fw-bold mb-3 o_default_snippet_text">Company Name</h5>
+                <p class="text-muted o_default_snippet_text">Delivering excellence since day one. We are committed to providing the best solutions for our clients.</p>
+            </div>
+            <div class="col-6 col-lg-2">
+                <h6 class="fw-bold mb-3 o_default_snippet_text">Company</h6>
+                <ul class="list-unstyled">
+                    <li class="mb-2"><a href="#" class="text-muted text-decoration-none">About</a></li>
+                    <li class="mb-2"><a href="#" class="text-muted text-decoration-none">Careers</a></li>
+                    <li class="mb-2"><a href="#" class="text-muted text-decoration-none">Press</a></li>
+                </ul>
+            </div>
+            <div class="col-6 col-lg-2">
+                <h6 class="fw-bold mb-3 o_default_snippet_text">Resources</h6>
+                <ul class="list-unstyled">
+                    <li class="mb-2"><a href="#" class="text-muted text-decoration-none">Blog</a></li>
+                    <li class="mb-2"><a href="#" class="text-muted text-decoration-none">Help Center</a></li>
+                    <li class="mb-2"><a href="#" class="text-muted text-decoration-none">Contact</a></li>
+                </ul>
+            </div>
+            <div class="col-lg-4">
+                <h6 class="fw-bold mb-3 o_default_snippet_text">Stay Connected</h6>
+                <p class="text-muted o_default_snippet_text">Subscribe to our newsletter for updates.</p>
+                <div class="d-flex gap-3 mt-3">
+                    <a href="#" class="text-muted"><i class="fa fa-facebook fa-lg"></i></a>
+                    <a href="#" class="text-muted"><i class="fa fa-twitter fa-lg"></i></a>
+                    <a href="#" class="text-muted"><i class="fa fa-instagram fa-lg"></i></a>
+                    <a href="#" class="text-muted"><i class="fa fa-linkedin fa-lg"></i></a>
+                </div>
+            </div>
+        </div>
+        <hr class="opacity-25"/>
+        <p class="text-center text-muted small mb-0 o_default_snippet_text">&copy; 2026 Company Name. All rights reserved.</p>
+    </div>
+</section>`,
+    options: [],
+  },
+
+  // -------------------------------------------------------------------------
+  // Ecommerce Snippets
+  // -------------------------------------------------------------------------
+
+  s_product_cards: {
+    id: "s_product_cards",
+    name: "Product Cards",
+    category: "ecommerce",
+    description: "Product cards with image, price, and add-to-cart button",
+    template: `
+<section class="s_product_cards section-padding o_cc o_cc1" data-snippet="s_product_cards">
+    <div class="container">
+        <div class="section-title text-center mb-5">
+            <h2 class="fw-bold o_default_snippet_text">Featured Products</h2>
+            <p class="text-muted o_default_snippet_text">Discover our best sellers</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm rounded-3 overflow-hidden h-100">
+                    <img src="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400" alt="" class="card-img-top img-fluid" loading="lazy"/>
+                    <div class="card-body p-3 text-center">
+                        <h6 class="fw-bold o_default_snippet_text">Product Name</h6>
+                        <p class="text-primary fw-bold mb-2 o_default_snippet_text">$49.99</p>
+                        <a href="#" class="btn btn-sm btn-outline-primary rounded-pill">Add to Cart</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm rounded-3 overflow-hidden h-100">
+                    <img src="https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400" alt="" class="card-img-top img-fluid" loading="lazy"/>
+                    <div class="card-body p-3 text-center">
+                        <h6 class="fw-bold o_default_snippet_text">Product Name</h6>
+                        <p class="text-primary fw-bold mb-2 o_default_snippet_text">$79.99</p>
+                        <a href="#" class="btn btn-sm btn-outline-primary rounded-pill">Add to Cart</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm rounded-3 overflow-hidden h-100">
+                    <img src="https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400" alt="" class="card-img-top img-fluid" loading="lazy"/>
+                    <div class="card-body p-3 text-center">
+                        <h6 class="fw-bold o_default_snippet_text">Product Name</h6>
+                        <p class="text-primary fw-bold mb-2 o_default_snippet_text">$34.99</p>
+                        <a href="#" class="btn btn-sm btn-outline-primary rounded-pill">Add to Cart</a>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <div class="card border-0 shadow-sm rounded-3 overflow-hidden h-100">
+                    <img src="https://images.unsplash.com/photo-1491553895911-0055eca6402d?w=400" alt="" class="card-img-top img-fluid" loading="lazy"/>
+                    <div class="card-body p-3 text-center">
+                        <h6 class="fw-bold o_default_snippet_text">Product Name</h6>
+                        <p class="text-primary fw-bold mb-2 o_default_snippet_text">$59.99</p>
+                        <a href="#" class="btn btn-sm btn-outline-primary rounded-pill">Add to Cart</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>`,
+    options: [],
+  },
+
+  // -------------------------------------------------------------------------
+  // Map / Location Snippets
+  // -------------------------------------------------------------------------
+
+  s_map_section: {
+    id: "s_map_section",
+    name: "Map Section",
+    category: "content",
+    description: "Location section with embedded map and business hours",
+    template: `
+<section class="s_map_section section-padding o_cc o_cc1" data-snippet="s_map_section">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-6">
+                <h2 class="fw-bold mb-4 o_default_snippet_text">Visit Us</h2>
+                <div class="mb-4">
+                    <h6 class="fw-bold o_default_snippet_text">Address</h6>
+                    <p class="text-muted o_default_snippet_text">123 Main Street, Suite 100<br/>City, State 12345</p>
+                </div>
+                <div class="mb-4">
+                    <h6 class="fw-bold o_default_snippet_text">Business Hours</h6>
+                    <p class="text-muted o_default_snippet_text">Monday – Friday: 9:00 AM – 6:00 PM<br/>Saturday: 10:00 AM – 4:00 PM<br/>Sunday: Closed</p>
+                </div>
+                <div>
+                    <h6 class="fw-bold o_default_snippet_text">Contact</h6>
+                    <p class="text-muted o_default_snippet_text">Phone: +1 (555) 123-4567<br/>Email: info@example.com</p>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="bg-light rounded-3 d-flex align-items-center justify-content-center" style="min-height: 350px;">
+                    <p class="text-muted o_default_snippet_text"><i class="fa fa-map-marker fa-2x mb-2 d-block"></i>Map will appear here</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>`,
+    options: [],
+  },
+
+  // -------------------------------------------------------------------------
+  // Counter / Number Snippets
+  // -------------------------------------------------------------------------
+
+  s_counters: {
+    id: "s_counters",
+    name: "Counter Section",
+    category: "features",
+    description: "Animated number counters for key metrics",
+    template: `
+<section class="s_counters py-5 o_cc o_cc3" data-snippet="s_counters">
+    <div class="container">
+        <div class="row text-center g-4">
+            <div class="col-6 col-md-3">
+                <h2 class="display-4 fw-bold o_default_snippet_text">500+</h2>
+                <p class="text-muted fw-semibold o_default_snippet_text">Happy Clients</p>
+            </div>
+            <div class="col-6 col-md-3">
+                <h2 class="display-4 fw-bold o_default_snippet_text">1200</h2>
+                <p class="text-muted fw-semibold o_default_snippet_text">Projects Done</p>
+            </div>
+            <div class="col-6 col-md-3">
+                <h2 class="display-4 fw-bold o_default_snippet_text">15+</h2>
+                <p class="text-muted fw-semibold o_default_snippet_text">Years Experience</p>
+            </div>
+            <div class="col-6 col-md-3">
+                <h2 class="display-4 fw-bold o_default_snippet_text">24/7</h2>
+                <p class="text-muted fw-semibold o_default_snippet_text">Support Available</p>
+            </div>
+        </div>
+    </div>
+</section>`,
+    options: [],
+  },
 };
 
 // =============================================================================
