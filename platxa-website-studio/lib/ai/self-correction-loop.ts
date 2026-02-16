@@ -439,6 +439,7 @@ const ERROR_CODE_SEVERITY: Record<string, ErrorSeverity> = {
   SCSS003: "low",         // Excessive !important
   SCSS004: "medium",      // Deprecated variables
   SCSS005: "low",         // Hardcoded colors
+  QWEB011: "low",        // Unknown snippet type
   // Structure - Critical
   STRUCT001: "critical",  // Missing required file
   STRUCT003: "high",      // Data file referenced but not found

@@ -136,6 +136,32 @@ export const VALID_INHERIT_TARGETS = new Set([
 /**
  * Valid Odoo 18 asset bundle names
  */
+/**
+ * Valid Odoo 18 data-snippet types for sections.
+ * Includes both built-in Odoo snippets and custom Platxa snippet library types.
+ */
+export const VALID_SNIPPET_TYPES = new Set([
+  // Built-in Odoo 18 snippets
+  "s_cover", "s_parallax", "s_banner",
+  "s_text_block", "s_text_image", "s_image_text",
+  "s_three_columns", "s_four_columns", "s_two_columns",
+  "s_call_to_action", "s_references", "s_quotes",
+  "s_company_team", "s_comparisons", "s_features",
+  "s_media_list", "s_showcase", "s_tabs",
+  "s_numbers", "s_picture", "s_carousel",
+  "s_masonry_block", "s_popup", "s_rating",
+  "s_process_steps", "s_searchbar", "s_map",
+  "s_google_map", "s_chart", "s_progress_bar",
+  "s_countdown", "s_embed_code", "s_hr",
+  "s_alert", "s_badge", "s_blockquote",
+  "s_product_catalog", "s_dynamic_snippet",
+  // Platxa custom snippet library
+  "s_hero_centered", "s_hero_split", "s_cover_parallax",
+  "s_features_grid", "s_features_list", "s_stats",
+  "s_testimonials", "s_clients", "s_cta_box",
+  "s_newsletter", "s_pricing", "s_team", "s_faq",
+]);
+
 export const VALID_ASSET_BUNDLES = [
   "web.assets_frontend",
   "web._assets_primary_variables",
@@ -416,6 +442,23 @@ export function validateQWebTemplate(
         file: filePath,
         line: lineNum,
         suggestion: `Replace with o_cc1, o_cc2, o_cc3, or o_cc4`,
+      });
+    }
+  }
+
+  // Check data-snippet values are valid Odoo snippet types
+  const snippetPattern = /data-snippet="([^"]+)"/g;
+  for (const snippetMatch of content.matchAll(snippetPattern)) {
+    const snippetType = snippetMatch[1];
+    if (!VALID_SNIPPET_TYPES.has(snippetType)) {
+      const lineNum = content.substring(0, snippetMatch.index!).split("\n").length;
+      issues.push({
+        severity: "warning",
+        code: "QWEB011",
+        message: `Unknown snippet type "${snippetType}" — may not be recognized by Odoo Website Builder`,
+        file: filePath,
+        line: lineNum,
+        suggestion: `Use a known snippet type: s_cover, s_three_columns, s_text_image, s_call_to_action, s_features_grid, etc.`,
       });
     }
   }
