@@ -842,6 +842,36 @@ Custom Odoo Color Overrides (use in $o-color-palettes):
     prompt += `\n\n## Project Context\n${context.join("\n")}`;
   }
 
+  // For compact prompt (Ollama): replace example colors/fonts in the template
+  // so the model copies correct values instead of hardcoded examples.
+  // Small models tend to copy example values literally.
+  if (useCompact) {
+    const industryKey = options.industry?.toLowerCase() as Industry;
+    const preset = industryKey ? INDUSTRY_PRESETS[industryKey] : undefined;
+    const colors = options.colorPalette || (preset ? {
+      primary: preset.colors.primary,
+      secondary: preset.colors.secondary,
+      accent: preset.colors.accent,
+      background: preset.colors.background,
+      text: preset.colors.text,
+    } : undefined);
+
+    if (colors?.primary) {
+      // Replace hardcoded example colors in the template
+      prompt = prompt.replace("#c9302c", colors.primary);
+      prompt = prompt.replace("#8b4513", colors.secondary || "#8b4513");
+      prompt = prompt.replace("#d4a373", colors.accent || "#d4a373");
+      prompt = prompt.replace("#fefae0", colors.background || "#fefae0");
+      prompt = prompt.replace("#2d2d2d", colors.text || "#2d2d2d");
+    }
+
+    if (preset) {
+      // Replace hardcoded example fonts
+      prompt = prompt.replace(/Playfair Display/g, preset.typography.headingFamily);
+      prompt = prompt.replace(/Lato/g, preset.typography.bodyFamily);
+    }
+  }
+
   return prompt;
 }
 
