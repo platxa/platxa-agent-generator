@@ -955,6 +955,17 @@ function detectIndustryFromFiles(files: ParsedFile[]): string | undefined {
     legal: ["law firm", "attorney", "lawyer", "legal", "practice area", "justice", "court"],
     healthcare: ["hospital", "clinic", "doctor", "medical", "patient", "health", "appointment"],
     ecommerce: ["e-commerce", "ecommerce", "product", "shop", "cart", "store", "buy now"],
+    education: ["school", "university", "academy", "course", "student", "campus", "enrollment"],
+    realestate: ["real estate", "property", "listing", "realtor", "mortgage", "housing"],
+    fitness: ["gym", "fitness", "workout", "trainer", "class schedule", "membership"],
+    beauty: ["salon", "beauty", "spa", "treatment", "skincare", "booking", "stylist"],
+    automotive: ["car", "vehicle", "dealership", "inventory", "test drive", "financing"],
+    finance: ["bank", "finance", "investment", "loan", "insurance", "portfolio", "rates"],
+    construction: ["construction", "contractor", "project", "building", "renovation", "estimate"],
+    travel: ["travel", "destination", "tour", "booking", "resort", "vacation", "itinerary"],
+    photography: ["photography", "portfolio", "gallery", "session", "portrait", "wedding"],
+    nonprofit: ["nonprofit", "donate", "mission", "volunteer", "impact", "cause", "charity"],
+    creative: ["portfolio", "creative", "design", "illustration", "artwork", "studio"],
   };
 
   for (const [industry, keywords] of Object.entries(industryPatterns)) {

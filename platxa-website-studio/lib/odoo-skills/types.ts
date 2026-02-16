@@ -22,6 +22,12 @@ export type Industry =
   | "fitness"
   | "creative"
   | "nonprofit"
+  | "beauty"
+  | "automotive"
+  | "finance"
+  | "construction"
+  | "travel"
+  | "photography"
   | "generic";
 
 /**

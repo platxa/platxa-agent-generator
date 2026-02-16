@@ -122,6 +122,17 @@ function detectIndustryFromMessage(message: string): string | undefined {
     legal: ["law firm", "lawyer", "attorney", "legal", "law office"],
     healthcare: ["hospital", "clinic", "medical", "healthcare", "doctor", "dental", "pharmacy"],
     ecommerce: ["e-commerce", "ecommerce", "online store", "shop", "retail", "marketplace"],
+    education: ["school", "university", "academy", "education", "learning", "course", "training", "tutor"],
+    realestate: ["real estate", "property", "realtor", "housing", "apartment", "realty", "mortgage"],
+    fitness: ["gym", "fitness", "workout", "yoga", "crossfit", "personal trainer", "wellness"],
+    beauty: ["salon", "beauty", "spa", "hair", "nails", "skincare", "cosmetic", "barber"],
+    automotive: ["car dealer", "automotive", "auto repair", "mechanic", "vehicle", "dealership"],
+    finance: ["bank", "finance", "insurance", "investment", "accounting", "financial", "fintech"],
+    construction: ["construction", "contractor", "building", "renovation", "roofing", "plumbing", "architect"],
+    travel: ["travel", "tourism", "hotel", "resort", "tour", "vacation", "booking", "flight"],
+    photography: ["photography", "photographer", "photo studio", "portrait", "wedding photo"],
+    nonprofit: ["nonprofit", "charity", "foundation", "ngo", "donate", "volunteer", "cause"],
+    creative: ["portfolio", "design studio", "creative agency", "freelance", "illustration"],
   };
 
   for (const [industry, keywords] of Object.entries(industryKeywords)) {
