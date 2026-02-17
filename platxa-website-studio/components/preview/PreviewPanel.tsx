@@ -643,6 +643,11 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
     // Remove @import statements for local files
     .replace(/@import\s+["'](?!https?:\/\/)[^"']+["']\s*;/gi, "");
 
+  // Final pass: ensure ALL /web/image/ URLs are replaced with SVG placeholders.
+  // extractQwebContent already calls replaceImagesWithPlaceholders per-file,
+  // but QWebRuntime rendering or content merging can re-introduce raw paths.
+  htmlContent = replaceImagesWithPlaceholders(htmlContent);
+
   // Summary logging
   console.log("[generatePreviewHtml] ===== SUMMARY =====");
   console.log("[generatePreviewHtml] HTML content length:", htmlContent.length);
