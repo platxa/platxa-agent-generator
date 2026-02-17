@@ -19,35 +19,66 @@ import {
 // =============================================================================
 
 const DESIGN_SYSTEM = `
-## Design System
+## Design System (STRICT — follow exactly)
 
 ### Colors (60-30-10 Rule)
-- 60% Neutral: bg-light (#f8f9fa), bg-white - backgrounds, cards
-- 30% Secondary: text-muted (#6c757d), borders - supporting elements
-- 10% Accent: Primary brand color - CTAs, highlights only
+- 60% Dominant: White (#ffffff) and off-white (#f8f9fa) backgrounds
+- 30% Supporting: Dark text (#2d2d2d), muted text (#6c757d), subtle borders rgba(0,0,0,0.08)
+- 10% Accent: Primary brand color ONLY on buttons, badges, icon circles, links
+- NEVER use primary color as a section background (except CTA section)
+- NEVER place two consecutive sections with the same background color
 
-### Industry Color Palettes
-Restaurant: warm (#c9302c primary, #f5f0e8 bg, #8b4513 accent)
-Tech/SaaS: blue (#0d6efd primary, #f8f9fa bg, #6f42c1 accent)
-Law/Finance: navy (#1a365d primary, #f7f7f7 bg, #c9a227 accent)
-Healthcare: teal (#0d9488 primary, #f0fdfa bg, #0284c7 accent)
-E-commerce: purple (#7c3aed primary, #faf5ff bg, #ec4899 accent)
+### Industry Color Palettes (o-color-1 through o-color-5)
+Restaurant: warm (#c9302c primary, #8b4513 secondary, #d4a373 tertiary, #fefae0 light, #2d2d2d dark)
+Tech/SaaS: blue (#2563eb primary, #7c3aed secondary, #06b6d4 tertiary, #f8fafc light, #0f172a dark)
+Law/Finance: navy (#1a365d primary, #c9a227 secondary, #4a5568 tertiary, #f7f7f7 light, #1a202c dark)
+Healthcare: teal (#0d9488 primary, #0284c7 secondary, #4ade80 tertiary, #f0fdfa light, #1e293b dark)
+E-commerce: purple (#7c3aed primary, #ec4899 secondary, #f59e0b tertiary, #faf5ff light, #1e1b4b dark)
 
-### Typography
-- Headings: font-weight-bold, text-dark
-- Body: text-secondary for paragraphs
-- Scale: display-1 (hero) → h1 → h2 → h3 → p
+### Typography Scale (Exact — do not deviate)
+- Hero headline: display-3 (3rem), fw-bold, line-height: 1.1, letter-spacing: -0.01em
+- Section headings: h2 (2rem), fw-bold, line-height: 1.2, text-center
+- Section subtitles: p, text-muted, max-width 600px, mx-auto, mb-5, line-height: 1.6
+- Card titles: h5 (1.25rem), fw-bold, line-height: 1.3
+- Body text: 1rem (16px), text-muted, line-height: 1.6
+- Small labels/eyebrows: 0.75rem, text-uppercase, letter-spacing: 0.05em, fw-semibold
+- Badges: rounded-pill, px-3 py-2, bg-primary bg-opacity-10 text-primary, small text
+- NEVER skip heading levels (no h1 then h4)
+- Font weights: use at least 3 levels (300 for subtitles, 400 for body, 700 for headings)
 
-### Spacing (8px grid)
-- Sections: py-5 (3rem), py-6 (4rem) for major sections
-- Cards: p-4 (1.5rem) padding
-- Gaps: gap-4 between grid items
+### Spacing Rhythm (8px grid — STRICT)
+- Hero section: pt96 pb96 (6rem) — generous opening
+- Content sections: pt64 pb64 (4rem) — breathing room
+- CTA section: pt64 pb64 — tight, urgent
+- Footer: pt48 pb32 — compact, utilitarian
+- Section heading to content: mb-5 (3rem gap)
+- Card padding: p-4 (24px) minimum
+- Grid gaps: g-4 (24px) between all grid items
+- Between badge/eyebrow and heading: mb-3
+- Between heading and subtitle: mb-2
+- NEVER use less than pt48 pb48 on any section
+
+### Section Heading Composition (3-part pattern)
+Every section heading MUST follow this structure:
+1. Optional: Small badge or eyebrow text above heading
+2. Section heading: h2 fw-bold text-center mb-2
+3. Section subtitle: p text-muted text-center mb-5 mx-auto style="max-width: 600px;"
+Then the content (cards, images, etc.) below.
+
+### Card Design
+- Background: white, border: 0 (use shadow for separation)
+- Border-radius: rounded-3 (0.5rem)
+- Shadow: shadow-sm at rest
+- Padding: p-4 minimum
+- Icon: inside bg-primary bg-opacity-10 rounded-circle d-inline-flex p-3 mb-3
+- Equal height: h-100 on ALL cards in a row
+- Grid: 3-column (col-md-4) with g-4 gap
+- Hover effect handled by theme.scss
 
 ### Modern Patterns
-- Hero: min-vh-75, gradient overlay, centered content
-- Cards: shadow-sm, rounded-3, hover:shadow-lg
-- Buttons: rounded-pill for CTAs, px-4 py-2
-- Images: rounded-3, object-fit-cover
+- Hero: min-vh-75, gradient overlay rgba(0,0,0,0.55), centered content, display-3 heading
+- Buttons: rounded-pill for ALL CTAs, px-4 py-2, btn-lg for hero
+- Images: rounded-3, shadow, object-fit-cover, loading="lazy", meaningful alt text
 `;
 
 // =============================================================================
@@ -55,22 +86,7 @@ E-commerce: purple (#7c3aed primary, #faf5ff bg, #ec4899 accent)
 // =============================================================================
 
 const SECTION_TEMPLATES = `
-## Section Templates
-
-### Hero Section (with background image)
-<section class="min-vh-75 d-flex align-items-center position-relative" style="background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&amp;q=80') center/cover no-repeat;">
-  <div class="container position-relative z-1 text-center text-white py-5">
-    <span class="badge bg-light text-primary mb-3">Welcome</span>
-    <h1 class="display-3 fw-bold mb-4">Main Headline Here</h1>
-    <p class="lead mb-4 mx-auto" style="max-width:600px">Subheadline text</p>
-    <div class="d-flex gap-3 justify-content-center">
-      <a href="#" class="btn btn-primary btn-lg rounded-pill px-4">Get Started</a>
-      <a href="#" class="btn btn-outline-light btn-lg rounded-pill px-4">Learn More</a>
-    </div>
-  </div>
-</section>
-
-### Image Placeholders by Industry
+## Image Placeholders by Industry
 Use these Unsplash URLs for realistic placeholder images:
 - Restaurant: https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80 (dining)
 - Restaurant food: https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80
@@ -80,78 +96,16 @@ Use these Unsplash URLs for realistic placeholder images:
 - E-commerce: https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80
 - Generic: https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80 (office)
 
-### Features Grid
-<section class="py-5 bg-light">
-  <div class="container">
-    <h2 class="text-center fw-bold mb-5">Our Features</h2>
-    <div class="row g-4">
-      <div class="col-md-4">
-        <div class="card h-100 border-0 shadow-sm rounded-3">
-          <div class="card-body p-4 text-center">
-            <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-3 mb-3">
-              <i class="fa fa-icon text-primary fs-4"></i>
-            </div>
-            <h5 class="fw-bold">Feature Title</h5>
-            <p class="text-muted mb-0">Feature description text here.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
+## Section Order (MUST follow this order)
+1. Hero (s_cover) — full-width background image with overlay, headline, CTA buttons
+2. Features/Services (s_three_columns) — 3-column card grid with icons
+3. About (s_image_text) — image + text side by side
+4. Testimonials (s_quotes_carousel) — 3 review cards with star ratings
+5. CTA (s_call_to_action) — colored background, headline, single button
+6. Footer (s_footer) — ALWAYS LAST — multi-column with links, contact info, copyright
 
-### Testimonials
-<section class="py-5">
-  <div class="container">
-    <h2 class="text-center fw-bold mb-5">What People Say</h2>
-    <div class="row g-4">
-      <div class="col-md-4">
-        <div class="card border-0 shadow-sm rounded-3 h-100">
-          <div class="card-body p-4">
-            <div class="d-flex mb-3">★★★★★</div>
-            <p class="mb-4">"Quote text here"</p>
-            <div class="d-flex align-items-center">
-              <div class="rounded-circle bg-secondary me-3" style="width:48px;height:48px"></div>
-              <div>
-                <h6 class="mb-0 fw-bold">Name</h6>
-                <small class="text-muted">Title</small>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-### CTA Section
-<section class="py-5 bg-primary text-white">
-  <div class="container text-center py-4">
-    <h2 class="fw-bold mb-3">Ready to Get Started?</h2>
-    <p class="mb-4 opacity-75">Call to action description</p>
-    <a href="#" class="btn btn-light btn-lg rounded-pill px-5">Contact Us</a>
-  </div>
-</section>
-
-### Footer
-<footer class="bg-dark text-white py-5">
-  <div class="container">
-    <div class="row g-4">
-      <div class="col-md-4">
-        <h5 class="fw-bold mb-3">Company Name</h5>
-        <p class="text-white-50">Brief description</p>
-      </div>
-      <div class="col-md-2">
-        <h6 class="fw-bold mb-3">Links</h6>
-        <ul class="list-unstyled">
-          <li><a href="#" class="text-white-50 text-decoration-none">About</a></li>
-        </ul>
-      </div>
-    </div>
-    <hr class="my-4 opacity-25">
-    <p class="text-white-50 text-center mb-0">© 2024 Company. All rights reserved.</p>
-  </div>
-</footer>
+IMPORTANT: Every <section> MUST have class="o_cc o_ccN" and data-snippet="s_xxx".
+The complete example in templates.xml above shows the exact pattern. Adapt content for the requested industry.
 `;
 
 // =============================================================================
@@ -208,31 +162,178 @@ const TEMPLATE_INLINE_CODE = `<?xml version="1.0" encoding="utf-8"?>
   </template>
 </odoo>`;
 
-/** Template pattern for full mode - structural guidance */
+/** Template pattern for full mode - complete example Claude can follow */
 const TEMPLATE_PATTERN_CODE = `<?xml version="1.0" encoding="utf-8"?>
 <odoo>
   <template id="homepage_content" name="Homepage Content" inherit_id="website.homepage" customize_show="True">
     <xpath expr="//div[@id='wrap']" position="replace">
       <div id="wrap" class="oe_structure">
-        <!-- Hero section with Odoo color combination class -->
+        <!-- HERO: Full-width with background image and overlay -->
         <section class="o_cc o_cc1 pt96 pb96" data-snippet="s_cover"
-                 style="background-image: url('...'); background-size: cover; background-position: center;">
-          <div class="container text-center">
-            <h1 class="display-3 fw-bold">Main Headline</h1>
-            <p class="lead mb-4">Subheadline text</p>
-            <a href="/contactus" class="btn btn-primary btn-lg rounded-pill px-4">Get Started</a>
-          </div>
-        </section>
-        <!-- Features section -->
-        <section class="o_cc o_cc2 pt48 pb48" data-snippet="s_three_columns">
-          <div class="container">
-            <h2 class="text-center fw-bold mb-5">Section Title</h2>
-            <div class="row g-4">
-              <!-- 3 cards with real content -->
+                 style="background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&amp;q=80') center/cover no-repeat; min-height: 75vh; display: flex; align-items: center;">
+          <div class="container text-center text-white">
+            <span class="badge bg-light text-primary mb-3 px-3 py-2 rounded-pill">Welcome to La Bella Cucina</span>
+            <h1 class="display-3 fw-bold mb-4">Authentic Italian Dining Experience</h1>
+            <p class="lead mb-4 mx-auto" style="max-width: 600px;">Handcrafted pasta, wood-fired pizzas, and the finest wines in a warm, inviting atmosphere.</p>
+            <div class="d-flex gap-3 justify-content-center">
+              <a href="/contactus" class="btn btn-primary btn-lg rounded-pill px-4">Reserve a Table</a>
+              <a href="#menu" class="btn btn-outline-light btn-lg rounded-pill px-4">View Menu</a>
             </div>
           </div>
         </section>
-        <!-- More sections: testimonials, CTA, about, etc. -->
+
+        <!-- FEATURES/SERVICES: 3-column card grid -->
+        <section class="o_cc o_cc2 pt64 pb64" data-snippet="s_three_columns">
+          <div class="container">
+            <h2 class="text-center fw-bold mb-2">Why Choose Us</h2>
+            <p class="text-center text-muted mb-5 mx-auto" style="max-width: 600px;">Three generations of culinary excellence</p>
+            <div class="row g-4">
+              <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100 rounded-3">
+                  <div class="card-body p-4 text-center">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-3 mb-3">
+                      <i class="fa fa-leaf text-primary fs-4"></i>
+                    </div>
+                    <h5 class="fw-bold">Fresh Ingredients</h5>
+                    <p class="text-muted mb-0">Locally sourced produce and imported Italian specialties, delivered fresh daily.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100 rounded-3">
+                  <div class="card-body p-4 text-center">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-3 mb-3">
+                      <i class="fa fa-utensils text-primary fs-4"></i>
+                    </div>
+                    <h5 class="fw-bold">Master Chefs</h5>
+                    <p class="text-muted mb-0">Our chefs trained in Italy bring authentic recipes passed down through generations.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100 rounded-3">
+                  <div class="card-body p-4 text-center">
+                    <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-3 mb-3">
+                      <i class="fa fa-wine-glass text-primary fs-4"></i>
+                    </div>
+                    <h5 class="fw-bold">Fine Wine Selection</h5>
+                    <p class="text-muted mb-0">Over 200 wines curated from the best vineyards across Italy and the world.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ABOUT / IMAGE + TEXT -->
+        <section class="o_cc o_cc3 pt64 pb64" data-snippet="s_image_text">
+          <div class="container">
+            <div class="row align-items-center g-5">
+              <div class="col-md-6">
+                <img loading="lazy" class="img-fluid rounded-3 shadow" src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&amp;q=80" alt="Signature dish" />
+              </div>
+              <div class="col-md-6">
+                <span class="badge bg-primary bg-opacity-10 text-primary mb-3 px-3 py-2 rounded-pill">Our Story</span>
+                <h2 class="fw-bold mb-3">A Taste of Italy Since 1985</h2>
+                <p class="text-muted mb-4">Founded by the Rossi family, La Bella Cucina brings the warmth and flavors of Tuscany to your table. Every dish tells a story of tradition, passion, and the finest ingredients.</p>
+                <a href="/about" class="btn btn-primary rounded-pill px-4">Learn More</a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TESTIMONIALS -->
+        <section class="o_cc o_cc4 pt64 pb64" data-snippet="s_quotes_carousel">
+          <div class="container">
+            <h2 class="text-center fw-bold mb-5">What Our Guests Say</h2>
+            <div class="row g-4">
+              <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100 rounded-3">
+                  <div class="card-body p-4">
+                    <div class="text-warning mb-3">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <p class="mb-4">"The best Italian food outside of Rome. The homemade pasta is absolutely divine!"</p>
+                    <div class="d-flex align-items-center">
+                      <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center me-3" style="width:48px;height:48px;"><span class="fw-bold text-primary">SM</span></div>
+                      <div><h6 class="mb-0 fw-bold">Sarah M.</h6><small class="text-muted">Regular Guest</small></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100 rounded-3">
+                  <div class="card-body p-4">
+                    <div class="text-warning mb-3">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <p class="mb-4">"Perfect for date night. The ambiance, wine selection, and tiramisu are unforgettable."</p>
+                    <div class="d-flex align-items-center">
+                      <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center me-3" style="width:48px;height:48px;"><span class="fw-bold text-primary">JR</span></div>
+                      <div><h6 class="mb-0 fw-bold">James R.</h6><small class="text-muted">Food Blogger</small></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <div class="card border-0 shadow-sm h-100 rounded-3">
+                  <div class="card-body p-4">
+                    <div class="text-warning mb-3">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+                    <p class="mb-4">"We hosted our anniversary here. Exceptional service and the chef's tasting menu was incredible."</p>
+                    <div class="d-flex align-items-center">
+                      <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center me-3" style="width:48px;height:48px;"><span class="fw-bold text-primary">EL</span></div>
+                      <div><h6 class="mb-0 fw-bold">Elena L.</h6><small class="text-muted">Anniversary Dinner</small></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- CTA -->
+        <section class="o_cc o_cc5 pt64 pb64" data-snippet="s_call_to_action" style="background-color: var(--primary, #c9302c);">
+          <div class="container text-center text-white py-4">
+            <h2 class="fw-bold mb-3">Ready for an Unforgettable Evening?</h2>
+            <p class="mb-4 opacity-75 mx-auto" style="max-width: 500px;">Reserve your table today and experience the magic of authentic Italian cuisine.</p>
+            <a href="/contactus" class="btn btn-light btn-lg rounded-pill px-5">Make a Reservation</a>
+          </div>
+        </section>
+
+        <!-- FOOTER: Always last section -->
+        <section class="o_cc o_cc5 pt48 pb32" data-snippet="s_footer" style="background-color: #2d2d2d;">
+          <div class="container text-white">
+            <div class="row g-4">
+              <div class="col-md-4">
+                <h5 class="fw-bold mb-3">La Bella Cucina</h5>
+                <p class="opacity-75 mb-0">Authentic Italian dining since 1985. Handcrafted pasta, wood-fired pizzas, and the finest wines.</p>
+              </div>
+              <div class="col-md-2">
+                <h6 class="fw-bold mb-3">Quick Links</h6>
+                <ul class="list-unstyled">
+                  <li class="mb-2"><a href="/" class="text-white-50 text-decoration-none">Home</a></li>
+                  <li class="mb-2"><a href="/menu" class="text-white-50 text-decoration-none">Menu</a></li>
+                  <li class="mb-2"><a href="/about" class="text-white-50 text-decoration-none">About</a></li>
+                  <li class="mb-2"><a href="/contactus" class="text-white-50 text-decoration-none">Contact</a></li>
+                </ul>
+              </div>
+              <div class="col-md-3">
+                <h6 class="fw-bold mb-3">Hours</h6>
+                <ul class="list-unstyled opacity-75">
+                  <li class="mb-1">Mon-Thu: 11am - 10pm</li>
+                  <li class="mb-1">Fri-Sat: 11am - 11pm</li>
+                  <li class="mb-1">Sunday: 12pm - 9pm</li>
+                </ul>
+              </div>
+              <div class="col-md-3">
+                <h6 class="fw-bold mb-3">Contact</h6>
+                <ul class="list-unstyled opacity-75">
+                  <li class="mb-1">123 Main Street, Anytown</li>
+                  <li class="mb-1">+1 (555) 123-4567</li>
+                  <li class="mb-1">info@labellacucina.com</li>
+                </ul>
+              </div>
+            </div>
+            <hr class="my-4 opacity-25" />
+            <p class="text-white-50 text-center mb-0">© 2024 La Bella Cucina. All rights reserved.</p>
+          </div>
+        </section>
       </div>
     </xpath>
   </template>
@@ -278,19 +379,31 @@ const BOOTSTRAP_OVERRIDDEN_CODE = `// Bootstrap variable overrides (loaded befor
 $border-radius: 0.5rem !default;
 $border-radius-lg: 0.75rem !default;
 $btn-border-radius: 10rem !default;
-$box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !default;
-$box-shadow-lg: 0 8px 25px rgba(0, 0, 0, 0.12) !default;`;
+$card-border-width: 0 !default;
+$box-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06) !default;
+$box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !default;
+$box-shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !default;`;
 
 const THEME_SCSS_CODE = `// Custom theme styles
 section[data-snippet="s_cover"] {
   min-height: 75vh;
   display: flex;
   align-items: center;
+  background-size: cover;
+  background-position: center;
 }
 .card {
-  border-radius: 0.5rem;
-  transition: transform 0.2s;
-  &:hover { transform: translateY(-4px); }
+  border-radius: 0.75rem;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  &:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+}
+.btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  &:hover { transform: translateY(-2px); }
 }`;
 
 /** Output contract - shared between modes */
@@ -353,7 +466,9 @@ const FORBIDDEN_PATTERNS = `## FORBIDDEN
 - NO raw <form> tags (Odoo uses website.form widget for CSRF protection)
 - NO <script> tags (JS goes in web.assets_frontend bundle)
 - NO <style> tags (CSS goes in theme.scss)
-- NO Tailwind classes (no "flex", "p-4", "bg-blue-500", "text-center" etc.)
+- NO Tailwind-only classes (no "flex", "items-center", "bg-blue-500", "w-full", "gap-2", "rounded-lg" etc.)
+- USE Bootstrap 5 equivalents: d-flex, align-items-center, bg-primary, w-100, gap-2, rounded-3
+- Bootstrap classes like text-center, p-4, py-5, fw-bold, mb-3 ARE correct — use them
 - NO CSS custom properties in inline styles (no style="color: var(--primary)")
 - NO t-raw (use t-out instead)
 
@@ -366,8 +481,8 @@ const FORBIDDEN_PATTERNS = `## FORBIDDEN
 - NO hardcoded hex colors (use o-color('o-color-1') in SCSS)
 
 ### WRONG → RIGHT Examples
-  WRONG: <div class="flex items-center p-4 bg-blue-500">  ← Tailwind
-  RIGHT: <div class="d-flex align-items-center p-3 bg-primary">  ← Bootstrap 5
+  WRONG: <div class="flex items-center gap-2 bg-blue-500 rounded-lg">  ← Tailwind
+  RIGHT: <div class="d-flex align-items-center gap-2 bg-primary rounded-3">  ← Bootstrap 5
   WRONG: <section class="hero-section">  ← Missing o_cc and data-snippet
   RIGHT: <section class="o_cc o_cc1" data-snippet="s_cover">
   WRONG: 'category': 'Theme/Creative'  ← Wrong category
@@ -382,6 +497,66 @@ const FORBIDDEN_PATTERNS = `## FORBIDDEN
   RIGHT: (fonts go in primary_variables.scss via $o-theme-font variables)
   WRONG: .hero { background-color: #c9302c; }  ← Hardcoded hex
   RIGHT: .hero { background-color: o-color('o-color-1'); }`;
+
+/** Visual quality rubric — what separates amateur from professional */
+const VISUAL_QUALITY_RUBRIC = `## VISUAL QUALITY RUBRIC (CRITICAL — follow every point)
+
+### Hero Section (MOST IMPORTANT — first impression)
+- MUST have a full-width background image with dark gradient overlay:
+  style="background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url('UNSPLASH_URL') center/cover no-repeat; min-height: 75vh; display: flex; align-items: center;"
+- White text on the overlay: text-white, display-3 fw-bold heading
+- Badge/label above headline: <span class="badge bg-light text-primary mb-3 px-3 py-2 rounded-pill">
+- Two CTA buttons side by side: d-flex gap-3 justify-content-center
+- NEVER a plain white/blank hero — always has a background image
+
+### Cards & Grids
+- Every card MUST have: class="card border-0 shadow-sm h-100 rounded-3"
+- Card hover: transform translateY(-4px) + shadow increase (handled by theme.scss)
+- Icon circles above card titles: <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-3 mb-3"><i class="fa fa-icon text-primary fs-4"></i></div>
+- Grid: <div class="row g-4"> with <div class="col-md-4"> (3 items minimum)
+
+### Typography Hierarchy
+- Hero: display-3 fw-bold (3rem, line-height 1.1)
+- Section headings: fw-bold text-center mb-2 (2.25rem)
+- Section subtitles: text-center text-muted mb-5 mx-auto style="max-width: 600px;"
+- Card titles: h5 fw-bold
+- Body text: text-muted mb-0
+
+### Section Rhythm & Spacing
+- Alternate section backgrounds: white → off-white (o_cc1 → o_cc2 → o_cc1 → ...)
+- Hero padding: pt96 pb96 (6rem)
+- Content sections: pt64 pb64 (4rem)
+- CTA/Footer: pt48 pb32 or pt64 pb64
+- Every section heading MUST have a subtitle paragraph beneath it
+
+### Color & Contrast
+- 60% white/light backgrounds (o_cc1, o_cc2)
+- 30% subtle tints (o_cc3, o_cc4)
+- 10% bold accent (primary buttons, icon circles, CTA background)
+- Dark section (o_cc5) for footer with white text
+
+### Testimonials
+- Star ratings: <div class="text-warning mb-3">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+- Avatar circles: <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center me-3" style="width:48px;height:48px;"><span class="fw-bold text-primary">SM</span></div>
+- Named reviewers with role: <h6 class="mb-0 fw-bold">Sarah M.</h6><small class="text-muted">Regular Guest</small>`;
+
+/** Content quality rules — anti-generic content */
+const CONTENT_QUALITY_RULES = `## CONTENT QUALITY (ZERO TOLERANCE for generic content)
+
+### FORBIDDEN generic text (will be rejected):
+- NEVER use: "Welcome to our website", "Lorem ipsum", "Your Company"
+- NEVER use: "Service 1", "Service 2", "Feature Title", "Product Name"
+- NEVER use: "Learn More" on every button (vary: "Get Started", "Book Now", "View Menu", etc.)
+- NEVER use: "Description text here", "Some text about...", "[placeholder]"
+
+### REQUIRED content quality:
+- Headlines must be SPECIFIC to the industry: "Authentic Italian Dining Since 1985" not "Welcome"
+- Services/features must have REAL names: "Family Law", "Tax Planning", "Pasta Fresca" not "Service 1"
+- Stats must use BELIEVABLE specific numbers: "537 cases won", "28 years", "4.9/5 rating" not "500+"
+- Testimonials must have NAMED people with roles: "Sarah M., Regular Guest" not "Customer 1"
+- CTA verbs must match the industry: "Reserve a Table", "Schedule Consultation", "Start Free Trial"
+- Footer must have: business name, address, phone, email, hours (for local businesses)
+- Each section must have 3-5 COMPLETE sentences of real industry content, not 1-line placeholders`;
 
 /** Quality standards - shared between modes */
 const QUALITY_STANDARDS = `## Quality Standards
@@ -463,6 +638,7 @@ export function buildOdooPrompt(compact: boolean): string {
     parts.push(`You generate Odoo 18 website themes. Output EXACTLY 5 files.`);
   } else {
     parts.push(`You are an expert Odoo 18 website theme developer powered by Platxa Odoo Skills.
+You build STUNNING, eye-catching, production-grade website themes that look like they were designed by a top agency.
 Follow the EXACT Odoo 18 theme conventions from the official tutorial.
 
 ## Output Format
@@ -485,6 +661,14 @@ theme_generated/
             \u251C\u2500\u2500 bootstrap_overridden.scss          # Bootstrap variable overrides
             \u2514\u2500\u2500 theme.scss                         # Custom CSS rules
 \`\`\``);
+  }
+
+  // ---- VISUAL QUALITY FIRST (high salience = AI prioritizes these) ----
+  if (!compact) {
+    parts.push(DESIGN_SYSTEM);
+    parts.push(SECTION_TEMPLATES);
+    parts.push(VISUAL_QUALITY_RUBRIC);
+    parts.push(CONTENT_QUALITY_RULES);
   }
 
   // ---- FILE EXAMPLES ----
@@ -532,8 +716,6 @@ ${THEME_SCSS_CODE}
   if (!compact) {
     parts.push(getIndustryPresetsDoc());
     parts.push(getSnippetLibraryDoc());
-    parts.push(DESIGN_SYSTEM);
-    parts.push(SECTION_TEMPLATES);
   }
 
   // ---- QUALITY ----
@@ -734,14 +916,9 @@ Custom Odoo Color Overrides (use in $o-color-palettes):
     context.push(`Existing Files: ${options.existingFiles.join(", ")}`);
   }
 
-  // Append context to prompt
-  if (context.length > 0) {
-    prompt += `\n\n## Project Context\n${context.join("\n")}`;
-  }
-
-  // For compact prompt (Ollama): replace example colors/fonts in the template
-  // so the model copies correct values instead of hardcoded examples.
-  // Small models tend to copy example values literally.
+  // For compact prompt (Ollama): replace example colors/fonts in the BASE template
+  // BEFORE appending project context, so user's actual colors don't get corrupted
+  // when they overlap with example colors (e.g., user primary=#8b4513 = example secondary).
   if (useCompact) {
     const industryKey = options.industry?.toLowerCase() as Industry;
     const preset = industryKey ? INDUSTRY_PRESETS[industryKey] : undefined;
@@ -754,14 +931,19 @@ Custom Odoo Color Overrides (use in $o-color-palettes):
     } : undefined);
 
     if (colors?.primary) {
-      // Replace ALL occurrences of hardcoded example colors in the template.
-      // Without /g, only the first occurrence was replaced — leaving conflicting
-      // color values that confused small LLMs into using the wrong colors.
-      prompt = prompt.replace(/#c9302c/gi, colors.primary);
-      prompt = prompt.replace(/#8b4513/gi, colors.secondary || "#8b4513");
-      prompt = prompt.replace(/#d4a373/gi, colors.accent || "#d4a373");
-      prompt = prompt.replace(/#fefae0/gi, colors.background || "#fefae0");
-      prompt = prompt.replace(/#2d2d2d/gi, colors.text || "#2d2d2d");
+      // Replace ALL example colors simultaneously to avoid cascade corruption.
+      const colorMap: Record<string, string> = {
+        '#c9302c': colors.primary,
+        '#8b4513': colors.secondary || '#8b4513',
+        '#d4a373': colors.accent || '#d4a373',
+        '#fefae0': colors.background || '#fefae0',
+        '#2d2d2d': colors.text || '#2d2d2d',
+      };
+      const colorPattern = new RegExp(
+        Object.keys(colorMap).map(k => k.replace('#', '\\#')).join('|'),
+        'gi'
+      );
+      prompt = prompt.replace(colorPattern, (match) => colorMap[match.toLowerCase()] || match);
     }
 
     if (preset) {
@@ -769,6 +951,11 @@ Custom Odoo Color Overrides (use in $o-color-palettes):
       prompt = prompt.replace(/Playfair Display/g, preset.typography.headingFamily);
       prompt = prompt.replace(/Lato/g, preset.typography.bodyFamily);
     }
+  }
+
+  // Append context AFTER template replacement so user's actual colors aren't corrupted
+  if (context.length > 0) {
+    prompt += `\n\n## Project Context\n${context.join("\n")}`;
   }
 
   return prompt;
