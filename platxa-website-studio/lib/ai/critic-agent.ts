@@ -271,6 +271,52 @@ function validateModuleStructure(files: ParsedFile[]): ValidatorResult {
 }
 
 // =============================================================================
+// VISUAL QUALITY VALIDATION
+// =============================================================================
+
+/**
+ * Check visual quality: section variety, background alternation, heading hierarchy
+ */
+function validateVisualQuality(files: ParsedFile[]): ValidatorResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  const xmlFiles = files.filter(f => f.path.endsWith('.xml'));
+  for (const file of xmlFiles) {
+    const content = file.content;
+
+    // Check section variety: at least 3 different data-snippet types
+    const snippetMatches = content.match(/data-snippet="([^"]+)"/g) || [];
+    const snippetTypes = new Set(snippetMatches.map(m => m.replace(/data-snippet="([^"]+)"/, '$1')));
+    if (snippetMatches.length >= 3 && snippetTypes.size < 3) {
+      warnings.push(`Low section variety: only ${snippetTypes.size} unique snippet types (${[...snippetTypes].join(', ')}). Use at least 3 different types.`);
+    }
+
+    // Check background alternation: no two consecutive o_cc with same number
+    const ccMatches = [...content.matchAll(/o_cc(\d)/g)].map(m => m[1]);
+    for (let i = 1; i < ccMatches.length; i++) {
+      if (ccMatches[i] === ccMatches[i - 1]) {
+        warnings.push(`Consecutive sections ${i} and ${i + 1} share the same background (o_cc${ccMatches[i]}). Alternate backgrounds for visual rhythm.`);
+        break; // Only warn once
+      }
+    }
+
+    // Check heading hierarchy: should have h1 or display-* and h2s, not just h2s
+    const hasH1 = /class="[^"]*display-[1-4]|<h1[\s>]/.test(content);
+    const h2Count = (content.match(/<h2[\s>]/g) || []).length;
+    if (h2Count >= 2 && !hasH1) {
+      warnings.push('Missing hero headline (h1 or display class). Themes should have a prominent hero heading.');
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings,
+  };
+}
+
+// =============================================================================
 // SCORING
 // =============================================================================
 
@@ -407,6 +453,7 @@ export function evaluateWithCritic(
   const qwebResult = validateQWebSyntax(files);
   const scssResult = validateScssSyntax(files);
   const structureResult = validateModuleStructure(files);
+  const visualResult = validateVisualQuality(files);
 
   // Run security scan
   const securityResult = scanFiles(
@@ -418,6 +465,7 @@ export function evaluateWithCritic(
     ...validatorToIssues(qwebResult, 'qweb'),
     ...validatorToIssues(scssResult, 'scss'),
     ...validatorToIssues(structureResult, 'structure'),
+    ...validatorToIssues(visualResult, 'visual'),
     ...securityResult.issues.map(si => ({
       id: si.id,
       severity: si.severity === 'critical' ? 'error' as const :
