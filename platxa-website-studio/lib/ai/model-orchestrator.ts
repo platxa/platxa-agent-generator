@@ -500,7 +500,7 @@ const MODEL_CONFIGS: Record<ModelId, ModelConfig> = {
 /** Default routing rules: task type -> preferred model */
 const DEFAULT_ROUTES: Record<TaskType, ModelId> = {
   planning: "claude-3.5-sonnet", // Claude excels at planning and reasoning
-  code_generation: "gpt-4o", // GPT-4o is fast and great at structured code
+  code_generation: "claude-3.5-sonnet", // Claude for high-quality theme generation
   code_editing: "claude-3.5-sonnet", // Claude for precise, context-aware edits
   code_review: "claude-3.5-sonnet", // Claude for thorough analysis
   design_analysis: "claude-3.5-sonnet", // Claude for creative analysis

@@ -168,7 +168,9 @@ const OPENAI_MODEL_MAP: Partial<Record<ModelId, string>> = {
 };
 
 /**
- * Resolves orchestrator model config to actual provider model ID
+ * Resolves orchestrator model config to actual provider model ID.
+ * Falls back to Anthropic when the routed provider has no API key configured,
+ * preventing silent fallthrough to Ollama for tasks routed to unavailable providers.
  */
 function resolveModelId(modelConfig: ModelConfig): { provider: "anthropic" | "openai" | "ollama"; modelId: string } {
   if (modelConfig.provider === "anthropic") {
@@ -176,8 +178,22 @@ function resolveModelId(modelConfig: ModelConfig): { provider: "anthropic" | "op
     return { provider: "anthropic", modelId };
   }
   if (modelConfig.provider === "openai") {
-    const modelId = OPENAI_MODEL_MAP[modelConfig.id] || "gpt-4o";
-    return { provider: "openai", modelId };
+    if (process.env.OPENAI_API_KEY) {
+      const modelId = OPENAI_MODEL_MAP[modelConfig.id] || "gpt-4o";
+      return { provider: "openai", modelId };
+    }
+    // OpenAI key not configured — fall back to Anthropic if available
+    if (process.env.ANTHROPIC_API_KEY) {
+      console.log(`[ModelRouting] OpenAI not configured, falling back to Anthropic for ${modelConfig.id}`);
+      return { provider: "anthropic", modelId: CLAUDE_MODEL_DEFAULT };
+    }
+  }
+  if (modelConfig.provider === "google") {
+    // Google provider not implemented — fall back to Anthropic if available
+    if (process.env.ANTHROPIC_API_KEY) {
+      console.log(`[ModelRouting] Google not configured, falling back to Anthropic for ${modelConfig.id}`);
+      return { provider: "anthropic", modelId: CLAUDE_MODEL_DEFAULT };
+    }
   }
   // Fallback to Ollama for local/other providers
   return { provider: "ollama", modelId: OLLAMA_MODEL };
@@ -606,7 +622,7 @@ async function callAIForCorrection(
     // Use Claude API for correction
     const response = await client.messages.create({
       model: modelId,
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: systemPrompt,
       messages: [{ role: "user", content: correctionPrompt }],
     });
@@ -629,7 +645,7 @@ async function callAIForCorrection(
       stream: false,
       options: {
         temperature: 0.3, // Lower temperature for corrections
-        num_predict: 4096,
+        num_predict: 8192,
       },
     }),
   });
@@ -651,8 +667,8 @@ async function streamClaudeResponse(
   messages: ChatMessage[],
   pipeline: AgentPipeline | null,
   modelId: string,
-  originalUserMessage: string,
-  ragPatterns: ExtractedPatterns,
+  _originalUserMessage: string,
+  _ragPatterns: ExtractedPatterns,
   creditContext?: { userId: string; projectId: string; isGeneration: boolean },
   rateLimitContext?: { key: string; state: RateLimitState; generationState: GenerationState }
 ): Promise<Response> {
@@ -693,7 +709,7 @@ async function streamClaudeResponse(
 
   const stream = await client.messages.stream({
     model: modelId,
-    max_tokens: 4096,
+    max_tokens: 8192,
     system: systemPrompt,
     messages: anthropicMessages,
   });
@@ -776,32 +792,30 @@ async function streamClaudeResponse(
         }
 
         // =====================================================================
-        // PHASE 1: Self-Correction Loop (ACTUALLY RUNS NOW!)
+        // PHASE 1: Validation (Claude API = validate-only, no correction calls)
+        // Claude Sonnet produces high-quality output on first pass.
+        // Self-correction loop with extra API calls is only for Ollama.
         // =====================================================================
         if (fullResponseText && !isStreamClosed) {
           try {
-            // Run the full self-correction loop
-            const correctionResult = await runSelfCorrectionLoop(
-              originalUserMessage,
-              fullResponseText,
-              systemPrompt,
-              modelId,
-              ragPatterns
-            );
-
-            // Validate parsed (fixed) files, not raw text
+            // Parse and validate once — no correction API calls needed for Claude
             let finalParsedFiles: ParsedFile[] = [];
-            try { finalParsedFiles = parseGeneratedFiles(correctionResult.finalContent); } catch {}
+            try { finalParsedFiles = parseGeneratedFiles(fullResponseText); } catch {}
             const finalValidation = finalParsedFiles.length > 0
               ? validateParsedFiles(finalParsedFiles)
-              : validateGeneratedCode(correctionResult.finalContent);
+              : validateGeneratedCode(fullResponseText);
             const finalQualityScore = calculateQualityScore(finalValidation);
 
-            console.log(`[SelfCorrection] Final: ${formatValidationSummary(finalValidation)} (corrected: ${correctionResult.wasCorrrected})`);
+            // Run critic for quality reporting (no correction)
+            let criticGrade = "N/A";
+            if (finalParsedFiles.length > 0) {
+              const criticReport = evaluateWithCritic(finalParsedFiles, 1);
+              criticGrade = criticReport.grade;
+              console.log(`[Critic] Grade ${criticReport.grade} (Claude API - validation only)`);
+            }
 
-            // Send validation metadata and corrected content to client via 2: channel
-            // NOTE: Corrected content goes in metadata, NOT appended to 0: text stream.
-            // The client checks for correctedContent in streamData and uses it for parsing.
+            console.log(`[Validation] Claude API: ${formatValidationSummary(finalValidation)} | Critic: ${criticGrade}`);
+
             if (!isStreamClosed) {
               const validationData: Record<string, unknown> = {
                 codeValidation: {
@@ -809,22 +823,17 @@ async function streamClaudeResponse(
                   qualityScore: finalQualityScore,
                   errorCount: finalValidation.totalErrors,
                   warningCount: finalValidation.totalWarnings,
-                  needsCorrection: shouldAttemptCorrection(finalValidation),
-                  correctionAttempts: correctionResult.attempts.length,
-                  wasCorrected: correctionResult.wasCorrrected,
+                  needsCorrection: false,
+                  correctionAttempts: 0,
+                  wasCorrected: false,
                 },
               };
-
-              // If corrected, include the full corrected content for the client to use
-              if (correctionResult.wasCorrrected) {
-                validationData.correctedContent = correctionResult.finalContent;
-              }
 
               const validationChunk = `2:${JSON.stringify([validationData])}\n`;
               safeEnqueue(encoder.encode(validationChunk));
             }
           } catch (err) {
-            console.warn("Self-correction loop warning:", err);
+            console.warn("Validation warning:", err);
           }
         }
 
@@ -1252,8 +1261,8 @@ export async function POST(req: Request) {
           options: {
             temperature: 0.7,
             top_p: 0.9,
-            num_predict: 4096, // Increased for complete theme generation
-            num_ctx: 8192,     // Larger context for system prompt + response
+            num_predict: 8192, // Full theme needs 6000-8000 tokens for 6-7 sections + SCSS
+            num_ctx: 16384,    // Larger context: system prompt (~10K) + response (~8K)
           },
         }),
         signal: controller.signal,
