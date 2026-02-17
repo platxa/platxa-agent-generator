@@ -420,14 +420,33 @@ $o-theme-font-configs: (
   ),
 );`;
 
-const BOOTSTRAP_OVERRIDDEN_CODE = `// Bootstrap variable overrides (loaded before Bootstrap compiles)
+const BOOTSTRAP_OVERRIDDEN_CODE = `// Bootstrap variable overrides
+// Loaded BEFORE Bootstrap compiles (web._assets_frontend_helpers, prepend)
+// Every declaration MUST have !default flag
+
+// Border radius scale
+$border-radius-sm: 0.25rem !default;
 $border-radius: 0.5rem !default;
 $border-radius-lg: 0.75rem !default;
+$border-radius-xl: 1rem !default;
+
+// Button radius (pill by default for CTAs)
 $btn-border-radius: 10rem !default;
+$btn-border-radius-sm: 10rem !default;
+$btn-border-radius-lg: 10rem !default;
+
+// Card styling
 $card-border-width: 0 !default;
-$box-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06) !default;
-$box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !default;
-$box-shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !default;`;
+$card-border-radius: 0.75rem !default;
+
+// Layered shadow system (2-layer for realistic depth)
+$box-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.1) !default;
+$box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1) !default;
+$box-shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !default;
+
+// Focus ring
+$focus-ring-width: 0.2rem !default;
+$focus-ring-opacity: 0.25 !default;`;
 
 const THEME_SCSS_CODE = `// Custom theme styles (web.assets_frontend)
 // NO body{}, NO :root{}, NO font-family, NO .container{}
