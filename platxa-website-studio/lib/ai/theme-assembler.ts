@@ -427,7 +427,11 @@ export function assembleTemplatesXml(sections: ExtractedSection[]): string {
   }
 
   const sectionBlocks = nonEmptySections.map((section, i) => {
-    const ccNum = (i % 5) + 1;
+    // Background alternation: ensure no two consecutive sections share the same o_cc class
+    // Pattern: hero(1) -> stats(2) -> features(3) -> about(4) -> testimonials(5) -> CTA(1) -> footer(2)
+    // Ensures o_cc5 appears within first 5 sections and no consecutive repeats
+    const CC_RHYTHM = [1, 2, 3, 4, 5, 1, 2, 3, 4, 5];
+    const ccNum = CC_RHYTHM[i % CC_RHYTHM.length];
     const defaultPadding = section.snippetType === "s_cover" ? "pt96 pb96" :
       section.snippetType === "s_footer" ? "pt48 pb32" : "pt64 pb64";
     const fixedContent = section.fixedContent;
