@@ -86,15 +86,15 @@ Then the content (cards, images, etc.) below.
 // =============================================================================
 
 const SECTION_TEMPLATES = `
-## Image Placeholders by Industry
-Use these Unsplash URLs for realistic placeholder images:
-- Restaurant: https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80 (dining)
-- Restaurant food: https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=80
-- Technology: https://images.unsplash.com/photo-1518770660439-4636190af475?w=1920&q=80
-- Legal: https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1920&q=80
-- Healthcare: https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1920&q=80
-- E-commerce: https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80
-- Generic: https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80 (office)
+## Image Paths (STRICT — Odoo defaults only)
+NEVER use external URLs (Unsplash, Pexels, etc.) — themes must work offline in Odoo.
+Use ONLY these Odoo built-in image paths:
+- Hero background: /web/image/website.s_cover_default_image
+- About / image+text: /web/image/website.s_text_image_default_image
+- Alternate image+text: /web/image/website.s_image_text_default_image
+- Column images 1-3: /web/image/website.s_three_columns_default_image_1, _2, _3
+- List images 1-3: /web/image/website.s_media_list_default_image_1, _2, _3
+These are bundled with every Odoo 18 install and always available.
 
 ## Section Order (MUST follow — 7 sections minimum)
 1. Hero (s_cover) — full-width background image with overlay, headline, dual CTA buttons
@@ -188,7 +188,7 @@ const TEMPLATE_PATTERN_CODE = `<?xml version="1.0" encoding="utf-8"?>
       <div id="wrap" class="oe_structure">
         <!-- HERO: Full-width with background image and overlay -->
         <section class="o_cc o_cc1 pt96 pb96" data-snippet="s_cover"
-                 style="background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url('https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&amp;q=80') center/cover no-repeat; min-height: 75vh; display: flex; align-items: center;">
+                 style="background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url('/web/image/website.s_cover_default_image') center/cover no-repeat; min-height: 75vh; display: flex; align-items: center;">
           <div class="container text-center text-white">
             <span class="badge bg-light text-primary mb-3 px-3 py-2 rounded-pill">Welcome to La Bella Cucina</span>
             <h1 class="display-3 fw-bold mb-4">Authentic Italian Dining Experience</h1>
@@ -275,7 +275,7 @@ const TEMPLATE_PATTERN_CODE = `<?xml version="1.0" encoding="utf-8"?>
           <div class="container">
             <div class="row align-items-center g-5">
               <div class="col-md-6">
-                <img loading="lazy" class="img-fluid rounded-3 shadow" src="https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&amp;q=80" alt="Signature dish" />
+                <img loading="lazy" class="img-fluid rounded-3 shadow" src="/web/image/website.s_text_image_default_image" alt="Signature dish" />
               </div>
               <div class="col-md-6">
                 <span class="badge bg-primary bg-opacity-10 text-primary mb-3 px-3 py-2 rounded-pill">Our Story</span>
@@ -566,7 +566,7 @@ const GENERATION_RULES = `## Rules
 - Include at least 4-5 complete sections with real industry content
 - At least 3 cards/items in grid sections (col-md-4 x3)
 - Images: MUST have alt="", class="img-fluid", loading="lazy"
-- Use Unsplash URLs for images, NEVER relative paths like images/foo.png
+- Use ONLY Odoo default paths (/web/image/website.s_*) for images, NEVER external URLs or relative paths
 
 ### SCSS
 - Colors go in primary_variables.scss using $o-color-palettes, NOT :root vars
@@ -618,7 +618,7 @@ const VISUAL_QUALITY_RUBRIC = `## VISUAL QUALITY RUBRIC (CRITICAL — follow eve
 
 ### Hero Section (MOST IMPORTANT — first impression)
 - MUST have a full-width background image with dark gradient overlay:
-  style="background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url('UNSPLASH_URL') center/cover no-repeat; min-height: 75vh; display: flex; align-items: center;"
+  style="background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url('/web/image/website.s_cover_default_image') center/cover no-repeat; min-height: 75vh; display: flex; align-items: center;"
 - White text on the overlay: text-white, display-3 fw-bold heading
 - Badge/label above headline: <span class="badge bg-light text-primary mb-3 px-3 py-2 rounded-pill">
 - Two CTA buttons side by side: d-flex gap-3 justify-content-center
@@ -723,7 +723,7 @@ const QUALITY_STANDARDS = `## Quality Standards
 2. All sections must have data-snippet attributes and o_cc color classes
 3. Use proper Bootstrap grid (row, col-md-4) with at least 3 items per grid
 4. Include hero, features/services, about, testimonials, CTA, footer sections
-5. Use Unsplash image URLs for realistic backgrounds
+5. Use Odoo default image paths (/web/image/website.s_*) — NEVER external URLs
 6. Responsive design with mobile breakpoints
 7. Generate ALL files with COMPLETE content. No placeholders.`;
 
@@ -966,8 +966,8 @@ REQUIRED sections: hero, menu, about, testimonials, reservation, footer
 Odoo Color Palette (use EXACTLY these in primary_variables.scss):
   o-color-1: #c9302c (burgundy red), o-color-2: #8b4513 (brown), o-color-3: #d4a373 (tan), o-color-4: #fefae0 (cream), o-color-5: #2d2d2d (dark)
 Fonts: headings 'Playfair Display' (serif), body 'Lato' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80
-Food image: https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80
+Hero image: /web/image/website.s_cover_default_image
+Food image: /web/image/website.s_text_image_default_image
 MUST include: Menu cards with dish names/prices, Reservation CTA, Hours/location in footer
 Visual differentiator: close-up food photography, warm overlay gradients, accent-line under headings`,
 
@@ -977,7 +977,7 @@ REQUIRED sections: hero, stats bar, features, pricing, integrations, testimonial
 Odoo Color Palette:
   o-color-1: #2563eb (blue), o-color-2: #7c3aed (purple), o-color-3: #06b6d4 (cyan), o-color-4: #f8fafc (light), o-color-5: #0f172a (dark)
 Fonts: headings 'Space Grotesk' (sans-serif), body 'DM Sans' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Feature grid with icons, Pricing table, Stats/metrics section
 Hero Layout: LEFT-ALIGNED split layout (NOT centered). Structure:
   <div class="row align-items-center g-5">
@@ -994,7 +994,7 @@ REQUIRED sections: hero, practice-areas, attorneys, testimonials, contact, foote
 Odoo Color Palette:
   o-color-1: #1a365d (navy), o-color-2: #c9a227 (gold), o-color-3: #4a5568 (gray), o-color-4: #f7f7f7 (light), o-color-5: #1a202c (dark)
 Fonts: headings 'EB Garamond' (serif), body 'Source Sans 3' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Practice areas grid, Attorney profiles, Trust badges
 Visual differentiator: serif headings, gold accent lines, structured symmetrical layouts`,
 
@@ -1004,7 +1004,7 @@ REQUIRED sections: hero, services, doctors, testimonials, appointment, footer
 Odoo Color Palette:
   o-color-1: #0d9488 (teal), o-color-2: #0284c7 (blue), o-color-3: #06b6d4 (cyan), o-color-4: #f0fdfa (mint), o-color-5: #134e4a (dark)
 Fonts: headings 'Plus Jakarta Sans' (sans-serif), body 'Open Sans' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Services with icons, Doctor profiles, Appointment CTA
 Visual differentiator: soft gradients, airy open spacing, reassuring imagery, rounded-4 cards`,
 
@@ -1014,7 +1014,7 @@ REQUIRED sections: hero, featured-products, categories, deals, testimonials, new
 Odoo Color Palette:
   o-color-1: #7c3aed (purple), o-color-2: #ec4899 (pink), o-color-3: #f59e0b (amber), o-color-4: #faf5ff (light), o-color-5: #1e1b4b (dark)
 Fonts: headings 'Sora' (sans-serif), body 'Inter' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Product showcase grid (3-4 cards with price, image, CTA), Category cards, Trust/payment badges, Newsletter signup
 Odoo E-commerce Integration:
   - Add 'website_sale' to depends in __manifest__.py for shop functionality
@@ -1032,7 +1032,7 @@ REQUIRED sections: hero, programs, features, instructors, testimonials, enrollme
 Odoo Color Palette:
   o-color-1: #4f46e5 (indigo), o-color-2: #0891b2 (teal), o-color-3: #f97316 (orange), o-color-4: #f5f5ff (soft violet), o-color-5: #1e1b4b (dark)
 Fonts: headings 'Nunito' (sans-serif), body 'Nunito Sans' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Programs/courses grid, Instructor profiles, Enrollment CTA, Stats (students, courses, rating)
 Visual differentiator: playful orange accents, friendly rounded cards, progress/growth iconography`,
 
@@ -1042,7 +1042,7 @@ REQUIRED sections: hero, featured-properties, services, agents, testimonials, co
 Odoo Color Palette:
   o-color-1: #0f766e (deep teal), o-color-2: #b45309 (copper), o-color-3: #14b8a6 (teal), o-color-4: #f7f9f9 (light), o-color-5: #134e4a (dark)
 Fonts: headings 'Cormorant Garamond' (serif), body 'Montserrat' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Property showcase (3 cards with image, beds/baths, price, location), Agent profiles, Contact form CTA
 Visual differentiator: elegant serif headings, large property images, premium card shadows, copper accent lines`,
 
@@ -1052,7 +1052,7 @@ REQUIRED sections: hero, classes/programs, trainers, transformation stories, pri
 Odoo Color Palette:
   o-color-1: #dc2626 (red), o-color-2: #f97316 (orange), o-color-3: #fbbf24 (gold), o-color-4: #fef2f2 (soft red), o-color-5: #1c1917 (near-black)
 Fonts: headings 'Oswald' (sans-serif), body 'Barlow' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Class schedule grid, Trainer profiles, Pricing plans, Before/after or stats section
 Visual differentiator: bold uppercase headings, high-contrast dark/light alternation, dynamic angled dividers, strong CTAs`,
 
@@ -1062,7 +1062,7 @@ REQUIRED sections: hero, portfolio, services, process, team, contact CTA, footer
 Odoo Color Palette:
   o-color-1: #8b5cf6 (violet), o-color-2: #ec4899 (rose), o-color-3: #06b6d4 (cyan), o-color-4: #faf5ff (soft violet), o-color-5: #1e1b4b (dark)
 Fonts: headings 'Clash Display' (sans-serif), body 'Satoshi' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1558655146-9f40138edfeb?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Portfolio grid (masonry-style), Services with creative icons, Numbered creative process ("01 Discover", "02 Design", "03 Deliver")
 Visual differentiator: asymmetric layouts, gradient text on headings, personality-rich copy, curated portfolio imagery`,
 
@@ -1072,7 +1072,7 @@ REQUIRED sections: hero, mission/impact, programs, stories, donate CTA, supporte
 Odoo Color Palette:
   o-color-1: #059669 (emerald), o-color-2: #0284c7 (blue), o-color-3: #fbbf24 (amber), o-color-4: #ecfdf5 (soft green), o-color-5: #1e293b (dark)
 Fonts: headings 'Merriweather' (serif), body 'Source Sans 3' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Impact stats ("5,000 families helped"), Program cards, Donation CTA with suggested amounts, Supporter logos
 Visual differentiator: storytelling hero with warm human photography, impact counters, warm green/amber palette`,
 
@@ -1082,7 +1082,7 @@ REQUIRED sections: hero, services, gallery, team, testimonials, booking CTA, foo
 Odoo Color Palette:
   o-color-1: #be185d (rose), o-color-2: #a21caf (fuchsia), o-color-3: #f0abfc (light orchid), o-color-4: #fdf2f8 (blush), o-color-5: #3b0764 (dark plum)
 Fonts: headings 'Cormorant Infant' (serif), body 'Quicksand' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Service menu with prices, Before/after gallery, Stylist profiles, Online booking CTA
 Visual differentiator: elegant serif headings, soft blush palette, editorial photography, generous whitespace`,
 
@@ -1092,7 +1092,7 @@ REQUIRED sections: hero, inventory highlights, services, about, testimonials, te
 Odoo Color Palette:
   o-color-1: #dc2626 (racing red), o-color-2: #78716c (gunmetal), o-color-3: #fbbf24 (gold), o-color-4: #f5f5f4 (light stone), o-color-5: #1c1917 (charcoal)
 Fonts: headings 'Rajdhani' (sans-serif), body 'Outfit' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Vehicle showcase cards (image, specs, price), Service department, Why-choose-us with trust metrics
 Visual differentiator: wide cinematic imagery, bold uppercase headings, dark sections with bright accent pops`,
 
@@ -1102,7 +1102,7 @@ REQUIRED sections: hero, services, stats/trust, team, testimonials, consultation
 Odoo Color Palette:
   o-color-1: #1e40af (deep blue), o-color-2: #059669 (green), o-color-3: #6366f1 (indigo), o-color-4: #eff6ff (ice blue), o-color-5: #1e293b (dark)
 Fonts: headings 'DM Serif Display' (serif), body 'DM Sans' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Financial services grid, Trust metrics ("$2B managed", "25+ years"), Team/advisor profiles, Consultation CTA
 Visual differentiator: conservative structured layout, serif heading authority, data-heavy stats section, navy/green trust palette`,
 
@@ -1112,7 +1112,7 @@ REQUIRED sections: hero, services, projects portfolio, process, testimonials, qu
 Odoo Color Palette:
   o-color-1: #d97706 (amber), o-color-2: #0369a1 (steel blue), o-color-3: #78716c (concrete), o-color-4: #fffbeb (warm white), o-color-5: #292524 (dark stone)
 Fonts: headings 'Bebas Neue' (sans-serif), body 'Barlow' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Services grid (residential, commercial, renovation), Project gallery, "How We Build" process steps, Free quote CTA
 Visual differentiator: strong bold headings, industrial photography, amber/steel palette, construction process timeline`,
 
@@ -1122,7 +1122,7 @@ REQUIRED sections: hero, destinations, packages, about, testimonials, booking CT
 Odoo Color Palette:
   o-color-1: #0891b2 (ocean), o-color-2: #f97316 (sunset), o-color-3: #059669 (forest), o-color-4: #ecfeff (sky blue), o-color-5: #164e63 (deep ocean)
 Fonts: headings 'Fraunces' (serif), body 'Outfit' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Destination cards with location/price, Travel packages, Traveler testimonials, "Book Your Adventure" CTA
 Visual differentiator: immersive full-bleed hero imagery, warm sunset palette, destination photography, wanderlust-evoking copy`,
 
@@ -1132,7 +1132,7 @@ REQUIRED sections: hero, portfolio grid, about, services, testimonials, booking 
 Odoo Color Palette:
   o-color-1: #1e293b (slate), o-color-2: #d4a373 (warm gold), o-color-3: #78716c (stone), o-color-4: #fafaf9 (paper), o-color-5: #0c0a09 (near-black)
 Fonts: headings 'Libre Baskerville' (serif), body 'Karla' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: Portfolio grid (6+ images, masonry layout), Session types with pricing, Photographer bio with large portrait
 Visual differentiator: minimal UI that lets photos breathe, image-first layout, elegant serif headings, near-black footer`,
 
@@ -1142,7 +1142,7 @@ REQUIRED sections: hero, features, about, testimonials, CTA, footer
 Odoo Color Palette:
   o-color-1: #2563eb (blue), o-color-2: #64748b (slate), o-color-3: #8b5cf6 (violet), o-color-4: #f8fafc (light), o-color-5: #0f172a (dark)
 Fonts: headings 'Plus Jakarta Sans' (sans-serif), body 'Inter' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80
+Hero image: /web/image/website.s_cover_default_image
 MUST include: 3-column feature cards, About section with image, Testimonial cards, Dark CTA section
 Visual differentiator: confident whitespace, overlapping stats bar, accent-line headings`,
 };

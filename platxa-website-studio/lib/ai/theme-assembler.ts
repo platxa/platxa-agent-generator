@@ -137,30 +137,47 @@ function extractBalancedBlocks(content: string, tagName: string): Array<{ outerH
 }
 
 /**
- * Extract inline style attribute from an HTML opening tag
+ * Extract inline style attribute from an HTML opening tag.
+ * Quote-aware: matches opening quote type to avoid truncation on nested quotes
+ * (e.g. style="background: url('...')" was broken by [^"'] stopping at inner ').
  */
 function extractStyleFromTag(openTag: string): string | undefined {
-  const match = openTag.match(/style=["']([^"']+)["']/i);
-  return match?.[1] || undefined;
+  const dblMatch = openTag.match(/style="([^"]*)"/i);
+  if (dblMatch) return dblMatch[1] || undefined;
+  const sglMatch = openTag.match(/style='([^']*)'/i);
+  return sglMatch?.[1] || undefined;
 }
 
 /**
- * Extract class attribute from an HTML opening tag
+ * Extract class attribute from an HTML opening tag.
+ * Quote-aware: matches opening quote type to avoid truncation on nested quotes.
  */
 function extractClassFromTag(openTag: string): string | undefined {
-  const match = openTag.match(/class=["']([^"']+)["']/i);
-  return match?.[1] || undefined;
+  const dblMatch = openTag.match(/class="([^"]*)"/i);
+  if (dblMatch) return dblMatch[1] || undefined;
+  const sglMatch = openTag.match(/class='([^']*)'/i);
+  return sglMatch?.[1] || undefined;
 }
 
 /**
- * Extract all data-* attributes from an HTML opening tag
+ * Extract all data-* attributes from an HTML opening tag.
+ * Two-pass: double-quoted then single-quoted to handle nested quotes correctly.
  */
 function extractDataAttrsFromTag(openTag: string): Record<string, string> {
   const attrs: Record<string, string> = {};
-  const regex = /data-([\w-]+)=["']([^"']+)["']/gi;
+  // Double-quoted pass
+  const dblRegex = /data-([\w-]+)="([^"]*)"/gi;
   let match;
-  while ((match = regex.exec(openTag)) !== null) {
+  while ((match = dblRegex.exec(openTag)) !== null) {
     attrs[`data-${match[1]}`] = match[2];
+  }
+  // Single-quoted pass (only add if not already captured)
+  const sglRegex = /data-([\w-]+)='([^']*)'/gi;
+  while ((match = sglRegex.exec(openTag)) !== null) {
+    const key = `data-${match[1]}`;
+    if (!attrs[key]) {
+      attrs[key] = match[2];
+    }
   }
   return attrs;
 }
@@ -323,6 +340,27 @@ export function fixPlaceholderUrls(html: string): string {
 }
 
 /**
+ * Replace external image URLs (Unsplash, etc.) with Odoo default image paths.
+ * Exported themes must work offline — external URLs break when Odoo has no internet.
+ * Handles: src="https://...", url('https://...'), url("https://..."), url(https://...)
+ * Preserves /web/image/* paths (already Odoo-local).
+ */
+export function fixExternalImageUrls(html: string): string {
+  let fixed = html;
+  // Replace external URLs in src attributes (double-quoted)
+  fixed = fixed.replace(/src="https?:\/\/[^"]+"/gi, () => `src="${nextOdooImage()}"`);
+  // Replace external URLs in src attributes (single-quoted)
+  fixed = fixed.replace(/src='https?:\/\/[^']+'/gi, () => `src='${nextOdooImage()}'`);
+  // Replace external URLs in CSS url() — single-quoted
+  fixed = fixed.replace(/url\(\s*'https?:\/\/[^']+'\s*\)/gi, () => `url('${nextOdooImage()}')`);
+  // Replace external URLs in CSS url() — double-quoted
+  fixed = fixed.replace(/url\(\s*"https?:\/\/[^"]+"\s*\)/gi, () => `url('${nextOdooImage()}')`);
+  // Replace external URLs in CSS url() — unquoted
+  fixed = fixed.replace(/url\(\s*https?:\/\/[^)]+\)/gi, () => `url('${nextOdooImage()}')`);
+  return fixed;
+}
+
+/**
  * Fix image tags: add missing alt, img-fluid, loading="lazy", fix broken paths
  */
 export function fixImages(html: string): string {
@@ -392,6 +430,7 @@ function fixSectionContent(html: string): string {
   // Content fixes
   fixed = fixTailwindClasses(fixed);
   fixed = fixPlaceholderUrls(fixed);
+  fixed = fixExternalImageUrls(fixed);
   fixed = fixImages(fixed);
   // XML well-formedness: escape bare & characters
   fixed = escapeXmlEntities(fixed);
@@ -444,6 +483,8 @@ export function assembleTemplatesXml(sections: ExtractedSection[]): string {
   const processedSections = sections.map(section => ({
     ...section,
     fixedContent: fixSectionContent(section.innerHtml),
+    // Also fix external URLs in sectionStyle (bypasses fixSectionContent since it's on the tag, not inner content)
+    sectionStyle: section.sectionStyle ? fixExternalImageUrls(section.sectionStyle) : section.sectionStyle,
   }));
 
   const nonEmptySections = processedSections.filter(section => {

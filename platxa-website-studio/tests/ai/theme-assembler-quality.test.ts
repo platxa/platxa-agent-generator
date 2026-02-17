@@ -4,6 +4,7 @@ import {
   assemblePrimaryVariablesScss,
   assembleTemplatesXml,
   fixImages,
+  fixExternalImageUrls,
   fixForms,
   stripInlineTags,
   extractSections,
@@ -955,5 +956,154 @@ This theme provides an elegant Italian restaurant experience with proper Odoo 18
         expect(filePaths.has(entry)).toBe(true);
       }
     }
+  });
+
+  it("no external URLs (unsplash, pexels, etc.) survive the pipeline", () => {
+    const parsed = parseGeneratedFiles(REALISTIC_AI_RESPONSE);
+    const result = ensureRequiredFiles(parsed, "Theme La Bella Cucina");
+
+    const templates = result.find(f => f.path.includes("templates.xml"));
+    expect(templates).toBeDefined();
+    expect(templates!.content).not.toMatch(/https?:\/\/images\.unsplash\.com/);
+    expect(templates!.content).not.toMatch(/https?:\/\/[^"'\s)]+\.(?:unsplash|pexels|pixabay)\./i);
+  });
+});
+
+// =============================================================================
+// RC1: extractSections — style extraction with nested quotes (Fix RC1)
+// =============================================================================
+
+describe("extractSections — nested-quote style preservation (RC1)", () => {
+  it("preserves full url('...') in style with nested single quotes inside double-quoted attr", () => {
+    const html = `<section style="background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url('/web/image/website.s_cover_default_image') center/cover no-repeat; min-height: 75vh;" data-snippet="s_cover">
+      <div class="container"><h1>Welcome to Our Amazing Restaurant With Great Food</h1><p>Description paragraph here with enough text</p></div>
+    </section>`;
+    const sections = extractSections(html);
+    expect(sections.length).toBe(1);
+    expect(sections[0].sectionStyle).toContain("url('/web/image/website.s_cover_default_image')");
+    expect(sections[0].sectionStyle).toContain("min-height: 75vh");
+  });
+
+  it("preserves simple style without nested quotes (no regression)", () => {
+    const html = `<section style="background-color: #2d2d2d; padding: 2rem;" data-snippet="s_footer">
+      <div class="container"><p>Footer content with enough text to pass threshold checks</p></div>
+    </section>`;
+    const sections = extractSections(html);
+    expect(sections.length).toBe(1);
+    expect(sections[0].sectionStyle).toContain("background-color: #2d2d2d");
+    expect(sections[0].sectionStyle).toContain("padding: 2rem");
+  });
+
+  it("preserves class with complex values (no regression)", () => {
+    const html = `<section class="o_cc o_cc1 pt96 pb96 custom-class" data-snippet="s_cover">
+      <div class="container"><h1>Hero with multiple classes and enough content for extraction</h1></div>
+    </section>`;
+    const sections = extractSections(html);
+    expect(sections.length).toBe(1);
+    expect(sections[0].sectionClass).toContain("o_cc o_cc1 pt96 pb96 custom-class");
+  });
+});
+
+// =============================================================================
+// RC2: fixExternalImageUrls — external URL replacement
+// =============================================================================
+
+describe("fixExternalImageUrls (RC2)", () => {
+  it("replaces src=\"https://...\" with Odoo default", () => {
+    const html = '<img src="https://images.unsplash.com/photo-123?w=800&q=80" alt="test" />';
+    const result = fixExternalImageUrls(html);
+    expect(result).not.toContain("unsplash.com");
+    expect(result).toMatch(/src="\/web\/image\/website\.s_/);
+  });
+
+  it("replaces src='https://...' (single-quoted) with Odoo default", () => {
+    const html = "<img src='https://images.unsplash.com/photo-456?w=600' alt='test' />";
+    const result = fixExternalImageUrls(html);
+    expect(result).not.toContain("unsplash.com");
+    expect(result).toMatch(/src='\/web\/image\/website\.s_/);
+  });
+
+  it("replaces url('https://...') in inline styles", () => {
+    const html = "background: url('https://images.unsplash.com/photo-789?w=1920') center/cover;";
+    const result = fixExternalImageUrls(html);
+    expect(result).not.toContain("unsplash.com");
+    expect(result).toMatch(/url\('\/web\/image\/website\.s_/);
+  });
+
+  it("replaces url(\"https://...\") in inline styles", () => {
+    const html = 'background: url("https://images.unsplash.com/photo-101?w=1920") center/cover;';
+    const result = fixExternalImageUrls(html);
+    expect(result).not.toContain("unsplash.com");
+    expect(result).toMatch(/url\('\/web\/image\/website\.s_/);
+  });
+
+  it("replaces url(https://...) (unquoted) in inline styles", () => {
+    const html = "background: url(https://images.unsplash.com/photo-202?w=1920) center/cover;";
+    const result = fixExternalImageUrls(html);
+    expect(result).not.toContain("unsplash.com");
+    expect(result).toMatch(/url\('\/web\/image\/website\.s_/);
+  });
+
+  it("preserves /web/image/* paths (already Odoo-local)", () => {
+    const html = '<img src="/web/image/website.s_cover_default_image" alt="hero" />';
+    const result = fixExternalImageUrls(html);
+    expect(result).toContain("/web/image/website.s_cover_default_image");
+  });
+
+  it("preserves relative paths (handled by fixImages separately)", () => {
+    const html = '<img src="images/logo.png" alt="logo" />';
+    const result = fixExternalImageUrls(html);
+    expect(result).toContain('src="images/logo.png"');
+  });
+
+  it("cycles through different Odoo images for multiple replacements", () => {
+    const html = '<img src="https://example.com/a.jpg" /><img src="https://example.com/b.jpg" /><img src="https://example.com/c.jpg" />';
+    const result = fixExternalImageUrls(html);
+    const matches = result.match(/\/web\/image\/website\.[^"']+/g) || [];
+    expect(matches.length).toBe(3);
+    // At least 2 of 3 should be different (cycling)
+    const unique = new Set(matches);
+    expect(unique.size).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// =============================================================================
+// RC2 Pipeline: assembleTemplatesXml replaces external URLs in content AND sectionStyle
+// =============================================================================
+
+describe("assembleTemplatesXml — external URL replacement in pipeline (RC2)", () => {
+  it("replaces Unsplash URLs in section innerHtml", () => {
+    const sections = [{
+      snippetType: "s_three_columns",
+      innerHtml: '<div class="container"><h2>Our Services and Professional Offerings</h2><img src="https://images.unsplash.com/photo-123?w=800" alt="service" /></div>',
+      isFooter: false,
+    }];
+    const result = assembleTemplatesXml(sections);
+    expect(result).not.toContain("unsplash.com");
+    expect(result).toMatch(/\/web\/image\/website\.s_/);
+  });
+
+  it("replaces external URLs in sectionStyle (background images)", () => {
+    const sections = [{
+      snippetType: "s_cover",
+      innerHtml: '<div class="container text-center"><h1>Welcome to Our Amazing Restaurant Experience</h1><p>Fine dining at its best with great service</p></div>',
+      isFooter: false,
+      sectionStyle: "background: linear-gradient(rgba(0,0,0,0.55), rgba(0,0,0,0.55)), url('https://images.unsplash.com/photo-456?w=1920') center/cover no-repeat; min-height: 75vh;",
+    }];
+    const result = assembleTemplatesXml(sections);
+    expect(result).not.toContain("unsplash.com");
+    expect(result).toMatch(/url\('\/web\/image\/website\.s_/);
+    expect(result).toContain("min-height: 75vh");
+  });
+
+  it("preserves Odoo default paths in sectionStyle", () => {
+    const sections = [{
+      snippetType: "s_cover",
+      innerHtml: '<div class="container"><h1>Welcome to Our Amazing Restaurant Experience</h1><p>Fine dining at its best</p></div>',
+      isFooter: false,
+      sectionStyle: "background: url('/web/image/website.s_cover_default_image') center/cover; min-height: 75vh;",
+    }];
+    const result = assembleTemplatesXml(sections);
+    expect(result).toContain("/web/image/website.s_cover_default_image");
   });
 });
