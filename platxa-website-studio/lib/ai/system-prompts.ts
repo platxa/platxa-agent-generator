@@ -96,13 +96,31 @@ Use these Unsplash URLs for realistic placeholder images:
 - E-commerce: https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80
 - Generic: https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80 (office)
 
-## Section Order (MUST follow this order)
-1. Hero (s_cover) — full-width background image with overlay, headline, CTA buttons
-2. Features/Services (s_three_columns) — 3-column card grid with icons
-3. About (s_image_text) — image + text side by side
-4. Testimonials (s_quotes_carousel) — 3 review cards with star ratings
-5. CTA (s_call_to_action) — colored background, headline, single button
-6. Footer (s_footer) — ALWAYS LAST — multi-column with links, contact info, copyright
+## Section Order (MUST follow — 7 sections minimum)
+1. Hero (s_cover) — full-width background image with overlay, headline, dual CTA buttons
+2. Stats/Trust Bar (s_numbers) — 3-4 metrics, overlapping hero by margin-top: -40px, bg-white shadow rounded-3
+3. Features/Services (s_three_columns) — 3-column card grid with icon circles
+4. About (s_image_text) — image + text side by side (row align-items-center g-5)
+5. Testimonials (s_quotes_carousel) — 3 review cards with star ratings, initials circles, named reviewers
+6. CTA (s_call_to_action) — dark or primary background, centered headline, single button
+7. Footer (s_footer) — ALWAYS LAST — 4-column with brand, links, hours/info, contact
+
+OPTIONAL additional sections (for 8+ section themes):
+- How It Works (s_three_columns) — 3 numbered steps
+- Gallery/Portfolio (s_images_wall) — image grid
+- Team (s_three_columns) — 3 team member cards
+- Pricing (s_three_columns) — 3 pricing tier cards
+- FAQ (s_faq_collapse) — accordion with 4-6 questions
+
+## Section Background Rhythm (MUST alternate)
+Hero (o_cc1): dark overlay on image
+Stats Bar (o_cc2): white, shadow-sm, elevated
+Features (o_cc3): off-white (#f8f9fa) background
+About (o_cc2): white
+Testimonials (o_cc4): very light brand tint
+CTA (o_cc1): dark or primary-colored background
+Footer (o_cc5): dark (#0f172a or #2d2d2d)
+RULE: NEVER two consecutive sections with the same background color
 
 IMPORTANT: Every <section> MUST have class="o_cc o_ccN" and data-snippet="s_xxx".
 The complete example in templates.xml above shows the exact pattern. Adapt content for the requested industry.
@@ -182,8 +200,35 @@ const TEMPLATE_PATTERN_CODE = `<?xml version="1.0" encoding="utf-8"?>
           </div>
         </section>
 
+        <!-- STATS/TRUST BAR: overlapping hero, creates visual depth -->
+        <section class="o_cc o_cc2 py-4" data-snippet="s_numbers"
+                 style="margin-top: -40px; position: relative; z-index: 10;">
+          <div class="container">
+            <div class="bg-white rounded-3 shadow p-4">
+              <div class="row text-center g-4">
+                <div class="col-md-3">
+                  <h3 class="fw-bold mb-0 text-primary">537+</h3>
+                  <small class="text-muted text-uppercase" style="letter-spacing: 0.1em; font-size: 0.7rem;">Happy Customers</small>
+                </div>
+                <div class="col-md-3">
+                  <h3 class="fw-bold mb-0 text-primary">15</h3>
+                  <small class="text-muted text-uppercase" style="letter-spacing: 0.1em; font-size: 0.7rem;">Years Experience</small>
+                </div>
+                <div class="col-md-3">
+                  <h3 class="fw-bold mb-0 text-primary">4.9/5</h3>
+                  <small class="text-muted text-uppercase" style="letter-spacing: 0.1em; font-size: 0.7rem;">Average Rating</small>
+                </div>
+                <div class="col-md-3">
+                  <h3 class="fw-bold mb-0 text-primary">24/7</h3>
+                  <small class="text-muted text-uppercase" style="letter-spacing: 0.1em; font-size: 0.7rem;">Support Available</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- FEATURES/SERVICES: 3-column card grid -->
-        <section class="o_cc o_cc2 pt64 pb64" data-snippet="s_three_columns">
+        <section class="o_cc o_cc3 pt64 pb64" data-snippet="s_three_columns">
           <div class="container">
             <h2 class="text-center fw-bold mb-2">Why Choose Us</h2>
             <p class="text-center text-muted mb-5 mx-auto" style="max-width: 600px;">Three generations of culinary excellence</p>
