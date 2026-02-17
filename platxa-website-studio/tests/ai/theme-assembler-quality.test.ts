@@ -46,10 +46,10 @@ describe("assembleThemeScss — dangerous CSS stripping", () => {
     expect(result).toContain("section");
   });
 
-  it("strips background-image: url(...) from CSS rules", () => {
+  it("preserves background-image: url(...) in CSS rules (needed for section styling)", () => {
     const input = `.hero {\n  min-height: 75vh;\n  background-image: url(/images/hero.jpg);\n  display: flex;\n}`;
     const result = assembleThemeScss(input);
-    expect(result).not.toContain("background-image");
+    expect(result).toContain("background-image");
     expect(result).toContain("min-height: 75vh");
     expect(result).toContain("display: flex");
   });
@@ -208,7 +208,7 @@ describe("fixImages", () => {
 
   it("fixes broken relative image paths to Odoo default", () => {
     const result = fixImages('<img src="images/logo.png" />');
-    expect(result).toContain('src="/web/image/website.s_cover_default_image"');
+    expect(result).toMatch(/src="\/web\/image\/website\.s_/);
     expect(result).not.toContain("images/logo.png");
   });
 
@@ -254,18 +254,18 @@ describe("assembleThemeFiles — section deduplication", () => {
     const templatesFile = result.find(f => f.path.includes("templates.xml"));
     if (templatesFile) {
       const sectionMatches = templatesFile.content.match(/<section\b/g) || [];
-      expect(sectionMatches.length).toBeLessThanOrEqual(8);
+      expect(sectionMatches.length).toBeLessThanOrEqual(10);
     }
   });
 
-  it("limits same snippet type to MAX_PER_TYPE (2)", () => {
+  it("limits same snippet type to MAX_PER_TYPE (3)", () => {
     const content = makeSections(5, "s_three_columns");
     const files = [makeParsedFile(content)];
     const result = assembleThemeFiles(files);
     const templatesFile = result.find(f => f.path.includes("templates.xml"));
     if (templatesFile) {
       const snippetMatches = templatesFile.content.match(/data-snippet="s_three_columns"/g) || [];
-      expect(snippetMatches.length).toBeLessThanOrEqual(2);
+      expect(snippetMatches.length).toBeLessThanOrEqual(3);
     }
   });
 
@@ -374,7 +374,7 @@ describe("assembleThemeFiles — integration (all fixes applied)", () => {
     expect(themeScss!.content).not.toMatch(/^body\s*\{/m);
     expect(themeScss!.content).not.toMatch(/^\.container\s*\{/m);
     expect(themeScss!.content).not.toMatch(/^:root\s*\{/m);
-    expect(themeScss!.content).not.toContain("background-image");
+    // background-image is preserved (needed for section styling in theme.scss)
     expect(themeScss!.content).not.toContain("font-family");
     // But preserves valid selectors
     expect(themeScss!.content).toContain(".hero");
@@ -530,18 +530,18 @@ describe("assembleTemplatesXml — empty section filtering (Fix K)", () => {
 // Fix M: hex color stripping in assembleThemeScss
 // =============================================================================
 
-describe("assembleThemeScss — hex color stripping (Fix M)", () => {
-  it("strips color: #hex declarations", () => {
+describe("assembleThemeScss — hex color handling (Fix M)", () => {
+  it("preserves color: #hex declarations (needed for visual quality)", () => {
     const input = `.title {\n  color: #c9302c;\n  font-size: 2rem;\n}`;
     const result = assembleThemeScss(input);
-    expect(result).not.toMatch(/color:\s*#c9302c/);
+    expect(result).toMatch(/color:\s*#c9302c/);
     expect(result).toContain("font-size: 2rem");
   });
 
-  it("strips background-color: #hex declarations", () => {
+  it("preserves background-color: #hex declarations (needed for visual quality)", () => {
     const input = `.hero {\n  background-color: #f5f0e8;\n  padding: 2rem;\n}`;
     const result = assembleThemeScss(input);
-    expect(result).not.toMatch(/background-color:\s*#f5f0e8/);
+    expect(result).toMatch(/background-color:\s*#f5f0e8/);
     expect(result).toContain("padding: 2rem");
   });
 
@@ -616,11 +616,9 @@ describe("Sprint 7 Integration — forms + scripts + styles + empty sections + h
     const sectionBlocks = templates!.content.match(/<section\b/g) || [];
     expect(sectionBlocks.length).toBe(2); // hero + menu, NOT the empty one
 
-    // theme.scss: no hex colors
+    // theme.scss: hex colors preserved (stripping was killing visual quality)
     const themeScss = result.find(f => f.path.includes("theme.scss"));
     expect(themeScss).toBeDefined();
-    expect(themeScss!.content).not.toMatch(/color:\s*#c9302c/);
-    expect(themeScss!.content).not.toMatch(/background-color:\s*#f5f0e8/);
     expect(themeScss!.content).toContain("min-height: 75vh");
     expect(themeScss!.content).toContain("border-radius: 0.5rem");
 
@@ -866,12 +864,10 @@ This theme provides an elegant Italian restaurant experience with proper Odoo 18
     expect(sectionMatches.length).toBeLessThan(5);
     expect(sectionMatches.length).toBeGreaterThanOrEqual(2);
 
-    // --- Fix M: No hardcoded hex colors in theme.scss ---
+    // --- Fix M: Hex colors preserved in theme.scss (stripping was #1 visual quality killer) ---
     const themeScss = result.find(f => f.path.includes("theme.scss"));
     expect(themeScss).toBeDefined();
-    expect(themeScss!.content).not.toMatch(/(?:^|\s)color:\s*#[0-9a-fA-F]{3,8}\s*;/m);
-    expect(themeScss!.content).not.toMatch(/background-color:\s*#[0-9a-fA-F]{3,8}\s*;/m);
-    // But valid non-color properties should survive
+    // Valid non-color properties should survive
     expect(themeScss!.content).toContain("border-radius");
 
     // =========================================================================
@@ -882,7 +878,7 @@ This theme provides an elegant Italian restaurant experience with proper Odoo 18
     expect(themeScss!.content).not.toMatch(/^body\s*\{/m);
     expect(themeScss!.content).not.toMatch(/^\.container\s*\{/m);
     expect(themeScss!.content).not.toMatch(/^:root\s*\{/m);
-    expect(themeScss!.content).not.toContain("background-image");
+    // background-image preserved (needed for section styling in theme.scss)
     expect(themeScss!.content).not.toContain("font-family");
 
     // Fix B: Palette activation present

@@ -119,22 +119,178 @@ function sanitizeJsForPreview(js: string): string {
 }
 
 /**
- * Convert SCSS variables to CSS custom properties
+ * Extract Odoo o-color-1 through o-color-5 hex values from primary_variables.scss
+ * Parses the $o-color-palettes: map-merge(...) SCSS map structure
+ */
+function extractOdooColors(scss: string): Record<string, string> {
+  const colors: Record<string, string> = {};
+  // Match patterns like: 'o-color-1': #c9302c  or  'o-color-1': #fff
+  const colorRegex = /['"]o-color-(\d)['"]:\s*(#[0-9a-fA-F]{3,8})/g;
+  let match;
+  while ((match = colorRegex.exec(scss)) !== null) {
+    colors[`o-color-${match[1]}`] = match[2];
+  }
+  return colors;
+}
+
+/**
+ * Extract font names from primary_variables.scss
+ */
+function extractOdooFonts(scss: string): { heading?: string; body?: string } {
+  const headingMatch = scss.match(/['"]headings-font['"]:\s*['"]([^'"]+)['"]/);
+  const bodyMatch = scss.match(/['"]font['"]:\s*['"]([^'"]+)['"]/);
+  return {
+    heading: headingMatch?.[1],
+    body: bodyMatch?.[1],
+  };
+}
+
+/**
+ * Extract Bootstrap variable overrides from bootstrap_overridden.scss
+ * Returns parsed values (without !default flag) for CSS injection
+ */
+function extractBootstrapOverrides(scss: string): Record<string, string> {
+  const overrides: Record<string, string> = {};
+  const varRegex = /\$([\w-]+):\s*(.+?)\s*(?:!default)?\s*;/gm;
+  let match;
+  while ((match = varRegex.exec(scss)) !== null) {
+    const value = match[2].trim().replace(/\s*!default\s*$/, "");
+    if (!value.includes("map-") && !value.includes("append(")) {
+      overrides[match[1]] = value;
+    }
+  }
+  return overrides;
+}
+
+/**
+ * Flatten one level of SCSS nesting into valid CSS.
+ * .parent { color: red; &:hover { color: blue; } }
+ * becomes: .parent { color: red; } .parent:hover { color: blue; }
+ */
+function flattenScssNesting(css: string): string {
+  const output: string[] = [];
+  let i = 0;
+
+  while (i < css.length) {
+    while (i < css.length && /\s/.test(css[i])) i++;
+    if (i >= css.length) break;
+
+    // Skip comments
+    if (css[i] === "/" && css[i + 1] === "/") {
+      const eol = css.indexOf("\n", i);
+      i = eol === -1 ? css.length : eol + 1;
+      continue;
+    }
+    if (css[i] === "/" && css[i + 1] === "*") {
+      const end = css.indexOf("*/", i);
+      i = end === -1 ? css.length : end + 2;
+      continue;
+    }
+
+    // Find opening brace for top-level rule
+    const bracePos = css.indexOf("{", i);
+    if (bracePos === -1) { i = css.length; break; }
+
+    const selector = css.slice(i, bracePos).trim();
+    if (!selector) { i = bracePos + 1; continue; }
+
+    // Find matching closing brace
+    let depth = 1;
+    let j = bracePos + 1;
+    while (j < css.length && depth > 0) {
+      if (css[j] === "{") depth++;
+      else if (css[j] === "}") depth--;
+      j++;
+    }
+    const body = css.slice(bracePos + 1, j - 1);
+    i = j;
+
+    if (!body.includes("{")) {
+      output.push(`${selector} { ${body.trim()} }`);
+      continue;
+    }
+
+    // Has nesting: split into direct properties and nested blocks
+    const directProps: string[] = [];
+    const nested: string[] = [];
+    let k = 0;
+
+    while (k < body.length) {
+      const nextBrace = body.indexOf("{", k);
+      if (nextBrace === -1) {
+        body.slice(k).split(";").forEach(p => {
+          const prop = p.trim();
+          if (prop && prop.includes(":") && !prop.startsWith("//")) directProps.push(prop);
+        });
+        break;
+      }
+
+      let selStart = nextBrace - 1;
+      while (selStart > k && body[selStart] !== ";" && body[selStart] !== "}" && body[selStart] !== "\n") selStart--;
+      if (selStart > k) selStart++;
+
+      body.slice(k, selStart).split(";").forEach(p => {
+        const prop = p.trim();
+        if (prop && prop.includes(":") && !prop.startsWith("//")) directProps.push(prop);
+      });
+
+      const nestedSel = body.slice(selStart, nextBrace).trim();
+
+      let nd = 1;
+      let nj = nextBrace + 1;
+      while (nj < body.length && nd > 0) {
+        if (body[nj] === "{") nd++;
+        else if (body[nj] === "}") nd--;
+        nj++;
+      }
+      const nestedBody = body.slice(nextBrace + 1, nj - 1).trim();
+
+      let resolved = nestedSel;
+      if (resolved.includes("&")) resolved = resolved.replace(/&/g, selector);
+      else if (resolved.startsWith(":")) resolved = selector + resolved;
+      else if (resolved) resolved = `${selector} ${resolved}`;
+
+      if (resolved && nestedBody) nested.push(`${resolved} { ${nestedBody} }`);
+      k = nj;
+    }
+
+    if (directProps.length > 0) output.push(`${selector} { ${directProps.join("; ")}; }`);
+    output.push(...nested);
+  }
+
+  return output.join("\n");
+}
+
+/**
+ * Convert SCSS variables to CSS custom properties and flatten nesting
  */
 function convertScssVariables(scss: string): { css: string; variables: string } {
   const variables: Record<string, string> = {};
 
-  // Extract SCSS variables ($var: value;)
-  const varRegex = /\$([\w-]+):\s*([^;]+);/g;
+  // Skip complex SCSS structures that can't convert to CSS
+  // Remove map-merge(), map functions, and multi-line SCSS constructs first
+  const simplifiedScss = scss
+    // Remove $o-color-palettes: map-merge(...) blocks (multi-line)
+    .replace(/\$[\w-]+:\s*map-merge\([\s\S]*?\)\s*;/g, "/* SCSS map removed */")
+    // Remove $o-website-values-palettes: (...) blocks
+    .replace(/\$[\w-]+:\s*\(\s*\([\s\S]*?\)\s*,?\s*\)\s*;/g, "/* SCSS nested map removed */")
+    // Remove $o-theme-font-configs: (...) blocks
+    .replace(/\$[\w-]+:\s*\(\s*'[^']+'\s*:\s*\([\s\S]*?\)\s*,?\s*\)\s*;/g, "/* SCSS font config removed */")
+    // Remove append() calls
+    .replace(/\$[\w-]+:\s*append\([^)]+\)\s*;/g, "/* SCSS append removed */");
+
+  // Extract simple SCSS variables — strip !default flag from values
+  const varRegex = /\$([\w-]+):\s*([^;()\n]+);/g;
   let match;
-  while ((match = varRegex.exec(scss)) !== null) {
-    variables[match[1]] = match[2].trim();
+  while ((match = varRegex.exec(simplifiedScss)) !== null) {
+    let value = match[2].trim().replace(/\s*!default\s*$/, "");
+    if (value.includes("map-") || value.includes("append(") || value.includes("#{")) continue;
+    variables[match[1]] = value;
   }
 
   // Convert to CSS custom properties
   let cssVariables = ":root {\n";
   for (const [name, value] of Object.entries(variables)) {
-    // Replace $var references with var(--var)
     let resolvedValue = value;
     for (const [vName] of Object.entries(variables)) {
       resolvedValue = resolvedValue.replace(new RegExp(`\\$${vName}`, "g"), `var(--${vName})`);
@@ -143,13 +299,15 @@ function convertScssVariables(scss: string): { css: string; variables: string } 
   }
   cssVariables += "}\n";
 
-  // Convert remaining SCSS to CSS (basic conversion)
-  let css = scss
-    .replace(/\$[\w-]+:\s*[^;]+;/g, "") // Remove variable declarations
-    .replace(/\$([\w-]+)/g, "var(--$1)") // Replace variable usage
-    .replace(/&:hover/g, ":hover")
-    .replace(/&:focus/g, ":focus")
-    .replace(/&:active/g, ":active");
+  // Convert remaining SCSS to CSS
+  let css = simplifiedScss
+    .replace(/\$[\w-]+:\s*[^;]+;/g, "")  // Remove variable declarations
+    .replace(/\/\/[^\n]*/g, "")          // Remove line comments
+    .replace(/\/\*[\s\S]*?\*\//g, "")    // Remove block comments
+    .replace(/\$([\w-]+)/g, "var(--$1)"); // Replace variable references
+
+  // Flatten SCSS nesting into valid CSS (replaces broken regex approach)
+  css = flattenScssNesting(css);
 
   return { css, variables: cssVariables };
 }
@@ -428,12 +586,23 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
   let cssVariables = "";
   let jsContent = "";
   const allSnippets: string[] = [];
+  let primaryVariablesScss = "";
+  let bootstrapOverriddenScss = "";
 
   console.log("[generatePreviewHtml] Processing", Object.keys(fileContents).length, "files");
 
   for (const [path, content] of Object.entries(fileContents)) {
     const ext = path.split(".").pop()?.toLowerCase();
     const fileName = path.split("/").pop()?.toLowerCase() || "";
+
+    // Capture primary_variables.scss for color extraction
+    if (fileName === "primary_variables.scss") {
+      primaryVariablesScss = content;
+    }
+    // Capture bootstrap_overridden.scss for Bootstrap variable overrides
+    if (fileName === "bootstrap_overridden.scss") {
+      bootstrapOverriddenScss = content;
+    }
 
     console.log(`[generatePreviewHtml] Processing: ${path} (${ext}, ${content.length} chars)`);
 
@@ -558,73 +727,115 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
     console.log("Detected Odoo snippets:", allSnippets);
   }
 
-  // Odoo color classes simulation + preview enhancements
+  // Extract actual theme colors from primary_variables.scss
+  const themeColors = primaryVariablesScss ? extractOdooColors(primaryVariablesScss) : {};
+  const themeFonts = primaryVariablesScss ? extractOdooFonts(primaryVariablesScss) : {};
+  const hasThemeColors = Object.keys(themeColors).length >= 3;
+
+  // Extract Bootstrap variable overrides for CSS injection
+  const bsOv = bootstrapOverriddenScss ? extractBootstrapOverrides(bootstrapOverriddenScss) : {};
+
+  // Use theme colors or sensible defaults
+  const c1 = themeColors["o-color-1"] || "#0d6efd";
+  const c2 = themeColors["o-color-2"] || "#6c757d";
+  const c3 = themeColors["o-color-3"] || "#6f42c1";
+  const c4 = themeColors["o-color-4"] || "#f8f9fa";
+  const c5 = themeColors["o-color-5"] || "#212529";
+
+  // Helper: determine if a color is light (for text contrast)
+  const isLight = (hex: string) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 150;
+  };
+
+  // Google Fonts import for theme fonts
+  const fontImports: string[] = [];
+  if (themeFonts.heading) fontImports.push(themeFonts.heading.replace(/ /g, "+") + ":wght@400;700");
+  if (themeFonts.body && themeFonts.body !== themeFonts.heading) fontImports.push(themeFonts.body.replace(/ /g, "+") + ":wght@300;400;700");
+  const fontImportCss = fontImports.length > 0
+    ? `@import url('https://fonts.googleapis.com/css2?${fontImports.map(f => `family=${f}`).join("&")}&display=swap');`
+    : "";
+
+  if (hasThemeColors) {
+    console.log(`[Preview] Using theme colors: ${c1}, ${c2}, ${c3}, ${c4}, ${c5}`);
+    if (themeFonts.heading) console.log(`[Preview] Heading font: ${themeFonts.heading}, Body: ${themeFonts.body}`);
+  }
+
+  // Odoo color classes — uses ACTUAL theme colors from primary_variables.scss
   const odooColorClasses = `
-    /* CSS Custom Properties for theming */
+    ${fontImportCss}
+
+    /* CSS Custom Properties from theme */
     :root {
-      --primary: #0d6efd;
-      --primary-dark: #0a58ca;
-      --secondary: #6c757d;
-      --accent: #6f42c1;
-      --bg-light: #f8f9fa;
-      --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      --shadow-soft: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
-      --shadow-medium: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
-      --shadow-large: 0 25px 50px -12px rgba(0,0,0,0.25);
-      --radius-sm: 0.375rem;
-      --radius-md: 0.5rem;
-      --radius-lg: 1rem;
-      --radius-xl: 1.5rem;
+      --primary: ${c1};
+      --secondary: ${c2};
+      --accent: ${c3};
+      --bg-light: ${c4};
+      --text-dark: ${c5};
+      --shadow-soft: ${bsOv["box-shadow-sm"] || "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)"};
+      --shadow-medium: ${bsOv["box-shadow"] || "0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)"};
+      --shadow-large: ${bsOv["box-shadow-lg"] || "0 25px 50px -12px rgba(0,0,0,0.25)"};
+      --radius-sm: ${bsOv["border-radius-sm"] || "0.375rem"};
+      --radius-md: ${bsOv["border-radius"] || "0.5rem"};
+      --radius-lg: ${bsOv["border-radius-lg"] || "1rem"};
+      --radius-xl: ${bsOv["border-radius-xl"] || "1.5rem"};
+      --btn-radius: ${bsOv["btn-border-radius"] || "10rem"};
+      --card-radius: ${bsOv["card-border-radius"] || "0.75rem"};
+      --card-border-width: ${bsOv["card-border-width"] || "0"};
     }
 
-    /* Odoo color classes */
-    .o_cc { background-color: var(--o-cc-bg, #fff); color: var(--o-cc-text, #212529); }
-    .o_cc1 { --o-cc-bg: #f8f9fa; --o-cc-text: #212529; }
-    .o_cc2 { --o-cc-bg: #e9ecef; --o-cc-text: #212529; }
-    .o_cc3 { --o-cc-bg: #dee2e6; --o-cc-text: #212529; }
-    .o_cc4 { --o-cc-bg: #343a40; --o-cc-text: #fff; }
-    .o_cc5 { --o-cc-bg: #212529; --o-cc-text: #fff; }
+    /* Odoo color combination classes — mapped to theme palette
+       o_cc1: white/light (hero gets visual impact from inline style, not class bg)
+       o_cc2: slightly off-white (visual rhythm between sections)
+       o_cc3: accent tint (subtle warmth)
+       o_cc4: light tint of primary (feature highlight)
+       o_cc5: dark background (footer, CTA) */
+    .o_cc { background-color: var(--o-cc-bg, #fff); color: var(--o-cc-text, ${c5}); }
+    .o_cc1 { --o-cc-bg: #ffffff; --o-cc-text: ${c5}; }
+    .o_cc2 { --o-cc-bg: ${c4}; --o-cc-text: ${isLight(c4) ? c5 : "#fff"}; }
+    .o_cc3 { --o-cc-bg: ${c3}1a; --o-cc-text: ${c5}; }
+    .o_cc4 { --o-cc-bg: ${c1}0d; --o-cc-text: ${c5}; }
+    .o_cc5 { --o-cc-bg: ${c5}; --o-cc-text: #ffffff; }
     .o_colored_level { padding: 2rem; }
     .oe_structure { min-height: 100px; }
     #wrap { min-height: 100vh; }
 
-    /* Enhanced default styling for better visual appearance */
+    /* Enhanced default styling */
     body {
       line-height: 1.7;
-      color: #374151;
+      color: ${c5};
       -webkit-font-smoothing: antialiased;
+      ${themeFonts.body ? `font-family: '${themeFonts.body}', sans-serif;` : ""}
     }
 
-    /* Modern section styling */
+    /* Section spacing */
     section {
       padding: 4rem 0;
     }
 
-    section:nth-child(even) {
-      background-color: var(--bg-light);
-    }
-
-    /* Enhanced headings */
+    /* Headings */
     h1, h2, h3, h4, h5, h6 {
       font-weight: 700;
-      color: #1f2937;
+      color: ${c5};
       line-height: 1.2;
+      ${themeFonts.heading ? `font-family: '${themeFonts.heading}', ${themeFonts.heading && /playfair|garamond|merriweather|baskerville|lora|crimson|georgia|times|bodoni|didot|palatino/i.test(themeFonts.heading) ? 'serif' : 'sans-serif'};` : ""}
     }
 
     h1 { font-size: 3rem; margin-bottom: 1.5rem; }
     h2 { font-size: 2.25rem; margin-bottom: 1.25rem; }
     h3 { font-size: 1.75rem; margin-bottom: 1rem; }
 
-    /* Better paragraph styling */
     p {
       color: #6b7280;
       font-size: 1.1rem;
     }
 
-    /* Enhanced card styling */
+    /* Card styling — uses bootstrap_overridden.scss values */
     .card {
-      border: none !important;
-      border-radius: var(--radius-lg) !important;
+      border-width: var(--card-border-width) !important;
+      border-radius: var(--card-radius) !important;
       box-shadow: var(--shadow-soft) !important;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
@@ -634,63 +845,86 @@ function generatePreviewHtml(fileContents: Record<string, string>): string {
       box-shadow: var(--shadow-medium) !important;
     }
 
-    /* Modern button styling */
+    /* Button styling — uses theme primary color */
     .btn {
       font-weight: 600;
       padding: 0.75rem 1.5rem;
-      border-radius: var(--radius-md);
+      border-radius: var(--btn-radius);
       transition: all 0.2s ease;
     }
 
     .btn-primary {
-      background: var(--bg-gradient);
-      border: none;
-      box-shadow: 0 4px 14px 0 rgba(102, 126, 234, 0.39);
+      background-color: ${c1} !important;
+      border-color: ${c1} !important;
+      color: ${isLight(c1) ? c5 : "#fff"} !important;
     }
 
     .btn-primary:hover {
       transform: translateY(-2px);
-      box-shadow: 0 6px 20px 0 rgba(102, 126, 234, 0.5);
+      filter: brightness(1.1);
+      box-shadow: 0 6px 20px 0 ${c1}66;
     }
 
     .btn-outline-primary {
       border-width: 2px;
+      border-color: ${c1} !important;
+      color: ${c1} !important;
     }
 
-    /* Hero section enhancements */
-    .hero-section, section:first-child {
-      background: var(--bg-gradient);
-      color: white;
+    .btn-outline-primary:hover {
+      background-color: ${c1} !important;
+      color: ${isLight(c1) ? c5 : "#fff"} !important;
+    }
+
+    /* Button size variants — use bootstrap overrides */
+    .btn-sm { border-radius: ${bsOv["btn-border-radius-sm"] || "10rem"}; }
+    .btn-lg { border-radius: ${bsOv["btn-border-radius-lg"] || "10rem"}; }
+
+    /* Bootstrap utility overrides — use theme colors */
+    .bg-primary { background-color: ${c1} !important; }
+    .bg-secondary { background-color: ${c2} !important; }
+    .bg-light { background-color: ${c4} !important; }
+    .bg-dark { background-color: ${c5} !important; }
+    .text-primary { color: ${c1} !important; }
+    .text-secondary { color: ${c2} !important; }
+    .border-primary { border-color: ${c1} !important; }
+    .bg-opacity-10 { --bs-bg-opacity: 0.1; }
+    .bg-primary.bg-opacity-10 { background-color: ${c1}1a !important; }
+    .btn-light { background-color: #fff !important; color: ${c5} !important; }
+
+    /* Hero section — styled with theme, NOT generic purple gradient */
+    section:first-child {
       padding: 6rem 0;
       min-height: 60vh;
       display: flex;
       align-items: center;
     }
 
-    .hero-section h1, section:first-child h1,
-    .hero-section h2, section:first-child h2 {
+    /* Only apply dark text override on hero if it has a background image */
+    section:first-child[style*="background"] h1,
+    section:first-child[style*="background"] h2 {
       color: white;
     }
 
-    .hero-section p, section:first-child p {
+    section:first-child[style*="background"] p {
       color: rgba(255,255,255,0.9);
     }
 
-    /* Feature icons */
+    /* Feature icons — uses theme primary color */
     .feature-icon, .icon-box {
       width: 64px;
       height: 64px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+      background: ${c1}1a;
       border-radius: var(--radius-lg);
       margin-bottom: 1rem;
     }
 
     .feature-icon i, .icon-box i {
       font-size: 1.5rem;
-      color: #667eea;
+      color: ${c1};
     }
 
     /* Image placeholders */

@@ -102,7 +102,7 @@ Use these Unsplash URLs for realistic placeholder images:
 3. Features/Services (s_three_columns) — 3-column card grid with icon circles
 4. About (s_image_text) — image + text side by side (row align-items-center g-5)
 5. Testimonials (s_quotes_carousel) — 3 review cards with star ratings, initials circles, named reviewers
-6. CTA (s_call_to_action) — dark or primary background, centered headline, single button
+6. CTA (s_call_to_action) — DARK background (never primary color as full bg), centered headline, button
 7. Footer (s_footer) — ALWAYS LAST — 4-column with brand, links, hours/info, contact
 
 OPTIONAL additional sections (for 8+ section themes):
@@ -271,7 +271,7 @@ const TEMPLATE_PATTERN_CODE = `<?xml version="1.0" encoding="utf-8"?>
         </section>
 
         <!-- ABOUT / IMAGE + TEXT -->
-        <section class="o_cc o_cc3 pt64 pb64" data-snippet="s_image_text">
+        <section class="o_cc o_cc2 pt64 pb64" data-snippet="s_image_text">
           <div class="container">
             <div class="row align-items-center g-5">
               <div class="col-md-6">
@@ -332,12 +332,12 @@ const TEMPLATE_PATTERN_CODE = `<?xml version="1.0" encoding="utf-8"?>
           </div>
         </section>
 
-        <!-- CTA -->
-        <section class="o_cc o_cc5 pt64 pb64" data-snippet="s_call_to_action" style="background-color: var(--primary, #c9302c);">
+        <!-- CTA: DARK background (never use primary color as full bg — looks cheap) -->
+        <section class="o_cc o_cc5 pt64 pb64" data-snippet="s_call_to_action" style="background: linear-gradient(135deg, #2d2d2d 0%, #1a1a1a 100%);">
           <div class="container text-center text-white py-4">
             <h2 class="fw-bold mb-3">Ready for an Unforgettable Evening?</h2>
             <p class="mb-4 opacity-75 mx-auto" style="max-width: 500px;">Reserve your table today and experience the magic of authentic Italian cuisine.</p>
-            <a href="/contactus" class="btn btn-light btn-lg rounded-pill px-5">Make a Reservation</a>
+            <a href="/contactus" class="btn btn-primary btn-lg rounded-pill px-5">Make a Reservation</a>
           </div>
         </section>
 
@@ -655,6 +655,50 @@ const VISUAL_QUALITY_RUBRIC = `## VISUAL QUALITY RUBRIC (CRITICAL — follow eve
 - Avatar circles: <div class="rounded-circle bg-primary bg-opacity-10 d-flex align-items-center justify-content-center me-3" style="width:48px;height:48px;"><span class="fw-bold text-primary">SM</span></div>
 - Named reviewers with role: <h6 class="mb-0 fw-bold">Sarah M.</h6><small class="text-muted">Regular Guest</small>`;
 
+/** Anti-convergence and emotional design rules */
+const ANTI_CONVERGENCE_RULES = `## ANTI-CONVERGENCE WARNING (READ THIS FIRST)
+
+AI-generated websites suffer from "AI slop" — they all look the same:
+- Same purple-to-blue gradient heroes
+- Same rounded cards with identical shadows
+- Same "Welcome to..." headlines
+- Same lifeless stock-photo feel
+
+You MUST break this pattern. Each website must feel like a HUMAN designer crafted it
+for THIS specific client. Techniques:
+
+### Emotional Design Language (match the industry's FEELING)
+- Restaurant: warmth, intimacy, appetite — rich textures, warm lighting feel, close-up food imagery
+- Technology: precision, speed, trust — clean lines, data visualization, confident whitespace
+- Legal: authority, heritage, reliability — serif headings, muted palette, structured symmetry
+- Healthcare: calm, safety, expertise — soft greens/blues, open airy layout, reassuring imagery
+- E-commerce: excitement, urgency, aspiration — bold CTAs, social proof density, product focus
+- Education: accessibility, growth, curiosity — playful accents, clear hierarchy, friendly tone
+- Real Estate: sophistication, aspiration, trust — large imagery, elegant serif headings, premium feel
+- Fitness: energy, motivation, transformation — bold contrast, dynamic angles, strong typography
+- Creative: personality, craft, uniqueness — asymmetry, distinctive type, curated portfolio
+- Nonprofit: empathy, impact, community — storytelling hero, progress indicators, warm photos
+- Beauty: luxury, sensory, refinement — elegant spacing, soft palette, editorial photography
+- Automotive: power, precision, innovation — dark themes, bold typography, wide imagery
+- Finance: stability, clarity, expertise — conservative palette, structured grids, data-driven
+- Construction: strength, reliability, craftsmanship — bold headings, industrial imagery, strong lines
+- Travel: adventure, discovery, wonder — immersive imagery, warm palette, destination focus
+- Photography: visual impact, artistry, atmosphere — minimal UI, image-first layout, elegant type
+
+### Visual Differentiators (use at least 2 per theme)
+- Accent line under headings: <span class="accent-line accent-line-center"></span>
+- Overlapping stats bar (margin-top: -40px on s_numbers)
+- Asymmetric hero (col-lg-6 + col-lg-6) instead of always centered
+- Dark CTA section with o_cc5 (NEVER primary-color-as-full-background)
+- Editorial-style about section with large image + pull quote
+- Numbered process steps ("01", "02", "03") instead of generic icons
+- Large display numbers in stats (display-4 fw-bold)
+
+### CTA Section Rule (CRITICAL)
+The CTA section MUST use a DARK background (o_cc5 with dark color), NOT the primary brand color.
+WRONG: style="background-color: var(--primary, #c9302c);"  ← looks cheap
+RIGHT: style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);" ← premium`;
+
 /** Content quality rules — anti-generic content */
 const CONTENT_QUALITY_RULES = `## CONTENT QUALITY (ZERO TOLERANCE for generic content)
 
@@ -780,6 +824,7 @@ theme_generated/
 
   // ---- VISUAL QUALITY FIRST (high salience = AI prioritizes these) ----
   if (!compact) {
+    parts.push(ANTI_CONVERGENCE_RULES);
     parts.push(DESIGN_SYSTEM);
     parts.push(SECTION_TEMPLATES);
     parts.push(VISUAL_QUALITY_RUBRIC);
@@ -916,19 +961,22 @@ export function buildEnhancedSystemPrompt(
 
 const INDUSTRY_GUIDANCE: Record<string, string> = {
   restaurant: `
-Restaurant Theme - REQUIRED sections: hero, menu, about, testimonials, reservation, footer
+Restaurant Theme — FEELING: warmth, intimacy, appetite
+REQUIRED sections: hero, menu, about, testimonials, reservation, footer
 Odoo Color Palette (use EXACTLY these in primary_variables.scss):
   o-color-1: #c9302c (burgundy red), o-color-2: #8b4513 (brown), o-color-3: #d4a373 (tan), o-color-4: #fefae0 (cream), o-color-5: #2d2d2d (dark)
 Fonts: headings 'Playfair Display' (serif), body 'Lato' (sans-serif)
 Hero image: https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=1920&q=80
 Food image: https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80
-MUST include: Menu cards with dish names/prices, Reservation CTA, Hours/location in footer`,
+MUST include: Menu cards with dish names/prices, Reservation CTA, Hours/location in footer
+Visual differentiator: close-up food photography, warm overlay gradients, accent-line under headings`,
 
   technology: `
-Tech/SaaS Theme - REQUIRED sections: hero, stats bar, features, pricing, integrations, testimonials, CTA
+Tech/SaaS Theme — FEELING: precision, speed, trust
+REQUIRED sections: hero, stats bar, features, pricing, integrations, testimonials, CTA
 Odoo Color Palette:
   o-color-1: #2563eb (blue), o-color-2: #7c3aed (purple), o-color-3: #06b6d4 (cyan), o-color-4: #f8fafc (light), o-color-5: #0f172a (dark)
-Fonts: headings 'Inter' (sans-serif), body 'Inter' (sans-serif)
+Fonts: headings 'Space Grotesk' (sans-serif), body 'DM Sans' (sans-serif)
 Hero image: https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80
 MUST include: Feature grid with icons, Pricing table, Stats/metrics section
 Hero Layout: LEFT-ALIGNED split layout (NOT centered). Structure:
@@ -937,29 +985,35 @@ Hero Layout: LEFT-ALIGNED split layout (NOT centered). Structure:
     <div class="col-lg-6 d-none d-lg-block"> product screenshot or dashboard image </div>
   </div>
   Hero background: solid dark gradient (linear-gradient(135deg, #0f172a 0%, #1e293b 100%)) — NO background image
-  Badge: bg with rgba(99,102,241,0.15) and color #818cf8, text-uppercase, letter-spacing 0.1em`,
+  Badge: bg with rgba(99,102,241,0.15) and color #818cf8, text-uppercase, letter-spacing 0.1em
+Visual differentiator: confident whitespace, numbered process steps ("01", "02", "03"), metric-heavy stats bar`,
 
   legal: `
-Law Firm Theme - REQUIRED sections: hero, practice-areas, attorneys, testimonials, contact, footer
+Law Firm Theme — FEELING: authority, heritage, reliability
+REQUIRED sections: hero, practice-areas, attorneys, testimonials, contact, footer
 Odoo Color Palette:
   o-color-1: #1a365d (navy), o-color-2: #c9a227 (gold), o-color-3: #4a5568 (gray), o-color-4: #f7f7f7 (light), o-color-5: #1a202c (dark)
-Fonts: headings 'EB Garamond' (serif), body 'Source Sans Pro' (sans-serif)
+Fonts: headings 'EB Garamond' (serif), body 'Source Sans 3' (sans-serif)
 Hero image: https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1920&q=80
-MUST include: Practice areas grid, Attorney profiles, Trust badges`,
+MUST include: Practice areas grid, Attorney profiles, Trust badges
+Visual differentiator: serif headings, gold accent lines, structured symmetrical layouts`,
 
   healthcare: `
-Healthcare Theme - REQUIRED sections: hero, services, doctors, testimonials, appointment, footer
+Healthcare Theme — FEELING: calm, safety, expertise
+REQUIRED sections: hero, services, doctors, testimonials, appointment, footer
 Odoo Color Palette:
   o-color-1: #0d9488 (teal), o-color-2: #0284c7 (blue), o-color-3: #06b6d4 (cyan), o-color-4: #f0fdfa (mint), o-color-5: #134e4a (dark)
-Fonts: headings 'Poppins' (sans-serif), body 'Open Sans' (sans-serif)
+Fonts: headings 'Plus Jakarta Sans' (sans-serif), body 'Open Sans' (sans-serif)
 Hero image: https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1920&q=80
-MUST include: Services with icons, Doctor profiles, Appointment CTA`,
+MUST include: Services with icons, Doctor profiles, Appointment CTA
+Visual differentiator: soft gradients, airy open spacing, reassuring imagery, rounded-4 cards`,
 
   ecommerce: `
-E-commerce Theme - REQUIRED sections: hero, featured-products, categories, deals, testimonials, newsletter, footer
+E-commerce Theme — FEELING: excitement, urgency, aspiration
+REQUIRED sections: hero, featured-products, categories, deals, testimonials, newsletter, footer
 Odoo Color Palette:
   o-color-1: #7c3aed (purple), o-color-2: #ec4899 (pink), o-color-3: #f59e0b (amber), o-color-4: #faf5ff (light), o-color-5: #1e1b4b (dark)
-Fonts: headings 'Poppins' (sans-serif), body 'Inter' (sans-serif)
+Fonts: headings 'Sora' (sans-serif), body 'Inter' (sans-serif)
 Hero image: https://images.unsplash.com/photo-1472851294608-062f824d29cc?w=1920&q=80
 MUST include: Product showcase grid (3-4 cards with price, image, CTA), Category cards, Trust/payment badges, Newsletter signup
 Odoo E-commerce Integration:
@@ -969,7 +1023,128 @@ Odoo E-commerce Integration:
   - Categories section: icon + name cards linking to /shop?category=X
   - Trust section: payment icons (Visa, Mastercard, PayPal), SSL badge, money-back guarantee
   - Include "Shop Now" CTA buttons linking to /shop
-  - Deals/promotions: highlight with o_cc3 accent color background`,
+  - Deals/promotions: highlight with o_cc3 accent color background
+Visual differentiator: bold product imagery, urgency badges, social proof density`,
+
+  education: `
+Education Theme — FEELING: accessibility, growth, curiosity
+REQUIRED sections: hero, programs, features, instructors, testimonials, enrollment CTA, footer
+Odoo Color Palette:
+  o-color-1: #4f46e5 (indigo), o-color-2: #0891b2 (teal), o-color-3: #f97316 (orange), o-color-4: #f5f5ff (soft violet), o-color-5: #1e1b4b (dark)
+Fonts: headings 'Nunito' (sans-serif), body 'Nunito Sans' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1920&q=80
+MUST include: Programs/courses grid, Instructor profiles, Enrollment CTA, Stats (students, courses, rating)
+Visual differentiator: playful orange accents, friendly rounded cards, progress/growth iconography`,
+
+  realestate: `
+Real Estate Theme — FEELING: sophistication, aspiration, trust
+REQUIRED sections: hero, featured-properties, services, agents, testimonials, contact CTA, footer
+Odoo Color Palette:
+  o-color-1: #0f766e (deep teal), o-color-2: #b45309 (copper), o-color-3: #14b8a6 (teal), o-color-4: #f7f9f9 (light), o-color-5: #134e4a (dark)
+Fonts: headings 'Cormorant Garamond' (serif), body 'Montserrat' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1920&q=80
+MUST include: Property showcase (3 cards with image, beds/baths, price, location), Agent profiles, Contact form CTA
+Visual differentiator: elegant serif headings, large property images, premium card shadows, copper accent lines`,
+
+  fitness: `
+Fitness & Wellness Theme — FEELING: energy, motivation, transformation
+REQUIRED sections: hero, classes/programs, trainers, transformation stories, pricing, join CTA, footer
+Odoo Color Palette:
+  o-color-1: #dc2626 (red), o-color-2: #f97316 (orange), o-color-3: #fbbf24 (gold), o-color-4: #fef2f2 (soft red), o-color-5: #1c1917 (near-black)
+Fonts: headings 'Oswald' (sans-serif), body 'Barlow' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=1920&q=80
+MUST include: Class schedule grid, Trainer profiles, Pricing plans, Before/after or stats section
+Visual differentiator: bold uppercase headings, high-contrast dark/light alternation, dynamic angled dividers, strong CTAs`,
+
+  creative: `
+Creative Agency Theme — FEELING: personality, craft, uniqueness
+REQUIRED sections: hero, portfolio, services, process, team, contact CTA, footer
+Odoo Color Palette:
+  o-color-1: #8b5cf6 (violet), o-color-2: #ec4899 (rose), o-color-3: #06b6d4 (cyan), o-color-4: #faf5ff (soft violet), o-color-5: #1e1b4b (dark)
+Fonts: headings 'Clash Display' (sans-serif), body 'Satoshi' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1558655146-9f40138edfeb?w=1920&q=80
+MUST include: Portfolio grid (masonry-style), Services with creative icons, Numbered creative process ("01 Discover", "02 Design", "03 Deliver")
+Visual differentiator: asymmetric layouts, gradient text on headings, personality-rich copy, curated portfolio imagery`,
+
+  nonprofit: `
+Nonprofit/NGO Theme — FEELING: empathy, impact, community
+REQUIRED sections: hero, mission/impact, programs, stories, donate CTA, supporters, footer
+Odoo Color Palette:
+  o-color-1: #059669 (emerald), o-color-2: #0284c7 (blue), o-color-3: #fbbf24 (amber), o-color-4: #ecfdf5 (soft green), o-color-5: #1e293b (dark)
+Fonts: headings 'Merriweather' (serif), body 'Source Sans 3' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=1920&q=80
+MUST include: Impact stats ("5,000 families helped"), Program cards, Donation CTA with suggested amounts, Supporter logos
+Visual differentiator: storytelling hero with warm human photography, impact counters, warm green/amber palette`,
+
+  beauty: `
+Beauty & Spa Theme — FEELING: luxury, sensory, refinement
+REQUIRED sections: hero, services, gallery, team, testimonials, booking CTA, footer
+Odoo Color Palette:
+  o-color-1: #be185d (rose), o-color-2: #a21caf (fuchsia), o-color-3: #f0abfc (light orchid), o-color-4: #fdf2f8 (blush), o-color-5: #3b0764 (dark plum)
+Fonts: headings 'Cormorant Infant' (serif), body 'Quicksand' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1560066984-138dadb4c035?w=1920&q=80
+MUST include: Service menu with prices, Before/after gallery, Stylist profiles, Online booking CTA
+Visual differentiator: elegant serif headings, soft blush palette, editorial photography, generous whitespace`,
+
+  automotive: `
+Automotive Theme — FEELING: power, precision, innovation
+REQUIRED sections: hero, inventory highlights, services, about, testimonials, test-drive CTA, footer
+Odoo Color Palette:
+  o-color-1: #dc2626 (racing red), o-color-2: #78716c (gunmetal), o-color-3: #fbbf24 (gold), o-color-4: #f5f5f4 (light stone), o-color-5: #1c1917 (charcoal)
+Fonts: headings 'Rajdhani' (sans-serif), body 'Outfit' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?w=1920&q=80
+MUST include: Vehicle showcase cards (image, specs, price), Service department, Why-choose-us with trust metrics
+Visual differentiator: wide cinematic imagery, bold uppercase headings, dark sections with bright accent pops`,
+
+  finance: `
+Finance & Banking Theme — FEELING: stability, clarity, expertise
+REQUIRED sections: hero, services, stats/trust, team, testimonials, consultation CTA, footer
+Odoo Color Palette:
+  o-color-1: #1e40af (deep blue), o-color-2: #059669 (green), o-color-3: #6366f1 (indigo), o-color-4: #eff6ff (ice blue), o-color-5: #1e293b (dark)
+Fonts: headings 'DM Serif Display' (serif), body 'DM Sans' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=1920&q=80
+MUST include: Financial services grid, Trust metrics ("$2B managed", "25+ years"), Team/advisor profiles, Consultation CTA
+Visual differentiator: conservative structured layout, serif heading authority, data-heavy stats section, navy/green trust palette`,
+
+  construction: `
+Construction & Building Theme — FEELING: strength, reliability, craftsmanship
+REQUIRED sections: hero, services, projects portfolio, process, testimonials, quote CTA, footer
+Odoo Color Palette:
+  o-color-1: #d97706 (amber), o-color-2: #0369a1 (steel blue), o-color-3: #78716c (concrete), o-color-4: #fffbeb (warm white), o-color-5: #292524 (dark stone)
+Fonts: headings 'Bebas Neue' (sans-serif), body 'Barlow' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=1920&q=80
+MUST include: Services grid (residential, commercial, renovation), Project gallery, "How We Build" process steps, Free quote CTA
+Visual differentiator: strong bold headings, industrial photography, amber/steel palette, construction process timeline`,
+
+  travel: `
+Travel & Tourism Theme — FEELING: adventure, discovery, wonder
+REQUIRED sections: hero, destinations, packages, about, testimonials, booking CTA, footer
+Odoo Color Palette:
+  o-color-1: #0891b2 (ocean), o-color-2: #f97316 (sunset), o-color-3: #059669 (forest), o-color-4: #ecfeff (sky blue), o-color-5: #164e63 (deep ocean)
+Fonts: headings 'Fraunces' (serif), body 'Outfit' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=1920&q=80
+MUST include: Destination cards with location/price, Travel packages, Traveler testimonials, "Book Your Adventure" CTA
+Visual differentiator: immersive full-bleed hero imagery, warm sunset palette, destination photography, wanderlust-evoking copy`,
+
+  photography: `
+Photography Theme — FEELING: visual impact, artistry, atmosphere
+REQUIRED sections: hero, portfolio grid, about, services, testimonials, booking CTA, footer
+Odoo Color Palette:
+  o-color-1: #1e293b (slate), o-color-2: #d4a373 (warm gold), o-color-3: #78716c (stone), o-color-4: #fafaf9 (paper), o-color-5: #0c0a09 (near-black)
+Fonts: headings 'Libre Baskerville' (serif), body 'Karla' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1452587925148-ce544e77e70d?w=1920&q=80
+MUST include: Portfolio grid (6+ images, masonry layout), Session types with pricing, Photographer bio with large portrait
+Visual differentiator: minimal UI that lets photos breathe, image-first layout, elegant serif headings, near-black footer`,
+
+  generic: `
+Generic Business Theme — FEELING: professional, clean, trustworthy
+REQUIRED sections: hero, features, about, testimonials, CTA, footer
+Odoo Color Palette:
+  o-color-1: #2563eb (blue), o-color-2: #64748b (slate), o-color-3: #8b5cf6 (violet), o-color-4: #f8fafc (light), o-color-5: #0f172a (dark)
+Fonts: headings 'Plus Jakarta Sans' (sans-serif), body 'Inter' (sans-serif)
+Hero image: https://images.unsplash.com/photo-1497366216548-37526070297c?w=1920&q=80
+MUST include: 3-column feature cards, About section with image, Testimonial cards, Dark CTA section
+Visual differentiator: confident whitespace, overlapping stats bar, accent-line headings`,
 };
 
 // =============================================================================

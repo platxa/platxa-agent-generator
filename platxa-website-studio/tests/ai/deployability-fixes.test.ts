@@ -630,13 +630,16 @@ describe("validateQWebTemplate — o_cc color range", () => {
   });
 
   it("assembler output with 5+ sections uses o_cc5 and passes validation", () => {
-    const sections = Array.from({ length: 6 }, (_, i) => ({
-      snippetType: `s_text_block`,
-      innerHtml: `<div class="container"><h2>Section ${i + 1} content with enough text to pass threshold check</h2><p>More content here</p></div>`,
-      isFooter: false,
-    }));
+    const sections = [
+      { snippetType: "s_cover", innerHtml: `<div class="container"><h1>Hero heading with enough content to pass threshold</h1><p>Hero subtitle text</p></div>`, isFooter: false },
+      { snippetType: "s_numbers", innerHtml: `<div class="container"><h2>Stats section content with enough text to pass threshold</h2><p>500+ clients</p></div>`, isFooter: false },
+      { snippetType: "s_three_columns", innerHtml: `<div class="container"><h2>Features section content with enough text to pass threshold</h2><p>Feature cards</p></div>`, isFooter: false },
+      { snippetType: "s_text_image", innerHtml: `<div class="container"><h2>About section content with enough text to pass threshold check</h2><p>Our story</p></div>`, isFooter: false },
+      { snippetType: "s_call_to_action", innerHtml: `<div class="container"><h2>Call to action section with enough text to pass threshold</h2><p>Get started</p></div>`, isFooter: false },
+      { snippetType: "s_footer", innerHtml: `<div class="container"><h5>Company Name</h5><p>Footer content with links and contact info</p></div>`, isFooter: true },
+    ];
     const xml = assembleTemplatesXml(sections);
-    expect(xml).toContain("o_cc5"); // 5th section gets o_cc5
+    expect(xml).toContain("o_cc5"); // footer section gets o_cc5
     // Validate the output — no o_cc range errors
     const issues = validateQWebTemplate(xml, "templates.xml");
     const qweb010 = issues.filter(i => i.code === "QWEB010");

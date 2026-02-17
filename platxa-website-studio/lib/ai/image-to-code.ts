@@ -215,7 +215,7 @@ Be precise with hex colors. Estimate font sizes and weights. Identify all major 
 
 const QWEB_GENERATION_PROMPT = `You are an expert Odoo developer. Generate QWeb templates for an Odoo website theme based on this design analysis.
 
-Create proper Odoo 17.0 QWeb templates with:
+Create proper Odoo 18 QWeb templates with:
 - Proper t-name attributes
 - Bootstrap 5 classes
 - Odoo snippet structure

@@ -216,6 +216,9 @@ export function extractSections(content: string): ExtractedSection[] {
       snippetType: SNIPPET_TYPES.footer,
       innerHtml,
       isFooter: true,
+      sectionStyle: extractStyleFromTag(block.openTag),
+      sectionClass: extractClassFromTag(block.openTag),
+      sectionDataAttrs: extractDataAttrsFromTag(block.openTag),
     });
   }
 
@@ -235,6 +238,9 @@ export function extractSections(content: string): ExtractedSection[] {
           snippetType: SNIPPET_TYPES.hero,
           innerHtml,
           isFooter: false,
+          sectionStyle: extractStyleFromTag(block.openTag),
+          sectionClass: extractClassFromTag(block.openTag),
+          sectionDataAttrs: extractDataAttrsFromTag(block.openTag),
         });
       }
     }
@@ -260,6 +266,9 @@ export function extractSections(content: string): ExtractedSection[] {
         snippetType,
         innerHtml,
         isFooter: false,
+        sectionStyle: extractStyleFromTag(block.openTag),
+        sectionClass: extractClassFromTag(block.openTag),
+        sectionDataAttrs: extractDataAttrsFromTag(block.openTag),
       });
       idx++;
     }
@@ -280,11 +289,37 @@ export function fixTailwindClasses(html: string): string {
 }
 
 /**
- * Replace placeholder image URLs with Odoo defaults
+ * Odoo 18 built-in image references for diverse placeholders.
+ * Cycling through these avoids every image looking identical.
+ */
+const ODOO_DEFAULT_IMAGES = [
+  '/web/image/website.s_cover_default_image',
+  '/web/image/website.s_text_image_default_image',
+  '/web/image/website.s_image_text_default_image',
+  '/web/image/website.s_three_columns_default_image_1',
+  '/web/image/website.s_three_columns_default_image_2',
+  '/web/image/website.s_three_columns_default_image_3',
+  '/web/image/website.s_media_list_default_image_1',
+  '/web/image/website.s_media_list_default_image_2',
+  '/web/image/website.s_media_list_default_image_3',
+];
+
+/** Counter for cycling through Odoo default images. */
+let _odooImageIdx = 0;
+
+/** Pick an Odoo default image, cycling through available options. */
+function nextOdooImage(reset = false): string {
+  if (reset) _odooImageIdx = 0;
+  return ODOO_DEFAULT_IMAGES[_odooImageIdx++ % ODOO_DEFAULT_IMAGES.length];
+}
+
+/**
+ * Replace placeholder image URLs with diverse Odoo defaults
  */
 export function fixPlaceholderUrls(html: string): string {
+  _odooImageIdx = 0; // reset per call for deterministic output
   const placeholderPattern = /(?:https?:\/\/)?(?:www\.)?(?:example\.com|placeholder\.com|placehold\.co|via\.placeholder\.com)[^\s"')]*\.(?:jpg|jpeg|png|gif|webp|svg)/gi;
-  return html.replace(placeholderPattern, '/web/image/website.s_cover_default_image');
+  return html.replace(placeholderPattern, () => nextOdooImage());
 }
 
 /**
@@ -301,9 +336,9 @@ export function fixImages(html: string): string {
   fixed = fixed.replace(/<img(?![^>]*\bclass\b)([^>]*?)(\s*\/?>)/gi, '<img class="img-fluid"$1$2');
   // Add loading="lazy" to img tags missing it
   fixed = fixed.replace(/<img(?![^>]*\bloading\b)([^>]*?)(\s*\/?>)/gi, '<img loading="lazy"$1$2');
-  // Fix broken relative paths (images/foo.png → /web/image/website.s_cover_default_image)
+  // Fix broken relative paths — use diverse Odoo default images
   fixed = fixed.replace(/src="(?!https?:\/\/|\/web\/|\/)[^"]*\.(?:jpg|jpeg|png|gif|webp|svg)"/gi,
-    'src="/web/image/website.s_cover_default_image"');
+    () => `src="${nextOdooImage()}"`);
   return fixed;
 }
 
@@ -426,12 +461,33 @@ export function assembleTemplatesXml(sections: ExtractedSection[]): string {
     return "";
   }
 
+  // Semantic color map: section PURPOSE determines background, not position
+  const SEMANTIC_CC: Record<string, number> = {
+    s_cover: 1,            // Hero: dark overlay on image
+    s_numbers: 2,          // Stats bar: white, elevated
+    s_three_columns: 3,    // Features/services: off-white
+    s_text_image: 2,       // About: white
+    s_text_block: 2,       // Text blocks: white
+    s_quotes_carousel: 4,  // Testimonials: light brand tint
+    s_call_to_action: 1,   // CTA: dark/bold accent
+    s_newsletter_block: 1, // Newsletter: bold accent
+    s_footer: 5,           // Footer: dark
+    s_images_wall: 3,      // Gallery: off-white
+    s_faq_collapse: 3,     // FAQ: off-white
+  };
+  // Alternation pool for repeated snippet types (e.g. multiple s_three_columns)
+  const ALTERNATION_POOL = [3, 2, 4];
+  let lastCcNum = 0;
+
   const sectionBlocks = nonEmptySections.map((section, i) => {
-    // Background alternation: ensure no two consecutive sections share the same o_cc class
-    // Pattern: hero(1) -> stats(2) -> features(3) -> about(4) -> testimonials(5) -> CTA(1) -> footer(2)
-    // Ensures o_cc5 appears within first 5 sections and no consecutive repeats
-    const CC_RHYTHM = [1, 2, 3, 4, 5, 1, 2, 3, 4, 5];
-    const ccNum = CC_RHYTHM[i % CC_RHYTHM.length];
+    // Semantic assignment: look up by snippet type, fallback to alternation
+    let ccNum = SEMANTIC_CC[section.snippetType] ?? ALTERNATION_POOL[i % ALTERNATION_POOL.length];
+    // Prevent consecutive same background — shift to next available
+    if (ccNum === lastCcNum) {
+      const alternatives = [2, 3, 4].filter(n => n !== lastCcNum);
+      ccNum = alternatives[0];
+    }
+    lastCcNum = ccNum;
     const defaultPadding = section.snippetType === "s_cover" ? "pt96 pb96" :
       section.snippetType === "s_footer" ? "pt48 pb32" : "pt64 pb64";
     const fixedContent = section.fixedContent;
@@ -756,13 +812,34 @@ ${overrides.join('\n')}
 `;
   }
 
-  // Default Bootstrap overrides for a modern look
+  // Default Bootstrap overrides — matches system prompt BOOTSTRAP_OVERRIDDEN_CODE
   return `// Bootstrap variable overrides — ONLY variables, no custom rules
+// Loaded BEFORE Bootstrap compiles (web._assets_frontend_helpers, prepend)
+// Every declaration MUST have !default flag
+
+// Border radius scale
+$border-radius-sm: 0.25rem !default;
 $border-radius: 0.5rem !default;
 $border-radius-lg: 0.75rem !default;
+$border-radius-xl: 1rem !default;
+
+// Button radius (pill by default for CTAs)
+$btn-border-radius: 10rem !default;
+$btn-border-radius-sm: 10rem !default;
+$btn-border-radius-lg: 10rem !default;
+
+// Card styling
 $card-border-width: 0 !default;
-$box-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08) !default;
-$box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1) !default;
+$card-border-radius: 0.75rem !default;
+
+// Layered shadow system (2-layer for realistic depth)
+$box-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.1) !default;
+$box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1) !default;
+$box-shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1) !default;
+
+// Focus ring
+$focus-ring-width: 0.2rem !default;
+$focus-ring-opacity: 0.25 !default;
 `;
 }
 

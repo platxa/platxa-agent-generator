@@ -137,7 +137,7 @@ Follow these requirements:
 1. Use proper QWeb template syntax with t-* directives
 2. Include all required files (__manifest__.py, views/, static/)
 3. Use SCSS with CSS custom properties for theming
-4. Follow Odoo 17.0 best practices
+4. Follow Odoo 18 best practices
 5. Include proper accessibility attributes
 6. Use Bootstrap 5 classes where appropriate
 
