@@ -13,6 +13,7 @@ import {
 } from "@/lib/agent-bridge/odoo-xmlrpc-deploy";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/utils/api-rate-limit";
 import { auth } from "@/lib/auth";
+import { isDemoMode } from "@/lib/auth/env";
 import { validateUrl } from "@/lib/utils/url-validator";
 import { createLogger, loggerFromRequest } from "@/lib/utils/logger";
 
@@ -213,9 +214,9 @@ export async function GET(req: Request) {
  * POST /api/deploy - Deploy theme to Odoo
  */
 export async function POST(req: Request) {
-  // Session auth: require authenticated user for deployments
+  // Session auth: require authenticated user for deployments (skip in demo mode)
   const session = await auth();
-  if (!session?.user?.id) {
+  if (!isDemoMode() && !session?.user?.id) {
     return Response.json(
       { error: "Authentication required", code: "UNAUTHORIZED" },
       { status: 401 }

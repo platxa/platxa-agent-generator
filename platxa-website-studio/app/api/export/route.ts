@@ -28,6 +28,7 @@ import { scanFiles, type ScanResult } from "@/lib/security/code-scanner";
 import { validateScssBatch } from "@/lib/validators/scss-validator";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/utils/api-rate-limit";
 import { auth } from "@/lib/auth";
+import { isDemoMode } from "@/lib/auth/env";
 
 /**
  * Odoo SCSS variable stubs — prepended before compilation to avoid
@@ -131,9 +132,9 @@ interface ExportRequestBody {
  * POST /api/export - Export theme as ZIP
  */
 export async function POST(req: Request) {
-  // Session auth: require authenticated user for exports
+  // Session auth: require authenticated user for exports (skip in demo mode)
   const session = await auth();
-  if (!session?.user?.id) {
+  if (!isDemoMode() && !session?.user?.id) {
     return errorResponse("Authentication required", 401, "UNAUTHORIZED");
   }
 
