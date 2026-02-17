@@ -429,7 +429,10 @@ $box-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06) !def
 $box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !default;
 $box-shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !default;`;
 
-const THEME_SCSS_CODE = `// Custom theme styles
+const THEME_SCSS_CODE = `// Custom theme styles (web.assets_frontend)
+// NO body{}, NO :root{}, NO font-family, NO .container{}
+
+// --- Hero Section ---
 section[data-snippet="s_cover"] {
   min-height: 75vh;
   display: flex;
@@ -437,18 +440,66 @@ section[data-snippet="s_cover"] {
   background-size: cover;
   background-position: center;
 }
+
+// --- Card Elevation System ---
 .card {
   border-radius: 0.75rem;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   &:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1),
+                0 8px 10px -6px rgba(0, 0, 0, 0.1);
   }
 }
+
+// --- Button Polish ---
 .btn {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  &:hover { transform: translateY(-2px); }
+  &:hover { transform: translateY(-1px); }
+  &:active { transform: translateY(0); }
+}
+
+// --- Image Hover Zoom ---
+.img-hover-zoom {
+  overflow: hidden;
+  border-radius: 0.5rem;
+  img { transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+  &:hover img { transform: scale(1.05); }
+}
+
+// --- Accent Line ---
+.accent-line {
+  display: block;
+  width: 48px;
+  height: 3px;
+  border-radius: 2px;
+  background-color: var(--o-color-1, currentColor);
+  margin-bottom: 1rem;
+  &.accent-line-center { margin-left: auto; margin-right: auto; }
+}
+
+// --- Font Smoothing (scoped to sections, not body) ---
+.o_cc {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+// --- Focus Ring ---
+*:focus-visible {
+  outline: 0;
+  box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+  border-radius: inherit;
+}
+
+// --- Reduced Motion Support ---
+@media (prefers-reduced-motion: reduce) {
+  .card, .btn, .img-hover-zoom img {
+    transition: none !important;
+  }
+  .card:hover { transform: none !important; }
 }`;
 
 /** Output contract - shared between modes */
