@@ -27,6 +27,9 @@ interface ExtractedSection {
   snippetType: string;    // Odoo snippet type: s_cover, s_three_columns, etc.
   innerHtml: string;      // Content inside the section (container div, etc.)
   isFooter: boolean;      // Footer sections get special treatment
+  sectionStyle?: string;  // Preserved inline style from original section tag (bg images, colors)
+  sectionClass?: string;  // Preserved class from original section tag
+  sectionDataAttrs?: Record<string, string>; // Preserved data-* attributes
 }
 
 /**
@@ -90,8 +93,8 @@ function detectSnippetType(html: string): string {
  * Handles nested tags correctly by counting depth.
  * Returns array of { outerHtml, innerHtml, startIndex }.
  */
-function extractBalancedBlocks(content: string, tagName: string): Array<{ outerHtml: string; innerHtml: string }> {
-  const results: Array<{ outerHtml: string; innerHtml: string }> = [];
+function extractBalancedBlocks(content: string, tagName: string): Array<{ outerHtml: string; innerHtml: string; openTag: string }> {
+  const results: Array<{ outerHtml: string; innerHtml: string; openTag: string }> = [];
   const openPattern = new RegExp(`<${tagName}\\b[^>]*>`, 'gi');
   let openMatch;
 
@@ -120,7 +123,7 @@ function extractBalancedBlocks(content: string, tagName: string): Array<{ outerH
           const innerHtml = content.substring(innerStart, closeIdx);
           const outerEnd = closeIdx + closeTag.length;
           const outerHtml = content.substring(openMatch.index, outerEnd);
-          results.push({ outerHtml, innerHtml });
+          results.push({ outerHtml, innerHtml, openTag });
           // Advance regex past this entire block so nested tags aren't
           // re-extracted as standalone blocks (prevents duplicate content)
           openPattern.lastIndex = outerEnd;
@@ -131,6 +134,35 @@ function extractBalancedBlocks(content: string, tagName: string): Array<{ outerH
   }
 
   return results;
+}
+
+/**
+ * Extract inline style attribute from an HTML opening tag
+ */
+function extractStyleFromTag(openTag: string): string | undefined {
+  const match = openTag.match(/style=["']([^"']+)["']/i);
+  return match?.[1] || undefined;
+}
+
+/**
+ * Extract class attribute from an HTML opening tag
+ */
+function extractClassFromTag(openTag: string): string | undefined {
+  const match = openTag.match(/class=["']([^"']+)["']/i);
+  return match?.[1] || undefined;
+}
+
+/**
+ * Extract all data-* attributes from an HTML opening tag
+ */
+function extractDataAttrsFromTag(openTag: string): Record<string, string> {
+  const attrs: Record<string, string> = {};
+  const regex = /data-([\w-]+)=["']([^"']+)["']/gi;
+  let match;
+  while ((match = regex.exec(openTag)) !== null) {
+    attrs[`data-${match[1]}`] = match[2];
+  }
+  return attrs;
 }
 
 /**
@@ -164,6 +196,9 @@ export function extractSections(content: string): ExtractedSection[] {
       snippetType,
       innerHtml,
       isFooter: snippetType === SNIPPET_TYPES.footer,
+      sectionStyle: extractStyleFromTag(block.openTag),
+      sectionClass: extractClassFromTag(block.openTag),
+      sectionDataAttrs: extractDataAttrsFromTag(block.openTag),
     });
   }
 
@@ -378,7 +413,13 @@ export function assembleTemplatesXml(sections: ExtractedSection[]): string {
 
   const nonEmptySections = processedSections.filter(section => {
     const textOnly = section.fixedContent.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
-    return textOnly.length >= 30;
+    // Lower threshold: CTA sections, image galleries, and icon-heavy sections
+    // may have minimal text (e.g. "Shop Now" = 8 chars) but are visually critical.
+    // Also keep sections with images or background styles even if text is sparse.
+    const hasImages = /<img\b/i.test(section.fixedContent);
+    const hasBackgroundStyle = !!section.sectionStyle;
+    if (hasImages || hasBackgroundStyle) return textOnly.length >= 5;
+    return textOnly.length >= 15;
   });
 
   if (nonEmptySections.length === 0) {
@@ -387,7 +428,8 @@ export function assembleTemplatesXml(sections: ExtractedSection[]): string {
 
   const sectionBlocks = nonEmptySections.map((section, i) => {
     const ccNum = (i % 5) + 1;
-    const padding = section.snippetType === "s_cover" ? "pt96 pb96" : "pt48 pb48";
+    const defaultPadding = section.snippetType === "s_cover" ? "pt96 pb96" :
+      section.snippetType === "s_footer" ? "pt48 pb32" : "pt64 pb64";
     const fixedContent = section.fixedContent;
 
     // Ensure content has a container wrapper
@@ -403,7 +445,34 @@ export function assembleTemplatesXml(sections: ExtractedSection[]): string {
       .filter(Boolean)
       .join('\n');
 
-    return `        <section class="o_cc o_cc${ccNum} ${padding}" data-snippet="${section.snippetType}">
+    // Preserve original padding classes from AI if present, otherwise use defaults
+    const originalPtPb = section.sectionClass
+      ? section.sectionClass.split(/\s+/).filter(c => /^p[tb]\d+$/.test(c))
+      : [];
+    const padding = originalPtPb.length > 0 ? originalPtPb.join(' ') : defaultPadding;
+
+    // Build class list: ensure o_cc + o_ccN + padding, preserve original non-padding classes
+    const requiredClasses = [`o_cc`, `o_cc${ccNum}`, padding];
+    const originalClasses = section.sectionClass
+      ? section.sectionClass.split(/\s+/).filter(c =>
+          c && !c.startsWith('o_cc') &&
+          !c.match(/^p[tb]\d+$/)
+        )
+      : [];
+    const mergedClass = [...requiredClasses, ...originalClasses].join(' ');
+
+    // Build data-snippet, preserving any additional data-* attrs from AI
+    const dataAttrs = section.sectionDataAttrs || {};
+    // Ensure data-snippet is always set to the detected type
+    dataAttrs['data-snippet'] = section.snippetType;
+    const dataAttrStr = Object.entries(dataAttrs)
+      .map(([key, val]) => `${key}="${val}"`)
+      .join(' ');
+
+    // Preserve inline style from original section (background images, colors, min-height)
+    const styleAttr = section.sectionStyle ? ` style="${section.sectionStyle}"` : '';
+
+    return `        <section class="${mergedClass}" ${dataAttrStr}${styleAttr}>
 ${indentedContent}
         </section>`;
   }).join('\n');
@@ -728,21 +797,29 @@ export function assembleThemeScss(existingScss: string | null): string {
     // Strip dangerous global overrides that break Odoo
     fixed = fixed.replace(/^body\s*\{[^}]*\}/gm, '');
     fixed = fixed.replace(/^html\s*\{[^}]*\}/gm, '');
+    fixed = fixed.replace(/^\*\s*\{[^}]*\}/gm, ''); // Universal reset (*, *::before, etc.)
     fixed = fixed.replace(/^\.container\s*\{[^}]*\}/gm, '');
     fixed = fixed.replace(/^\.container-fluid\s*\{[^}]*\}/gm, '');
-    // Strip background-image in CSS rules (should be inline style on HTML elements)
-    fixed = fixed.replace(/\s*background-image\s*:\s*url\([^)]*\)\s*;?/gi, '');
+    // Keep background-image — section inline styles are now preserved (RC#1),
+    // and CSS background-image is valid for snippet-level styling in theme.scss
     // Strip :root custom properties (Odoo doesn't use them)
     fixed = fixed.replace(/^:root\s*\{[^}]*\}/gm, '');
     // Strip font-family declarations (fonts come from primary_variables.scss)
     fixed = fixed.replace(/\s*font-family\s*:[^;]+;/gi, '');
 
-    // Fix M: Strip hardcoded hex colors — these won't update when users change palette
-    // Only strip standalone color/background-color with hex values; preserve rgba(), var(), etc.
-    fixed = fixed.replace(/\s*(?:(?:background-)?color)\s*:\s*#[0-9a-fA-F]{3,8}\s*;/gi, '');
+    // Fix M: Keep hex colors in AI-generated theme.scss
+    // Rationale: stripping ALL hex colors emptied theme.scss to nothing,
+    // causing every theme to fall back to the same 5-line generic default.
+    // The AI generates intentional color choices that add visual identity.
+    // Odoo's o-color() function is only available in SCSS compilation, not
+    // in the generated CSS output. Keeping hex values preserves the theme look.
+    // Blue shadow fix above already handles the main color problem.
 
     // Strip empty rulesets left behind after stripping (e.g. `.card { }`)
     fixed = fixed.replace(/[^{};\n]+\s*\{\s*\}/g, '');
+
+    // Clean up excessive blank lines
+    fixed = fixed.replace(/\n{3,}/g, '\n\n');
 
     // If stripping left only whitespace/comments, fall through to default
     const meaningful = fixed.replace(/\/\/[^\n]*/g, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
@@ -751,19 +828,85 @@ export function assembleThemeScss(existingScss: string | null): string {
     }
   }
 
-  // Default theme.scss
-  return `// Custom theme styles
+  // Default theme.scss — production-grade fallback with visual polish
+  return `// Custom theme styles — production-grade defaults
+
+// Hero section
 section[data-snippet="s_cover"] {
   min-height: 75vh;
   display: flex;
   align-items: center;
+  background-size: cover;
+  background-position: center;
 }
+
+// Cards with layered shadows and smooth hover
 .card {
-  border-radius: 0.5rem;
-  transition: transform 0.2s, box-shadow 0.2s;
+  border: none;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
   &:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    transform: translateY(-6px);
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  }
+}
+
+// Section spacing rhythm
+section {
+  position: relative;
+}
+
+// Badge / pill labels
+.badge.rounded-pill {
+  font-weight: 600;
+  letter-spacing: 0.025em;
+}
+
+// Smooth button transitions
+.btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-primary:hover,
+.btn-lg:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+// Rounded pill buttons for CTAs
+.rounded-pill {
+  border-radius: 50rem;
+}
+
+// Image styling
+img.rounded-3 {
+  border-radius: 0.75rem;
+}
+
+// Font Awesome icon circles
+.bg-opacity-10.rounded-circle {
+  width: 64px;
+  height: 64px;
+}
+
+// Star ratings
+.text-warning {
+  font-size: 1.1rem;
+  letter-spacing: 0.1em;
+}
+
+// Testimonial avatar circles
+.rounded-circle[style*="width:48px"] {
+  font-size: 0.875rem;
+}
+
+// Footer
+section[data-snippet="s_footer"] a {
+  transition: color 0.2s ease;
+  &:hover {
+    opacity: 0.8;
   }
 }
 `;
@@ -805,22 +948,25 @@ export function assembleThemeFiles(
   // Dedupe sections: prefer first of each snippet type, max 8 total
   const uniqueSections: ExtractedSection[] = [];
   const seenSnippetTypes = new Map<string, number>();
-  const MAX_SECTIONS = 8;
-  const MAX_PER_TYPE = 2;
+  const MAX_SECTIONS = 10;
+  const MAX_PER_TYPE = 3; // s_three_columns maps to features, services, testimonials, pricing, team
 
   for (const section of allSections) {
     if (uniqueSections.length >= MAX_SECTIONS) break;
 
-    const typeCount = seenSnippetTypes.get(section.snippetType) || 0;
-    if (typeCount >= MAX_PER_TYPE) continue;
-
-    // Content similarity check (normalized first 150 chars)
+    // Content similarity check FIRST — duplicates should not consume a type slot.
+    // Root cause: when AI generates "Products" and "Products Menu" with identical cards,
+    // the duplicate was consuming a s_three_columns slot before being caught, which then
+    // prevented unique sections like "Testimonials" from fitting within MAX_PER_TYPE.
     const contentKey = section.innerHtml.replace(/\s+/g, ' ').trim().substring(0, 150);
     const isDuplicate = uniqueSections.some(existing => {
       const existingKey = existing.innerHtml.replace(/\s+/g, ' ').trim().substring(0, 150);
       return existingKey === contentKey;
     });
     if (isDuplicate) continue;
+
+    const typeCount = seenSnippetTypes.get(section.snippetType) || 0;
+    if (typeCount >= MAX_PER_TYPE) continue;
 
     seenSnippetTypes.set(section.snippetType, typeCount + 1);
     uniqueSections.push(section);
