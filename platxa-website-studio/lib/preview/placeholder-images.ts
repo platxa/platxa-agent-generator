@@ -194,40 +194,47 @@ function getSizeFromContext(url: string, context?: string): PlaceholderConfig {
 }
 
 /**
- * Replace Odoo image URLs with placeholder data URLs
+ * Replace Odoo image URLs with placeholder data URLs.
+ *
+ * Production-grade: matches the /web/image/ URL pattern directly,
+ * independent of surrounding syntax. Handles all contexts:
+ *   - src="..." / src='...' (double or single quoted)
+ *   - url('...') / url("...") / url(...)
+ *   - XML entity-encoded quotes (&apos; &#39; &quot; &#34;)
+ *   - Any other HTML/CSS context containing the URL
  */
 export function replaceImagesWithPlaceholders(html: string): string {
-  let result = html;
+  // Match every /web/image/ URL path (word chars, dots, hyphens, slashes)
+  const webImageRegex = /\/web\/image\/[\w.\/-]+/g;
 
-  // Extract image tags and their context
-  const imgRegex = /<img[^>]*src="([^"]*\/web\/image\/[^"]*)"[^>]*>/g;
+  // Collect unique URLs and their replacements
+  const replacements = new Map<string, string>();
   let match;
 
-  while ((match = imgRegex.exec(html)) !== null) {
-    const fullMatch = match[0];
-    const srcUrl = match[1];
+  while ((match = webImageRegex.exec(html)) !== null) {
+    const url = match[0];
+    if (replacements.has(url)) continue;
 
-    // Get context from surrounding HTML
-    const context = fullMatch;
-    const config = getSizeFromContext(srcUrl, context);
+    // Use surrounding context (±200 chars) for sizing heuristics
+    const ctxStart = Math.max(0, match.index - 200);
+    const ctxEnd = Math.min(html.length, match.index + url.length + 200);
+    const context = html.substring(ctxStart, ctxEnd);
 
-    // Extract alt text if present
-    const altMatch = fullMatch.match(/alt="([^"]*)"/);
-    if (altMatch && altMatch[1]) {
+    const config = getSizeFromContext(url, context);
+
+    // Extract alt text from nearby <img> tag if present
+    const altMatch = context.match(/alt=["']([^"']+)["']/);
+    if (altMatch?.[1]) {
       config.text = altMatch[1];
     }
 
-    const placeholder = generatePlaceholderDataURL(config);
-    result = result.replace(srcUrl, placeholder);
+    replacements.set(url, generatePlaceholderDataURL(config));
   }
 
-  // Also handle background images in style attributes
-  const bgRegex = /url\(['"]?(\/web\/image\/[^'")\s]+)['"]?\)/g;
-  while ((match = bgRegex.exec(html)) !== null) {
-    const srcUrl = match[1];
-    const config = getSizeFromContext(srcUrl);
-    const placeholder = generatePlaceholderDataURL(config);
-    result = result.replace(srcUrl, placeholder);
+  // Apply all replacements globally using split/join (handles every occurrence)
+  let result = html;
+  for (const [url, placeholder] of replacements) {
+    result = result.split(url).join(placeholder);
   }
 
   return result;
