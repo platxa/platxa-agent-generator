@@ -925,12 +925,19 @@ Food image: https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q
 MUST include: Menu cards with dish names/prices, Reservation CTA, Hours/location in footer`,
 
   technology: `
-Tech/SaaS Theme - REQUIRED sections: hero, features, pricing, integrations, testimonials, CTA
+Tech/SaaS Theme - REQUIRED sections: hero, stats bar, features, pricing, integrations, testimonials, CTA
 Odoo Color Palette:
   o-color-1: #2563eb (blue), o-color-2: #7c3aed (purple), o-color-3: #06b6d4 (cyan), o-color-4: #f8fafc (light), o-color-5: #0f172a (dark)
 Fonts: headings 'Inter' (sans-serif), body 'Inter' (sans-serif)
-Hero image: https://images.unsplash.com/photo-1518770660439-4636190af475?w=1920&q=80
-MUST include: Feature grid with icons, Pricing table, Stats/metrics section`,
+Hero image: https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=800&q=80
+MUST include: Feature grid with icons, Pricing table, Stats/metrics section
+Hero Layout: LEFT-ALIGNED split layout (NOT centered). Structure:
+  <div class="row align-items-center g-5">
+    <div class="col-lg-6"> badge + display-3 heading + lead text + dual CTA buttons </div>
+    <div class="col-lg-6 d-none d-lg-block"> product screenshot or dashboard image </div>
+  </div>
+  Hero background: solid dark gradient (linear-gradient(135deg, #0f172a 0%, #1e293b 100%)) — NO background image
+  Badge: bg with rgba(99,102,241,0.15) and color #818cf8, text-uppercase, letter-spacing 0.1em`,
 
   legal: `
 Law Firm Theme - REQUIRED sections: hero, practice-areas, attorneys, testimonials, contact, footer
