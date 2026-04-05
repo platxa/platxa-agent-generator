@@ -74,6 +74,51 @@ VALID_MODELS = {
     "opus",
 }
 
+# Valid isolation modes
+VALID_ISOLATION_MODES = {
+    "worktree",
+}
+
+# Valid effort levels (extended thinking intensity)
+VALID_EFFORT_LEVELS = {
+    "low",
+    "medium",
+    "high",
+}
+
+# Valid background values (YAML booleans that parse to string)
+VALID_BOOLEAN_STRINGS = {"true", "false", "True", "False", "yes", "no"}
+
+# Color validation: CSS named colors + hex pattern
+CSS_HEX_COLOR_PATTERN = r"^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$"
+CSS_NAMED_COLORS = {
+    "red",
+    "blue",
+    "green",
+    "yellow",
+    "orange",
+    "purple",
+    "pink",
+    "cyan",
+    "magenta",
+    "white",
+    "black",
+    "gray",
+    "grey",
+    "brown",
+    "teal",
+    "navy",
+    "lime",
+    "indigo",
+    "violet",
+    "coral",
+    "salmon",
+    "gold",
+    "silver",
+    "crimson",
+    "turquoise",
+}
+
 # Field constraints
 FIELD_CONSTRAINTS = {
     "name": {"max_length": 64, "pattern": r"^[a-z][a-z0-9-]*$"},
@@ -393,6 +438,74 @@ def validate_frontmatter_fields(frontmatter: dict, start_line: int = 1) -> list[
                         ),
                     )
                 )
+
+    # Validate isolation field (optional)
+    if "isolation" in frontmatter and frontmatter["isolation"]:
+        isolation = frontmatter["isolation"]
+        if isolation not in VALID_ISOLATION_MODES:
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E021",
+                    message=(
+                        f"Invalid isolation mode: {isolation}. "
+                        f"Must be one of: {', '.join(sorted(VALID_ISOLATION_MODES))}"
+                    ),
+                )
+            )
+
+    # Validate effort field (optional)
+    if "effort" in frontmatter and frontmatter["effort"]:
+        effort = frontmatter["effort"]
+        if effort not in VALID_EFFORT_LEVELS:
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E022",
+                    message=(
+                        f"Invalid effort level: {effort}. "
+                        f"Must be one of: {', '.join(sorted(VALID_EFFORT_LEVELS))}"
+                    ),
+                )
+            )
+
+    # Validate background field (optional) — must be a boolean value
+    if "background" in frontmatter and frontmatter["background"]:
+        bg_value = frontmatter["background"]
+        if bg_value not in VALID_BOOLEAN_STRINGS:
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E023",
+                    message=f"Invalid background value: {bg_value}. Must be true or false.",
+                )
+            )
+
+    # Validate color field (optional) — CSS named color or hex
+    if "color" in frontmatter and frontmatter["color"]:
+        color = frontmatter["color"]
+        is_named = color.lower() in CSS_NAMED_COLORS
+        is_hex = bool(re.match(CSS_HEX_COLOR_PATTERN, color))
+        if not is_named and not is_hex:
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E024",
+                    message=(
+                        f"Invalid color: {color}. "
+                        "Must be a CSS named color (red, blue, green...) "
+                        "or hex (#rgb or #rrggbb)"
+                    ),
+                )
+            )
 
     return errors
 

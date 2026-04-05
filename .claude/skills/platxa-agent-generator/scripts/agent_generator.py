@@ -187,6 +187,18 @@ VALID_MODELS = {
     "opus",  # Most capable — complex orchestrators, architecture decisions
 }
 
+# Valid isolation modes for Claude Code agents
+VALID_ISOLATION_MODES = {
+    "worktree",  # Run in temporary git worktree for safe parallel file operations
+}
+
+# Valid effort levels for Claude Code agents (controls extended thinking intensity)
+VALID_EFFORT_LEVELS = {
+    "low",  # Minimal thinking — fast, cheap operations
+    "medium",  # Balanced thinking — standard tasks
+    "high",  # Deep thinking — complex reasoning
+}
+
 # Valid permission modes for Claude Code agents
 VALID_PERMISSION_MODES = {
     "default",  # Standard permission prompts (recommended for most agents)
@@ -207,6 +219,10 @@ class AgentDefinition:
     max_turns: int | None = None  # Positive integer, limits agent execution length
     model: str | None = None  # One of VALID_MODELS (haiku, sonnet, opus)
     disallowed_tools: list[str] = field(default_factory=list)  # Tools to explicitly deny
+    isolation: str | None = None  # One of VALID_ISOLATION_MODES (worktree)
+    effort: str | None = None  # One of VALID_EFFORT_LEVELS (low, medium, high)
+    background: bool | None = None  # True to run without blocking main conversation
+    color: str | None = None  # CSS color string for UI display (e.g. "red", "#ff0000")
     sections: list[AgentSection] = field(default_factory=list)
     workers: list[WorkerDefinition] = field(default_factory=list)
     chain_steps: list[ChainStep] = field(default_factory=list)
@@ -383,6 +399,22 @@ def generate_frontmatter(definition: AgentDefinition) -> str:
     # Disallowed tools — defense-in-depth complement to tools list
     if definition.disallowed_tools:
         lines.append(f"disallowedTools: {', '.join(definition.disallowed_tools)}")
+
+    # Isolation mode — only emit when explicitly set
+    if definition.isolation and definition.isolation in VALID_ISOLATION_MODES:
+        lines.append(f"isolation: {definition.isolation}")
+
+    # Effort level — controls extended thinking intensity
+    if definition.effort and definition.effort in VALID_EFFORT_LEVELS:
+        lines.append(f"effort: {definition.effort}")
+
+    # Background mode — run without blocking main conversation
+    if definition.background is True:
+        lines.append("background: true")
+
+    # Color — visual categorization in Claude Code UI
+    if definition.color:
+        lines.append(f"color: {definition.color}")
 
     # Add metadata if present
     if definition.metadata:

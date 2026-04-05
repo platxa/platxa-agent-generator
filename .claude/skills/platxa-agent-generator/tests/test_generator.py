@@ -786,6 +786,99 @@ class TestDisallowedToolsRecommendation:
         assert "WebFetch" in recommended
 
 
+class TestRemainingFrontmatterValidation:
+    """Tests for isolation, effort, background, and color validation."""
+
+    def _run_validator(self, agent_file: Path) -> dict:
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "syntax_validator.py"), "--json", str(agent_file)],
+            capture_output=True,
+            text=True,
+        )
+        return json.loads(result.stdout)
+
+    def _make_agent(self, tmp_path: Path, name: str, extra_fields: str) -> Path:
+        agent_file = tmp_path / f"{name}.md"
+        agent_file.write_text(
+            f"---\nname: {name}\ndescription: Test agent\ntools: Read\n"
+            f"{extra_fields}---\n\n# {name.title()}\n\n## Overview\nTest.\n"
+        )
+        return agent_file
+
+    # --- isolation ---
+    def test_valid_isolation_worktree_passes(self, tmp_path: Path) -> None:
+        f = self._make_agent(tmp_path, "iso-ok", "isolation: worktree\n")
+        output = self._run_validator(f)
+        assert output["passed"] is True
+
+    def test_invalid_isolation_fails(self, tmp_path: Path) -> None:
+        f = self._make_agent(tmp_path, "iso-bad", "isolation: docker\n")
+        output = self._run_validator(f)
+        assert output["passed"] is False
+        e021 = [e for e in output["errors"] if "E021" in e.get("code", "")]
+        assert len(e021) == 1
+        assert "docker" in e021[0]["message"]
+
+    # --- effort ---
+    def test_valid_effort_high_passes(self, tmp_path: Path) -> None:
+        f = self._make_agent(tmp_path, "eff-ok", "effort: high\n")
+        output = self._run_validator(f)
+        assert output["passed"] is True
+
+    def test_invalid_effort_fails(self, tmp_path: Path) -> None:
+        f = self._make_agent(tmp_path, "eff-bad", "effort: ultrathink\n")
+        output = self._run_validator(f)
+        assert output["passed"] is False
+        e022 = [e for e in output["errors"] if "E022" in e.get("code", "")]
+        assert len(e022) == 1
+
+    # --- background ---
+    def test_valid_background_true_passes(self, tmp_path: Path) -> None:
+        f = self._make_agent(tmp_path, "bg-ok", "background: true\n")
+        output = self._run_validator(f)
+        assert output["passed"] is True
+
+    def test_invalid_background_fails(self, tmp_path: Path) -> None:
+        f = self._make_agent(tmp_path, "bg-bad", "background: maybe\n")
+        output = self._run_validator(f)
+        assert output["passed"] is False
+        e023 = [e for e in output["errors"] if "E023" in e.get("code", "")]
+        assert len(e023) == 1
+
+    # --- color ---
+    def test_valid_named_color_passes(self, tmp_path: Path) -> None:
+        f = self._make_agent(tmp_path, "clr-name", "color: red\n")
+        output = self._run_validator(f)
+        assert output["passed"] is True
+
+    def test_valid_hex_color_passes(self, tmp_path: Path) -> None:
+        f = self._make_agent(tmp_path, "clr-hex", "color: '#ff5500'\n")
+        output = self._run_validator(f)
+        assert output["passed"] is True
+
+    def test_invalid_color_fails(self, tmp_path: Path) -> None:
+        f = self._make_agent(tmp_path, "clr-bad", "color: rainbow\n")
+        output = self._run_validator(f)
+        assert output["passed"] is False
+        e024 = [e for e in output["errors"] if "E024" in e.get("code", "")]
+        assert len(e024) == 1
+        assert "rainbow" in e024[0]["message"]
+
+    # --- combined: agent with all fields valid ---
+    def test_all_new_fields_valid_passes(self, tmp_path: Path) -> None:
+        """Agent with every frontmatter field set correctly should pass."""
+        f = self._make_agent(
+            tmp_path,
+            "full-agent",
+            "permissionMode: default\nmaxTurns: 25\nmodel: sonnet\n"
+            "disallowedTools: Bash, WebFetch\nisolation: worktree\n"
+            "effort: high\nbackground: false\ncolor: blue\n",
+        )
+        output = self._run_validator(f)
+        assert output["passed"] is True
+        assert len(output["errors"]) == 0
+
+
 class TestSecurityScanner:
     """Real tests for security_scanner.py CLI."""
 
