@@ -59,6 +59,14 @@ VALID_TOOLS = {
 # Required frontmatter fields
 REQUIRED_FIELDS = ["name", "description", "tools"]
 
+# Valid permission modes for Claude Code agents
+VALID_PERMISSION_MODES = {
+    "default",
+    "acceptEdits",
+    "bypassPermissions",
+    "dontAsk",
+}
+
 # Field constraints
 FIELD_CONSTRAINTS = {
     "name": {"max_length": 64, "pattern": r"^[a-z][a-z0-9-]*$"},
@@ -162,9 +170,7 @@ def parse_frontmatter(content: str) -> tuple[dict | None, list[ValidationError],
     return normalized, errors, end_line
 
 
-def validate_frontmatter_fields(
-    frontmatter: dict, start_line: int = 1
-) -> list[ValidationError]:
+def validate_frontmatter_fields(frontmatter: dict, start_line: int = 1) -> list[ValidationError]:
     """Validate frontmatter field values."""
     errors: list[ValidationError] = []
 
@@ -252,6 +258,43 @@ def validate_frontmatter_fields(
                             message=f"Invalid tool name: {tool}",
                         )
                     )
+
+    # Validate permissionMode field (optional)
+    if "permissionMode" in frontmatter and frontmatter["permissionMode"]:
+        mode = frontmatter["permissionMode"]
+        if mode not in VALID_PERMISSION_MODES:
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E016",
+                    message=(
+                        f"Invalid permissionMode: {mode}. "
+                        f"Must be one of: {', '.join(sorted(VALID_PERMISSION_MODES))}"
+                    ),
+                )
+            )
+
+        # Warn if bypassPermissions used with high-risk tools
+        if mode == "bypassPermissions":
+            tools_str = frontmatter.get("tools", "")
+            tools = [t.strip() for t in tools_str.split(",")]
+            high_risk = {"Bash", "Write", "Edit", "WebFetch"}
+            risky = [t for t in tools if t in high_risk]
+            if risky:
+                errors.append(
+                    ValidationError(
+                        line=start_line,
+                        column=1,
+                        severity="warning",
+                        code="W016",
+                        message=(
+                            f"bypassPermissions with high-risk tools ({', '.join(risky)}) "
+                            "— consider using 'acceptEdits' or 'default' instead"
+                        ),
+                    )
+                )
 
     return errors
 
@@ -462,9 +505,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Validate agent definition syntax")
     parser.add_argument("file", help="Agent definition file to validate")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument(
-        "--strict", action="store_true", help="Treat warnings as errors"
-    )
+    parser.add_argument("--strict", action="store_true", help="Treat warnings as errors")
 
     args = parser.parse_args()
 

@@ -100,28 +100,46 @@ class TemplateVariables:
             vars_obj.max_retry_attempts = retry.get("max_attempts", vars_obj.max_retry_attempts)
             vars_obj.initial_delay_ms = retry.get("initial_delay_ms", vars_obj.initial_delay_ms)
             vars_obj.max_delay_ms = retry.get("max_delay_ms", vars_obj.max_delay_ms)
-            vars_obj.backoff_multiplier = retry.get("backoff_multiplier", vars_obj.backoff_multiplier)
+            vars_obj.backoff_multiplier = retry.get(
+                "backoff_multiplier", vars_obj.backoff_multiplier
+            )
             vars_obj.jitter_factor = retry.get("jitter_factor", vars_obj.jitter_factor)
         if "circuit_breaker" in data:
             cb = data["circuit_breaker"]
-            vars_obj.circuit_failure_threshold = cb.get("failure_threshold", vars_obj.circuit_failure_threshold)
-            vars_obj.circuit_success_threshold = cb.get("success_threshold", vars_obj.circuit_success_threshold)
-            vars_obj.circuit_timeout_seconds = cb.get("timeout_seconds", vars_obj.circuit_timeout_seconds)
+            vars_obj.circuit_failure_threshold = cb.get(
+                "failure_threshold", vars_obj.circuit_failure_threshold
+            )
+            vars_obj.circuit_success_threshold = cb.get(
+                "success_threshold", vars_obj.circuit_success_threshold
+            )
+            vars_obj.circuit_timeout_seconds = cb.get(
+                "timeout_seconds", vars_obj.circuit_timeout_seconds
+            )
         if "limits" in data:
             limits = data["limits"]
             vars_obj.max_file_lines = limits.get("max_file_lines", vars_obj.max_file_lines)
-            vars_obj.max_files_per_invocation = limits.get("max_files_per_invocation", vars_obj.max_files_per_invocation)
-            vars_obj.max_recursion_depth = limits.get("max_recursion_depth", vars_obj.max_recursion_depth)
-            vars_obj.execution_timeout_seconds = limits.get("execution_timeout_seconds", vars_obj.execution_timeout_seconds)
+            vars_obj.max_files_per_invocation = limits.get(
+                "max_files_per_invocation", vars_obj.max_files_per_invocation
+            )
+            vars_obj.max_recursion_depth = limits.get(
+                "max_recursion_depth", vars_obj.max_recursion_depth
+            )
+            vars_obj.execution_timeout_seconds = limits.get(
+                "execution_timeout_seconds", vars_obj.execution_timeout_seconds
+            )
         if "security" in data:
             sec = data["security"]
-            vars_obj.sensitive_file_patterns = sec.get("sensitive_file_patterns", vars_obj.sensitive_file_patterns)
+            vars_obj.sensitive_file_patterns = sec.get(
+                "sensitive_file_patterns", vars_obj.sensitive_file_patterns
+            )
             vars_obj.blocked_commands = sec.get("blocked_commands", vars_obj.blocked_commands)
             vars_obj.allowed_domains = sec.get("allowed_domains", vars_obj.allowed_domains)
         if "quality" in data:
             qual = data["quality"]
             vars_obj.min_quality_score = qual.get("min_quality_score", vars_obj.min_quality_score)
-            vars_obj.min_examples_count = qual.get("min_examples_count", vars_obj.min_examples_count)
+            vars_obj.min_examples_count = qual.get(
+                "min_examples_count", vars_obj.min_examples_count
+            )
         return vars_obj
 
 
@@ -161,6 +179,15 @@ class WorkerDefinition:
     output_format: str = ""
 
 
+# Valid permission modes for Claude Code agents
+VALID_PERMISSION_MODES = {
+    "default",  # Standard permission prompts (recommended for most agents)
+    "acceptEdits",  # Auto-approve file edits, prompt for Bash/MCP
+    "bypassPermissions",  # Skip all permission prompts (use with caution)
+    "dontAsk",  # Never prompt — denied tools silently skipped
+}
+
+
 @dataclass
 class AgentDefinition:
     """Complete agent definition for file generation."""
@@ -168,6 +195,7 @@ class AgentDefinition:
     name: str
     description: str
     tools: list[str]
+    permission_mode: str | None = None  # One of VALID_PERMISSION_MODES
     sections: list[AgentSection] = field(default_factory=list)
     workers: list[WorkerDefinition] = field(default_factory=list)
     chain_steps: list[ChainStep] = field(default_factory=list)
@@ -203,9 +231,7 @@ ALLOWED_BLUEPRINT_DIRS = [
 ]
 
 
-def validate_path_safe(
-    filepath: str, allowed_extensions: list[str]
-) -> tuple[bool, str]:
+def validate_path_safe(filepath: str, allowed_extensions: list[str]) -> tuple[bool, str]:
     """Validate file path to prevent path traversal attacks."""
     import tempfile
 
@@ -310,7 +336,12 @@ def validate_tools(tools: list[str]) -> tuple[bool, str, list[str]]:
 
 
 def generate_frontmatter(definition: AgentDefinition) -> str:
-    """Generate valid YAML frontmatter."""
+    """Generate valid YAML frontmatter.
+
+    Emits all Claude Code agent frontmatter fields that are set on the
+    definition, in the canonical order: name, description, tools,
+    permissionMode, then optional metadata fields.
+    """
     lines = ["---"]
     lines.append(f"name: {definition.name}")
 
@@ -325,6 +356,10 @@ def generate_frontmatter(definition: AgentDefinition) -> str:
 
     # Tools as comma-separated list
     lines.append(f"tools: {', '.join(definition.tools)}")
+
+    # Permission mode — only emit when explicitly set
+    if definition.permission_mode and definition.permission_mode in VALID_PERMISSION_MODES:
+        lines.append(f"permissionMode: {definition.permission_mode}")
 
     # Add metadata if present
     if definition.metadata:
@@ -359,9 +394,7 @@ def generate_overview_section(definition: AgentDefinition) -> str:
     return "\n".join(lines)
 
 
-def generate_workflow_section(
-    definition: AgentDefinition, pattern: str = "prompt-chaining"
-) -> str:
+def generate_workflow_section(definition: AgentDefinition, pattern: str = "prompt-chaining") -> str:
     """Generate Workflow section based on pattern."""
     lines = ["## Workflow", ""]
 
@@ -392,7 +425,7 @@ def generate_workflow_section(
             lines.append(f"task_{i} = Task(")
             lines.append(f'    subagent_type="{worker.name}",')
             lines.append(f'    description="{worker.role}",')
-            lines.append(f'    prompt="Process assigned subset with criteria: {{criteria}}"')
+            lines.append('    prompt="Process assigned subset with criteria: {criteria}"')
             lines.append(")")
         lines.append("```")
         lines.append("")
@@ -492,9 +525,7 @@ def generate_workflow_section(
         lines.append("Combine results from all parallel tasks.")
 
     elif pattern == "evaluator-optimizer":
-        lines.append(
-            "This agent uses the **evaluator-optimizer** pattern with iteration tracking."
-        )
+        lines.append("This agent uses the **evaluator-optimizer** pattern with iteration tracking.")
         lines.append("")
 
         lines.append("### Iteration Configuration")
@@ -679,9 +710,9 @@ def _get_tool_call_example(tool: str, step_name: str) -> str:
         for key in tool_examples:
             if key in step_lower:
                 return tool_examples[key]
-        return tool_examples.get("default", f'{tool}(...)  # Execute {tool}')
+        return tool_examples.get("default", f"{tool}(...)  # Execute {tool}")
 
-    return f'{tool}(...)  # Execute {tool} operation'
+    return f"{tool}(...)  # Execute {tool} operation"
 
 
 def _generate_prompt_chaining_workflow(definition: AgentDefinition) -> list[str]:
@@ -690,12 +721,8 @@ def _generate_prompt_chaining_workflow(definition: AgentDefinition) -> list[str]
 
     if definition.chain_steps:
         # Use defined chain steps
-        lines.append(
-            "This agent uses a **prompt-chaining** pattern where each step's output"
-        )
-        lines.append(
-            "becomes the input for the next step, ensuring quality at each stage."
-        )
+        lines.append("This agent uses a **prompt-chaining** pattern where each step's output")
+        lines.append("becomes the input for the next step, ensuring quality at each stage.")
         lines.append("")
 
         for i, step in enumerate(definition.chain_steps, 1):
@@ -748,9 +775,7 @@ def _generate_prompt_chaining_workflow(definition: AgentDefinition) -> list[str]
 
     else:
         # Generate default prompt-chaining workflow based on agent description
-        lines.append(
-            "This agent uses a **prompt-chaining** pattern for sequential task execution."
-        )
+        lines.append("This agent uses a **prompt-chaining** pattern for sequential task execution.")
         lines.append("")
 
         # Analyze description to generate appropriate steps
@@ -818,17 +843,12 @@ def _infer_chain_steps_from_description(
     steps: list[tuple[str, str, list[str]]] = []
 
     # Categorize tools for step assignment
-    read_tools = [
-        t for t in tools if t in {"Read", "Grep", "Glob", "WebFetch", "WebSearch"}
-    ]
+    read_tools = [t for t in tools if t in {"Read", "Grep", "Glob", "WebFetch", "WebSearch"}]
     write_tools = [t for t in tools if t in {"Write", "Edit", "NotebookEdit"}]
     exec_tools = [t for t in tools if t in {"Bash", "Task", "LSP"}]
 
     # Analysis/research agents
-    if any(
-        word in desc_lower
-        for word in ["analyze", "review", "examine", "inspect", "audit"]
-    ):
+    if any(word in desc_lower for word in ["analyze", "review", "examine", "inspect", "audit"]):
         steps.append(
             (
                 "Discovery",
@@ -846,10 +866,7 @@ def _infer_chain_steps_from_description(
         steps.append(("Synthesis", "Compile findings into structured report", []))
 
     # Generator/builder agents
-    elif any(
-        word in desc_lower
-        for word in ["generate", "create", "build", "produce", "write"]
-    ):
+    elif any(word in desc_lower for word in ["generate", "create", "build", "produce", "write"]):
         steps.append(
             (
                 "Research",
@@ -858,17 +875,12 @@ def _infer_chain_steps_from_description(
             )
         )
         steps.append(("Design", "Plan the structure and approach", []))
-        steps.append(
-            ("Generate", "Create the output artifact", write_tools or ["Write"])
-        )
-        steps.append(
-            ("Validate", "Verify output meets requirements", read_tools or ["Read"])
-        )
+        steps.append(("Generate", "Create the output artifact", write_tools or ["Write"]))
+        steps.append(("Validate", "Verify output meets requirements", read_tools or ["Read"]))
 
     # Transformer/processor agents
     elif any(
-        word in desc_lower
-        for word in ["transform", "convert", "process", "migrate", "refactor"]
+        word in desc_lower for word in ["transform", "convert", "process", "migrate", "refactor"]
     ):
         steps.append(("Load", "Read and parse input data", read_tools or ["Read"]))
         steps.append(("Transform", "Apply transformations to data", []))
@@ -889,16 +901,12 @@ def _infer_chain_steps_from_description(
     # Search/find agents
     elif any(word in desc_lower for word in ["search", "find", "locate", "discover"]):
         steps.append(("Scope", "Define search parameters and boundaries", []))
-        steps.append(
-            ("Search", "Execute search across targets", read_tools or ["Grep", "Glob"])
-        )
+        steps.append(("Search", "Execute search across targets", read_tools or ["Grep", "Glob"]))
         steps.append(("Filter", "Refine and rank results", []))
         steps.append(("Present", "Format results for user", []))
 
     # Fix/repair/debug agents
-    elif any(
-        word in desc_lower for word in ["fix", "repair", "debug", "resolve", "correct"]
-    ):
+    elif any(word in desc_lower for word in ["fix", "repair", "debug", "resolve", "correct"]):
         steps.append(
             (
                 "Diagnose",
@@ -908,9 +916,7 @@ def _infer_chain_steps_from_description(
         )
         steps.append(("Plan", "Design the fix approach", []))
         steps.append(("Implement", "Apply the fix", write_tools or ["Edit"]))
-        steps.append(
-            ("Verify", "Confirm the fix resolves the issue", exec_tools or ["Bash"])
-        )
+        steps.append(("Verify", "Confirm the fix resolves the issue", exec_tools or ["Bash"]))
 
     # Default generic workflow
     else:
@@ -921,9 +927,7 @@ def _infer_chain_steps_from_description(
                 read_tools[:1] if read_tools else [],
             )
         )
-        steps.append(
-            ("Process", "Execute main task logic", exec_tools[:1] if exec_tools else [])
-        )
+        steps.append(("Process", "Execute main task logic", exec_tools[:1] if exec_tools else []))
         steps.append(("Validate", "Verify results meet requirements", []))
         steps.append(
             (
@@ -987,12 +991,8 @@ def _generate_three_examples(
     tools = definition.tools
 
     # Determine agent category for contextual examples
-    is_analysis = any(
-        w in desc_lower for w in ["analyze", "review", "examine", "inspect", "audit"]
-    )
-    is_generator = any(
-        w in desc_lower for w in ["generate", "create", "build", "produce", "write"]
-    )
+    is_analysis = any(w in desc_lower for w in ["analyze", "review", "examine", "inspect", "audit"])
+    is_generator = any(w in desc_lower for w in ["generate", "create", "build", "produce", "write"])
     is_search = any(w in desc_lower for w in ["search", "find", "locate", "discover"])
     is_fix = any(w in desc_lower for w in ["fix", "repair", "debug", "resolve"])
 
@@ -1003,17 +1003,11 @@ def _generate_three_examples(
     if is_analysis:
         basic_content.append(f"Use {definition.name} to review the authentication module")
     elif is_generator:
-        basic_content.append(
-            f"Use {definition.name} to create a user validation component"
-        )
+        basic_content.append(f"Use {definition.name} to create a user validation component")
     elif is_search:
-        basic_content.append(
-            f"Use {definition.name} to find all API endpoint definitions"
-        )
+        basic_content.append(f"Use {definition.name} to find all API endpoint definitions")
     elif is_fix:
-        basic_content.append(
-            f"Use {definition.name} to debug the failing login test"
-        )
+        basic_content.append(f"Use {definition.name} to debug the failing login test")
     else:
         basic_content.append(f"Use {definition.name} to process the target file")
     basic_content.append("```")
@@ -1102,9 +1096,7 @@ def _generate_three_examples(
     edge_content: list[str] = []
     edge_content.append("**User Request:**")
     edge_content.append("```")
-    edge_content.append(
-        f"Use {definition.name} on an empty directory with no matching files"
-    )
+    edge_content.append(f"Use {definition.name} on an empty directory with no matching files")
     edge_content.append("```")
     edge_content.append("")
     edge_content.append("**Agent Actions:**")
@@ -1149,7 +1141,9 @@ def generate_prerequisites_section(definition: AgentDefinition) -> str:
     if has_bash:
         lines.append("- **Bash execution**: Shell command access required")
     if has_write:
-        lines.append("- **File write access**: Ability to create/modify files in target directories")
+        lines.append(
+            "- **File write access**: Ability to create/modify files in target directories"
+        )
     if has_web:
         lines.append("- **Network access**: Internet connectivity for web searches/fetches")
     if has_task:
@@ -1191,7 +1185,9 @@ def generate_error_handling_section(
     lines.append("| Error Type | Cause | Recovery Strategy |")
     lines.append("|------------|-------|-------------------|")
     lines.append("| File not found | Target path invalid | Validate path, suggest alternatives |")
-    lines.append("| Permission denied | Insufficient access | Report and skip, continue with accessible files |")
+    lines.append(
+        "| Permission denied | Insufficient access | Report and skip, continue with accessible files |"
+    )
     lines.append("| Timeout | Operation took too long | Retry with smaller scope |")
     lines.append("| Invalid input | Malformed request | Return validation errors with examples |")
     lines.append("| Rate limit | API quota exceeded | Exponential backoff with jitter |")
@@ -1206,7 +1202,9 @@ def generate_error_handling_section(
     lines.append(f"  initial_delay_ms: {tv.initial_delay_ms}")
     lines.append(f"  max_delay_ms: {tv.max_delay_ms}")
     lines.append(f"  backoff_multiplier: {tv.backoff_multiplier}")
-    lines.append(f"  jitter_factor: {tv.jitter_factor}  # ±{int(tv.jitter_factor * 100)}% randomization")
+    lines.append(
+        f"  jitter_factor: {tv.jitter_factor}  # ±{int(tv.jitter_factor * 100)}% randomization"
+    )
     lines.append("  ")
     lines.append("Retry Logic:")
     lines.append("  1. Catch transient error (timeout, 5xx, network)")
@@ -1227,9 +1225,15 @@ def generate_error_handling_section(
     lines.append("")
     lines.append("```")
     lines.append("Circuit Breaker Configuration:")
-    lines.append(f"  failure_threshold: {tv.circuit_failure_threshold}      # Failures before opening circuit")
-    lines.append(f"  success_threshold: {tv.circuit_success_threshold}      # Successes before closing circuit")
-    lines.append(f"  timeout_seconds: {tv.circuit_timeout_seconds}       # Time before attempting recovery")
+    lines.append(
+        f"  failure_threshold: {tv.circuit_failure_threshold}      # Failures before opening circuit"
+    )
+    lines.append(
+        f"  success_threshold: {tv.circuit_success_threshold}      # Successes before closing circuit"
+    )
+    lines.append(
+        f"  timeout_seconds: {tv.circuit_timeout_seconds}       # Time before attempting recovery"
+    )
     lines.append("  half_open_max_calls: 3    # Test calls in half-open state")
     lines.append("")
     lines.append("States:")
@@ -1288,7 +1292,9 @@ def generate_edge_cases_section(definition: AgentDefinition) -> str:
     lines.append("|----------|-------------------|")
     lines.append("| Empty input | Return success with empty results and helpful message |")
     lines.append("| Single item | Process normally, skip aggregation logic |")
-    lines.append("| Very large input (>1000 items) | Process in batches, provide progress updates |")
+    lines.append(
+        "| Very large input (>1000 items) | Process in batches, provide progress updates |"
+    )
     lines.append("| Deeply nested structures | Apply recursion limit (max 10 levels) |")
     lines.append("| Circular references | Detect and break cycles, report affected items |")
     lines.append("")
@@ -1443,7 +1449,7 @@ def generate_boundaries_section(
     lines.append("**HITL Marker Legend:**")
     lines.append("")
     lines.append("- `[HITL:NOTIFY]` - Inform user, proceed if no objection within timeout")
-    lines.append("- `[HITL:CONFIRM]` - Wait for explicit \"yes\" confirmation before proceeding")
+    lines.append('- `[HITL:CONFIRM]` - Wait for explicit "yes" confirmation before proceeding')
     lines.append("- `[HITL:APPROVE]` - Require detailed approval with documented reason")
     lines.append("- `[HITL:BLOCK]` - Never proceed automatically, always escalate to human")
     lines.append("")
@@ -1479,7 +1485,9 @@ def generate_notes_section(
 
     lines.append("### Current Limitations")
     lines.append("")
-    lines.append(f"- **Context window**: May struggle with very large files (>{tv.max_file_lines} lines)")
+    lines.append(
+        f"- **Context window**: May struggle with very large files (>{tv.max_file_lines} lines)"
+    )
     lines.append("- **Binary files**: Cannot process binary or encoded content")
     lines.append("- **Real-time data**: Cannot access live systems or databases directly")
     lines.append("- **External services**: Dependent on third-party API availability")
@@ -1487,7 +1495,9 @@ def generate_notes_section(
 
     lines.append("### Performance Characteristics")
     lines.append("")
-    lines.append(f"- **Best for**: Small to medium-sized projects (<{tv.max_files_per_invocation * 10} files)")
+    lines.append(
+        f"- **Best for**: Small to medium-sized projects (<{tv.max_files_per_invocation * 10} files)"
+    )
     lines.append(f"- **Optimal input size**: 10-{tv.max_files_per_invocation} files per invocation")
     lines.append(f"- **Execution timeout**: {tv.execution_timeout_seconds} seconds")
     lines.append(f"- **Max recursion depth**: {tv.max_recursion_depth} levels")
@@ -1768,7 +1778,7 @@ def generate_tool_reference_section(definition: AgentDefinition) -> str:
                 "syntax": "Options must have 2-4 choices, headers max 12 chars",
                 "semantic": "Questions must be clear and actionable, avoid leading questions",
             },
-            "example": 'AskUserQuestion(questions=[...])',
+            "example": "AskUserQuestion(questions=[...])",
         },
         "TodoWrite": {
             "purpose": "Track task progress and planning",
@@ -1909,9 +1919,7 @@ def generate_workers_section(definition: AgentDefinition) -> str:
     return "\n".join(lines)
 
 
-def generate_agent_file(
-    definition: AgentDefinition, pattern: str = "prompt-chaining"
-) -> str:
+def generate_agent_file(definition: AgentDefinition, pattern: str = "prompt-chaining") -> str:
     """Generate complete agent file content with 13 sections.
 
     Sections (in order):

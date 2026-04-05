@@ -132,3 +132,7 @@ CLAUDE.md
 .mcp.json
 # Debug session state files
 **/.claude/debug_sessions.json
+
+# MAO state and checkpoints
+mao_state.db
+checkpoints/

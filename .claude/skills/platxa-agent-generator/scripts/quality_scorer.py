@@ -66,9 +66,20 @@ CRITERIA_WEIGHTS = {
 
 # Valid Claude Code tools
 VALID_TOOLS = {
-    "Read", "Write", "Edit", "Glob", "Grep", "Bash",
-    "WebSearch", "WebFetch", "Task", "AskUserQuestion",
-    "TodoWrite", "NotebookEdit", "LSP", "Skill",
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "WebSearch",
+    "WebFetch",
+    "Task",
+    "AskUserQuestion",
+    "TodoWrite",
+    "NotebookEdit",
+    "LSP",
+    "Skill",
 }
 
 # High-risk tools that need security consideration
@@ -76,9 +87,20 @@ HIGH_RISK_TOOLS = {"Bash", "Write", "Edit", "WebFetch"}
 
 # Security-related keywords
 SECURITY_KEYWORDS = [
-    "security", "safe", "validate", "sanitize", "escape",
-    "permission", "authorization", "authentication", "trust",
-    "injection", "xss", "csrf", "sensitive", "credential",
+    "security",
+    "safe",
+    "validate",
+    "sanitize",
+    "escape",
+    "permission",
+    "authorization",
+    "authentication",
+    "trust",
+    "injection",
+    "xss",
+    "csrf",
+    "sensitive",
+    "credential",
 ]
 
 # Clarity indicators - positive
@@ -431,15 +453,23 @@ def score_examples(sections: dict[str, str]) -> CriterionScore:
             findings.append("Excellent example variety")
     elif example_count == 2:
         score -= 2.5  # Increased penalty
-        findings.append(f"Insufficient examples: {example_count} (minimum {MIN_EXAMPLES_REQUIRED} required)")
-        suggestions.append(f"Add at least {MIN_EXAMPLES_REQUIRED - example_count} more examples (basic, advanced, edge case)")
+        findings.append(
+            f"Insufficient examples: {example_count} (minimum {MIN_EXAMPLES_REQUIRED} required)"
+        )
+        suggestions.append(
+            f"Add at least {MIN_EXAMPLES_REQUIRED - example_count} more examples (basic, advanced, edge case)"
+        )
     elif example_count == 1:
         score -= 4.0  # Increased penalty
-        findings.append(f"Critical: Only {example_count} example (minimum {MIN_EXAMPLES_REQUIRED} required)")
+        findings.append(
+            f"Critical: Only {example_count} example (minimum {MIN_EXAMPLES_REQUIRED} required)"
+        )
         suggestions.append("Add examples: basic usage, advanced orchestration, edge case handling")
     else:
         score -= 6.0  # Severe penalty
-        suggestions.append("Add 3 required examples: basic usage, advanced orchestration, edge case handling")
+        suggestions.append(
+            "Add 3 required examples: basic usage, advanced orchestration, edge case handling"
+        )
 
     # Check for code blocks
     has_code_blocks = "```" in examples_content
@@ -530,6 +560,39 @@ def score_security(frontmatter: dict[str, str], content: str) -> CriterionScore:
         # No high-risk tools, baseline security is fine
         findings.append("No high-risk tools (lower security concern)")
         score = 9.0  # Still good, but not perfect without explicit security
+
+    # Evaluate permissionMode appropriateness
+    permission_mode = frontmatter.get("permissionMode", "")
+    if permission_mode:
+        valid_modes = {"default", "acceptEdits", "bypassPermissions", "dontAsk"}
+        if permission_mode in valid_modes:
+            findings.append(f"Explicit permissionMode set: {permission_mode}")
+            # Penalize overly permissive modes with high-risk tools
+            if permission_mode == "bypassPermissions" and high_risk:
+                score -= 2.0
+                suggestions.append(
+                    "bypassPermissions with high-risk tools is dangerous "
+                    "— consider 'acceptEdits' or 'default'"
+                )
+            elif permission_mode == "dontAsk" and high_risk:
+                score -= 1.0
+                suggestions.append(
+                    "dontAsk silently skips denied tools — ensure tool "
+                    "restrictions via disallowedTools are sufficient"
+                )
+            elif permission_mode == "acceptEdits" and "Bash" not in high_risk:
+                # Good: acceptEdits on file-only agents is appropriate
+                findings.append("Good: acceptEdits appropriate for file-editing agent")
+                score = min(score + 0.5, 10.0)
+        else:
+            score -= 1.5
+            suggestions.append(f"Invalid permissionMode: {permission_mode}")
+    elif high_risk:
+        # No permissionMode set but has high-risk tools — suggest setting one
+        suggestions.append(
+            "Consider setting permissionMode explicitly for agents with "
+            f"high-risk tools ({', '.join(high_risk)})"
+        )
 
     # Check for dangerous patterns
     dangerous_patterns = [
@@ -745,17 +808,11 @@ def main() -> None:
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Score quality of agent definitions"
-    )
+    parser = argparse.ArgumentParser(description="Score quality of agent definitions")
     parser.add_argument("file", help="Agent definition file to score")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument(
-        "--detailed", "-d", action="store_true", help="Show detailed findings"
-    )
-    parser.add_argument(
-        "--min-score", type=float, default=7.0, help="Minimum required score"
-    )
+    parser.add_argument("--detailed", "-d", action="store_true", help="Show detailed findings")
+    parser.add_argument("--min-score", type=float, default=7.0, help="Minimum required score")
 
     args = parser.parse_args()
 

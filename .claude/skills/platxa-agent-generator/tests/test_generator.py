@@ -120,6 +120,107 @@ tools: Read
         output = json.loads(result.stdout)
         assert output["passed"] is False
 
+    def test_valid_permission_mode_passes(self, tmp_path: Path) -> None:
+        """Agent with valid permissionMode should pass validation."""
+        agent_file = tmp_path / "permission-agent.md"
+        agent_file.write_text(
+            "---\n"
+            "name: safe-reader\n"
+            "description: A read-only agent with explicit permission mode\n"
+            "tools: Read, Grep, Glob\n"
+            "permissionMode: default\n"
+            "---\n"
+            "\n"
+            "# Safe Reader\n"
+            "\n"
+            "## Overview\n"
+            "Read-only agent.\n"
+            "\n"
+            "## Workflow\n"
+            "1. Read files\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["passed"] is True
+        # No errors about permissionMode
+        pm_errors = [e for e in output["errors"] if "permissionMode" in e.get("message", "")]
+        assert len(pm_errors) == 0
+
+    def test_invalid_permission_mode_fails(self, tmp_path: Path) -> None:
+        """Agent with invalid permissionMode should produce error."""
+        agent_file = tmp_path / "bad-permission.md"
+        agent_file.write_text(
+            "---\n"
+            "name: bad-perms\n"
+            "description: Agent with invalid permission mode\n"
+            "tools: Read\n"
+            "permissionMode: yolo\n"
+            "---\n"
+            "\n"
+            "# Bad Perms\n"
+            "\n"
+            "## Overview\n"
+            "Invalid mode.\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["passed"] is False
+        pm_errors = [e for e in output["errors"] if "E016" in e.get("code", "")]
+        assert len(pm_errors) == 1
+
+    def test_bypass_permissions_with_bash_warns(self, tmp_path: Path) -> None:
+        """bypassPermissions with Bash should produce warning."""
+        agent_file = tmp_path / "risky-perms.md"
+        agent_file.write_text(
+            "---\n"
+            "name: risky-agent\n"
+            "description: Agent with bypass and Bash\n"
+            "tools: Bash, Read\n"
+            "permissionMode: bypassPermissions\n"
+            "---\n"
+            "\n"
+            "# Risky Agent\n"
+            "\n"
+            "## Overview\n"
+            "Risky combo.\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        # W016 is severity=warning, so it appears in the "warnings" key, not "errors"
+        # Agent should still pass validation (warnings don't block)
+        assert output["passed"] is True
+        warnings = [w for w in output["warnings"] if "W016" in w.get("code", "")]
+        assert len(warnings) == 1
+        assert "bypassPermissions" in warnings[0]["message"]
+        assert "Bash" in warnings[0]["message"]
+
 
 class TestSecurityScanner:
     """Real tests for security_scanner.py CLI."""
@@ -1235,9 +1336,7 @@ class TestOtherPatternTemplates:
 class TestMultiAgentRoutingPattern:
     """Tests for multi-agent routing pattern with classifier + handlers."""
 
-    def test_routing_template_generates_classifier_and_handlers(
-        self, tmp_path: Path
-    ) -> None:
+    def test_routing_template_generates_classifier_and_handlers(self, tmp_path: Path) -> None:
         """Routing template should generate classifier + 3 handler agents."""
         result = subprocess.run(
             [
@@ -1260,9 +1359,7 @@ class TestMultiAgentRoutingPattern:
         # Verify handler agents
         assert (tmp_path / "query-handler.md").exists(), "Query handler should exist"
         assert (tmp_path / "action-handler.md").exists(), "Action handler should exist"
-        assert (tmp_path / "analysis-handler.md").exists(), (
-            "Analysis handler should exist"
-        )
+        assert (tmp_path / "analysis-handler.md").exists(), "Analysis handler should exist"
 
         # Verify manifest
         manifest_file = tmp_path / "routing-system-manifest.json"
@@ -1433,9 +1530,7 @@ class TestMultiAgentRoutingPattern:
 class TestMultiAgentEvaluatorOptimizerPattern:
     """Tests for multi-agent evaluator-optimizer pattern with feedback loops."""
 
-    def test_evaluator_optimizer_template_generates_all_agents(
-        self, tmp_path: Path
-    ) -> None:
+    def test_evaluator_optimizer_template_generates_all_agents(self, tmp_path: Path) -> None:
         """Evaluator-optimizer template should generate controller + 3 worker agents."""
         result = subprocess.run(
             [
@@ -1458,9 +1553,7 @@ class TestMultiAgentEvaluatorOptimizerPattern:
         # Verify worker agents
         assert (tmp_path / "content-generator.md").exists(), "Generator should exist"
         assert (tmp_path / "quality-evaluator.md").exists(), "Evaluator should exist"
-        assert (tmp_path / "improvement-optimizer.md").exists(), (
-            "Optimizer should exist"
-        )
+        assert (tmp_path / "improvement-optimizer.md").exists(), "Optimizer should exist"
 
         # Verify manifest
         manifest_file = tmp_path / "evaluator-optimizer-system-manifest.json"
@@ -1605,9 +1698,7 @@ class TestMultiAgentEvaluatorOptimizerPattern:
         assert "Quality Criteria" in output
         assert "Evaluator-Optimizer" in output
 
-    def test_generated_evaluator_optimizer_agents_pass_validation(
-        self, tmp_path: Path
-    ) -> None:
+    def test_generated_evaluator_optimizer_agents_pass_validation(self, tmp_path: Path) -> None:
         """All generated evaluator-optimizer agents should pass syntax validation."""
         subprocess.run(
             [
@@ -1713,9 +1804,7 @@ class TestMultiAgentParallelizationPattern:
         assert "partition-worker-1" in orchestrator_content
         assert "partition-worker-2" in orchestrator_content
 
-    def test_orchestrator_has_decompose_execute_aggregate_workflow(
-        self, tmp_path: Path
-    ) -> None:
+    def test_orchestrator_has_decompose_execute_aggregate_workflow(self, tmp_path: Path) -> None:
         """Orchestrator should have workflow steps for decompose, execute, aggregate."""
         subprocess.run(
             [
@@ -1816,9 +1905,7 @@ class TestMultiAgentParallelizationPattern:
         assert "Parallelization" in output
         assert "function_calls" in output
 
-    def test_generated_parallelization_agents_pass_validation(
-        self, tmp_path: Path
-    ) -> None:
+    def test_generated_parallelization_agents_pass_validation(self, tmp_path: Path) -> None:
         """All generated parallelization agents should pass syntax validation."""
         subprocess.run(
             [
