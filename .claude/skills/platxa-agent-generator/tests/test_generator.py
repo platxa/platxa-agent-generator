@@ -6202,5 +6202,180 @@ class TestConftestFixtures:
         assert "model: opus" in agent_with_hooks_config
 
 
+class TestEndToEndGeneration:
+    """Tests for Feature #83: Full 5-phase pipeline end-to-end tests.
+
+    Each test provides an NLP description, runs the full pipeline
+    (parse → classify → select tools → generate → validate → score),
+    and verifies the output agent passes quality gates.
+    """
+
+    CLI_SCRIPT = str(SCRIPTS_DIR / "cli.py")
+    VALIDATOR_SCRIPT = str(SCRIPTS_DIR / "syntax_validator.py")
+    SCORER_SCRIPT = str(SCRIPTS_DIR / "quality_scorer.py")
+
+    def _generate_and_validate(self, description: str, tmp_path: Path) -> dict:
+        """Run full generation pipeline and return combined results.
+
+        Returns dict with keys: generate_result, agent_content,
+        syntax_passed, quality_score.
+        """
+        # Phase 1-3: Generate via CLI (non-interactive = JSON output)
+        gen_result = subprocess.run(
+            [
+                sys.executable,
+                self.CLI_SCRIPT,
+                "--non-interactive",
+                "generate",
+                description,
+                "--no-validate",
+                "-o",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=str(SCRIPTS_DIR),
+        )
+        assert gen_result.returncode == 0, (
+            f"Generation failed: {gen_result.stdout} {gen_result.stderr}"
+        )
+        gen_data = json.loads(gen_result.stdout)
+
+        # Read generated agent content
+        agent_path = Path(gen_data["output_path"])
+        assert agent_path.exists(), f"Agent file not created: {agent_path}"
+        agent_content = agent_path.read_text(encoding="utf-8")
+
+        # Phase 4: Syntax validation
+        val_result = subprocess.run(
+            [sys.executable, self.VALIDATOR_SCRIPT, str(agent_path), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        val_data = json.loads(val_result.stdout)
+
+        # Phase 5: Quality scoring
+        score_result = subprocess.run(
+            [sys.executable, self.SCORER_SCRIPT, str(agent_path), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        score_data = json.loads(score_result.stdout)
+
+        return {
+            "generate": gen_data,
+            "content": agent_content,
+            "syntax_passed": val_data["passed"],
+            "syntax_errors": val_data.get("errors", []),
+            "quality_score": score_data.get("total_score", 0),
+            "quality_grade": score_data.get("grade", "F"),
+        }
+
+    def test_e2e_simple_code_reviewer(self, tmp_path):
+        """E2E: Simple code review agent from NLP description."""
+        result = self._generate_and_validate(
+            "Create an agent that reviews Python code for bugs and style issues",
+            tmp_path,
+        )
+
+        # Verify generation succeeded
+        assert result["generate"]["success"] is True
+        assert result["generate"]["agent_name"]
+
+        # Verify syntax is valid
+        assert result["syntax_passed"] is True, f"Syntax errors: {result['syntax_errors']}"
+
+        # Verify quality meets minimum threshold
+        assert result["quality_score"] >= 7.0, (
+            f"Quality {result['quality_score']:.1f} < 7.0 (grade: {result['quality_grade']})"
+        )
+
+        # Verify content has essential sections
+        content = result["content"]
+        assert "---" in content  # frontmatter
+        assert "## Overview" in content
+        assert "## Workflow" in content
+
+    def test_e2e_read_only_security_scanner(self, tmp_path):
+        """E2E: Read-only security scanner (no Write/Bash tools)."""
+        result = self._generate_and_validate(
+            "Create an agent that analyzes code for security vulnerabilities",
+            tmp_path,
+        )
+
+        assert result["generate"]["success"] is True
+        assert result["syntax_passed"] is True, f"Syntax errors: {result['syntax_errors']}"
+        assert result["quality_score"] >= 7.0, f"Quality {result['quality_score']:.1f} < 7.0"
+
+        # Verify it's analysis-oriented (Read should be in tools)
+        tools = result["generate"]["tools"]
+        assert "Read" in tools, f"Read not in tools: {tools}"
+
+    def test_e2e_documentation_generator(self, tmp_path):
+        """E2E: Documentation generator agent with Write tool."""
+        result = self._generate_and_validate(
+            "Build an agent that generates API documentation from source code",
+            tmp_path,
+        )
+
+        assert result["generate"]["success"] is True
+        assert result["syntax_passed"] is True, f"Syntax errors: {result['syntax_errors']}"
+        assert result["quality_score"] >= 7.0, f"Quality {result['quality_score']:.1f} < 7.0"
+
+        # Doc generator should have Write capability
+        tools = result["generate"]["tools"]
+        assert "Write" in tools or "Edit" in tools, f"No write capability in tools: {tools}"
+
+    def test_e2e_output_file_is_valid_markdown(self, tmp_path):
+        """E2E: Generated file is valid markdown with proper frontmatter."""
+        result = self._generate_and_validate(
+            "Create a test runner agent that executes pytest suites",
+            tmp_path,
+        )
+
+        content = result["content"]
+
+        # Must start with frontmatter
+        assert content.startswith("---\n"), "Agent must start with frontmatter delimiter"
+
+        # Must have closing frontmatter delimiter
+        second_delim = content.index("---", 4)
+        assert second_delim > 4, "Missing closing frontmatter delimiter"
+
+        # Frontmatter must contain required fields
+        frontmatter = content[4:second_delim]
+        assert "name:" in frontmatter
+        assert "description:" in frontmatter
+        assert "tools:" in frontmatter
+
+    def test_e2e_different_descriptions_produce_different_agents(self, tmp_path):
+        """E2E: Different NLP inputs produce distinct agents."""
+        dir_a = tmp_path / "a"
+        dir_b = tmp_path / "b"
+        dir_a.mkdir()
+        dir_b.mkdir()
+
+        result_a = self._generate_and_validate(
+            "Create a code linting agent for JavaScript",
+            dir_a,
+        )
+        result_b = self._generate_and_validate(
+            "Build a database migration planning agent",
+            dir_b,
+        )
+
+        # Different names
+        assert result_a["generate"]["agent_name"] != result_b["generate"]["agent_name"]
+
+        # Different tool sets (at least partially)
+        tools_a = set(result_a["generate"]["tools"])
+        tools_b = set(result_b["generate"]["tools"])
+        # They shouldn't be identical (different domains)
+        assert tools_a != tools_b or result_a["content"] != result_b["content"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
