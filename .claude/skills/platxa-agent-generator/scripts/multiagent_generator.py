@@ -38,7 +38,11 @@ class AgentDefinition:
     outputs: list[str] = field(default_factory=list)
 
     def to_markdown(self) -> str:
-        """Generate agent markdown definition."""
+        """Generate agent markdown definition with team compatibility.
+
+        Workers include sections for standalone usage AND team coordination,
+        making them usable both as independent subagents and as team teammates.
+        """
         tools_str = ", ".join(self.tools)
         responsibilities = "\n".join(f"- {r}" for r in self.responsibilities)
 
@@ -66,6 +70,36 @@ tools: {tools_str}
 1. Receive task assignment
 2. Execute specialized processing
 3. Report results back to orchestrator
+
+## Team Compatibility
+
+This agent works both as a **standalone subagent** and as a **team teammate**.
+
+### Standalone Mode
+When invoked directly via the Task tool without an orchestrator:
+1. Accept the full task description in the prompt
+2. Execute all responsibilities independently
+3. Return structured results directly to the caller
+
+### Team Mode
+When coordinated by an orchestrator as part of a multi-agent team:
+1. Accept scoped subtask from orchestrator
+2. Check shared context for teammate outputs (if applicable)
+3. Execute assigned responsibilities
+4. Report results in the team's expected format
+
+### Teammate Discovery
+To find available teammates at runtime:
+```
+Glob tool: .claude/agents/*.md
+```
+Parse each agent's frontmatter to identify compatible teammates by role and tools.
+
+### Shared Task Patterns
+When working in a team, use TodoWrite to coordinate progress:
+- Mark subtask as `in_progress` when starting
+- Update with intermediate findings for teammates to read
+- Mark as `completed` with summary when done
 """
         return content
 
@@ -111,9 +145,7 @@ class MultiAgentSystem:
     def generate_orchestrator_markdown(self) -> str:
         """Generate orchestrator agent with Task tool coordination."""
         worker_names = [w.name for w in self.workers]
-        worker_list = "\n".join(
-            f"- `{name}`: Specialized worker" for name in worker_names
-        )
+        worker_list = "\n".join(f"- `{name}`: Specialized worker" for name in worker_names)
         worker_spawns = "\n".join(
             f"   - Spawn `{name}` for {self.workers[i].responsibilities[0] if self.workers[i].responsibilities else 'specialized task'}"
             for i, name in enumerate(worker_names)
@@ -172,6 +204,20 @@ Task tool with:
 - Fall back to alternative approach if needed
 - Report unrecoverable errors with context
 
+## Teammate Discovery
+To dynamically discover available workers at runtime:
+```
+Glob tool: .claude/agents/*.md
+```
+Parse each file's YAML frontmatter to identify agents by name and tools.
+This allows the orchestrator to adapt when workers are added or removed
+without hardcoding agent names.
+
+## Team Coordination
+- Use TodoWrite to maintain a shared task list visible to all team members
+- Each worker marks its subtask `in_progress` → `completed`
+- Orchestrator monitors progress and handles stalled tasks
+
 ## Output Format
 Provide structured summary including:
 - Tasks completed successfully
@@ -183,8 +229,7 @@ Provide structured summary including:
     def generate_classifier_markdown(self) -> str:
         """Generate classifier agent markdown for routing pattern."""
         handler_table = "\n".join(
-            f"| {w.name} | {w.description} | {', '.join(w.tools)} |"
-            for w in self.workers
+            f"| {w.name} | {w.description} | {', '.join(w.tools)} |" for w in self.workers
         )
 
         content = f"""---
@@ -262,9 +307,7 @@ Task tool with:
 
     def generate_evaluator_orchestrator_markdown(self) -> str:
         """Generate feedback loop controller markdown for evaluator-optimizer pattern."""
-        worker_table = "\n".join(
-            f"| {w.name} | {w.role} | {w.description} |" for w in self.workers
-        )
+        worker_table = "\n".join(f"| {w.name} | {w.role} | {w.description} |" for w in self.workers)
 
         content = f"""---
 name: {self.orchestrator.name}
@@ -362,8 +405,7 @@ Iteration | Score | Status
     def generate_parallel_orchestrator_markdown(self) -> str:
         """Generate parallel orchestrator markdown with concurrent Task tool calls."""
         worker_table = "\n".join(
-            f"| {w.name} | {w.description} | {', '.join(w.tools)} |"
-            for w in self.workers
+            f"| {w.name} | {w.description} | {', '.join(w.tools)} |" for w in self.workers
         )
 
         # Generate worker names for parallel call example
@@ -924,9 +966,7 @@ def save_system(system: MultiAgentSystem, output_dir: Path) -> list[Path]:
     # Save orchestrator/classifier/controller based on pattern
     orchestrator_path = output_dir / f"{system.orchestrator.name}.md"
     if system.pattern == "routing":
-        orchestrator_path.write_text(
-            system.generate_classifier_markdown(), encoding="utf-8"
-        )
+        orchestrator_path.write_text(system.generate_classifier_markdown(), encoding="utf-8")
     elif system.pattern == "evaluator-optimizer":
         orchestrator_path.write_text(
             system.generate_evaluator_orchestrator_markdown(), encoding="utf-8"
@@ -936,9 +976,7 @@ def save_system(system: MultiAgentSystem, output_dir: Path) -> list[Path]:
             system.generate_parallel_orchestrator_markdown(), encoding="utf-8"
         )
     else:
-        orchestrator_path.write_text(
-            system.generate_orchestrator_markdown(), encoding="utf-8"
-        )
+        orchestrator_path.write_text(system.generate_orchestrator_markdown(), encoding="utf-8")
     created_files.append(orchestrator_path)
 
     # Save workers
@@ -959,9 +997,7 @@ def main() -> None:
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Generate coordinated multi-agent systems"
-    )
+    parser = argparse.ArgumentParser(description="Generate coordinated multi-agent systems")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # Generate command

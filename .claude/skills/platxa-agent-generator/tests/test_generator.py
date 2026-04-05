@@ -4190,5 +4190,102 @@ class TestLeastPrivilegeToolSelection:
         assert "Edit" in tools
 
 
+class TestAgentTeamCompatibility:
+    """Tests for Feature #35: Agent team compatibility in multi-agent systems."""
+
+    def _generate_system(self, tmp_path: Path, template: str) -> list[Path]:
+        """Helper to generate a multi-agent system and return created files."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "generate",
+                "--name",
+                template,
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Generator failed: {result.stderr}"
+        return list(tmp_path.glob("*.md"))
+
+    def test_worker_has_team_compatibility_section(self, tmp_path: Path) -> None:
+        """Worker agents include ## Team Compatibility section."""
+        files = self._generate_system(tmp_path, "code-review")
+        # Find a worker file (not orchestrator)
+        worker_files = [f for f in files if "orchestrator" not in f.name]
+        assert len(worker_files) > 0
+        content = worker_files[0].read_text()
+        assert "## Team Compatibility" in content
+
+    def test_worker_has_standalone_mode(self, tmp_path: Path) -> None:
+        """Worker agents document standalone mode usage."""
+        files = self._generate_system(tmp_path, "code-review")
+        worker_files = [f for f in files if "orchestrator" not in f.name]
+        content = worker_files[0].read_text()
+        assert "### Standalone Mode" in content
+
+    def test_worker_has_team_mode(self, tmp_path: Path) -> None:
+        """Worker agents document team mode usage."""
+        files = self._generate_system(tmp_path, "code-review")
+        worker_files = [f for f in files if "orchestrator" not in f.name]
+        content = worker_files[0].read_text()
+        assert "### Team Mode" in content
+
+    def test_worker_has_teammate_discovery(self, tmp_path: Path) -> None:
+        """Worker agents include teammate discovery instructions."""
+        files = self._generate_system(tmp_path, "code-review")
+        worker_files = [f for f in files if "orchestrator" not in f.name]
+        content = worker_files[0].read_text()
+        assert "### Teammate Discovery" in content
+        assert ".claude/agents/*.md" in content
+
+    def test_worker_has_shared_task_patterns(self, tmp_path: Path) -> None:
+        """Worker agents reference shared task list patterns."""
+        files = self._generate_system(tmp_path, "code-review")
+        worker_files = [f for f in files if "orchestrator" not in f.name]
+        content = worker_files[0].read_text()
+        assert "### Shared Task Patterns" in content
+        assert "TodoWrite" in content
+
+    def test_orchestrator_has_teammate_discovery(self, tmp_path: Path) -> None:
+        """Orchestrator includes teammate discovery section."""
+        files = self._generate_system(tmp_path, "code-review")
+        orchestrator_files = [f for f in files if "orchestrator" in f.name]
+        assert len(orchestrator_files) > 0
+        content = orchestrator_files[0].read_text()
+        assert "## Teammate Discovery" in content
+
+    def test_orchestrator_has_team_coordination(self, tmp_path: Path) -> None:
+        """Orchestrator includes team coordination section."""
+        files = self._generate_system(tmp_path, "code-review")
+        orchestrator_files = [f for f in files if "orchestrator" in f.name]
+        content = orchestrator_files[0].read_text()
+        assert "## Team Coordination" in content
+        assert "TodoWrite" in content
+
+    def test_all_workers_have_team_compatibility(self, tmp_path: Path) -> None:
+        """Every worker in the system has team compatibility, not just the first."""
+        files = self._generate_system(tmp_path, "code-review")
+        worker_files = [f for f in files if "orchestrator" not in f.name]
+        assert len(worker_files) >= 2, "Expected multiple workers"
+        for wf in worker_files:
+            content = wf.read_text()
+            assert "## Team Compatibility" in content, (
+                f"Worker {wf.name} missing Team Compatibility"
+            )
+
+    def test_documentation_template_workers_have_team_compat(self, tmp_path: Path) -> None:
+        """Documentation template workers also get team compatibility."""
+        files = self._generate_system(tmp_path, "documentation")
+        worker_files = [f for f in files if "orchestrator" not in f.name]
+        assert len(worker_files) > 0
+        for wf in worker_files:
+            content = wf.read_text()
+            assert "## Team Compatibility" in content
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
