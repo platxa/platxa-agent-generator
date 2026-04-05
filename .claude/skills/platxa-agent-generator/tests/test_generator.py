@@ -5950,5 +5950,144 @@ class TestContextAwareDiscovery:
         assert agents == []
 
 
+class TestNonInteractiveMode:
+    """Tests for Feature #80: Non-interactive CLI mode for CI/CD."""
+
+    CLI_SCRIPT = str(SCRIPTS_DIR / "cli.py")
+
+    def _run_cli(self, *args: str, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
+        """Run CLI with given args. Always uses scripts dir as cwd."""
+        return subprocess.run(
+            [sys.executable, self.CLI_SCRIPT, *args],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=cwd or str(SCRIPTS_DIR),
+        )
+
+    def test_non_interactive_flag_in_help(self):
+        """--non-interactive flag appears in CLI help output."""
+        result = self._run_cli("--help")
+        assert result.returncode == 0
+        assert "--non-interactive" in result.stdout
+
+    def test_non_interactive_forces_json_output(self, tmp_path):
+        """--non-interactive forces JSON output even without --json flag."""
+        result = self._run_cli(
+            "--non-interactive",
+            "generate",
+            "Create a simple code analyzer",
+            "--no-validate",
+            "-o",
+            str(tmp_path),
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["success"] is True
+        assert "agent_name" in data
+        assert "output_path" in data
+
+    def test_non_interactive_missing_description_returns_error_json(self):
+        """Missing description in non-interactive mode returns JSON error with exit 1."""
+        result = self._run_cli("--non-interactive", "generate")
+        assert result.returncode == 1
+        data = json.loads(result.stdout)
+        assert "error" in data
+        assert "description" in data["error"].lower()
+
+    def test_non_interactive_no_command_returns_error_json(self):
+        """No command in non-interactive mode returns JSON error with exit 1."""
+        result = self._run_cli("--non-interactive")
+        assert result.returncode == 1
+        data = json.loads(result.stdout)
+        assert "error" in data
+
+    def test_non_interactive_exit_code_0_on_success(self, tmp_path):
+        """Successful generation returns exit code 0."""
+        result = self._run_cli(
+            "--non-interactive",
+            "generate",
+            "Build a test runner agent",
+            "--no-validate",
+            "-o",
+            str(tmp_path),
+        )
+        assert result.returncode == 0
+
+    def test_non_interactive_output_is_valid_json(self, tmp_path):
+        """All output in non-interactive mode is valid JSON (no mixed text)."""
+        result = self._run_cli(
+            "--non-interactive",
+            "generate",
+            "Create a documentation generator",
+            "--no-validate",
+            "-o",
+            str(tmp_path),
+        )
+        assert result.returncode == 0
+        # Must parse as JSON without error — no progress spinners mixed in
+        data = json.loads(result.stdout)
+        assert isinstance(data, dict)
+
+    def test_non_interactive_generate_creates_file(self, tmp_path):
+        """Non-interactive generate actually writes the agent file."""
+        result = self._run_cli(
+            "--non-interactive",
+            "generate",
+            "Create a security scanner",
+            "--no-validate",
+            "-o",
+            str(tmp_path),
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        output_path = Path(data["output_path"])
+        assert output_path.exists(), f"Agent file not created at {output_path}"
+        content = output_path.read_text(encoding="utf-8")
+        assert "---" in content  # Has frontmatter
+
+    def test_non_interactive_includes_tools_in_output(self, tmp_path):
+        """JSON output includes detected tools list."""
+        result = self._run_cli(
+            "--non-interactive",
+            "generate",
+            "Create a web API security scanner",
+            "--no-validate",
+            "-o",
+            str(tmp_path),
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert "tools" in data
+        assert isinstance(data["tools"], list)
+        assert len(data["tools"]) >= 1
+
+    def test_non_interactive_catalog_list_json(self):
+        """--non-interactive with catalog list outputs valid JSON."""
+        result = self._run_cli("--non-interactive", "catalog", "list")
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert isinstance(data, list)
+        assert len(data) > 0
+
+    def test_non_interactive_validate_json(self, tmp_path):
+        """--non-interactive with validate outputs JSON results."""
+        # Create a minimal agent file to validate
+        agent_file = tmp_path / "test-agent.md"
+        agent_file.write_text(
+            "---\nname: test-agent\ndescription: Test\ntools: Read\n---\n\n"
+            "# Test Agent\n\n## Overview\nTest.\n",
+            encoding="utf-8",
+        )
+        result = self._run_cli(
+            "--non-interactive",
+            "validate",
+            str(agent_file),
+        )
+        # May pass or fail validation, but output must be JSON
+        data = json.loads(result.stdout)
+        assert "passed" in data
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

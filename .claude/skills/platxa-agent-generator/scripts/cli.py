@@ -31,32 +31,34 @@ from typing import Any, NoReturn
 
 # Import all generator modules
 try:
-    from . import agent_generator
-    from . import nlp_parser
-    from . import type_classifier
-    from . import tool_selector
-    from . import syntax_validator
-    from . import security_scanner
-    from . import quality_scorer
-    from . import dry_run
-    from . import agent_catalog
-    from . import install_agent
-    from . import progress_tracker
-    from . import extended_thinking
+    from . import (
+        agent_catalog,
+        agent_generator,
+        dry_run,
+        extended_thinking,
+        install_agent,
+        nlp_parser,
+        progress_tracker,
+        quality_scorer,
+        security_scanner,
+        syntax_validator,
+        tool_selector,
+        type_classifier,
+    )
 except ImportError:
     # Standalone execution - type: ignore comments for pyright
-    import agent_generator  # type: ignore[import-not-found,no-redef]
-    import nlp_parser  # type: ignore[import-not-found,no-redef]
-    import type_classifier  # type: ignore[import-not-found,no-redef]
-    import tool_selector  # type: ignore[import-not-found,no-redef]
-    import syntax_validator  # type: ignore[import-not-found,no-redef]
-    import security_scanner  # type: ignore[import-not-found,no-redef]
-    import quality_scorer  # type: ignore[import-not-found,no-redef]
-    import dry_run  # type: ignore[import-not-found,no-redef]
     import agent_catalog  # type: ignore[import-not-found,no-redef]
-    import install_agent  # type: ignore[import-not-found,no-redef]
-    import progress_tracker  # type: ignore[import-not-found,no-redef]
+    import agent_generator  # type: ignore[import-not-found,no-redef]
+    import dry_run  # type: ignore[import-not-found,no-redef]
     import extended_thinking  # type: ignore[import-not-found,no-redef]
+    import install_agent  # type: ignore[import-not-found,no-redef]
+    import nlp_parser  # type: ignore[import-not-found,no-redef]
+    import progress_tracker  # type: ignore[import-not-found,no-redef]
+    import quality_scorer  # type: ignore[import-not-found,no-redef]
+    import security_scanner  # type: ignore[import-not-found,no-redef]
+    import syntax_validator  # type: ignore[import-not-found,no-redef]
+    import tool_selector  # type: ignore[import-not-found,no-redef]
+    import type_classifier  # type: ignore[import-not-found,no-redef]
 
 
 __version__ = "0.1.0"
@@ -86,13 +88,15 @@ Examples:
         )
 
         parser.add_argument(
-            "-V", "--version",
+            "-V",
+            "--version",
             action="version",
             version=f"%(prog)s {__version__}",
         )
 
         parser.add_argument(
-            "-v", "--verbose",
+            "-v",
+            "--verbose",
             action="store_true",
             help="Enable verbose output",
         )
@@ -101,6 +105,14 @@ Examples:
             "--json",
             action="store_true",
             help="Output results as JSON",
+        )
+
+        parser.add_argument(
+            "--non-interactive",
+            action="store_true",
+            help="Non-interactive mode for CI/CD: forces JSON output, "
+            "suppresses prompts and progress spinners, uses exit codes "
+            "(0=success, 1=failure)",
         )
 
         subparsers = parser.add_subparsers(
@@ -133,7 +145,9 @@ Examples:
         generate.add_argument("-n", "--name", help="Agent name")
         generate.add_argument("--tools", nargs="+", help="Tools to include")
         generate.add_argument("--no-validate", action="store_true", help="Skip validation")
-        generate.add_argument("--min-quality", type=float, default=7.0, help="Minimum quality score")
+        generate.add_argument(
+            "--min-quality", type=float, default=7.0, help="Minimum quality score"
+        )
 
     def _add_validate_command(self, subparsers: Any) -> None:
         """Add the validate subcommand."""
@@ -189,7 +203,16 @@ Examples:
         """Run the CLI with given arguments."""
         parsed = self.parser.parse_args(args)
 
+        # --non-interactive forces JSON output and disables interactive mode
+        if getattr(parsed, "non_interactive", False):
+            parsed.json = True
+            if hasattr(parsed, "interactive"):
+                parsed.interactive = False
+
         if not parsed.command:
+            if getattr(parsed, "non_interactive", False):
+                print(json.dumps({"error": "No command specified"}, indent=2))
+                return 1
             self.parser.print_help()
             return 0
 
@@ -212,7 +235,13 @@ Examples:
 
     def _handle_generate(self, args: argparse.Namespace) -> int:
         """Handle the generate command."""
-        if args.interactive or not args.description:
+        non_interactive = getattr(args, "non_interactive", False)
+
+        if not args.description and non_interactive:
+            print(json.dumps({"error": "Description required in non-interactive mode"}, indent=2))
+            return 1
+
+        if args.interactive or (not args.description and not non_interactive):
             return self._generate_interactive(args)
         return self._generate_from_description(args)
 
@@ -309,10 +338,10 @@ Examples:
             # Phase 4: Validation
             if not args.no_validate:
                 tracker.update_phase("validation", 0, "Validating syntax")
-                syntax_result = syntax_validator.validate_content(agent_content)
+                syntax_validator.validate_content(agent_content)
                 tracker.update_phase("validation", 33, "Scanning security")
 
-                security_result = security_scanner.scan_content(agent_content)
+                security_scanner.scan_content(agent_content)
                 tracker.update_phase("validation", 66, "Scoring quality")
 
                 quality_result = quality_scorer.score_quality(agent_content)
@@ -349,7 +378,7 @@ Examples:
                 print(json.dumps(result, indent=2))
             else:
                 print(tracker.render())
-                print(f"\nAgent generated successfully!")
+                print("\nAgent generated successfully!")
                 print(f"Output: {output_path}")
 
             return 0
@@ -362,16 +391,22 @@ Examples:
     def _handle_validate(self, args: argparse.Namespace) -> int:
         """Handle the validate command."""
         if not args.path.exists():
-            print(f"Error: File not found: {args.path}")
+            if hasattr(args, "json") and args.json:
+                print(json.dumps({"error": f"File not found: {args.path}"}, indent=2))
+            else:
+                print(f"Error: File not found: {args.path}")
             return 1
 
         content = args.path.read_text(encoding="utf-8")
         results: dict[str, Any] = {"path": str(args.path), "passed": True}
         exit_code = 0
 
+        json_mode = hasattr(args, "json") and args.json
+
         # Syntax validation
         if not args.security_only and not args.quality_only:
-            print("Checking syntax...")
+            if not json_mode:
+                print("Checking syntax...")
             syntax_result = syntax_validator.validate_content(content)
             results["syntax"] = {
                 "passed": syntax_result.passed,
@@ -383,7 +418,8 @@ Examples:
 
         # Security scan
         if not args.syntax_only and not args.quality_only:
-            print("Scanning security...")
+            if not json_mode:
+                print("Scanning security...")
             security_result = security_scanner.scan_content(content)
             results["security"] = {
                 "score": security_result.score,
@@ -396,7 +432,8 @@ Examples:
 
         # Quality scoring
         if not args.syntax_only and not args.security_only:
-            print("Scoring quality...")
+            if not json_mode:
+                print("Scoring quality...")
             quality_result = quality_scorer.score_quality(content)
             results["quality"] = {
                 "score": quality_result.total_score,
@@ -446,7 +483,11 @@ Examples:
 
                 for template in templates:
                     print(f"  [{template.category}] {template.name}")
-                    desc = template.description[:60] if len(template.description) > 60 else template.description
+                    desc = (
+                        template.description[:60]
+                        if len(template.description) > 60
+                        else template.description
+                    )
                     print(f"      {desc}...")
                     print()
 
