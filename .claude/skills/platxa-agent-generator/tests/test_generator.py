@@ -221,6 +221,205 @@ tools: Read
         assert "bypassPermissions" in warnings[0]["message"]
         assert "Bash" in warnings[0]["message"]
 
+    def test_valid_max_turns_passes(self, tmp_path: Path) -> None:
+        """Agent with valid maxTurns should pass validation."""
+        agent_file = tmp_path / "turns-agent.md"
+        agent_file.write_text(
+            "---\n"
+            "name: bounded-agent\n"
+            "description: Agent with execution limit\n"
+            "tools: Read, Grep\n"
+            "maxTurns: 25\n"
+            "---\n"
+            "\n"
+            "# Bounded Agent\n"
+            "\n"
+            "## Overview\n"
+            "Limited execution agent.\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["passed"] is True
+        mt_errors = [e for e in output["errors"] if "E017" in e.get("code", "")]
+        assert len(mt_errors) == 0
+
+    def test_zero_max_turns_fails(self, tmp_path: Path) -> None:
+        """maxTurns=0 should produce error."""
+        agent_file = tmp_path / "zero-turns.md"
+        agent_file.write_text(
+            "---\n"
+            "name: zero-agent\n"
+            "description: Agent with zero turns\n"
+            "tools: Read\n"
+            "maxTurns: 0\n"
+            "---\n"
+            "\n"
+            "# Zero Agent\n"
+            "\n"
+            "## Overview\n"
+            "Invalid turns.\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["passed"] is False
+        mt_errors = [e for e in output["errors"] if "E017" in e.get("code", "")]
+        assert len(mt_errors) == 1
+
+    def test_negative_max_turns_fails(self, tmp_path: Path) -> None:
+        """Negative maxTurns should produce error."""
+        agent_file = tmp_path / "neg-turns.md"
+        agent_file.write_text(
+            "---\n"
+            "name: neg-agent\n"
+            "description: Agent with negative turns\n"
+            "tools: Read\n"
+            "maxTurns: -5\n"
+            "---\n"
+            "\n"
+            "# Neg Agent\n"
+            "\n"
+            "## Overview\n"
+            "Invalid turns.\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["passed"] is False
+        mt_errors = [e for e in output["errors"] if "E017" in e.get("code", "")]
+        assert len(mt_errors) == 1
+
+    def test_excessive_max_turns_warns(self, tmp_path: Path) -> None:
+        """maxTurns > 200 should produce warning but still pass."""
+        agent_file = tmp_path / "high-turns.md"
+        agent_file.write_text(
+            "---\n"
+            "name: high-turns-agent\n"
+            "description: Agent with very high turns\n"
+            "tools: Read\n"
+            "maxTurns: 500\n"
+            "---\n"
+            "\n"
+            "# High Turns Agent\n"
+            "\n"
+            "## Overview\n"
+            "Excessive turns.\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["passed"] is True  # Warning doesn't block
+        warnings = [w for w in output["warnings"] if "W017" in w.get("code", "")]
+        assert len(warnings) == 1
+        assert "500" in warnings[0]["message"]
+
+
+class TestTypeClassifierMaxTurns:
+    """Tests for recommend_max_turns() in type_classifier.py."""
+
+    def test_simple_low_complexity(self) -> None:
+        """Simple agent with low complexity gets 10 turns."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from scripts.type_classifier import recommend_max_turns; print(recommend_max_turns('simple', 1))",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.stdout.strip() == "10"
+
+    def test_orchestrator_default_complexity(self) -> None:
+        """Orchestrator with medium complexity gets 25 turns."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from scripts.type_classifier import recommend_max_turns; print(recommend_max_turns('orchestrator', 3))",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.stdout.strip() == "25"
+
+    def test_multi_agent_high_complexity(self) -> None:
+        """Multi-agent with high complexity gets 75 turns."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from scripts.type_classifier import recommend_max_turns; print(recommend_max_turns('multi-agent', 5))",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.stdout.strip() == "75"
+
+    def test_pipeline_default_complexity(self) -> None:
+        """Pipeline with medium complexity gets 25 turns."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from scripts.type_classifier import recommend_max_turns; print(recommend_max_turns('pipeline', 3))",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.stdout.strip() == "25"
+
+    def test_unknown_type_falls_back_to_simple(self) -> None:
+        """Unknown architecture type falls back to simple defaults."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from scripts.type_classifier import recommend_max_turns; print(recommend_max_turns('unknown', 3))",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.stdout.strip() == "15"  # simple default
+
 
 class TestSecurityScanner:
     """Real tests for security_scanner.py CLI."""

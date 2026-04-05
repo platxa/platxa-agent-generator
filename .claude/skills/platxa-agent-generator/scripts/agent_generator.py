@@ -196,6 +196,7 @@ class AgentDefinition:
     description: str
     tools: list[str]
     permission_mode: str | None = None  # One of VALID_PERMISSION_MODES
+    max_turns: int | None = None  # Positive integer, limits agent execution length
     sections: list[AgentSection] = field(default_factory=list)
     workers: list[WorkerDefinition] = field(default_factory=list)
     chain_steps: list[ChainStep] = field(default_factory=list)
@@ -360,6 +361,10 @@ def generate_frontmatter(definition: AgentDefinition) -> str:
     # Permission mode — only emit when explicitly set
     if definition.permission_mode and definition.permission_mode in VALID_PERMISSION_MODES:
         lines.append(f"permissionMode: {definition.permission_mode}")
+
+    # Max turns — only emit when explicitly set and valid
+    if definition.max_turns is not None and definition.max_turns > 0:
+        lines.append(f"maxTurns: {definition.max_turns}")
 
     # Add metadata if present
     if definition.metadata:

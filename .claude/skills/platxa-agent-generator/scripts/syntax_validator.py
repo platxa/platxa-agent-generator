@@ -296,6 +296,45 @@ def validate_frontmatter_fields(frontmatter: dict, start_line: int = 1) -> list[
                     )
                 )
 
+    # Validate maxTurns field (optional)
+    if "maxTurns" in frontmatter and frontmatter["maxTurns"]:
+        raw_value = frontmatter["maxTurns"]
+        try:
+            max_turns = int(raw_value)
+            if max_turns <= 0:
+                errors.append(
+                    ValidationError(
+                        line=start_line,
+                        column=1,
+                        severity="error",
+                        code="E017",
+                        message=f"maxTurns must be a positive integer, got: {max_turns}",
+                    )
+                )
+            elif max_turns > 200:
+                errors.append(
+                    ValidationError(
+                        line=start_line,
+                        column=1,
+                        severity="warning",
+                        code="W017",
+                        message=(
+                            f"maxTurns={max_turns} is very high — agents with >200 turns "
+                            "risk excessive token consumption and context degradation"
+                        ),
+                    )
+                )
+        except (ValueError, TypeError):
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E017",
+                    message=f"maxTurns must be a positive integer, got: {raw_value}",
+                )
+            )
+
     return errors
 
 

@@ -16,7 +16,7 @@ Usage:
 import json
 import re
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from enum import Enum
 
 
@@ -176,9 +176,7 @@ ARCHITECTURE_TO_PATTERN = {
 }
 
 
-def calculate_type_score(
-    description: str, arch_type: ArchitectureType
-) -> tuple[float, list[str]]:
+def calculate_type_score(description: str, arch_type: ArchitectureType) -> tuple[float, list[str]]:
     """Calculate score for a specific architecture type."""
     desc_lower = description.lower()
     indicators = ARCHITECTURE_INDICATORS[arch_type]
@@ -215,9 +213,7 @@ def estimate_complexity(description: str) -> int:
     desc_lower = description.lower()
 
     high_count = sum(1 for ind in COMPLEXITY_INDICATORS["high"] if ind in desc_lower)
-    medium_count = sum(
-        1 for ind in COMPLEXITY_INDICATORS["medium"] if ind in desc_lower
-    )
+    medium_count = sum(1 for ind in COMPLEXITY_INDICATORS["medium"] if ind in desc_lower)
     low_count = sum(1 for ind in COMPLEXITY_INDICATORS["low"] if ind in desc_lower)
 
     # Word count also indicates complexity
@@ -242,9 +238,7 @@ def estimate_complexity(description: str) -> int:
     return min(max(base, 1), 5)
 
 
-def generate_reasoning(
-    arch_type: ArchitectureType, matches: list[str], complexity: int
-) -> str:
+def generate_reasoning(arch_type: ArchitectureType, matches: list[str], complexity: int) -> str:
     """Generate human-readable reasoning for classification."""
     if not matches:
         return f"Default classification to {arch_type.value} based on absence of complex patterns."
@@ -310,13 +304,9 @@ def classify(description: str) -> ClassificationResult:
     desc_lower = description.lower()
     if "parallel" in desc_lower or "concurrent" in desc_lower:
         suggested_pattern = "parallelization"
-    elif (
-        "iterative" in desc_lower or "refine" in desc_lower or "feedback" in desc_lower
-    ):
+    elif "iterative" in desc_lower or "refine" in desc_lower or "feedback" in desc_lower:
         suggested_pattern = "evaluator-optimizer"
-    elif (
-        "route" in desc_lower or "classify" in desc_lower or "categorize" in desc_lower
-    ):
+    elif "route" in desc_lower or "classify" in desc_lower or "categorize" in desc_lower:
         suggested_pattern = "routing"
 
     # Generate reasoning
@@ -329,6 +319,57 @@ def classify(description: str) -> ClassificationResult:
         suggested_pattern=suggested_pattern,
         complexity_score=complexity,
     )
+
+
+# Recommended maxTurns by architecture type and complexity.
+# These prevent runaway agents from consuming excessive tokens.
+# Values are based on observed agent behavior in Claude Code:
+#   - simple agents rarely need >10 tool calls
+#   - orchestrators need turns for planning + delegation + synthesis
+#   - multi-agent systems need room for inter-agent coordination
+#   - pipelines need turns proportional to stage count
+MAX_TURNS_BY_TYPE: dict[str, dict[str, int]] = {
+    "simple": {
+        "low": 10,  # Quick tasks: lint, format, single-file read
+        "default": 15,  # Standard: read + analyze + report
+        "high": 20,  # Complex single-agent: multi-file analysis
+    },
+    "orchestrator": {
+        "low": 15,  # Few workers, simple delegation
+        "default": 25,  # Typical: plan + delegate + synthesize
+        "high": 40,  # Many workers, complex coordination
+    },
+    "multi-agent": {
+        "low": 25,  # Small team, focused tasks
+        "default": 50,  # Typical: spawn + coordinate + aggregate
+        "high": 75,  # Large team, iterative collaboration
+    },
+    "pipeline": {
+        "low": 15,  # 2-3 stages
+        "default": 25,  # 4-5 stages with validation
+        "high": 40,  # 6+ stages with quality gates
+    },
+}
+
+
+def recommend_max_turns(architecture_type: str, complexity_score: int) -> int:
+    """Recommend maxTurns based on architecture type and complexity.
+
+    Args:
+        architecture_type: One of 'simple', 'orchestrator', 'multi-agent', 'pipeline'
+        complexity_score: 1-5 scale from estimate_complexity()
+
+    Returns:
+        Recommended maxTurns value (positive integer)
+    """
+    type_config = MAX_TURNS_BY_TYPE.get(architecture_type, MAX_TURNS_BY_TYPE["simple"])
+
+    if complexity_score <= 2:
+        return type_config["low"]
+    elif complexity_score >= 4:
+        return type_config["high"]
+    else:
+        return type_config["default"]
 
 
 def main() -> None:
