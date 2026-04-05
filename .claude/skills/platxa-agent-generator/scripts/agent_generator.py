@@ -2292,6 +2292,92 @@ def generate_agent_file(definition: AgentDefinition, pattern: str = "prompt-chai
     return "\n".join(parts)
 
 
+# ─── Context Budget Estimation ─────────────────────────────────────────────────
+# Agent definitions are injected into the system prompt, consuming context window.
+# Large definitions reduce available context for the conversation.
+# Thresholds based on Claude Code's typical context budget allocation:
+#   - <2000 tokens: OK (leaves >95% of context for conversation)
+#   - 2000-5000 tokens: WARNING (may crowd out conversation context)
+#   - >5000 tokens: ERROR (likely too large, will degrade agent quality)
+
+CONTEXT_BUDGET_WARN_TOKENS = 2000
+CONTEXT_BUDGET_ERROR_TOKENS = 5000
+CHARS_PER_TOKEN = 4  # Conservative heuristic (actual is ~3.5 for English)
+
+
+@dataclass
+class ContextBudgetResult:
+    """Result of context budget estimation."""
+
+    char_count: int
+    estimated_tokens: int
+    status: str  # "ok", "warning", "error"
+    message: str
+    suggestions: list[str]
+
+
+def estimate_context_budget(content: str) -> ContextBudgetResult:
+    """Estimate token cost of agent definition and check budget thresholds.
+
+    Uses a 4-chars-per-token heuristic (conservative for English text with
+    markdown formatting and YAML frontmatter).
+
+    Args:
+        content: Full agent definition file content
+
+    Returns:
+        ContextBudgetResult with token estimate, status, and suggestions.
+    """
+    char_count = len(content)
+    estimated_tokens = char_count // CHARS_PER_TOKEN
+
+    suggestions: list[str] = []
+
+    if estimated_tokens > CONTEXT_BUDGET_ERROR_TOKENS:
+        status = "error"
+        message = (
+            f"Agent definition is ~{estimated_tokens} tokens ({char_count} chars) "
+            f"— exceeds {CONTEXT_BUDGET_ERROR_TOKENS} token limit. "
+            "This will significantly reduce available context for conversation."
+        )
+        suggestions.extend(
+            [
+                "Remove verbose examples — keep 2-3 concise ones",
+                "Shorten workflow descriptions — use bullet points not paragraphs",
+                "Move detailed documentation to a companion file",
+                "Remove redundant sections (e.g. Notes if covered in Workflow)",
+                "Reduce tool reference section — only document non-obvious usage",
+            ]
+        )
+    elif estimated_tokens > CONTEXT_BUDGET_WARN_TOKENS:
+        status = "warning"
+        message = (
+            f"Agent definition is ~{estimated_tokens} tokens ({char_count} chars) "
+            f"— approaching {CONTEXT_BUDGET_ERROR_TOKENS} token limit. "
+            "Consider pruning to leave more context for conversation."
+        )
+        suggestions.extend(
+            [
+                "Trim examples to essential patterns only",
+                "Condense workflow steps — remove obvious substeps",
+                "Consider splitting into a main agent + helper agents",
+            ]
+        )
+    else:
+        status = "ok"
+        message = (
+            f"Agent definition is ~{estimated_tokens} tokens ({char_count} chars) — within budget."
+        )
+
+    return ContextBudgetResult(
+        char_count=char_count,
+        estimated_tokens=estimated_tokens,
+        status=status,
+        message=message,
+        suggestions=suggestions,
+    )
+
+
 def create_definition_from_dict(data: dict[str, Any]) -> AgentDefinition:
     """Create AgentDefinition from dictionary."""
     # Parse tools

@@ -1578,6 +1578,80 @@ tools: Bash, Write, WebFetch
         assert len(output.get("warnings", [])) > 0 or output["score"] < 10.0
 
 
+class TestContextBudgetEstimation:
+    """Tests for context budget estimation (Feature #22)."""
+
+    def _estimate(self, content: str) -> dict:
+        """Run estimate_context_budget via subprocess."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys, json; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+                    "from agent_generator import estimate_context_budget; "
+                    "import dataclasses; "
+                    "r = estimate_context_budget(sys.stdin.read()); "
+                    "print(json.dumps(dataclasses.asdict(r)))"
+                ),
+            ],
+            input=content,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Failed: {result.stderr}"
+        return json.loads(result.stdout)
+
+    def test_small_agent_ok(self) -> None:
+        """Agent under 2000 tokens should have status 'ok'."""
+        small = "---\nname: small\ntools: Read\n---\n\n# Small\n\nDoes little.\n"
+        result = self._estimate(small)
+        assert result["status"] == "ok"
+        assert result["estimated_tokens"] < 2000
+        assert len(result["suggestions"]) == 0
+
+    def test_medium_agent_warning(self) -> None:
+        """Agent between 2000-5000 tokens should have status 'warning'."""
+        # 2000 tokens * 4 chars = 8000 chars needed
+        medium = "---\nname: medium\ntools: Read\n---\n\n# Medium\n\n" + ("x" * 8500) + "\n"
+        result = self._estimate(medium)
+        assert result["status"] == "warning"
+        assert result["estimated_tokens"] >= 2000
+        assert result["estimated_tokens"] < 5000
+        assert len(result["suggestions"]) > 0
+
+    def test_large_agent_error(self) -> None:
+        """Agent over 5000 tokens should have status 'error'."""
+        # 5000 tokens * 4 chars = 20000 chars needed
+        large = "---\nname: large\ntools: Read\n---\n\n# Large\n\n" + ("x" * 21000) + "\n"
+        result = self._estimate(large)
+        assert result["status"] == "error"
+        assert result["estimated_tokens"] > 5000
+        assert len(result["suggestions"]) >= 3
+
+    def test_token_estimation_uses_4_chars_heuristic(self) -> None:
+        """Token count should be char_count // 4."""
+        content = "a" * 400  # 400 chars = 100 tokens
+        result = self._estimate(content)
+        assert result["char_count"] == 400
+        assert result["estimated_tokens"] == 100
+
+    def test_error_status_includes_pruning_suggestions(self) -> None:
+        """Error status must include actionable pruning suggestions."""
+        large = "x" * 25000
+        result = self._estimate(large)
+        assert result["status"] == "error"
+        suggestions_text = " ".join(result["suggestions"]).lower()
+        assert "example" in suggestions_text or "remove" in suggestions_text
+        assert "documentation" in suggestions_text or "companion" in suggestions_text
+
+    def test_message_includes_token_count(self) -> None:
+        """Message must include the estimated token count."""
+        content = "a" * 800  # 200 tokens
+        result = self._estimate(content)
+        assert "200" in result["message"]
+
+
 class TestCredentialLeakDetection:
     """Tests for credential leak detection (Feature #21).
 
