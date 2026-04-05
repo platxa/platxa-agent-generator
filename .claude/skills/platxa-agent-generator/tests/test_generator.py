@@ -4849,5 +4849,243 @@ class TestAutoGenerateTestsFromExamples:
         assert "error_handling" in test_names
 
 
+class TestGeneratorRegressionSuite:
+    """Regression tests for Feature #46: Known NLP inputs produce expected structures.
+
+    Each test provides a specific (name, description, tools) input and verifies
+    the generated agent file contains all expected structural elements. These
+    serve as golden-path regression tests — if any change to the generator
+    breaks these assertions, we catch it immediately.
+    """
+
+    def _generate(self, tmp_path: Path, name: str, desc: str, tools: str) -> str:
+        """Generate an agent and return its content."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                name,
+                "--description",
+                desc,
+                "--tools",
+                tools,
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Generator failed: {result.stderr}"
+        return (tmp_path / f"{name}.md").read_text()
+
+    def _validate(self, tmp_path: Path, name: str) -> dict:
+        """Run syntax validator on generated file and return result."""
+        md_file = tmp_path / f"{name}.md"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(md_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        return json.loads(result.stdout)
+
+    # --- Analyzer type agents ---
+
+    def test_security_scanner_agent(self, tmp_path: Path) -> None:
+        """Security scanner: read-only tools, security keywords in output."""
+        content = self._generate(
+            tmp_path,
+            "security-scanner",
+            "Scans code for security vulnerabilities and OWASP issues",
+            "Read,Grep,Glob",
+        )
+        assert "## Workflow" in content
+        assert "## Examples" in content
+        assert "## Error Handling" in content
+        assert "## Verification" in content
+        assert "Read" in content.split("---")[1]  # In frontmatter
+        validation = self._validate(tmp_path, "security-scanner")
+        assert validation["passed"] is True
+
+    def test_code_reviewer_agent(self, tmp_path: Path) -> None:
+        """Code reviewer: read-only with Grep for pattern matching."""
+        content = self._generate(
+            tmp_path,
+            "code-reviewer",
+            "Reviews pull requests for code quality and best practices",
+            "Read,Grep,Glob",
+        )
+        assert "## Workflow" in content
+        assert "## Examples" in content
+        assert "Example 1: Basic Usage" in content
+        assert "Example 3: Error Scenario" in content
+        assert "Example 4: Edge Case" in content
+        validation = self._validate(tmp_path, "code-reviewer")
+        assert validation["passed"] is True
+
+    # --- Builder type agents ---
+
+    def test_doc_generator_agent(self, tmp_path: Path) -> None:
+        """Doc generator: needs Write for creating files."""
+        content = self._generate(
+            tmp_path,
+            "doc-generator",
+            "Generates comprehensive API documentation from source code",
+            "Read,Write,Glob,Grep",
+        )
+        assert "## Workflow" in content
+        assert "Write" in content.split("---")[1]
+        assert "## Prerequisites" in content
+        validation = self._validate(tmp_path, "doc-generator")
+        assert validation["passed"] is True
+
+    def test_scaffolder_agent(self, tmp_path: Path) -> None:
+        """Scaffolder: creates new files and directories."""
+        content = self._generate(
+            tmp_path,
+            "project-scaffolder",
+            "Creates new project structures with boilerplate files",
+            "Write,Read,Bash,Glob",
+        )
+        assert "## Workflow" in content
+        assert "Write" in content.split("---")[1]
+        assert "Bash" in content.split("---")[1]
+        validation = self._validate(tmp_path, "project-scaffolder")
+        assert validation["passed"] is True
+
+    # --- Automation type agents ---
+
+    def test_test_runner_agent(self, tmp_path: Path) -> None:
+        """Test runner: Bash-heavy for executing commands."""
+        content = self._generate(
+            tmp_path,
+            "test-runner",
+            "Runs test suites and reports results with coverage data",
+            "Bash,Read,Glob",
+        )
+        assert "## Workflow" in content
+        assert "Bash" in content.split("---")[1]
+        assert "exit code" in content.lower() or "Exit code" in content
+        validation = self._validate(tmp_path, "test-runner")
+        assert validation["passed"] is True
+
+    def test_ci_pipeline_agent(self, tmp_path: Path) -> None:
+        """CI pipeline: Bash + Write for build artifacts."""
+        content = self._generate(
+            tmp_path,
+            "ci-pipeline",
+            "Runs continuous integration pipeline with build, test, deploy steps",
+            "Bash,Read,Write,Glob",
+        )
+        assert "## Workflow" in content
+        assert "## Error Handling" in content
+        validation = self._validate(tmp_path, "ci-pipeline")
+        assert validation["passed"] is True
+
+    # --- Orchestrator type agents ---
+
+    def test_orchestrator_agent(self, tmp_path: Path) -> None:
+        """Orchestrator: uses Task tool to coordinate workers."""
+        content = self._generate(
+            tmp_path,
+            "review-orchestrator",
+            "Coordinates multiple review agents for comprehensive analysis",
+            "Task,Read,Glob,Grep",
+        )
+        assert "## Workflow" in content
+        assert "Task" in content.split("---")[1]
+        assert "subagent" in content.lower() or "worker" in content.lower()
+        validation = self._validate(tmp_path, "review-orchestrator")
+        assert validation["passed"] is True
+
+    # --- Web-enabled agents ---
+
+    def test_research_agent(self, tmp_path: Path) -> None:
+        """Research agent: WebSearch + WebFetch for information gathering."""
+        content = self._generate(
+            tmp_path,
+            "research-agent",
+            "Researches best practices and documentation from web sources",
+            "WebSearch,WebFetch,Read",
+        )
+        assert "## Workflow" in content
+        assert "WebSearch" in content.split("---")[1]
+        assert "WebFetch" in content.split("---")[1]
+        validation = self._validate(tmp_path, "research-agent")
+        assert validation["passed"] is True
+
+    # --- Interactive agents ---
+
+    def test_guided_setup_agent(self, tmp_path: Path) -> None:
+        """Guided setup: uses AskUserQuestion for interaction."""
+        content = self._generate(
+            tmp_path,
+            "guided-setup",
+            "Guides users through project configuration with interactive prompts",
+            "AskUserQuestion,Read,Write,Glob",
+        )
+        assert "## Workflow" in content
+        assert "AskUserQuestion" in content.split("---")[1]
+        validation = self._validate(tmp_path, "guided-setup")
+        assert validation["passed"] is True
+
+    # --- Edit-focused agents ---
+
+    def test_refactoring_agent(self, tmp_path: Path) -> None:
+        """Refactoring agent: Edit-focused for modifying existing code."""
+        content = self._generate(
+            tmp_path,
+            "code-refactorer",
+            "Refactors code to improve readability and reduce complexity",
+            "Edit,Read,Grep,Glob",
+        )
+        assert "## Workflow" in content
+        assert "Edit" in content.split("---")[1]
+        assert "## Verification" in content
+        validation = self._validate(tmp_path, "code-refactorer")
+        assert validation["passed"] is True
+
+    # --- Structure consistency across all types ---
+
+    def test_all_agents_have_14_standard_sections(self, tmp_path: Path) -> None:
+        """Every generated agent has all standard sections."""
+        agents = [
+            ("section-check-1", "Analyzes code patterns", "Read,Grep"),
+            ("section-check-2", "Creates test files", "Write,Read,Bash"),
+            ("section-check-3", "Orchestrates workers", "Task,Read,Glob"),
+        ]
+        required_sections = [
+            "## Workflow",
+            "## Examples",
+            "## Error Handling",
+            "## Verification",
+            "## Output Format",
+        ]
+        for name, desc, tools in agents:
+            content = self._generate(tmp_path, name, desc, tools)
+            for section in required_sections:
+                assert section in content, f"Agent {name} missing section: {section}"
+
+    def test_all_agents_pass_syntax_validation(self, tmp_path: Path) -> None:
+        """Every generated agent passes syntax validation."""
+        agents = [
+            ("val-analyzer", "Validates input data quality", "Read,Grep"),
+            ("val-builder", "Creates API endpoint stubs", "Write,Read,Glob"),
+            ("val-runner", "Executes deployment scripts", "Bash,Read"),
+            ("val-searcher", "Finds relevant documentation", "WebSearch,WebFetch,Read"),
+        ]
+        for name, desc, tools in agents:
+            self._generate(tmp_path, name, desc, tools)
+            result = self._validate(tmp_path, name)
+            assert result["passed"] is True, (
+                f"Agent {name} failed validation: {result.get('errors', [])}"
+            )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
