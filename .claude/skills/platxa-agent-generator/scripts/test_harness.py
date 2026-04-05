@@ -12,6 +12,7 @@ Usage:
     python test_harness.py agent.md                    # Run all tests
     python test_harness.py agent.md --test-file tests.json
     python test_harness.py agent.md --quick            # Structure tests only
+    python test_harness.py agent.md --live             # Include live 'claude -p' tests
     python test_harness.py --create-tests agent.md    # Generate test template
 """
 
@@ -112,7 +113,7 @@ def parse_agent_file(file_path: Path) -> AgentInfo | None:
     current_section = ""
     current_content: list[str] = []
 
-    for line in lines[fm_end + 1:]:
+    for line in lines[fm_end + 1 :]:
         if line.startswith("# "):
             if current_section:
                 sections[current_section] = "\n".join(current_content).strip()
@@ -183,44 +184,54 @@ def create_structure_tests(agent: AgentInfo) -> list[TestCase]:
     tests: list[TestCase] = []
 
     # Test: Agent has name
-    tests.append(TestCase(
-        name="structure_has_name",
-        description="Agent has a valid name",
-        input_prompt="",
-        expected_patterns=[r"^[a-z][a-z0-9-]*$"] if agent.name else [],
-    ))
+    tests.append(
+        TestCase(
+            name="structure_has_name",
+            description="Agent has a valid name",
+            input_prompt="",
+            expected_patterns=[r"^[a-z][a-z0-9-]*$"] if agent.name else [],
+        )
+    )
 
     # Test: Agent has description
-    tests.append(TestCase(
-        name="structure_has_description",
-        description="Agent has a description",
-        input_prompt="",
-        expected_patterns=[r".{20,}"] if agent.description else [],
-    ))
+    tests.append(
+        TestCase(
+            name="structure_has_description",
+            description="Agent has a description",
+            input_prompt="",
+            expected_patterns=[r".{20,}"] if agent.description else [],
+        )
+    )
 
     # Test: Agent has tools
-    tests.append(TestCase(
-        name="structure_has_tools",
-        description="Agent specifies at least one tool",
-        input_prompt="",
-        expected_patterns=["tool"] if agent.tools else [],
-    ))
+    tests.append(
+        TestCase(
+            name="structure_has_tools",
+            description="Agent specifies at least one tool",
+            input_prompt="",
+            expected_patterns=["tool"] if agent.tools else [],
+        )
+    )
 
     # Test: Agent has workflow
-    tests.append(TestCase(
-        name="structure_has_workflow",
-        description="Agent has workflow steps defined",
-        input_prompt="",
-        expected_patterns=["step"] if agent.workflow_steps else [],
-    ))
+    tests.append(
+        TestCase(
+            name="structure_has_workflow",
+            description="Agent has workflow steps defined",
+            input_prompt="",
+            expected_patterns=["step"] if agent.workflow_steps else [],
+        )
+    )
 
     # Test: Agent has examples
-    tests.append(TestCase(
-        name="structure_has_examples",
-        description="Agent has usage examples",
-        input_prompt="",
-        expected_patterns=["example"] if agent.examples else [],
-    ))
+    tests.append(
+        TestCase(
+            name="structure_has_examples",
+            description="Agent has usage examples",
+            input_prompt="",
+            expected_patterns=["example"] if agent.examples else [],
+        )
+    )
 
     return tests
 
@@ -231,25 +242,29 @@ def create_invocation_tests(agent: AgentInfo) -> list[TestCase]:
 
     # Test: Task tool invocation format
     if "Task" in agent.tools:
-        tests.append(TestCase(
-            name="invocation_task_format",
-            description="Agent can be invoked via Task tool",
-            input_prompt=f"Invoke {agent.name} agent",
-            expected_patterns=[
-                r"subagent_type",
-                r"prompt",
-            ],
-            expected_tools=["Task"],
-        ))
+        tests.append(
+            TestCase(
+                name="invocation_task_format",
+                description="Agent can be invoked via Task tool",
+                input_prompt=f"Invoke {agent.name} agent",
+                expected_patterns=[
+                    r"subagent_type",
+                    r"prompt",
+                ],
+                expected_tools=["Task"],
+            )
+        )
 
     # Test: Tool usage in workflow
     for tool in agent.tools[:3]:  # Test first 3 tools
-        tests.append(TestCase(
-            name=f"invocation_uses_{tool.lower()}",
-            description=f"Workflow references {tool} tool",
-            input_prompt="",
-            expected_patterns=[tool],
-        ))
+        tests.append(
+            TestCase(
+                name=f"invocation_uses_{tool.lower()}",
+                description=f"Workflow references {tool} tool",
+                input_prompt="",
+                expected_patterns=[tool],
+            )
+        )
 
     return tests
 
@@ -259,28 +274,32 @@ def create_response_tests(agent: AgentInfo) -> list[TestCase]:
     tests: list[TestCase] = []
 
     # Test: Response mentions agent name or purpose
-    tests.append(TestCase(
-        name="response_identifies_agent",
-        description="Response identifies the agent or its purpose",
-        input_prompt=f"What does the {agent.name} agent do?",
-        expected_patterns=[
-            agent.name,
-            *agent.description.split()[:3],  # First few words of description
-        ],
-    ))
+    tests.append(
+        TestCase(
+            name="response_identifies_agent",
+            description="Response identifies the agent or its purpose",
+            input_prompt=f"What does the {agent.name} agent do?",
+            expected_patterns=[
+                agent.name,
+                *agent.description.split()[:3],  # First few words of description
+            ],
+        )
+    )
 
     # Test: Response avoids dangerous patterns
-    tests.append(TestCase(
-        name="response_no_dangerous_patterns",
-        description="Response avoids dangerous command patterns",
-        input_prompt="Execute the agent workflow",
-        forbidden_patterns=[
-            r"rm\s+-rf\s+/",
-            r"chmod\s+777",
-            r">\s*/dev/sd",
-            r"mkfs\.",
-        ],
-    ))
+    tests.append(
+        TestCase(
+            name="response_no_dangerous_patterns",
+            description="Response avoids dangerous command patterns",
+            input_prompt="Execute the agent workflow",
+            forbidden_patterns=[
+                r"rm\s+-rf\s+/",
+                r"chmod\s+777",
+                r">\s*/dev/sd",
+                r"mkfs\.",
+            ],
+        )
+    )
 
     return tests
 
@@ -288,6 +307,7 @@ def create_response_tests(agent: AgentInfo) -> list[TestCase]:
 def run_structure_test(test: TestCase, agent: AgentInfo) -> TestResult:
     """Run a structure validation test."""
     import time
+
     start = time.time()
 
     passed = True
@@ -345,9 +365,137 @@ def run_structure_test(test: TestCase, agent: AgentInfo) -> TestResult:
     )
 
 
+def find_claude_binary() -> str | None:
+    """Find the claude CLI binary in PATH.
+
+    Returns the path to the claude binary, or None if not found.
+    """
+    import shutil
+
+    return shutil.which("claude")
+
+
+def run_live_test(
+    test: TestCase,
+    agent_path: Path,
+    claude_binary: str | None = None,
+) -> TestResult:
+    """Run a live agent invocation test using 'claude -p'.
+
+    Invokes the claude CLI in non-interactive print mode with the agent's
+    prompt, captures output, and matches against expected/forbidden patterns.
+
+    Args:
+        test: Test case with input_prompt, expected_patterns, timeout
+        agent_path: Path to the agent .md file
+        claude_binary: Path to claude binary (auto-detected if None)
+
+    Returns:
+        TestResult with pass/fail and matched pattern details
+    """
+    import subprocess
+    import time
+
+    start = time.time()
+    details: list[str] = []
+
+    # Find claude binary
+    binary = claude_binary or find_claude_binary()
+    if not binary:
+        return TestResult(
+            test_name=test.name,
+            passed=False,
+            duration_ms=0,
+            message="SKIP: claude CLI not found in PATH",
+            details=["Install Claude Code CLI to run live tests"],
+        )
+
+    # Build command: claude -p --agent <agent-file> "<prompt>"
+    cmd = [
+        binary,
+        "-p",
+        "--agent",
+        str(agent_path),
+        test.input_prompt,
+    ]
+
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=test.timeout_seconds,
+        )
+        output = result.stdout + result.stderr
+        duration = int((time.time() - start) * 1000)
+
+        # Check expected patterns
+        passed = True
+        matched_patterns: list[str] = []
+        missing_patterns: list[str] = []
+
+        for pattern in test.expected_patterns:
+            if re.search(pattern, output, re.IGNORECASE):
+                matched_patterns.append(pattern)
+            else:
+                missing_patterns.append(pattern)
+                passed = False
+
+        # Check forbidden patterns
+        found_forbidden: list[str] = []
+        for pattern in test.forbidden_patterns:
+            if re.search(pattern, output, re.IGNORECASE):
+                found_forbidden.append(pattern)
+                passed = False
+
+        if matched_patterns:
+            details.append(f"Matched patterns: {', '.join(matched_patterns)}")
+        if missing_patterns:
+            details.append(f"Missing patterns: {', '.join(missing_patterns)}")
+        if found_forbidden:
+            details.append(f"Found forbidden: {', '.join(found_forbidden)}")
+        if result.returncode != 0:
+            details.append(f"Exit code: {result.returncode}")
+
+        return TestResult(
+            test_name=test.name,
+            passed=passed,
+            duration_ms=duration,
+            message="PASS" if passed else "FAIL",
+            details=details,
+        )
+
+    except subprocess.TimeoutExpired:
+        duration = int((time.time() - start) * 1000)
+        return TestResult(
+            test_name=test.name,
+            passed=False,
+            duration_ms=duration,
+            message=f"TIMEOUT after {test.timeout_seconds}s",
+            details=[f"Agent did not respond within {test.timeout_seconds} seconds"],
+        )
+    except FileNotFoundError:
+        return TestResult(
+            test_name=test.name,
+            passed=False,
+            duration_ms=0,
+            message="SKIP: claude binary not executable",
+            details=[f"Binary path: {binary}"],
+        )
+    except OSError as e:
+        return TestResult(
+            test_name=test.name,
+            passed=False,
+            duration_ms=0,
+            message=f"ERROR: {e}",
+            details=[str(e)],
+        )
+
+
 def run_pattern_test(test: TestCase, content: str) -> TestResult:
     """Run a pattern matching test against content."""
     import time
+
     start = time.time()
 
     passed = True
@@ -379,12 +527,72 @@ def run_pattern_test(test: TestCase, content: str) -> TestResult:
     )
 
 
+def create_live_tests(agent: AgentInfo) -> list[TestCase]:
+    """Create test cases for live agent invocation via 'claude -p'.
+
+    These tests are only run when --live flag is passed. Each test
+    invokes the agent through the claude CLI and validates output.
+    """
+    tests: list[TestCase] = []
+
+    # Test: Basic live invocation
+    tests.append(
+        TestCase(
+            name="live_basic_invocation",
+            description="Agent responds to a basic prompt via claude -p",
+            input_prompt=f"Use the {agent.name} agent: {agent.description}",
+            expected_patterns=[],  # Just verify it runs without error
+            timeout_seconds=60,
+        )
+    )
+
+    # Test: Agent identifies itself in output
+    if agent.description:
+        # Use first significant word from description as pattern
+        desc_words = [w for w in agent.description.split() if len(w) > 4]
+        if desc_words:
+            tests.append(
+                TestCase(
+                    name="live_output_relevant",
+                    description="Agent output relates to its described purpose",
+                    input_prompt=f"Briefly describe what you do as {agent.name}",
+                    expected_patterns=[desc_words[0]],
+                    timeout_seconds=60,
+                )
+            )
+
+    # Test: Agent does not produce dangerous output
+    tests.append(
+        TestCase(
+            name="live_no_dangerous_output",
+            description="Live output contains no dangerous commands",
+            input_prompt=f"Show me how {agent.name} handles a simple task",
+            forbidden_patterns=[
+                r"rm\s+-rf\s+/",
+                r"chmod\s+777",
+                r">\s*/dev/sd",
+            ],
+            timeout_seconds=60,
+        )
+    )
+
+    return tests
+
+
 def run_test_suite(
     agent_path: Path,
     test_cases: list[TestCase] | None = None,
     quick: bool = False,
+    live: bool = False,
 ) -> TestSuiteResult:
-    """Run a complete test suite for an agent."""
+    """Run a complete test suite for an agent.
+
+    Args:
+        agent_path: Path to agent .md file
+        test_cases: Custom test cases (overrides auto-generation)
+        quick: Only run structure tests
+        live: Run live invocation tests via 'claude -p'
+    """
     agent = parse_agent_file(agent_path)
 
     if agent is None:
@@ -395,11 +603,13 @@ def run_test_suite(
             passed_tests=0,
             failed_tests=1,
             skipped_tests=0,
-            results=[TestResult(
-                test_name="parse_agent",
-                passed=False,
-                message="Failed to parse agent file",
-            )],
+            results=[
+                TestResult(
+                    test_name="parse_agent",
+                    passed=False,
+                    message="Failed to parse agent file",
+                )
+            ],
             summary="Failed to parse agent file",
         )
 
@@ -410,6 +620,8 @@ def run_test_suite(
         if not quick:
             test_cases.extend(create_invocation_tests(agent))
             test_cases.extend(create_response_tests(agent))
+        if live:
+            test_cases.extend(create_live_tests(agent))
 
     # Read full content for pattern tests
     content = agent_path.read_text(encoding="utf-8")
@@ -423,16 +635,20 @@ def run_test_suite(
     for test in test_cases:
         if test.skip:
             skipped += 1
-            results.append(TestResult(
-                test_name=test.name,
-                passed=True,
-                message=f"SKIP: {test.skip_reason}",
-            ))
+            results.append(
+                TestResult(
+                    test_name=test.name,
+                    passed=True,
+                    message=f"SKIP: {test.skip_reason}",
+                )
+            )
             continue
 
         # Determine test type and run
         if test.name.startswith("structure_"):
             result = run_structure_test(test, agent)
+        elif test.name.startswith("live_"):
+            result = run_live_test(test, agent_path)
         else:
             result = run_pattern_test(test, content)
 
@@ -471,17 +687,19 @@ def load_test_file(test_file: Path) -> list[TestCase]:
     tests: list[TestCase] = []
 
     for test_data in data.get("tests", []):
-        tests.append(TestCase(
-            name=test_data.get("name", "unnamed"),
-            description=test_data.get("description", ""),
-            input_prompt=test_data.get("input_prompt", ""),
-            expected_patterns=test_data.get("expected_patterns", []),
-            forbidden_patterns=test_data.get("forbidden_patterns", []),
-            expected_tools=test_data.get("expected_tools", []),
-            timeout_seconds=test_data.get("timeout_seconds", 30),
-            skip=test_data.get("skip", False),
-            skip_reason=test_data.get("skip_reason", ""),
-        ))
+        tests.append(
+            TestCase(
+                name=test_data.get("name", "unnamed"),
+                description=test_data.get("description", ""),
+                input_prompt=test_data.get("input_prompt", ""),
+                expected_patterns=test_data.get("expected_patterns", []),
+                forbidden_patterns=test_data.get("forbidden_patterns", []),
+                expected_tools=test_data.get("expected_tools", []),
+                timeout_seconds=test_data.get("timeout_seconds", 30),
+                skip=test_data.get("skip", False),
+                skip_reason=test_data.get("skip_reason", ""),
+            )
+        )
 
     return tests
 
@@ -547,21 +765,22 @@ def main() -> None:
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Test harness for agent invocation testing"
-    )
+    parser = argparse.ArgumentParser(description="Test harness for agent invocation testing")
     parser.add_argument("agent_file", help="Agent definition file to test")
     parser.add_argument("--test-file", help="JSON file with test cases")
     parser.add_argument("--quick", action="store_true", help="Run structure tests only")
+    parser.add_argument(
+        "--live",
+        action="store_true",
+        help="Run live agent invocation tests via 'claude -p'",
+    )
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument(
         "--create-tests",
         action="store_true",
         help="Generate test template for agent",
     )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Show detailed output"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show detailed output")
 
     args = parser.parse_args()
 
@@ -588,7 +807,7 @@ def main() -> None:
         test_cases = load_test_file(Path(args.test_file))
 
     # Run test suite
-    result = run_test_suite(agent_path, test_cases, quick=args.quick)
+    result = run_test_suite(agent_path, test_cases, quick=args.quick, live=args.live)
 
     if args.json:
         print(json.dumps(result_to_dict(result), indent=2))

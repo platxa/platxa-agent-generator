@@ -4377,5 +4377,276 @@ class TestSharedTaskListTemplate:
             assert "Claim task" in content, f"Worker {wf.name} missing task claiming pattern"
 
 
+class TestLiveAgentInvocation:
+    """Tests for Feature #43: Live agent invocation via 'claude -p'."""
+
+    def _create_agent_file(self, tmp_path: Path) -> Path:
+        """Create a minimal valid agent file for testing."""
+        agent_md = tmp_path / "test-agent.md"
+        agent_md.write_text(
+            "---\n"
+            "name: test-agent\n"
+            "description: A test agent that analyzes code quality metrics\n"
+            "tools: Read, Grep, Glob\n"
+            "---\n\n"
+            "# Test Agent\n\n"
+            "## Workflow\n"
+            "1. Read target files\n"
+            "2. Analyze quality\n"
+            "3. Report findings\n\n"
+            "## Examples\n"
+            "### Example 1: Basic Usage\n"
+            "```\nUse test-agent to review code\n```\n"
+        )
+        return agent_md
+
+    def test_live_flag_in_help_output(self) -> None:
+        """CLI --live flag is available in help output."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "test_harness.py"),
+                "--help",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert "--live" in result.stdout
+
+    def test_live_tests_not_included_by_default(self, tmp_path: Path) -> None:
+        """Without --live flag, no live_ tests are created."""
+        agent_md = self._create_agent_file(tmp_path)
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "test_harness.py"),
+                str(agent_md),
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        live_tests = [r for r in data["results"] if r["test_name"].startswith("live_")]
+        assert len(live_tests) == 0
+
+    def test_live_flag_adds_live_tests(self, tmp_path: Path) -> None:
+        """With --live flag, live_ test cases are added to the suite.
+
+        Tests this by calling create_live_tests() directly to avoid
+        triggering actual claude -p invocations which would time out.
+        """
+        agent_md = self._create_agent_file(tmp_path)
+        test_script = tmp_path / "test_live_flag.py"
+        test_script.write_text(
+            "import json, sys\n"
+            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
+            "from test_harness import parse_agent_file, create_live_tests\n"
+            "from pathlib import Path\n"
+            "agent = parse_agent_file(Path('" + str(agent_md) + "'))\n"
+            "tests = create_live_tests(agent)\n"
+            "names = [t.name for t in tests]\n"
+            "print(json.dumps({'count': len(tests), 'names': names}))\n"
+        )
+        result = subprocess.run(
+            [sys.executable, str(test_script)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        data = json.loads(result.stdout)
+        assert data["count"] >= 2, f"Expected ≥2 live tests, got {data['count']}"
+        assert all(n.startswith("live_") for n in data["names"]), (
+            f"Non-live test names: {data['names']}"
+        )
+
+    def test_live_test_graceful_when_claude_missing(self, tmp_path: Path) -> None:
+        """Live tests report SKIP when claude binary is not found."""
+        agent_md = self._create_agent_file(tmp_path)
+        # Use a subprocess that tests run_live_test with a non-existent binary
+        test_script = tmp_path / "test_live.py"
+        test_script.write_text(
+            "import json, sys\n"
+            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
+            "from test_harness import run_live_test, TestCase\n"
+            "from pathlib import Path\n"
+            "tc = TestCase(\n"
+            "    name='live_test',\n"
+            "    description='test',\n"
+            "    input_prompt='hello',\n"
+            "    expected_patterns=[],\n"
+            "    timeout_seconds=5,\n"
+            ")\n"
+            "result = run_live_test(tc, Path('" + str(agent_md) + "'), "
+            "claude_binary='/nonexistent/claude')\n"
+            "print(json.dumps({'passed': result.passed, 'message': result.message}))\n"
+        )
+        result = subprocess.run(
+            [sys.executable, str(test_script)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        data = json.loads(result.stdout)
+        assert data["passed"] is False
+        assert "not executable" in data["message"] or "SKIP" in data["message"]
+
+    def test_live_test_timeout_handling(self, tmp_path: Path) -> None:
+        """Live tests handle timeout correctly."""
+        agent_md = self._create_agent_file(tmp_path)
+        # Create a fake "claude" script that sleeps forever
+        fake_claude = tmp_path / "fake_claude.sh"
+        fake_claude.write_text("#!/bin/bash\nsleep 30\n")
+        fake_claude.chmod(0o755)
+
+        test_script = tmp_path / "test_timeout.py"
+        test_script.write_text(
+            "import json, sys\n"
+            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
+            "from test_harness import run_live_test, TestCase\n"
+            "from pathlib import Path\n"
+            "tc = TestCase(\n"
+            "    name='live_timeout_test',\n"
+            "    description='test timeout',\n"
+            "    input_prompt='hello',\n"
+            "    expected_patterns=[],\n"
+            "    timeout_seconds=1,\n"
+            ")\n"
+            "result = run_live_test(tc, Path('" + str(agent_md) + "'), "
+            "claude_binary='" + str(fake_claude) + "')\n"
+            "print(json.dumps({'passed': result.passed, 'message': result.message}))\n"
+        )
+        result = subprocess.run(
+            [sys.executable, str(test_script)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        data = json.loads(result.stdout)
+        assert data["passed"] is False
+        assert "TIMEOUT" in data["message"]
+
+    def test_live_test_pattern_matching(self, tmp_path: Path) -> None:
+        """Live tests match expected patterns in output."""
+        agent_md = self._create_agent_file(tmp_path)
+        # Create a fake "claude" script that echoes known output
+        fake_claude = tmp_path / "fake_claude.sh"
+        fake_claude.write_text('#!/bin/bash\necho "Agent test-agent analyzing code quality"\n')
+        fake_claude.chmod(0o755)
+
+        test_script = tmp_path / "test_pattern.py"
+        test_script.write_text(
+            "import json, sys\n"
+            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
+            "from test_harness import run_live_test, TestCase\n"
+            "from pathlib import Path\n"
+            "tc = TestCase(\n"
+            "    name='live_pattern_test',\n"
+            "    description='test patterns',\n"
+            "    input_prompt='hello',\n"
+            "    expected_patterns=['test-agent', 'quality'],\n"
+            "    timeout_seconds=5,\n"
+            ")\n"
+            "result = run_live_test(tc, Path('" + str(agent_md) + "'), "
+            "claude_binary='" + str(fake_claude) + "')\n"
+            "print(json.dumps({'passed': result.passed, 'message': result.message, "
+            "'details': result.details}))\n"
+        )
+        result = subprocess.run(
+            [sys.executable, str(test_script)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        data = json.loads(result.stdout)
+        assert data["passed"] is True
+        assert any("Matched" in d for d in data["details"])
+
+    def test_live_test_forbidden_pattern_detection(self, tmp_path: Path) -> None:
+        """Live tests detect forbidden patterns in output."""
+        agent_md = self._create_agent_file(tmp_path)
+        fake_claude = tmp_path / "fake_claude.sh"
+        fake_claude.write_text('#!/bin/bash\necho "rm -rf / is dangerous"\n')
+        fake_claude.chmod(0o755)
+
+        test_script = tmp_path / "test_forbidden.py"
+        test_script.write_text(
+            "import json, sys\n"
+            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
+            "from test_harness import run_live_test, TestCase\n"
+            "from pathlib import Path\n"
+            "tc = TestCase(\n"
+            "    name='live_forbidden_test',\n"
+            "    description='test forbidden',\n"
+            "    input_prompt='hello',\n"
+            r"    forbidden_patterns=[r'rm\s+-rf\s+/']," + "\n"
+            "    timeout_seconds=5,\n"
+            ")\n"
+            "result = run_live_test(tc, Path('" + str(agent_md) + "'), "
+            "claude_binary='" + str(fake_claude) + "')\n"
+            "print(json.dumps({'passed': result.passed, 'details': result.details}))\n"
+        )
+        result = subprocess.run(
+            [sys.executable, str(test_script)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        data = json.loads(result.stdout)
+        assert data["passed"] is False
+        assert any("forbidden" in d.lower() for d in data["details"])
+
+    def test_create_live_tests_generates_test_cases(self, tmp_path: Path) -> None:
+        """create_live_tests() produces test cases with live_ prefix."""
+        test_script = tmp_path / "test_create.py"
+        test_script.write_text(
+            "import json, sys\n"
+            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
+            "from test_harness import create_live_tests, AgentInfo\n"
+            "agent = AgentInfo(\n"
+            "    name='scanner',\n"
+            "    description='Scans code for security vulnerabilities and issues',\n"
+            "    tools=['Read', 'Grep', 'Glob'],\n"
+            "    sections={},\n"
+            "    workflow_steps=['scan', 'report'],\n"
+            "    examples=[],\n"
+            ")\n"
+            "tests = create_live_tests(agent)\n"
+            "names = [t.name for t in tests]\n"
+            "print(json.dumps({'count': len(tests), 'names': names, "
+            "'all_live': all(n.startswith('live_') for n in names)}))\n"
+        )
+        result = subprocess.run(
+            [sys.executable, str(test_script)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        data = json.loads(result.stdout)
+        assert data["count"] >= 2
+        assert data["all_live"] is True
+
+    def test_find_claude_binary_returns_path_or_none(self, tmp_path: Path) -> None:
+        """find_claude_binary() returns a string path or None."""
+        test_script = tmp_path / "test_find.py"
+        test_script.write_text(
+            "import json, sys\n"
+            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
+            "from test_harness import find_claude_binary\n"
+            "result = find_claude_binary()\n"
+            "print(json.dumps({'result': result, 'type': type(result).__name__}))\n"
+        )
+        result = subprocess.run(
+            [sys.executable, str(test_script)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        data = json.loads(result.stdout)
+        assert data["type"] in ("str", "NoneType")
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
