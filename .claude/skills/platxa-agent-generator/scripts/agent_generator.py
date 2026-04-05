@@ -1912,6 +1912,88 @@ def generate_notes_section(
     return "\n".join(lines)
 
 
+def generate_verification_section(definition: AgentDefinition) -> str:
+    """Generate Verification section with concrete checks for agent output quality.
+
+    Produces tool-specific verification criteria based on the agent's tools,
+    including tests to run, expected outputs, and success criteria.
+    """
+    tool_set = set(definition.tools)
+    lines = ["## Verification", ""]
+
+    lines.append("### Success Criteria")
+    lines.append("")
+    lines.append("The agent's work is considered successful when:")
+    lines.append("")
+
+    # Universal criteria
+    lines.append("- [ ] All requested tasks completed without unhandled errors")
+    lines.append("- [ ] Output matches the expected format (see Output Format section)")
+    lines.append("- [ ] No security violations or credential leaks in output")
+
+    # Tool-specific success criteria
+    if "Bash" in tool_set:
+        lines.append("- [ ] All Bash commands exited with code 0 (or failures handled explicitly)")
+    if tool_set & {"Write", "Edit"}:
+        lines.append("- [ ] Modified files pass syntax validation (if applicable)")
+        lines.append("- [ ] No unintended files were created or overwritten")
+    if "Task" in tool_set:
+        lines.append("- [ ] All subagent results collected and validated")
+        lines.append("- [ ] Aggregated output is coherent across worker results")
+    if tool_set & {"WebFetch", "WebSearch"}:
+        lines.append("- [ ] Fetched data is relevant and from trusted sources")
+    if tool_set & {"Read", "Grep", "Glob"}:
+        lines.append("- [ ] All target files/patterns were processed")
+
+    lines.append("")
+
+    # Verification commands
+    lines.append("### Verification Commands")
+    lines.append("")
+    lines.append("Run these checks after the agent completes:")
+    lines.append("")
+
+    if tool_set & {"Write", "Edit"}:
+        lines.append("```bash")
+        lines.append("# Check modified files exist and are non-empty")
+        lines.append("git diff --name-only  # Review changed files")
+        lines.append("git diff --stat       # Verify scope of changes")
+        lines.append("```")
+        lines.append("")
+
+    if "Bash" in tool_set:
+        lines.append("```bash")
+        lines.append("# Verify no destructive side effects")
+        lines.append("git status            # Check for unexpected changes")
+        lines.append("```")
+        lines.append("")
+
+    # Quality checks based on description
+    desc_lower = definition.description.lower()
+    if any(kw in desc_lower for kw in ["test", "lint", "format", "check", "validate"]):
+        lines.append("```bash")
+        lines.append("# Run quality gates")
+        lines.append("ruff check .          # Lint check (Python)")
+        lines.append("ruff format --check . # Format check (Python)")
+        lines.append("pytest tests/ -v      # Run test suite")
+        lines.append("```")
+        lines.append("")
+
+    # Expected output structure
+    lines.append("### Expected Output")
+    lines.append("")
+    lines.append("The agent should produce:")
+    lines.append("")
+    lines.append("1. **Status summary** — Clear indication of success/failure")
+    lines.append("2. **Action log** — What was done (files read, commands run, etc.)")
+    lines.append("3. **Results** — The actual output data or findings")
+    lines.append("4. **Issues found** — Any problems encountered (with severity)")
+    lines.append("5. **Next steps** — Recommendations for follow-up actions")
+    lines.append("")
+
+    return "\n".join(lines)
+
+
 def generate_related_agents_section(definition: AgentDefinition) -> str:
     """Generate Related Agents section for composition patterns."""
     lines = ["## Related Agents", ""]
@@ -2303,7 +2385,7 @@ def generate_workers_section(definition: AgentDefinition) -> str:
 
 
 def generate_agent_file(definition: AgentDefinition, pattern: str = "prompt-chaining") -> str:
-    """Generate complete agent file content with 13 sections.
+    """Generate complete agent file content with 14 sections.
 
     Sections (in order):
     1. Overview - Brief description and purpose
@@ -2318,7 +2400,8 @@ def generate_agent_file(definition: AgentDefinition, pattern: str = "prompt-chai
     10. Notes & Limitations - Caveats, known issues
     11. Tool Reference - When to use/not use each tool
     12. Output Format - Expected response structure
-    13. Related Agents - Composition patterns
+    13. Verification - Success criteria, verification commands, expected output
+    14. Related Agents - Composition patterns
     """
     parts = []
 
@@ -2378,7 +2461,10 @@ def generate_agent_file(definition: AgentDefinition, pattern: str = "prompt-chai
     # 12. Output Format
     parts.append(generate_output_section(definition))
 
-    # 13. Related Agents
+    # 13. Verification
+    parts.append(generate_verification_section(definition))
+
+    # 14. Related Agents
     parts.append(generate_related_agents_section(definition))
 
     return "\n".join(parts)

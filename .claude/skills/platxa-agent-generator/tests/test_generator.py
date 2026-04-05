@@ -3722,5 +3722,238 @@ class TestMultiAgentParallelizationPattern:
         assert "parallelization" in result.stdout
 
 
+class TestVerificationSectionGeneration:
+    """Tests for Feature #26: Verification criteria section generation."""
+
+    def test_verification_heading_present(self, tmp_path: Path) -> None:
+        """Generated agent file includes ## Verification heading."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                "test-verifier",
+                "--description",
+                "Verifies code quality",
+                "--tools",
+                "Read,Grep,Glob",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        content = (tmp_path / "test-verifier.md").read_text()
+        assert "## Verification" in content
+
+    def test_success_criteria_present(self, tmp_path: Path) -> None:
+        """Verification section includes Success Criteria subsection."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                "test-checker",
+                "--description",
+                "Checks things",
+                "--tools",
+                "Read,Bash",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        content = (tmp_path / "test-checker.md").read_text()
+        assert "### Success Criteria" in content
+        assert "All requested tasks completed" in content
+        assert "No security violations" in content
+
+    def test_bash_tool_specific_criteria(self, tmp_path: Path) -> None:
+        """Bash tool agents get exit code verification criteria."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                "bash-agent",
+                "--description",
+                "Runs shell commands",
+                "--tools",
+                "Bash,Read",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        content = (tmp_path / "bash-agent.md").read_text()
+        assert "exit code 0" in content.lower() or "exited with code 0" in content
+
+    def test_write_edit_tool_specific_criteria(self, tmp_path: Path) -> None:
+        """Write/Edit tool agents get file modification verification criteria."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                "writer-agent",
+                "--description",
+                "Writes files",
+                "--tools",
+                "Write,Edit,Read",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        content = (tmp_path / "writer-agent.md").read_text()
+        assert "syntax validation" in content.lower() or "syntax" in content.lower()
+        assert "unintended files" in content.lower()
+        assert "git diff" in content
+
+    def test_task_tool_specific_criteria(self, tmp_path: Path) -> None:
+        """Task tool agents get subagent result verification criteria."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                "orchestrator-agent",
+                "--description",
+                "Orchestrates subagents",
+                "--tools",
+                "Task,Read,Glob",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        content = (tmp_path / "orchestrator-agent.md").read_text()
+        assert "subagent" in content.lower()
+
+    def test_verification_commands_for_write_agents(self, tmp_path: Path) -> None:
+        """Write agents get git diff verification commands."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                "file-writer",
+                "--description",
+                "Creates new files",
+                "--tools",
+                "Write,Read",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        content = (tmp_path / "file-writer.md").read_text()
+        assert "### Verification Commands" in content
+        assert "git diff --name-only" in content
+
+    def test_expected_output_structure(self, tmp_path: Path) -> None:
+        """Verification section includes expected output structure."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                "output-agent",
+                "--description",
+                "Produces structured output",
+                "--tools",
+                "Read,Grep",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        content = (tmp_path / "output-agent.md").read_text()
+        assert "### Expected Output" in content
+        assert "Status summary" in content
+        assert "Action log" in content
+        assert "Next steps" in content
+
+    def test_read_only_agent_no_git_diff_commands(self, tmp_path: Path) -> None:
+        """Read-only agents should not get git diff verification commands."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                "reader-agent",
+                "--description",
+                "Reads and analyzes code",
+                "--tools",
+                "Read,Grep,Glob",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        content = (tmp_path / "reader-agent.md").read_text()
+        assert "git diff --name-only" not in content
+
+    def test_quality_scorer_verification_check(self, tmp_path: Path) -> None:
+        """Quality scorer checks for verification section presence."""
+        # Agent with verification section (generated by agent_generator)
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                "scored-agent",
+                "--description",
+                "Agent with verification section for scoring",
+                "--tools",
+                "Read,Grep,Bash",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+
+        # Score it
+        md_file = tmp_path / "scored-agent.md"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "quality_scorer.py"),
+                "--json",
+                str(md_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = result.stdout.strip()
+        assert output, f"Scorer produced no output, stderr: {result.stderr}"
+        score_data = json.loads(output)
+        # Documentation criterion should mention verification
+        doc_criterion = next(
+            (c for c in score_data["criteria"] if c["name"] == "Documentation"),
+            None,
+        )
+        assert doc_criterion is not None
+        all_findings = " ".join(doc_criterion["findings"])
+        assert "verification" in all_findings.lower()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -742,6 +742,30 @@ def score_documentation(content: str, sections: dict[str, str]) -> CriterionScor
         score -= 2.0
         suggestions.append("Document error handling")
 
+    # Check for verification section
+    has_verification = any("verification" in s.lower() for s in sections.keys())
+    if has_verification:
+        findings.append("Verification section present")
+        # Check for concrete verification criteria
+        verification_keywords = ["success criteria", "verification command", "expected output"]
+        verification_mentions = sum(1 for kw in verification_keywords if kw in content.lower())
+        if verification_mentions >= 2:
+            findings.append("Concrete verification criteria documented")
+        elif verification_mentions >= 1:
+            findings.append("Some verification criteria present")
+            score -= 0.5
+            suggestions.append(
+                "Add more concrete verification criteria (success criteria, commands, expected output)"
+            )
+        else:
+            score -= 1.0
+            suggestions.append("Add concrete verification criteria with testable checks")
+    else:
+        score -= 1.5
+        suggestions.append(
+            "Add ## Verification section with success criteria, verification commands, and expected output"
+        )
+
     # Check for edge cases
     edge_keywords = ["edge case", "corner case", "special case", "if empty", "if missing"]
     edge_mentions = sum(1 for kw in edge_keywords if kw in content.lower())
