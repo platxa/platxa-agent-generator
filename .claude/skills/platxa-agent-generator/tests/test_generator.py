@@ -4648,5 +4648,206 @@ class TestLiveAgentInvocation:
         assert data["type"] in ("str", "NoneType")
 
 
+class TestAutoGenerateTestsFromExamples:
+    """Tests for Feature #44: Auto-generate test cases from agent examples."""
+
+    def _generate_and_create_tests(self, tmp_path: Path) -> dict:
+        """Generate an agent then run --create-tests on it, return JSON."""
+        # Generate agent
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                "auto-test-agent",
+                "--description",
+                "Scans code for security vulnerabilities and issues",
+                "--tools",
+                "Read,Grep,Glob",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Generator failed: {result.stderr}"
+
+        # Create tests from generated agent
+        md_file = tmp_path / "auto-test-agent.md"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "test_harness.py"),
+                "--create-tests",
+                str(md_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"create-tests failed: {result.stderr}"
+        return json.loads(result.stdout)
+
+    def test_create_tests_extracts_user_requests_as_inputs(self, tmp_path: Path) -> None:
+        """User Request prompts from examples become test input_prompt values."""
+        data = self._generate_and_create_tests(tmp_path)
+        example_tests = [t for t in data["tests"] if t["name"].startswith("example_")]
+        assert len(example_tests) >= 3, f"Expected ≥3 example tests, got {len(example_tests)}"
+        # Each example test should have a non-empty input_prompt
+        for t in example_tests:
+            assert t["input_prompt"], f"Test {t['name']} has empty input_prompt"
+
+    def test_create_tests_extracts_expected_patterns(self, tmp_path: Path) -> None:
+        """Agent Actions descriptions become expected_patterns."""
+        data = self._generate_and_create_tests(tmp_path)
+        example_tests = [t for t in data["tests"] if t["name"].startswith("example_")]
+        # At least some example tests should have expected_patterns
+        tests_with_patterns = [t for t in example_tests if t.get("expected_patterns")]
+        assert len(tests_with_patterns) >= 1, "No example tests have expected_patterns"
+
+    def test_create_tests_includes_workflow_and_error_tests(self, tmp_path: Path) -> None:
+        """Template always includes workflow_execution and error_handling tests."""
+        data = self._generate_and_create_tests(tmp_path)
+        test_names = [t["name"] for t in data["tests"]]
+        assert "workflow_execution" in test_names
+        assert "error_handling" in test_names
+
+    def test_create_tests_names_are_slugified(self, tmp_path: Path) -> None:
+        """Example test names are slugified from titles."""
+        data = self._generate_and_create_tests(tmp_path)
+        example_tests = [t for t in data["tests"] if t["name"].startswith("example_")]
+        for t in example_tests:
+            # Names should be lowercase with underscores, no spaces
+            assert " " not in t["name"], f"Space in test name: {t['name']}"
+            assert t["name"] == t["name"].lower(), f"Uppercase in test name: {t['name']}"
+
+    def test_create_tests_input_contains_agent_name(self, tmp_path: Path) -> None:
+        """User request inputs reference the agent name."""
+        data = self._generate_and_create_tests(tmp_path)
+        example_tests = [t for t in data["tests"] if t["name"].startswith("example_")]
+        # At least one example should mention agent name in input
+        inputs_with_name = [t for t in example_tests if "auto-test-agent" in t["input_prompt"]]
+        assert len(inputs_with_name) >= 1, "No example test inputs contain agent name"
+
+    def test_parser_extracts_user_request_field(self, tmp_path: Path) -> None:
+        """Parser extracts user_request from **User Request:** blocks."""
+        test_script = tmp_path / "test_parse.py"
+        # Generate agent first
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                "parse-test-agent",
+                "--description",
+                "Analyzes code quality metrics and reports findings",
+                "--tools",
+                "Read,Grep",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        md_file = tmp_path / "parse-test-agent.md"
+        test_script.write_text(
+            "import json, sys\n"
+            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
+            "from test_harness import parse_agent_file\n"
+            "from pathlib import Path\n"
+            "agent = parse_agent_file(Path('" + str(md_file) + "'))\n"
+            "user_reqs = [e.get('user_request', '') for e in agent.examples]\n"
+            "agent_acts = [e.get('agent_actions', '') for e in agent.examples]\n"
+            "print(json.dumps({'user_requests': user_reqs, "
+            "'agent_actions': agent_acts, 'count': len(agent.examples)}))\n"
+        )
+        result = subprocess.run(
+            [sys.executable, str(test_script)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        data = json.loads(result.stdout)
+        assert data["count"] >= 4, f"Expected ≥4 examples, got {data['count']}"
+        # At least first example should have user_request
+        non_empty_reqs = [r for r in data["user_requests"] if r]
+        assert len(non_empty_reqs) >= 3, (
+            f"Expected ≥3 user_request fields, got {len(non_empty_reqs)}"
+        )
+
+    def test_parser_extracts_agent_actions_field(self, tmp_path: Path) -> None:
+        """Parser extracts agent_actions from **Agent Actions:** blocks."""
+        test_script = tmp_path / "test_actions.py"
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                "actions-agent",
+                "--description",
+                "Builds documentation from source code analysis",
+                "--tools",
+                "Read,Grep,Glob",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        md_file = tmp_path / "actions-agent.md"
+        test_script.write_text(
+            "import json, sys\n"
+            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
+            "from test_harness import parse_agent_file\n"
+            "from pathlib import Path\n"
+            "agent = parse_agent_file(Path('" + str(md_file) + "'))\n"
+            "actions = [e.get('agent_actions', '') for e in agent.examples]\n"
+            "non_empty = [a for a in actions if a]\n"
+            "print(json.dumps({'count': len(non_empty), "
+            "'sample': non_empty[0] if non_empty else ''}))\n"
+        )
+        result = subprocess.run(
+            [sys.executable, str(test_script)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        data = json.loads(result.stdout)
+        assert data["count"] >= 3, f"Expected ≥3 agent_actions, got {data['count']}"
+        # Actions should contain semicolons (joined steps)
+        assert ";" in data["sample"], f"Actions not joined with semicolons: {data['sample']}"
+
+    def test_no_examples_falls_back_to_generic(self, tmp_path: Path) -> None:
+        """Agent with no parseable examples gets generic fallback tests."""
+        # Create a minimal agent with no examples section
+        md_file = tmp_path / "bare-agent.md"
+        md_file.write_text(
+            "---\n"
+            "name: bare-agent\n"
+            "description: A minimal agent with no examples section at all\n"
+            "tools: Read\n"
+            "---\n\n"
+            "# Bare Agent\n\n"
+            "## Workflow\n"
+            "1. Read files\n"
+            "2. Process data\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "test_harness.py"),
+                "--create-tests",
+                str(md_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        test_names = [t["name"] for t in data["tests"]]
+        assert "basic_invocation" in test_names
+        assert "workflow_execution" in test_names
+        assert "error_handling" in test_names
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

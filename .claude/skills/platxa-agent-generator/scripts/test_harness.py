@@ -167,6 +167,35 @@ def parse_agent_file(file_path: Path) -> AgentInfo | None:
             code_blocks = re.findall(r"```(?:\w+)?\n(.*?)```", block, re.DOTALL)
             if code_blocks:
                 example["code"] = code_blocks[0].strip()
+
+            # Extract User Request (from **User Request:** block)
+            user_req_match = re.search(
+                r"\*\*User Request:\*\*\s*```\s*\n(.*?)```",
+                block,
+                re.DOTALL,
+            )
+            if user_req_match:
+                example["user_request"] = user_req_match.group(1).strip()
+
+            # Extract Agent Actions (numbered list after **Agent Actions:**)
+            actions_match = re.search(
+                r"\*\*Agent Actions:\*\*\s*\n((?:\d+\..+\n?)+)",
+                block,
+            )
+            if actions_match:
+                actions_text = actions_match.group(1).strip()
+                actions = re.findall(r"\d+\.\s*(.+)", actions_text)
+                example["agent_actions"] = "; ".join(actions)
+
+            # Extract Expected Output keywords from **Expected Output:** block
+            output_match = re.search(
+                r"\*\*Expected Output:\*\*\s*```(?:\w+)?\s*\n(.*?)```",
+                block,
+                re.DOTALL,
+            )
+            if output_match:
+                example["expected_output"] = output_match.group(1).strip()
+
             examples.append(example)
 
     return AgentInfo(
@@ -705,11 +734,59 @@ def load_test_file(test_file: Path) -> list[TestCase]:
 
 
 def create_test_template(agent: AgentInfo) -> dict[str, Any]:
-    """Create a test template for an agent."""
-    return {
-        "agent_name": agent.name,
-        "description": f"Test suite for {agent.name} agent",
-        "tests": [
+    """Create a test template for an agent.
+
+    Auto-generates test cases from the agent's Examples section:
+    - User Request prompts become test input_prompt values
+    - Agent Actions descriptions become expected_patterns
+    - Expected Output keywords are extracted as additional patterns
+
+    Falls back to generic tests if no parseable examples exist.
+    """
+    tests: list[dict[str, Any]] = []
+
+    # Auto-generate tests from parsed examples
+    for i, example in enumerate(agent.examples):
+        user_request = example.get("user_request", "")
+        agent_actions = example.get("agent_actions", "")
+        expected_output = example.get("expected_output", "")
+        title = example.get("title", f"Example {i + 1}")
+
+        if user_request:
+            # Build expected patterns from agent actions and output
+            patterns: list[str] = []
+
+            # Extract key action verbs as patterns
+            if agent_actions:
+                # Take first 2-3 significant words from each action
+                for action in agent_actions.split(";")[:3]:
+                    action = action.strip()
+                    # Extract the main verb/noun phrase
+                    words = [w for w in action.split() if len(w) > 3]
+                    if words:
+                        patterns.append(re.escape(words[0]))
+
+            # Extract status pattern from expected output
+            if expected_output:
+                if '"status"' in expected_output:
+                    patterns.append(r'"status"')
+                if agent.name in expected_output:
+                    patterns.append(re.escape(agent.name))
+
+            tests.append(
+                {
+                    "name": f"example_{i + 1}_{_slugify(title)}",
+                    "description": f"Test from example: {title}",
+                    "input_prompt": user_request,
+                    "expected_patterns": patterns,
+                    "forbidden_patterns": [],
+                    "timeout_seconds": 60,
+                }
+            )
+
+    # Add generic fallback tests if no examples were parsed
+    if not tests:
+        tests.append(
             {
                 "name": "basic_invocation",
                 "description": "Test basic agent invocation",
@@ -717,25 +794,42 @@ def create_test_template(agent: AgentInfo) -> dict[str, Any]:
                 "expected_patterns": [agent.name],
                 "forbidden_patterns": [],
                 "timeout_seconds": 30,
-            },
-            {
-                "name": "workflow_execution",
-                "description": "Test that workflow steps are followed",
-                "input_prompt": "Execute the full workflow",
-                "expected_patterns": agent.workflow_steps[:2] if agent.workflow_steps else [],
-                "forbidden_patterns": [],
-                "timeout_seconds": 60,
-            },
-            {
-                "name": "error_handling",
-                "description": "Test error handling with invalid input",
-                "input_prompt": "Handle an invalid or empty input",
-                "expected_patterns": ["error", "invalid", "empty"],
-                "forbidden_patterns": ["crash", "exception", "traceback"],
-                "timeout_seconds": 30,
-            },
-        ],
+            }
+        )
+
+    # Always include workflow and error tests
+    tests.append(
+        {
+            "name": "workflow_execution",
+            "description": "Test that workflow steps are followed",
+            "input_prompt": "Execute the full workflow",
+            "expected_patterns": agent.workflow_steps[:2] if agent.workflow_steps else [],
+            "forbidden_patterns": [],
+            "timeout_seconds": 60,
+        }
+    )
+    tests.append(
+        {
+            "name": "error_handling",
+            "description": "Test error handling with invalid input",
+            "input_prompt": "Handle an invalid or empty input",
+            "expected_patterns": ["error", "invalid", "empty"],
+            "forbidden_patterns": ["crash", "exception", "traceback"],
+            "timeout_seconds": 30,
+        }
+    )
+
+    return {
+        "agent_name": agent.name,
+        "description": f"Test suite for {agent.name} agent",
+        "tests": tests,
     }
+
+
+def _slugify(text: str) -> str:
+    """Convert text to a slug suitable for test names."""
+    slug = re.sub(r"[^a-z0-9]+", "_", text.lower())
+    return slug.strip("_")[:40]
 
 
 def result_to_dict(result: TestSuiteResult) -> dict[str, Any]:
