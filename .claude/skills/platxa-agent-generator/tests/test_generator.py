@@ -1578,6 +1578,129 @@ tools: Bash, Write, WebFetch
         assert len(output.get("warnings", [])) > 0 or output["score"] < 10.0
 
 
+class TestMAESTROAnalysis:
+    """Tests for MAESTRO framework security analysis (Feature #18)."""
+
+    def _scan_agent(self, agent_file: Path) -> dict:
+        """Run security_scanner.py --json on an agent file."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "security_scanner.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.stdout.strip(), f"Scanner produced no output: {result.stderr}"
+        return json.loads(result.stdout)
+
+    def _make_agent(self, tmp_path: Path, name: str, tools: str, body: str) -> Path:
+        f = tmp_path / f"{name}.md"
+        f.write_text(f"---\nname: {name}\ndescription: Test agent\ntools: {tools}\n---\n\n{body}\n")
+        return f
+
+    def test_maestro_report_has_all_6_layers(self, tmp_path: Path) -> None:
+        """MAESTRO report must contain analysis for all 6 layers."""
+        agent = self._make_agent(
+            tmp_path,
+            "full-agent",
+            "Read, Glob, Grep",
+            "# Agent\n\n## Workflow\n1. Read files\n2. Search patterns\n",
+        )
+        output = self._scan_agent(agent)
+        maestro = output.get("maestro_analysis")
+        assert maestro is not None, "MAESTRO analysis missing from output"
+        layers = maestro["layer_analyses"]
+        assert len(layers) == 6, f"Expected 6 layers, got {len(layers)}"
+        layer_names = {la["layer"] for la in layers}
+        expected = {
+            "foundation",
+            "data",
+            "application",
+            "infrastructure",
+            "orchestration",
+            "governance",
+        }
+        assert layer_names == expected, f"Missing layers: {expected - layer_names}"
+
+    def test_maestro_overall_score_calculated(self, tmp_path: Path) -> None:
+        """MAESTRO overall_score must be a number between 0 and 10."""
+        agent = self._make_agent(
+            tmp_path,
+            "scored-agent",
+            "Read, Glob",
+            "# Agent\n\n## Workflow\n1. Read and report\n",
+        )
+        output = self._scan_agent(agent)
+        maestro = output["maestro_analysis"]
+        assert isinstance(maestro["overall_score"], (int, float))
+        assert 0 <= maestro["overall_score"] <= 10
+
+    def test_maestro_critical_gaps_identified(self, tmp_path: Path) -> None:
+        """Dangerous agents should have critical_gaps in MAESTRO report."""
+        agent = self._make_agent(
+            tmp_path,
+            "dangerous-maestro",
+            "Bash, Write, WebFetch",
+            "# Dangerous\n\n## Workflow\n1. Run rm -rf /tmp/data\n"
+            "2. Execute sudo commands\n3. chmod 777 /etc/config\n",
+        )
+        output = self._scan_agent(agent)
+        maestro = output["maestro_analysis"]
+        assert len(maestro["critical_gaps"]) > 0, "Dangerous agent should have critical gaps"
+
+    def test_maestro_remediation_priority_ordered(self, tmp_path: Path) -> None:
+        """remediation_priority should be ordered (worst layers first)."""
+        agent = self._make_agent(
+            tmp_path,
+            "risky-agent",
+            "Bash, Write, Read",
+            "# Risky\n\n## Workflow\n1. Execute commands with Bash\n"
+            "2. Write output files\n3. Read configuration\n",
+        )
+        output = self._scan_agent(agent)
+        maestro = output["maestro_analysis"]
+        priority = maestro.get("remediation_priority", [])
+        assert isinstance(priority, list)
+        # Priority list should not be empty for agents with high-risk tools
+        assert len(priority) > 0, "Risky agent should have remediation priorities"
+
+    def test_clean_agent_maestro_mostly_secure(self, tmp_path: Path) -> None:
+        """Clean read-only agent should have mostly secure MAESTRO layers."""
+        agent = self._make_agent(
+            tmp_path,
+            "clean-maestro",
+            "Read, Glob, Grep",
+            "# Reader\n\n## Workflow\n1. Search with Glob\n"
+            "2. Read with Read\n3. Filter with Grep\n",
+        )
+        output = self._scan_agent(agent)
+        maestro = output["maestro_analysis"]
+        secure_layers = [la for la in maestro["layer_analyses"] if la["status"] == "secure"]
+        assert len(secure_layers) >= 4, (
+            f"Clean agent should have >=4 secure layers, got {len(secure_layers)}"
+        )
+
+    def test_orchestration_layer_flags_task_tool(self, tmp_path: Path) -> None:
+        """Agents with Task tool should get orchestration layer recommendations."""
+        agent = self._make_agent(
+            tmp_path,
+            "orchestrator-maestro",
+            "Read, Task, Glob",
+            "# Orchestrator\n\n## Workflow\n1. Spawn workers with Task\n2. Collect results\n",
+        )
+        output = self._scan_agent(agent)
+        maestro = output["maestro_analysis"]
+        orch_layer = next(la for la in maestro["layer_analyses"] if la["layer"] == "orchestration")
+        has_task_rec = any("subagent" in r.lower() for r in orch_layer.get("recommendations", []))
+        assert has_task_rec, (
+            f"Orchestration layer should mention subagent constraints, "
+            f"got: {orch_layer.get('recommendations', [])}"
+        )
+
+
 class TestWorkflowState:
     """Real tests for workflow_state.py CLI."""
 
