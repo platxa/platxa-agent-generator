@@ -5598,5 +5598,159 @@ class TestDomainDetection:
         )
 
 
+class TestCompositionValidation:
+    """Tests for Feature #66: Pipeline I/O composition validation."""
+
+    def _run_composer(self, code: str) -> str:
+        """Run Python code that imports from agent_composer and prints result."""
+        full_code = (
+            f"import sys; sys.path.insert(0, '{SCRIPTS_DIR}'); from agent_composer import *; {code}"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", full_code],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, f"Composer code failed: {result.stderr}"
+        return result.stdout.strip()
+
+    def test_sequential_compatible_schemas_pass(self):
+        """Sequential pipeline with compatible I/O schemas passes validation."""
+        out = self._run_composer(
+            "a = AgentSpec(name='analyzer', description='Analyze', "
+            "output_schema={'properties': {'findings': {'type': 'array'}}}); "
+            "b = AgentSpec(name='reporter', description='Report', "
+            "input_schema={'properties': {'findings': {'type': 'array'}}}); "
+            "issues = validate_sequential_io([a, b]); "
+            "print(len(issues))"
+        )
+        assert out == "0", f"Expected 0 issues, got: {out}"
+
+    def test_sequential_incompatible_schemas_flagged(self):
+        """Sequential pipeline flags missing required fields between stages."""
+        out = self._run_composer(
+            "a = AgentSpec(name='analyzer', description='Analyze', "
+            "output_schema={'properties': {'score': {'type': 'number'}}}); "
+            "b = AgentSpec(name='reporter', description='Report', "
+            "input_schema={'properties': {'findings': {'type': 'array'}}, "
+            "'required': ['findings']}); "
+            "issues = validate_sequential_io([a, b]); "
+            "print(len(issues)); print(issues[0])"
+        )
+        lines = out.split("\n")
+        assert lines[0] == "1"
+        assert "findings" in lines[1]
+        assert "analyzer" in lines[1] and "reporter" in lines[1]
+
+    def test_sequential_empty_schemas_compatible(self):
+        """Empty schemas (untyped) are always compatible."""
+        out = self._run_composer(
+            "a = AgentSpec(name='a', description='A', output_schema={}); "
+            "b = AgentSpec(name='b', description='B', input_schema={}); "
+            "issues = validate_sequential_io([a, b]); "
+            "print(len(issues))"
+        )
+        assert out == "0"
+
+    def test_sequential_three_stage_middle_incompatible(self):
+        """Three-stage pipeline flags the specific incompatible pair."""
+        out = self._run_composer(
+            "a = AgentSpec(name='fetch', description='Fetch', "
+            "output_schema={'properties': {'data': {'type': 'object'}}}); "
+            "b = AgentSpec(name='transform', description='Transform', "
+            "input_schema={'properties': {'data': {'type': 'object'}}}, "
+            "output_schema={'properties': {'result': {'type': 'string'}}}); "
+            "c = AgentSpec(name='load', description='Load', "
+            "input_schema={'properties': {'records': {'type': 'array'}}, "
+            "'required': ['records']}); "
+            "issues = validate_sequential_io([a, b, c]); "
+            "print(len(issues)); print(issues[0])"
+        )
+        lines = out.split("\n")
+        assert lines[0] == "1"
+        assert "transform" in lines[1] and "load" in lines[1]
+        assert "records" in lines[1]
+
+    def test_parallel_compatible_merge(self):
+        """Parallel agents with compatible output types pass merge validation."""
+        out = self._run_composer(
+            "a = AgentSpec(name='lint', description='Lint', "
+            "output_schema={'properties': {'issues': {'type': 'array'}}}); "
+            "b = AgentSpec(name='test', description='Test', "
+            "output_schema={'properties': {'results': {'type': 'array'}}}); "
+            "issues = validate_parallel_outputs([a, b]); "
+            "print(len(issues))"
+        )
+        assert out == "0"
+
+    def test_parallel_conflicting_types_flagged(self):
+        """Parallel agents with conflicting field types are flagged."""
+        out = self._run_composer(
+            "a = AgentSpec(name='agent-a', description='A', "
+            "output_schema={'properties': {'score': {'type': 'number'}}}); "
+            "b = AgentSpec(name='agent-b', description='B', "
+            "output_schema={'properties': {'score': {'type': 'string'}}}); "
+            "issues = validate_parallel_outputs([a, b]); "
+            "print(len(issues)); print(issues[0])"
+        )
+        lines = out.split("\n")
+        assert lines[0] == "1"
+        assert "score" in lines[1]
+        assert "conflicting types" in lines[1]
+
+    def test_compose_sequential_rejects_incompatible(self):
+        """compose_sequential() returns success=False for incompatible I/O."""
+        out = self._run_composer(
+            "a = AgentSpec(name='a', description='A', tools=['Read'], "
+            "output_schema={'properties': {'x': {'type': 'string'}}}); "
+            "b = AgentSpec(name='b', description='B', tools=['Read'], "
+            "input_schema={'properties': {'y': {'type': 'string'}}, "
+            "'required': ['y']}); "
+            "r = compose_sequential([a, b]); "
+            "print(r.success); print(len(r.errors))"
+        )
+        lines = out.split("\n")
+        assert lines[0] == "False"
+        assert int(lines[1]) >= 1
+
+    def test_compose_parallel_merge_rejects_conflicting(self):
+        """compose_parallel(strategy='merge') rejects conflicting output types."""
+        out = self._run_composer(
+            "a = AgentSpec(name='a', description='A', tools=['Read'], "
+            "output_schema={'properties': {'v': {'type': 'integer'}}}); "
+            "b = AgentSpec(name='b', description='B', tools=['Read'], "
+            "output_schema={'properties': {'v': {'type': 'array'}}}); "
+            "r = compose_parallel([a, b], aggregation_strategy='merge'); "
+            "print(r.success)"
+        )
+        assert out == "False"
+
+    def test_compose_parallel_vote_skips_merge_validation(self):
+        """compose_parallel(strategy='vote') skips merge-type validation."""
+        out = self._run_composer(
+            "a = AgentSpec(name='a', description='A', tools=['Read'], "
+            "output_schema={'properties': {'v': {'type': 'integer'}}}); "
+            "b = AgentSpec(name='b', description='B', tools=['Read'], "
+            "output_schema={'properties': {'v': {'type': 'array'}}}); "
+            "r = compose_parallel([a, b], aggregation_strategy='vote'); "
+            "print(r.success)"
+        )
+        assert out == "True"
+
+    def test_schemas_compatible_extra_output_fields_ok(self):
+        """Output having extra fields beyond what input requires is fine."""
+        out = self._run_composer(
+            "from agent_composer import _schemas_compatible; "
+            "ok, issues = _schemas_compatible("
+            "{'properties': {'a': {'type': 'string'}, 'b': {'type': 'number'}}}, "
+            "{'properties': {'a': {'type': 'string'}}, 'required': ['a']}); "
+            "print(ok); print(len(issues))"
+        )
+        lines = out.split("\n")
+        assert lines[0] == "True"
+        assert lines[1] == "0"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

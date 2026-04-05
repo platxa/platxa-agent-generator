@@ -132,6 +132,10 @@ def check_compatibility(agents: list[AgentSpec]) -> CompatibilityCheck:
     if _has_cycle(dep_graph):
         issues.append("Circular dependencies detected between agents")
 
+    # Validate I/O compatibility for sequential pipelines
+    seq_issues = validate_sequential_io(agents)
+    issues.extend(seq_issues)
+
     return CompatibilityCheck(
         compatible=len(issues) == 0,
         issues=issues,
@@ -163,6 +167,123 @@ def _has_cycle(graph: dict[str, list[str]]) -> bool:
             if dfs(node):
                 return True
     return False
+
+
+def _schema_fields(schema: dict[str, Any]) -> set[str]:
+    """Extract top-level field names from a JSON-schema-like dict.
+
+    Supports schemas with "properties" (JSON Schema) or plain key→type dicts.
+    Returns an empty set for empty/missing schemas (treated as "any").
+    """
+    if not schema:
+        return set()
+    # Standard JSON Schema with "properties" key
+    props = schema.get("properties")
+    if isinstance(props, dict):
+        return set(props.keys())
+    # Plain {field: type_info} dict (simplified schema)
+    return set(schema.keys()) - {"type", "description", "required"}
+
+
+def _schemas_compatible(
+    output_schema: dict[str, Any],
+    input_schema: dict[str, Any],
+) -> tuple[bool, list[str]]:
+    """Check if an output schema is compatible with an input schema.
+
+    Compatibility rules:
+    - If either schema is empty, they are compatible (untyped = "any").
+    - If input has required fields, the output must provide them.
+    - Extra output fields are always allowed (consumers may ignore them).
+
+    Returns:
+        (compatible, list_of_issues)
+    """
+    # Empty schemas are always compatible — untyped means "any"
+    if not output_schema or not input_schema:
+        return True, []
+
+    out_fields = _schema_fields(output_schema)
+    in_fields = _schema_fields(input_schema)
+
+    # Determine required input fields
+    required = set(input_schema.get("required", []))
+    if not required:
+        # If no explicit "required", treat all input fields as required
+        required = in_fields
+
+    missing = required - out_fields
+    if missing:
+        return False, [f"Output missing required fields: {', '.join(sorted(missing))}"]
+
+    return True, []
+
+
+def validate_sequential_io(agents: list[AgentSpec]) -> list[str]:
+    """Validate that sequential pipeline stages have compatible I/O.
+
+    For each adjacent pair (stage N, stage N+1), checks that stage N's
+    output_schema provides the fields required by stage N+1's input_schema.
+
+    Args:
+        agents: Ordered list of agents in the pipeline.
+
+    Returns:
+        List of incompatibility issues (empty = all compatible).
+    """
+    issues: list[str] = []
+
+    for i in range(len(agents) - 1):
+        producer = agents[i]
+        consumer = agents[i + 1]
+
+        compatible, stage_issues = _schemas_compatible(
+            producer.output_schema, consumer.input_schema
+        )
+        if not compatible:
+            for issue in stage_issues:
+                issues.append(f"Stage {i + 1}→{i + 2} ({producer.name}→{consumer.name}): {issue}")
+
+    return issues
+
+
+def validate_parallel_outputs(agents: list[AgentSpec]) -> list[str]:
+    """Validate that parallel agents produce merge-compatible outputs.
+
+    For a merge aggregation to work, all agents with output schemas must
+    not have conflicting field types for the same field name.
+
+    Args:
+        agents: List of agents to run in parallel.
+
+    Returns:
+        List of merge-compatibility issues (empty = all compatible).
+    """
+    issues: list[str] = []
+
+    # Collect field→type from all output schemas
+    field_sources: dict[str, list[tuple[str, Any]]] = {}
+    for agent in agents:
+        out_props = agent.output_schema.get("properties", agent.output_schema)
+        if not out_props or not isinstance(out_props, dict):
+            continue
+
+        for field_name, field_def in out_props.items():
+            if field_name in ("type", "description", "required"):
+                continue
+            field_type = (
+                field_def.get("type", "unknown") if isinstance(field_def, dict) else str(field_def)
+            )
+            field_sources.setdefault(field_name, []).append((agent.name, field_type))
+
+    # Check for conflicting types on the same field
+    for field_name, sources in field_sources.items():
+        types = {t for _, t in sources}
+        if len(types) > 1:
+            agents_str = ", ".join(f"{name}({t})" for name, t in sources)
+            issues.append(f"Field '{field_name}' has conflicting types: {agents_str}")
+
+    return issues
 
 
 def merge_tools(agents: list[AgentSpec]) -> list[str]:
@@ -224,9 +345,7 @@ def compose_sequential(
 
     # Generate name and description
     composite_name = name or f"{agents[0].name}-to-{agents[-1].name}-pipeline"
-    composite_desc = description or (
-        f"Sequential pipeline: {' → '.join(a.name for a in agents)}"
-    )
+    composite_desc = description or (f"Sequential pipeline: {' → '.join(a.name for a in agents)}")
 
     # Merge tools
     tools = merge_tools(agents)
@@ -240,8 +359,8 @@ def compose_sequential(
 
 {agent.description}
 
-**Role:** {agent.role or 'Processor'}
-**Tools:** {', '.join(agent.tools) if agent.tools else 'Inherited'}
+**Role:** {agent.role or "Processor"}
+**Tools:** {", ".join(agent.tools) if agent.tools else "Inherited"}
 
 """
 
@@ -252,7 +371,7 @@ description: {composite_desc}
 tools: {tools_str}
 ---
 
-# {composite_name.replace('-', ' ').title()}
+# {composite_name.replace("-", " ").title()}
 
 ## Overview
 
@@ -264,7 +383,7 @@ tools: {tools_str}
 ## Pipeline Flow
 
 ```
-{' → '.join(a.name for a in agents)}
+{" → ".join(a.name for a in agents)}
 ```
 
 ## Workflow
@@ -323,6 +442,14 @@ def compose_parallel(
         CompositionResult with the composite agent
     """
     compat = check_compatibility(agents)
+
+    # Additional merge-compatibility check for parallel outputs
+    if aggregation_strategy == "merge":
+        merge_issues = validate_parallel_outputs(agents)
+        compat.issues.extend(merge_issues)
+        if merge_issues:
+            compat.compatible = False
+
     if not compat.compatible:
         return CompositionResult(
             success=False,
@@ -335,9 +462,7 @@ def compose_parallel(
         )
 
     composite_name = name or f"parallel-{'-'.join(a.name for a in agents[:3])}"
-    composite_desc = description or (
-        f"Parallel execution of: {', '.join(a.name for a in agents)}"
-    )
+    composite_desc = description or (f"Parallel execution of: {', '.join(a.name for a in agents)}")
 
     tools = merge_tools(agents)
     tools_str = ", ".join(tools)
@@ -350,7 +475,7 @@ def compose_parallel(
 
 {agent.description}
 
-**Tools:** {', '.join(agent.tools) if agent.tools else 'Inherited'}
+**Tools:** {", ".join(agent.tools) if agent.tools else "Inherited"}
 
 """
 
@@ -360,7 +485,7 @@ description: {composite_desc}
 tools: {tools_str}
 ---
 
-# {composite_name.replace('-', ' ').title()}
+# {composite_name.replace("-", " ").title()}
 
 ## Overview
 
@@ -440,9 +565,7 @@ def compose_conditional(
         )
 
     composite_name = name or f"router-{agents[0].name}"
-    composite_desc = description or (
-        f"Routes requests to: {', '.join(a.name for a in agents)}"
-    )
+    composite_desc = description or (f"Routes requests to: {', '.join(a.name for a in agents)}")
 
     tools = merge_tools(agents)
     tools_str = ", ".join(tools)
@@ -460,7 +583,7 @@ description: {composite_desc}
 tools: {tools_str}
 ---
 
-# {composite_name.replace('-', ' ').title()}
+# {composite_name.replace("-", " ").title()}
 
 ## Overview
 
@@ -538,9 +661,7 @@ def create_orchestrator(
             errors=["At least 1 worker required for orchestrator"],
         )
 
-    composite_desc = description or (
-        f"Orchestrates: {', '.join(w.name for w in workers)}"
-    )
+    composite_desc = description or (f"Orchestrates: {', '.join(w.name for w in workers)}")
 
     # Orchestrator needs Task tool plus analysis tools
     tools = ["Read", "Grep", "Glob", "Task"]
@@ -552,9 +673,9 @@ def create_orchestrator(
         workers_section += f"""
 ### {worker.name}
 
-**Role:** {worker.role or 'Worker'}
+**Role:** {worker.role or "Worker"}
 **Description:** {worker.description}
-**Tools:** {', '.join(worker.tools) if worker.tools else 'Specialized'}
+**Tools:** {", ".join(worker.tools) if worker.tools else "Specialized"}
 
 """
 
@@ -564,7 +685,7 @@ description: {composite_desc}
 tools: {tools_str}
 ---
 
-# {name.replace('-', ' ').title()}
+# {name.replace("-", " ").title()}
 
 ## Overview
 
@@ -720,9 +841,7 @@ def main() -> None:
     """CLI entry point for agent composer."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Compose multiple agents into composite agents"
-    )
+    parser = argparse.ArgumentParser(description="Compose multiple agents into composite agents")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # Sequential command
@@ -735,9 +854,7 @@ def main() -> None:
     par_parser = subparsers.add_parser("parallel", help="Create parallel composition")
     par_parser.add_argument("agents", nargs="+", help="Agent files to compose")
     par_parser.add_argument("--name", help="Composite agent name")
-    par_parser.add_argument(
-        "--strategy", choices=["merge", "vote", "first"], default="merge"
-    )
+    par_parser.add_argument("--strategy", choices=["merge", "vote", "first"], default="merge")
     par_parser.add_argument("--output", "-o", help="Output directory")
 
     # Orchestrator command
@@ -766,9 +883,7 @@ def main() -> None:
     elif args.command == "parallel":
         agents = [load_agent_spec(f) for f in args.agents]
         agents = [a for a in agents if a is not None]
-        result = compose_parallel(
-            agents, name=args.name, aggregation_strategy=args.strategy
-        )
+        result = compose_parallel(agents, name=args.name, aggregation_strategy=args.strategy)
         if result.success:
             output = args.output or ".claude/agents"
             _, msg = save_composite_agent(result, output)
