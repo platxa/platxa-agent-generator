@@ -344,6 +344,30 @@ DANGEROUS_TOOL_COMBINATIONS = [
         "description": "Combining Bash with Task can spawn multiple shell processes",
         "recommendation": "Limit shell operations in worker subagents",
     },
+    {
+        "tools": ["WebFetch", "Write"],
+        "code": "SEC044",
+        "severity": Severity.HIGH,
+        "title": "Remote content injection",
+        "description": "Combining WebFetch with Write allows downloading and persisting remote content without validation",
+        "recommendation": "Validate and sanitize fetched content before writing to disk",
+    },
+    {
+        "tools": ["Bash", "Edit"],
+        "code": "SEC045",
+        "severity": Severity.MEDIUM,
+        "title": "Shell-driven file mutation",
+        "description": "Combining Bash with Edit enables shell commands to drive file modifications",
+        "recommendation": "Prefer Edit over Bash for file modifications to maintain audit trail",
+    },
+    {
+        "tools": ["WebFetch", "Bash", "Write"],
+        "code": "SEC046",
+        "severity": Severity.CRITICAL,
+        "title": "Remote code execution chain",
+        "description": "WebFetch + Bash + Write enables downloading, saving, and executing remote code — the most dangerous combination",
+        "recommendation": "Remove at least one tool from this triple or implement strict URL allowlisting and content validation",
+    },
 ]
 
 

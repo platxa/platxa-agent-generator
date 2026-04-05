@@ -1578,6 +1578,123 @@ tools: Bash, Write, WebFetch
         assert len(output.get("warnings", [])) > 0 or output["score"] < 10.0
 
 
+class TestToolCombinationRiskMatrix:
+    """Tests for tool combination risk detection (Feature #19)."""
+
+    def _scan_agent(self, agent_file: Path) -> dict:
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "security_scanner.py"), "--json", str(agent_file)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.stdout.strip(), f"Scanner produced no output: {result.stderr}"
+        return json.loads(result.stdout)
+
+    def _make_agent(self, tmp_path: Path, name: str, tools: str, body: str) -> Path:
+        f = tmp_path / f"{name}.md"
+        f.write_text(f"---\nname: {name}\ndescription: Test agent\ntools: {tools}\n---\n\n{body}\n")
+        return f
+
+    def _finding_codes(self, output: dict) -> list[str]:
+        return [f.get("code", "") for f in output.get("findings", [])]
+
+    def test_bash_webfetch_detected_sec040(self, tmp_path: Path) -> None:
+        """Bash+WebFetch should trigger SEC040 (download and execute risk)."""
+        agent = self._make_agent(
+            tmp_path,
+            "dl-exec",
+            "Bash, WebFetch, Read",
+            "# Agent\n\n## Workflow\n1. Fetch data\n2. Process\n",
+        )
+        output = self._scan_agent(agent)
+        assert "SEC040" in self._finding_codes(output)
+
+    def test_write_bash_detected_sec041(self, tmp_path: Path) -> None:
+        """Write+Bash should trigger SEC041 (file creation and execution)."""
+        agent = self._make_agent(
+            tmp_path,
+            "write-exec",
+            "Write, Bash, Read",
+            "# Agent\n\n## Workflow\n1. Write files\n2. Execute\n",
+        )
+        output = self._scan_agent(agent)
+        assert "SEC041" in self._finding_codes(output)
+
+    def test_edit_glob_detected_sec042(self, tmp_path: Path) -> None:
+        """Edit+Glob should trigger SEC042 (mass file modification)."""
+        agent = self._make_agent(
+            tmp_path,
+            "mass-edit",
+            "Edit, Glob, Read",
+            "# Agent\n\n## Workflow\n1. Find files\n2. Edit them\n",
+        )
+        output = self._scan_agent(agent)
+        assert "SEC042" in self._finding_codes(output)
+
+    def test_bash_task_detected_sec043(self, tmp_path: Path) -> None:
+        """Bash+Task should trigger SEC043 (distributed shell execution)."""
+        agent = self._make_agent(
+            tmp_path,
+            "dist-shell",
+            "Bash, Task, Read",
+            "# Agent\n\n## Workflow\n1. Spawn workers\n2. Execute\n",
+        )
+        output = self._scan_agent(agent)
+        assert "SEC043" in self._finding_codes(output)
+
+    def test_webfetch_write_detected_sec044(self, tmp_path: Path) -> None:
+        """WebFetch+Write should trigger SEC044 (remote content injection)."""
+        agent = self._make_agent(
+            tmp_path,
+            "fetch-write",
+            "WebFetch, Write, Read",
+            "# Agent\n\n## Workflow\n1. Fetch remote\n2. Write to disk\n",
+        )
+        output = self._scan_agent(agent)
+        assert "SEC044" in self._finding_codes(output)
+
+    def test_rce_chain_detected_sec046(self, tmp_path: Path) -> None:
+        """WebFetch+Bash+Write should trigger SEC046 (RCE chain, critical)."""
+        agent = self._make_agent(
+            tmp_path,
+            "rce-chain",
+            "WebFetch, Bash, Write, Read",
+            "# Agent\n\n## Workflow\n1. Download\n2. Save\n3. Execute\n",
+        )
+        output = self._scan_agent(agent)
+        codes = self._finding_codes(output)
+        assert "SEC046" in codes
+        # Verify it's CRITICAL severity
+        sec046 = next(f for f in output["findings"] if f.get("code") == "SEC046")
+        assert sec046["severity"] == "critical"
+
+    def test_safe_tools_no_combination_findings(self, tmp_path: Path) -> None:
+        """Read-only tools should have no tool combination findings."""
+        agent = self._make_agent(
+            tmp_path,
+            "safe-agent",
+            "Read, Glob, Grep",
+            "# Reader\n\n## Workflow\n1. Search\n2. Read\n",
+        )
+        output = self._scan_agent(agent)
+        combo_codes = [c for c in self._finding_codes(output) if c.startswith("SEC04")]
+        assert combo_codes == [], f"Safe agent has combo findings: {combo_codes}"
+
+    def test_findings_have_recommendations(self, tmp_path: Path) -> None:
+        """All tool combination findings must include recommendations."""
+        agent = self._make_agent(
+            tmp_path,
+            "combo-agent",
+            "Bash, WebFetch, Write, Edit, Glob, Task",
+            "# Agent\n\n## Workflow\n1. Do everything\n",
+        )
+        output = self._scan_agent(agent)
+        combo_findings = [f for f in output["findings"] if f.get("code", "").startswith("SEC04")]
+        assert len(combo_findings) >= 4, f"Expected >=4 combo findings, got {len(combo_findings)}"
+        for finding in combo_findings:
+            assert finding.get("recommendation"), f"{finding['code']} missing recommendation"
+
+
 class TestMAESTROAnalysis:
     """Tests for MAESTRO framework security analysis (Feature #18)."""
 
