@@ -1016,6 +1016,134 @@ class TestMcpServersValidation:
         assert output["passed"] is True
 
 
+class TestHooksRecommendation:
+    """Tests for hooks recommendation integration (Feature #11)."""
+
+    def _run_generator(self, *args: str) -> dict:
+        """Run agent_generator.py via subprocess."""
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "agent_generator.py"), *args],
+            capture_output=True,
+            text=True,
+        )
+        return json.loads(result.stdout) if result.stdout.strip() else {}
+
+    def _import_recommend(self) -> tuple:
+        """Import recommend_hooks_for_agent from scripts dir."""
+        import importlib
+        import importlib.util
+
+        spec = importlib.util.spec_from_file_location(
+            "agent_generator",
+            SCRIPTS_DIR / "agent_generator.py",
+        )
+        assert spec is not None and spec.loader is not None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod.recommend_hooks_for_agent, mod.generate_hooks_section
+
+    def test_security_agent_gets_pretooluse_hooks(self) -> None:
+        """Security agents should get PreToolUse validation hooks."""
+        recommend, _ = self._import_recommend()
+        result = recommend(
+            "security-scanner",
+            "Scans code for security vulnerabilities",
+            ["Read", "Grep", "Glob"],
+        )
+        assert "PreToolUse" in result
+        pre_hooks = result["PreToolUse"]
+        has_security_gate = any("security-gate" in h["hooks"][0]["command"] for h in pre_hooks)
+        assert has_security_gate, "Security agent should have PreToolUse security-gate hook"
+
+    def test_security_agent_gets_audit_hooks(self) -> None:
+        """Security agents should get audit logging hooks."""
+        recommend, _ = self._import_recommend()
+        result = recommend(
+            "security-scanner",
+            "Scans for vulnerabilities",
+            ["Read", "Grep"],
+        )
+        assert "PreToolUse" in result
+        has_audit = any(
+            "claude-audit.log" in h["hooks"][0]["command"] for h in result["PreToolUse"]
+        )
+        assert has_audit, "Security agent should have audit hooks"
+
+    def test_test_agent_gets_posttooluse_logging(self) -> None:
+        """Test agents should get PostToolUse logging hooks."""
+        recommend, _ = self._import_recommend()
+        result = recommend("test-runner", "Runs test suites", ["Read", "Bash"])
+        assert "PostToolUse" in result
+        post_hooks = result["PostToolUse"]
+        has_logging = any("test-runner.log" in h["hooks"][0]["command"] for h in post_hooks)
+        assert has_logging, "Test agent should have PostToolUse logging hook"
+
+    def test_readonly_agent_gets_no_hooks(self) -> None:
+        """Plain read-only agents should get no hooks."""
+        recommend, _ = self._import_recommend()
+        result = recommend("data-reader", "Reads data files", ["Read", "Glob"])
+        assert result == {}, f"Read-only agent should have no hooks, got: {list(result.keys())}"
+
+    def test_dangerous_tools_get_audit_hooks(self) -> None:
+        """Agents with Write/Edit/Bash always get audit hooks."""
+        recommend, _ = self._import_recommend()
+        result = recommend("code-writer", "Writes code", ["Read", "Write"])
+        assert "PreToolUse" in result or "PostToolUse" in result
+        all_commands = [h["hooks"][0]["command"] for hooks in result.values() for h in hooks]
+        has_audit = any("claude-audit.log" in cmd for cmd in all_commands)
+        assert has_audit, "Agents with dangerous tools should have audit hooks"
+
+    def test_deployer_gets_compliance_hooks(self) -> None:
+        """Deployer agents should get compliance + security + audit hooks."""
+        recommend, _ = self._import_recommend()
+        result = recommend("auto-deployer", "Deploys code to production", ["Bash", "Write"])
+        assert "SessionStart" in result, "Deployer should have SessionStart hook"
+        assert "Stop" in result, "Deployer should have Stop hook"
+        all_commands = [h["hooks"][0]["command"] for hooks in result.values() for h in hooks]
+        has_compliance = any("compliance-check" in cmd for cmd in all_commands)
+        assert has_compliance, "Deployer should have compliance hooks"
+
+    def test_generate_hooks_section_produces_markdown(self) -> None:
+        """generate_hooks_section should produce valid markdown with JSON."""
+        recommend, gen_section = self._import_recommend()
+        hooks = recommend("security-agent", "Security scanning", ["Read", "Grep"])
+        section = gen_section(hooks, "security-agent")
+        assert "## Recommended Hooks" in section
+        assert "settings.json" in section
+        assert "```json" in section
+        assert "security-agent" in section
+
+    def test_generate_hooks_section_empty_for_no_hooks(self) -> None:
+        """generate_hooks_section should return empty string for no hooks."""
+        _, gen_section = self._import_recommend()
+        assert gen_section({}, "no-hooks") == ""
+
+    def test_hooks_output_valid_settings_format(self) -> None:
+        """Hook output must be valid Claude Code settings.json structure."""
+        recommend, _ = self._import_recommend()
+        result = recommend("security-scanner", "Security scanner", ["Read", "Grep"])
+        # Each event must map to a list of hook entries
+        for event, entries in result.items():
+            assert event in {
+                "SessionStart",
+                "Stop",
+                "PreToolUse",
+                "PostToolUse",
+                "Notification",
+                "SubagentStop",
+                "PreCompact",
+                "UserPromptSubmit",
+            }, f"Invalid event: {event}"
+            assert isinstance(entries, list), f"Entries for {event} must be a list"
+            for entry in entries:
+                assert "hooks" in entry, "Entry missing 'hooks' key"
+                assert isinstance(entry["hooks"], list)
+                for hook in entry["hooks"]:
+                    assert "type" in hook, "Hook missing 'type'"
+                    assert "command" in hook, "Hook missing 'command'"
+                    assert hook["type"] == "command"
+
+
 class TestSecurityScanner:
     """Real tests for security_scanner.py CLI."""
 

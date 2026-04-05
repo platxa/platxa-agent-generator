@@ -223,6 +223,8 @@ class AgentDefinition:
     effort: str | None = None  # One of VALID_EFFORT_LEVELS (low, medium, high)
     background: bool | None = None  # True to run without blocking main conversation
     color: str | None = None  # CSS color string for UI display (e.g. "red", "#ff0000")
+    mcp_servers: dict[str, Any] = field(default_factory=dict)  # mcpServers frontmatter block
+    recommended_hooks: dict[str, Any] = field(default_factory=dict)  # Companion hooks config
     sections: list[AgentSection] = field(default_factory=list)
     workers: list[WorkerDefinition] = field(default_factory=list)
     chain_steps: list[ChainStep] = field(default_factory=list)
@@ -416,6 +418,18 @@ def generate_frontmatter(definition: AgentDefinition) -> str:
     if definition.color:
         lines.append(f"color: {definition.color}")
 
+    # MCP servers — nested YAML block for external tool integrations
+    # Format: mcpServers:\n  server-name:\n    command: ...\n    args: [...]
+    if definition.mcp_servers:
+        import yaml
+
+        mcp_yaml = yaml.dump(
+            {"mcpServers": definition.mcp_servers},
+            default_flow_style=False,
+            sort_keys=False,
+        ).strip()
+        lines.append(mcp_yaml)
+
     # Add metadata if present
     if definition.metadata:
         if "version" in definition.metadata:
@@ -424,6 +438,228 @@ def generate_frontmatter(definition: AgentDefinition) -> str:
             lines.append(f"author: {definition.metadata['author']}")
 
     lines.append("---")
+    return "\n".join(lines)
+
+
+# Role-based hook recommendations.
+# Maps description keywords to hook types and events.
+# Used by recommend_hooks_for_agent() to auto-generate companion hooks config.
+ROLE_HOOK_MAP: dict[str, dict[str, Any]] = {
+    "security": {
+        "hook_types": ["security", "audit"],
+        "events": ["PreToolUse", "PostToolUse"],
+        "description": "Security validation and audit logging for tool invocations",
+    },
+    "scanner": {
+        "hook_types": ["security", "audit"],
+        "events": ["PreToolUse", "PostToolUse"],
+        "description": "Scan validation and audit trail",
+    },
+    "test": {
+        "hook_types": ["logging"],
+        "events": ["PostToolUse"],
+        "description": "Post-execution linting and test result logging",
+    },
+    "linter": {
+        "hook_types": ["logging"],
+        "events": ["PostToolUse"],
+        "description": "Post-execution lint result logging",
+    },
+    "reviewer": {
+        "hook_types": ["audit", "logging"],
+        "events": ["PreToolUse", "PostToolUse"],
+        "description": "Audit trail for review actions",
+    },
+    "deployer": {
+        "hook_types": ["audit", "compliance", "security"],
+        "events": ["PreToolUse", "PostToolUse", "SessionStart", "Stop"],
+        "description": "Full audit trail and compliance checks for deployments",
+    },
+    "generator": {
+        "hook_types": ["logging"],
+        "events": ["PostToolUse"],
+        "description": "Generation result logging",
+    },
+    "monitor": {
+        "hook_types": ["metrics", "logging"],
+        "events": ["SessionStart", "Stop", "PreToolUse", "PostToolUse"],
+        "description": "Metrics collection and structured logging",
+    },
+}
+
+
+def recommend_hooks_for_agent(
+    name: str,
+    description: str,
+    tools: list[str],
+) -> dict[str, Any]:
+    """Recommend Claude Code hooks configuration based on agent role.
+
+    Analyzes agent name, description, and tools to determine which lifecycle
+    hooks should be configured in settings.json for the agent.
+
+    Claude Code hooks live in settings.json (not agent frontmatter), so this
+    produces a companion configuration dict in settings.json hooks format.
+
+    Args:
+        name: Agent name (e.g. "security-scanner")
+        description: Agent description text
+        tools: List of tool names the agent uses
+
+    Returns:
+        Dict in Claude Code settings.json hooks format:
+        {"PreToolUse": [{"matcher": "...", "hooks": [...]}], ...}
+        Empty dict if no hooks recommended.
+    """
+    combined = f"{name} {description}".lower()
+
+    # Collect all matching role hook configs
+    matched_types: set[str] = set()
+    matched_events: set[str] = set()
+
+    for role_keyword, config in ROLE_HOOK_MAP.items():
+        if role_keyword in combined:
+            matched_types.update(config["hook_types"])
+            matched_events.update(config["events"])
+
+    # Agents with dangerous tools (Write, Edit, Bash) always get audit hooks
+    dangerous_tools = {"Write", "Edit", "MultiEdit", "Bash"}
+    if dangerous_tools & set(tools):
+        matched_types.add("audit")
+        matched_events.update({"PreToolUse", "PostToolUse"})
+
+    if not matched_types:
+        return {}
+
+    # Build settings.json hooks format directly — no cross-module import needed.
+    # Format: {"EventName": [{"matcher": "", "hooks": [{"type": "command", "command": "..."}]}]}
+    hooks_by_event: dict[str, list[dict[str, Any]]] = {}
+
+    for event in sorted(matched_events):
+        entries: list[dict[str, Any]] = []
+
+        if "audit" in matched_types:
+            log_file = "/tmp/claude-audit.log"
+            if event == "PreToolUse":
+                cmd = f'echo "[{name}] $(date -Iseconds) PRE_TOOL tool=$CLAUDE_TOOL_NAME" >> {log_file}'
+            elif event == "PostToolUse":
+                cmd = f'echo "[{name}] $(date -Iseconds) POST_TOOL tool=$CLAUDE_TOOL_NAME" >> {log_file}'
+            elif event == "SessionStart":
+                cmd = f'echo "[{name}] $(date -Iseconds) SESSION_START user=$USER" >> {log_file}'
+            elif event == "Stop":
+                cmd = f'echo "[{name}] $(date -Iseconds) SESSION_END" >> {log_file}'
+            else:
+                cmd = f'echo "[{name}] $(date -Iseconds) {event}" >> {log_file}'
+            entries.append(
+                {
+                    "matcher": "",
+                    "hooks": [{"type": "command", "command": cmd}],
+                }
+            )
+
+        if "security" in matched_types:
+            if event == "PreToolUse":
+                entries.append(
+                    {
+                        "matcher": "Write|Edit|MultiEdit|Bash",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": f'{name}-security-gate --tool "$CLAUDE_TOOL_NAME" 2>/dev/null || true',
+                            }
+                        ],
+                    }
+                )
+            elif event == "PostToolUse":
+                entries.append(
+                    {
+                        "matcher": "",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": f'{name}-security-audit --tool "$CLAUDE_TOOL_NAME" 2>/dev/null || true',
+                            }
+                        ],
+                    }
+                )
+
+        if "logging" in matched_types:
+            log_file = f"/tmp/{name}.log"
+            cmd = (
+                f'echo \'{{"timestamp":"\'$(date -Iseconds)\'","level":"INFO",'
+                f'"agent":"{name}","event":"{event}",'
+                f'"tool":"\'$CLAUDE_TOOL_NAME\'"}}\' >> {log_file}'
+            )
+            entries.append(
+                {
+                    "matcher": "",
+                    "hooks": [{"type": "command", "command": cmd}],
+                }
+            )
+
+        if "compliance" in matched_types:
+            entries.append(
+                {
+                    "matcher": "",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": f"{name}-compliance-check --event {event} 2>/dev/null || true",
+                        }
+                    ],
+                }
+            )
+
+        if "metrics" in matched_types:
+            cmd = (
+                f'echo "{name},{event},$(date +%s)" >> /tmp/claude-metrics.csv 2>/dev/null || true'
+            )
+            entries.append(
+                {
+                    "matcher": "",
+                    "hooks": [{"type": "command", "command": cmd}],
+                }
+            )
+
+        if entries:
+            hooks_by_event[event] = entries
+
+    return hooks_by_event
+
+
+def generate_hooks_section(hooks_config: dict[str, Any], agent_name: str) -> str:
+    """Generate a markdown section documenting recommended hooks.
+
+    This section is appended to the agent definition file as documentation,
+    showing the user which hooks to add to their settings.json.
+
+    Args:
+        hooks_config: Dict in Claude Code settings.json hooks format
+        agent_name: Agent name for documentation
+
+    Returns:
+        Markdown string with hooks documentation section, or empty string
+        if no hooks to document.
+    """
+    if not hooks_config:
+        return ""
+
+    import json
+
+    lines = [
+        "",
+        "## Recommended Hooks",
+        "",
+        f"Add these lifecycle hooks to your `settings.json` for `{agent_name}`:",
+        "",
+        "```json",
+        json.dumps({"hooks": hooks_config}, indent=2),
+        "```",
+        "",
+        "Place in `~/.claude/settings.json` (user scope) "
+        "or `.claude/settings.json` (project scope).",
+        "",
+    ]
     return "\n".join(lines)
 
 
