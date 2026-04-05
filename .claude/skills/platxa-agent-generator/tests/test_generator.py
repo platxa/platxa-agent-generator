@@ -1274,6 +1274,111 @@ class TestPreToolUseDenyScript:
         assert entries[0]["hooks"][0]["command"] == "/path/to/deny.sh"
 
 
+class TestHookScriptGeneration:
+    """Tests for hook script file generation (Feature #16)."""
+
+    def _run_generate(self, agent_name: str, hook_types: str, output_dir: str) -> dict:
+        """Run generate_hook_scripts via subprocess, return JSON result."""
+        code = (
+            "import sys, json; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+            "from hooks_generator import generate_hook_scripts; "
+            f"scripts, config = generate_hook_scripts("
+            f"'{agent_name}', "
+            f"hook_types={hook_types!r}.split(','), "
+            f"output_dir='{output_dir}'); "
+            "print(json.dumps({"
+            "'scripts': [str(s) for s in scripts], "
+            "'config': config"
+            "}))"
+        )
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script gen failed: {result.stderr}"
+        return json.loads(result.stdout)
+
+    def test_creates_script_files(self, tmp_path: Path) -> None:
+        """generate_hook_scripts must create .sh files in output directory."""
+        hooks_dir = tmp_path / "hooks"
+        result = self._run_generate("my-agent", "audit", str(hooks_dir))
+        assert len(result["scripts"]) > 0
+        for script_path in result["scripts"]:
+            p = Path(script_path)
+            assert p.exists(), f"Script not created: {script_path}"
+            assert p.suffix == ".sh"
+
+    def test_scripts_are_executable(self, tmp_path: Path) -> None:
+        """Generated scripts must have executable permission."""
+        hooks_dir = tmp_path / "hooks"
+        result = self._run_generate("my-agent", "audit", str(hooks_dir))
+        import os
+
+        for script_path in result["scripts"]:
+            assert os.access(script_path, os.X_OK), f"Not executable: {script_path}"
+
+    def test_scripts_have_shebang(self, tmp_path: Path) -> None:
+        """Generated scripts must start with #!/usr/bin/env bash."""
+        hooks_dir = tmp_path / "hooks"
+        result = self._run_generate("my-agent", "logging", str(hooks_dir))
+        for script_path in result["scripts"]:
+            content = Path(script_path).read_text()
+            assert content.startswith("#!/usr/bin/env bash"), f"Missing shebang: {script_path}"
+
+    def test_scripts_read_stdin(self, tmp_path: Path) -> None:
+        """Generated scripts must read TOOL_INPUT from stdin."""
+        hooks_dir = tmp_path / "hooks"
+        result = self._run_generate("my-agent", "audit", str(hooks_dir))
+        for script_path in result["scripts"]:
+            content = Path(script_path).read_text()
+            assert "TOOL_INPUT" in content, f"Script doesn't read stdin: {script_path}"
+
+    def test_config_references_script_paths(self, tmp_path: Path) -> None:
+        """Returned settings config must reference the created script paths."""
+        hooks_dir = tmp_path / "hooks"
+        result = self._run_generate("my-agent", "audit", str(hooks_dir))
+        config = result["config"]
+        all_commands = [
+            h["command"]
+            for event_hooks in config.values()
+            for entry in event_hooks
+            for h in entry["hooks"]
+        ]
+        for script_path in result["scripts"]:
+            assert any(script_path in cmd for cmd in all_commands), (
+                f"Config doesn't reference {script_path}"
+            )
+
+    def test_naming_convention(self, tmp_path: Path) -> None:
+        """Script filenames must follow <agent>-<event>-<desc>.sh pattern."""
+        hooks_dir = tmp_path / "hooks"
+        result = self._run_generate("sec-agent", "security", str(hooks_dir))
+        for script_path in result["scripts"]:
+            name = Path(script_path).name
+            assert name.startswith("sec-agent-"), f"Bad naming: {name}"
+            assert name.endswith(".sh"), f"Not .sh: {name}"
+
+    def test_multiple_hook_types(self, tmp_path: Path) -> None:
+        """Multiple hook types should produce multiple scripts."""
+        hooks_dir = tmp_path / "hooks"
+        result = self._run_generate("my-agent", "audit,logging", str(hooks_dir))
+        # audit + logging on default 4 events = 8 scripts
+        assert len(result["scripts"]) >= 4
+
+    def test_scripts_are_valid_bash(self, tmp_path: Path) -> None:
+        """Generated scripts must pass bash -n syntax check."""
+        hooks_dir = tmp_path / "hooks"
+        result = self._run_generate("my-agent", "audit", str(hooks_dir))
+        for script_path in result["scripts"]:
+            check = subprocess.run(
+                ["bash", "-n", script_path],
+                capture_output=True,
+                text=True,
+            )
+            assert check.returncode == 0, f"Syntax error in {script_path}: {check.stderr}"
+
+
 class TestSecurityScanner:
     """Real tests for security_scanner.py CLI."""
 
