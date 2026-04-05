@@ -32,7 +32,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-
 # Valid hook event types in Claude Code
 HOOK_EVENTS = {
     "SessionStart": "Triggered when a Claude Code session begins",
@@ -161,7 +160,7 @@ def create_compliance_hook(
         command = f"{policy_script} --agent {agent_name} --event {event}"
     else:
         # Default compliance check
-        command = f'{agent_name}-compliance-check --event {event} 2>/dev/null || true'
+        command = f"{agent_name}-compliance-check --event {event} 2>/dev/null || true"
 
     return HookConfig(
         event=event,
@@ -179,15 +178,15 @@ def create_metrics_hook(
     """Create a metrics collection hook."""
     if metrics_endpoint:
         command = (
-            f'curl -s -X POST {metrics_endpoint} '
+            f"curl -s -X POST {metrics_endpoint} "
             f'-d "agent={agent_name}&event={event}&timestamp=$(date +%s)" '
-            f'2>/dev/null || true'
+            f"2>/dev/null || true"
         )
     else:
         # Default: log to metrics file
         command = (
             f'echo "{agent_name},{event},$(date +%s)" '
-            f'>> /tmp/claude-metrics.csv 2>/dev/null || true'
+            f">> /tmp/claude-metrics.csv 2>/dev/null || true"
         )
 
     return HookConfig(
@@ -213,7 +212,7 @@ def create_security_hook(
         # Audit after operations
         command = f'{agent_name}-security-audit --tool "$CLAUDE_TOOL_NAME" 2>/dev/null || true'
     else:
-        command = f'{agent_name}-security-check --event {event} 2>/dev/null || true'
+        command = f"{agent_name}-security-check --event {event} 2>/dev/null || true"
 
     return HookConfig(
         event=event,
@@ -240,10 +239,7 @@ def create_notification_hook(
         else:
             message = f"{agent_name}: {event}"
 
-        command = (
-            f'notify-send -i dialog-information "{title}" "{message}" '
-            f'2>/dev/null || true'
-        )
+        command = f'notify-send -i dialog-information "{title}" "{message}" 2>/dev/null || true'
 
         hooks.append(
             HookConfig(
@@ -289,13 +285,13 @@ def create_performance_hook(
     """Create a performance timing hook."""
     if event == "PreToolUse":
         # Record start time
-        command = f'echo $(date +%s%N) > /tmp/{agent_name}-timing-start 2>/dev/null || true'
+        command = f"echo $(date +%s%N) > /tmp/{agent_name}-timing-start 2>/dev/null || true"
     elif event == "PostToolUse":
         # Calculate and log duration
         command = (
-            f'START=$(cat /tmp/{agent_name}-timing-start 2>/dev/null || echo 0); '
-            f'END=$(date +%s%N); '
-            f'DURATION=$((($END - $START) / 1000000)); '
+            f"START=$(cat /tmp/{agent_name}-timing-start 2>/dev/null || echo 0); "
+            f"END=$(date +%s%N); "
+            f"DURATION=$((($END - $START) / 1000000)); "
             f'echo "{agent_name},$CLAUDE_TOOL_NAME,$DURATION" >> /tmp/{agent_name}-perf.csv 2>/dev/null || true'
         )
     else:
@@ -346,9 +342,7 @@ def generate_hooks(
         elif hook_type == "compliance":
             policy_script = config.get("policy_script")
             for event in target_events:
-                definition.hooks.append(
-                    create_compliance_hook(agent_name, event, policy_script)
-                )
+                definition.hooks.append(create_compliance_hook(agent_name, event, policy_script))
 
         elif hook_type == "metrics":
             endpoint = config.get("metrics_endpoint")
@@ -365,9 +359,7 @@ def generate_hooks(
             log_file = config.get("log_file")
             log_level = config.get("log_level", "INFO")
             for event in target_events:
-                definition.hooks.append(
-                    create_logging_hook(agent_name, event, log_level, log_file)
-                )
+                definition.hooks.append(create_logging_hook(agent_name, event, log_level, log_file))
 
         elif hook_type == "performance":
             perf_events = ["PreToolUse", "PostToolUse"]
@@ -377,9 +369,7 @@ def generate_hooks(
 
         elif hook_type == "notification":
             notify_events = config.get("notify_events", ["SessionStart", "Stop"])
-            definition.hooks.extend(
-                create_notification_hook(agent_name, events=notify_events)
-            )
+            definition.hooks.extend(create_notification_hook(agent_name, events=notify_events))
 
     return definition
 
@@ -606,6 +596,124 @@ def main() -> None:
             print(json.dumps(result, indent=2))
     else:
         print(f"Generated: {path}")
+
+
+# ─── PreToolUse Dangerous Command Blocking ────────────────────────────────────
+# These patterns match the CRITICAL patterns from security_scanner.py (SEC001-SEC008).
+# A PreToolUse hook script checks stdin (tool_input JSON) against these patterns.
+# Exit code 2 = deny the tool call (Claude Code convention).
+
+# Regex patterns for dangerous commands, aligned with security_scanner.py CRITICAL list.
+# Each tuple is (pattern, code, description).
+DANGEROUS_COMMAND_PATTERNS: list[tuple[str, str, str]] = [
+    (r"rm\s+-rf\s+[/~]", "SEC001", "Destructive file deletion (rm -rf / or ~)"),
+    (r"\bsudo\b", "SEC002", "Privileged execution (sudo)"),
+    (r"chmod\s+777\b", "SEC003", "Insecure file permissions (chmod 777)"),
+    (r"\beval\s*\(", "SEC004", "Dynamic code execution (eval)"),
+    (r"\bexec\s*\(", "SEC005", "Dynamic code execution (exec)"),
+    (r">\s*/dev/sd[a-z]", "SEC006", "Direct disk write (> /dev/sdX)"),
+    (r"dd\s+.*of=/dev/", "SEC007", "Direct disk write with dd"),
+    (r":\s*\(\)\s*\{", "SEC008", "Fork bomb pattern"),
+]
+
+
+def generate_pretooluse_deny_script(agent_name: str) -> str:
+    """Generate a bash script that denies dangerous commands in PreToolUse hooks.
+
+    The script reads tool input from stdin (Claude Code passes tool_input JSON via stdin
+    to PreToolUse hooks), checks the 'command' field against DANGEROUS_COMMAND_PATTERNS,
+    and exits with code 2 (deny) if a match is found.
+
+    Args:
+        agent_name: Agent name for log messages
+
+    Returns:
+        Complete bash script as a string, ready to write to a file.
+    """
+    # Build grep pattern alternation from DANGEROUS_COMMAND_PATTERNS
+    grep_patterns = []
+    for pattern, code, desc in DANGEROUS_COMMAND_PATTERNS:
+        # Escape single quotes for embedding in bash
+        safe_pattern = pattern.replace("'", "'\\''")
+        grep_patterns.append(f"    -e '{safe_pattern}'")
+
+    grep_lines = " \\\n".join(grep_patterns)
+
+    script = f"""#!/usr/bin/env bash
+# PreToolUse deny hook for {agent_name}
+# Generated by platxa-agent-generator hooks_generator.py
+#
+# Blocks dangerous commands matching security_scanner.py CRITICAL patterns (SEC001-SEC008).
+# Exit codes: 0 = allow, 2 = deny (Claude Code convention).
+#
+# Usage in settings.json:
+#   "hooks": {{
+#     "PreToolUse": [{{
+#       "matcher": "Bash",
+#       "hooks": [{{
+#         "type": "command",
+#         "command": "/path/to/{agent_name}-deny-dangerous.sh"
+#       }}]
+#     }}]
+#   }}
+
+set -euo pipefail
+
+# Read tool input from stdin (Claude Code passes JSON via stdin to hooks)
+TOOL_INPUT=$(cat)
+
+# Only check Bash tool calls
+if [ "${{CLAUDE_TOOL_NAME:-}}" != "Bash" ]; then
+    exit 0
+fi
+
+# Extract the command field from the JSON input.
+# Uses python for reliable JSON parsing; falls back to grep if unavailable.
+COMMAND=""
+if command -v python3 &>/dev/null; then
+    COMMAND=$(echo "$TOOL_INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('command',''))" 2>/dev/null || echo "$TOOL_INPUT")
+else
+    COMMAND="$TOOL_INPUT"
+fi
+
+# Check against dangerous patterns (CRITICAL — SEC001-SEC008)
+if echo "$COMMAND" | grep -qE \\
+{grep_lines}; then
+    echo "DENIED: {agent_name} blocked a dangerous command pattern" >&2
+    echo "The command matches a CRITICAL security pattern (SEC001-SEC008)." >&2
+    echo "Review security_scanner.py for details." >&2
+    exit 2
+fi
+
+# Allow the tool call
+exit 0
+"""
+    return script
+
+
+def generate_pretooluse_hook_config(agent_name: str, script_path: str) -> dict[str, Any]:
+    """Generate Claude Code settings.json hook config for dangerous command blocking.
+
+    Args:
+        agent_name: Agent name
+        script_path: Absolute path to the deny script
+
+    Returns:
+        Dict in settings.json hooks format for PreToolUse.
+    """
+    return {
+        "PreToolUse": [
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": script_path,
+                    }
+                ],
+            }
+        ]
+    }
 
 
 if __name__ == "__main__":

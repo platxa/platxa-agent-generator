@@ -1144,6 +1144,136 @@ class TestHooksRecommendation:
                     assert hook["type"] == "command"
 
 
+class TestPreToolUseDenyScript:
+    """Tests for PreToolUse dangerous command blocking (Feature #12).
+
+    Uses subprocess to invoke hooks_generator.py, avoiding fragile importlib
+    issues with `from __future__ import annotations` + dataclass resolution.
+    """
+
+    def _generate_deny_script(self, agent_name: str, tmp_path: Path) -> Path:
+        """Generate deny script via subprocess and write to tmp_path."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+                    "from hooks_generator import generate_pretooluse_deny_script; "
+                    f"print(generate_pretooluse_deny_script('{agent_name}'))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script generation failed: {result.stderr}"
+        script_path = tmp_path / f"{agent_name}-deny.sh"
+        script_path.write_text(result.stdout)
+        script_path.chmod(0o755)
+        return script_path
+
+    def _run_deny_script(
+        self, script_path: Path, command: str, tool_name: str = "Bash"
+    ) -> subprocess.CompletedProcess:
+        """Run the deny script with mock tool input."""
+        import os
+
+        env = {**os.environ, "CLAUDE_TOOL_NAME": tool_name}
+        return subprocess.run(
+            ["bash", str(script_path)],
+            input=f'{{"command": "{command}"}}',
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+
+    def test_script_contains_all_8_critical_patterns(self, tmp_path: Path) -> None:
+        """Generated script must contain all 8 SEC001-SEC008 patterns."""
+        script_path = self._generate_deny_script("test-agent", tmp_path)
+        content = script_path.read_text()
+        # These are the 8 CRITICAL patterns from security_scanner.py
+        expected_patterns = [
+            r"rm\s+-rf\s+[/~]",  # SEC001
+            r"\bsudo\b",  # SEC002
+            r"chmod\s+777\b",  # SEC003
+            r"\beval\s*\(",  # SEC004
+            r"\bexec\s*\(",  # SEC005
+            r">\s*/dev/sd[a-z]",  # SEC006
+            r"dd\s+.*of=/dev/",  # SEC007
+            r":\s*\(\)\s*\{",  # SEC008
+        ]
+        for pattern in expected_patterns:
+            assert pattern in content, f"Pattern missing from script: {pattern}"
+
+    def test_script_has_correct_exit_codes(self, tmp_path: Path) -> None:
+        """Script must use exit 2 for deny and exit 0 for allow."""
+        script_path = self._generate_deny_script("test-agent", tmp_path)
+        content = script_path.read_text()
+        assert "exit 2" in content, "Script must exit 2 to deny"
+        assert "exit 0" in content, "Script must exit 0 to allow"
+
+    def test_script_blocks_rm_rf(self, tmp_path: Path) -> None:
+        """Script must block rm -rf / with exit code 2."""
+        script_path = self._generate_deny_script("test-agent", tmp_path)
+        result = self._run_deny_script(script_path, "rm -rf /home")
+        assert result.returncode == 2
+
+    def test_script_blocks_sudo(self, tmp_path: Path) -> None:
+        """Script must block sudo commands with exit code 2."""
+        script_path = self._generate_deny_script("test-agent", tmp_path)
+        result = self._run_deny_script(script_path, "sudo apt install malware")
+        assert result.returncode == 2
+
+    def test_script_blocks_chmod_777(self, tmp_path: Path) -> None:
+        """Script must block chmod 777 with exit code 2."""
+        script_path = self._generate_deny_script("test-agent", tmp_path)
+        result = self._run_deny_script(script_path, "chmod 777 /etc/passwd")
+        assert result.returncode == 2
+
+    def test_script_blocks_dd_devwrite(self, tmp_path: Path) -> None:
+        """Script must block dd to /dev/ with exit code 2."""
+        script_path = self._generate_deny_script("test-agent", tmp_path)
+        result = self._run_deny_script(script_path, "dd if=/dev/zero of=/dev/sda")
+        assert result.returncode == 2
+
+    def test_script_allows_safe_commands(self, tmp_path: Path) -> None:
+        """Script must allow safe commands with exit code 0."""
+        script_path = self._generate_deny_script("test-agent", tmp_path)
+        result = self._run_deny_script(script_path, "git status")
+        assert result.returncode == 0
+
+    def test_script_allows_non_bash_tools(self, tmp_path: Path) -> None:
+        """Script must skip checking non-Bash tools (exit 0)."""
+        script_path = self._generate_deny_script("test-agent", tmp_path)
+        result = self._run_deny_script(script_path, "rm -rf /", tool_name="Read")
+        assert result.returncode == 0
+
+    def test_hook_config_format(self) -> None:
+        """Hook config must use correct settings.json format."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys, json; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+                    "from hooks_generator import generate_pretooluse_hook_config; "
+                    "print(json.dumps(generate_pretooluse_hook_config("
+                    "'my-agent', '/path/to/deny.sh')))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        config = json.loads(result.stdout)
+        assert "PreToolUse" in config
+        entries = config["PreToolUse"]
+        assert len(entries) == 1
+        assert entries[0]["matcher"] == "Bash"
+        assert entries[0]["hooks"][0]["type"] == "command"
+        assert entries[0]["hooks"][0]["command"] == "/path/to/deny.sh"
+
+
 class TestSecurityScanner:
     """Real tests for security_scanner.py CLI."""
 
