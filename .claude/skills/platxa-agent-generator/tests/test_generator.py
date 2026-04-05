@@ -3955,5 +3955,119 @@ class TestVerificationSectionGeneration:
         assert "verification" in all_findings.lower()
 
 
+class TestEnhancedExampleGeneration:
+    """Tests for Feature #27: Enhanced example generation with diversity."""
+
+    def _generate_agent(self, tmp_path: Path, name: str, desc: str, tools: str) -> str:
+        """Helper to generate an agent and return its content."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                name,
+                "--description",
+                desc,
+                "--tools",
+                tools,
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Generator failed: {result.stderr}"
+        return (tmp_path / f"{name}.md").read_text()
+
+    def test_minimum_four_examples_generated(self, tmp_path: Path) -> None:
+        """Generated agents have at least 4 examples (basic, advanced, error, edge)."""
+        content = self._generate_agent(
+            tmp_path, "example-agent", "Analyzes code quality", "Read,Grep,Glob"
+        )
+        example_headings = [line for line in content.split("\n") if line.startswith("### Example")]
+        assert len(example_headings) >= 4, (
+            f"Expected ≥4 examples, got {len(example_headings)}: {example_headings}"
+        )
+
+    def test_basic_usage_example_present(self, tmp_path: Path) -> None:
+        """Example 1 covers basic/happy path usage."""
+        content = self._generate_agent(
+            tmp_path, "basic-agent", "Searches for patterns", "Read,Grep"
+        )
+        assert "Basic Usage" in content
+
+    def test_error_scenario_example_present(self, tmp_path: Path) -> None:
+        """Example 3 covers an error scenario."""
+        content = self._generate_agent(
+            tmp_path, "error-agent", "Writes configuration files", "Write,Edit,Read"
+        )
+        assert "Error Scenario" in content
+
+    def test_edge_case_example_present(self, tmp_path: Path) -> None:
+        """Example 4 covers edge case handling."""
+        content = self._generate_agent(tmp_path, "edge-agent", "Processes data files", "Read,Glob")
+        assert "Edge Case" in content
+
+    def test_error_example_shows_error_status(self, tmp_path: Path) -> None:
+        """Error scenario example includes error status in output."""
+        content = self._generate_agent(
+            tmp_path, "err-status-agent", "Runs shell commands", "Bash,Read"
+        )
+        assert '"status": "error"' in content
+
+    def test_error_example_tool_specific_bash(self, tmp_path: Path) -> None:
+        """Bash agents get permission-related error scenario."""
+        content = self._generate_agent(
+            tmp_path, "bash-err-agent", "Executes build commands", "Bash,Read"
+        )
+        assert "permission" in content.lower() or "elevated" in content.lower()
+
+    def test_error_example_tool_specific_write(self, tmp_path: Path) -> None:
+        """Write agents get read-only file error scenario."""
+        content = self._generate_agent(
+            tmp_path, "write-err-agent", "Creates new modules", "Write,Edit,Read"
+        )
+        assert "read-only" in content.lower()
+
+    def test_error_example_tool_specific_web(self, tmp_path: Path) -> None:
+        """WebFetch agents get unreachable endpoint error scenario."""
+        content = self._generate_agent(
+            tmp_path, "web-err-agent", "Fetches API docs", "WebFetch,Read"
+        )
+        assert "unreachable" in content.lower()
+
+    def test_error_example_tool_specific_task(self, tmp_path: Path) -> None:
+        """Task agents get subagent failure error scenario."""
+        content = self._generate_agent(
+            tmp_path, "task-err-agent", "Orchestrates workers", "Task,Read,Glob"
+        )
+        assert "subagent" in content.lower() and "fail" in content.lower()
+
+    def test_scorer_validates_diversity(self, tmp_path: Path) -> None:
+        """Quality scorer recognizes full example diversity."""
+        self._generate_agent(tmp_path, "diverse-agent", "Analyzes security", "Read,Grep,Bash")
+        md_file = tmp_path / "diverse-agent.md"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "quality_scorer.py"),
+                "--json",
+                str(md_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = result.stdout.strip()
+        assert output, f"Scorer produced no output, stderr: {result.stderr}"
+        score_data = json.loads(output)
+        examples_criterion = next(
+            (c for c in score_data["criteria"] if c["name"] == "Examples"),
+            None,
+        )
+        assert examples_criterion is not None
+        all_findings = " ".join(examples_criterion["findings"])
+        assert "diversity" in all_findings.lower()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

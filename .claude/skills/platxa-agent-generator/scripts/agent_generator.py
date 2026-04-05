@@ -1276,7 +1276,14 @@ def generate_examples_section(definition: AgentDefinition) -> str:
 def _generate_three_examples(
     definition: AgentDefinition,
 ) -> list[tuple[str, list[str]]]:
-    """Generate three examples: basic usage, advanced orchestration, edge case handling."""
+    """Generate diverse examples: basic usage, error scenario, edge case, advanced orchestration.
+
+    Produces minimum 4 examples covering:
+    - Happy path (basic usage)
+    - Error scenario (tool failures, invalid input, permission denied)
+    - Edge case (empty input, boundary conditions)
+    - Advanced orchestration (multi-file, complex workflows)
+    """
     examples: list[tuple[str, list[str]]] = []
     desc_lower = definition.description.lower()
     tools = definition.tools
@@ -1383,7 +1390,52 @@ def _generate_three_examples(
     advanced_content.append("```")
     examples.append(("Example 2: Advanced Orchestration", advanced_content))
 
-    # Example 3: Edge Case Handling
+    # Example 3: Error Scenario
+    error_content: list[str] = []
+    error_content.append("**User Request:**")
+    error_content.append("```")
+    if "Bash" in tools:
+        error_content.append(
+            f"Use {definition.name} to process a file that requires "
+            "elevated permissions the agent does not have"
+        )
+    elif set(tools) & {"Write", "Edit"}:
+        error_content.append(f"Use {definition.name} to modify a read-only configuration file")
+    elif set(tools) & {"WebFetch", "WebSearch"}:
+        error_content.append(f"Use {definition.name} to fetch data from an unreachable endpoint")
+    elif "Task" in tools:
+        error_content.append(f"Use {definition.name} when a subagent fails mid-execution")
+    else:
+        error_content.append(f"Use {definition.name} with invalid or malformed input parameters")
+    error_content.append("```")
+    error_content.append("")
+    error_content.append("**Agent Actions:**")
+    error_content.append("1. Attempt the requested operation")
+    error_content.append("2. Detect failure (permission denied, timeout, invalid input)")
+    error_content.append("3. Log error details with context for debugging")
+    error_content.append("4. Apply recovery strategy or report actionable error")
+    error_content.append("")
+    error_content.append("**Expected Output:**")
+    error_content.append("```json")
+    error_content.append("{")
+    error_content.append('  "status": "error",')
+    error_content.append(f'  "agent": "{definition.name}",')
+    error_content.append('  "error": {')
+    error_content.append('    "type": "PermissionDenied",')
+    error_content.append('    "message": "Cannot access target resource",')
+    error_content.append('    "context": "File /etc/config is read-only"')
+    error_content.append("  },")
+    error_content.append('  "recovery_attempted": true,')
+    error_content.append('  "suggestions": [')
+    error_content.append('    "Check file permissions before modifying",')
+    error_content.append('    "Run with appropriate access level",')
+    error_content.append('    "Use a writable copy of the target file"')
+    error_content.append("  ]")
+    error_content.append("}")
+    error_content.append("```")
+    examples.append(("Example 3: Error Scenario", error_content))
+
+    # Example 4: Edge Case Handling
     edge_content: list[str] = []
     edge_content.append("**User Request:**")
     edge_content.append("```")
@@ -1411,7 +1463,7 @@ def _generate_three_examples(
     edge_content.append("  ]")
     edge_content.append("}")
     edge_content.append("```")
-    examples.append(("Example 3: Edge Case Handling", edge_content))
+    examples.append(("Example 4: Edge Case Handling", edge_content))
 
     return examples
 

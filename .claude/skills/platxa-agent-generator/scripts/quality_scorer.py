@@ -567,7 +567,40 @@ def score_examples(sections: dict[str, str]) -> CriterionScore:
         score -= 1.5
         suggestions.append("Show both input and expected output in examples")
 
-    # Check example variety
+    # Check example diversity — require happy path, error, and edge case coverage
+    content_lower = examples_content.lower()
+    diversity_labels = {
+        "happy_path": any(
+            kw in content_lower for kw in ["basic usage", "happy path", "basic example"]
+        ),
+        "error_scenario": any(
+            kw in content_lower
+            for kw in ["error scenario", "error handling", "failure", '"status": "error"']
+        ),
+        "edge_case": any(
+            kw in content_lower
+            for kw in ["edge case", "empty directory", "no matching", "boundary"]
+        ),
+    }
+    diversity_count = sum(diversity_labels.values())
+    if diversity_count >= 3:
+        findings.append("Full example diversity: happy path, error, edge case")
+    elif diversity_count == 2:
+        missing = [k for k, v in diversity_labels.items() if not v]
+        findings.append(f"Partial example diversity (missing: {', '.join(missing)})")
+        score -= 1.0
+        suggestions.append(f"Add example covering: {', '.join(missing).replace('_', ' ')}")
+    elif diversity_count == 1:
+        missing = [k for k, v in diversity_labels.items() if not v]
+        score -= 2.0
+        suggestions.append(f"Add diverse examples covering: {', '.join(missing).replace('_', ' ')}")
+    else:
+        score -= 2.5
+        suggestions.append(
+            "Add labeled examples: basic usage (happy path), error scenario, edge case"
+        )
+
+    # Check example depth
     if len(examples_content) > 500:
         findings.append("Detailed examples provided")
     elif len(examples_content) > 200:
