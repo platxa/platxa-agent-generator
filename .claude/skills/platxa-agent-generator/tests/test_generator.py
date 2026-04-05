@@ -5087,5 +5087,228 @@ class TestGeneratorRegressionSuite:
             )
 
 
+class TestCompletenessCheckerRequiredSections:
+    """Tests for Feature #47: Required sections in completeness checker."""
+
+    def _check(self, tmp_path: Path, content: str) -> dict:
+        """Write content to file and run completeness checker, return JSON."""
+        md_file = tmp_path / "test-agent.md"
+        md_file.write_text(content)
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "completeness_checker.py"),
+                "--json",
+                str(md_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = result.stdout.strip()
+        assert output, f"No output, stderr: {result.stderr}"
+        return json.loads(output)
+
+    def _make_complete_agent(self) -> str:
+        """Return a complete agent with all required sections."""
+        return (
+            "---\n"
+            "name: complete-agent\n"
+            "description: A complete agent with all required sections present\n"
+            "tools: Read, Grep\n"
+            "---\n\n"
+            "# Complete Agent\n\n"
+            "## Overview\nThis agent analyzes code quality.\n\n"
+            "## Workflow\n1. Read files\n2. Analyze patterns\n3. Report\n\n"
+            "## Examples\n### Example 1: Basic\n```\nUse agent\n```\n\n"
+            "## Error Handling\nRetry on failure, report errors.\n\n"
+            "## Verification\nCheck output matches expected format.\n\n"
+            '## Output Format\n```json\n{"status": "success"}\n```\n'
+        )
+
+    def test_missing_error_handling_flagged_as_error(self, tmp_path: Path) -> None:
+        """Missing Error Handling section is flagged as error, not warning."""
+        content = (
+            "---\n"
+            "name: no-error-handling\n"
+            "description: Agent missing error handling section entirely\n"
+            "tools: Read, Grep\n"
+            "---\n\n"
+            "# No Error Handling\n\n"
+            "## Overview\nAnalyzes code.\n\n"
+            "## Workflow\n1. Read\n2. Analyze\n\n"
+            "## Examples\n### Example 1\n```\ntest\n```\n\n"
+            "## Verification\nCheck output.\n\n"
+            "## Output Format\n```json\n{}\n```\n"
+        )
+        data = self._check(tmp_path, content)
+        error_checks = [
+            c
+            for c in data["checks"]
+            if not c["passed"]
+            and c["severity"] == "error"
+            and "error handling" in c["message"].lower()
+        ]
+        assert len(error_checks) >= 1, "Missing Error Handling not flagged as error"
+
+    def test_missing_verification_flagged_as_error(self, tmp_path: Path) -> None:
+        """Missing Verification section is flagged as error, not warning."""
+        content = (
+            "---\n"
+            "name: no-verification\n"
+            "description: Agent missing verification section entirely here\n"
+            "tools: Read, Grep\n"
+            "---\n\n"
+            "# No Verification\n\n"
+            "## Overview\nAnalyzes code.\n\n"
+            "## Workflow\n1. Read\n2. Analyze\n\n"
+            "## Examples\n### Example 1\n```\ntest\n```\n\n"
+            "## Error Handling\nRetry on failure.\n\n"
+            "## Output Format\n```json\n{}\n```\n"
+        )
+        data = self._check(tmp_path, content)
+        error_checks = [
+            c
+            for c in data["checks"]
+            if not c["passed"]
+            and c["severity"] == "error"
+            and "verification" in c["message"].lower()
+        ]
+        assert len(error_checks) >= 1, "Missing Verification not flagged as error"
+
+    def test_missing_output_format_flagged_as_error(self, tmp_path: Path) -> None:
+        """Missing Output Format section is flagged as error, not warning."""
+        content = (
+            "---\n"
+            "name: no-output-format\n"
+            "description: Agent missing output format section entirely here\n"
+            "tools: Read, Grep\n"
+            "---\n\n"
+            "# No Output Format\n\n"
+            "## Overview\nAnalyzes code.\n\n"
+            "## Workflow\n1. Read\n2. Analyze\n\n"
+            "## Examples\n### Example 1\n```\ntest\n```\n\n"
+            "## Error Handling\nRetry on failure.\n\n"
+            "## Verification\nCheck output.\n"
+        )
+        data = self._check(tmp_path, content)
+        error_checks = [
+            c
+            for c in data["checks"]
+            if not c["passed"]
+            and c["severity"] == "error"
+            and "output format" in c["message"].lower()
+        ]
+        assert len(error_checks) >= 1, "Missing Output Format not flagged as error"
+
+    def test_complete_agent_passes_all_section_checks(self, tmp_path: Path) -> None:
+        """Agent with all 6 required sections passes completeness."""
+        data = self._check(tmp_path, self._make_complete_agent())
+        assert data["complete"] is True
+        section_errors = [
+            c
+            for c in data["checks"]
+            if c["category"] == "sections" and not c["passed"] and c["severity"] == "error"
+        ]
+        assert len(section_errors) == 0, (
+            f"Unexpected section errors: {[c['message'] for c in section_errors]}"
+        )
+
+    def test_missing_sections_lower_score(self, tmp_path: Path) -> None:
+        """Missing required sections reduce the completeness score."""
+        # Complete agent
+        complete_data = self._check(tmp_path, self._make_complete_agent())
+        # Incomplete agent (missing 3 sections)
+        incomplete = (
+            "---\n"
+            "name: incomplete-agent\n"
+            "description: Agent missing three required sections for testing\n"
+            "tools: Read\n"
+            "---\n\n"
+            "# Incomplete\n\n"
+            "## Overview\nDoes stuff.\n\n"
+            "## Workflow\n1. Do things\n\n"
+            "## Examples\n### Example 1\n```\ntest\n```\n"
+        )
+        incomplete_data = self._check(tmp_path, incomplete)
+        assert incomplete_data["score"] < complete_data["score"], (
+            f"Incomplete score {incomplete_data['score']} should be < "
+            f"complete score {complete_data['score']}"
+        )
+
+    def test_incomplete_agent_marked_not_complete(self, tmp_path: Path) -> None:
+        """Agent missing required sections is marked complete=false."""
+        incomplete = (
+            "---\n"
+            "name: not-complete\n"
+            "description: Agent that is deliberately missing required sections\n"
+            "tools: Read\n"
+            "---\n\n"
+            "# Not Complete\n\n"
+            "## Overview\nDoes stuff.\n\n"
+            "## Workflow\n1. Do things\n"
+        )
+        data = self._check(tmp_path, incomplete)
+        assert data["complete"] is False
+
+    def test_generated_agent_passes_completeness(self, tmp_path: Path) -> None:
+        """Agent from agent_generator.py passes completeness check."""
+        # Generate a real agent
+        subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_generator.py"),
+                "--name",
+                "completeness-test",
+                "--description",
+                "Tests completeness checker with generated agent output",
+                "--tools",
+                "Read,Grep,Glob",
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        md_file = tmp_path / "completeness-test.md"
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "completeness_checker.py"),
+                "--json",
+                str(md_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        data = json.loads(result.stdout)
+        assert data["complete"] is True, (
+            f"Generated agent incomplete: "
+            f"{[c['message'] for c in data['checks'] if not c['passed'] and c['severity'] == 'error']}"
+        )
+
+    def test_error_handling_now_in_required_not_recommended(self, tmp_path: Path) -> None:
+        """Error Handling check_id uses SEC_ prefix with error severity."""
+        content = (
+            "---\n"
+            "name: check-severity\n"
+            "description: Agent to verify error handling severity classification\n"
+            "tools: Read\n"
+            "---\n\n"
+            "# Check Severity\n\n"
+            "## Overview\nTest.\n\n"
+            "## Workflow\n1. Do\n\n"
+            "## Examples\n### Example 1\n```\ntest\n```\n"
+        )
+        data = self._check(tmp_path, content)
+        eh_check = next(
+            (c for c in data["checks"] if "error handling" in c["message"].lower()),
+            None,
+        )
+        assert eh_check is not None, "No Error Handling check found"
+        assert eh_check["severity"] == "error", (
+            f"Error Handling severity is '{eh_check['severity']}', expected 'error'"
+        )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

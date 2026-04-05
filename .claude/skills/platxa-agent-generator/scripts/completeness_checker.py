@@ -8,7 +8,7 @@ check content quality and completeness.
 
 Required Components:
 - Frontmatter: name, description, tools
-- Sections: Overview, Workflow, Examples, Output Format
+- Sections: Overview, Workflow, Examples, Error Handling, Verification, Output Format
 - Content quality: descriptions, step details, example coverage
 
 Usage:
@@ -70,13 +70,16 @@ REQUIRED_SECTIONS = {
     "Overview": "Brief description of the agent's purpose",
     "Workflow": "Step-by-step execution process",
     "Examples": "Usage examples with input/output",
+    "Error Handling": "How the agent handles failures and recovers from errors",
+    "Verification": "How to verify the agent's output is correct",
+    "Output Format": "Expected output structure and format",
 }
 
 # Recommended sections
 RECOMMENDED_SECTIONS = {
-    "Output Format": "Expected output structure",
     "Notes": "Additional usage notes or tips",
-    "Error Handling": "How errors are handled",
+    "Prerequisites": "Required setup, permissions, or environment",
+    "Related Agents": "Other agents that work well with this one",
 }
 
 # Minimum content lengths for quality
@@ -89,9 +92,20 @@ MIN_CONTENT_LENGTHS = {
 
 # Valid Claude Code tools
 VALID_TOOLS = {
-    "Read", "Write", "Edit", "Glob", "Grep", "Bash",
-    "WebSearch", "WebFetch", "Task", "AskUserQuestion",
-    "TodoWrite", "NotebookEdit", "LSP", "Skill",
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "WebSearch",
+    "WebFetch",
+    "Task",
+    "AskUserQuestion",
+    "TodoWrite",
+    "NotebookEdit",
+    "LSP",
+    "Skill",
 }
 
 
@@ -157,73 +171,87 @@ def check_frontmatter_completeness(frontmatter: dict[str, str]) -> list[CheckRes
     for field_name, description in REQUIRED_FRONTMATTER.items():
         check_id = f"FM_{field_name.upper()}"
         if field_name not in frontmatter:
-            results.append(CheckResult(
-                check_id=check_id,
-                category="frontmatter",
-                passed=False,
-                message=f"Missing required field: {field_name}",
-                severity="error",
-                details=description,
-            ))
+            results.append(
+                CheckResult(
+                    check_id=check_id,
+                    category="frontmatter",
+                    passed=False,
+                    message=f"Missing required field: {field_name}",
+                    severity="error",
+                    details=description,
+                )
+            )
         elif not frontmatter[field_name].strip():
-            results.append(CheckResult(
-                check_id=check_id,
-                category="frontmatter",
-                passed=False,
-                message=f"Empty required field: {field_name}",
-                severity="error",
-                details=description,
-            ))
+            results.append(
+                CheckResult(
+                    check_id=check_id,
+                    category="frontmatter",
+                    passed=False,
+                    message=f"Empty required field: {field_name}",
+                    severity="error",
+                    details=description,
+                )
+            )
         else:
-            results.append(CheckResult(
-                check_id=check_id,
-                category="frontmatter",
-                passed=True,
-                message=f"Field present: {field_name}",
-                severity="info",
-            ))
+            results.append(
+                CheckResult(
+                    check_id=check_id,
+                    category="frontmatter",
+                    passed=True,
+                    message=f"Field present: {field_name}",
+                    severity="info",
+                )
+            )
 
     # Check name format
     if "name" in frontmatter and frontmatter["name"]:
         name = frontmatter["name"]
         if not re.match(r"^[a-z][a-z0-9-]*$", name):
-            results.append(CheckResult(
-                check_id="FM_NAME_FORMAT",
-                category="frontmatter",
-                passed=False,
-                message=f"Invalid name format: {name}",
-                severity="error",
-                details="Name must be hyphen-case (lowercase letters, numbers, hyphens)",
-            ))
+            results.append(
+                CheckResult(
+                    check_id="FM_NAME_FORMAT",
+                    category="frontmatter",
+                    passed=False,
+                    message=f"Invalid name format: {name}",
+                    severity="error",
+                    details="Name must be hyphen-case (lowercase letters, numbers, hyphens)",
+                )
+            )
         elif len(name) > 64:
-            results.append(CheckResult(
-                check_id="FM_NAME_LENGTH",
-                category="frontmatter",
-                passed=False,
-                message=f"Name too long: {len(name)} chars (max 64)",
-                severity="error",
-            ))
+            results.append(
+                CheckResult(
+                    check_id="FM_NAME_LENGTH",
+                    category="frontmatter",
+                    passed=False,
+                    message=f"Name too long: {len(name)} chars (max 64)",
+                    severity="error",
+                )
+            )
 
     # Check description quality
     if "description" in frontmatter and frontmatter["description"]:
         desc = frontmatter["description"]
         if len(desc) < MIN_CONTENT_LENGTHS["description"]:
-            results.append(CheckResult(
-                check_id="FM_DESC_QUALITY",
-                category="frontmatter",
-                passed=False,
-                message=f"Description too short: {len(desc)} chars (min {MIN_CONTENT_LENGTHS['description']})",
-                severity="warning",
-                details="Provide a meaningful description of what the agent does",
-            ))
+            results.append(
+                CheckResult(
+                    check_id="FM_DESC_QUALITY",
+                    category="frontmatter",
+                    passed=False,
+                    message=f"Description too short: {len(desc)} chars (min {MIN_CONTENT_LENGTHS['description']})",
+                    severity="warning",
+                    details="Provide a meaningful description of what the agent does",
+                )
+            )
         elif len(desc) > 1024:
-            results.append(CheckResult(
-                check_id="FM_DESC_LENGTH",
-                category="frontmatter",
-                passed=False,
-                message=f"Description too long: {len(desc)} chars (max 1024)",
-                severity="error",
-            ))
+            results.append(
+                CheckResult(
+                    check_id="FM_DESC_LENGTH",
+                    category="frontmatter",
+                    passed=False,
+                    message=f"Description too long: {len(desc)} chars (max 1024)",
+                    severity="error",
+                )
+            )
 
     # Check tools validity
     if "tools" in frontmatter and frontmatter["tools"]:
@@ -234,35 +262,41 @@ def check_frontmatter_completeness(frontmatter: dict[str, str]) -> list[CheckRes
                 invalid_tools.append(tool)
 
         if invalid_tools:
-            results.append(CheckResult(
-                check_id="FM_TOOLS_VALID",
-                category="frontmatter",
-                passed=False,
-                message=f"Invalid tools: {', '.join(invalid_tools)}",
-                severity="error",
-                details=f"Valid tools: {', '.join(sorted(VALID_TOOLS))}",
-            ))
+            results.append(
+                CheckResult(
+                    check_id="FM_TOOLS_VALID",
+                    category="frontmatter",
+                    passed=False,
+                    message=f"Invalid tools: {', '.join(invalid_tools)}",
+                    severity="error",
+                    details=f"Valid tools: {', '.join(sorted(VALID_TOOLS))}",
+                )
+            )
 
         if not tools or all(not t for t in tools):
-            results.append(CheckResult(
-                check_id="FM_TOOLS_EMPTY",
-                category="frontmatter",
-                passed=False,
-                message="No tools specified",
-                severity="error",
-                details="At least one tool must be specified",
-            ))
+            results.append(
+                CheckResult(
+                    check_id="FM_TOOLS_EMPTY",
+                    category="frontmatter",
+                    passed=False,
+                    message="No tools specified",
+                    severity="error",
+                    details="At least one tool must be specified",
+                )
+            )
 
     # Check optional fields (info only)
     for field_name, description in OPTIONAL_FRONTMATTER.items():
         if field_name in frontmatter:
-            results.append(CheckResult(
-                check_id=f"FM_{field_name.upper()}",
-                category="frontmatter",
-                passed=True,
-                message=f"Optional field present: {field_name}",
-                severity="info",
-            ))
+            results.append(
+                CheckResult(
+                    check_id=f"FM_{field_name.upper()}",
+                    category="frontmatter",
+                    passed=True,
+                    message=f"Optional field present: {field_name}",
+                    severity="info",
+                )
+            )
 
     return results
 
@@ -284,31 +318,37 @@ def check_section_completeness(sections: dict[str, str]) -> list[CheckResult]:
             content = sections[actual_name]
 
             if not content.strip():
-                results.append(CheckResult(
+                results.append(
+                    CheckResult(
+                        check_id=check_id,
+                        category="sections",
+                        passed=False,
+                        message=f"Empty section: {section_name}",
+                        severity="error",
+                        details=description,
+                    )
+                )
+            else:
+                results.append(
+                    CheckResult(
+                        check_id=check_id,
+                        category="sections",
+                        passed=True,
+                        message=f"Section present: {section_name}",
+                        severity="info",
+                    )
+                )
+        else:
+            results.append(
+                CheckResult(
                     check_id=check_id,
                     category="sections",
                     passed=False,
-                    message=f"Empty section: {section_name}",
+                    message=f"Missing required section: {section_name}",
                     severity="error",
                     details=description,
-                ))
-            else:
-                results.append(CheckResult(
-                    check_id=check_id,
-                    category="sections",
-                    passed=True,
-                    message=f"Section present: {section_name}",
-                    severity="info",
-                ))
-        else:
-            results.append(CheckResult(
-                check_id=check_id,
-                category="sections",
-                passed=False,
-                message=f"Missing required section: {section_name}",
-                severity="error",
-                details=description,
-            ))
+                )
+            )
 
     # Check recommended sections
     for section_name, description in RECOMMENDED_SECTIONS.items():
@@ -316,22 +356,26 @@ def check_section_completeness(sections: dict[str, str]) -> list[CheckResult]:
         section_lower = section_name.lower()
 
         if section_lower in section_names_lower:
-            results.append(CheckResult(
-                check_id=check_id,
-                category="sections",
-                passed=True,
-                message=f"Recommended section present: {section_name}",
-                severity="info",
-            ))
+            results.append(
+                CheckResult(
+                    check_id=check_id,
+                    category="sections",
+                    passed=True,
+                    message=f"Recommended section present: {section_name}",
+                    severity="info",
+                )
+            )
         else:
-            results.append(CheckResult(
-                check_id=check_id,
-                category="sections",
-                passed=False,
-                message=f"Missing recommended section: {section_name}",
-                severity="warning",
-                details=description,
-            ))
+            results.append(
+                CheckResult(
+                    check_id=check_id,
+                    category="sections",
+                    passed=False,
+                    message=f"Missing recommended section: {section_name}",
+                    severity="warning",
+                    details=description,
+                )
+            )
 
     return results
 
@@ -355,47 +399,57 @@ def check_workflow_quality(sections: dict[str, str]) -> list[CheckResult]:
     has_subsections = bool(re.search(r"^###\s+", workflow_content, re.MULTILINE))
 
     if not has_steps and not has_subsections:
-        results.append(CheckResult(
-            check_id="WF_STEPS",
-            category="workflow",
-            passed=False,
-            message="Workflow lacks numbered steps or subsections",
-            severity="warning",
-            details="Use numbered steps (1., 2., 3.) or ### subsections for clarity",
-        ))
+        results.append(
+            CheckResult(
+                check_id="WF_STEPS",
+                category="workflow",
+                passed=False,
+                message="Workflow lacks numbered steps or subsections",
+                severity="warning",
+                details="Use numbered steps (1., 2., 3.) or ### subsections for clarity",
+            )
+        )
     else:
         # Count steps
         step_count = len(re.findall(r"^\d+\.", workflow_content, re.MULTILINE))
         step_count += len(re.findall(r"^###\s+", workflow_content, re.MULTILINE))
 
         if step_count < 2:
-            results.append(CheckResult(
-                check_id="WF_STEPS_COUNT",
-                category="workflow",
-                passed=False,
-                message=f"Too few workflow steps: {step_count}",
-                severity="warning",
-                details="Workflow should have at least 2 steps",
-            ))
+            results.append(
+                CheckResult(
+                    check_id="WF_STEPS_COUNT",
+                    category="workflow",
+                    passed=False,
+                    message=f"Too few workflow steps: {step_count}",
+                    severity="warning",
+                    details="Workflow should have at least 2 steps",
+                )
+            )
         else:
-            results.append(CheckResult(
-                check_id="WF_STEPS",
-                category="workflow",
-                passed=True,
-                message=f"Workflow has {step_count} steps",
-                severity="info",
-            ))
+            results.append(
+                CheckResult(
+                    check_id="WF_STEPS",
+                    category="workflow",
+                    passed=True,
+                    message=f"Workflow has {step_count} steps",
+                    severity="info",
+                )
+            )
 
     # Check for tool references in workflow
-    tool_mentions = re.findall(r"\b(Read|Write|Edit|Grep|Glob|Bash|Task|WebSearch|WebFetch)\b", workflow_content)
+    tool_mentions = re.findall(
+        r"\b(Read|Write|Edit|Grep|Glob|Bash|Task|WebSearch|WebFetch)\b", workflow_content
+    )
     if tool_mentions:
-        results.append(CheckResult(
-            check_id="WF_TOOLS",
-            category="workflow",
-            passed=True,
-            message=f"Workflow references tools: {', '.join(set(tool_mentions))}",
-            severity="info",
-        ))
+        results.append(
+            CheckResult(
+                check_id="WF_TOOLS",
+                category="workflow",
+                passed=True,
+                message=f"Workflow references tools: {', '.join(set(tool_mentions))}",
+                severity="info",
+            )
+        )
 
     return results
 
@@ -415,7 +469,9 @@ def check_examples_quality(sections: dict[str, str]) -> list[CheckResult]:
         return results
 
     # Check for example subsections
-    example_count = len(re.findall(r"^###\s+Example", examples_content, re.MULTILINE | re.IGNORECASE))
+    example_count = len(
+        re.findall(r"^###\s+Example", examples_content, re.MULTILINE | re.IGNORECASE)
+    )
     example_count += len(re.findall(r"^###\s+\d+\.", examples_content, re.MULTILINE))
 
     # Also count example patterns like "**Example 1:**"
@@ -428,43 +484,51 @@ def check_examples_quality(sections: dict[str, str]) -> list[CheckResult]:
             example_count = code_blocks // 2
 
     if example_count == 0:
-        results.append(CheckResult(
-            check_id="EX_COUNT",
-            category="examples",
-            passed=False,
-            message="No examples found",
-            severity="error",
-            details="Add at least one usage example with input and expected output",
-        ))
+        results.append(
+            CheckResult(
+                check_id="EX_COUNT",
+                category="examples",
+                passed=False,
+                message="No examples found",
+                severity="error",
+                details="Add at least one usage example with input and expected output",
+            )
+        )
     elif example_count < 2:
-        results.append(CheckResult(
-            check_id="EX_COUNT",
-            category="examples",
-            passed=False,
-            message=f"Only {example_count} example(s) found",
-            severity="warning",
-            details="Recommend at least 2 examples for clarity",
-        ))
+        results.append(
+            CheckResult(
+                check_id="EX_COUNT",
+                category="examples",
+                passed=False,
+                message=f"Only {example_count} example(s) found",
+                severity="warning",
+                details="Recommend at least 2 examples for clarity",
+            )
+        )
     else:
-        results.append(CheckResult(
-            check_id="EX_COUNT",
-            category="examples",
-            passed=True,
-            message=f"Found {example_count} examples",
-            severity="info",
-        ))
+        results.append(
+            CheckResult(
+                check_id="EX_COUNT",
+                category="examples",
+                passed=True,
+                message=f"Found {example_count} examples",
+                severity="info",
+            )
+        )
 
     # Check for code blocks in examples
     has_code_blocks = "```" in examples_content
     if not has_code_blocks:
-        results.append(CheckResult(
-            check_id="EX_CODE",
-            category="examples",
-            passed=False,
-            message="Examples lack code blocks",
-            severity="warning",
-            details="Use ``` code blocks to show example input/output",
-        ))
+        results.append(
+            CheckResult(
+                check_id="EX_CODE",
+                category="examples",
+                passed=False,
+                message="Examples lack code blocks",
+                severity="warning",
+                details="Use ``` code blocks to show example input/output",
+            )
+        )
 
     return results
 
@@ -488,22 +552,26 @@ def check_output_format(sections: dict[str, str]) -> list[CheckResult]:
     has_structure = has_json or "```" in output_content
 
     if not has_structure:
-        results.append(CheckResult(
-            check_id="OUT_STRUCTURE",
-            category="output",
-            passed=False,
-            message="Output format lacks structure definition",
-            severity="warning",
-            details="Show expected output structure using JSON or code blocks",
-        ))
+        results.append(
+            CheckResult(
+                check_id="OUT_STRUCTURE",
+                category="output",
+                passed=False,
+                message="Output format lacks structure definition",
+                severity="warning",
+                details="Show expected output structure using JSON or code blocks",
+            )
+        )
     else:
-        results.append(CheckResult(
-            check_id="OUT_STRUCTURE",
-            category="output",
-            passed=True,
-            message="Output format has structure definition",
-            severity="info",
-        ))
+        results.append(
+            CheckResult(
+                check_id="OUT_STRUCTURE",
+                category="output",
+                passed=True,
+                message="Output format has structure definition",
+                severity="info",
+            )
+        )
 
     return results
 
@@ -586,13 +654,15 @@ def check_file(file_path: str | Path) -> CompletenessReport:
             file_path=str(file_path),
             complete=False,
             score=0.0,
-            checks=[CheckResult(
-                check_id="FILE_EXISTS",
-                category="file",
-                passed=False,
-                message=f"File not found: {file_path}",
-                severity="error",
-            )],
+            checks=[
+                CheckResult(
+                    check_id="FILE_EXISTS",
+                    category="file",
+                    passed=False,
+                    message=f"File not found: {file_path}",
+                    severity="error",
+                )
+            ],
             summary="File not found",
         )
 
@@ -627,14 +697,10 @@ def main() -> None:
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Check completeness of agent definitions"
-    )
+    parser = argparse.ArgumentParser(description="Check completeness of agent definitions")
     parser.add_argument("file", help="Agent definition file to check")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument(
-        "--strict", action="store_true", help="Require score >= 7.0 for success"
-    )
+    parser.add_argument("--strict", action="store_true", help="Require score >= 7.0 for success")
     parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show all checks including passed"
     )
