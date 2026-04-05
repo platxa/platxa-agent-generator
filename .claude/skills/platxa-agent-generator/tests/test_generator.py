@@ -4259,11 +4259,11 @@ class TestAgentTeamCompatibility:
         assert "## Teammate Discovery" in content
 
     def test_orchestrator_has_team_coordination(self, tmp_path: Path) -> None:
-        """Orchestrator includes team coordination section."""
+        """Orchestrator includes shared task list with TodoWrite coordination."""
         files = self._generate_system(tmp_path, "code-review")
         orchestrator_files = [f for f in files if "orchestrator" in f.name]
         content = orchestrator_files[0].read_text()
-        assert "## Team Coordination" in content
+        assert "## Shared Task List" in content
         assert "TodoWrite" in content
 
     def test_all_workers_have_team_compatibility(self, tmp_path: Path) -> None:
@@ -4285,6 +4285,96 @@ class TestAgentTeamCompatibility:
         for wf in worker_files:
             content = wf.read_text()
             assert "## Team Compatibility" in content
+
+
+class TestSharedTaskListTemplate:
+    """Tests for Feature #36: Orchestrator-workers with shared task list."""
+
+    def _generate_system(self, tmp_path: Path, template: str) -> list[Path]:
+        """Helper to generate a multi-agent system and return created files."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "generate",
+                "--name",
+                template,
+                "--output",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Generator failed: {result.stderr}"
+        return list(tmp_path.glob("*.md"))
+
+    def test_orchestrator_has_shared_task_list_section(self, tmp_path: Path) -> None:
+        """Orchestrator includes ## Shared Task List section."""
+        files = self._generate_system(tmp_path, "code-review")
+        orch_files = [f for f in files if "orchestrator" in f.name]
+        assert len(orch_files) > 0
+        content = orch_files[0].read_text()
+        assert "## Shared Task List" in content
+
+    def test_orchestrator_has_task_creation_workflow(self, tmp_path: Path) -> None:
+        """Orchestrator documents task creation with TodoWrite."""
+        files = self._generate_system(tmp_path, "code-review")
+        orch_files = [f for f in files if "orchestrator" in f.name]
+        content = orch_files[0].read_text()
+        assert "### Task Creation" in content
+        assert "TodoWrite" in content
+        assert '"pending"' in content
+
+    def test_orchestrator_has_task_sizing_guidelines(self, tmp_path: Path) -> None:
+        """Orchestrator includes 5-6 tasks per worker guidance."""
+        files = self._generate_system(tmp_path, "code-review")
+        orch_files = [f for f in files if "orchestrator" in f.name]
+        content = orch_files[0].read_text()
+        assert "### Task Sizing Guidelines" in content
+        assert "5-6" in content
+
+    def test_orchestrator_has_task_lifecycle(self, tmp_path: Path) -> None:
+        """Orchestrator documents task lifecycle states."""
+        files = self._generate_system(tmp_path, "code-review")
+        orch_files = [f for f in files if "orchestrator" in f.name]
+        content = orch_files[0].read_text()
+        assert "### Task Lifecycle" in content
+        assert "pending" in content
+        assert "in_progress" in content
+        assert "completed" in content
+
+    def test_worker_has_task_claiming_pattern(self, tmp_path: Path) -> None:
+        """Workers include task claiming workflow steps."""
+        files = self._generate_system(tmp_path, "code-review")
+        worker_files = [f for f in files if "orchestrator" not in f.name]
+        assert len(worker_files) > 0
+        content = worker_files[0].read_text()
+        assert "Claim task" in content
+        assert "in_progress" in content
+
+    def test_worker_has_task_capacity_guidance(self, tmp_path: Path) -> None:
+        """Workers include 5-6 tasks capacity guidance."""
+        files = self._generate_system(tmp_path, "code-review")
+        worker_files = [f for f in files if "orchestrator" not in f.name]
+        content = worker_files[0].read_text()
+        assert "### Task Capacity" in content
+        assert "5-6" in content
+
+    def test_worker_claiming_uses_todowrite(self, tmp_path: Path) -> None:
+        """Worker task claiming uses TodoWrite tool."""
+        files = self._generate_system(tmp_path, "code-review")
+        worker_files = [f for f in files if "orchestrator" not in f.name]
+        content = worker_files[0].read_text()
+        assert "TodoWrite" in content
+
+    def test_all_workers_have_claiming_pattern(self, tmp_path: Path) -> None:
+        """Every worker in the system has the task claiming pattern."""
+        files = self._generate_system(tmp_path, "code-review")
+        worker_files = [f for f in files if "orchestrator" not in f.name]
+        assert len(worker_files) >= 2
+        for wf in worker_files:
+            content = wf.read_text()
+            assert "Claim task" in content, f"Worker {wf.name} missing task claiming pattern"
 
 
 if __name__ == "__main__":

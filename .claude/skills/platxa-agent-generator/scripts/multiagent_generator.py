@@ -96,10 +96,32 @@ Glob tool: .claude/agents/*.md
 Parse each agent's frontmatter to identify compatible teammates by role and tools.
 
 ### Shared Task Patterns
-When working in a team, use TodoWrite to coordinate progress:
-- Mark subtask as `in_progress` when starting
-- Update with intermediate findings for teammates to read
-- Mark as `completed` with summary when done
+When working in a team, follow the task claiming workflow:
+
+**Step 1: Claim task** — Mark your assigned task as in_progress:
+```
+TodoWrite tool:
+  tasks:
+    - id: "<assigned-task-id>"
+      status: "in_progress"
+```
+
+**Step 2: Execute** — Perform the work described in the task
+
+**Step 3: Complete** — Mark task as completed with results summary:
+```
+TodoWrite tool:
+  tasks:
+    - id: "<assigned-task-id>"
+      status: "completed"
+```
+
+**Step 4: Report** — Return results to orchestrator in structured format
+
+### Task Capacity
+Each worker should handle **5-6 tasks** per assignment for optimal throughput.
+If assigned more, process them sequentially. If assigned fewer, request more
+from the orchestrator.
 """
         return content
 
@@ -213,10 +235,40 @@ Parse each file's YAML frontmatter to identify agents by name and tools.
 This allows the orchestrator to adapt when workers are added or removed
 without hardcoding agent names.
 
-## Team Coordination
-- Use TodoWrite to maintain a shared task list visible to all team members
-- Each worker marks its subtask `in_progress` → `completed`
-- Orchestrator monitors progress and handles stalled tasks
+## Shared Task List
+
+### Task Creation (Orchestrator)
+After decomposing the work, create tasks for workers using TodoWrite:
+
+1. **Plan tasks** — aim for 5-6 tasks per worker for optimal granularity
+2. **Create task list** with clear descriptions and acceptance criteria:
+```
+TodoWrite tool:
+  tasks:
+    - id: "task-1"
+      description: "Review auth module for SQL injection"
+      status: "pending"
+    - id: "task-2"
+      description: "Check input validation on API endpoints"
+      status: "pending"
+```
+3. **Assign tasks** by including task IDs in worker prompts
+4. **Monitor progress** — poll task statuses, reassign stalled tasks
+
+### Task Sizing Guidelines
+| Workers | Tasks per Worker | Total Tasks |
+|---------|-----------------|-------------|
+| 2 | 5-6 | 10-12 |
+| 3 | 5-6 | 15-18 |
+| 4 | 5-6 | 20-24 |
+
+Keep tasks atomic — each should take one focused action, not a multi-step workflow.
+
+### Task Lifecycle
+```
+pending → in_progress → completed
+                      → failed (with reason)
+```
 
 ## Output Format
 Provide structured summary including:
