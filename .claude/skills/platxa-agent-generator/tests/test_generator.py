@@ -5752,5 +5752,203 @@ class TestCompositionValidation:
         assert lines[1] == "0"
 
 
+class TestContextAwareDiscovery:
+    """Tests for Feature #77: Context-aware discovery to prevent duplicates."""
+
+    DISCOVERY_SCRIPT = str(SCRIPTS_DIR / "context_discovery.py")
+
+    def _create_agent_file(self, tmp_path: Path, name: str, tools: str = "Read, Grep") -> Path:
+        """Create a minimal agent .md file in a temp directory."""
+        content = (
+            "---\n"
+            f"name: {name}\n"
+            f"description: Agent {name} for testing\n"
+            f"tools: {tools}\n"
+            "---\n\n"
+            f"# {name}\n\n## Overview\nTest agent.\n"
+        )
+        agent_file = tmp_path / f"{name}.md"
+        agent_file.write_text(content, encoding="utf-8")
+        return agent_file
+
+    def test_scan_directory_finds_agents(self, tmp_path):
+        """scan_directory() discovers agent files with valid frontmatter."""
+        self._create_agent_file(tmp_path, "code-reviewer")
+        self._create_agent_file(tmp_path, "test-writer")
+        result = subprocess.run(
+            [sys.executable, self.DISCOVERY_SCRIPT, "scan", "--dir", str(tmp_path), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        agents = json.loads(result.stdout)
+        assert len(agents) == 2
+        names = {a["name"] for a in agents}
+        assert names == {"code-reviewer", "test-writer"}
+
+    def test_scan_empty_directory(self, tmp_path):
+        """scan_directory() returns empty list for empty directory."""
+        result = subprocess.run(
+            [sys.executable, self.DISCOVERY_SCRIPT, "scan", "--dir", str(tmp_path), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        agents = json.loads(result.stdout)
+        assert agents == []
+
+    def test_scan_skips_files_without_frontmatter(self, tmp_path):
+        """Files without valid frontmatter are skipped."""
+        (tmp_path / "no-frontmatter.md").write_text("# Just a heading\n", encoding="utf-8")
+        self._create_agent_file(tmp_path, "valid-agent")
+        result = subprocess.run(
+            [sys.executable, self.DISCOVERY_SCRIPT, "scan", "--dir", str(tmp_path), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        agents = json.loads(result.stdout)
+        assert len(agents) == 1
+        assert agents[0]["name"] == "valid-agent"
+
+    def test_check_exact_duplicate_flagged(self, tmp_path):
+        """Exact name match is flagged as a conflict."""
+        self._create_agent_file(tmp_path, "code-reviewer")
+        result = subprocess.run(
+            [
+                sys.executable,
+                self.DISCOVERY_SCRIPT,
+                "check",
+                "code-reviewer",
+                "--dir",
+                str(tmp_path),
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["has_conflict"] is True
+        assert data["exact_match"] is not None
+        assert data["exact_match"]["name"] == "code-reviewer"
+
+    def test_check_no_conflict_for_new_name(self, tmp_path):
+        """New name with no existing agents reports no conflict."""
+        self._create_agent_file(tmp_path, "code-reviewer")
+        result = subprocess.run(
+            [
+                sys.executable,
+                self.DISCOVERY_SCRIPT,
+                "check",
+                "brand-new-agent",
+                "--dir",
+                str(tmp_path),
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["has_conflict"] is False
+
+    def test_check_similar_names_detected(self, tmp_path):
+        """Similar names (substring match) are reported."""
+        self._create_agent_file(tmp_path, "code-reviewer")
+        result = subprocess.run(
+            [
+                sys.executable,
+                self.DISCOVERY_SCRIPT,
+                "check",
+                "code-reviewer-v2",
+                "--dir",
+                str(tmp_path),
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert "code-reviewer" in data["similar_names"]
+
+    def test_tool_patterns_analysis(self, tmp_path):
+        """analyze_tool_patterns returns frequency and recommended base."""
+        self._create_agent_file(tmp_path, "agent-a", tools="Read, Grep, Glob")
+        self._create_agent_file(tmp_path, "agent-b", tools="Read, Grep, Bash")
+        self._create_agent_file(tmp_path, "agent-c", tools="Read, Write, Glob")
+        result = subprocess.run(
+            [sys.executable, self.DISCOVERY_SCRIPT, "patterns", "--dir", str(tmp_path), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["total_agents"] == 3
+        assert data["tool_frequency"]["Read"] == 3
+        assert "Read" in data["recommended_base"]
+
+    def test_parsed_tools_are_correct(self, tmp_path):
+        """Agent tools are correctly parsed from comma-separated frontmatter."""
+        self._create_agent_file(tmp_path, "multi-tool", tools="Read, Write, Bash, Glob")
+        result = subprocess.run(
+            [sys.executable, self.DISCOVERY_SCRIPT, "scan", "--dir", str(tmp_path), "--json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        agents = json.loads(result.stdout)
+        assert agents[0]["tools"] == ["Read", "Write", "Bash", "Glob"]
+
+    def test_case_insensitive_duplicate_detection(self, tmp_path):
+        """Name conflict detection is case-insensitive."""
+        self._create_agent_file(tmp_path, "Code-Reviewer")
+        result = subprocess.run(
+            [
+                sys.executable,
+                self.DISCOVERY_SCRIPT,
+                "check",
+                "code-reviewer",
+                "--dir",
+                str(tmp_path),
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["has_conflict"] is True
+
+    def test_nonexistent_directory_returns_empty(self):
+        """Scanning a nonexistent directory returns empty list gracefully."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                self.DISCOVERY_SCRIPT,
+                "scan",
+                "--dir",
+                "/tmp/nonexistent-agent-dir-xyz",
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        agents = json.loads(result.stdout)
+        assert agents == []
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
