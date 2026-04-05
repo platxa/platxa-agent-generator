@@ -384,6 +384,84 @@ def score_tool_design(frontmatter: dict[str, str], content: str) -> CriterionSco
             score -= 0.5
             suggestions.append("Document Task tool subagent patterns")
 
+    # Evaluate disallowedTools completeness
+    disallowed_str = frontmatter.get("disallowedTools", "")
+    disallowed = [t.strip() for t in disallowed_str.split(",") if t.strip()]
+
+    # Read-only agents (no Write/Edit/Bash) should deny dangerous tools
+    write_tools = {"Write", "Edit", "MultiEdit", "Bash"}
+    has_write_tools = bool(write_tools & set(tools))
+    if not has_write_tools and not disallowed:
+        score -= 1.0
+        suggestions.append(
+            "Read-only agent should set disallowedTools to deny Write, Edit, Bash "
+            "(defense-in-depth)"
+        )
+    elif disallowed:
+        findings.append(f"disallowedTools configured: {', '.join(disallowed)}")
+        # Check for overlap (allowed + disallowed)
+        overlap = set(tools) & set(disallowed)
+        if overlap:
+            score -= 1.5
+            suggestions.append(
+                f"Tools in both tools and disallowedTools: {', '.join(overlap)} — "
+                "remove from one list"
+            )
+
+    # Evaluate model cost-efficiency
+    model = frontmatter.get("model", "")
+    if model:
+        content_lower = content.lower()
+        # Detect agent complexity from content signals.
+        # Use multi-word phrases or suffixed forms to avoid false positives
+        # from tool names (e.g. "Read" tool matching "read").
+        simple_signals = [
+            "lint ",
+            "linter",
+            "linting",
+            "formatter",
+            "formatting",
+            "validator",
+            "validat",
+            "scanner",
+            "scanning",
+            "checker",
+            "checking",
+            "single file",
+            "simple",
+            "lightweight",
+        ]
+        complex_signals = [
+            "orchestrat",
+            "architect",
+            "refactor",
+            "multi-agent",
+            "coordinate",
+            "decompos",
+            "cross-cutting",
+            "distributed",
+        ]
+        is_simple = any(kw in content_lower for kw in simple_signals)
+        is_complex = any(kw in content_lower for kw in complex_signals)
+
+        if model == "opus" and is_simple and not is_complex:
+            score -= 1.5
+            suggestions.append(
+                "Model 'opus' is expensive for simple tasks — consider 'sonnet' or 'haiku'"
+            )
+        elif model == "haiku" and is_complex and not is_simple:
+            score -= 1.0
+            suggestions.append(
+                "Model 'haiku' may underperform for complex tasks — consider 'sonnet'"
+            )
+        elif model == "haiku" and is_simple:
+            findings.append("Good: haiku model appropriate for simple/cheap tasks")
+            score = min(score + 0.5, 10.0)
+        elif model == "opus" and is_complex:
+            findings.append("Good: opus model appropriate for complex orchestration")
+        elif model == "sonnet":
+            findings.append("Model 'sonnet' — balanced cost/capability")
+
     return CriterionScore(
         name="Tool Design",
         weight=CRITERIA_WEIGHTS["tool_design"],
