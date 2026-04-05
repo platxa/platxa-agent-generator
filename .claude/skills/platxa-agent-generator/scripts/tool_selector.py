@@ -157,6 +157,101 @@ TOOL_DEPENDENCIES: dict[str, list[str]] = {
     "Write": ["Read"],  # Should often read context first
 }
 
+# Least-privilege: keywords that justify Write (creating new files)
+# Without these, prefer Edit for file modifications
+WRITE_JUSTIFICATION_KEYWORDS = {
+    "create",
+    "generate",
+    "produce",
+    "scaffold",
+    "new file",
+    "new module",
+    "initialize",
+    "bootstrap",
+    "output file",
+    "write file",
+}
+
+# Least-privilege: keywords that justify Bash (shell execution)
+# Without these, Bash is excluded
+BASH_JUSTIFICATION_KEYWORDS = {
+    "execute",
+    "run",
+    "command",
+    "script",
+    "install",
+    "build",
+    "test",
+    "deploy",
+    "compile",
+    "shell",
+    "terminal",
+    "process",
+    "pip",
+    "npm",
+    "git",
+}
+
+# Read-only agent types — never get write/edit/bash tools
+READ_ONLY_TYPES = {"analyzer", "validator"}
+
+# Minimal base tools — the absolute minimum for any agent
+MINIMAL_BASE_TOOLS = ["Read", "Glob", "Grep"]
+
+
+def enforce_least_privilege(
+    selected: dict[str, str],
+    agent_type: str,
+    purpose: str,
+    capabilities: list[str] | None,
+) -> tuple[dict[str, str], list[str]]:
+    """Apply least-privilege constraints to tool selection.
+
+    Rules:
+    1. Read-only agents (analyzer, validator) lose Write/Edit/Bash
+    2. Write is removed unless purpose justifies creating new files — Edit is preferred
+    3. Bash is removed unless purpose explicitly requires shell execution
+    4. Dependencies are preserved (Edit requires Read)
+
+    Returns:
+        Tuple of (filtered_tools, enforcement_notes)
+    """
+    notes: list[str] = []
+    all_text = " ".join([purpose] + (capabilities or [])).lower()
+
+    # Rule 1: Read-only agents lose all mutation tools
+    if agent_type in READ_ONLY_TYPES:
+        mutation_tools = {"Write", "Edit", "Bash", "NotebookEdit"}
+        removed = [t for t in selected if t in mutation_tools]
+        if removed:
+            for t in removed:
+                del selected[t]
+            notes.append(
+                f"Least-privilege: removed {', '.join(removed)} from read-only {agent_type} agent"
+            )
+        return selected, notes
+
+    # Rule 2: Prefer Edit over Write unless creating new files
+    if "Write" in selected:
+        write_justified = any(kw in all_text for kw in WRITE_JUSTIFICATION_KEYWORDS)
+        if not write_justified:
+            # Downgrade Write to Edit
+            reason = selected.pop("Write")
+            if "Edit" not in selected:
+                selected["Edit"] = f"Downgraded from Write (least-privilege): {reason}"
+            notes.append(
+                "Least-privilege: replaced Write with Edit (no file creation keywords detected)"
+            )
+
+    # Rule 3: Remove Bash unless explicitly justified
+    if "Bash" in selected:
+        bash_justified = any(kw in all_text for kw in BASH_JUSTIFICATION_KEYWORDS)
+        if not bash_justified:
+            del selected["Bash"]
+            notes.append("Least-privilege: removed Bash (no shell execution keywords detected)")
+
+    return selected, notes
+
 
 def extract_keywords(text: str) -> set[str]:
     """Extract relevant keywords from text."""
@@ -176,9 +271,15 @@ def select_tools(
     domain: str = "",
     capabilities: list[str] | None = None,
     explicit_tools: list[str] | None = None,
+    least_privilege: bool = True,
 ) -> ToolSelection:
     """
     Select appropriate tools based on agent requirements.
+
+    When least_privilege=True (default), applies constraints:
+    - Read-only agents (analyzer, validator) never get Write/Edit/Bash
+    - Write is replaced with Edit unless purpose requires creating new files
+    - Bash is removed unless purpose explicitly requires shell execution
 
     Args:
         agent_type: Type of agent (analyzer, builder, etc.)
@@ -186,6 +287,7 @@ def select_tools(
         domain: Domain area (security, documentation, etc.)
         capabilities: List of capability descriptions
         explicit_tools: Tools explicitly requested by user
+        least_privilege: Apply least-privilege enforcement (default: True)
 
     Returns:
         ToolSelection with tools, reasoning, and warnings
@@ -243,7 +345,13 @@ def select_tools(
 
     selected.update(tools_to_add)
 
-    # 7. Check for dangerous combinations
+    # 7. Apply least-privilege enforcement
+    if least_privilege:
+        selected, lp_notes = enforce_least_privilege(selected, agent_type, purpose, capabilities)
+        for note in lp_notes:
+            warnings.append(note)
+
+    # 8. Check for dangerous combinations
     tool_set = set(selected.keys())
     for combo, warning_msg in DANGEROUS_COMBINATIONS:
         if all(t in tool_set for t in combo):
@@ -358,9 +466,7 @@ def main() -> None:
         help="Agent type",
     )
     parser.add_argument("--purpose", default="", help="Agent purpose description")
-    parser.add_argument(
-        "--domain", default="", help="Domain (security, documentation, etc.)"
-    )
+    parser.add_argument("--domain", default="", help="Domain (security, documentation, etc.)")
     parser.add_argument("--capabilities", help="Comma-separated capabilities")
     parser.add_argument("--tools", help="Comma-separated explicit tools")
     parser.add_argument("--json", help="JSON input with all parameters")
