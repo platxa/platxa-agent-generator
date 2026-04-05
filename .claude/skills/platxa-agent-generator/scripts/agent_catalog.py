@@ -230,20 +230,37 @@ For each file, verify:
         output_schema={
             "type": "object",
             "properties": {
-                "summary": {"type": "object", "properties": {
-                    "files_reviewed": {"type": "integer"},
-                    "total_lines": {"type": "integer"},
-                    "quality_score": {"type": "number"},
-                    "verdict": {"type": "string", "enum": ["approved", "approved_with_suggestions", "changes_required", "rejected"]},
-                }},
-                "critical_issues": {"type": "array", "items": {"type": "object", "properties": {
-                    "file": {"type": "string"},
-                    "line": {"type": "integer"},
-                    "severity": {"type": "string"},
-                    "confidence": {"type": "string"},
-                    "description": {"type": "string"},
-                    "suggestion": {"type": "string"},
-                }}},
+                "summary": {
+                    "type": "object",
+                    "properties": {
+                        "files_reviewed": {"type": "integer"},
+                        "total_lines": {"type": "integer"},
+                        "quality_score": {"type": "number"},
+                        "verdict": {
+                            "type": "string",
+                            "enum": [
+                                "approved",
+                                "approved_with_suggestions",
+                                "changes_required",
+                                "rejected",
+                            ],
+                        },
+                    },
+                },
+                "critical_issues": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "file": {"type": "string"},
+                            "line": {"type": "integer"},
+                            "severity": {"type": "string"},
+                            "confidence": {"type": "string"},
+                            "description": {"type": "string"},
+                            "suggestion": {"type": "string"},
+                        },
+                    },
+                },
                 "warnings": {"type": "array"},
                 "suggestions": {"type": "array"},
                 "security_findings": {"type": "array"},
@@ -394,18 +411,24 @@ You are an expert test engineer focused on writing maintainable, effective tests
         output_schema={
             "type": "object",
             "properties": {
-                "summary": {"type": "object", "properties": {
-                    "tests_generated": {"type": "integer"},
-                    "tests_passing": {"type": "integer"},
-                    "coverage_before": {"type": "number"},
-                    "coverage_after": {"type": "number"},
-                }},
+                "summary": {
+                    "type": "object",
+                    "properties": {
+                        "tests_generated": {"type": "integer"},
+                        "tests_passing": {"type": "integer"},
+                        "coverage_before": {"type": "number"},
+                        "coverage_after": {"type": "number"},
+                    },
+                },
                 "files_created": {"type": "array", "items": {"type": "string"}},
-                "test_breakdown": {"type": "object", "properties": {
-                    "unit_tests": {"type": "integer"},
-                    "integration_tests": {"type": "integer"},
-                    "e2e_tests": {"type": "integer"},
-                }},
+                "test_breakdown": {
+                    "type": "object",
+                    "properties": {
+                        "unit_tests": {"type": "integer"},
+                        "integration_tests": {"type": "integer"},
+                        "e2e_tests": {"type": "integer"},
+                    },
+                },
                 "uncovered_paths": {"type": "array", "items": {"type": "string"}},
             },
         },
@@ -546,17 +569,26 @@ You are a refactoring expert focused on safe, incremental improvements:
         output_schema={
             "type": "object",
             "properties": {
-                "summary": {"type": "object", "properties": {
-                    "files_modified": {"type": "integer"},
-                    "lines_changed": {"type": "integer"},
-                    "complexity_before": {"type": "number"},
-                    "complexity_after": {"type": "number"},
-                }},
-                "refactorings": {"type": "array", "items": {"type": "object", "properties": {
-                    "type": {"type": "string"},
-                    "description": {"type": "string"},
-                    "files": {"type": "array"},
-                }}},
+                "summary": {
+                    "type": "object",
+                    "properties": {
+                        "files_modified": {"type": "integer"},
+                        "lines_changed": {"type": "integer"},
+                        "complexity_before": {"type": "number"},
+                        "complexity_after": {"type": "number"},
+                    },
+                },
+                "refactorings": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "type": {"type": "string"},
+                            "description": {"type": "string"},
+                            "files": {"type": "array"},
+                        },
+                    },
+                },
                 "tests_status": {"type": "string"},
                 "improvements": {"type": "array", "items": {"type": "string"}},
             },
@@ -612,7 +644,7 @@ You are a refactoring expert focused on safe, incremental improvements:
             AgentExample(
                 title="Project README Generation",
                 user_input="Generate README for this project",
-                agent_response="**Generated:** README.md\n\n```markdown\n# Project Name\n\nBrief description of what this project does.\n\n## Features\n\n- Feature 1: Description\n- Feature 2: Description\n- Feature 3: Description\n\n## Installation\n\n```bash\npip install project-name\n```\n\n## Quick Start\n\n```python\nfrom project import Client\n\nclient = Client(api_key=\"...\")\nresult = client.process(data)\n```\n\n## Documentation\n\n- [API Reference](docs/api.md)\n- [Configuration](docs/config.md)\n- [Examples](examples/)\n\n## Development\n\n```bash\ngit clone https://github.com/...\ncd project\npip install -e \".[dev]\"\npytest\n```\n\n## License\n\nMIT License\n```\n\n**Analysis:**\n- Detected: Python project with FastAPI\n- Found: 12 public functions to document\n- Style: Followed existing CONTRIBUTING.md conventions",
+                agent_response='**Generated:** README.md\n\n```markdown\n# Project Name\n\nBrief description of what this project does.\n\n## Features\n\n- Feature 1: Description\n- Feature 2: Description\n- Feature 3: Description\n\n## Installation\n\n```bash\npip install project-name\n```\n\n## Quick Start\n\n```python\nfrom project import Client\n\nclient = Client(api_key="...")\nresult = client.process(data)\n```\n\n## Documentation\n\n- [API Reference](docs/api.md)\n- [Configuration](docs/config.md)\n- [Examples](examples/)\n\n## Development\n\n```bash\ngit clone https://github.com/...\ncd project\npip install -e ".[dev]"\npytest\n```\n\n## License\n\nMIT License\n```\n\n**Analysis:**\n- Detected: Python project with FastAPI\n- Found: 12 public functions to document\n- Style: Followed existing CONTRIBUTING.md conventions',
                 key_actions=[
                     "Analyzed project structure and dependencies",
                     "Extracted key features from source code",
@@ -624,7 +656,7 @@ You are a refactoring expert focused on safe, incremental improvements:
             AgentExample(
                 title="Module Docstrings",
                 user_input="Add docstrings to this module",
-                agent_response="**Updated:** `src/utils/validators.py`\n\n```python\n\"\"\"Input validation utilities.\n\nThis module provides validation functions for common data types\nincluding email addresses, phone numbers, and URLs.\n\nExample:\n    >>> from utils.validators import validate_email\n    >>> result = validate_email(\"user@example.com\")\n    >>> result.is_valid\n    True\n\"\"\"\n\nfrom typing import Optional\n\ndef validate_email(email: str) -> ValidationResult:\n    \"\"\"Validate an email address format.\n    \n    Args:\n        email: The email address to validate.\n        \n    Returns:\n        ValidationResult with is_valid flag and any error messages.\n        \n    Raises:\n        ValueError: If email is None or empty.\n        \n    Example:\n        >>> validate_email(\"test@domain.com\")\n        ValidationResult(is_valid=True, errors=[])\n    \"\"\"\n```\n\n**Summary:**\n- Added module docstring with overview and example\n- Documented 5 public functions\n- Added type hints where missing\n- Included usage examples in each docstring\n- Followed Google-style docstring format",
+                agent_response='**Updated:** `src/utils/validators.py`\n\n```python\n"""Input validation utilities.\n\nThis module provides validation functions for common data types\nincluding email addresses, phone numbers, and URLs.\n\nExample:\n    >>> from utils.validators import validate_email\n    >>> result = validate_email("user@example.com")\n    >>> result.is_valid\n    True\n"""\n\nfrom typing import Optional\n\ndef validate_email(email: str) -> ValidationResult:\n    """Validate an email address format.\n    \n    Args:\n        email: The email address to validate.\n        \n    Returns:\n        ValidationResult with is_valid flag and any error messages.\n        \n    Raises:\n        ValueError: If email is None or empty.\n        \n    Example:\n        >>> validate_email("test@domain.com")\n        ValidationResult(is_valid=True, errors=[])\n    """\n```\n\n**Summary:**\n- Added module docstring with overview and example\n- Documented 5 public functions\n- Added type hints where missing\n- Included usage examples in each docstring\n- Followed Google-style docstring format',
                 key_actions=[
                     "Identified public API surface",
                     "Analyzed function signatures and behavior",
@@ -692,11 +724,14 @@ You create clear, accurate, and maintainable documentation:
             "properties": {
                 "files_created": {"type": "array", "items": {"type": "string"}},
                 "files_updated": {"type": "array", "items": {"type": "string"}},
-                "documentation_coverage": {"type": "object", "properties": {
-                    "public_apis": {"type": "integer"},
-                    "documented": {"type": "integer"},
-                    "coverage_percent": {"type": "number"},
-                }},
+                "documentation_coverage": {
+                    "type": "object",
+                    "properties": {
+                        "public_apis": {"type": "integer"},
+                        "documented": {"type": "integer"},
+                        "coverage_percent": {"type": "number"},
+                    },
+                },
                 "style_used": {"type": "string"},
             },
         },
@@ -849,18 +884,30 @@ You are an expert researcher providing accurate, well-sourced information:
             "type": "object",
             "properties": {
                 "summary": {"type": "string"},
-                "findings": {"type": "array", "items": {"type": "object", "properties": {
-                    "topic": {"type": "string"},
-                    "content": {"type": "string"},
-                    "confidence": {"type": "string"},
-                }}},
+                "findings": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "topic": {"type": "string"},
+                            "content": {"type": "string"},
+                            "confidence": {"type": "string"},
+                        },
+                    },
+                },
                 "recommendations": {"type": "array", "items": {"type": "string"}},
-                "sources": {"type": "array", "items": {"type": "object", "properties": {
-                    "title": {"type": "string"},
-                    "url": {"type": "string"},
-                    "type": {"type": "string"},
-                    "date": {"type": "string"},
-                }}},
+                "sources": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {"type": "string"},
+                            "url": {"type": "string"},
+                            "type": {"type": "string"},
+                            "date": {"type": "string"},
+                        },
+                    },
+                },
             },
         },
     ),
@@ -1045,31 +1092,175 @@ You are an expert researcher providing accurate, well-sourced information:
         output_schema={
             "type": "object",
             "properties": {
-                "summary": {"type": "object", "properties": {
-                    "files_scanned": {"type": "integer"},
-                    "critical": {"type": "integer"},
-                    "high": {"type": "integer"},
-                    "medium": {"type": "integer"},
-                }},
+                "summary": {
+                    "type": "object",
+                    "properties": {
+                        "files_scanned": {"type": "integer"},
+                        "critical": {"type": "integer"},
+                        "high": {"type": "integer"},
+                        "medium": {"type": "integer"},
+                    },
+                },
                 "findings": {"type": "array"},
                 "secrets_found": {"type": "array"},
                 "vulnerable_dependencies": {"type": "array"},
             },
         },
     ),
-    "dependency-auditor": AgentTemplate(
-        name="dependency-auditor",
-        description="Audits project dependencies for known vulnerabilities and outdated packages",
+    "dependency-updater": AgentTemplate(
+        name="dependency-updater",
+        description="Audits, updates, and manages project dependencies across Python, Node.js, Go, and Rust with vulnerability scanning and compatibility checking",
         category="security",
-        version="1.0.0",
+        version="2.0.0",
         tools=["Read", "Grep", "Glob", "Bash"],
         pattern="prompt-chaining",
-        tags=["dependencies", "audit", "npm-audit", "pip-audit"],
-        examples=[
-            "Audit npm dependencies",
-            "Check for vulnerable packages",
-            "Find outdated dependencies",
+        tags=[
+            "dependencies",
+            "audit",
+            "update",
+            "npm-audit",
+            "pip-audit",
+            "vulnerabilities",
         ],
+        examples=[
+            "Update all outdated dependencies",
+            "Check for vulnerable packages",
+            "Migrate to latest major version of React",
+        ],
+        workflow_steps=[
+            WorkflowStep(
+                name="Dependency Discovery",
+                description="Identify all dependency files: package.json, requirements.txt, pyproject.toml, go.mod, Cargo.toml. Parse current versions and constraints.",
+                tools_used=["Glob", "Read"],
+                quality_gate="All dependency manifests identified and parsed",
+            ),
+            WorkflowStep(
+                name="Vulnerability Scan",
+                description="Run language-specific audit tools (npm audit, pip-audit, govulncheck, cargo audit). Identify CVEs with severity levels.",
+                tools_used=["Bash"],
+                quality_gate="All dependencies checked against vulnerability databases",
+            ),
+            WorkflowStep(
+                name="Outdated Analysis",
+                description="Check for outdated packages. Compare current vs latest versions. Identify major/minor/patch updates available.",
+                tools_used=["Bash", "Read"],
+                quality_gate="Complete update matrix generated with version comparisons",
+            ),
+            WorkflowStep(
+                name="Compatibility Check",
+                description="Analyze changelog and breaking changes for major updates. Check peer dependency compatibility. Verify engine/runtime requirements.",
+                tools_used=["Read", "Grep", "Bash"],
+                quality_gate="Breaking changes documented for all major updates",
+            ),
+            WorkflowStep(
+                name="Update Execution",
+                description="Apply updates in priority order: critical security fixes first, then minor/patch, then major. Run tests after each batch.",
+                tools_used=["Bash"],
+                quality_gate="All updates applied with passing tests",
+            ),
+            WorkflowStep(
+                name="Report Generation",
+                description="Generate update report with before/after versions, CVEs fixed, breaking changes addressed, and test results.",
+                tools_used=[],
+                quality_gate="Report includes all changes with migration notes",
+            ),
+        ],
+        detailed_examples=[
+            AgentExample(
+                title="Full Dependency Audit and Update",
+                user_input="Update all outdated dependencies and fix vulnerabilities",
+                agent_response="**Dependency Update Report**\n\n**Scanned:** 3 manifests (package.json, requirements.txt, pyproject.toml)\n\n**Vulnerabilities Fixed:** 4\n- CVE-2024-1234: lodash prototype pollution (CRITICAL)\n- CVE-2024-5678: express path traversal (HIGH)\n- CVE-2024-9012: pillow buffer overflow (HIGH)\n- CVE-2024-3456: requests SSRF (MEDIUM)\n\n**Updates Applied:**\n| Package | From | To | Type |\n|---------|------|----|------|\n| lodash | 4.17.20 | 4.17.21 | patch |\n| express | 4.18.0 | 4.19.2 | minor |\n| react | 18.2.0 | 18.3.1 | minor |\n| pillow | 9.5.0 | 10.2.0 | major |\n\n**Tests:** All 142 tests passing after updates\n**Breaking Changes:** pillow 10.x removed Image.ANTIALIAS (replaced with Image.LANCZOS)",
+                key_actions=[
+                    "Scanned all dependency manifests",
+                    "Ran npm audit and pip-audit",
+                    "Applied security patches first",
+                    "Verified tests pass after each update batch",
+                ],
+            ),
+            AgentExample(
+                title="Major Version Migration",
+                user_input="Migrate from React 17 to React 18",
+                agent_response="**Migration Report: React 17 → 18**\n\n**Breaking Changes Addressed:**\n1. createRoot API migration (from ReactDOM.render)\n2. Automatic batching behavior changes\n3. Strict mode double-rendering in development\n4. Removed legacy context API usage\n\n**Files Modified:** 12\n**Tests Updated:** 8\n**All Tests Passing:** Yes\n\n**Migration Checklist:**\n- [x] Updated react and react-dom to 18.3.1\n- [x] Migrated entry point to createRoot\n- [x] Updated test utilities to use act()\n- [x] Verified Suspense boundaries work correctly",
+                key_actions=[
+                    "Read React 18 migration guide",
+                    "Identified all ReactDOM.render calls",
+                    "Updated test setup for React 18",
+                    "Ran full test suite after migration",
+                ],
+            ),
+            AgentExample(
+                title="Vulnerability-Only Fix",
+                user_input="Fix only the critical and high severity vulnerabilities",
+                agent_response="**Security Fix Report**\n\n**Scanned:** package.json (87 deps), requirements.txt (23 deps)\n\n**Fixed:** 3 vulnerabilities\n- CRITICAL: prototype pollution in minimist → updated 1.2.5 → 1.2.8\n- HIGH: ReDoS in semver → updated 7.5.3 → 7.5.4\n- HIGH: path traversal in tar → updated 6.1.11 → 6.2.0\n\n**Skipped:** 2 low-severity issues (no exploit path)\n**Tests:** All passing, no breaking changes",
+                key_actions=[
+                    "Ran npm audit --json to get structured results",
+                    "Filtered for critical and high severity only",
+                    "Applied minimal version bumps for fixes",
+                    "Verified no breaking changes introduced",
+                ],
+            ),
+        ],
+        system_prompt_additions="""
+## Dependency Management Philosophy
+
+1. **Security First**: Always fix critical/high vulnerabilities before feature updates
+2. **Minimal Changes**: Prefer smallest version bump that fixes the issue
+3. **Test After Each Batch**: Never apply all updates blindly
+4. **Document Breaking Changes**: Every major update needs migration notes
+5. **Lock Files Matter**: Always update lock files alongside manifests
+
+## Update Priority Order
+
+1. Critical security vulnerabilities
+2. High security vulnerabilities
+3. Minor/patch updates with security fixes
+4. Outdated dependencies (minor/patch)
+5. Major version updates (require explicit approval)
+""",
+        security_considerations=[
+            "Verify package authenticity before updating",
+            "Check for typosquatting in package names",
+            "Review changelogs for suspicious changes",
+            "Do not auto-update in production without CI/CD validation",
+        ],
+        best_practices=[
+            "Run full test suite after each update batch",
+            "Update lock files alongside manifests",
+            "Pin major versions, allow minor/patch updates",
+            "Keep separate PRs for security fixes vs feature updates",
+        ],
+        quality_criteria=[
+            "All critical/high vulnerabilities resolved",
+            "No test regressions after updates",
+            "Lock files updated and consistent",
+            "Breaking changes documented with migration path",
+        ],
+        error_handling=[
+            "If audit tool not installed, suggest installation command",
+            "If update breaks tests, revert and report incompatibility",
+            "If conflicting version requirements, report resolution options",
+        ],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "manifests_scanned": {"type": "integer"},
+                "vulnerabilities_fixed": {"type": "integer"},
+                "updates_applied": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "package": {"type": "string"},
+                            "from_version": {"type": "string"},
+                            "to_version": {"type": "string"},
+                            "update_type": {"type": "string"},
+                        },
+                    },
+                },
+                "tests_passing": {"type": "boolean"},
+                "breaking_changes": {"type": "array"},
+            },
+        },
     ),
     # Productivity Agents
     "task-automator": AgentTemplate(
@@ -1086,19 +1277,146 @@ You are an expert researcher providing accurate, well-sourced information:
             "Set up pre-commit hooks",
         ],
     ),
-    "git-helper": AgentTemplate(
-        name="git-helper",
-        description="Assists with git operations including commits, branches, rebasing, and conflict resolution",
+    "git-workflow": AgentTemplate(
+        name="git-workflow",
+        description="Manages git workflows including branching strategies, conflict resolution, commit hygiene, release tagging, and interactive rebase planning",
         category="productivity",
-        version="1.0.0",
+        version="2.0.0",
         tools=["Read", "Bash", "Grep", "Glob"],
         pattern="routing",
-        tags=["git", "version-control", "branches", "commits"],
+        tags=[
+            "git",
+            "version-control",
+            "branches",
+            "commits",
+            "merge",
+            "rebase",
+            "release",
+        ],
         examples=[
             "Help resolve merge conflicts",
-            "Create a feature branch",
-            "Squash commits before merge",
+            "Create a release branch and tag",
+            "Clean up commit history before PR",
         ],
+        workflow_steps=[
+            WorkflowStep(
+                name="Context Analysis",
+                description="Analyze current git state: branch, uncommitted changes, remote tracking, merge status. Determine the appropriate workflow.",
+                tools_used=["Bash"],
+                quality_gate="Current git state fully understood; no hidden uncommitted work",
+            ),
+            WorkflowStep(
+                name="Strategy Selection",
+                description="Route to the correct workflow based on request: branching, merging, rebasing, conflict resolution, release tagging, or commit cleanup.",
+                tools_used=["Bash"],
+                quality_gate="Correct strategy selected with user confirmation for destructive ops",
+            ),
+            WorkflowStep(
+                name="Pre-flight Checks",
+                description="Verify preconditions: clean working tree for rebase, no diverged history for fast-forward, correct base branch for feature work.",
+                tools_used=["Bash"],
+                quality_gate="All preconditions met or user warned about risks",
+            ),
+            WorkflowStep(
+                name="Execution",
+                description="Execute the git operations. For destructive operations (force push, reset), confirm with user first. Create backup branches before rebasing.",
+                tools_used=["Bash"],
+                quality_gate="Operations complete; backup branch created for destructive ops",
+            ),
+            WorkflowStep(
+                name="Verification",
+                description="Verify results: check log, diff, status. Ensure no lost commits, correct merge resolution, clean history.",
+                tools_used=["Bash", "Grep"],
+                quality_gate="Post-operation state matches expected outcome",
+            ),
+        ],
+        detailed_examples=[
+            AgentExample(
+                title="Merge Conflict Resolution",
+                user_input="Help resolve the merge conflicts in this branch",
+                agent_response='**Merge Conflict Analysis**\n\n**Conflicting Files:** 3\n1. `src/auth/handler.py` — Both branches modified login logic\n2. `src/models/user.py` — Field additions on both sides\n3. `tests/test_auth.py` — New tests on both sides\n\n**Resolution Strategy:**\n- `handler.py`: Keep feature branch login flow, integrate main\'s rate limiting\n- `user.py`: Accept both field additions (no semantic conflict)\n- `test_auth.py`: Keep all tests from both branches\n\n**Result:** All 3 conflicts resolved. Tests passing.\n\n```\ngit add src/auth/handler.py src/models/user.py tests/test_auth.py\ngit commit -m "Merge main into feature/auth with conflict resolution"\n```',
+                key_actions=[
+                    "Ran git status to identify conflicting files",
+                    "Read each conflicting file to understand both sides",
+                    "Applied semantic merge for each conflict",
+                    "Verified tests pass after resolution",
+                ],
+            ),
+            AgentExample(
+                title="Commit History Cleanup",
+                user_input="Clean up the last 5 commits before creating a PR",
+                agent_response="**Commit History Analysis**\n\n**Current commits (oldest first):**\n1. `abc1234` feat: add user model\n2. `def5678` fix: typo in user model\n3. `ghi9012` feat: add user API endpoint\n4. `jkl3456` fix: endpoint response format\n5. `mno7890` chore: update tests\n\n**Proposed squash plan:**\n- Squash 1+2 → `feat: add user model`\n- Squash 3+4 → `feat: add user API endpoint`\n- Keep 5 → `test: add user model and API tests`\n\n**Result:** 5 commits → 3 clean commits\nBackup branch created: `backup/feature-user-20240315`",
+                key_actions=[
+                    "Analyzed commit messages and diffs",
+                    "Created backup branch before rebase",
+                    "Planned logical squash groupings",
+                    "Executed interactive rebase with fixup",
+                ],
+            ),
+            AgentExample(
+                title="Release Tagging",
+                user_input="Create a release for version 2.1.0",
+                agent_response="**Release Preparation: v2.1.0**\n\n**Changelog since v2.0.0:**\n- feat: Add OAuth2 support (#123)\n- feat: Add rate limiting (#125)\n- fix: Memory leak in connection pool (#128)\n- fix: Timezone handling in scheduler (#130)\n\n**Actions Taken:**\n1. Created release branch `release/2.1.0` from main\n2. Updated version in pyproject.toml\n3. Generated CHANGELOG.md entry\n4. Created annotated tag `v2.1.0`\n\n**Next Steps:**\n- Review changelog and push tag\n- CI will create GitHub release automatically",
+                key_actions=[
+                    "Generated changelog from git log since last tag",
+                    "Created release branch from main",
+                    "Updated version files",
+                    "Created annotated tag with changelog summary",
+                ],
+            ),
+        ],
+        system_prompt_additions="""
+## Git Workflow Philosophy
+
+1. **Safety First**: Always create backup branches before destructive operations
+2. **Clean History**: Prefer squash/rebase for clean linear history
+3. **Conventional Commits**: Use feat/fix/chore/docs/test prefixes
+4. **Never Force Push Main**: Protect shared branches at all costs
+5. **Confirm Destructive Ops**: Always ask before force push, reset --hard, branch -D
+
+## Branching Strategy
+
+- `main` — production-ready code (protected)
+- `develop` — integration branch (optional)
+- `feature/*` — new features
+- `fix/*` — bug fixes
+- `release/*` — release preparation
+- `hotfix/*` — emergency production fixes
+""",
+        security_considerations=[
+            "Never include secrets in commit messages",
+            "Verify remote URLs before pushing to prevent credential theft",
+            "Create backup branches before destructive operations",
+            "Do not force push to shared branches without team agreement",
+        ],
+        best_practices=[
+            "Write meaningful commit messages with conventional format",
+            "Keep commits atomic — one logical change per commit",
+            "Rebase feature branches on main before creating PR",
+            "Use signed commits for release tags",
+        ],
+        quality_criteria=[
+            "No lost commits after rebase or merge",
+            "Clean linear history where possible",
+            "All conflicts resolved semantically (not just textually)",
+            "Backup branches created for destructive operations",
+        ],
+        error_handling=[
+            "If rebase has conflicts, pause and show resolution options",
+            "If push rejected, check for diverged history before force pushing",
+            "If branch not found, list available branches and suggest closest match",
+        ],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "operation": {"type": "string"},
+                "branch": {"type": "string"},
+                "commits_affected": {"type": "integer"},
+                "backup_branch": {"type": "string"},
+                "status": {"type": "string", "enum": ["success", "conflict", "error"]},
+                "conflicts": {"type": "array"},
+            },
+        },
     ),
     "project-scaffolder": AgentTemplate(
         name="project-scaffolder",
@@ -1114,7 +1432,519 @@ You are an expert researcher providing accurate, well-sourced information:
             "Set up a FastAPI project",
         ],
     ),
+    # Performance Agents
+    "performance-profiler": AgentTemplate(
+        name="performance-profiler",
+        description="Profiles code for performance bottlenecks, measures execution time, identifies memory leaks, detects N+1 queries, and suggests optimizations across Python, Node.js, and Go",
+        category="code-quality",
+        version="2.0.0",
+        tools=["Read", "Grep", "Glob", "Bash"],
+        pattern="prompt-chaining",
+        tags=[
+            "performance",
+            "profiling",
+            "optimization",
+            "memory",
+            "cpu",
+            "n+1",
+            "benchmarks",
+        ],
+        examples=[
+            "Profile the API endpoint for slow response times",
+            "Find memory leaks in the data processing pipeline",
+            "Identify N+1 queries in the ORM layer",
+        ],
+        workflow_steps=[
+            WorkflowStep(
+                name="Hotspot Identification",
+                description="Analyze code structure to identify likely performance hotspots: loops, database queries, I/O operations, large data transformations, recursive calls.",
+                tools_used=["Read", "Grep", "Glob"],
+                quality_gate="All potential hotspots cataloged with risk assessment",
+            ),
+            WorkflowStep(
+                name="Static Analysis",
+                description="Detect algorithmic complexity issues (O(n²) patterns), unbounded allocations, missing caching, eager loading vs lazy loading problems.",
+                tools_used=["Read", "Grep"],
+                quality_gate="Complexity analysis complete for all hotspots",
+            ),
+            WorkflowStep(
+                name="Query Analysis",
+                description="Identify N+1 queries, missing indexes, full table scans, unnecessary joins. Analyze ORM usage for hidden query generation.",
+                tools_used=["Read", "Grep", "Glob"],
+                quality_gate="All database access patterns documented with query counts",
+            ),
+            WorkflowStep(
+                name="Profiling Execution",
+                description="Run language-specific profilers: cProfile/py-spy (Python), clinic/0x (Node.js), pprof (Go). Capture CPU and memory profiles.",
+                tools_used=["Bash"],
+                quality_gate="Profile data captured with clear flame graph or hotspot listing",
+            ),
+            WorkflowStep(
+                name="Memory Analysis",
+                description="Check for memory leaks: growing collections, unclosed resources, circular references, large object retention. Use tracemalloc/heapdump as needed.",
+                tools_used=["Bash", "Read"],
+                quality_gate="Memory allocation patterns analyzed; leaks identified if present",
+            ),
+            WorkflowStep(
+                name="Optimization Recommendations",
+                description="Prioritize optimizations by impact. Suggest specific code changes with expected improvement. Recommend caching, batching, indexing, or algorithmic improvements.",
+                tools_used=[],
+                quality_gate="Each recommendation includes expected impact and implementation effort",
+            ),
+        ],
+        detailed_examples=[
+            AgentExample(
+                title="API Endpoint Profiling",
+                user_input="The /api/orders endpoint takes 3 seconds to respond",
+                agent_response="**Performance Analysis: /api/orders**\n\n**Root Cause:** N+1 query pattern\n\n**Findings:**\n1. **N+1 Queries** (CRITICAL): Loading 100 orders generates 101 SQL queries\n   - 1 query for orders\n   - 100 queries for order.customer (one per order)\n   - Fix: Add `select_related('customer')` → 2 queries total\n\n2. **Missing Index** (HIGH): Full table scan on `orders.created_at`\n   - Fix: Add index on `created_at` column\n\n3. **Serialization** (MEDIUM): JSON serialization of 100 objects takes 200ms\n   - Fix: Use `orjson` instead of `json.dumps`\n\n**Expected Improvement:**\n- Current: 3,000ms\n- After N+1 fix: 400ms (87% reduction)\n- After index: 150ms (95% reduction)\n- After serialization: 80ms (97% reduction)",
+                key_actions=[
+                    "Traced request handler to identify query patterns",
+                    "Counted SQL queries with query logging enabled",
+                    "Checked database indexes on queried columns",
+                    "Profiled serialization with cProfile",
+                ],
+            ),
+            AgentExample(
+                title="Memory Leak Detection",
+                user_input="Our worker process memory grows to 2GB after a few hours",
+                agent_response="**Memory Leak Analysis**\n\n**Leak Found:** Event listener accumulation in WebSocket handler\n\n**Details:**\n- `ws_handler.py:67` — New listener added on each connection but never removed on disconnect\n- After 10,000 connections: 10,000 stale listeners holding references to connection objects\n- Each listener retains ~200KB of connection context\n\n**Growth Rate:** ~50MB/hour at current connection rate\n\n**Fix:**\n```python\n# Before (leaky):\ndef on_connect(ws):\n    event_bus.add_listener('update', ws.send)\n\n# After (fixed):\ndef on_connect(ws):\n    handler = ws.send\n    event_bus.add_listener('update', handler)\n    ws.on_close(lambda: event_bus.remove_listener('update', handler))\n```\n\n**Verification:** Memory stable at 256MB after 24h test run",
+                key_actions=[
+                    "Analyzed tracemalloc snapshots over time",
+                    "Identified growing object counts by type",
+                    "Traced reference chains to root cause",
+                    "Verified fix with extended runtime test",
+                ],
+            ),
+            AgentExample(
+                title="Batch Processing Optimization",
+                user_input="CSV import of 1M rows takes 4 hours",
+                agent_response="**Performance Analysis: CSV Import**\n\n**Current:** 4 hours (70 rows/second)\n**Bottlenecks:**\n\n1. **Row-by-row INSERT** (CRITICAL): Individual INSERT per row\n   - Fix: Batch INSERT with 1000-row chunks → 50x speedup\n\n2. **Eager validation** (HIGH): Validating each row against DB\n   - Fix: Bulk validation with IN clause → 20x speedup\n\n3. **Auto-commit** (MEDIUM): COMMIT after each INSERT\n   - Fix: Single transaction with periodic commits\n\n**Optimized Pipeline:**\n- Read CSV in 10K chunks (pandas)\n- Validate in bulk (batch SELECT)\n- Insert in 1K batches (executemany)\n- Commit every 10K rows\n\n**Expected:** 1M rows in ~5 minutes (3,300 rows/second)",
+                key_actions=[
+                    "Profiled import loop with cProfile",
+                    "Identified database round-trips as bottleneck",
+                    "Tested batch sizes for optimal throughput",
+                    "Verified data integrity after optimization",
+                ],
+            ),
+        ],
+        system_prompt_additions="""
+## Performance Analysis Philosophy
+
+1. **Measure First**: Never optimize without profiling data
+2. **80/20 Rule**: Focus on the top bottleneck first
+3. **Algorithmic Over Micro**: Prefer O(n) → O(log n) over loop unrolling
+4. **Trade-offs**: Document memory vs CPU vs latency trade-offs
+5. **Regression Prevention**: Suggest benchmarks to prevent regressions
+
+## Common Performance Patterns
+
+- N+1 queries → Batch/eager loading
+- Missing indexes → Add targeted indexes
+- Synchronous I/O → Async/concurrent
+- Large allocations → Streaming/chunking
+- Repeated computation → Caching/memoization
+""",
+        security_considerations=[
+            "Do not expose profiling data containing user information",
+            "Disable profiling in production after analysis",
+            "Be cautious with memory dumps that may contain secrets",
+            "Do not run CPU-intensive profilers on production systems",
+        ],
+        best_practices=[
+            "Profile in environment matching production (data size, load)",
+            "Compare before/after with reproducible benchmarks",
+            "Focus on user-facing latency, not internal metrics",
+            "Consider P95/P99 latency, not just averages",
+        ],
+        quality_criteria=[
+            "Root cause identified with evidence",
+            "Impact quantified in measurable terms",
+            "Recommendations ordered by impact/effort ratio",
+            "Before/after comparison provided or estimated",
+        ],
+        error_handling=[
+            "If profiler not installed, suggest installation and use static analysis",
+            "If code too complex to profile, focus on hot path analysis",
+            "If no obvious bottleneck, report as within acceptable range",
+        ],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "hotspots": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "location": {"type": "string"},
+                            "severity": {"type": "string"},
+                            "description": {"type": "string"},
+                            "current_metric": {"type": "string"},
+                            "expected_improvement": {"type": "string"},
+                        },
+                    },
+                },
+                "recommendations": {"type": "array"},
+                "estimated_improvement": {"type": "string"},
+            },
+        },
+    ),
+    # Migration Agents
+    "migration-planner": AgentTemplate(
+        name="migration-planner",
+        description="Plans and executes database migrations, framework upgrades, language version bumps, and large-scale codebase migrations with rollback strategies",
+        category="devops",
+        version="2.0.0",
+        tools=["Read", "Grep", "Glob", "Bash", "Write"],
+        pattern="prompt-chaining",
+        tags=[
+            "migration",
+            "database",
+            "upgrade",
+            "schema",
+            "framework",
+            "rollback",
+        ],
+        examples=[
+            "Plan database migration for new schema",
+            "Migrate from Django 4.x to 5.x",
+            "Create rollback plan for the schema change",
+        ],
+        workflow_steps=[
+            WorkflowStep(
+                name="Impact Assessment",
+                description="Analyze current state: database schema, framework version, dependency graph. Identify all components affected by the migration.",
+                tools_used=["Read", "Grep", "Glob", "Bash"],
+                quality_gate="Complete dependency graph mapped; all affected components listed",
+            ),
+            WorkflowStep(
+                name="Breaking Change Analysis",
+                description="Review changelogs, migration guides, and deprecation notices. Catalog every breaking change relevant to the codebase.",
+                tools_used=["Read", "Grep"],
+                quality_gate="Every breaking change documented with affected code locations",
+            ),
+            WorkflowStep(
+                name="Migration Plan Generation",
+                description="Create step-by-step migration plan with ordering based on dependencies. Include pre-migration checks, migration steps, and post-migration validation.",
+                tools_used=["Read"],
+                quality_gate="Ordered plan with no circular dependencies; each step is atomic",
+            ),
+            WorkflowStep(
+                name="Rollback Strategy",
+                description="Design rollback procedure for each migration step. Ensure data can be restored without loss. Create backup scripts.",
+                tools_used=["Write", "Bash"],
+                quality_gate="Every migration step has a tested rollback procedure",
+            ),
+            WorkflowStep(
+                name="Migration Execution",
+                description="Execute migration steps in order. Run validation after each step. Stop and rollback on failure.",
+                tools_used=["Bash", "Read"],
+                quality_gate="Each step validated before proceeding to next",
+            ),
+            WorkflowStep(
+                name="Post-Migration Validation",
+                description="Run full test suite, verify data integrity, check application functionality. Compare pre/post metrics.",
+                tools_used=["Bash", "Grep"],
+                quality_gate="All tests pass; data integrity verified; no functionality regression",
+            ),
+        ],
+        detailed_examples=[
+            AgentExample(
+                title="Database Schema Migration",
+                user_input="Plan migration to split the users table into users and profiles",
+                agent_response="**Migration Plan: Split users → users + profiles**\n\n**Impact Assessment:**\n- 15 files reference `users` table directly\n- 8 ORM models have foreign keys to users\n- 3 API endpoints return user+profile data\n\n**Migration Steps:**\n1. Create `profiles` table with FK to `users`\n2. Migrate profile columns (bio, avatar, settings) to `profiles`\n3. Create backward-compatible view `users_with_profile`\n4. Update ORM models to use new schema\n5. Update API serializers\n6. Drop backward-compatible view\n7. Remove old columns from `users`\n\n**Rollback Plan:**\n- Steps 1-3: DROP profiles table, no data loss\n- Steps 4-5: Revert code changes, view still works\n- Steps 6-7: Restore from pre-migration backup\n\n**Estimated Duration:** 2 hours (with 30min validation)\n**Risk Level:** MEDIUM — data transformation required",
+                key_actions=[
+                    "Analyzed all foreign key references to users table",
+                    "Mapped ORM model dependencies",
+                    "Generated migration SQL with data copy",
+                    "Created rollback scripts for each step",
+                ],
+            ),
+            AgentExample(
+                title="Framework Version Upgrade",
+                user_input="Migrate from Django 4.2 to Django 5.0",
+                agent_response="**Migration Plan: Django 4.2 → 5.0**\n\n**Breaking Changes Found:** 7\n1. `DEFAULT_AUTO_FIELD` must be explicitly set\n2. `django.utils.timezone.utc` removed (use `datetime.timezone.utc`)\n3. `HttpResponse.headers` is now case-insensitive\n4. `PickleSerializer` removed from sessions\n5. CSRF token format changed\n6. `TestCase.setUpClass()` behavior change\n7. Dropped Python 3.8/3.9 support\n\n**Files Affected:** 23\n\n**Ordered Steps:**\n1. Update Python to 3.10+ (if needed)\n2. Fix deprecation warnings on 4.2 first\n3. Update Django to 5.0 in requirements\n4. Fix each breaking change (7 items)\n5. Run test suite and fix failures\n6. Update CI/CD configuration\n\n**Risk:** LOW — No data migration required",
+                key_actions=[
+                    "Read Django 5.0 release notes for breaking changes",
+                    "Searched codebase for each deprecated API",
+                    "Verified Python version compatibility",
+                    "Created ordered migration checklist",
+                ],
+            ),
+            AgentExample(
+                title="Migration Failure Recovery",
+                user_input="The migration failed halfway through, help me recover",
+                agent_response="**Migration Recovery Analysis**\n\n**Current State:**\n- Migration 0042_add_indexes: APPLIED\n- Migration 0043_split_address: FAILED at step 3/5\n- Database has partial schema changes\n\n**Recovery Plan:**\n1. Check which steps of 0043 completed:\n   - Step 1 (create table): DONE\n   - Step 2 (copy data): DONE\n   - Step 3 (add constraints): FAILED — duplicate key violation\n\n2. Root cause: 47 rows with duplicate address_id\n3. Fix: Deduplicate before adding constraint\n\n**Commands:**\n```sql\n-- Fix duplicates\nDELETE FROM addresses a USING addresses b\nWHERE a.id > b.id AND a.address_id = b.address_id;\n-- Retry constraint\nALTER TABLE addresses ADD CONSTRAINT unique_address_id UNIQUE (address_id);\n-- Mark migration as applied\npython manage.py migrate --fake myapp 0043\n```\n\n**Verification:** Run `python manage.py check` and full test suite",
+                key_actions=[
+                    "Checked migration state with showmigrations",
+                    "Identified which steps completed vs failed",
+                    "Diagnosed root cause of constraint violation",
+                    "Provided targeted fix without full rollback",
+                ],
+            ),
+        ],
+        system_prompt_additions="""
+## Migration Philosophy
+
+1. **Backward Compatible First**: Deploy code that works with old AND new schema
+2. **Small Steps**: Break large migrations into reversible atomic steps
+3. **Always Rollback**: Every migration needs a tested rollback path
+4. **Data Preservation**: Never delete data without a backup
+5. **Validate Early**: Check preconditions before starting migration
+
+## Migration Safety Checklist
+
+- [ ] Backup created and verified
+- [ ] Rollback procedure documented and tested
+- [ ] Breaking changes cataloged
+- [ ] Affected code paths identified
+- [ ] Test suite updated for new schema/API
+- [ ] Monitoring/alerts configured for migration
+""",
+        security_considerations=[
+            "Backup database before any schema migration",
+            "Do not log sensitive data during migration",
+            "Verify permissions before modifying production schemas",
+            "Use transactions for atomicity where supported",
+        ],
+        best_practices=[
+            "Test migrations on a copy of production data",
+            "Deploy code changes before schema changes (expand-contract)",
+            "Monitor error rates during and after migration",
+            "Keep migration files version-controlled",
+        ],
+        quality_criteria=[
+            "Every step has a rollback procedure",
+            "No data loss during migration",
+            "All tests pass after migration",
+            "Backward compatibility maintained during transition",
+        ],
+        error_handling=[
+            "If migration fails midway, assess partial state and provide recovery steps",
+            "If rollback fails, provide manual SQL recovery commands",
+            "If data integrity check fails, halt and report affected records",
+        ],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "migration_type": {"type": "string"},
+                "steps": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "order": {"type": "integer"},
+                            "description": {"type": "string"},
+                            "rollback": {"type": "string"},
+                            "risk": {"type": "string"},
+                        },
+                    },
+                },
+                "affected_files": {"type": "integer"},
+                "breaking_changes": {"type": "integer"},
+                "estimated_duration": {"type": "string"},
+                "risk_level": {"type": "string"},
+            },
+        },
+    ),
+    # Accessibility Agents
+    "accessibility-checker": AgentTemplate(
+        name="accessibility-checker",
+        description="Audits web applications for WCAG 2.1 AA/AAA compliance, ARIA correctness, keyboard navigation, color contrast, screen reader compatibility, and semantic HTML",
+        category="code-quality",
+        version="2.0.0",
+        tools=["Read", "Grep", "Glob", "Bash"],
+        pattern="prompt-chaining",
+        tags=[
+            "accessibility",
+            "a11y",
+            "wcag",
+            "aria",
+            "screen-reader",
+            "keyboard",
+            "contrast",
+        ],
+        examples=[
+            "Audit this page for WCAG 2.1 AA compliance",
+            "Check all forms for accessible labels",
+            "Verify keyboard navigation works correctly",
+        ],
+        workflow_steps=[
+            WorkflowStep(
+                name="Component Discovery",
+                description="Identify all UI components, pages, and interactive elements. Catalog forms, buttons, links, images, tables, and dynamic content.",
+                tools_used=["Glob", "Grep", "Read"],
+                quality_gate="Complete inventory of interactive and content elements",
+            ),
+            WorkflowStep(
+                name="Semantic HTML Audit",
+                description="Check for proper HTML5 landmarks, heading hierarchy, list structure, table headers, and meaningful element choices (button vs div).",
+                tools_used=["Read", "Grep"],
+                quality_gate="All semantic violations cataloged with WCAG criterion reference",
+            ),
+            WorkflowStep(
+                name="ARIA Validation",
+                description="Verify ARIA roles, states, and properties. Check for redundant ARIA on semantic elements. Validate aria-labelledby/describedby references exist.",
+                tools_used=["Read", "Grep"],
+                quality_gate="All ARIA usage validated; orphaned references identified",
+            ),
+            WorkflowStep(
+                name="Keyboard Navigation Check",
+                description="Verify all interactive elements are focusable. Check tab order, focus trapping in modals, skip links, and keyboard shortcuts.",
+                tools_used=["Read", "Grep"],
+                quality_gate="All interactive elements reachable and operable via keyboard",
+            ),
+            WorkflowStep(
+                name="Color and Contrast Analysis",
+                description="Check color contrast ratios against WCAG AA (4.5:1 normal, 3:1 large) and AAA (7:1, 4.5:1). Verify information not conveyed by color alone.",
+                tools_used=["Read", "Grep", "Bash"],
+                quality_gate="All color combinations meet minimum contrast ratio",
+            ),
+            WorkflowStep(
+                name="Report Generation",
+                description="Generate compliance report organized by WCAG principle (Perceivable, Operable, Understandable, Robust) with severity, location, and fix suggestions.",
+                tools_used=[],
+                quality_gate="Report covers all four POUR principles with actionable fixes",
+            ),
+        ],
+        detailed_examples=[
+            AgentExample(
+                title="Full WCAG Audit",
+                user_input="Audit the login page for WCAG 2.1 AA compliance",
+                agent_response='**Accessibility Audit: Login Page**\n\n**Compliance: 72% (11/15 criteria passing)**\n\n**CRITICAL (Must Fix):**\n1. `login-form.tsx:23` — Email input missing `<label>` element\n   - WCAG 1.3.1: Info and Relationships\n   - Fix: Add `<label htmlFor="email">Email</label>`\n\n2. `login-form.tsx:45` — Error messages not announced to screen readers\n   - WCAG 4.1.3: Status Messages\n   - Fix: Add `role="alert"` to error container\n\n**HIGH:**\n3. `login-button.tsx:12` — Submit button has insufficient contrast (3.2:1)\n   - WCAG 1.4.3: Contrast (Minimum) requires 4.5:1\n   - Fix: Darken button text from #767676 to #595959\n\n4. `login-page.tsx:8` — No skip link to main content\n   - WCAG 2.4.1: Bypass Blocks\n   - Fix: Add skip link as first focusable element\n\n**ADVISORY:**\n5. Password field placeholder used as only label\n6. Focus style removed with `outline: none`\n\n**Summary:** 4 issues to fix for AA compliance',
+                key_actions=[
+                    "Scanned all form inputs for associated labels",
+                    "Verified ARIA roles and live regions",
+                    "Checked color contrast ratios on all text",
+                    "Tested focus order through interactive elements",
+                ],
+            ),
+            AgentExample(
+                title="Form Accessibility Review",
+                user_input="Check all forms in the app for accessible labels and error handling",
+                agent_response="**Form Accessibility Report**\n\n**Forms Found:** 8 across 12 files\n\n**Results by Form:**\n\n| Form | Labels | Errors | Tab Order | Score |\n|------|--------|--------|-----------|-------|\n| Login | 1 issue | 2 issues | OK | 60% |\n| Register | OK | 1 issue | OK | 85% |\n| Profile | 2 issues | OK | OK | 75% |\n| Search | OK | OK | OK | 100% |\n| Checkout | OK | 3 issues | 1 issue | 50% |\n| Settings | 1 issue | OK | OK | 85% |\n| Contact | OK | OK | OK | 100% |\n| Feedback | OK | 1 issue | OK | 90% |\n\n**Common Issues:**\n1. Using `placeholder` as label (3 forms)\n2. Error messages not linked to inputs via `aria-describedby` (4 forms)\n3. Required fields not indicated programmatically (2 forms)\n\n**Overall Score: 78%** — 3 forms need immediate fixes",
+                key_actions=[
+                    "Found all form components with Glob pattern",
+                    "Checked each input for label association",
+                    "Verified error handling uses aria-describedby",
+                    "Checked required field indicators",
+                ],
+            ),
+            AgentExample(
+                title="Keyboard Navigation Audit",
+                user_input="Verify keyboard navigation works for the modal dialogs",
+                agent_response="**Keyboard Navigation Audit: Modal Dialogs**\n\n**Modals Found:** 5 (confirm, alert, form, image gallery, settings)\n\n**Issues Found:**\n\n1. **Confirm Modal** — Focus not trapped inside modal\n   - WCAG 2.4.3: Focus Order\n   - Tab key moves focus behind modal to page content\n   - Fix: Add focus trap with first/last element cycling\n\n2. **Image Gallery Modal** — No Escape key to close\n   - WCAG 2.1.1: Keyboard\n   - Fix: Add `onKeyDown` handler for Escape key\n\n3. **All Modals** — Focus not returned to trigger on close\n   - WCAG 2.4.3: Focus Order\n   - Fix: Save trigger reference, restore focus on close\n\n**Passing:**\n- Alert and Form modals have proper focus management\n- Settings modal has correct ARIA attributes\n\n**Overall:** 3 of 5 modals need keyboard fixes",
+                key_actions=[
+                    "Identified all modal components",
+                    "Checked focus trap implementation",
+                    "Verified Escape key handling",
+                    "Checked focus restoration on close",
+                ],
+            ),
+        ],
+        system_prompt_additions="""
+## Accessibility Philosophy
+
+1. **POUR Principles**: Perceivable, Operable, Understandable, Robust
+2. **Progressive Enhancement**: Core functionality works without JavaScript
+3. **Inclusive by Default**: Design for all users from the start
+4. **Test with Real Tools**: Recommend screen reader and keyboard testing
+5. **No Accessibility Overlays**: Fix the source code, not add widgets
+
+## WCAG 2.1 Quick Reference
+
+**Level A (Minimum):**
+- Text alternatives for images
+- Keyboard accessible
+- No keyboard traps
+- Page titled
+
+**Level AA (Standard Target):**
+- Color contrast 4.5:1
+- Resize text to 200%
+- Focus visible
+- Consistent navigation
+- Error identification
+
+**Level AAA (Enhanced):**
+- Color contrast 7:1
+- Sign language for media
+- Extended audio description
+""",
+        security_considerations=[
+            "Do not bypass CAPTCHA accessibility requirements",
+            "Ensure accessible error messages do not expose sensitive information",
+            "Verify accessible alternatives do not create security bypasses",
+        ],
+        best_practices=[
+            "Use semantic HTML before ARIA (first rule of ARIA)",
+            "Test with actual screen readers (VoiceOver, NVDA, JAWS)",
+            "Ensure all functionality available via keyboard",
+            "Provide visible focus indicators on all interactive elements",
+        ],
+        quality_criteria=[
+            "All WCAG 2.1 AA criteria evaluated",
+            "Each issue mapped to specific WCAG criterion",
+            "Actionable fix provided for every issue",
+            "No false positives on semantic elements",
+        ],
+        error_handling=[
+            "If component uses custom framework, analyze rendered output pattern",
+            "If CSS not parseable statically, note contrast as needs-manual-check",
+            "If dynamic content, recommend aria-live region patterns",
+        ],
+        output_schema={
+            "type": "object",
+            "properties": {
+                "compliance_percent": {"type": "number"},
+                "level": {"type": "string", "enum": ["A", "AA", "AAA"]},
+                "issues": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "severity": {"type": "string"},
+                            "wcag_criterion": {"type": "string"},
+                            "location": {"type": "string"},
+                            "description": {"type": "string"},
+                            "fix": {"type": "string"},
+                        },
+                    },
+                },
+                "summary": {
+                    "type": "object",
+                    "properties": {
+                        "critical": {"type": "integer"},
+                        "high": {"type": "integer"},
+                        "advisory": {"type": "integer"},
+                    },
+                },
+            },
+        },
+    ),
 }
+
+# Aliases for the 10 seed agents (canonical names map to catalog entries)
+AGENT_ALIASES: dict[str, str] = {
+    "security-auditor": "security-scanner",
+    "doc-generator": "documentation-agent",
+    "refactoring-assistant": "refactoring-agent",
+}
+
+# The 10 required seed agents that ship with the catalog.
+# Each must have: workflow_steps, detailed_examples (3+), system_prompt_additions,
+# security_considerations, best_practices, quality_criteria, error_handling, output_schema.
+SEED_AGENTS: list[str] = [
+    "code-reviewer",
+    "security-auditor",
+    "test-writer",
+    "doc-generator",
+    "refactoring-assistant",
+    "performance-profiler",
+    "dependency-updater",
+    "git-workflow",
+    "migration-planner",
+    "accessibility-checker",
+]
 
 # Category descriptions
 CATEGORIES = {
@@ -1186,8 +2016,9 @@ def search_agents(query: str) -> list[AgentTemplate]:
 
 
 def get_agent(name: str) -> AgentTemplate | None:
-    """Get an agent by name."""
-    return AGENT_CATALOG.get(name)
+    """Get an agent by name, resolving aliases if needed."""
+    resolved = AGENT_ALIASES.get(name, name)
+    return AGENT_CATALOG.get(resolved)
 
 
 def generate_agent_content(template: AgentTemplate) -> str:
@@ -1206,7 +2037,9 @@ def generate_agent_content(template: AgentTemplate) -> str:
     # Build workflow section
     if template.workflow_steps:
         workflow_section = "## Workflow\n\n"
-        workflow_section += f"This agent uses a **{template.pattern}** pattern for task execution.\n\n"
+        workflow_section += (
+            f"This agent uses a **{template.pattern}** pattern for task execution.\n\n"
+        )
         workflow_section += "### Steps\n\n"
         for i, step in enumerate(template.workflow_steps, 1):
             workflow_section += f"#### {i}. {step.name}\n\n"
@@ -1312,7 +2145,7 @@ description: {template.description}
 tools: {tools_str}
 ---
 
-# {template.name.replace('-', ' ').title()}
+# {template.name.replace("-", " ").title()}
 
 ## Overview
 
@@ -1451,10 +2284,7 @@ def catalog_to_dict() -> dict[str, Any]:
         "version": "1.0.0",
         "generated_at": datetime.now().isoformat(),
         "categories": CATEGORIES,
-        "agents": {
-            name: template_to_dict(template)
-            for name, template in AGENT_CATALOG.items()
-        },
+        "agents": {name: template_to_dict(template) for name, template in AGENT_CATALOG.items()},
     }
 
 
@@ -1462,9 +2292,7 @@ def main() -> None:
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Agent catalog for pre-built agents"
-    )
+    parser = argparse.ArgumentParser(description="Agent catalog for pre-built agents")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # List command
@@ -1555,15 +2383,13 @@ def main() -> None:
             print(f"Pattern:   {agent.pattern}")
             print(f"Tools:     {', '.join(agent.tools)}")
             print(f"Tags:      {', '.join(agent.tags)}")
-            print(f"\nExamples:")
+            print("\nExamples:")
             for ex in agent.examples:
                 print(f"  - {ex}")
             print()
 
     elif args.command == "install":
-        success, message, _ = install_from_catalog(
-            args.name, scope=args.scope, force=args.force
-        )
+        success, message, _ = install_from_catalog(args.name, scope=args.scope, force=args.force)
         if success:
             print(message)
         else:

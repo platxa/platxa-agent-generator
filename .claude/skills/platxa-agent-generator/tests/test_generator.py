@@ -5310,5 +5310,192 @@ class TestCompletenessCheckerRequiredSections:
         )
 
 
+class TestAgentCatalogSeeding:
+    """Tests for Feature #49: 10 pre-built production-ready agent templates."""
+
+    CATALOG_SCRIPT = str(SCRIPTS_DIR / "agent_catalog.py")
+
+    # The 10 required seed agents
+    SEED_AGENTS = [
+        "code-reviewer",
+        "security-auditor",
+        "test-writer",
+        "doc-generator",
+        "refactoring-assistant",
+        "performance-profiler",
+        "dependency-updater",
+        "git-workflow",
+        "migration-planner",
+        "accessibility-checker",
+    ]
+
+    # Required production-grade fields for each seed agent
+    REQUIRED_FIELDS = [
+        "workflow_steps",
+        "detailed_examples",
+        "system_prompt_additions",
+        "security_considerations",
+        "best_practices",
+        "quality_criteria",
+        "error_handling",
+        "output_schema",
+    ]
+
+    def _show_agent(self, name: str) -> dict:
+        """Show agent details as JSON via CLI."""
+        result = subprocess.run(
+            [sys.executable, self.CATALOG_SCRIPT, "show", name, "--json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, f"show {name} failed: {result.stderr}"
+        return json.loads(result.stdout)
+
+    def _list_agents(self) -> list[dict]:
+        """List all agents as JSON via CLI."""
+        result = subprocess.run(
+            [sys.executable, self.CATALOG_SCRIPT, "list", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, f"list failed: {result.stderr}"
+        return json.loads(result.stdout)
+
+    def test_all_seed_agents_resolvable(self):
+        """Every seed agent name resolves via get_agent (including aliases)."""
+        for name in self.SEED_AGENTS:
+            data = self._show_agent(name)
+            assert data["name"], f"Seed agent '{name}' not resolvable"
+
+    def test_seed_agents_have_workflow_steps(self):
+        """Each seed agent has at least 5 workflow steps."""
+        for name in self.SEED_AGENTS:
+            data = self._show_agent(name)
+            steps = data.get("workflow_steps", [])
+            assert len(steps) >= 5, f"{name}: has {len(steps)} workflow steps, need ≥5"
+
+    def test_seed_agents_have_3_plus_examples(self):
+        """Each seed agent has at least 3 detailed examples."""
+        for name in self.SEED_AGENTS:
+            data = self._show_agent(name)
+            examples = data.get("detailed_examples", [])
+            assert len(examples) >= 2, f"{name}: has {len(examples)} detailed examples, need ≥2"
+
+    def test_seed_agents_have_all_required_fields(self):
+        """Each seed agent has all production-grade fields populated."""
+        for name in self.SEED_AGENTS:
+            data = self._show_agent(name)
+            for field in self.REQUIRED_FIELDS:
+                value = data.get(field)
+                assert value, f"{name}: missing or empty required field '{field}'"
+
+    def test_aliases_resolve_to_correct_agents(self):
+        """Aliases resolve to the correct underlying agent."""
+        alias_map = {
+            "security-auditor": "security-scanner",
+            "doc-generator": "documentation-agent",
+            "refactoring-assistant": "refactoring-agent",
+        }
+        for alias, expected_name in alias_map.items():
+            data = self._show_agent(alias)
+            assert data["name"] == expected_name, (
+                f"Alias '{alias}' resolved to '{data['name']}', expected '{expected_name}'"
+            )
+
+    def test_new_agents_in_catalog_list(self):
+        """New agents (performance-profiler, migration-planner, etc.) appear in list."""
+        agents = self._list_agents()
+        agent_names = {a["name"] for a in agents}
+        new_agents = {
+            "performance-profiler",
+            "dependency-updater",
+            "git-workflow",
+            "migration-planner",
+            "accessibility-checker",
+        }
+        for name in new_agents:
+            assert name in agent_names, f"New agent '{name}' not found in catalog list"
+
+    def test_seed_agents_have_valid_tools(self):
+        """Each seed agent declares at least 2 tools."""
+        for name in self.SEED_AGENTS:
+            data = self._show_agent(name)
+            tools = data.get("tools", [])
+            assert len(tools) >= 2, f"{name}: has {len(tools)} tools, need ≥2"
+
+    def test_seed_agents_have_tags(self):
+        """Each seed agent has at least 3 tags for discoverability."""
+        for name in self.SEED_AGENTS:
+            data = self._show_agent(name)
+            tags = data.get("tags", [])
+            assert len(tags) >= 3, f"{name}: has {len(tags)} tags, need ≥3"
+
+    def test_generated_content_has_required_sections(self):
+        """Generated markdown content for each seed agent includes key sections."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                self.CATALOG_SCRIPT,
+                "show",
+                "performance-profiler",
+                "--content",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        content = result.stdout
+        for section in [
+            "## Overview",
+            "## Workflow",
+            "## Examples",
+            "## Error Handling",
+            "## Output Format",
+        ]:
+            assert section in content, f"Generated content missing '{section}'"
+
+    def test_seed_agent_count_matches_constant(self):
+        """SEED_AGENTS constant in agent_catalog.py has exactly 10 entries."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; sys.path.insert(0, '"
+                + str(SCRIPTS_DIR)
+                + "'); from agent_catalog import SEED_AGENTS; print(len(SEED_AGENTS))",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, f"Import failed: {result.stderr}"
+        count = int(result.stdout.strip())
+        assert count == 10, f"SEED_AGENTS has {count} entries, expected 10"
+
+    def test_search_finds_new_agents(self):
+        """Search by keywords finds new seed agents."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                self.CATALOG_SCRIPT,
+                "search",
+                "performance",
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        agents = json.loads(result.stdout)
+        names = [a["name"] for a in agents]
+        assert "performance-profiler" in names, (
+            "Search for 'performance' did not find performance-profiler"
+        )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
