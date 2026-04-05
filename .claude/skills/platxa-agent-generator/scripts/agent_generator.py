@@ -206,6 +206,7 @@ class AgentDefinition:
     permission_mode: str | None = None  # One of VALID_PERMISSION_MODES
     max_turns: int | None = None  # Positive integer, limits agent execution length
     model: str | None = None  # One of VALID_MODELS (haiku, sonnet, opus)
+    disallowed_tools: list[str] = field(default_factory=list)  # Tools to explicitly deny
     sections: list[AgentSection] = field(default_factory=list)
     workers: list[WorkerDefinition] = field(default_factory=list)
     chain_steps: list[ChainStep] = field(default_factory=list)
@@ -378,6 +379,10 @@ def generate_frontmatter(definition: AgentDefinition) -> str:
     # Model tier — only emit when explicitly set
     if definition.model and definition.model in VALID_MODELS:
         lines.append(f"model: {definition.model}")
+
+    # Disallowed tools — defense-in-depth complement to tools list
+    if definition.disallowed_tools:
+        lines.append(f"disallowedTools: {', '.join(definition.disallowed_tools)}")
 
     # Add metadata if present
     if definition.metadata:

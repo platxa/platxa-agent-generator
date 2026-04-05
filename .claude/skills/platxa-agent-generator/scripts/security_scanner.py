@@ -308,9 +308,7 @@ def _build_patterns() -> tuple[list[dict], list[dict], list[dict], list[dict]]:
 
 
 # Build patterns at module load
-CRITICAL_PATTERNS, HIGH_RISK_PATTERNS, MEDIUM_RISK_PATTERNS, LOW_RISK_PATTERNS = (
-    _build_patterns()
-)
+CRITICAL_PATTERNS, HIGH_RISK_PATTERNS, MEDIUM_RISK_PATTERNS, LOW_RISK_PATTERNS = _build_patterns()
 
 # Dangerous tool combinations
 DANGEROUS_TOOL_COMBINATIONS = [
@@ -436,6 +434,83 @@ def check_tool_combinations(tools: list[str]) -> list[SecurityFinding]:
             )
 
     return findings
+
+
+# All known Claude Code tools for disallowed recommendations
+ALL_TOOLS = {
+    "Read",
+    "Write",
+    "Edit",
+    "Glob",
+    "Grep",
+    "Bash",
+    "WebSearch",
+    "WebFetch",
+    "Task",
+    "AskUserQuestion",
+    "TodoWrite",
+    "NotebookEdit",
+    "LSP",
+    "Skill",
+}
+
+# High-risk tools that should be disallowed unless explicitly needed
+HIGH_RISK_TOOLS = {"Bash", "Write", "Edit", "WebFetch"}
+
+# Role-based disallowed tool recommendations.
+# Key: role keyword found in agent description/name.
+# Value: tools that should be disallowed for that role.
+ROLE_DISALLOW_MAP: dict[str, set[str]] = {
+    "read-only": {"Write", "Edit", "Bash", "WebFetch", "WebSearch"},
+    "reader": {"Write", "Edit", "Bash"},
+    "analyzer": {"Write", "Edit", "Bash"},
+    "reviewer": {"Write", "Edit"},
+    "scanner": {"Write", "Edit"},
+    "validator": {"Write", "Edit", "WebFetch", "WebSearch"},
+    "linter": {"Write", "Edit", "WebFetch", "WebSearch"},
+    "reporter": {"Bash", "WebFetch"},
+    "explorer": {"Write", "Edit"},
+    "documenter": {"Bash", "WebFetch"},
+}
+
+
+def recommend_disallowed_tools(
+    tools: list[str],
+    description: str = "",
+    name: str = "",
+) -> list[str]:
+    """Recommend disallowedTools based on agent role and allowed tools.
+
+    Applies defense-in-depth: even if a tool isn't in the allowed list,
+    explicitly disallowing it prevents accidental approval via permissionMode.
+
+    Args:
+        tools: The agent's allowed tools list
+        description: Agent description for role detection
+        name: Agent name for role detection
+
+    Returns:
+        Sorted list of recommended tools to disallow
+    """
+    tool_set = set(tools)
+    disallowed: set[str] = set()
+    combined_text = f"{name} {description}".lower()
+
+    # 1. Role-based recommendations
+    for role_keyword, deny_tools in ROLE_DISALLOW_MAP.items():
+        if role_keyword in combined_text:
+            # Only recommend disallowing tools NOT in the allowed list
+            disallowed.update(deny_tools - tool_set)
+
+    # 2. If no role matched, apply conservative defaults:
+    #    disallow high-risk tools that aren't explicitly allowed
+    if not disallowed:
+        disallowed = HIGH_RISK_TOOLS - tool_set
+
+    # 3. Never recommend disallowing a tool that's in the allowed list
+    disallowed -= tool_set
+
+    return sorted(disallowed)
 
 
 def calculate_score(findings: list[SecurityFinding]) -> float:
@@ -575,13 +650,15 @@ def perform_maestro_analysis(
             if layer_f:
                 recommendations.append("Complete all TODO/FIXME items before deployment")
 
-        layer_analyses.append(LayerAnalysis(
-            layer=layer,
-            score=layer_score,
-            status=status,
-            findings=layer_f,
-            recommendations=recommendations,
-        ))
+        layer_analyses.append(
+            LayerAnalysis(
+                layer=layer,
+                score=layer_score,
+                status=status,
+                findings=layer_f,
+                recommendations=recommendations,
+            )
+        )
 
     # Calculate overall score (weighted average)
     weights = {
@@ -592,9 +669,7 @@ def perform_maestro_analysis(
         MAESTROLayer.ORCHESTRATION: 0.15,
         MAESTROLayer.GOVERNANCE: 0.10,
     }
-    overall_score = sum(
-        la.score * weights[la.layer] for la in layer_analyses
-    )
+    overall_score = sum(la.score * weights[la.layer] for la in layer_analyses)
 
     # Determine overall status
     vulnerable_layers = [la for la in layer_analyses if la.status == "vulnerable"]
@@ -611,7 +686,9 @@ def perform_maestro_analysis(
     critical_gaps: list[str] = []
     for la in layer_analyses:
         if la.status == "vulnerable":
-            critical_gaps.append(f"{la.layer.value.upper()} layer: {len(la.findings)} critical issues")
+            critical_gaps.append(
+                f"{la.layer.value.upper()} layer: {len(la.findings)} critical issues"
+            )
 
     # Prioritize remediation
     remediation_priority: list[str] = []
@@ -793,9 +870,7 @@ def format_maestro_report(report: MAESTROReport) -> str:
     lines.append("=" * 60)
 
     # Overall status
-    status_icon = {"secure": "✓", "at_risk": "⚠", "vulnerable": "✗"}.get(
-        report.overall_status, "?"
-    )
+    status_icon = {"secure": "✓", "at_risk": "⚠", "vulnerable": "✗"}.get(report.overall_status, "?")
     lines.append(f"\nOverall Status: {status_icon} {report.overall_status.upper()}")
     lines.append(f"Overall Score: {report.overall_score}/10")
 
@@ -805,9 +880,7 @@ def format_maestro_report(report: MAESTROReport) -> str:
     lines.append("-" * 40)
 
     for la in report.layer_analyses:
-        status_icon = {"secure": "✓", "at_risk": "⚠", "vulnerable": "✗"}.get(
-            la.status, "?"
-        )
+        status_icon = {"secure": "✓", "at_risk": "⚠", "vulnerable": "✗"}.get(la.status, "?")
         lines.append(f"\n{la.layer.value.upper():15} [{status_icon}] Score: {la.score}/10")
         if la.findings:
             lines.append(f"  Issues: {len(la.findings)}")
@@ -842,14 +915,10 @@ def main() -> None:
     import argparse
     import sys
 
-    parser = argparse.ArgumentParser(
-        description="Scan agent definitions for security issues"
-    )
+    parser = argparse.ArgumentParser(description="Scan agent definitions for security issues")
     parser.add_argument("file", help="Agent definition file to scan")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
-    parser.add_argument(
-        "--strict", action="store_true", help="Fail on any finding (score < 10)"
-    )
+    parser.add_argument("--strict", action="store_true", help="Fail on any finding (score < 10)")
 
     args = parser.parse_args()
 

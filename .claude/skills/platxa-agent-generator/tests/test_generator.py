@@ -591,6 +591,201 @@ class TestModelRouting:
         assert result.stdout.strip() == "haiku"
 
 
+class TestDisallowedToolsValidation:
+    """Tests for disallowedTools frontmatter field validation."""
+
+    def test_valid_disallowed_tools_passes(self, tmp_path: Path) -> None:
+        """Agent with valid disallowedTools should pass."""
+        agent_file = tmp_path / "disallow-agent.md"
+        agent_file.write_text(
+            "---\n"
+            "name: safe-reader\n"
+            "description: Read-only code analyzer\n"
+            "tools: Read, Grep, Glob\n"
+            "disallowedTools: Write, Edit, Bash\n"
+            "---\n"
+            "\n"
+            "# Safe Reader\n"
+            "\n"
+            "## Overview\n"
+            "Read-only analyzer.\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["passed"] is True
+        dt_errors = [e for e in output["errors"] if e.get("code", "").startswith("E01")]
+        assert len(dt_errors) == 0
+
+    def test_invalid_tool_in_disallowed_fails(self, tmp_path: Path) -> None:
+        """Invalid tool name in disallowedTools should produce E019."""
+        agent_file = tmp_path / "bad-disallow.md"
+        agent_file.write_text(
+            "---\n"
+            "name: bad-disallow\n"
+            "description: Agent with invalid disallowed tool\n"
+            "tools: Read\n"
+            "disallowedTools: FakeToolXyz\n"
+            "---\n"
+            "\n"
+            "# Bad Disallow\n"
+            "\n"
+            "## Overview\n"
+            "Invalid disallow.\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["passed"] is False
+        e019 = [e for e in output["errors"] if "E019" in e.get("code", "")]
+        assert len(e019) == 1
+        assert "FakeToolXyz" in e019[0]["message"]
+
+    def test_overlap_with_tools_fails(self, tmp_path: Path) -> None:
+        """Tool in both tools and disallowedTools should produce E020."""
+        agent_file = tmp_path / "overlap-agent.md"
+        agent_file.write_text(
+            "---\n"
+            "name: overlap-agent\n"
+            "description: Agent with contradictory tool config\n"
+            "tools: Read, Bash\n"
+            "disallowedTools: Bash, Write\n"
+            "---\n"
+            "\n"
+            "# Overlap Agent\n"
+            "\n"
+            "## Overview\n"
+            "Contradictory config.\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["passed"] is False
+        e020 = [e for e in output["errors"] if "E020" in e.get("code", "")]
+        assert len(e020) == 1
+        assert "Bash" in e020[0]["message"]
+
+    def test_mcp_tool_in_disallowed_passes(self, tmp_path: Path) -> None:
+        """MCP tool names in disallowedTools should be accepted."""
+        agent_file = tmp_path / "mcp-disallow.md"
+        agent_file.write_text(
+            "---\n"
+            "name: mcp-safe\n"
+            "description: Agent disallowing specific MCP tools\n"
+            "tools: Read, Grep\n"
+            "disallowedTools: mcp__github__push, mcp__db__write\n"
+            "---\n"
+            "\n"
+            "# MCP Safe\n"
+            "\n"
+            "## Overview\n"
+            "MCP tool restrictions.\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["passed"] is True
+
+
+class TestDisallowedToolsRecommendation:
+    """Tests for recommend_disallowed_tools() in security_scanner.py."""
+
+    def test_read_only_agent_disallows_write_tools(self) -> None:
+        """Read-only agent should recommend disallowing Write, Edit, Bash."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from scripts.security_scanner import recommend_disallowed_tools; "
+                    "print(','.join(recommend_disallowed_tools("
+                    "['Read', 'Grep', 'Glob'], description='read-only code analyzer')))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        recommended = set(result.stdout.strip().split(","))
+        # read-only role should disallow Write, Edit, Bash, WebFetch, WebSearch
+        assert "Write" in recommended
+        assert "Edit" in recommended
+        assert "Bash" in recommended
+
+    def test_no_overlap_with_allowed_tools(self) -> None:
+        """Recommendations should never include tools already in the allowed list."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from scripts.security_scanner import recommend_disallowed_tools; "
+                    "r = recommend_disallowed_tools(['Read', 'Bash'], description='analyzer'); "
+                    "print('Bash' not in r and 'Read' not in r)"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.stdout.strip() == "True"
+
+    def test_default_disallows_high_risk_not_in_tools(self) -> None:
+        """Agent with no role keywords gets conservative default: disallow unused high-risk."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from scripts.security_scanner import recommend_disallowed_tools; "
+                    "print(','.join(recommend_disallowed_tools("
+                    "['Read', 'Grep'], description='some generic agent')))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        recommended = set(result.stdout.strip().split(","))
+        # High-risk tools not in allowed list should be recommended
+        assert "Bash" in recommended
+        assert "Write" in recommended
+        assert "Edit" in recommended
+        assert "WebFetch" in recommended
+
+
 class TestSecurityScanner:
     """Real tests for security_scanner.py CLI."""
 

@@ -358,6 +358,42 @@ def validate_frontmatter_fields(frontmatter: dict, start_line: int = 1) -> list[
                 )
             )
 
+    # Validate disallowedTools field (optional)
+    if "disallowedTools" in frontmatter and frontmatter["disallowedTools"]:
+        disallowed_str = frontmatter["disallowedTools"]
+        disallowed = [t.strip() for t in disallowed_str.split(",")]
+        tools_str = frontmatter.get("tools", "")
+        allowed_tools = {t.strip() for t in tools_str.split(",") if t.strip()}
+
+        for tool in disallowed:
+            if not tool:
+                continue
+            # Validate tool name (same rules as tools field)
+            if tool not in VALID_TOOLS and not tool.startswith("mcp__"):
+                errors.append(
+                    ValidationError(
+                        line=start_line,
+                        column=1,
+                        severity="error",
+                        code="E019",
+                        message=f"Invalid tool name in disallowedTools: {tool}",
+                    )
+                )
+            # Check for overlap with allowed tools — contradictory config
+            if tool in allowed_tools:
+                errors.append(
+                    ValidationError(
+                        line=start_line,
+                        column=1,
+                        severity="error",
+                        code="E020",
+                        message=(
+                            f"Tool '{tool}' is in both tools and disallowedTools "
+                            "— this is contradictory. Remove from one list."
+                        ),
+                    )
+                )
+
     return errors
 
 
