@@ -1471,18 +1471,102 @@ def generate_error_handling_section(
     tv = definition.template_vars
     lines = ["## Error Handling", ""]
 
+    # Tool-specific failure modes based on which tools the agent actually uses
+    tool_set = set(definition.tools)
+
     lines.append("### Failure Modes")
     lines.append("")
     lines.append("| Error Type | Cause | Recovery Strategy |")
     lines.append("|------------|-------|-------------------|")
-    lines.append("| File not found | Target path invalid | Validate path, suggest alternatives |")
+
+    # Always include universal failure modes
     lines.append(
-        "| Permission denied | Insufficient access | Report and skip, continue with accessible files |"
+        "| Permission denied | Tool call blocked by user | Report clearly, suggest alternative approach |"
     )
-    lines.append("| Timeout | Operation took too long | Retry with smaller scope |")
+    lines.append(
+        "| Timeout | Operation took too long | Retry with smaller scope or abort gracefully |"
+    )
     lines.append("| Invalid input | Malformed request | Return validation errors with examples |")
-    lines.append("| Rate limit | API quota exceeded | Exponential backoff with jitter |")
-    lines.append("| Service unavailable | External dependency down | Circuit breaker pattern |")
+
+    # Tool-specific failure modes
+    if tool_set & {"Read", "Glob", "Grep"}:
+        lines.append(
+            "| File not found | Target path invalid | Validate path exists before reading, suggest alternatives |"
+        )
+    if "Bash" in tool_set:
+        lines.append(
+            "| Command failed | Non-zero exit code | Check stderr, diagnose root cause, do NOT retry blindly |"
+        )
+        lines.append(
+            "| Command timeout | Long-running process | Set timeout, kill process, report partial output |"
+        )
+    if "Write" in tool_set or "Edit" in tool_set:
+        lines.append(
+            "| Write conflict | File modified externally | Re-read file, re-apply changes, warn user |"
+        )
+        lines.append(
+            "| Path not writable | Permissions or disk full | Report error, suggest alternative path |"
+        )
+    if "WebFetch" in tool_set or "WebSearch" in tool_set:
+        lines.append(
+            "| Network error | URL unreachable or timeout | Retry once, then report failure with URL |"
+        )
+        lines.append("| Rate limit | API quota exceeded | Exponential backoff with jitter |")
+    if "Task" in tool_set:
+        lines.append(
+            "| Subagent failure | Worker crashed or timed out | Log failure, handle task locally or skip |"
+        )
+        lines.append(
+            "| Subagent divergence | Worker produced unexpected output | Validate output schema before using |"
+        )
+
+    lines.append("")
+
+    # Tool-specific recovery instructions
+    lines.append("### Tool Failure Recovery")
+    lines.append("")
+
+    if "Bash" in tool_set:
+        lines.append("**Bash failures:**")
+        lines.append("1. Read stderr output to understand the error")
+        lines.append("2. Do NOT retry the same command — diagnose first")
+        lines.append("3. If command not found, check PATH and suggest installation")
+        lines.append("4. If permission denied, do NOT use sudo — report to user")
+        lines.append("")
+
+    if tool_set & {"Read", "Write", "Edit", "Glob"}:
+        lines.append("**File operation failures:**")
+        lines.append("1. Verify the path exists with Glob before Read/Edit")
+        lines.append("2. If file not found, search for similar names")
+        lines.append("3. If permission denied, report the path and skip")
+        lines.append("4. Never silently ignore file errors")
+        lines.append("")
+
+    if "Task" in tool_set:
+        lines.append("**Subagent failures:**")
+        lines.append("1. Check if the subagent hit maxTurns limit")
+        lines.append("2. Validate subagent output before using it")
+        lines.append("3. If subagent failed, attempt the task locally as fallback")
+        lines.append("4. Report which subtask failed and why")
+        lines.append("")
+
+    if tool_set & {"WebFetch", "WebSearch"}:
+        lines.append("**Network failures:**")
+        lines.append("1. Retry once after a brief pause")
+        lines.append("2. If still failing, report the URL and error")
+        lines.append("3. Use cached results if available")
+        lines.append("4. Continue with partial results rather than blocking")
+        lines.append("")
+
+    # When to stop (always included)
+    lines.append("### When to Stop")
+    lines.append("")
+    lines.append("Stop execution and report to the user when:")
+    lines.append("1. A critical error occurs that cannot be recovered")
+    lines.append("2. Required input is missing or invalid after prompting")
+    lines.append("3. More than 3 consecutive retries fail on the same operation")
+    lines.append("4. The task is outside the agent's defined scope (see Boundaries)")
+    lines.append("5. A security violation is detected (dangerous command, credential leak)")
     lines.append("")
 
     lines.append("### Retry Strategy (Exponential Backoff with Jitter)")
@@ -1562,10 +1646,18 @@ def generate_error_handling_section(
     lines.append("")
     lines.append("| Scenario | Primary | Fallback |")
     lines.append("|----------|---------|----------|")
-    lines.append("| External API down | Live API call | Cached response |")
-    lines.append("| File inaccessible | Read file | Report and skip |")
-    lines.append("| Search timeout | Full search | Partial results |")
-    lines.append("| Subagent failure | Delegate task | Handle locally |")
+    if tool_set & {"WebFetch", "WebSearch"}:
+        lines.append("| External API down | Live API call | Cached response |")
+    if tool_set & {"Read", "Glob", "Grep"}:
+        lines.append("| File inaccessible | Read file | Report and skip |")
+    if tool_set & {"Grep", "Glob"}:
+        lines.append("| Search timeout | Full search | Partial results |")
+    if "Task" in tool_set:
+        lines.append("| Subagent failure | Delegate task | Handle locally |")
+    if "Bash" in tool_set:
+        lines.append("| Command failure | Execute command | Report error, suggest fix |")
+    if tool_set & {"Write", "Edit"}:
+        lines.append("| Write conflict | Apply changes | Re-read file, retry edit |")
     lines.append("")
 
     return "\n".join(lines)

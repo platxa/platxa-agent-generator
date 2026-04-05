@@ -1578,6 +1578,88 @@ tools: Bash, Write, WebFetch
         assert len(output.get("warnings", [])) > 0 or output["score"] < 10.0
 
 
+class TestErrorHandlingGeneration:
+    """Tests for tool-specific error handling section generation (Feature #25)."""
+
+    def _gen_section(self, tools: list[str]) -> str:
+        """Generate error handling section via subprocess."""
+        tools_str = repr(tools)
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+                    "from agent_generator import AgentDefinition, generate_error_handling_section; "
+                    f"d = AgentDefinition(name='t', description='t', tools={tools_str}); "
+                    "print(generate_error_handling_section(d))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Failed: {result.stderr}"
+        return result.stdout
+
+    def test_section_has_error_handling_heading(self) -> None:
+        """Generated section must start with ## Error Handling."""
+        section = self._gen_section(["Read"])
+        assert "## Error Handling" in section
+
+    def test_bash_agent_has_command_failure_modes(self) -> None:
+        """Bash agents must include command failure and timeout modes."""
+        section = self._gen_section(["Bash", "Read"])
+        assert "Command failed" in section
+        assert "Command timeout" in section
+        assert "Bash failures" in section
+
+    def test_task_agent_has_subagent_failure_modes(self) -> None:
+        """Task agents must include subagent failure modes."""
+        section = self._gen_section(["Task", "Read"])
+        assert "Subagent failure" in section
+        assert "Subagent failures" in section
+
+    def test_webfetch_agent_has_network_failure_modes(self) -> None:
+        """WebFetch agents must include network failure modes."""
+        section = self._gen_section(["WebFetch", "Read"])
+        assert "Network error" in section
+        assert "Network failures" in section
+        assert "Rate limit" in section
+
+    def test_write_agent_has_write_conflict_modes(self) -> None:
+        """Write/Edit agents must include write conflict modes."""
+        section = self._gen_section(["Write", "Edit", "Read"])
+        assert "Write conflict" in section
+        assert "File operation failures" in section
+
+    def test_readonly_agent_excludes_irrelevant_content(self) -> None:
+        """Read-only agent must NOT include Bash/Task/Web-specific content."""
+        section = self._gen_section(["Read", "Glob", "Grep"])
+        assert "Command failed" not in section
+        assert "Subagent" not in section
+        assert "Network error" not in section
+
+    def test_always_includes_when_to_stop(self) -> None:
+        """All agents must include When to Stop section."""
+        section = self._gen_section(["Read"])
+        assert "When to Stop" in section
+        assert "security violation" in section
+
+    def test_always_includes_permission_denied(self) -> None:
+        """All agents must include permission denied failure mode."""
+        section = self._gen_section(["Read"])
+        assert "Permission denied" in section
+
+    def test_fallback_table_is_tool_conditional(self) -> None:
+        """Fallback strategies table must only include relevant tools."""
+        # Read-only: should have file fallback but NOT subagent/command/API
+        section = self._gen_section(["Read", "Glob"])
+        assert "File inaccessible" in section
+        assert "Subagent failure" not in section
+        assert "External API down" not in section
+        assert "Command failure" not in section
+
+
 class TestContextBudgetEstimation:
     """Tests for context budget estimation (Feature #22)."""
 
