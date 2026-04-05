@@ -161,6 +161,56 @@ def _build_patterns() -> tuple[list[dict], list[dict], list[dict], list[dict]]:
         },
     ]
 
+    # Credential leak patterns (CRITICAL — hardcoded secrets with known formats)
+    # These match real credential formats, not just generic key=value assignments.
+    credential_patterns = [
+        {
+            "pattern": r"\bghp_[A-Za-z0-9_]{36,}\b",
+            "code": "SEC050",
+            "title": "GitHub personal access token",
+            "description": "GitHub PAT (ghp_) detected — grants repository access",
+            "recommendation": "Remove token immediately, rotate it, use $GITHUB_TOKEN env var",
+        },
+        {
+            "pattern": r"\bsk-[A-Za-z0-9]{20,}\b",
+            "code": "SEC051",
+            "title": "OpenAI/Anthropic API key",
+            "description": "API key with sk- prefix detected — grants billable API access",
+            "recommendation": "Remove key, rotate it, use $ANTHROPIC_API_KEY or $OPENAI_API_KEY env var",
+        },
+        {
+            "pattern": r"\bAKIA[0-9A-Z]{16}\b",
+            "code": "SEC052",
+            "title": "AWS access key ID",
+            "description": "AWS access key (AKIA) detected — grants cloud infrastructure access",
+            "recommendation": "Remove key, rotate in IAM console, use AWS_ACCESS_KEY_ID env var",
+        },
+        {
+            "pattern": r"Bearer\s+[A-Za-z0-9\-._~+/]+=*",
+            "code": "SEC053",
+            "title": "Hardcoded Bearer token",
+            "description": "Bearer authorization token hardcoded in agent definition",
+            "recommendation": "Use environment variable or credential store for Bearer tokens",
+        },
+        {
+            "pattern": r"\bxox[bpors]-[A-Za-z0-9\-]+",
+            "code": "SEC054",
+            "title": "Slack token",
+            "description": "Slack API token detected — grants workspace access",
+            "recommendation": "Remove token, rotate it, use $SLACK_TOKEN env var",
+        },
+        {
+            "pattern": r"\.env\b",
+            "code": "SEC055",
+            "title": ".env file reference",
+            "description": "Reference to .env file — may expose secrets if read or committed",
+            "recommendation": "Use env vars directly instead of referencing .env files in agent definitions",
+        },
+    ]
+
+    # Merge credential patterns into critical (they're immediate-fail severity)
+    critical_patterns.extend(credential_patterns)
+
     # High risk patterns (should fix before deployment)
     high_risk_patterns = [
         {
