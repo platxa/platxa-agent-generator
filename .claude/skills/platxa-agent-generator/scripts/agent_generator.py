@@ -179,6 +179,14 @@ class WorkerDefinition:
     output_format: str = ""
 
 
+# Valid model tiers for Claude Code agents.
+# These are the model shorthand values accepted in agent frontmatter.
+VALID_MODELS = {
+    "haiku",  # Fast, cheap — validators, linters, simple lookups
+    "sonnet",  # Balanced — standard agents, code review, analysis
+    "opus",  # Most capable — complex orchestrators, architecture decisions
+}
+
 # Valid permission modes for Claude Code agents
 VALID_PERMISSION_MODES = {
     "default",  # Standard permission prompts (recommended for most agents)
@@ -197,6 +205,7 @@ class AgentDefinition:
     tools: list[str]
     permission_mode: str | None = None  # One of VALID_PERMISSION_MODES
     max_turns: int | None = None  # Positive integer, limits agent execution length
+    model: str | None = None  # One of VALID_MODELS (haiku, sonnet, opus)
     sections: list[AgentSection] = field(default_factory=list)
     workers: list[WorkerDefinition] = field(default_factory=list)
     chain_steps: list[ChainStep] = field(default_factory=list)
@@ -365,6 +374,10 @@ def generate_frontmatter(definition: AgentDefinition) -> str:
     # Max turns — only emit when explicitly set and valid
     if definition.max_turns is not None and definition.max_turns > 0:
         lines.append(f"maxTurns: {definition.max_turns}")
+
+    # Model tier — only emit when explicitly set
+    if definition.model and definition.model in VALID_MODELS:
+        lines.append(f"model: {definition.model}")
 
     # Add metadata if present
     if definition.metadata:

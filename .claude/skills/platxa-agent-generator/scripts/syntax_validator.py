@@ -67,6 +67,13 @@ VALID_PERMISSION_MODES = {
     "dontAsk",
 }
 
+# Valid model tiers for Claude Code agents
+VALID_MODELS = {
+    "haiku",
+    "sonnet",
+    "opus",
+}
+
 # Field constraints
 FIELD_CONSTRAINTS = {
     "name": {"max_length": 64, "pattern": r"^[a-z][a-z0-9-]*$"},
@@ -332,6 +339,22 @@ def validate_frontmatter_fields(frontmatter: dict, start_line: int = 1) -> list[
                     severity="error",
                     code="E017",
                     message=f"maxTurns must be a positive integer, got: {raw_value}",
+                )
+            )
+
+    # Validate model field (optional)
+    if "model" in frontmatter and frontmatter["model"]:
+        model = frontmatter["model"]
+        if model not in VALID_MODELS:
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E018",
+                    message=(
+                        f"Invalid model: {model}. Must be one of: {', '.join(sorted(VALID_MODELS))}"
+                    ),
                 )
             )
 

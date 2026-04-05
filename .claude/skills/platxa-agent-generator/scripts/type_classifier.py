@@ -372,6 +372,53 @@ def recommend_max_turns(architecture_type: str, complexity_score: int) -> int:
         return type_config["default"]
 
 
+# Model routing by architecture type and complexity.
+# Optimizes cost: cheap models for cheap decisions, capable models for hard ones.
+# Based on Anthropic's guidance: "use cheap models for cheap decisions."
+MODEL_BY_TYPE: dict[str, dict[str, str]] = {
+    "simple": {
+        "low": "haiku",  # Validators, linters, single-file reads
+        "default": "sonnet",  # Standard analysis, code review
+        "high": "sonnet",  # Complex single-agent tasks
+    },
+    "orchestrator": {
+        "low": "sonnet",  # Simple delegation
+        "default": "sonnet",  # Standard orchestration
+        "high": "opus",  # Complex multi-worker coordination
+    },
+    "multi-agent": {
+        "low": "sonnet",  # Small focused teams
+        "default": "opus",  # Multi-agent coordination
+        "high": "opus",  # Large-scale agent collaboration
+    },
+    "pipeline": {
+        "low": "haiku",  # Simple 2-3 stage pipelines
+        "default": "sonnet",  # Standard pipeline orchestration
+        "high": "sonnet",  # Complex pipelines with quality gates
+    },
+}
+
+
+def recommend_model(architecture_type: str, complexity_score: int) -> str:
+    """Recommend model tier based on architecture type and complexity.
+
+    Args:
+        architecture_type: One of 'simple', 'orchestrator', 'multi-agent', 'pipeline'
+        complexity_score: 1-5 scale from estimate_complexity()
+
+    Returns:
+        Recommended model tier ('haiku', 'sonnet', or 'opus')
+    """
+    type_config = MODEL_BY_TYPE.get(architecture_type, MODEL_BY_TYPE["simple"])
+
+    if complexity_score <= 2:
+        return type_config["low"]
+    elif complexity_score >= 4:
+        return type_config["high"]
+    else:
+        return type_config["default"]
+
+
 def main() -> None:
     """CLI entry point."""
     if len(sys.argv) < 2:

@@ -421,6 +421,176 @@ class TestTypeClassifierMaxTurns:
         assert result.stdout.strip() == "15"  # simple default
 
 
+class TestModelValidation:
+    """Tests for model frontmatter field validation."""
+
+    def test_valid_model_sonnet_passes(self, tmp_path: Path) -> None:
+        """Agent with valid model=sonnet should pass."""
+        agent_file = tmp_path / "sonnet-agent.md"
+        agent_file.write_text(
+            "---\n"
+            "name: sonnet-agent\n"
+            "description: Standard agent using sonnet\n"
+            "tools: Read, Grep\n"
+            "model: sonnet\n"
+            "---\n"
+            "\n"
+            "# Sonnet Agent\n"
+            "\n"
+            "## Overview\n"
+            "Standard agent.\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["passed"] is True
+        model_errors = [e for e in output["errors"] if "E018" in e.get("code", "")]
+        assert len(model_errors) == 0
+
+    def test_valid_model_haiku_passes(self, tmp_path: Path) -> None:
+        """Agent with model=haiku should pass."""
+        agent_file = tmp_path / "haiku-agent.md"
+        agent_file.write_text(
+            "---\n"
+            "name: haiku-linter\n"
+            "description: Fast cheap validator\n"
+            "tools: Read, Grep\n"
+            "model: haiku\n"
+            "---\n"
+            "\n"
+            "# Haiku Linter\n"
+            "\n"
+            "## Overview\n"
+            "Quick validator.\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["passed"] is True
+
+    def test_invalid_model_fails(self, tmp_path: Path) -> None:
+        """Agent with invalid model name should fail with E018."""
+        agent_file = tmp_path / "bad-model.md"
+        agent_file.write_text(
+            "---\n"
+            "name: bad-model-agent\n"
+            "description: Agent with invalid model\n"
+            "tools: Read\n"
+            "model: gpt-4o\n"
+            "---\n"
+            "\n"
+            "# Bad Model Agent\n"
+            "\n"
+            "## Overview\n"
+            "Invalid model.\n"
+        )
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "syntax_validator.py"),
+                "--json",
+                str(agent_file),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        output = json.loads(result.stdout)
+        assert output["passed"] is False
+        model_errors = [e for e in output["errors"] if "E018" in e.get("code", "")]
+        assert len(model_errors) == 1
+        assert "gpt-4o" in model_errors[0]["message"]
+
+
+class TestModelRouting:
+    """Tests for recommend_model() in type_classifier.py."""
+
+    def test_simple_low_gets_haiku(self) -> None:
+        """Simple agent with low complexity gets haiku (cheapest)."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from scripts.type_classifier import recommend_model; print(recommend_model('simple', 1))",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.stdout.strip() == "haiku"
+
+    def test_orchestrator_default_gets_sonnet(self) -> None:
+        """Orchestrator with medium complexity gets sonnet."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from scripts.type_classifier import recommend_model; print(recommend_model('orchestrator', 3))",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.stdout.strip() == "sonnet"
+
+    def test_orchestrator_high_gets_opus(self) -> None:
+        """Orchestrator with high complexity gets opus (most capable)."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from scripts.type_classifier import recommend_model; print(recommend_model('orchestrator', 5))",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.stdout.strip() == "opus"
+
+    def test_multi_agent_default_gets_opus(self) -> None:
+        """Multi-agent with medium complexity gets opus."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from scripts.type_classifier import recommend_model; print(recommend_model('multi-agent', 3))",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.stdout.strip() == "opus"
+
+    def test_pipeline_low_gets_haiku(self) -> None:
+        """Pipeline with low complexity gets haiku."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from scripts.type_classifier import recommend_model; print(recommend_model('pipeline', 1))",
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.stdout.strip() == "haiku"
+
+
 class TestSecurityScanner:
     """Real tests for security_scanner.py CLI."""
 
