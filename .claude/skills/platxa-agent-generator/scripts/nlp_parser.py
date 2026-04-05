@@ -16,7 +16,7 @@ Usage:
 import json
 import re
 import sys
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 
 
 @dataclass
@@ -29,6 +29,7 @@ class AgentRequirements:
     tools: list[str]
     patterns: list[str]
     confidence: float
+    domains: list[str]
 
 
 # Agent type classification keywords
@@ -204,17 +205,214 @@ TOOL_PATTERNS = {
     ],
 }
 
-# Domain-specific tool mappings
-DOMAIN_TOOLS = {
+# Domain classification keywords — each domain maps to keywords that signal it.
+# Multi-domain is supported: an input can match several domains simultaneously.
+DOMAIN_KEYWORDS: dict[str, list[str]] = {
+    "web": [
+        "web",
+        "frontend",
+        "backend",
+        "html",
+        "css",
+        "javascript",
+        "typescript",
+        "react",
+        "vue",
+        "angular",
+        "next.js",
+        "nextjs",
+        "api",
+        "rest",
+        "graphql",
+        "http",
+        "endpoint",
+        "browser",
+        "dom",
+        "spa",
+        "ssr",
+        "url",
+    ],
+    "mobile": [
+        "mobile",
+        "ios",
+        "android",
+        "react native",
+        "flutter",
+        "swift",
+        "kotlin",
+        "app store",
+        "apk",
+        "xcode",
+        "cordova",
+        "capacitor",
+        "responsive",
+        "touch",
+        "gesture",
+    ],
+    "data": [
+        "data",
+        "database",
+        "sql",
+        "nosql",
+        "postgres",
+        "mysql",
+        "mongodb",
+        "redis",
+        "etl",
+        "pipeline",
+        "warehouse",
+        "analytics",
+        "csv",
+        "json",
+        "parquet",
+        "pandas",
+        "spark",
+        "bigquery",
+        "schema",
+        "migration",
+        "orm",
+        "query",
+    ],
+    "devops": [
+        "devops",
+        "docker",
+        "kubernetes",
+        "k8s",
+        "ci/cd",
+        "ci cd",
+        "github actions",
+        "gitlab ci",
+        "jenkins",
+        "terraform",
+        "ansible",
+        "helm",
+        "deploy",
+        "deployment",
+        "infrastructure",
+        "cloud",
+        "aws",
+        "gcp",
+        "azure",
+        "monitoring",
+        "logging",
+        "container",
+    ],
+    "security": [
+        "security",
+        "vulnerability",
+        "auth",
+        "authentication",
+        "authorization",
+        "oauth",
+        "jwt",
+        "token",
+        "secret",
+        "credential",
+        "owasp",
+        "injection",
+        "xss",
+        "csrf",
+        "encrypt",
+        "ssl",
+        "tls",
+        "certificate",
+        "penetration",
+        "audit",
+        "compliance",
+    ],
+    "testing": [
+        "test",
+        "testing",
+        "unittest",
+        "pytest",
+        "jest",
+        "mocha",
+        "coverage",
+        "tdd",
+        "bdd",
+        "e2e",
+        "integration test",
+        "unit test",
+        "mock",
+        "fixture",
+        "assertion",
+        "spec",
+        "playwright",
+        "cypress",
+        "selenium",
+    ],
+    "documentation": [
+        "document",
+        "documentation",
+        "readme",
+        "docstring",
+        "jsdoc",
+        "api doc",
+        "wiki",
+        "changelog",
+        "guide",
+        "tutorial",
+        "reference",
+        "openapi",
+        "swagger",
+        "markdown",
+        "comment",
+    ],
+}
+
+# Domain-specific tool mappings — used by detect_tools() and tool_selector.py
+DOMAIN_TOOLS: dict[str, list[str]] = {
+    "web": ["Read", "Write", "Edit", "Grep", "Glob", "Bash"],
+    "mobile": ["Read", "Write", "Edit", "Grep", "Glob", "Bash"],
+    "data": ["Read", "Grep", "Glob", "Bash"],
+    "devops": ["Bash", "Read", "Write", "Grep", "Glob"],
     "security": ["Read", "Grep", "Glob", "Bash"],
-    "documentation": ["Read", "Write", "Glob", "Grep"],
     "testing": ["Read", "Bash", "Grep", "Glob"],
+    "documentation": ["Read", "Write", "Glob", "Grep"],
+    # Legacy domain keys kept for backward compatibility with tool_selector.py
     "refactoring": ["Read", "Edit", "Grep", "Glob"],
     "code review": ["Read", "Grep", "Glob"],
     "deployment": ["Bash", "Read", "Write"],
     "research": ["WebSearch", "WebFetch", "Read", "Write"],
     "analysis": ["Read", "Grep", "Glob"],
 }
+
+
+def _keyword_matches(keyword: str, text: str) -> bool:
+    """Check if a keyword appears in text as a whole word/phrase.
+
+    Uses word-boundary matching to avoid false positives like "rest"
+    matching inside "interesting". Multi-word keywords (e.g. "react native")
+    are matched as exact phrases with word boundaries on each end.
+    """
+    # Escape regex special chars in keyword, then wrap with word boundaries
+    pattern = r"\b" + re.escape(keyword) + r"\b"
+    return bool(re.search(pattern, text))
+
+
+def detect_domains(description: str) -> list[str]:
+    """
+    Detect applicable domains from description.
+
+    Supports multi-domain detection — an input like "build a security testing
+    tool for web APIs" would return ["web", "security", "testing"].
+
+    Uses word-boundary matching to prevent substring false positives
+    (e.g. "rest" inside "interesting").
+
+    Returns:
+        Sorted list of detected domain names. Empty list if no domain detected.
+    """
+    desc_lower = description.lower()
+    detected: list[str] = []
+
+    for domain, keywords in DOMAIN_KEYWORDS.items():
+        # Count keyword matches using word-boundary matching
+        matches = sum(1 for kw in keywords if _keyword_matches(kw, desc_lower))
+        if matches > 0:
+            detected.append(domain)
+
+    return sorted(detected)
 
 
 def extract_name(description: str) -> str:
@@ -295,7 +493,7 @@ def classify_type(description: str) -> tuple[str, float]:
     if not scores:
         return "analyzer", 0.5  # Default type with low confidence
 
-    best_type = max(scores, key=scores.get)  # type: ignore
+    best_type = max(scores, key=lambda k: scores[k])
     total_matches = sum(scores.values())
     confidence = min(scores[best_type] / max(total_matches, 1), 1.0)
 
@@ -306,8 +504,17 @@ def classify_type(description: str) -> tuple[str, float]:
     return best_type, round(confidence, 2)
 
 
-def detect_tools(description: str) -> list[str]:
-    """Detect required tools from description."""
+def detect_tools(description: str, domains: list[str] | None = None) -> list[str]:
+    """Detect required tools from description and detected domains.
+
+    Args:
+        description: Natural language description.
+        domains: Pre-detected domains (from detect_domains). If None, domain
+            detection is skipped and only keyword/legacy matching is used.
+
+    Returns:
+        Sorted list of tool names.
+    """
     desc_lower = description.lower()
     detected: set[str] = set()
 
@@ -316,9 +523,16 @@ def detect_tools(description: str) -> list[str]:
         if any(p in desc_lower for p in patterns):
             detected.add(tool)
 
-    # Domain-based detection
+    # Domain-based detection — use pre-detected domains when available
+    if domains:
+        for domain in domains:
+            domain_tools = DOMAIN_TOOLS.get(domain, [])
+            detected.update(domain_tools)
+
+    # Legacy: also match domain keys directly in description text
+    # (covers non-DOMAIN_KEYWORDS keys like "refactoring", "code review")
     for domain, tools in DOMAIN_TOOLS.items():
-        if domain in desc_lower:
+        if domain not in DOMAIN_KEYWORDS and domain in desc_lower:
             detected.update(tools)
 
     # Default minimum tools
@@ -338,29 +552,19 @@ def detect_patterns(description: str) -> list[str]:
     patterns: list[str] = []
 
     # Orchestrator-workers for multi-agent/complex
-    if any(
-        w in desc_lower
-        for w in ["multi", "coordinate", "orchestrate", "complex", "pipeline"]
-    ):
+    if any(w in desc_lower for w in ["multi", "coordinate", "orchestrate", "complex", "pipeline"]):
         patterns.append("orchestrator-workers")
 
     # Parallelization for concurrent work
-    if any(
-        w in desc_lower for w in ["parallel", "concurrent", "multiple files", "batch"]
-    ):
+    if any(w in desc_lower for w in ["parallel", "concurrent", "multiple files", "batch"]):
         patterns.append("parallelization")
 
     # Evaluator-optimizer for iterative refinement
-    if any(
-        w in desc_lower
-        for w in ["iterative", "improve", "optimize", "refine", "feedback"]
-    ):
+    if any(w in desc_lower for w in ["iterative", "improve", "optimize", "refine", "feedback"]):
         patterns.append("evaluator-optimizer")
 
     # Routing for classification
-    if any(
-        w in desc_lower for w in ["classify", "route", "categorize", "different types"]
-    ):
+    if any(w in desc_lower for w in ["classify", "route", "categorize", "different types"]):
         patterns.append("routing")
 
     # Default to prompt-chaining for sequential
@@ -582,7 +786,8 @@ def parse(description: str) -> AgentRequirements:
     """Parse natural language description into agent requirements."""
     name = extract_name(description)
     agent_type, confidence = classify_type(description)
-    tools = detect_tools(description)
+    domains = detect_domains(description)
+    tools = detect_tools(description, domains=domains)
     patterns = detect_patterns(description)
     clean_desc = generate_description(description, agent_type)
 
@@ -593,6 +798,7 @@ def parse(description: str) -> AgentRequirements:
         tools=tools,
         patterns=patterns,
         confidence=confidence,
+        domains=domains,
     )
 
 
@@ -618,6 +824,7 @@ def main():
         print(f"Name:        {result.name}")
         print(f"Type:        {result.agent_type}")
         print(f"Description: {result.description}")
+        print(f"Domains:     {', '.join(result.domains) if result.domains else '(none)'}")
         print(f"Tools:       {', '.join(result.tools)}")
         print(f"Patterns:    {', '.join(result.patterns)}")
         print(f"Confidence:  {result.confidence:.0%}")
