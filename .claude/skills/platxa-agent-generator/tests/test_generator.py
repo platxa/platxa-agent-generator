@@ -879,6 +879,143 @@ class TestRemainingFrontmatterValidation:
         assert len(output["errors"]) == 0
 
 
+class TestMcpServersValidation:
+    """Tests for mcpServers frontmatter validation (E025)."""
+
+    def _run_validator(self, agent_file: Path) -> dict:
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "syntax_validator.py"), "--json", str(agent_file)],
+            capture_output=True,
+            text=True,
+        )
+        return json.loads(result.stdout)
+
+    def test_valid_stdio_server_passes(self, tmp_path: Path) -> None:
+        """Valid mcpServers with stdio transport (command field) should pass."""
+        agent_file = tmp_path / "mcp-stdio.md"
+        agent_file.write_text(
+            "---\n"
+            "name: mcp-stdio\n"
+            "description: Agent with MCP stdio server\n"
+            "tools: Read\n"
+            "mcpServers:\n"
+            "  filesystem:\n"
+            "    command: npx\n"
+            "    args:\n"
+            "      - '-y'\n"
+            "      - '@modelcontextprotocol/server-filesystem'\n"
+            "    env:\n"
+            "      HOME: /home/user\n"
+            "---\n\n"
+            "# MCP Stdio Agent\n\n## Overview\nTest.\n"
+        )
+        output = self._run_validator(agent_file)
+        assert output["passed"] is True
+
+    def test_valid_http_server_passes(self, tmp_path: Path) -> None:
+        """Valid mcpServers with http transport (url field) should pass."""
+        agent_file = tmp_path / "mcp-http.md"
+        agent_file.write_text(
+            "---\n"
+            "name: mcp-http\n"
+            "description: Agent with MCP http server\n"
+            "tools: Read\n"
+            "mcpServers:\n"
+            "  remote-api:\n"
+            "    url: https://api.example.com/mcp\n"
+            "---\n\n"
+            "# MCP HTTP Agent\n\n## Overview\nTest.\n"
+        )
+        output = self._run_validator(agent_file)
+        assert output["passed"] is True
+
+    def test_missing_command_and_url_fails(self, tmp_path: Path) -> None:
+        """mcpServers entry without command or url should fail with E025."""
+        agent_file = tmp_path / "mcp-bad.md"
+        agent_file.write_text(
+            "---\n"
+            "name: mcp-bad\n"
+            "description: Agent with bad MCP config\n"
+            "tools: Read\n"
+            "mcpServers:\n"
+            "  broken-server:\n"
+            "    args:\n"
+            "      - '--verbose'\n"
+            "---\n\n"
+            "# MCP Bad Agent\n\n## Overview\nTest.\n"
+        )
+        output = self._run_validator(agent_file)
+        assert output["passed"] is False
+        e025 = [e for e in output["errors"] if "E025" in e.get("code", "")]
+        assert len(e025) >= 1
+        assert "broken-server" in e025[0]["message"]
+
+    def test_invalid_server_entry_type_fails(self, tmp_path: Path) -> None:
+        """mcpServers entry that is not a mapping should fail with E025."""
+        agent_file = tmp_path / "mcp-scalar.md"
+        agent_file.write_text(
+            "---\n"
+            "name: mcp-scalar\n"
+            "description: Agent with scalar MCP entry\n"
+            "tools: Read\n"
+            "mcpServers:\n"
+            "  bad-entry: just-a-string\n"
+            "---\n\n"
+            "# MCP Scalar Agent\n\n## Overview\nTest.\n"
+        )
+        output = self._run_validator(agent_file)
+        assert output["passed"] is False
+        e025 = [e for e in output["errors"] if "E025" in e.get("code", "")]
+        assert len(e025) >= 1
+        assert "bad-entry" in e025[0]["message"]
+
+    def test_empty_command_fails(self, tmp_path: Path) -> None:
+        """mcpServers entry with empty command string should fail with E025."""
+        agent_file = tmp_path / "mcp-empty-cmd.md"
+        agent_file.write_text(
+            "---\n"
+            "name: mcp-empty-cmd\n"
+            "description: Agent with empty command\n"
+            "tools: Read\n"
+            "mcpServers:\n"
+            "  empty-cmd:\n"
+            "    command: ''\n"
+            "---\n\n"
+            "# MCP Empty Cmd Agent\n\n## Overview\nTest.\n"
+        )
+        output = self._run_validator(agent_file)
+        assert output["passed"] is False
+        e025 = [e for e in output["errors"] if "E025" in e.get("code", "")]
+        assert len(e025) >= 1
+
+    def test_multiple_valid_servers_pass(self, tmp_path: Path) -> None:
+        """Multiple valid mcpServers entries should all pass."""
+        agent_file = tmp_path / "mcp-multi.md"
+        agent_file.write_text(
+            "---\n"
+            "name: mcp-multi\n"
+            "description: Agent with multiple MCP servers\n"
+            "tools: Read, Bash\n"
+            "mcpServers:\n"
+            "  filesystem:\n"
+            "    command: npx\n"
+            "    args:\n"
+            "      - '-y'\n"
+            "      - '@modelcontextprotocol/server-filesystem'\n"
+            "  thinking:\n"
+            "    command: npx\n"
+            "    args:\n"
+            "      - '-y'\n"
+            "      - '@modelcontextprotocol/server-sequential-thinking'\n"
+            "  remote:\n"
+            "    url: https://mcp.example.com/v1\n"
+            "---\n\n"
+            "# MCP Multi Agent\n\n## Overview\nTest.\n"
+        )
+        output = self._run_validator(agent_file)
+        assert output["passed"] is True
+
+
 class TestSecurityScanner:
     """Real tests for security_scanner.py CLI."""
 

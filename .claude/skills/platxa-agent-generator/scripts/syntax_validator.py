@@ -126,12 +126,15 @@ FIELD_CONSTRAINTS = {
 }
 
 
-def parse_frontmatter(content: str) -> tuple[dict | None, list[ValidationError], int]:
+def parse_frontmatter(
+    content: str,
+) -> tuple[dict | None, list[ValidationError], int, dict | None]:
     """
     Parse YAML frontmatter from content using PyYAML.
 
     Returns:
-        Tuple of (parsed_dict, errors, end_line)
+        Tuple of (normalized_dict, errors, end_line, raw_frontmatter)
+        normalized_dict has scalar values as strings; raw_frontmatter preserves nested structures.
     """
     errors: list[ValidationError] = []
     lines = content.split("\n")
@@ -147,7 +150,7 @@ def parse_frontmatter(content: str) -> tuple[dict | None, list[ValidationError],
                 message="Missing frontmatter opening delimiter '---'",
             )
         )
-        return None, errors, 0
+        return None, errors, 0, None
 
     # Find closing delimiter
     end_line = -1
@@ -166,7 +169,7 @@ def parse_frontmatter(content: str) -> tuple[dict | None, list[ValidationError],
                 message="Missing frontmatter closing delimiter '---'",
             )
         )
-        return None, errors, len(lines)
+        return None, errors, len(lines), None
 
     # Extract YAML content between delimiters
     yaml_content = "\n".join(lines[1 : end_line - 1])
@@ -186,7 +189,7 @@ def parse_frontmatter(content: str) -> tuple[dict | None, list[ValidationError],
                     message=f"Frontmatter must be a YAML mapping, got {type(frontmatter).__name__}",
                 )
             )
-            return None, errors, end_line
+            return None, errors, end_line, None
     except yaml.YAMLError as e:
         # Extract line number and message from YAML error
         error_line = 2  # Default to first line of frontmatter
@@ -206,20 +209,26 @@ def parse_frontmatter(content: str) -> tuple[dict | None, list[ValidationError],
                 message=f"Invalid YAML syntax: {error_msg}",
             )
         )
-        return None, errors, end_line
+        return None, errors, end_line, None
 
-    # Convert all values to strings for consistent handling
+    # Keep raw frontmatter for nested structure validation (mcpServers, hooks)
+    raw_frontmatter = dict(frontmatter)
+
+    # Convert all values to strings for consistent handling of scalar fields
     normalized: dict[str, str] = {}
     for key, value in frontmatter.items():
         if isinstance(value, list):
             # Handle YAML lists - convert to comma-separated string
             normalized[str(key)] = ", ".join(str(v) for v in value)
+        elif isinstance(value, dict):
+            # Preserve nested dicts as marker string; use raw_frontmatter for deep validation
+            normalized[str(key)] = f"<nested:{key}>"
         elif value is None:
             normalized[str(key)] = ""
         else:
             normalized[str(key)] = str(value)
 
-    return normalized, errors, end_line
+    return normalized, errors, end_line, raw_frontmatter
 
 
 def validate_frontmatter_fields(frontmatter: dict, start_line: int = 1) -> list[ValidationError]:
@@ -510,6 +519,149 @@ def validate_frontmatter_fields(frontmatter: dict, start_line: int = 1) -> list[
     return errors
 
 
+def validate_mcp_servers(raw_frontmatter: dict, start_line: int = 1) -> list[ValidationError]:
+    """Validate mcpServers frontmatter field structure.
+
+    Each MCP server must have either 'command' (for stdio transport)
+    or 'url' (for http/sse transport). Server names must be non-empty strings.
+
+    Error codes:
+        E025: Invalid mcpServers structure (not a dict, missing command/url,
+              invalid server entry)
+    """
+    errors: list[ValidationError] = []
+
+    if "mcpServers" not in raw_frontmatter:
+        return errors
+
+    servers = raw_frontmatter["mcpServers"]
+
+    # mcpServers must be a mapping
+    if not isinstance(servers, dict):
+        errors.append(
+            ValidationError(
+                line=start_line,
+                column=1,
+                severity="error",
+                code="E025",
+                message=f"mcpServers must be a YAML mapping, got {type(servers).__name__}",
+            )
+        )
+        return errors
+
+    for server_name, server_config in servers.items():
+        # Server name must be a non-empty string
+        if not isinstance(server_name, str) or not server_name.strip():
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E025",
+                    message="mcpServers key must be a non-empty string",
+                )
+            )
+            continue
+
+        # Each server entry must be a mapping
+        if not isinstance(server_config, dict):
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E025",
+                    message=(
+                        f"mcpServers.{server_name} must be a YAML mapping, "
+                        f"got {type(server_config).__name__}"
+                    ),
+                )
+            )
+            continue
+
+        # Must have either 'command' (stdio) or 'url' (http/sse)
+        has_command = "command" in server_config
+        has_url = "url" in server_config
+
+        if not has_command and not has_url:
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E025",
+                    message=(
+                        f"mcpServers.{server_name} must have either 'command' "
+                        "(stdio transport) or 'url' (http/sse transport)"
+                    ),
+                )
+            )
+
+        # If 'command' is present, it must be a non-empty string
+        if has_command:
+            cmd = server_config["command"]
+            if not isinstance(cmd, str) or not cmd.strip():
+                errors.append(
+                    ValidationError(
+                        line=start_line,
+                        column=1,
+                        severity="error",
+                        code="E025",
+                        message=f"mcpServers.{server_name}.command must be a non-empty string",
+                    )
+                )
+
+        # If 'url' is present, it must be a non-empty string
+        if has_url:
+            url = server_config["url"]
+            if not isinstance(url, str) or not url.strip():
+                errors.append(
+                    ValidationError(
+                        line=start_line,
+                        column=1,
+                        severity="error",
+                        code="E025",
+                        message=f"mcpServers.{server_name}.url must be a non-empty string",
+                    )
+                )
+
+        # If 'args' is present, it must be a list
+        if "args" in server_config:
+            args = server_config["args"]
+            if not isinstance(args, list):
+                errors.append(
+                    ValidationError(
+                        line=start_line,
+                        column=1,
+                        severity="error",
+                        code="E025",
+                        message=(
+                            f"mcpServers.{server_name}.args must be a list, "
+                            f"got {type(args).__name__}"
+                        ),
+                    )
+                )
+
+        # If 'env' is present, it must be a mapping
+        if "env" in server_config:
+            env = server_config["env"]
+            if not isinstance(env, dict):
+                errors.append(
+                    ValidationError(
+                        line=start_line,
+                        column=1,
+                        severity="error",
+                        code="E025",
+                        message=(
+                            f"mcpServers.{server_name}.env must be a YAML mapping, "
+                            f"got {type(env).__name__}"
+                        ),
+                    )
+                )
+
+    return errors
+
+
 def validate_markdown_structure(
     content: str, frontmatter_end: int
 ) -> tuple[list[ValidationError], list[str]]:
@@ -623,7 +775,7 @@ def validate_content(content: str) -> ValidationResult:
     all_warnings: list[ValidationError] = []
 
     # Parse frontmatter
-    frontmatter, fm_errors, fm_end = parse_frontmatter(content)
+    frontmatter, fm_errors, fm_end, raw_fm = parse_frontmatter(content)
     for err in fm_errors:
         if err.severity == "error":
             all_errors.append(err)
@@ -634,6 +786,15 @@ def validate_content(content: str) -> ValidationResult:
     if frontmatter is not None:
         field_errors = validate_frontmatter_fields(frontmatter)
         for err in field_errors:
+            if err.severity == "error":
+                all_errors.append(err)
+            else:
+                all_warnings.append(err)
+
+    # Validate mcpServers using raw frontmatter (preserves nested dicts)
+    if raw_fm is not None:
+        mcp_errors = validate_mcp_servers(raw_fm)
+        for err in mcp_errors:
             if err.severity == "error":
                 all_errors.append(err)
             else:
