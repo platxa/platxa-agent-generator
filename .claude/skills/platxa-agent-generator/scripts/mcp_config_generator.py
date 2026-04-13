@@ -165,6 +165,158 @@ SERVER_CATEGORIES: dict[str, list[str]] = {
 }
 
 
+# Domain keyword → MCP server recommendations.
+# Each entry maps keywords found in agent description/name to relevant MCP servers.
+DOMAIN_MCP_RECOMMENDATIONS: dict[str, dict[str, list[str]]] = {
+    "database": {
+        "keywords": [
+            "database",
+            "sql",
+            "query",
+            "postgres",
+            "sqlite",
+            "schema",
+            "migration",
+            "table",
+            "record",
+            "orm",
+            "alembic",
+        ],
+        "servers": ["postgres", "sqlite"],
+    },
+    "git": {
+        "keywords": [
+            "git",
+            "github",
+            "gitlab",
+            "commit",
+            "branch",
+            "pull request",
+            "pr",
+            "repository",
+            "repo",
+            "merge",
+            "diff",
+        ],
+        "servers": ["github"],
+    },
+    "web": {
+        "keywords": [
+            "web",
+            "browser",
+            "scrape",
+            "crawl",
+            "screenshot",
+            "selenium",
+            "playwright",
+            "e2e",
+            "end-to-end",
+        ],
+        "servers": ["playwright", "fetch"],
+    },
+    "search": {
+        "keywords": [
+            "search",
+            "lookup",
+            "find online",
+            "web search",
+            "research",
+        ],
+        "servers": ["brave-search", "fetch"],
+    },
+    "filesystem": {
+        "keywords": [
+            "file",
+            "directory",
+            "folder",
+            "path",
+            "read file",
+            "write file",
+            "filesystem",
+        ],
+        "servers": ["filesystem"],
+    },
+    "reasoning": {
+        "keywords": [
+            "complex",
+            "architect",
+            "design",
+            "plan",
+            "analyze",
+            "debug",
+            "multi-step",
+            "reasoning",
+            "thinking",
+        ],
+        "servers": ["sequential-thinking"],
+    },
+    "communication": {
+        "keywords": [
+            "slack",
+            "message",
+            "notify",
+            "chat",
+            "channel",
+        ],
+        "servers": ["slack"],
+    },
+    "codebase": {
+        "keywords": [
+            "codebase",
+            "code review",
+            "code analysis",
+            "repository analysis",
+            "pack",
+            "repomix",
+        ],
+        "servers": ["repomix"],
+    },
+    "memory": {
+        "keywords": [
+            "remember",
+            "memory",
+            "context",
+            "persist",
+            "knowledge",
+        ],
+        "servers": ["memory"],
+    },
+}
+
+
+def recommend_mcp_servers(
+    description: str,
+    name: str = "",
+    tools: list[str] | None = None,
+) -> list[str]:
+    """Recommend MCP servers based on agent description and name.
+
+    Scans the agent description and name for domain keywords and returns
+    a deduplicated, ordered list of recommended MCP server names.
+
+    Args:
+        description: Agent description text
+        name: Agent name (optional, adds to keyword matching)
+        tools: Agent tools list (optional, for context)
+
+    Returns:
+        List of recommended MCP server names, most relevant first.
+    """
+    combined = f"{name} {description}".lower()
+    recommended: dict[str, int] = {}  # server -> match count for ranking
+
+    for _domain, config in DOMAIN_MCP_RECOMMENDATIONS.items():
+        for keyword in config["keywords"]:
+            if keyword in combined:
+                for server in config["servers"]:
+                    recommended[server] = recommended.get(server, 0) + 1
+                break  # One keyword match per domain is enough
+
+    # Sort by match count (most relevant first), then alphabetically
+    sorted_servers = sorted(recommended.keys(), key=lambda s: (-recommended[s], s))
+    return sorted_servers
+
+
 # Known MCP server tool names following mcp__<server>__<tool> convention.
 # Used to generate allowedTools entries and tool documentation.
 # Key: server name, Value: list of tool names (without prefix).
