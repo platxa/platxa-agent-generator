@@ -2372,34 +2372,136 @@ def generate_tool_reference_section(definition: AgentDefinition) -> str:
     return "\n".join(lines)
 
 
+# Output format templates by category.
+# Each template provides a concrete, copy-pasteable structure
+# rather than vague placeholders.
+OUTPUT_FORMAT_TEMPLATES: dict[str, str] = {
+    "json_report": """\
+```json
+{
+  "status": "success | error",
+  "agent": "<agent-name>",
+  "findings": [
+    {
+      "severity": "critical | high | medium | low",
+      "location": "<file>:<line>",
+      "message": "<description>",
+      "recommendation": "<fix>"
+    }
+  ],
+  "summary": {
+    "total": 0,
+    "critical": 0,
+    "high": 0,
+    "passed": true
+  }
+}
+```""",
+    "markdown_table": """\
+| # | Item | Status | Details |
+|---|------|--------|---------|
+| 1 | ... | PASS/FAIL | ... |
+
+**Summary:** X/Y checks passed.""",
+    "structured_report": """\
+```
+REPORT: <title>
+────────────────────
+Date: <timestamp>
+Agent: <agent-name>
+
+## Findings
+<numbered list of findings with severity>
+
+## Metrics
+<key-value metrics>
+
+## Recommendation
+<actionable next steps>
+```""",
+    "json_data": """\
+```json
+{
+  "status": "success | error",
+  "agent": "<agent-name>",
+  "data": {
+    "<key>": "<value>"
+  },
+  "metadata": {
+    "processed_at": "<timestamp>",
+    "source": "<input-description>"
+  }
+}
+```""",
+    "orchestrator_json": """\
+```json
+{
+  "status": "success | error",
+  "worker_results": {
+    "<worker-name>": {
+      "status": "success | error",
+      "output": "...",
+      "duration_ms": 0
+    }
+  },
+  "synthesis": "<merged analysis>",
+  "summary": "<one-line conclusion>"
+}
+```""",
+}
+
+
+def _select_output_format(definition: AgentDefinition) -> str:
+    """Select the best output format template based on agent characteristics.
+
+    Selection logic:
+    - Orchestrators with workers -> orchestrator_json
+    - Agents with security/review/scan in name -> json_report
+    - Agents with analyze/check/audit -> markdown_table
+    - Agents with generate/build/create -> json_data
+    - Agents with report/document -> structured_report
+    - Default -> json_data
+    """
+    name_lower = definition.name.lower()
+    desc_lower = definition.description.lower() if definition.description else ""
+    combined = f"{name_lower} {desc_lower}"
+
+    if definition.workers:
+        return "orchestrator_json"
+
+    if any(kw in combined for kw in ["security", "scan", "lint", "review", "vulnerab"]):
+        return "json_report"
+
+    if any(kw in combined for kw in ["analyze", "check", "audit", "test", "validate"]):
+        return "markdown_table"
+
+    if any(kw in combined for kw in ["report", "document", "summarize", "diagnos"]):
+        return "structured_report"
+
+    return "json_data"
+
+
 def generate_output_section(definition: AgentDefinition) -> str:
-    """Generate Output Format section based on agent definition."""
+    """Generate Output Format section with concrete, format-specific templates.
+
+    Selects the appropriate output format (JSON report, Markdown table,
+    structured report, or data JSON) based on agent name, description,
+    and architecture (orchestrator vs standalone).
+    """
     lines = ["## Output Format", ""]
 
-    # Customize output based on whether agent has workers
-    if definition.workers:
-        lines.append("```json")
-        lines.append("{")
-        lines.append('  "status": "success|error",')
-        lines.append('  "worker_results": {')
-        for i, worker in enumerate(definition.workers):
-            comma = "," if i < len(definition.workers) - 1 else ""
-            lines.append(f'    "{worker.name}": [...]' + comma)
-        lines.append("  },")
-        lines.append('  "synthesis": "...",')
-        lines.append('  "summary": "..."')
-        lines.append("}")
-        lines.append("```")
-    else:
-        lines.append("```json")
-        lines.append("{")
-        lines.append('  "status": "success|error",')
-        lines.append(f'  "agent": "{definition.name}",')
-        lines.append('  "results": [...],')
-        lines.append('  "summary": "..."')
-        lines.append("}")
-        lines.append("```")
+    format_key = _select_output_format(definition)
+    template = OUTPUT_FORMAT_TEMPLATES[format_key]
 
+    # Substitute agent name into template
+    template = template.replace("<agent-name>", definition.name)
+
+    # For orchestrators, substitute worker names
+    if definition.workers and format_key == "orchestrator_json":
+        for worker in definition.workers:
+            template = template.replace("<worker-name>", worker.name, 1)
+
+    lines.append(template)
     lines.append("")
     return "\n".join(lines)
 
