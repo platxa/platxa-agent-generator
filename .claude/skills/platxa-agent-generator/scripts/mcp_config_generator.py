@@ -165,6 +165,94 @@ SERVER_CATEGORIES: dict[str, list[str]] = {
 }
 
 
+# Known MCP server tool names following mcp__<server>__<tool> convention.
+# Used to generate allowedTools entries and tool documentation.
+# Key: server name, Value: list of tool names (without prefix).
+MCP_SERVER_TOOLS: dict[str, list[str]] = {
+    "filesystem": [
+        "read_file",
+        "read_multiple_files",
+        "write_file",
+        "edit_file",
+        "create_directory",
+        "list_directory",
+        "directory_tree",
+        "move_file",
+        "search_files",
+        "get_file_info",
+    ],
+    "postgres": ["query", "list_tables", "describe_table"],
+    "sqlite": ["query", "list_tables", "describe_table"],
+    "playwright": [
+        "browser_navigate",
+        "browser_click",
+        "browser_fill_form",
+        "browser_snapshot",
+        "browser_take_screenshot",
+    ],
+    "github": ["get_repo", "list_issues", "create_issue", "get_pull_request"],
+    "brave-search": ["search"],
+    "fetch": ["fetch_url"],
+    "memory": ["store", "retrieve", "list_memories"],
+    "slack": ["send_message", "list_channels", "read_messages"],
+    "repomix": ["pack_codebase", "pack_remote_repository", "read_repomix_output"],
+    "sequential-thinking": ["sequentialthinking"],
+}
+
+
+def get_mcp_tool_names(server_name: str) -> list[str]:
+    """Get fully qualified MCP tool names for a server.
+
+    Returns tool names in mcp__<server>__<tool> format.
+
+    Args:
+        server_name: MCP server name (e.g., 'filesystem', 'postgres')
+
+    Returns:
+        List of full tool names (e.g., ['mcp__filesystem__read_file', ...])
+    """
+    tools = MCP_SERVER_TOOLS.get(server_name, [])
+    # Normalize server name: replace hyphens with underscores for tool naming
+    safe_name = server_name.replace("-", "_")
+    return [f"mcp__{safe_name}__{tool}" for tool in tools]
+
+
+def get_mcp_wildcard_pattern(server_name: str) -> str:
+    """Get wildcard allowedTools pattern for an MCP server.
+
+    Claude Code supports wildcard patterns in allowedTools to allow
+    all tools from a specific MCP server without listing each one.
+
+    Args:
+        server_name: MCP server name
+
+    Returns:
+        Wildcard pattern string (e.g., 'mcp__filesystem__*')
+    """
+    safe_name = server_name.replace("-", "_")
+    return f"mcp__{safe_name}__*"
+
+
+def get_mcp_tools_for_config(config: "MCPConfig") -> dict[str, list[str]]:
+    """Get all MCP tool names organized by server for a config.
+
+    Args:
+        config: MCPConfig instance
+
+    Returns:
+        Dict mapping server name to list of full tool names
+    """
+    result: dict[str, list[str]] = {}
+    for server in config.servers:
+        tools = get_mcp_tool_names(server.name)
+        if tools:
+            result[server.name] = tools
+        else:
+            # Unknown server — provide wildcard pattern as guidance
+            result[server.name] = [get_mcp_wildcard_pattern(server.name)]
+    return result
+
+
 def validate_server_name(name: str) -> tuple[bool, str]:
     """Validate MCP server name."""
     if not name:
@@ -489,9 +577,7 @@ def main() -> None:
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Generate MCP server configurations"
-    )
+    parser = argparse.ArgumentParser(description="Generate MCP server configurations")
     parser.add_argument(
         "--servers",
         help="Comma-separated list of server names (e.g., 'playwright,github')",
