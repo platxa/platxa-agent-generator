@@ -67,6 +67,28 @@ class ThinkingIntensity(Enum):
         return self._description
 
 
+# Mapping from ThinkingIntensity to Claude Code effort frontmatter values.
+# Used by agent_generator.py to set effort based on complexity analysis.
+INTENSITY_TO_EFFORT: dict[str, str] = {
+    "think": "low",  # STANDARD → low effort
+    "think hard": "medium",  # INCREASED → medium effort
+    "think harder": "high",  # HIGH → high effort
+    "ultrathink": "high",  # MAXIMUM → high effort (capped at high)
+}
+
+
+def intensity_to_effort(intensity: ThinkingIntensity) -> str:
+    """Map a ThinkingIntensity to Claude Code effort frontmatter value.
+
+    Args:
+        intensity: ThinkingIntensity enum value
+
+    Returns:
+        Effort level string: 'low', 'medium', or 'high'
+    """
+    return INTENSITY_TO_EFFORT.get(intensity.trigger_phrase, "medium")
+
+
 class ComplexityDimension(Enum):
     """Dimensions for complexity analysis."""
 
@@ -329,12 +351,14 @@ class ComplexityAnalyzer:
             score, confidence, indicators = self._score_dimension(
                 text, patterns, dimension, context
             )
-            scores.append(ComplexityScore(
-                dimension=dimension,
-                score=score,
-                confidence=confidence,
-                indicators=indicators,
-            ))
+            scores.append(
+                ComplexityScore(
+                    dimension=dimension,
+                    score=score,
+                    confidence=confidence,
+                    indicators=indicators,
+                )
+            )
 
         return scores
 
@@ -563,8 +587,7 @@ class ThinkingIntegration:
             )
         elif intensity == ThinkingIntensity.INCREASED:
             prompt_parts.append(
-                "\n\nBreak this down into clear steps and consider "
-                "dependencies between components."
+                "\n\nBreak this down into clear steps and consider dependencies between components."
             )
 
         return "\n".join(prompt_parts)
@@ -643,9 +666,7 @@ class ThinkingIntegration:
 
         # Quality stats (only for completed sessions)
         qualities = [
-            r.outcome_quality
-            for r in self._usage_records
-            if r.outcome_quality is not None
+            r.outcome_quality for r in self._usage_records if r.outcome_quality is not None
         ]
         avg_quality = sum(qualities) / len(qualities) if qualities else 0.0
 
@@ -683,10 +704,7 @@ class ThinkingIntegration:
             reverse=True,
         )
 
-        top_dimensions = [
-            s for s in sorted_scores[:3]
-            if s.score >= 0.4
-        ]
+        top_dimensions = [s for s in sorted_scores[:3] if s.score >= 0.4]
 
         if not top_dimensions:
             return (
@@ -727,10 +745,7 @@ class ThinkingIntegration:
         if not benefits:
             return "Standard analysis should be sufficient."
 
-        return (
-            f"Using {intensity.trigger_phrase} will likely provide: "
-            f"{', '.join(benefits)}."
-        )
+        return f"Using {intensity.trigger_phrase} will likely provide: {', '.join(benefits)}."
 
     def _load_usage_history(self) -> None:
         """Load usage history from file."""

@@ -399,6 +399,42 @@ MODEL_BY_TYPE: dict[str, dict[str, str]] = {
 }
 
 
+# Effort levels by architecture type.
+# Maps extended thinking intensity needs to Claude Code effort frontmatter values.
+# - "low": minimal thinking — validators, linters, simple lookups
+# - "medium": balanced thinking — standard agents, code review
+# - "high": deep thinking — complex orchestrators, architecture decisions
+EFFORT_BY_TYPE: dict[str, dict[str, str]] = {
+    "simple": {"low": "low", "default": "low", "high": "medium"},
+    "orchestrator": {"low": "medium", "default": "medium", "high": "high"},
+    "multi-agent": {"low": "medium", "default": "high", "high": "high"},
+    "pipeline": {"low": "low", "default": "medium", "high": "high"},
+}
+
+
+def recommend_effort(architecture_type: str, complexity_score: int) -> str:
+    """Recommend effort level based on architecture type and complexity.
+
+    Maps the complexity analysis to Claude Code's effort frontmatter field,
+    which controls extended thinking intensity per agent.
+
+    Args:
+        architecture_type: One of 'simple', 'orchestrator', 'multi-agent', 'pipeline'
+        complexity_score: 1-5 scale from estimate_complexity()
+
+    Returns:
+        Recommended effort level ('low', 'medium', or 'high')
+    """
+    type_config = EFFORT_BY_TYPE.get(architecture_type, EFFORT_BY_TYPE["simple"])
+
+    if complexity_score <= 2:
+        return type_config["low"]
+    elif complexity_score >= 4:
+        return type_config["high"]
+    else:
+        return type_config["default"]
+
+
 def recommend_model(architecture_type: str, complexity_score: int) -> str:
     """Recommend model tier based on architecture type and complexity.
 
