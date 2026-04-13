@@ -73,6 +73,20 @@ tools: {tools_str}{isolation_line}
 {chr(10).join(f"- {o}" for o in self.outputs) if self.outputs else "- Task completion report"}
 
 ## Workflow
+
+### Plan-First Mode (when orchestrator sends `plan_first: true`)
+1. Receive task assignment
+2. **Plan** — describe what you will do WITHOUT implementing:
+   - Files to read/modify
+   - Approach and tools to use
+   - Expected output structure
+   - Scope estimate (S/M/L)
+3. Return plan to orchestrator for approval
+4. Wait for approval before proceeding
+5. **Implement** the approved plan
+6. Report results back to orchestrator
+
+### Direct Mode (default)
 1. Receive task assignment
 2. Execute specialized processing
 3. Report results back to orchestrator
@@ -224,6 +238,48 @@ Task tool with:
 - subagent_type: <worker-name>
 - prompt: <specific task description>
 - description: <brief summary>
+```
+
+## Plan Approval Workflow
+
+Workers must plan before implementing. This prevents wasted work and ensures
+alignment between the orchestrator's intent and the worker's execution.
+
+### How It Works
+1. **Orchestrator assigns task** with `plan_first: true` in the prompt
+2. **Worker returns a plan** (not implementation) describing:
+   - What files/resources will be read
+   - What changes will be made
+   - Expected output structure
+   - Estimated scope (small/medium/large)
+3. **Orchestrator reviews the plan** against:
+   - Does it address the original requirement?
+   - Is the scope appropriate (not too broad or narrow)?
+   - Are there conflicts with other workers' plans?
+4. **Orchestrator approves or requests revision**
+   - Approved: worker proceeds with implementation
+   - Rejected: worker revises plan with specific feedback
+5. **Worker implements the approved plan**
+
+### Approval Criteria
+| Criterion | Pass When |
+|-----------|-----------|
+| Scope | Matches assigned subtask, no scope creep |
+| Approach | Uses appropriate tools, follows patterns |
+| Conflicts | No overlap with other workers' file ownership |
+| Completeness | All requirements addressed in plan |
+
+### Worker Prompt Template (Plan Phase)
+```
+Plan the following task WITHOUT implementing it yet:
+  Task: <description>
+  Constraints: <boundaries>
+
+Return a plan with:
+1. Files to read/modify
+2. Approach description
+3. Expected output
+4. Scope estimate (S/M/L)
 ```
 
 ## Error Handling
