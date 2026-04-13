@@ -1445,6 +1445,153 @@ class TestPostToolUseLintScript:
         assert result.returncode == 0
 
 
+class TestStopVerificationScript:
+    """Tests for Stop verification gate hook generation (Feature #14).
+
+    Verifies that generated Stop scripts detect test frameworks (pytest,
+    vitest, go test), block completion on failure (exit 2), and allow
+    completion on success or no framework (exit 0).
+    """
+
+    def _generate_script(self, agent_name: str) -> str:
+        """Generate Stop verification script via subprocess."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+                    "from hooks_generator import generate_stop_verification_script; "
+                    f"print(generate_stop_verification_script('{agent_name}'))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script generation failed: {result.stderr}"
+        return result.stdout
+
+    def _generate_config(self, agent_name: str, script_path: str) -> dict:
+        """Generate Stop hook config via subprocess."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys, json; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+                    "from hooks_generator import generate_stop_verification_hook_config; "
+                    f"print(json.dumps(generate_stop_verification_hook_config('{agent_name}', '{script_path}')))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Config generation failed: {result.stderr}"
+        return json.loads(result.stdout)
+
+    def test_script_is_valid_bash(self, tmp_path: Path) -> None:
+        """Generated script must be valid bash syntax."""
+        script = self._generate_script("verify-agent")
+        script_path = tmp_path / "verify.sh"
+        script_path.write_text(script)
+        result = subprocess.run(["bash", "-n", str(script_path)], capture_output=True, text=True)
+        assert result.returncode == 0, f"Bash syntax error: {result.stderr}"
+
+    def test_script_has_shebang(self) -> None:
+        """Script must start with bash shebang."""
+        script = self._generate_script("test-agent")
+        assert script.startswith("#!/usr/bin/env bash")
+
+    def test_script_detects_pytest(self) -> None:
+        """Script must check for pyproject.toml/pytest.ini/conftest.py/tests dir."""
+        script = self._generate_script("test-agent")
+        assert "pyproject.toml" in script
+        assert "pytest.ini" in script
+        assert "conftest.py" in script
+        assert "pytest" in script
+
+    def test_script_detects_vitest(self) -> None:
+        """Script must check for vitest.config.ts/js/mts."""
+        script = self._generate_script("test-agent")
+        assert "vitest.config.ts" in script
+        assert "vitest.config.js" in script
+        assert "vitest run" in script
+
+    def test_script_detects_go_test(self) -> None:
+        """Script must check for go.mod and run go test."""
+        script = self._generate_script("test-agent")
+        assert "go.mod" in script
+        assert "go test ./..." in script
+
+    def test_script_blocks_on_failure(self) -> None:
+        """Script must exit 2 when tests fail (Claude Code deny convention)."""
+        script = self._generate_script("test-agent")
+        assert "exit 2" in script
+        assert "BLOCKED" in script
+
+    def test_script_allows_on_success(self) -> None:
+        """Script must exit 0 when tests pass or no framework detected."""
+        script = self._generate_script("test-agent")
+        lines = script.strip().split("\n")
+        assert lines[-1].strip() == "exit 0"
+
+    def test_script_reports_failure_reason(self) -> None:
+        """Script must output failure reason on stderr."""
+        script = self._generate_script("test-agent")
+        assert "Reason:" in script
+        assert ">&2" in script
+
+    def test_script_checks_tool_availability(self) -> None:
+        """Script must check pytest/vitest/go exist via command -v."""
+        script = self._generate_script("test-agent")
+        assert "command -v pytest" in script
+        assert "command -v go" in script
+
+    def test_script_includes_agent_name(self) -> None:
+        """Script must include agent name in output messages."""
+        script = self._generate_script("my-verifier")
+        assert "my-verifier" in script
+
+    def test_hook_config_uses_stop_event(self) -> None:
+        """Hook config must use Stop event."""
+        config = self._generate_config("test-agent", "/path/to/verify.sh")
+        assert "Stop" in config
+        assert len(config["Stop"]) == 1
+
+    def test_hook_config_uses_correct_script_path(self) -> None:
+        """Hook config must reference the provided script path."""
+        config = self._generate_config("test-agent", "/home/user/.claude/hooks/verify.sh")
+        command = config["Stop"][0]["hooks"][0]["command"]
+        assert command == "/home/user/.claude/hooks/verify.sh"
+
+    def test_hook_config_has_no_matcher(self) -> None:
+        """Stop hooks should not have a matcher (they fire on session end)."""
+        config = self._generate_config("test-agent", "/path/to/verify.sh")
+        # Stop config should not have a 'matcher' key
+        assert "matcher" not in config["Stop"][0]
+
+    def test_script_allows_completion_when_no_framework(self, tmp_path: Path) -> None:
+        """In a dir with no test config files, script should exit 0 (allow)."""
+        script = self._generate_script("test-agent")
+        script_path = tmp_path / "verify.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+
+        # Run in an empty directory (no pyproject.toml, no go.mod, no vitest config)
+        empty_dir = tmp_path / "empty_project"
+        empty_dir.mkdir()
+
+        result = subprocess.run(
+            ["bash", str(script_path)],
+            capture_output=True,
+            text=True,
+            cwd=str(empty_dir),
+        )
+        assert result.returncode == 0, (
+            f"Script should allow completion when no framework detected. stderr: {result.stderr}"
+        )
+
+
 class TestHookScriptGeneration:
     """Tests for hook script file generation (Feature #16)."""
 
