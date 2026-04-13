@@ -1053,6 +1053,23 @@ def _generate_prompt_chaining_workflow(definition: AgentDefinition) -> list[str]
                 lines.append("```")
                 lines.append("")
 
+            # Checkpoint after steps with state-modifying tools
+            if step.tools:
+                critical_tools = {"Write", "Edit", "Bash", "WebFetch", "WebSearch"}
+                if critical_tools & set(step.tools):
+                    lines.append(
+                        f"**Checkpoint (Step {i}):** This step modifies state. Before continuing:"
+                    )
+                    lines.append("")
+                    if {"Write", "Edit"} & set(step.tools):
+                        lines.append("- Verify written/edited files are correct (`git diff`)")
+                    if "Bash" in step.tools:
+                        lines.append("- Confirm command succeeded (exit code 0)")
+                    if {"WebFetch", "WebSearch"} & set(step.tools):
+                        lines.append("- Validate fetched data is complete and well-formed")
+                    lines.append("- If errors detected, fix before proceeding to next step")
+                    lines.append("")
+
         # Add data flow diagram
         lines.append("### Data Flow")
         lines.append("")
@@ -1114,6 +1131,22 @@ def _generate_prompt_chaining_workflow(definition: AgentDefinition) -> list[str]
             lines.append("  - Confirm no errors")
             lines.append("```")
             lines.append("")
+
+            # Add checkpoint after critical steps (file-modifying or external)
+            critical_tools = {"Write", "Edit", "Bash", "WebFetch", "WebSearch"}
+            if step_tools and critical_tools & set(step_tools):
+                lines.append(
+                    f"**Checkpoint (Step {i}):** This step modifies state. Before continuing:"
+                )
+                lines.append("")
+                if {"Write", "Edit"} & set(step_tools):
+                    lines.append("- Verify written/edited files are correct (`git diff`)")
+                if "Bash" in step_tools:
+                    lines.append("- Confirm command succeeded (exit code 0)")
+                if {"WebFetch", "WebSearch"} & set(step_tools):
+                    lines.append("- Validate fetched data is complete and well-formed")
+                lines.append("- If errors detected, fix before proceeding to next step")
+                lines.append("")
 
         # Data flow diagram
         lines.append("### Data Flow")
