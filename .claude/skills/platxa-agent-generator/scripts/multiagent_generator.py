@@ -91,6 +91,16 @@ tools: {tools_str}{isolation_line}
 2. Execute specialized processing
 3. Report results back to orchestrator
 
+## File Ownership
+
+When the orchestrator includes `owned_paths` in your prompt, **only write
+to those paths**. You may read any file, but writes outside your owned
+paths will conflict with other workers running in parallel.
+
+- If you need to modify a file outside your ownership, report it back
+  to the orchestrator instead of writing directly
+- Check `owned_paths` before every Write/Edit operation
+
 ## Team Compatibility
 
 This agent works both as a **standalone subagent** and as a **team teammate**.
@@ -331,6 +341,43 @@ Keep tasks atomic — each should take one focused action, not a multi-step work
 pending → in_progress → completed
                       → failed (with reason)
 ```
+
+## Worker File Ownership
+
+Each worker MUST own a non-overlapping set of files/directories to prevent
+conflicts when running in parallel. The orchestrator assigns ownership
+boundaries when dispatching tasks.
+
+### Ownership Rules
+1. **No shared writes** — two workers must never write to the same file
+2. **Read is always safe** — any worker can read any file
+3. **Directories as boundaries** — assign ownership at the directory level when possible
+4. **Explicit in prompt** — include `owned_paths: [...]` in the worker prompt
+
+### Assignment Strategy
+When decomposing tasks, assign file ownership:
+```
+Worker 1 prompt:
+  owned_paths: ["src/auth/", "tests/test_auth.py"]
+  task: "Refactor authentication module"
+
+Worker 2 prompt:
+  owned_paths: ["src/api/", "tests/test_api.py"]
+  task: "Update API endpoints"
+```
+
+### Conflict Detection
+Before dispatching, check for overlapping ownership:
+- If two workers need the same file, serialize their tasks (one after the other)
+- If a shared config file needs updates, assign it to one worker and pass the result to the next
+- Use `isolation: worktree` for workers that need true file-level isolation
+
+### Ownership Table Example
+| Worker | Owned Paths | Read-Only Access |
+|--------|------------|-----------------|
+| auth-worker | src/auth/, tests/test_auth* | src/config.py |
+| api-worker | src/api/, tests/test_api* | src/config.py, src/auth/types.py |
+| test-worker | tests/integration/ | src/**/* (all source) |
 
 ## Output Format
 Provide structured summary including:
