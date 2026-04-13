@@ -301,6 +301,84 @@ def validate_frontmatter_fields(frontmatter: dict, start_line: int = 1) -> list[
                 )
             )
 
+        # W029: Description should start with action verb for auto-delegation
+        action_verbs = {
+            "analyze",
+            "build",
+            "check",
+            "create",
+            "debug",
+            "deploy",
+            "detect",
+            "evaluate",
+            "find",
+            "fix",
+            "generate",
+            "implement",
+            "inspect",
+            "lint",
+            "migrate",
+            "monitor",
+            "optimize",
+            "parse",
+            "refactor",
+            "review",
+            "run",
+            "scan",
+            "search",
+            "test",
+            "trace",
+            "validate",
+            "verify",
+            "write",
+        }
+        first_word = desc.split()[0].lower().rstrip("s") if desc.split() else ""
+        # Also match verbs ending in -e that got stripped (e.g. "generates" -> "generat")
+        verb_match = (
+            first_word in action_verbs
+            or first_word.rstrip("e") in action_verbs
+            or first_word + "e" in action_verbs
+        )
+        if not verb_match:
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="warning",
+                    code="W029",
+                    message=(
+                        f"Description starts with '{desc.split()[0]}' — "
+                        "start with an action verb (e.g., 'Analyzes', 'Generates', 'Scans') "
+                        "for better Claude Code auto-delegation."
+                    ),
+                )
+            )
+
+        # W030: Description too vague for delegation
+        vague_descriptions = [
+            r"^(a|an|the)\s+(simple|basic|generic)\s+agent",
+            r"^agent\s+(that|which|for)",
+            r"^(does|handles|manages)\s+",
+            r"^(helper|utility|tool)\s+(for|that|which)",
+        ]
+        for pattern in vague_descriptions:
+            if re.match(pattern, desc, re.IGNORECASE):
+                errors.append(
+                    ValidationError(
+                        line=start_line,
+                        column=1,
+                        severity="warning",
+                        code="W030",
+                        message=(
+                            "Description is too vague for auto-delegation. "
+                            "Be specific about what the agent does, not what it is. "
+                            "Example: 'Scans Python code for OWASP vulnerabilities' "
+                            "instead of 'A simple agent that handles security'."
+                        ),
+                    )
+                )
+                break
+
     # Validate tools field
     if "tools" in frontmatter and frontmatter["tools"]:
         tools_str = frontmatter["tools"]
