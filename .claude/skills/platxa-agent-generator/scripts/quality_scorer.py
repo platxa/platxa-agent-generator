@@ -485,6 +485,17 @@ def score_tool_design(frontmatter: dict[str, str], content: str) -> CriterionSco
             score -= 0.5
             suggestions.append("Document Task tool subagent patterns")
 
+    # Check for Tool Reference section with per-tool documentation
+    content_lower = content.lower()
+    has_tool_ref = "## tool reference" in content_lower or "## tool usage" in content_lower
+    if has_tool_ref:
+        findings.append("Tool Reference section present with per-tool guidance")
+    elif len(tools) >= 3:
+        score -= 1.0
+        suggestions.append(
+            "Add a Tool Reference section documenting when to use and when NOT to use each tool"
+        )
+
     # Evaluate disallowedTools completeness
     disallowed_str = frontmatter.get("disallowedTools", "")
     disallowed = [t.strip() for t in disallowed_str.split(",") if t.strip()]
