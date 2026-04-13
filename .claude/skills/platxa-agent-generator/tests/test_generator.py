@@ -1274,6 +1274,177 @@ class TestPreToolUseDenyScript:
         assert entries[0]["hooks"][0]["command"] == "/path/to/deny.sh"
 
 
+class TestPostToolUseLintScript:
+    """Tests for PostToolUse auto-linting hook generation (Feature #13).
+
+    Verifies that generated lint scripts detect file types, run the correct
+    linter, and return additionalContext with violations.
+    """
+
+    def _generate_lint_script(self, agent_name: str) -> str:
+        """Generate lint script content via subprocess."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+                    "from hooks_generator import generate_posttooluse_lint_script; "
+                    f"print(generate_posttooluse_lint_script('{agent_name}'))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script generation failed: {result.stderr}"
+        return result.stdout
+
+    def _generate_lint_config(self, agent_name: str, script_path: str) -> dict:
+        """Generate hook config via subprocess."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys, json; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+                    "from hooks_generator import generate_posttooluse_lint_hook_config; "
+                    f"print(json.dumps(generate_posttooluse_lint_hook_config('{agent_name}', '{script_path}')))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Config generation failed: {result.stderr}"
+        return json.loads(result.stdout)
+
+    def test_script_is_valid_bash(self, tmp_path: Path) -> None:
+        """Generated script must be valid bash syntax."""
+        script = self._generate_lint_script("lint-agent")
+        script_path = tmp_path / "lint.sh"
+        script_path.write_text(script)
+        result = subprocess.run(
+            ["bash", "-n", str(script_path)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Bash syntax error: {result.stderr}"
+
+    def test_script_has_shebang(self) -> None:
+        """Script must start with bash shebang."""
+        script = self._generate_lint_script("test-agent")
+        assert script.startswith("#!/usr/bin/env bash")
+
+    def test_script_includes_python_linter(self) -> None:
+        """Script must include ruff for Python files."""
+        script = self._generate_lint_script("test-agent")
+        assert "ruff check" in script
+        assert "py)" in script  # case match for .py extension
+
+    def test_script_includes_typescript_linter(self) -> None:
+        """Script must include eslint for TypeScript/JavaScript files."""
+        script = self._generate_lint_script("test-agent")
+        assert "eslint" in script
+        assert "ts|tsx|js|jsx)" in script  # case match for TS/JS extensions
+
+    def test_script_includes_go_linter(self) -> None:
+        """Script must include golangci-lint for Go files."""
+        script = self._generate_lint_script("test-agent")
+        assert "golangci-lint" in script
+        assert "go)" in script  # case match for .go extension
+
+    def test_script_includes_rust_linter(self) -> None:
+        """Script must include cargo clippy for Rust files."""
+        script = self._generate_lint_script("test-agent")
+        assert "cargo clippy" in script
+        assert "rs)" in script  # case match for .rs extension
+
+    def test_script_extracts_file_path_from_json(self) -> None:
+        """Script must parse file_path from tool_input JSON via python3."""
+        script = self._generate_lint_script("test-agent")
+        assert "file_path" in script
+        assert "json.load" in script
+
+    def test_script_checks_file_exists(self) -> None:
+        """Script must verify file exists before linting."""
+        script = self._generate_lint_script("test-agent")
+        assert "! -f" in script
+
+    def test_script_checks_linter_availability(self) -> None:
+        """Script must check linter exists via command -v before running."""
+        script = self._generate_lint_script("test-agent")
+        assert "command -v ruff" in script
+        assert "command -v eslint" in script
+
+    def test_script_always_exits_zero(self) -> None:
+        """Script must always exit 0 (non-blocking advisory feedback)."""
+        script = self._generate_lint_script("test-agent")
+        lines = script.strip().split("\n")
+        assert lines[-1].strip() == "exit 0"
+
+    def test_script_does_not_use_set_e(self) -> None:
+        """Script must NOT use set -e (linter non-zero exits are expected)."""
+        script = self._generate_lint_script("test-agent")
+        assert "set -euo" not in script
+
+    def test_script_includes_agent_name_in_output(self) -> None:
+        """Lint output must include agent name for identification."""
+        script = self._generate_lint_script("my-custom-agent")
+        assert "my-custom-agent" in script
+
+    def test_hook_config_targets_write_edit(self) -> None:
+        """Hook config must match Write|Edit|MultiEdit tools."""
+        config = self._generate_lint_config("test-agent", "/path/to/lint.sh")
+        assert "PostToolUse" in config
+        entries = config["PostToolUse"]
+        assert len(entries) == 1
+        assert entries[0]["matcher"] == "Write|Edit|MultiEdit"
+
+    def test_hook_config_uses_correct_script_path(self) -> None:
+        """Hook config must reference the provided script path."""
+        config = self._generate_lint_config("test-agent", "/home/user/.claude/hooks/lint.sh")
+        command = config["PostToolUse"][0]["hooks"][0]["command"]
+        assert command == "/home/user/.claude/hooks/lint.sh"
+
+    def test_hook_config_type_is_command(self) -> None:
+        """Hook action type must be 'command'."""
+        config = self._generate_lint_config("test-agent", "/path/to/lint.sh")
+        hook_type = config["PostToolUse"][0]["hooks"][0]["type"]
+        assert hook_type == "command"
+
+    def test_script_runs_without_error_on_empty_input(self, tmp_path: Path) -> None:
+        """Script should handle empty stdin gracefully (no crash)."""
+        script = self._generate_lint_script("test-agent")
+        script_path = tmp_path / "lint.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+        result = subprocess.run(
+            ["bash", str(script_path)],
+            input="{}",
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script crashed on empty input: {result.stderr}"
+
+    def test_script_handles_real_python_file(self, tmp_path: Path) -> None:
+        """Script should detect .py file and attempt ruff (if available)."""
+        script = self._generate_lint_script("test-agent")
+        script_path = tmp_path / "lint.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+
+        # Create a test Python file
+        py_file = tmp_path / "test_file.py"
+        py_file.write_text("x=1\n")
+
+        result = subprocess.run(
+            ["bash", str(script_path)],
+            input=json.dumps({"file_path": str(py_file)}),
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+
+
 class TestHookScriptGeneration:
     """Tests for hook script file generation (Feature #16)."""
 
