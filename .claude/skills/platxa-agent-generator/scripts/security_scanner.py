@@ -278,6 +278,55 @@ def _build_patterns() -> tuple[list[dict], list[dict], list[dict], list[dict]]:
         },
     ]
 
+    # Prompt injection patterns (HIGH — exploitable via user input)
+    prompt_injection_patterns = [
+        {
+            "pattern": r"\{user[_\s]?input\}|\{\{input\}\}|\$USER[_\s]?INPUT",
+            "code": "SEC060",
+            "title": "Unescaped user input placeholder",
+            "description": "User input placeholder without sanitization enables prompt injection",
+            "recommendation": "Never interpolate raw user input into agent prompts; use structured parameters",
+        },
+        {
+            "pattern": r"(?i)ignore\s+(all\s+)?previous\s+instructions|disregard\s+(the\s+)?(above|prior)",
+            "code": "SEC061",
+            "title": "Instruction override pattern",
+            "description": "Pattern that could be used to override agent instructions via user input",
+            "recommendation": "Remove instruction override language; use explicit system boundaries",
+        },
+        {
+            "pattern": r"tool_input\s*\[|tool_input\.\w+|TOOL_INPUT",
+            "code": "SEC062",
+            "title": "Tool input reflection",
+            "description": "Reflecting tool_input directly into prompts can enable injection via crafted filenames or arguments",
+            "recommendation": "Validate and sanitize tool_input before including in prompts or commands",
+        },
+        {
+            "pattern": r"(?i)you\s+are\s+now\s+|act\s+as\s+(a\s+)?|pretend\s+(to\s+)?be\s+",
+            "code": "SEC063",
+            "title": "Role confusion pattern",
+            "description": "Role reassignment language in agent prompts can be exploited to override agent identity",
+            "recommendation": "Define agent role in system prompt only; do not allow role changes via user input",
+        },
+        {
+            "pattern": r"</system>|</instructions>|</prompt>|<\|endoftext\|>|<\|im_end\|>",
+            "code": "SEC064",
+            "title": "Delimiter injection",
+            "description": "Prompt delimiter tokens in agent content can break prompt structure boundaries",
+            "recommendation": "Remove prompt delimiter tokens from agent definitions; they serve no purpose in Claude Code agents",
+        },
+        {
+            "pattern": r"(?i)repeat\s+(back|exactly|verbatim)|echo\s+the\s+(system|secret|hidden)",
+            "code": "SEC065",
+            "title": "System prompt extraction",
+            "description": "Pattern that could be used to extract system prompt contents via user interaction",
+            "recommendation": "Do not include instructions that reference echoing or repeating system content",
+        },
+    ]
+
+    # Merge prompt injection into high risk (should fix before deployment)
+    high_risk_patterns.extend(prompt_injection_patterns)
+
     # Medium risk patterns (review recommended)
     medium_risk_patterns = [
         {
@@ -621,8 +670,23 @@ def _categorize_finding_to_layer(finding: SecurityFinding) -> MAESTROLayer:
     if code in {"SEC010", "SEC011", "SEC012", "SEC015", "SEC016"}:
         return MAESTROLayer.DATA
 
-    # Application layer: code execution, injection
-    if code in {"SEC004", "SEC005", "SEC013", "SEC014", "SEC020", "SEC023", "SEC024", "SEC025"}:
+    # Application layer: code execution, injection, prompt injection
+    if code in {
+        "SEC004",
+        "SEC005",
+        "SEC013",
+        "SEC014",
+        "SEC020",
+        "SEC023",
+        "SEC024",
+        "SEC025",
+        "SEC060",
+        "SEC061",
+        "SEC062",
+        "SEC063",
+        "SEC064",
+        "SEC065",
+    }:
         return MAESTROLayer.APPLICATION
 
     # Infrastructure layer: system access, file operations
