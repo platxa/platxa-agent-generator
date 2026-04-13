@@ -24,6 +24,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+# Tools that modify files — workers with these need worktree isolation
+# when running in parallel to avoid conflicts.
+FILE_MODIFYING_TOOLS = {"Write", "Edit", "Bash"}
+
 
 @dataclass
 class AgentDefinition:
@@ -36,6 +40,7 @@ class AgentDefinition:
     responsibilities: list[str]
     inputs: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
+    isolation: str | None = None  # "worktree" for parallel file-modifying workers
 
     def to_markdown(self) -> str:
         """Generate agent markdown definition with team compatibility.
@@ -45,11 +50,12 @@ class AgentDefinition:
         """
         tools_str = ", ".join(self.tools)
         responsibilities = "\n".join(f"- {r}" for r in self.responsibilities)
+        isolation_line = f"\nisolation: {self.isolation}" if self.isolation else ""
 
         content = f"""---
 name: {self.name}
 description: {self.description}
-tools: {tools_str}
+tools: {tools_str}{isolation_line}
 ---
 
 # {self.name.replace("-", " ").title()}
@@ -875,16 +881,35 @@ SYSTEM_TEMPLATES: dict[str, dict[str, Any]] = {
 }
 
 
+def _needs_worktree_isolation(role: str, tools: list[str]) -> bool:
+    """Determine if an agent needs worktree isolation.
+
+    Workers with file-modifying tools (Write, Edit, Bash) need worktree
+    isolation when running in parallel to avoid file conflicts.
+    Orchestrators don't need isolation — they coordinate, not modify.
+    """
+    if role == "orchestrator":
+        return False
+    return bool(FILE_MODIFYING_TOOLS & set(tools))
+
+
 def create_agent_from_dict(data: dict[str, Any]) -> AgentDefinition:
     """Create AgentDefinition from dictionary."""
+    role = data["role"]
+    tools = data["tools"]
+    # Auto-set isolation for workers with file-modifying tools
+    isolation = data.get("isolation") or (
+        "worktree" if _needs_worktree_isolation(role, tools) else None
+    )
     return AgentDefinition(
         name=data["name"],
         description=data["description"],
-        role=data["role"],
-        tools=data["tools"],
+        role=role,
+        tools=tools,
         responsibilities=data["responsibilities"],
         inputs=data.get("inputs", []),
         outputs=data.get("outputs", []),
+        isolation=isolation,
     )
 
 
@@ -945,6 +970,8 @@ def generate_custom_system(
     worker_roles = _get_worker_roles(domain, worker_count)
 
     for role_name, role_desc, role_tools in worker_roles:
+        # Auto-set worktree isolation for workers with file-modifying tools
+        isolation = "worktree" if _needs_worktree_isolation("worker", role_tools) else None
         worker = AgentDefinition(
             name=f"{name}-{role_name}",
             description=role_desc,
@@ -955,6 +982,7 @@ def generate_custom_system(
                 "Report results to orchestrator",
             ],
             outputs=[f"{role_name.title()} output"],
+            isolation=isolation,
         )
         workers.append(worker)
 

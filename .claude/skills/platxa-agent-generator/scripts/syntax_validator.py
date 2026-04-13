@@ -464,6 +464,23 @@ def validate_frontmatter_fields(frontmatter: dict, start_line: int = 1) -> list[
                     ),
                 )
             )
+        elif isolation == "worktree" and tools:
+            # Warn if isolation: worktree is set but no file-modifying tools present
+            file_modifying_tools = {"Write", "Edit", "Bash"}
+            if not file_modifying_tools & set(tools):
+                errors.append(
+                    ValidationError(
+                        line=start_line,
+                        column=1,
+                        severity="warning",
+                        code="W021",
+                        message=(
+                            "isolation: worktree is set but agent has no file-modifying "
+                            "tools (Write, Edit, Bash). Worktree isolation is only useful "
+                            "for agents that modify files in parallel."
+                        ),
+                    )
+                )
 
     # Validate effort field (optional)
     if "effort" in frontmatter and frontmatter["effort"]:
