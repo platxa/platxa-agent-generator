@@ -240,6 +240,44 @@ def score_clarity(content: str, sections: dict[str, str]) -> CriterionScore:
         score -= 1.0
         suggestions.append("Consider shorter sentences for clarity")
 
+    # Check for redundant phrases (context efficiency)
+    redundant_phrases = [
+        r"\b(this agent|the agent) (is designed to|is responsible for|will)\b",
+        r"\b(please note|note that|it should be noted)\b",
+        r"\b(in order to|for the purpose of)\b",
+        r"\b(as mentioned (above|earlier|previously))\b",
+        r"\b(basically|essentially|fundamentally)\b",
+    ]
+    redundant_count = 0
+    for pattern in redundant_phrases:
+        redundant_count += len(re.findall(pattern, content, re.IGNORECASE))
+    if redundant_count > 3:
+        score -= 1.5
+        findings.append(f"Found {redundant_count} redundant/filler phrases")
+        suggestions.append(
+            "Remove filler phrases ('in order to' -> 'to', 'this agent is designed to' -> direct verb)"
+        )
+    elif redundant_count > 0:
+        score -= 0.5
+        findings.append(f"Found {redundant_count} minor redundant phrase(s)")
+
+    # Check for section content overlap (repeated instructions)
+    section_values = [v.strip().lower() for v in sections.values() if v.strip()]
+    for i, s1 in enumerate(section_values):
+        for s2 in section_values[i + 1 :]:
+            # Check for substantial overlap (>50 chars of shared text)
+            words1 = set(s1.split())
+            words2 = set(s2.split())
+            if len(words1) > 10 and len(words2) > 10:
+                overlap = words1 & words2
+                overlap_ratio = len(overlap) / min(len(words1), len(words2))
+                if overlap_ratio > 0.7:
+                    score -= 1.0
+                    suggestions.append(
+                        "Sections have high content overlap — consolidate repeated instructions"
+                    )
+                    break
+
     return CriterionScore(
         name="Clarity",
         weight=CRITERIA_WEIGHTS["clarity"],
@@ -271,6 +309,69 @@ def score_completeness(frontmatter: dict[str, str], sections: dict[str, str]) ->
         else:
             score -= 2.0
             suggestions.append(f"Add required field: {field_name}")
+
+    # Description conciseness checks (Anthropic's "smallest set of high-signal tokens")
+    description = frontmatter.get("description", "")
+    if description:
+        desc_len = len(description)
+        desc_words = description.split()
+
+        # Claude Code limits description to 1024 chars
+        if desc_len > 1024:
+            score -= 2.0
+            suggestions.append(
+                f"Description is {desc_len} chars — must be ≤1024. "
+                "Cut filler words, keep only what Claude needs for auto-delegation."
+            )
+        elif desc_len > 512:
+            score -= 0.5
+            findings.append(f"Description is {desc_len} chars — consider trimming")
+
+        # Action verb first — Claude auto-delegates better with verb-first descriptions
+        action_verbs = {
+            "analyze",
+            "build",
+            "check",
+            "create",
+            "debug",
+            "deploy",
+            "detect",
+            "evaluate",
+            "find",
+            "fix",
+            "generate",
+            "implement",
+            "inspect",
+            "lint",
+            "migrate",
+            "monitor",
+            "optimize",
+            "parse",
+            "refactor",
+            "review",
+            "run",
+            "scan",
+            "search",
+            "test",
+            "trace",
+            "validate",
+            "verify",
+            "write",
+        }
+        first_word = desc_words[0].lower().rstrip("s") if desc_words else ""
+        if first_word in action_verbs or first_word.rstrip("e") in action_verbs:
+            findings.append("Description starts with action verb (good for delegation)")
+        else:
+            score -= 0.5
+            suggestions.append(
+                "Start description with an action verb (e.g., 'Analyzes...', 'Generates...') "
+                "for better auto-delegation by Claude Code"
+            )
+
+        # Token estimate (4 chars per token heuristic)
+        estimated_tokens = desc_len // 4
+        if estimated_tokens > 256:
+            findings.append(f"Description ~{estimated_tokens} tokens — consider reducing")
 
     # Required sections
     required_sections = ["overview", "workflow", "examples"]
