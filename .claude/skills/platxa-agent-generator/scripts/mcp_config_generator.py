@@ -717,6 +717,57 @@ def generate(
     return True, result, output_file
 
 
+def generate_mcp_json(
+    server_names: list[str],
+    output_dir: str | Path = ".",
+) -> tuple[bool, str, str]:
+    """Generate a .mcp.json project config file for Claude Code.
+
+    Creates a .mcp.json file with the mcpServers wrapper format that
+    Claude Code expects. This is the single source of truth for MCP
+    server configuration in a project.
+
+    The file uses ${VAR} syntax for environment variable references
+    (e.g., ${DATABASE_URL}) so secrets are never hardcoded.
+
+    Args:
+        server_names: List of server names from SERVER_TEMPLATES
+        output_dir: Directory to write .mcp.json to (default: current dir)
+
+    Returns:
+        (success, message, file_path)
+    """
+    # Resolve servers from templates
+    servers: list[MCPServer] = []
+    unknown: list[str] = []
+
+    for name in server_names:
+        if name in SERVER_TEMPLATES:
+            servers.append(SERVER_TEMPLATES[name])
+        else:
+            unknown.append(name)
+
+    if unknown:
+        return False, f"Unknown MCP servers: {', '.join(unknown)}", ""
+
+    if not servers:
+        return False, "No servers specified", ""
+
+    # Build the mcpServers config (Claude Code .mcp.json format)
+    mcp_servers: dict[str, Any] = {}
+    for server in servers:
+        mcp_servers[server.name] = server_to_dict(server)
+
+    config = {"mcpServers": mcp_servers}
+
+    # Write to .mcp.json
+    output_path = Path(output_dir) / ".mcp.json"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
+
+    return True, f"Generated {output_path} with {len(servers)} server(s)", str(output_path)
+
+
 def list_templates() -> dict[str, Any]:
     """List available server templates and categories."""
     return {
