@@ -10054,5 +10054,261 @@ class TestCompositionDepthLimit:
         assert result.stdout.strip() == "False 1 True"
 
 
+class TestSkillsFrontmatter:
+    """Tests for the skills frontmatter field + discovery (feature #69).
+
+    Covers:
+    - AgentDefinition.skills emits a `skills:` line in frontmatter
+    - Empty skills list → no `skills:` line emitted
+    - discover_available_skills scans SKILL.md frontmatter for {name: description}
+    - Subdirectory without SKILL.md is skipped silently
+    - SKILL.md with malformed frontmatter is skipped (one bad skill ≠ blind catalog)
+    - Non-existent skills_dir → empty dict (no error)
+    - recommend_skills_for_agent ranks by token overlap, ties broken by name
+    - Stop-words ('the', 'and', ...) don't pollute matches
+    - limit <= 0 raises ValueError
+    - Empty description or empty catalog → empty list
+    - validate_skills_exist returns empty list when all skills present
+    - validate_skills_exist returns one error per missing skill, naming it
+    - DEFAULT_SKILLS_DIR / SKILL_MANIFEST_FILENAME / DEFAULT_SKILL_RECOMMENDATION_LIMIT exposed
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_constants_exposed(self) -> None:
+        """Module-level constants for skill discovery are public."""
+        result = self._run_py(
+            "from agent_generator import (\n"
+            "    DEFAULT_SKILLS_DIR,\n"
+            "    SKILL_MANIFEST_FILENAME,\n"
+            "    DEFAULT_SKILL_RECOMMENDATION_LIMIT,\n"
+            ")\n"
+            "print(DEFAULT_SKILLS_DIR, SKILL_MANIFEST_FILENAME,"
+            " DEFAULT_SKILL_RECOMMENDATION_LIMIT)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == ".claude/skills SKILL.md 5"
+
+    def test_frontmatter_emits_skills_when_set(self) -> None:
+        """`skills:` line appears in frontmatter when AgentDefinition.skills is non-empty."""
+        result = self._run_py(
+            "from agent_generator import AgentDefinition, generate_frontmatter\n"
+            "d = AgentDefinition(name='a', description='Agent',"
+            " tools=['Read'], skills=['skill-one', 'skill-two'])\n"
+            "fm = generate_frontmatter(d)\n"
+            "print('skills: skill-one, skill-two' in fm)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_frontmatter_omits_skills_when_empty(self) -> None:
+        """No `skills:` line when AgentDefinition.skills is the default empty list."""
+        result = self._run_py(
+            "from agent_generator import AgentDefinition, generate_frontmatter\n"
+            "d = AgentDefinition(name='a', description='Agent', tools=['Read'])\n"
+            "fm = generate_frontmatter(d)\n"
+            "print('skills:' in fm)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
+
+    def test_discover_skills_parses_frontmatter(self) -> None:
+        """discover_available_skills returns {name: description} for each SKILL.md."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_generator import discover_available_skills\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    base = Path(td)\n"
+            "    one = base / 'skill-one'\n"
+            "    one.mkdir()\n"
+            "    (one / 'SKILL.md').write_text(\n"
+            "        '---\\nname: skill-one\\ndescription: First skill\\n---\\nbody'\n"
+            "    )\n"
+            "    two = base / 'skill-two'\n"
+            "    two.mkdir()\n"
+            "    (two / 'SKILL.md').write_text(\n"
+            "        '---\\nname: skill-two\\ndescription: Second skill\\n---\\nbody'\n"
+            "    )\n"
+            "    found = discover_available_skills(base)\n"
+            "    print(sorted(found.items()))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == (
+            "[('skill-one', 'First skill'), ('skill-two', 'Second skill')]"
+        )
+
+    def test_discover_skips_dir_without_manifest(self) -> None:
+        """Subdirectory without SKILL.md is silently skipped."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_generator import discover_available_skills\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    base = Path(td)\n"
+            "    (base / 'no-manifest').mkdir()\n"
+            "    found = discover_available_skills(base)\n"
+            "    print(found)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "{}"
+
+    def test_discover_skips_malformed_manifest(self) -> None:
+        """One broken SKILL.md does not blind the discoverer to the rest."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_generator import discover_available_skills\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    base = Path(td)\n"
+            "    bad = base / 'bad'\n"
+            "    bad.mkdir()\n"
+            "    (bad / 'SKILL.md').write_text('not-yaml-frontmatter\\n')\n"
+            "    good = base / 'good'\n"
+            "    good.mkdir()\n"
+            "    (good / 'SKILL.md').write_text(\n"
+            "        '---\\nname: good\\ndescription: Good skill\\n---\\nbody'\n"
+            "    )\n"
+            "    found = discover_available_skills(base)\n"
+            "    print(sorted(found.keys()))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "['good']"
+
+    def test_discover_missing_dir_returns_empty(self) -> None:
+        """Non-existent skills_dir → empty dict (no error)."""
+        result = self._run_py(
+            "from agent_generator import discover_available_skills\n"
+            "found = discover_available_skills('/tmp/__definitely_no_such_dir__')\n"
+            "print(found)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "{}"
+
+    def test_recommend_ranks_by_overlap(self) -> None:
+        """Higher token overlap with description → higher rank."""
+        result = self._run_py(
+            "from agent_generator import recommend_skills_for_agent\n"
+            "available = {\n"
+            "    'security-audit': 'Security audit and vulnerability scanning',\n"
+            "    'pdf-tool': 'Generate PDF reports',\n"
+            "    'security-checklist': 'OWASP security checklist for review',\n"
+            "}\n"
+            "ranked = recommend_skills_for_agent('Run a security audit on the auth code', available)\n"
+            "print(ranked)"
+        )
+        assert result.returncode == 0, result.stderr
+        # security-audit has 2 token overlap (security, audit); security-checklist has 1
+        # (security); pdf-tool has 0.
+        assert result.stdout.strip() == "['security-audit', 'security-checklist']"
+
+    def test_recommend_drops_stop_words(self) -> None:
+        """Stop-words alone in description should not match anything."""
+        result = self._run_py(
+            "from agent_generator import recommend_skills_for_agent\n"
+            "available = {'foo': 'foo bar baz'}\n"
+            "ranked = recommend_skills_for_agent('the and for with', available)\n"
+            "print(ranked)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "[]"
+
+    def test_recommend_zero_limit_raises(self) -> None:
+        """limit <= 0 raises ValueError (callers asking for 'no skills' should not call)."""
+        result = self._run_py(
+            "from agent_generator import recommend_skills_for_agent\n"
+            "try:\n"
+            "    recommend_skills_for_agent('x', {'a': 'a'}, limit=0)\n"
+            "    print('NO_RAISE')\n"
+            "except ValueError as e:\n"
+            "    print('RAISED', 'positive' in str(e))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "RAISED True"
+
+    def test_recommend_empty_inputs_return_empty(self) -> None:
+        """Empty description or empty catalog → empty list, no error."""
+        result = self._run_py(
+            "from agent_generator import recommend_skills_for_agent\n"
+            "print(recommend_skills_for_agent('', {'a': 'b'}))\n"
+            "print(recommend_skills_for_agent('abc', {}))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["[]", "[]"]
+
+    def test_recommend_respects_limit(self) -> None:
+        """When more skills overlap than limit allows, the top N are returned."""
+        result = self._run_py(
+            "from agent_generator import recommend_skills_for_agent\n"
+            "available = {f'skill-{i}': 'security audit review' for i in range(10)}\n"
+            "ranked = recommend_skills_for_agent('security audit review', available, limit=3)\n"
+            "print(len(ranked))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "3"
+
+    def test_validate_skills_exist_all_present(self) -> None:
+        """Empty error list when every skill resolves on disk."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_generator import validate_skills_exist\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    base = Path(td)\n"
+            "    s = base / 'present-skill'\n"
+            "    s.mkdir()\n"
+            "    (s / 'SKILL.md').write_text(\n"
+            "        '---\\nname: present-skill\\ndescription: Here\\n---\\nbody'\n"
+            "    )\n"
+            "    errors = validate_skills_exist(['present-skill'], base)\n"
+            "    print(errors)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "[]"
+
+    def test_validate_skills_exist_reports_missing(self) -> None:
+        """One error per missing skill, naming the missing skill."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_generator import validate_skills_exist\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    base = Path(td)\n"
+            "    s = base / 'present-skill'\n"
+            "    s.mkdir()\n"
+            "    (s / 'SKILL.md').write_text(\n"
+            "        '---\\nname: present-skill\\ndescription: Here\\n---\\nbody'\n"
+            "    )\n"
+            "    errors = validate_skills_exist(\n"
+            "        ['present-skill', 'ghost-skill', 'phantom'], base\n"
+            "    )\n"
+            "    print(len(errors),"
+            " 'ghost-skill' in errors[0],"
+            " 'phantom' in errors[1])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "2 True True"
+
+    def test_validate_empty_skills_returns_empty(self) -> None:
+        """No skills to check → no errors, no disk access."""
+        result = self._run_py(
+            "from agent_generator import validate_skills_exist\n"
+            "print(validate_skills_exist([], '/tmp/__no_such_dir__'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "[]"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

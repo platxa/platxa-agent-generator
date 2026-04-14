@@ -225,6 +225,7 @@ class AgentDefinition:
     color: str | None = None  # CSS color string for UI display (e.g. "red", "#ff0000")
     mcp_servers: dict[str, Any] = field(default_factory=dict)  # mcpServers frontmatter block
     recommended_hooks: dict[str, Any] = field(default_factory=dict)  # Companion hooks config
+    skills: list[str] = field(default_factory=list)  # Skill names surfaced to the agent
     sections: list[AgentSection] = field(default_factory=list)
     workers: list[WorkerDefinition] = field(default_factory=list)
     chain_steps: list[ChainStep] = field(default_factory=list)
@@ -418,6 +419,13 @@ def generate_frontmatter(definition: AgentDefinition) -> str:
     if definition.color:
         lines.append(f"color: {definition.color}")
 
+    # Skills — list of named Claude Code skills the agent should know about.
+    # Emitted as a comma-separated list so the format mirrors `tools:` and
+    # round-trips cleanly through YAML parsers. Skipped when empty so simple
+    # agents stay terse.
+    if definition.skills:
+        lines.append(f"skills: {', '.join(definition.skills)}")
+
     # MCP servers — nested YAML block for external tool integrations
     # Format: mcpServers:\n  server-name:\n    command: ...\n    args: [...]
     if definition.mcp_servers:
@@ -439,6 +447,208 @@ def generate_frontmatter(definition: AgentDefinition) -> str:
 
     lines.append("---")
     return "\n".join(lines)
+
+
+# Default location for project-scoped Claude Code skills. Centralized as a
+# constant so the skill-discovery helpers don't repeat the literal and so
+# tests can override it cleanly. Other code that needs to look up skills
+# (e.g. the agent-generator's recommendation pass) imports this constant.
+DEFAULT_SKILLS_DIR: str = ".claude/skills"
+
+# Filename inside each skill directory that carries the skill's frontmatter
+# (name + description + allowed-tools). Pinned to the Claude Code convention.
+SKILL_MANIFEST_FILENAME: str = "SKILL.md"
+
+# Cap on how many skills the recommender returns by default. Keeps frontmatter
+# terse and forces the recommender to be selective rather than dumping the
+# whole catalog.
+DEFAULT_SKILL_RECOMMENDATION_LIMIT: int = 5
+
+
+def _parse_skill_manifest(manifest_path: Path) -> tuple[str, str] | None:
+    """Read a SKILL.md and extract (name, description) from its YAML frontmatter.
+
+    Returns ``None`` when the file is missing, unreadable, missing
+    frontmatter, or missing the required fields. Never raises — discovery
+    must keep going across the rest of the catalog if one skill is
+    malformed (a single broken SKILL.md should not blind the agent to all
+    other skills).
+    """
+    try:
+        text = manifest_path.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if not text.startswith("---"):
+        return None
+    try:
+        end = text.index("\n---", 3)
+    except ValueError:
+        return None
+    frontmatter = text[3:end]
+    name: str | None = None
+    description: str | None = None
+    for line in frontmatter.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("name:"):
+            name = stripped.split(":", 1)[1].strip()
+        elif stripped.startswith("description:"):
+            description = stripped.split(":", 1)[1].strip()
+        if name and description:
+            break
+    if not name or not description:
+        return None
+    return name, description
+
+
+def discover_available_skills(skills_dir: Path | str = DEFAULT_SKILLS_DIR) -> dict[str, str]:
+    """Scan ``skills_dir`` for SKILL.md manifests and return ``{name: description}``.
+
+    Each immediate subdirectory of ``skills_dir`` is treated as a skill
+    candidate. The skill is included only when its ``SKILL.md`` parses
+    successfully and exposes both ``name`` and ``description`` in its
+    YAML frontmatter.
+
+    Returns an empty dict when ``skills_dir`` does not exist (callers
+    should treat "no skills available" as a normal state, not an error).
+    """
+    base = Path(skills_dir)
+    if not base.is_dir():
+        return {}
+    discovered: dict[str, str] = {}
+    for child in sorted(base.iterdir()):
+        if not child.is_dir():
+            continue
+        manifest = child / SKILL_MANIFEST_FILENAME
+        parsed = _parse_skill_manifest(manifest)
+        if parsed is None:
+            continue
+        name, description = parsed
+        discovered[name] = description
+    return discovered
+
+
+def _tokenize_for_skill_match(text: str) -> set[str]:
+    """Lowercase, split on non-word characters, drop short stop-words.
+
+    The recommender is intentionally simple: lexical overlap, no embeddings.
+    Stop-words are dropped so generic words like "the" don't pull in every
+    skill in the catalog. Two-character tokens are kept (``ci``, ``js``,
+    ``go``) because they're often the most discriminating tokens.
+    """
+    stop = {
+        "the",
+        "and",
+        "for",
+        "with",
+        "from",
+        "that",
+        "this",
+        "into",
+        "use",
+        "uses",
+        "using",
+        "when",
+        "what",
+        "how",
+        "to",
+        "of",
+        "a",
+        "an",
+        "in",
+        "on",
+        "by",
+        "is",
+        "be",
+        "as",
+        "at",
+        "or",
+        "it",
+        "its",
+        "you",
+        "your",
+        "we",
+        "us",
+        "our",
+        "are",
+        "was",
+        "were",
+        "has",
+        "have",
+        "had",
+    }
+    tokens: set[str] = set()
+    for raw in re.split(r"\W+", text.lower()):
+        if not raw or raw in stop:
+            continue
+        if len(raw) < 2:
+            continue
+        tokens.add(raw)
+    return tokens
+
+
+def recommend_skills_for_agent(
+    description: str,
+    available_skills: dict[str, str],
+    limit: int = DEFAULT_SKILL_RECOMMENDATION_LIMIT,
+) -> list[str]:
+    """Rank ``available_skills`` by lexical overlap with ``description``.
+
+    Args:
+        description: The agent's purpose / task description.
+        available_skills: ``{skill_name: skill_description}`` (typically
+            from :func:`discover_available_skills`).
+        limit: Maximum skills to return. Defaults to
+            :data:`DEFAULT_SKILL_RECOMMENDATION_LIMIT`. ``limit <= 0``
+            raises ``ValueError`` rather than silently returning an empty
+            list — callers asking for "no skills" should not call this.
+
+    Returns:
+        Skill names in descending overlap order. Skills with zero overlap
+        are excluded entirely (so an empty list means nothing matched,
+        not that ``available_skills`` was empty). Ties are broken by
+        skill name for deterministic output.
+    """
+    if limit <= 0:
+        raise ValueError(f"recommend_skills_for_agent limit must be positive; got {limit}")
+    if not description.strip() or not available_skills:
+        return []
+    desc_tokens = _tokenize_for_skill_match(description)
+    if not desc_tokens:
+        return []
+    scored: list[tuple[int, str]] = []
+    for name, skill_desc in available_skills.items():
+        skill_tokens = _tokenize_for_skill_match(f"{name} {skill_desc}")
+        overlap = len(desc_tokens & skill_tokens)
+        if overlap > 0:
+            scored.append((overlap, name))
+    # Sort by descending score, then ascending name (stable, deterministic).
+    scored.sort(key=lambda pair: (-pair[0], pair[1]))
+    return [name for _, name in scored[:limit]]
+
+
+def validate_skills_exist(
+    skills: list[str],
+    skills_dir: Path | str = DEFAULT_SKILLS_DIR,
+) -> list[str]:
+    """Return a list of error messages for any skill in ``skills`` not on disk.
+
+    Empty input → empty output (no errors). One error per missing skill,
+    naming the skill so the message is actionable without further lookup.
+    Returns an empty list when every skill resolves; callers can use
+    ``not validate_skills_exist(...)`` as a boolean health check.
+    """
+    if not skills:
+        return []
+    available = discover_available_skills(skills_dir)
+    errors: list[str] = []
+    for name in skills:
+        if name not in available:
+            errors.append(
+                f"Skill '{name}' is not available under {skills_dir} "
+                f"(no '{SKILL_MANIFEST_FILENAME}' found, or its frontmatter "
+                "is missing 'name' / 'description')."
+            )
+    return errors
 
 
 # Role-based hook recommendations.
