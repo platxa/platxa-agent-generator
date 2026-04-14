@@ -409,6 +409,144 @@ def score_completeness(frontmatter: dict[str, str], sections: dict[str, str]) ->
     )
 
 
+@dataclass
+class ToolValidationReport:
+    """Cross-validation result between declared tools and workflow references.
+
+    Used by score_tool_design to adjust the tool_design criterion score and
+    by external validators (syntax_validator, dry_run) to surface errors and
+    warnings with explicit severity.
+
+    Fields:
+        declared: Tool names from the frontmatter ``tools:`` field.
+        referenced: Tool names mentioned in the Workflow section.
+        unused: declared - referenced. Each entry is a WARNING (non-blocking).
+        undeclared: referenced - declared. Each entry is an ERROR (blocking).
+        matched: Intersection — tools both declared and used.
+    """
+
+    declared: list[str] = field(default_factory=list)
+    referenced: list[str] = field(default_factory=list)
+    unused: list[str] = field(default_factory=list)
+    undeclared: list[str] = field(default_factory=list)
+    matched: list[str] = field(default_factory=list)
+
+    @property
+    def has_errors(self) -> bool:
+        """True when any undeclared tool references are present."""
+        return bool(self.undeclared)
+
+    @property
+    def has_warnings(self) -> bool:
+        """True when any declared tools are unused in the workflow."""
+        return bool(self.unused)
+
+
+# Tool names in Claude Code are CamelCase single words (e.g. Read, Grep,
+# MultiEdit, WebFetch). MCP tools follow the pattern ``mcp__server__tool``.
+# We match with explicit boundaries:
+#   - for standard tools: ``\bToolName\b``
+#   - for MCP tools: the full ``mcp__server__tool`` string (underscores are
+#     part of a single logical identifier so \b on both sides still works).
+#
+# Case-sensitive on purpose: "read the file" must NOT match the Read tool.
+_TOOL_BOUNDARY_RE_CACHE: dict[str, re.Pattern[str]] = {}
+
+
+def _tool_reference_pattern(tool: str) -> re.Pattern[str]:
+    """Return a compiled, cached word-boundary regex for a tool name."""
+    if tool not in _TOOL_BOUNDARY_RE_CACHE:
+        _TOOL_BOUNDARY_RE_CACHE[tool] = re.compile(rf"\b{re.escape(tool)}\b")
+    return _TOOL_BOUNDARY_RE_CACHE[tool]
+
+
+def _extract_workflow_text(sections: dict[str, str]) -> str:
+    """Return the combined text of any workflow-related sections.
+
+    Matches 'Workflow', 'Workflows', and any heading ending in ' Workflow'
+    (e.g. 'Implementation Workflow'). Case-insensitive on the heading.
+    Returns an empty string if no workflow section is present.
+    """
+    parts: list[str] = []
+    for name, body in sections.items():
+        lowered = name.lower().strip()
+        if lowered == "workflow" or lowered == "workflows" or lowered.endswith(" workflow"):
+            parts.append(body)
+    return "\n\n".join(parts)
+
+
+def cross_validate_tools_vs_workflow(
+    frontmatter: dict[str, str],
+    sections: dict[str, str],
+) -> ToolValidationReport:
+    """Cross-validate the declared tools list against workflow references.
+
+    Compares the tools declared in the frontmatter ``tools:`` field against
+    the tools actually mentioned in the Workflow section(s) of the agent's
+    body. Used to catch two common authoring mistakes:
+
+    * Declared-but-unused tools — the frontmatter grants permission to a
+      tool the workflow never references. Over-permissioning violates the
+      principle of least privilege, but does not break the agent. Reported
+      as WARNINGs.
+    * Referenced-but-undeclared tools — the workflow tells the agent to
+      call a tool that is not in the frontmatter tools list. This is a
+      runtime failure waiting to happen because Claude Code will refuse
+      the undeclared call. Reported as ERRORs.
+
+    Detection rules:
+    * Tool references are matched with word boundaries — "Read" matches the
+      Read tool but not the word "readable".
+    * MCP tool names (``mcp__server__tool``) are matched as full identifiers.
+    * Only tools in the VALID_TOOLS set (or matching the ``mcp__`` prefix)
+      count as "references" — this prevents the algorithm from flagging
+      every capitalised word in the workflow as an undeclared tool.
+
+    Args:
+        frontmatter: Parsed frontmatter dict (as returned by parse_agent_file).
+        sections: Parsed sections dict.
+
+    Returns:
+        ToolValidationReport with declared / referenced / unused / undeclared
+        / matched tool lists populated. When no workflow section exists,
+        ``referenced`` and ``undeclared`` are empty — you can't fail the
+        cross-check on a section that isn't there.
+    """
+    declared_raw = [t.strip() for t in frontmatter.get("tools", "").split(",") if t.strip()]
+    declared_set = set(declared_raw)
+
+    workflow_text = _extract_workflow_text(sections)
+
+    # Build the set of candidate tool names the workflow might reference.
+    # Candidates = every standard tool (from VALID_TOOLS) + every MCP tool
+    # actually declared in the frontmatter. We don't try to invent MCP tool
+    # names from workflow text — MCP tool names are arbitrary, so the only
+    # way a workflow can reference an undeclared MCP tool is by spelling out
+    # one that was already declared, which isn't a bug.
+    candidate_tools: set[str] = set(VALID_TOOLS)
+    candidate_tools.update(t for t in declared_raw if t.startswith("mcp__"))
+
+    referenced_set: set[str] = set()
+    if workflow_text:
+        for tool in candidate_tools:
+            if _tool_reference_pattern(tool).search(workflow_text):
+                referenced_set.add(tool)
+
+    unused = sorted(declared_set - referenced_set)
+    # An undeclared reference means the workflow names a tool the frontmatter
+    # never authorised. Only meaningful when a workflow exists.
+    undeclared = sorted(referenced_set - declared_set) if workflow_text else []
+    matched = sorted(declared_set & referenced_set)
+
+    return ToolValidationReport(
+        declared=sorted(declared_set),
+        referenced=sorted(referenced_set),
+        unused=unused,
+        undeclared=undeclared,
+        matched=matched,
+    )
+
+
 def score_tool_design(frontmatter: dict[str, str], content: str) -> CriterionScore:
     """
     Score tool selection and usage patterns.
@@ -462,20 +600,43 @@ def score_tool_design(frontmatter: dict[str, str], content: str) -> CriterionSco
             score -= 1.0
             suggestions.append("Document security considerations for high-risk tools")
 
-    # Check if tools are referenced in workflow
-    tools_mentioned = 0
-    for tool in tools:
-        if tool and tool in content:
-            tools_mentioned += 1
+    # Cross-validate the tools list against the Workflow section.
+    # Unused tools are WARNINGs (over-permissioned but non-breaking).
+    # Undeclared references are ERRORs (workflow calls a tool the agent
+    # lacks permission for — runtime failure waiting to happen).
+    parsed_frontmatter, parsed_sections, *_ = parse_agent_file(content)
+    tool_validation = cross_validate_tools_vs_workflow(parsed_frontmatter, parsed_sections)
 
-    if tools_mentioned == 0:
+    if tool_validation.matched:
+        findings.append(f"{len(tool_validation.matched)}/{len(tools)} tools referenced in workflow")
+    elif not tool_validation.referenced and not tool_validation.declared:
+        # No declared tools AND no workflow references — already penalised above.
+        pass
+    elif not tool_validation.matched and tool_validation.declared:
+        # Workflow exists but references none of the declared tools.
         score -= 2.0
-        suggestions.append("Reference tools in workflow section")
-    elif tools_mentioned < len(tools) / 2:
-        score -= 1.0
-        suggestions.append("Reference more tools in workflow")
-    else:
-        findings.append(f"{tools_mentioned}/{len(tools)} tools referenced in content")
+        suggestions.append("Reference declared tools in the Workflow section")
+
+    if tool_validation.undeclared:
+        # ERROR per criterion: undeclared tool references are broken agents.
+        # -2.0 per undeclared tool, capped at -4.0 so a workflow with many
+        # errors still leaves room for other signals to contribute.
+        penalty = min(len(tool_validation.undeclared) * 2.0, 4.0)
+        score -= penalty
+        suggestions.append(
+            "ERROR: workflow references undeclared tools: "
+            f"{', '.join(tool_validation.undeclared)} — add to frontmatter tools"
+        )
+
+    if tool_validation.unused:
+        # WARNING per criterion: declared but unused tools are over-permissioning.
+        # -0.5 per unused tool, capped at -2.0.
+        penalty = min(len(tool_validation.unused) * 0.5, 2.0)
+        score -= penalty
+        suggestions.append(
+            "WARNING: declared tools never used in workflow: "
+            f"{', '.join(tool_validation.unused)} — remove or reference them"
+        )
 
     # Check for Task tool usage with subagent patterns
     if "Task" in tools:

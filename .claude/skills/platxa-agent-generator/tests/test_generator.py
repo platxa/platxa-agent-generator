@@ -7508,5 +7508,238 @@ class TestDryRunPreviewEnhancements:
         assert "grade" in data["quality"]
 
 
+class TestToolWorkflowCrossValidation:
+    """Tests for tools/workflow cross-validation (Feature #48).
+
+    The validator detects two classes of mistake:
+    - Unused tools (declared in frontmatter, not referenced in workflow)
+      → WARNING (non-blocking over-permissioning)
+    - Undeclared tools (referenced in workflow, not in frontmatter)
+      → ERROR (agent will fail at runtime when the tool is invoked)
+    The quality_scorer tool_design criterion reflects both.
+    """
+
+    def _run_py(self, code: str) -> subprocess.CompletedProcess:
+        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        return subprocess.run(
+            [sys.executable, "-c", prologue + code],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_clean_agent_has_no_unused_or_undeclared(self) -> None:
+        content = (
+            "---\n"
+            "name: clean-agent\n"
+            "description: Matches tools to workflow usage\n"
+            "tools: Read, Grep, Glob\n"
+            "---\n\n"
+            "# Clean\n\n"
+            "## Workflow\n"
+            "1. Use Read to load files\n"
+            "2. Use Grep to search\n"
+            "3. Use Glob to find\n"
+        )
+        result = self._run_py(
+            "import json\n"
+            "from quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
+            f"fm, sec, _ = parse_agent_file({content!r})\n"
+            "r = cross_validate_tools_vs_workflow(fm, sec)\n"
+            "print(json.dumps({"
+            "'unused': r.unused, 'undeclared': r.undeclared, "
+            "'matched': r.matched, "
+            "'has_errors': r.has_errors, 'has_warnings': r.has_warnings"
+            "}))"
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert data["unused"] == []
+        assert data["undeclared"] == []
+        assert set(data["matched"]) == {"Read", "Grep", "Glob"}
+        assert not data["has_errors"]
+        assert not data["has_warnings"]
+
+    def test_unused_tool_is_flagged_as_warning(self) -> None:
+        content = (
+            "---\n"
+            "name: unused-tool\n"
+            "description: Bash declared but never used\n"
+            "tools: Read, Bash\n"
+            "---\n\n"
+            "# Unused Tool\n\n"
+            "## Workflow\n"
+            "1. Use Read to load files\n"
+            "2. Report results\n"
+        )
+        result = self._run_py(
+            "import json\n"
+            "from quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
+            f"fm, sec, _ = parse_agent_file({content!r})\n"
+            "r = cross_validate_tools_vs_workflow(fm, sec)\n"
+            "print(json.dumps({'unused': r.unused, 'undeclared': r.undeclared, "
+            "'has_errors': r.has_errors, 'has_warnings': r.has_warnings}))"
+        )
+        data = json.loads(result.stdout)
+        assert data["unused"] == ["Bash"]
+        assert data["undeclared"] == []
+        assert data["has_warnings"]
+        assert not data["has_errors"]
+
+    def test_undeclared_tool_is_flagged_as_error(self) -> None:
+        content = (
+            "---\n"
+            "name: undeclared-tool\n"
+            "description: Workflow references Bash without declaring it\n"
+            "tools: Read\n"
+            "---\n\n"
+            "# Undeclared Tool\n\n"
+            "## Workflow\n"
+            "1. Use Read to load files\n"
+            "2. Use Bash to execute commands\n"
+        )
+        result = self._run_py(
+            "import json\n"
+            "from quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
+            f"fm, sec, _ = parse_agent_file({content!r})\n"
+            "r = cross_validate_tools_vs_workflow(fm, sec)\n"
+            "print(json.dumps({'unused': r.unused, 'undeclared': r.undeclared, "
+            "'has_errors': r.has_errors}))"
+        )
+        data = json.loads(result.stdout)
+        assert data["undeclared"] == ["Bash"]
+        assert data["has_errors"]
+
+    def test_word_boundary_prevents_substring_false_positives(self) -> None:
+        """'Read' tool must NOT match the word 'readable' in workflow text."""
+        content = (
+            "---\n"
+            "name: wb\n"
+            "description: No false positives on substrings\n"
+            "tools: Grep\n"
+            "---\n\n"
+            "# WB\n\n"
+            "## Workflow\n"
+            "1. Use Grep to find readable patterns\n"
+            "2. The readable output is returned\n"
+        )
+        result = self._run_py(
+            "import json\n"
+            "from quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
+            f"fm, sec, _ = parse_agent_file({content!r})\n"
+            "r = cross_validate_tools_vs_workflow(fm, sec)\n"
+            "print(json.dumps({'referenced': r.referenced, 'undeclared': r.undeclared}))"
+        )
+        data = json.loads(result.stdout)
+        assert "Read" not in data["referenced"], data
+        assert data["undeclared"] == []
+
+    def test_missing_workflow_section_yields_no_undeclared(self) -> None:
+        """Without a workflow section, we can't fail the cross-check."""
+        content = (
+            "---\n"
+            "name: no-workflow\n"
+            "description: Agent with no workflow section\n"
+            "tools: Read, Grep\n"
+            "---\n\n"
+            "# No Workflow\n\n"
+            "## Overview\n"
+            "This agent has no workflow section.\n"
+        )
+        result = self._run_py(
+            "import json\n"
+            "from quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
+            f"fm, sec, _ = parse_agent_file({content!r})\n"
+            "r = cross_validate_tools_vs_workflow(fm, sec)\n"
+            "print(json.dumps({'unused': r.unused, 'undeclared': r.undeclared}))"
+        )
+        data = json.loads(result.stdout)
+        assert data["undeclared"] == []
+        assert set(data["unused"]) == {"Read", "Grep"}
+
+    def test_mcp_tool_names_are_matched_as_full_identifiers(self) -> None:
+        content = (
+            "---\n"
+            "name: mcp-agent\n"
+            "description: Uses an MCP tool\n"
+            "tools: Read, mcp__filesystem__read_file\n"
+            "---\n\n"
+            "# MCP Agent\n\n"
+            "## Workflow\n"
+            "1. Use Read for project files\n"
+            "2. Use mcp__filesystem__read_file for external paths\n"
+        )
+        result = self._run_py(
+            "import json\n"
+            "from quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
+            f"fm, sec, _ = parse_agent_file({content!r})\n"
+            "r = cross_validate_tools_vs_workflow(fm, sec)\n"
+            "print(json.dumps({'matched': r.matched, "
+            "'unused': r.unused, 'undeclared': r.undeclared}))"
+        )
+        data = json.loads(result.stdout)
+        assert "mcp__filesystem__read_file" in data["matched"], data
+        assert data["unused"] == []
+        assert data["undeclared"] == []
+
+    def test_tool_design_score_ordering_clean_unused_undeclared(self) -> None:
+        """Equal tool counts: clean > unused > undeclared (via score_quality)."""
+        clean = (
+            "---\n"
+            "name: clean\ndescription: Clean alignment\ntools: Read, Bash\n"
+            "---\n\n## Workflow\n1. Use Read to load files carefully\n"
+            "2. Use Bash to run validation with care and safety\n"
+        )
+        unused = (
+            "---\n"
+            "name: unused\ndescription: Read is unused\ntools: Read, Bash\n"
+            "---\n\n## Workflow\n1. Use Bash to run validation with care and safety\n"
+        )
+        undeclared = (
+            "---\n"
+            "name: undeclared\ndescription: Grep is undeclared\ntools: Read, Bash\n"
+            "---\n\n## Workflow\n1. Use Read carefully and safely\n"
+            "2. Use Bash with care\n"
+            "3. Use Grep to find patterns\n"
+        )
+        result = self._run_py(
+            "import json\n"
+            "from quality_scorer import score_quality\n"
+            f"clean = {clean!r}\nunused = {unused!r}\nundeclared = {undeclared!r}\n"
+            "def td(c):\n"
+            "    return next(x for x in score_quality(c).criteria if x.name == 'Tool Design').score\n"
+            "print(json.dumps({'clean': td(clean), 'unused': td(unused), "
+            "'undeclared': td(undeclared)}))"
+        )
+        assert result.returncode == 0, result.stderr
+        scores = json.loads(result.stdout)
+        assert scores["unused"] < scores["clean"], scores
+        assert scores["undeclared"] < scores["unused"], scores
+
+    def test_tool_design_suggestions_label_severity(self) -> None:
+        """Suggestions say 'WARNING' for unused and 'ERROR' for undeclared."""
+        undeclared = (
+            "---\n"
+            "name: agent\ndescription: Uses Grep without declaring\ntools: Read\n"
+            "---\n\n## Workflow\n1. Use Read and then Grep for patterns\n"
+        )
+        unused = (
+            "---\n"
+            "name: agent\ndescription: Read never used\ntools: Read, Bash\n"
+            "---\n\n## Workflow\n1. Use Bash carefully and safely\n"
+        )
+        result = self._run_py(
+            "import json\n"
+            "from quality_scorer import score_quality\n"
+            f"u = {unused!r}\nd = {undeclared!r}\n"
+            "def sugg(c):\n"
+            "    td = next(x for x in score_quality(c).criteria if x.name == 'Tool Design')\n"
+            "    return td.suggestions\n"
+            "print(json.dumps({'unused': sugg(u), 'undeclared': sugg(d)}))"
+        )
+        data = json.loads(result.stdout)
+        assert any("WARNING" in s for s in data["unused"]), data["unused"]
+        assert any("ERROR" in s for s in data["undeclared"]), data["undeclared"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
