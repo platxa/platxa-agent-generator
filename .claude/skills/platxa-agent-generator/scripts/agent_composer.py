@@ -131,6 +131,67 @@ ROUTER_TABLE_HEADER: str = "## Routing Table"
 ROUTER_FALLBACK_HEADER: str = "## Fallback Handler"
 
 
+# Maximum allowed depth for hierarchical composition (orchestrator → worker
+# → sub-worker chains). A composition at this depth is still valid; anything
+# strictly greater fails validation. Capped to keep generated agents
+# debuggable and to prevent runaway recursion when one orchestrator
+# composes another. Three levels matches the orchestrator-workers research
+# guidance: a top-level coordinator, a layer of specialized workers, and
+# at most one layer of helpers below each worker.
+MAX_COMPOSITION_DEPTH: int = 3
+
+# Depth at which a non-blocking warning is surfaced. Composing at this
+# depth is allowed (it sits within MAX_COMPOSITION_DEPTH) but the
+# composer flags it so the caller can reconsider whether the nesting
+# is justified before pushing closer to the hard cap.
+WARN_COMPOSITION_DEPTH: int = 2
+
+
+def validate_composition_depth(depth: int) -> tuple[list[str], list[str]]:
+    """Validate a hierarchical composition depth.
+
+    Args:
+        depth: The depth (1-indexed) of the composition being created.
+            Top-level orchestrators are depth=1; an orchestrator whose
+            workers are themselves orchestrators is depth=2; and so on.
+
+    Returns:
+        Tuple ``(errors, warnings)``:
+
+        - ``errors``: Non-empty when ``depth > MAX_COMPOSITION_DEPTH`` or
+          ``depth < 1``. Callers must treat a non-empty list as a
+          composition failure.
+        - ``warnings``: Non-empty when ``WARN_COMPOSITION_DEPTH <= depth
+          <= MAX_COMPOSITION_DEPTH``. Non-blocking — surface to the user
+          but allow composition to proceed.
+    """
+    errors: list[str] = []
+    warnings: list[str] = []
+    if depth < 1:
+        errors.append(
+            f"Composition depth must be >= 1 (top-level=1); got {depth}. "
+            "Pass the orchestrator's own depth, not the depth of its workers."
+        )
+        return errors, warnings
+    if depth > MAX_COMPOSITION_DEPTH:
+        errors.append(
+            f"Composition depth {depth} exceeds MAX_COMPOSITION_DEPTH="
+            f"{MAX_COMPOSITION_DEPTH}. Hierarchies deeper than "
+            f"{MAX_COMPOSITION_DEPTH} levels become hard to debug and "
+            "are usually a signal to flatten the design (e.g. promote "
+            "a sub-worker to a peer worker, or split into two pipelines)."
+        )
+        return errors, warnings
+    if depth >= WARN_COMPOSITION_DEPTH:
+        warnings.append(
+            f"Composition depth {depth} is at or above "
+            f"WARN_COMPOSITION_DEPTH={WARN_COMPOSITION_DEPTH}. Consider "
+            "whether the nesting is essential before composing further "
+            f"(hard limit is MAX_COMPOSITION_DEPTH={MAX_COMPOSITION_DEPTH})."
+        )
+    return errors, warnings
+
+
 def check_compatibility(agents: list[AgentSpec]) -> CompatibilityCheck:
     """
     Check if agents are compatible for composition.
@@ -858,6 +919,7 @@ def create_orchestrator(
     workers: list[AgentSpec],
     description: str | None = None,
     decomposition_strategy: str = "dynamic",
+    depth: int = 1,
 ) -> CompositionResult:
     """
     Create an orchestrator agent from worker specifications.
@@ -869,10 +931,29 @@ def create_orchestrator(
         workers: List of worker agent specifications
         description: Description
         decomposition_strategy: How to decompose tasks (dynamic, fixed, hybrid)
+        depth: 1-indexed depth of this orchestrator in a hierarchical
+            composition. Top-level orchestrators use ``depth=1`` (the
+            default). When this orchestrator's workers are themselves
+            orchestrators, callers should pass ``depth=2`` for the
+            outer orchestrator, ``depth=3`` for the next layer, etc.
+            Validation fails when ``depth > MAX_COMPOSITION_DEPTH`` and
+            a warning is emitted when ``depth >= WARN_COMPOSITION_DEPTH``.
 
     Returns:
         CompositionResult with the orchestrator agent
     """
+    depth_errors, depth_warnings = validate_composition_depth(depth)
+    if depth_errors:
+        return CompositionResult(
+            success=False,
+            composite_name="",
+            pattern=CompositionPattern.HIERARCHICAL,
+            agent_content="",
+            component_agents=[],
+            tools_merged=[],
+            errors=depth_errors,
+        )
+
     if len(workers) < 1:
         return CompositionResult(
             success=False,
@@ -974,6 +1055,7 @@ Strategy: **{decomposition_strategy.title()}**
         agent_content=content,
         component_agents=[w.name for w in workers],
         tools_merged=tools,
+        warnings=depth_warnings,
     )
 
 

@@ -9903,5 +9903,156 @@ class TestComposeRouter:
         assert result.stdout.strip() == "my-router True True"
 
 
+class TestCompositionDepthLimit:
+    """Tests for hierarchical composition depth limit (feature #68).
+
+    Verifies that agent_composer.py:
+    - Exposes MAX_COMPOSITION_DEPTH=3 and WARN_COMPOSITION_DEPTH=2 constants
+    - validate_composition_depth() returns (errors, warnings) tuples
+    - create_orchestrator(depth=...) fails when depth > MAX
+    - create_orchestrator(depth=2 or 3) emits a non-blocking warning
+    - create_orchestrator(depth=1) is silent (no warnings)
+    - depth < 1 fails loud
+    - default depth (no kwarg) is treated as top-level (no warning)
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_constants_exposed(self) -> None:
+        """MAX_COMPOSITION_DEPTH=3 and WARN_COMPOSITION_DEPTH=2 are public."""
+        result = self._run_py(
+            "from agent_composer import MAX_COMPOSITION_DEPTH, WARN_COMPOSITION_DEPTH\n"
+            "print(MAX_COMPOSITION_DEPTH, WARN_COMPOSITION_DEPTH)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "3 2"
+
+    def test_validate_depth_valid_top_level(self) -> None:
+        """depth=1 → no errors, no warnings."""
+        result = self._run_py(
+            "from agent_composer import validate_composition_depth\n"
+            "errs, warns = validate_composition_depth(1)\n"
+            "print(len(errs), len(warns))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "0 0"
+
+    def test_validate_depth_warns_at_threshold(self) -> None:
+        """depth=2 → no errors, one warning (at WARN_COMPOSITION_DEPTH)."""
+        result = self._run_py(
+            "from agent_composer import validate_composition_depth\n"
+            "errs, warns = validate_composition_depth(2)\n"
+            "print(len(errs), len(warns), 'WARN_COMPOSITION_DEPTH' in warns[0])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "0 1 True"
+
+    def test_validate_depth_warns_at_max(self) -> None:
+        """depth=3 (MAX) → no errors, one warning (still allowed)."""
+        result = self._run_py(
+            "from agent_composer import validate_composition_depth\n"
+            "errs, warns = validate_composition_depth(3)\n"
+            "print(len(errs), len(warns))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "0 1"
+
+    def test_validate_depth_errors_above_max(self) -> None:
+        """depth=4 → one error (exceeds MAX_COMPOSITION_DEPTH), no warnings."""
+        result = self._run_py(
+            "from agent_composer import validate_composition_depth\n"
+            "errs, warns = validate_composition_depth(4)\n"
+            "print(len(errs), len(warns), 'exceeds' in errs[0])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "1 0 True"
+
+    def test_validate_depth_errors_below_one(self) -> None:
+        """depth=0 → one error (depth must be >= 1)."""
+        result = self._run_py(
+            "from agent_composer import validate_composition_depth\n"
+            "errs, warns = validate_composition_depth(0)\n"
+            "print(len(errs), len(warns), '>= 1' in errs[0])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "1 0 True"
+
+    def test_orchestrator_default_depth_is_top_level(self) -> None:
+        """Calling create_orchestrator with no depth kwarg → success, no warning."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, create_orchestrator\n"
+            "w = AgentSpec(name='w', description='Worker', tools=['Read'])\n"
+            "r = create_orchestrator('orch', [w])\n"
+            "print(r.success, len(r.warnings))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True 0"
+
+    def test_orchestrator_warning_at_depth_2(self) -> None:
+        """create_orchestrator(depth=2) succeeds with a warning attached."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, create_orchestrator\n"
+            "w = AgentSpec(name='w', description='Worker', tools=['Read'])\n"
+            "r = create_orchestrator('orch', [w], depth=2)\n"
+            "print(r.success, len(r.warnings) >= 1)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_orchestrator_warning_at_depth_3_max(self) -> None:
+        """create_orchestrator(depth=3) succeeds (at MAX) with warning."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, create_orchestrator\n"
+            "w = AgentSpec(name='w', description='Worker', tools=['Read'])\n"
+            "r = create_orchestrator('orch', [w], depth=3)\n"
+            "print(r.success, len(r.warnings) >= 1)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_orchestrator_fails_above_max(self) -> None:
+        """create_orchestrator(depth=4) fails with explicit error."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, create_orchestrator\n"
+            "w = AgentSpec(name='w', description='Worker', tools=['Read'])\n"
+            "r = create_orchestrator('orch', [w], depth=4)\n"
+            "print(r.success, any('exceeds' in e for e in r.errors))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_orchestrator_fails_below_one(self) -> None:
+        """create_orchestrator(depth=0) fails with depth-must-be-positive error."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, create_orchestrator\n"
+            "w = AgentSpec(name='w', description='Worker', tools=['Read'])\n"
+            "r = create_orchestrator('orch', [w], depth=0)\n"
+            "print(r.success, any('>= 1' in e for e in r.errors))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_orchestrator_depth_error_skips_worker_check(self) -> None:
+        """Depth error short-circuits before the worker-count validation."""
+        result = self._run_py(
+            "from agent_composer import create_orchestrator\n"
+            "r = create_orchestrator('orch', [], depth=4)\n"
+            "print(r.success, len(r.errors), 'exceeds' in r.errors[0])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False 1 True"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
