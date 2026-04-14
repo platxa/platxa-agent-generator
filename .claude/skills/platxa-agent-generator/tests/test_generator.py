@@ -9111,5 +9111,131 @@ class TestAgentExportBundle:
         assert result.stdout.strip() == "False True"
 
 
+class TestInteractiveFrontmatterWizard:
+    """Tests for the frontmatter wizard in interactive_prompts.py (feature #62).
+
+    Covers:
+    - FRONTMATTER_QUESTIONS is registered in ALL_PHASES
+    - All three user-facing questions exist (security, model, duration)
+    - resolve_frontmatter_fields maps canonical values correctly
+    - Label inputs (as returned by AskUserQuestion) resolve
+    - balanced security posture omits permissionMode entirely
+    - Unknown value raises ValueError (no silent fallback)
+    - Unrelated keys are ignored without raising
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_frontmatter_phase_registered(self) -> None:
+        """FRONTMATTER_QUESTIONS is accessible via get_phase_questions."""
+        result = self._run_py(
+            "from interactive_prompts import get_phase_questions, ALL_PHASES\n"
+            "p = get_phase_questions('frontmatter')\n"
+            "print(p is not None, 'frontmatter' in ALL_PHASES,"
+            " len(p.questions) if p else -1)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True 3"
+
+    def test_frontmatter_keys_are_user_facing(self) -> None:
+        """Questions ask about posture/complexity/duration, not the raw fields."""
+        result = self._run_py(
+            "from interactive_prompts import FRONTMATTER_QUESTIONS\n"
+            "keys = sorted(q.key for q in FRONTMATTER_QUESTIONS.questions)\n"
+            "print(keys)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "['model_complexity', 'security_posture', 'task_duration']"
+
+    def test_resolve_with_canonical_values(self) -> None:
+        """Canonical answer values map to frontmatter field values."""
+        result = self._run_py(
+            "from interactive_prompts import resolve_frontmatter_fields\n"
+            "r = resolve_frontmatter_fields({\n"
+            "    'security_posture': 'restrictive',\n"
+            "    'model_complexity': 'high',\n"
+            "    'task_duration': 'long',\n"
+            "})\n"
+            "print(r['permissionMode'], r['model'], r['maxTurns'])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "plan opus 100"
+
+    def test_resolve_balanced_omits_permission_mode(self) -> None:
+        """security_posture=balanced doesn't write permissionMode at all."""
+        result = self._run_py(
+            "from interactive_prompts import resolve_frontmatter_fields\n"
+            "r = resolve_frontmatter_fields({\n"
+            "    'security_posture': 'balanced',\n"
+            "    'model_complexity': 'standard',\n"
+            "    'task_duration': 'short',\n"
+            "})\n"
+            "print('permissionMode' in r, r.get('model'), r.get('maxTurns'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False sonnet 15"
+
+    def test_resolve_accepts_labels_from_ask_user_question(self) -> None:
+        """Raw labels (what AskUserQuestion returns) resolve via the helper."""
+        result = self._run_py(
+            "from interactive_prompts import resolve_frontmatter_fields\n"
+            "r = resolve_frontmatter_fields({\n"
+            "    'security_posture': 'Trusted (Auto-accept edits)',\n"
+            "    'model_complexity': 'Low (Fast)',\n"
+            "    'task_duration': 'Medium (5-20 min)',\n"
+            "})\n"
+            "print(r['permissionMode'], r['model'], r['maxTurns'])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "acceptEdits haiku 40"
+
+    def test_resolve_unknown_value_raises(self) -> None:
+        """Unrecognized values fail loud — no silent fallback."""
+        result = self._run_py(
+            "from interactive_prompts import resolve_frontmatter_fields\n"
+            "try:\n"
+            "    resolve_frontmatter_fields({'model_complexity': 'bogus_tier'})\n"
+            "    print('NO_RAISE')\n"
+            "except ValueError as e:\n"
+            "    print('RAISED', 'bogus_tier' in str(e))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "RAISED True"
+
+    def test_resolve_ignores_unrelated_keys(self) -> None:
+        """Passing a merged answer dict with unrelated keys works cleanly."""
+        result = self._run_py(
+            "from interactive_prompts import resolve_frontmatter_fields\n"
+            "r = resolve_frontmatter_fields({\n"
+            "    'agent_type': 'analyzer',\n"
+            "    'security_posture': 'restrictive',\n"
+            "    'tools': 'files',\n"
+            "})\n"
+            "print(r)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "{'permissionMode': 'plan'}"
+
+    def test_resolve_empty_answers_returns_empty(self) -> None:
+        """Empty input produces an empty dict, not None or error."""
+        result = self._run_py(
+            "from interactive_prompts import resolve_frontmatter_fields\n"
+            "print(resolve_frontmatter_fields({}) == {})"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

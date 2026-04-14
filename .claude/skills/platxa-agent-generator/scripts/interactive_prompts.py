@@ -381,11 +381,263 @@ INSTALLATION_QUESTIONS = PhaseQuestions(
     ],
 )
 
+# Frontmatter Phase Questions — drives permissionMode, model, maxTurns via
+# user-facing security/complexity/duration questions rather than asking
+# about the Claude Code fields directly. This keeps the wizard
+# approachable for users who don't already know the frontmatter schema.
+FRONTMATTER_QUESTIONS = PhaseQuestions(
+    phase="frontmatter",
+    description=(
+        "Map user-facing intent to frontmatter fields "
+        "(permissionMode, model, maxTurns) via security posture, "
+        "model complexity, and task duration questions."
+    ),
+    questions=[
+        InteractiveQuestion(
+            question=(
+                "What security posture should the agent default to? "
+                "This controls whether the agent asks before changing files."
+            ),
+            header="Security",
+            key="security_posture",
+            phase="frontmatter",
+            options=[
+                QuestionOption(
+                    label="Restrictive (Plan only)",
+                    description=(
+                        "Agent must present a plan before any edit — "
+                        "maps to permissionMode=plan. Best for security reviews and audits."
+                    ),
+                    value="restrictive",
+                ),
+                QuestionOption(
+                    label="Balanced (Ask per tool) (Recommended)",
+                    description=(
+                        "Use Claude Code's default permission behavior — no permissionMode "
+                        "override. Claude asks before destructive actions."
+                    ),
+                    value="balanced",
+                ),
+                QuestionOption(
+                    label="Trusted (Auto-accept edits)",
+                    description=(
+                        "Agent auto-accepts file edits without prompting — "
+                        "maps to permissionMode=acceptEdits. Only for highly-trusted automations."
+                    ),
+                    value="trusted",
+                ),
+            ],
+        ),
+        InteractiveQuestion(
+            question=(
+                "How complex is the reasoning the agent must perform? "
+                "This selects which Claude model to run."
+            ),
+            header="Reasoning",
+            key="model_complexity",
+            phase="frontmatter",
+            options=[
+                QuestionOption(
+                    label="Low (Fast)",
+                    description=(
+                        "Short focused tasks, routine transformations — "
+                        "maps to model=haiku. Cheapest and fastest."
+                    ),
+                    value="low",
+                ),
+                QuestionOption(
+                    label="Standard (Recommended)",
+                    description=(
+                        "Multi-step reasoning, code review, code generation — "
+                        "maps to model=sonnet. Balanced cost/quality."
+                    ),
+                    value="standard",
+                ),
+                QuestionOption(
+                    label="High (Deep analysis)",
+                    description=(
+                        "Architecture design, hard debugging, long-horizon planning — "
+                        "maps to model=opus. Highest quality, highest cost."
+                    ),
+                    value="high",
+                ),
+            ],
+        ),
+        InteractiveQuestion(
+            question=(
+                "How long will the agent run autonomously before returning? "
+                "This sets the turn budget — larger budgets allow more exploration "
+                "but cost more on long runs."
+            ),
+            header="Duration",
+            key="task_duration",
+            phase="frontmatter",
+            options=[
+                QuestionOption(
+                    label="Short (<5 min) (Recommended)",
+                    description=(
+                        "Focused single-pass tasks — maps to maxTurns=15. "
+                        "Keeps runaway loops cheap."
+                    ),
+                    value="short",
+                ),
+                QuestionOption(
+                    label="Medium (5-20 min)",
+                    description=(
+                        "Multi-step investigation or iterative refinement — maps to maxTurns=40."
+                    ),
+                    value="medium",
+                ),
+                QuestionOption(
+                    label="Long (>20 min autonomous)",
+                    description=(
+                        "Sustained autonomous work (orchestrators, refactors, "
+                        "research sessions) — maps to maxTurns=100."
+                    ),
+                    value="long",
+                ),
+            ],
+        ),
+    ],
+)
+
+
+# Canonical mapping from user-facing security posture to Claude Code
+# permissionMode frontmatter values. ``"balanced"`` maps to ``None`` so the
+# field is omitted entirely — using "default" would pin the mode even when
+# the user simply wants the CLI's current default to apply.
+SECURITY_POSTURE_TO_PERMISSION_MODE: dict[str, str | None] = {
+    "restrictive": "plan",
+    "balanced": None,
+    "trusted": "acceptEdits",
+}
+
+# Canonical mapping from user-facing reasoning complexity to model names.
+# Short aliases ("haiku", "sonnet", "opus") rather than pinned model IDs
+# so the wizard doesn't need to change when new point releases ship.
+MODEL_COMPLEXITY_TO_MODEL: dict[str, str] = {
+    "low": "haiku",
+    "standard": "sonnet",
+    "high": "opus",
+}
+
+# Canonical mapping from user-facing task duration to maxTurns budget.
+# Budgets are integers, deliberately rounded to common "reasonable" values
+# rather than a continuous slider — the wizard's goal is choosing a tier
+# not fine-tuning.
+TASK_DURATION_TO_MAX_TURNS: dict[str, int] = {
+    "short": 15,
+    "medium": 40,
+    "long": 100,
+}
+
+
+def resolve_frontmatter_fields(answers: dict[str, str]) -> dict[str, Any]:
+    """Translate frontmatter-phase answers into the actual frontmatter values.
+
+    Accepts raw answers keyed by either option **labels** (as they come
+    back from AskUserQuestion) or canonical **values** (as they appear in
+    ``QuestionOption.value``). This lets callers plug the function in
+    either position in the pipeline without re-normalizing.
+
+    Args:
+        answers: Dictionary with any subset of the keys
+            ``"security_posture"``, ``"model_complexity"``, ``"task_duration"``.
+            Missing keys are simply not emitted in the output.
+
+    Returns:
+        A dictionary with the frontmatter fields that should be written to
+        the agent file. Keys are ``"permissionMode"``, ``"model"``, and
+        ``"maxTurns"``. When ``security_posture`` is ``"balanced"`` the
+        ``permissionMode`` key is omitted (not set to ``None``) so the
+        caller can spread the result into an existing dict without
+        overwriting a prior explicit value.
+
+    Raises:
+        ValueError: If an answer value cannot be resolved to a valid
+            mapping. This is deliberate — silent fallback would let typos
+            ship to production.
+    """
+    fields: dict[str, Any] = {}
+    normalized = _normalize_frontmatter_answers(answers)
+
+    if "security_posture" in normalized:
+        value = normalized["security_posture"]
+        if value not in SECURITY_POSTURE_TO_PERMISSION_MODE:
+            raise ValueError(
+                f"Unknown security_posture: {value!r}. "
+                f"Expected one of {sorted(SECURITY_POSTURE_TO_PERMISSION_MODE)}"
+            )
+        permission_mode = SECURITY_POSTURE_TO_PERMISSION_MODE[value]
+        if permission_mode is not None:
+            fields["permissionMode"] = permission_mode
+
+    if "model_complexity" in normalized:
+        value = normalized["model_complexity"]
+        if value not in MODEL_COMPLEXITY_TO_MODEL:
+            raise ValueError(
+                f"Unknown model_complexity: {value!r}. "
+                f"Expected one of {sorted(MODEL_COMPLEXITY_TO_MODEL)}"
+            )
+        fields["model"] = MODEL_COMPLEXITY_TO_MODEL[value]
+
+    if "task_duration" in normalized:
+        value = normalized["task_duration"]
+        if value not in TASK_DURATION_TO_MAX_TURNS:
+            raise ValueError(
+                f"Unknown task_duration: {value!r}. "
+                f"Expected one of {sorted(TASK_DURATION_TO_MAX_TURNS)}"
+            )
+        fields["maxTurns"] = TASK_DURATION_TO_MAX_TURNS[value]
+
+    return fields
+
+
+def _normalize_frontmatter_answers(answers: dict[str, str]) -> dict[str, str]:
+    """Canonicalize frontmatter-phase answers.
+
+    AskUserQuestion returns the option ``label`` the user selected (e.g.
+    ``"Balanced (Ask per tool) (Recommended)"``), not the ``value`` field.
+    This helper looks up the matching option on the FRONTMATTER_QUESTIONS
+    definition and returns the canonical ``value``. If the caller has
+    already pre-normalized (passing the raw ``value``), it's echoed back.
+    """
+    normalized: dict[str, str] = {}
+    for key, raw in answers.items():
+        question = next(
+            (q for q in FRONTMATTER_QUESTIONS.questions if q.key == key),
+            None,
+        )
+        if question is None:
+            # Non-frontmatter key — ignore so callers can pass a merged
+            # answer dict without having to strip unrelated entries first.
+            continue
+        if raw is None:
+            continue
+        valid_values = {opt.value for opt in question.options if opt.value}
+        if raw in valid_values:
+            normalized[key] = raw
+            continue
+        # Fall back to label match (with prefix tolerance so the
+        # "(Recommended)" suffix doesn't break matching).
+        for opt in question.options:
+            if opt.label == raw or raw.startswith(opt.label):
+                if opt.value:
+                    normalized[key] = opt.value
+                break
+        else:
+            # Keep the raw value — resolve_frontmatter_fields will raise
+            # with a clear error rather than silently dropping it.
+            normalized[key] = raw
+    return normalized
+
+
 # All phase questions
 ALL_PHASES: dict[str, PhaseQuestions] = {
     "discovery": DISCOVERY_QUESTIONS,
     "architecture": ARCHITECTURE_QUESTIONS,
     "generation": GENERATION_QUESTIONS,
+    "frontmatter": FRONTMATTER_QUESTIONS,
     "validation": VALIDATION_QUESTIONS,
     "installation": INSTALLATION_QUESTIONS,
 }
@@ -479,9 +731,7 @@ def main() -> None:
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Interactive prompts for agent generation"
-    )
+    parser = argparse.ArgumentParser(description="Interactive prompts for agent generation")
     parser.add_argument(
         "command",
         nargs="?",
@@ -489,9 +739,7 @@ def main() -> None:
         default="all",
         help="Command to run",
     )
-    parser.add_argument(
-        "phase_name", nargs="?", help="Phase name (for 'phase' command)"
-    )
+    parser.add_argument("phase_name", nargs="?", help="Phase name (for 'phase' command)")
     parser.add_argument("--json", action="store_true", help="Output as JSON")
     parser.add_argument("--key", help="Get single question by key")
 
@@ -541,9 +789,7 @@ def main() -> None:
         keys = []
         for phase in ALL_PHASES.values():
             for q in phase.questions:
-                keys.append(
-                    {"key": q.key, "phase": phase.phase, "question": q.question}
-                )
+                keys.append({"key": q.key, "phase": phase.phase, "question": q.question})
 
         if args.json:
             print(json.dumps(keys, indent=2))
@@ -560,9 +806,7 @@ def main() -> None:
             print(json.dumps(output, indent=2))
         else:
             total = sum(len(p.questions) for p in all_questions)
-            print(
-                f"Interactive Prompts ({total} questions across {len(all_questions)} phases)"
-            )
+            print(f"Interactive Prompts ({total} questions across {len(all_questions)} phases)")
             print("=" * 60)
             for phase in all_questions:
                 print(f"\n[{phase.phase.upper()}] {phase.description}")
