@@ -53,6 +53,45 @@ STRUCTURE_FORMATS: tuple[str, ...] = ("legacy", "markdown", "xml")
 # scorers can locate the block by exact string.
 CONTEXT_MANAGEMENT_HEADING: str = "**Context Management:**"
 
+# Heading rendered above the subagent-delegation bullets when the agent
+# has read/search tools. Public for downstream parsers and tests.
+SUBAGENT_DELEGATION_HEADING: str = "**Subagent Delegation:**"
+
+# Tool names that trigger subagent-delegation guidance. Any agent
+# declaring at least one of these tools gets the section, since these
+# are the ones whose output volume can pressure the parent context.
+SUBAGENT_DELEGATION_TRIGGER_TOOLS: frozenset[str] = frozenset({"Read", "Grep", "Glob"})
+
+# File-count threshold above which the parent should delegate to a
+# subagent. Public so prompt rules and tests stay in sync.
+SUBAGENT_DELEGATION_FILE_THRESHOLD: int = 5
+
+# Target token budget for the summary a subagent returns. Two values
+# define a band so the prompt can express the contract as "1-2K tokens"
+# without hard-coding the magnitude in two places.
+SUBAGENT_SUMMARY_TOKEN_MIN: int = 1000
+SUBAGENT_SUMMARY_TOKEN_MAX: int = 2000
+
+# Canonical subagent-delegation guidance. Ordered by decision weight:
+# the threshold rule comes first because it's the trigger gate; the
+# summary contract follows because it's the return-value contract;
+# the Task tool reminder anchors the mechanism.
+SUBAGENT_DELEGATION_RULES: tuple[str, ...] = (
+    f"Delegate to a subagent via the Task tool whenever your read/search "
+    f"plan touches more than {SUBAGENT_DELEGATION_FILE_THRESHOLD} files — "
+    f"running those reads in your own context burns tokens you'll need "
+    f"later for synthesis.",
+    f"The subagent should return a focused summary of "
+    f"{SUBAGENT_SUMMARY_TOKEN_MIN}-{SUBAGENT_SUMMARY_TOKEN_MAX} tokens "
+    f"(file paths, key signatures, and the load-bearing facts) — never the "
+    f"raw file contents.",
+    "Pass the subagent a self-contained brief: the question to answer, "
+    "the directories or globs to scan, and the format you expect back. "
+    "It cannot see your conversation history.",
+    "After the subagent returns, cite the summary directly in your next "
+    "step — re-reading the same files yourself defeats the delegation.",
+)
+
 # Canonical context-management guidance injected into long-running agent
 # prompts. Ordered by importance — host-side reminder injection truncates
 # from the tail, so the most load-bearing rule (early detection) sits
@@ -624,6 +663,28 @@ def format_reminder_points_section(points: list[ReminderPoint]) -> str:
     return "\n".join(lines)
 
 
+def generate_subagent_delegation_section(config: PromptConfig) -> str:
+    """Render the Subagent Delegation subsection for read/search-capable agents.
+
+    The section is gated on tool presence rather than on
+    ``config.long_running``: any agent that can read or search files at
+    scale (``Read``, ``Grep``, ``Glob``) benefits from explicit guidance
+    on when to fan out heavy exploration to a subagent. Agents without
+    those tools have no exploration to delegate, so the section is
+    suppressed to keep their prompts terse.
+
+    Returns the empty string when no trigger tool is declared. Otherwise
+    emits :data:`SUBAGENT_DELEGATION_HEADING` followed by every rule in
+    :data:`SUBAGENT_DELEGATION_RULES` as a markdown bullet.
+    """
+    if not any(tool in SUBAGENT_DELEGATION_TRIGGER_TOOLS for tool in config.tools):
+        return ""
+    lines: list[str] = [SUBAGENT_DELEGATION_HEADING]
+    for rule in SUBAGENT_DELEGATION_RULES:
+        lines.append(f"- {rule}")
+    return "\n".join(lines)
+
+
 def generate_context_management_section(config: PromptConfig) -> str:
     """Render the Context Management subsection for long-running agents.
 
@@ -675,6 +736,14 @@ def generate_prompt_blocks(config: PromptConfig) -> PromptBlocks:
     if tool_guidance:
         context_lines.append("")
         context_lines.append(tool_guidance)
+    # Subagent delegation is the *mechanism* for keeping context lean; the
+    # broader Context Management section that may follow references it.
+    # Order matters: tell the agent how to delegate before telling it when
+    # to start worrying about context pressure.
+    subagent_delegation = generate_subagent_delegation_section(config)
+    if subagent_delegation:
+        context_lines.append("")
+        context_lines.append(subagent_delegation)
     # Long-running agents need explicit guidance on context window pressure;
     # the section is opt-in (gated by ``config.long_running``) so short-lived
     # agents stay terse. Appended to CONTEXT (not INSTRUCTIONS) because it's

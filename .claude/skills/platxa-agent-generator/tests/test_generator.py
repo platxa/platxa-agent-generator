@@ -12026,5 +12026,139 @@ class TestContextManagementSection:
         assert result.stdout.strip().splitlines() == ["True", "True", "True"]
 
 
+class TestSubagentDelegationSection:
+    """Tests for subagent-delegation guidance in agent prompts (#90).
+
+    Covers:
+    - SUBAGENT_DELEGATION_HEADING / SUBAGENT_DELEGATION_RULES /
+      SUBAGENT_DELEGATION_TRIGGER_TOOLS /
+      SUBAGENT_DELEGATION_FILE_THRESHOLD /
+      SUBAGENT_SUMMARY_TOKEN_MIN / SUBAGENT_SUMMARY_TOKEN_MAX constants
+    - File-count threshold value (>5 files per spec)
+    - Summary token band (1000-2000 tokens per spec)
+    - Section omitted when no Read/Grep/Glob tool present
+    - Section emitted when any trigger tool present
+    - Heading + every rule appear when section emitted
+    - Rules cite Task tool and the threshold + token band
+    - Integration: generate_prompt_blocks places section in CONTEXT for
+      Read/Grep agents and omits it otherwise
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_constants_exposed_with_thresholds(self) -> None:
+        """Constants pin the heading, threshold, and token band per spec."""
+        result = self._run_py(
+            "from prompt_generator import (\n"
+            "    SUBAGENT_DELEGATION_HEADING,\n"
+            "    SUBAGENT_DELEGATION_TRIGGER_TOOLS,\n"
+            "    SUBAGENT_DELEGATION_FILE_THRESHOLD,\n"
+            "    SUBAGENT_SUMMARY_TOKEN_MIN,\n"
+            "    SUBAGENT_SUMMARY_TOKEN_MAX,\n"
+            ")\n"
+            "print(SUBAGENT_DELEGATION_HEADING)\n"
+            "print(SUBAGENT_DELEGATION_FILE_THRESHOLD)\n"
+            "print(SUBAGENT_SUMMARY_TOKEN_MIN, SUBAGENT_SUMMARY_TOKEN_MAX)\n"
+            "print(sorted(SUBAGENT_DELEGATION_TRIGGER_TOOLS))"
+        )
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().splitlines()
+        assert lines[0] == "**Subagent Delegation:**"
+        # Spec says >5 files; the threshold is the boundary value used in the
+        # rule "more than {N} files", so the constant equals 5.
+        assert lines[1] == "5"
+        # Spec says 1-2K tokens summary band.
+        assert lines[2] == "1000 2000"
+        # Read/Grep are spec-mandated; Glob is functionally equivalent and
+        # included so glob-only agents also get the guidance.
+        assert lines[3] == "['Glob', 'Grep', 'Read']"
+
+    def test_section_empty_when_no_trigger_tool(self) -> None:
+        """Agents without Read/Grep/Glob get no Subagent Delegation section."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_subagent_delegation_section\n"
+            "cfg = PromptConfig('analyzer','security','x',['Bash','Write'],[],'json')\n"
+            "print(repr(generate_subagent_delegation_section(cfg)))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "''"
+
+    def test_section_emitted_when_read_tool_present(self) -> None:
+        """A single trigger tool (Read) is enough to surface the section."""
+        result = self._run_py(
+            "from prompt_generator import (\n"
+            "    PromptConfig, generate_subagent_delegation_section,\n"
+            "    SUBAGENT_DELEGATION_RULES,\n"
+            ")\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read'],[],'json')\n"
+            "section = generate_subagent_delegation_section(cfg)\n"
+            "print('**Subagent Delegation:**' in section)\n"
+            "print(all(rule in section for rule in SUBAGENT_DELEGATION_RULES))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True"]
+
+    def test_rules_mention_task_tool_and_thresholds(self) -> None:
+        """Verification criteria require Task tool, >5 files, 1-2K tokens."""
+        result = self._run_py(
+            "from prompt_generator import SUBAGENT_DELEGATION_RULES\n"
+            "joined = ' '.join(SUBAGENT_DELEGATION_RULES).lower()\n"
+            "print('task tool' in joined)\n"
+            "print('5 files' in joined)\n"
+            "print('1000-2000 tokens' in joined or '1000 to 2000' in joined)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True", "True"]
+
+    def test_blocks_omit_section_when_no_trigger_tool(self) -> None:
+        """generate_prompt_blocks does not leak the section without Read/Grep/Glob."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "cfg = PromptConfig('analyzer','security','x',['Bash','Write'],[],'json')\n"
+            "blocks = generate_prompt_blocks(cfg)\n"
+            "print('Subagent Delegation' in blocks.context)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
+
+    def test_blocks_include_section_for_grep_agent(self) -> None:
+        """generate_prompt_blocks injects the section into CONTEXT for Grep agents."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read','Grep'],[],'json')\n"
+            "blocks = generate_prompt_blocks(cfg)\n"
+            "print('**Subagent Delegation:**' in blocks.context)\n"
+            "print('Task tool' in blocks.context)\n"
+            "print('5 files' in blocks.context)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True", "True"]
+
+    def test_subagent_section_precedes_context_management(self) -> None:
+        """When both sections render, subagent block comes before context-management."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read','Grep'],[],'json',\n"
+            "                   long_running=True)\n"
+            "blocks = generate_prompt_blocks(cfg)\n"
+            "sub = blocks.context.find('**Subagent Delegation:**')\n"
+            "ctx = blocks.context.find('**Context Management:**')\n"
+            "print(sub != -1 and ctx != -1 and sub < ctx)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
