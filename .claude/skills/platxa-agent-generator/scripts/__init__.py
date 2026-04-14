@@ -35,33 +35,36 @@ __author__ = "Platxa"
 
 # Import submodules for package access
 # Using explicit imports to make modules available as package attributes
-from . import agent_generator
-from . import claudemd_generator
-from . import command_generator
-from . import mcp_config_generator
-from . import completeness_checker
-from . import quality_scorer
-from . import syntax_validator
-from . import security_scanner
-from . import test_harness
-from . import dry_run
-from . import nlp_parser
-from . import type_classifier
-from . import tool_selector
-from . import prompt_generator
-from . import workflow_state
-from . import install_agent
-from . import interactive_prompts
-from . import multiagent_generator
-from . import hooks_generator
-from . import agent_catalog
-from . import state_persistence
-from . import progress_tracker
-from . import extended_thinking
-from . import cli
-from . import agent_composer
-from . import agent_versioning
-from . import agent_export
+from . import (
+    agent_analyzer,
+    agent_catalog,
+    agent_composer,
+    agent_export,
+    agent_generator,
+    agent_versioning,
+    claudemd_generator,
+    cli,
+    command_generator,
+    completeness_checker,
+    dry_run,
+    extended_thinking,
+    hooks_generator,
+    install_agent,
+    interactive_prompts,
+    mcp_config_generator,
+    multiagent_generator,
+    nlp_parser,
+    progress_tracker,
+    prompt_generator,
+    quality_scorer,
+    security_scanner,
+    state_persistence,
+    syntax_validator,
+    test_harness,
+    tool_selector,
+    type_classifier,
+    workflow_state,
+)
 
 __all__ = [
     # Core generators
@@ -95,4 +98,5 @@ __all__ = [
     "agent_composer",
     "agent_versioning",
     "agent_export",
+    "agent_analyzer",
 ]

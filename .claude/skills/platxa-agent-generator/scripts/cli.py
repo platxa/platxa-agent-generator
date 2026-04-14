@@ -32,6 +32,7 @@ from typing import Any, NoReturn
 # Import all generator modules
 try:
     from . import (
+        agent_analyzer,
         agent_catalog,
         agent_generator,
         dry_run,
@@ -47,6 +48,7 @@ try:
     )
 except ImportError:
     # Standalone execution - type: ignore comments for pyright
+    import agent_analyzer  # type: ignore[import-not-found,no-redef]
     import agent_catalog  # type: ignore[import-not-found,no-redef]
     import agent_generator  # type: ignore[import-not-found,no-redef]
     import dry_run  # type: ignore[import-not-found,no-redef]
@@ -127,6 +129,7 @@ Examples:
         self._add_catalog_command(subparsers)
         self._add_install_command(subparsers)
         self._add_analyze_command(subparsers)
+        self._add_analyze_agent_command(subparsers)
         self._add_preview_command(subparsers)
         self._add_status_command(subparsers)
 
@@ -187,6 +190,24 @@ Examples:
         analyze.add_argument("task", help="Task description")
         analyze.add_argument("--context", type=str, default="{}", help="JSON context")
 
+    def _add_analyze_agent_command(self, subparsers: Any) -> None:
+        """Add the analyze-agent subcommand.
+
+        Distinct from ``analyze`` (which assesses task complexity for
+        extended-thinking purposes). ``analyze-agent`` reads an existing
+        agent file and produces missing-field, security, and context
+        improvement recommendations via :mod:`agent_analyzer`.
+        """
+        analyze_agent = subparsers.add_parser(
+            "analyze-agent",
+            help="Analyze an existing agent file and surface improvements",
+        )
+        analyze_agent.add_argument(
+            "path",
+            type=Path,
+            help="Path to the agent .md file",
+        )
+
     def _add_preview_command(self, subparsers: Any) -> None:
         """Add the preview subcommand."""
         preview = subparsers.add_parser("preview", help="Preview generation")
@@ -222,6 +243,7 @@ Examples:
             "catalog": self._handle_catalog,
             "install": self._handle_install,
             "analyze": self._handle_analyze,
+            "analyze-agent": self._handle_analyze_agent,
             "preview": self._handle_preview,
             "status": self._handle_status,
         }
@@ -580,6 +602,31 @@ Examples:
             print(f"\nRationale: {recommendation.rationale}")
             print(f"\nBenefit: {recommendation.estimated_benefit}")
 
+        return 0
+
+    def _handle_analyze_agent(self, args: argparse.Namespace) -> int:
+        """Handle the analyze-agent command.
+
+        Reads the agent file, runs the full validation pipeline via
+        ``agent_analyzer.analyze_agent`` and prints either a JSON
+        serialization or the human-readable report. Exits non-zero only
+        when the file is missing — a finding-laden report is still a
+        successful invocation.
+        """
+        json_mode = bool(getattr(args, "json", False))
+        try:
+            analysis = agent_analyzer.analyze_agent(args.path)
+        except FileNotFoundError as exc:
+            if json_mode:
+                print(json.dumps({"error": str(exc)}, indent=2))
+            else:
+                print(f"Error: {exc}")
+            return 1
+
+        if json_mode:
+            print(json.dumps(analysis.to_dict(), indent=2))
+        else:
+            print(agent_analyzer.format_analysis_report(analysis))
         return 0
 
     def _handle_preview(self, args: argparse.Namespace) -> int:
