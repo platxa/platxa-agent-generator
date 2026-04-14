@@ -10,7 +10,7 @@ Usage:
 """
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -27,6 +27,37 @@ class PromptConfig:
 
 
 @dataclass
+class ReminderPoint:
+    """A documented place in the agent's workflow where a system-reminder
+    should refresh critical rules mid-conversation.
+
+    Long-running agents accumulate tool-result context that can push earlier
+    rules out of the model's effective attention. Documenting explicit
+    refresh points lets both the host harness (Claude Code) and downstream
+    tooling know *where* and *what* to re-inject — it also tells the agent
+    itself to expect the refresh and treat the rules as load-bearing.
+
+    Fields:
+        trigger: Machine-parseable name identifying when this point fires
+            (e.g. "exploration_complete", "before_destructive",
+            "phase_boundary", "security_decision").
+        rules: The exact rules to be re-stated at this point. Ordered by
+            importance — host injection may truncate to the first N rules
+            if context is tight.
+        rationale: Human-readable explanation of why this point exists.
+            Shown in the prompt so the agent knows why it's being reminded.
+        after_step: Optional 1-based workflow step index. When set, the
+            point is documented as firing immediately after that step.
+            None for "whenever-the-trigger-matches" points.
+    """
+
+    trigger: str
+    rules: list[str] = field(default_factory=list)
+    rationale: str = ""
+    after_step: int | None = None
+
+
+@dataclass
 class GeneratedPrompt:
     """Generated system prompt components."""
 
@@ -36,6 +67,7 @@ class GeneratedPrompt:
     constraints: list[str]
     output_guidance: str
     full_prompt: str
+    reminder_points: list[ReminderPoint] = field(default_factory=list)
 
 
 # Agent type role statements
@@ -336,6 +368,198 @@ def generate_output_guidance(config: PromptConfig) -> str:
     return f"**Output Format:**\n{type_outputs.get(config.agent_type, 'Provide clear, structured output.')}"
 
 
+# Set of tools whose presence signals the agent performs exploration —
+# long Read/Grep/Glob sequences that push earlier rules out of attention
+# and warrant a post-exploration reminder.
+_EXPLORATION_TOOLS: frozenset[str] = frozenset({"Read", "Grep", "Glob", "WebFetch", "WebSearch"})
+
+# Set of tools whose presence signals the agent performs destructive or
+# externally-visible operations (writes, execs, commits). A reminder
+# immediately before these operations prevents rule-forgetting accidents.
+_DESTRUCTIVE_TOOLS: frozenset[str] = frozenset({"Write", "Edit", "MultiEdit", "Bash"})
+
+# Agent types that typically run long and benefit from phase-boundary
+# reminders between workflow steps.
+_LONG_RUNNING_TYPES: frozenset[str] = frozenset({"analyzer", "orchestrator", "validator"})
+
+# Threshold below which the workflow is short enough that phase-boundary
+# reminders are noise rather than signal. Agents with fewer steps than
+# this don't get a per-step reminder injected.
+_PHASE_BOUNDARY_MIN_STEPS = 5
+
+
+def generate_reminder_points(
+    config: PromptConfig, workflow_steps: list[str]
+) -> list[ReminderPoint]:
+    """Produce the list of mid-conversation reminder points for this agent.
+
+    A ReminderPoint is a machine-parseable marker that tells:
+    - the agent author / reviewer: where the generated prompt expects
+      rules to be refreshed mid-conversation;
+    - the host harness (Claude Code): where to inject a system-reminder
+      message if it wishes to refresh rules proactively;
+    - the agent itself: that these are load-bearing checkpoints where
+      it must re-consult the constraints before continuing.
+
+    Points are emitted only when the agent is long-running enough to
+    benefit — short (< ``_PHASE_BOUNDARY_MIN_STEPS``) workflows without
+    destructive tools and without security-sensitive constraints produce
+    zero points, which is the correct behavior for simple agents that
+    don't accumulate enough context for rule-forgetting to be a risk.
+
+    Args:
+        config: The PromptConfig driving generation.
+        workflow_steps: The already-generated workflow steps, used to
+            attach ``after_step`` indices to phase-boundary reminders.
+
+    Returns:
+        List of ReminderPoint instances in the order they fire during
+        the agent's run. Empty list when no reminders are warranted.
+    """
+    tools = set(config.tools)
+    has_exploration = bool(_EXPLORATION_TOOLS & tools)
+    has_destructive = bool(_DESTRUCTIVE_TOOLS & tools)
+    is_long_running = config.agent_type in _LONG_RUNNING_TYPES
+    is_security_domain = config.domain.lower() == "security"
+
+    # Construct the set of rules to refresh. Order matters because the
+    # injection may truncate to the top-N under context pressure: the
+    # user's own custom constraints (``config.constraints``) are the most
+    # specific and MUST survive truncation, so they come first. Type- and
+    # domain-default constraints follow as the broader baseline.
+    # `generate_constraints` returns type+domain+custom; we reorder here
+    # rather than dropping the call so the full list remains available if
+    # a caller wants it unsliced.
+    all_constraints = list(generate_constraints(config))
+    custom_rules = list(config.constraints)
+    default_rules = [c for c in all_constraints if c not in custom_rules]
+    constraint_rules = custom_rules + default_rules
+
+    points: list[ReminderPoint] = []
+
+    # 1. Exploration-complete reminder — fires after the agent finishes
+    # a long read/search phase. Prevents rule-forgetting after a large
+    # tool-result block pushes the role/constraints out of attention.
+    if has_exploration and (is_long_running or has_destructive):
+        points.append(
+            ReminderPoint(
+                trigger="exploration_complete",
+                rules=constraint_rules[:5],
+                rationale=(
+                    "After an extended read/search phase the original constraints "
+                    "may have been pushed out of attention by tool-result context. "
+                    "Re-read the constraints before making the next decision."
+                ),
+            )
+        )
+
+    # 2. Before-destructive reminder — fires immediately before any
+    # Write/Edit/Bash operation. These are irreversible in practice and
+    # benefit from a final constraint check.
+    if has_destructive:
+        destructive_rules = list(constraint_rules)
+        # Prepend an explicit "verify before mutating" rule so it's
+        # first in the re-injection even when the caller truncates.
+        destructive_rules.insert(
+            0,
+            "Verify the target file and intent match the user request before writing.",
+        )
+        points.append(
+            ReminderPoint(
+                trigger="before_destructive",
+                rules=destructive_rules[:5],
+                rationale=(
+                    "Destructive tools (Write/Edit/Bash) produce externally-visible "
+                    "side effects. Refresh the constraints and verify the change is "
+                    "intended before invoking them."
+                ),
+            )
+        )
+
+    # 3. Phase-boundary reminders — for long workflows (5+ steps),
+    # emit one reminder between each pair of steps to keep the role and
+    # output format fresh through the full run.
+    if len(workflow_steps) >= _PHASE_BOUNDARY_MIN_STEPS:
+        role_and_output = [
+            f"Role: {config.agent_type} in the {config.domain} domain.",
+            f"Purpose: {config.purpose}",
+        ]
+        for idx in range(1, len(workflow_steps)):
+            # Emits boundary N→N+1 for every step except the last.
+            points.append(
+                ReminderPoint(
+                    trigger="phase_boundary",
+                    rules=role_and_output,
+                    rationale=(
+                        f"Transitioning from step {idx} to step {idx + 1}. Long "
+                        "workflows accumulate context; re-anchor on role and purpose."
+                    ),
+                    after_step=idx,
+                )
+            )
+
+    # 4. Security decision reminder — for security-domain agents OR any
+    # agent with Bash, an explicit reminder before high-risk decisions.
+    if is_security_domain or "Bash" in tools:
+        security_rules: list[str] = []
+        if is_security_domain:
+            security_rules.append(
+                "Default to least privilege; reject any action that broadens access."
+            )
+        if "Bash" in tools:
+            security_rules.append(
+                "Bash commands touching /etc, /var, sudo, or curl require explicit user confirmation."
+            )
+        security_rules.extend(constraint_rules[:3])
+        points.append(
+            ReminderPoint(
+                trigger="security_decision",
+                rules=security_rules,
+                rationale=(
+                    "Security-sensitive agents must re-check least-privilege and "
+                    "escalation rules before any impactful decision."
+                ),
+            )
+        )
+
+    return points
+
+
+def format_reminder_points_section(points: list[ReminderPoint]) -> str:
+    """Render the reminder-points section for inclusion in the full prompt.
+
+    Returns the markdown block that documents every point. The block is
+    stable (sorted by trigger name for secondary ordering so test assertions
+    don't depend on dict iteration). Empty string when no points exist —
+    short agents don't get a noisy empty section.
+    """
+    if not points:
+        return ""
+
+    lines = [
+        "**Mid-Conversation Refresh Points:**",
+        (
+            "The following points are documented so the host harness (Claude Code) "
+            "can inject a system-reminder at each, refreshing critical rules that "
+            "may have been pushed out of attention by accumulated tool results. "
+            "The agent should treat each point as load-bearing and re-read the "
+            "listed rules before proceeding."
+        ),
+        "",
+    ]
+    for point in points:
+        header = f"- [{point.trigger}]"
+        if point.after_step is not None:
+            header += f" (after workflow step {point.after_step})"
+        lines.append(header)
+        lines.append(f"    rationale: {point.rationale}")
+        if point.rules:
+            lines.append("    rules to refresh:")
+            for rule in point.rules:
+                lines.append(f"      - {rule}")
+    return "\n".join(lines)
+
+
 def generate_full_prompt(config: PromptConfig) -> GeneratedPrompt:
     """Generate complete system prompt."""
     role = generate_role_statement(config)
@@ -343,6 +567,7 @@ def generate_full_prompt(config: PromptConfig) -> GeneratedPrompt:
     workflow = generate_workflow(config)
     constraints = generate_constraints(config)
     output_guidance = generate_output_guidance(config)
+    reminder_points = generate_reminder_points(config, workflow)
 
     # Build full prompt
     sections = []
@@ -378,6 +603,13 @@ def generate_full_prompt(config: PromptConfig) -> GeneratedPrompt:
     # Output guidance
     sections.append(output_guidance)
 
+    # Mid-conversation refresh points — only emitted when warranted.
+    # Short / simple agents produce an empty section and skip it entirely.
+    reminder_section = format_reminder_points_section(reminder_points)
+    if reminder_section:
+        sections.append("")
+        sections.append(reminder_section)
+
     full_prompt = "\n".join(sections)
 
     return GeneratedPrompt(
@@ -386,6 +618,7 @@ def generate_full_prompt(config: PromptConfig) -> GeneratedPrompt:
         workflow_steps=workflow,
         constraints=constraints,
         output_guidance=output_guidance,
+        reminder_points=reminder_points,
         full_prompt=full_prompt,
     )
 
@@ -429,9 +662,7 @@ def main() -> None:
         ],
         help="Agent type",
     )
-    parser.add_argument(
-        "--domain", required=True, help="Domain (security, documentation, etc.)"
-    )
+    parser.add_argument("--domain", required=True, help="Domain (security, documentation, etc.)")
     parser.add_argument("--purpose", required=True, help="Specific purpose description")
     parser.add_argument("--tools", help="Comma-separated tool list")
     parser.add_argument("--constraints", help="Comma-separated custom constraints")

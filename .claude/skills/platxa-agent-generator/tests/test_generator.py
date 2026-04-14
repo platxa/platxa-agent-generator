@@ -8409,5 +8409,140 @@ class TestNLPComplexityEstimation:
         assert "maxTurns=30" in out
 
 
+class TestPromptReminderPoints:
+    """Tests for system-reminder injection points (Feature #55).
+
+    Feature criteria:
+    - Long-running agents include reminder points after exploration phases
+    - Critical rules are re-stated at decision points
+    """
+
+    def _run_py(self, code: str) -> subprocess.CompletedProcess:
+        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        return subprocess.run(
+            [sys.executable, "-c", prologue + code],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_exploration_complete_fires_for_long_running_with_read_tools(self) -> None:
+        result = self._run_py(
+            "import json\n"
+            "from prompt_generator import generate\n"
+            "r = generate(agent_type='analyzer', domain='security', "
+            "purpose='audit', tools=['Read','Grep','Glob'])\n"
+            "triggers = sorted({p.trigger for p in r.reminder_points})\n"
+            "print(json.dumps(triggers))"
+        )
+        triggers = json.loads(result.stdout)
+        assert "exploration_complete" in triggers
+
+    def test_before_destructive_fires_when_write_tools_present(self) -> None:
+        result = self._run_py(
+            "from prompt_generator import generate\n"
+            "r = generate(agent_type='builder', domain='general', purpose='x', "
+            "tools=['Read','Write','Edit'])\n"
+            "print('before_destructive' in {p.trigger for p in r.reminder_points})"
+        )
+        assert result.stdout.strip() == "True"
+
+    def test_no_destructive_reminder_when_no_write_tools(self) -> None:
+        result = self._run_py(
+            "from prompt_generator import generate\n"
+            "r = generate(agent_type='analyzer', domain='general', purpose='x', "
+            "tools=['Read','Grep'])\n"
+            "print('before_destructive' in {p.trigger for p in r.reminder_points})"
+        )
+        assert result.stdout.strip() == "False"
+
+    def test_security_domain_gets_security_decision_reminder(self) -> None:
+        result = self._run_py(
+            "from prompt_generator import generate\n"
+            "r = generate(agent_type='validator', domain='security', "
+            "purpose='audit', tools=['Read','Grep'])\n"
+            "print('security_decision' in {p.trigger for p in r.reminder_points})"
+        )
+        assert result.stdout.strip() == "True"
+
+    def test_bash_tool_gets_security_decision_even_without_security_domain(self) -> None:
+        result = self._run_py(
+            "from prompt_generator import generate\n"
+            "r = generate(agent_type='automation', domain='devops', "
+            "purpose='deploy', tools=['Read','Bash'])\n"
+            "print('security_decision' in {p.trigger for p in r.reminder_points})"
+        )
+        assert result.stdout.strip() == "True"
+
+    def test_phase_boundary_fires_between_every_step_pair(self) -> None:
+        """For a workflow with >= _PHASE_BOUNDARY_MIN_STEPS, boundaries fire between each step pair."""
+        result = self._run_py(
+            "import json\n"
+            "from prompt_generator import generate\n"
+            "r = generate(agent_type='analyzer', domain='general', purpose='x', "
+            "tools=['Read'])\n"
+            "boundaries = [p for p in r.reminder_points if p.trigger == 'phase_boundary']\n"
+            "steps = sorted(p.after_step for p in boundaries)\n"
+            "print(json.dumps({'count': len(boundaries), 'steps': steps, "
+            "'workflow_len': len(r.workflow_steps)}))"
+        )
+        data = json.loads(result.stdout)
+        assert data["count"] == data["workflow_len"] - 1
+        assert data["steps"] == list(range(1, data["workflow_len"]))
+
+    def test_reminder_section_in_full_prompt_when_points_exist(self) -> None:
+        result = self._run_py(
+            "from prompt_generator import generate\n"
+            "r = generate(agent_type='analyzer', domain='security', purpose='audit', "
+            "tools=['Read','Grep','Bash'])\n"
+            "print('Mid-Conversation Refresh Points' in r.full_prompt)\n"
+            "print('exploration_complete' in r.full_prompt)\n"
+            "print('before_destructive' in r.full_prompt)"
+        )
+        lines = result.stdout.strip().splitlines()
+        assert lines == ["True", "True", "True"]
+
+    def test_format_section_suppressed_when_no_points(self) -> None:
+        """format_reminder_points_section returns empty string when no points."""
+        result = self._run_py(
+            "from prompt_generator import format_reminder_points_section\n"
+            "print(repr(format_reminder_points_section([])))"
+        )
+        assert result.stdout.strip() == "''"
+
+    def test_reminder_rules_include_constraints(self) -> None:
+        """Rules at reminder points must include the agent's constraints."""
+        result = self._run_py(
+            "from prompt_generator import generate\n"
+            "r = generate(agent_type='analyzer', domain='security', purpose='audit', "
+            "tools=['Read','Grep'], constraints=['custom rule A', 'custom rule B'])\n"
+            "expl = next(p for p in r.reminder_points if p.trigger == 'exploration_complete')\n"
+            "all_rules = ' '.join(expl.rules)\n"
+            "print('custom rule A' in all_rules or 'custom rule B' in all_rules)"
+        )
+        assert result.stdout.strip() == "True"
+
+    def test_before_destructive_prepends_verify_rule(self) -> None:
+        """The before-destructive reminder must lead with a verify-before-mutating rule."""
+        result = self._run_py(
+            "from prompt_generator import generate\n"
+            "r = generate(agent_type='builder', domain='general', purpose='x', "
+            "tools=['Write','Edit'])\n"
+            "pts = [p for p in r.reminder_points if p.trigger == 'before_destructive']\n"
+            "print(pts[0].rules[0] if pts else 'NONE')"
+        )
+        first_rule = result.stdout.strip()
+        assert "Verify" in first_rule or "verify" in first_rule
+
+    def test_reminder_points_have_rationale(self) -> None:
+        """Every emitted reminder point must carry a non-empty rationale."""
+        result = self._run_py(
+            "from prompt_generator import generate\n"
+            "r = generate(agent_type='analyzer', domain='security', purpose='audit', "
+            "tools=['Read','Grep','Bash'])\n"
+            "print(all(p.rationale.strip() for p in r.reminder_points))"
+        )
+        assert result.stdout.strip() == "True"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
