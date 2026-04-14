@@ -9446,5 +9446,245 @@ class TestAgentAnalyzer:
         assert "RC= 1" in result.stdout
 
 
+class TestAgentUpgrader:
+    """Tests for agent_upgrader.py and the ``upgrade`` CLI command (feature #64).
+
+    Covers:
+    - Smart-default profile selection per declared tools
+    - Missing frontmatter fields are added with chosen defaults
+    - Existing frontmatter values are NEVER overwritten
+    - Missing body sections (Examples / Output Format / Error Handling) are stubbed
+    - Existing sections are NEVER rewritten
+    - Custom body content is preserved byte-for-byte
+    - Dry-run does not modify the file; --apply does and writes a backup
+    - No-op upgrade (already current) creates no changes and no backup
+    - smart_defaults_override forces specific values
+    - CLI: 'upgrade path' returns 0 in dry-run, 0 with --apply
+    - CLI: missing path returns 1
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_profile_selection_orchestrator(self) -> None:
+        """Tools containing Task → orchestrator profile (opus, maxTurns 100)."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_upgrader import upgrade_agent\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Task, Read\\n---\\n# A')\n"
+            "    r = upgrade_agent(p)\n"
+            "    fm = {c.field_or_section: c.value for c in r.changes if c.category == 'frontmatter'}\n"
+            "    print(r.profile_used, fm.get('model'), fm.get('maxTurns'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "orchestrator opus 100"
+
+    def test_profile_selection_analyzer(self) -> None:
+        """Read+Grep → analyzer profile (sonnet, maxTurns 15)."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_upgrader import upgrade_agent\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Read, Grep\\n---\\n# A')\n"
+            "    r = upgrade_agent(p)\n"
+            "    fm = {c.field_or_section: c.value for c in r.changes if c.category == 'frontmatter'}\n"
+            "    print(r.profile_used, fm.get('model'), fm.get('maxTurns'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "analyzer sonnet 15"
+
+    def test_existing_frontmatter_preserved(self) -> None:
+        """If model is already set, the upgrader must NOT overwrite it."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_upgrader import upgrade_agent\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Read\\nmodel: opus\\n---\\n# A')\n"
+            "    r = upgrade_agent(p)\n"
+            "    fm_changes = [c.field_or_section for c in r.changes if c.category == 'frontmatter']\n"
+            "    print('model' not in fm_changes, 'model: opus' in r.upgraded_content)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_missing_sections_stubbed(self) -> None:
+        """Missing Examples/Output Format/Error Handling become stub sections."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_upgrader import upgrade_agent\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A\\n## Overview\\nbody')\n"
+            "    r = upgrade_agent(p)\n"
+            "    sections = [c.field_or_section for c in r.changes if c.category == 'section']\n"
+            "    print(sorted(sections))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "['Error Handling', 'Examples', 'Output Format']"
+
+    def test_existing_sections_preserved(self) -> None:
+        """Existing ## Examples is not duplicated; user content stays intact."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_upgrader import upgrade_agent\n"
+            "custom = '---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A\\n## Examples\\n- my custom example'\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    p.write_text(custom)\n"
+            "    r = upgrade_agent(p)\n"
+            "    section_changes = [c.field_or_section for c in r.changes if c.category == 'section']\n"
+            "    # Examples should NOT be in the changes (already present)\n"
+            "    # User's content should still appear in upgraded_content\n"
+            "    print('Examples' not in section_changes,"
+            " 'my custom example' in r.upgraded_content)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_dry_run_does_not_modify_file(self) -> None:
+        """Without --apply the file content is unchanged on disk."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_upgrader import upgrade_agent\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    original = '---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A'\n"
+            "    p.write_text(original)\n"
+            "    r = upgrade_agent(p, apply=False)\n"
+            "    print(r.applied, p.read_text() == original, r.backup_path is None)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True True"
+
+    def test_apply_writes_file_and_creates_backup(self) -> None:
+        """With --apply the file is written and a backup exists."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_upgrader import upgrade_agent\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    original = '---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A'\n"
+            "    p.write_text(original)\n"
+            "    r = upgrade_agent(p, apply=True)\n"
+            "    backup_exists = r.backup_path is not None and Path(r.backup_path).exists()\n"
+            "    backup_content = Path(r.backup_path).read_text() if backup_exists else ''\n"
+            "    print(r.applied, p.read_text() != original, backup_exists, backup_content == original)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True True True"
+
+    def test_idempotent_upgrade_no_changes(self) -> None:
+        """Upgrading an already-upgraded file produces zero changes and no backup."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_upgrader import upgrade_agent\n"
+            "complete = (\n"
+            "    '---\\nname: a\\ndescription: d\\ntools: Read\\n'\n"
+            "    'model: sonnet\\nmaxTurns: 15\\nversion: 1.0.0\\n---\\n'\n"
+            "    '# A\\n## Examples\\n- ex\\n## Output Format\\nfmt\\n## Error Handling\\nh'\n"
+            ")\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    p.write_text(complete)\n"
+            "    r = upgrade_agent(p, apply=True)\n"
+            "    print(len(r.changes), r.applied, r.backup_path is None)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "0 False True"
+
+    def test_smart_defaults_override_forces_values(self) -> None:
+        """smart_defaults_override wins over the profile-selected defaults."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_upgrader import upgrade_agent\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A')\n"
+            "    r = upgrade_agent(p, smart_defaults_override={'model': 'haiku', 'maxTurns': 5})\n"
+            "    fm = {c.field_or_section: c.value for c in r.changes if c.category == 'frontmatter'}\n"
+            "    print(fm.get('model'), fm.get('maxTurns'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "haiku 5"
+
+    def test_file_not_found_raises(self) -> None:
+        """Missing file → FileNotFoundError."""
+        result = self._run_py(
+            "from agent_upgrader import upgrade_agent\n"
+            "try:\n"
+            "    upgrade_agent('/tmp/__definitely_not_an_agent__.md')\n"
+            "    print('NO_RAISE')\n"
+            "except FileNotFoundError as e:\n"
+            "    print('RAISED', 'not found' in str(e).lower())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "RAISED True"
+
+    def test_cli_upgrade_dry_run(self) -> None:
+        """`platxa-agent upgrade path` returns 0 and prints the report (dry-run)."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from cli import CLI\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    original = '---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A'\n"
+            "    p.write_text(original)\n"
+            "    rc = CLI().run(['upgrade', str(p)])\n"
+            "    print('RC=', rc, 'unchanged=', p.read_text() == original)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "RC= 0" in result.stdout
+        assert "unchanged= True" in result.stdout
+
+    def test_cli_upgrade_apply_modifies_file(self) -> None:
+        """`upgrade path --apply` modifies the file."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from cli import CLI\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    original = '---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A'\n"
+            "    p.write_text(original)\n"
+            "    rc = CLI().run(['upgrade', str(p), '--apply'])\n"
+            "    print('RC=', rc, 'changed=', p.read_text() != original)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "RC= 0" in result.stdout
+        assert "changed= True" in result.stdout
+
+    def test_cli_upgrade_missing_returns_1(self) -> None:
+        """Missing file → exit 1."""
+        result = self._run_py(
+            "from cli import CLI\nrc = CLI().run(['upgrade', '/tmp/__nope__.md'])\nprint('RC=', rc)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "RC= 1" in result.stdout
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

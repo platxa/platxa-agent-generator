@@ -35,6 +35,7 @@ try:
         agent_analyzer,
         agent_catalog,
         agent_generator,
+        agent_upgrader,
         dry_run,
         extended_thinking,
         install_agent,
@@ -51,6 +52,7 @@ except ImportError:
     import agent_analyzer  # type: ignore[import-not-found,no-redef]
     import agent_catalog  # type: ignore[import-not-found,no-redef]
     import agent_generator  # type: ignore[import-not-found,no-redef]
+    import agent_upgrader  # type: ignore[import-not-found,no-redef]
     import dry_run  # type: ignore[import-not-found,no-redef]
     import extended_thinking  # type: ignore[import-not-found,no-redef]
     import install_agent  # type: ignore[import-not-found,no-redef]
@@ -130,6 +132,7 @@ Examples:
         self._add_install_command(subparsers)
         self._add_analyze_command(subparsers)
         self._add_analyze_agent_command(subparsers)
+        self._add_upgrade_command(subparsers)
         self._add_preview_command(subparsers)
         self._add_status_command(subparsers)
 
@@ -208,6 +211,25 @@ Examples:
             help="Path to the agent .md file",
         )
 
+    def _add_upgrade_command(self, subparsers: Any) -> None:
+        """Add the upgrade subcommand.
+
+        Wraps :mod:`agent_upgrader` so users can upgrade an existing
+        agent file to the latest format. Default is a dry-run that
+        prints the planned changes; ``--apply`` writes them back
+        (after creating a timestamped backup).
+        """
+        upgrade = subparsers.add_parser(
+            "upgrade",
+            help="Upgrade an existing agent to the latest format",
+        )
+        upgrade.add_argument("path", type=Path, help="Path to the agent .md file")
+        upgrade.add_argument(
+            "--apply",
+            action="store_true",
+            help="Write changes back to the file (dry-run is the default)",
+        )
+
     def _add_preview_command(self, subparsers: Any) -> None:
         """Add the preview subcommand."""
         preview = subparsers.add_parser("preview", help="Preview generation")
@@ -244,6 +266,7 @@ Examples:
             "install": self._handle_install,
             "analyze": self._handle_analyze,
             "analyze-agent": self._handle_analyze_agent,
+            "upgrade": self._handle_upgrade,
             "preview": self._handle_preview,
             "status": self._handle_status,
         }
@@ -627,6 +650,30 @@ Examples:
             print(json.dumps(analysis.to_dict(), indent=2))
         else:
             print(agent_analyzer.format_analysis_report(analysis))
+        return 0
+
+    def _handle_upgrade(self, args: argparse.Namespace) -> int:
+        """Handle the upgrade command.
+
+        Reads the agent file, runs the additive upgrade, and prints
+        either the JSON serialization or the human-readable report.
+        Exit code is 1 only on FileNotFoundError — a no-op upgrade
+        (file already current) is still success.
+        """
+        json_mode = bool(getattr(args, "json", False))
+        try:
+            result = agent_upgrader.upgrade_agent(args.path, apply=args.apply)
+        except FileNotFoundError as exc:
+            if json_mode:
+                print(json.dumps({"error": str(exc)}, indent=2))
+            else:
+                print(f"Error: {exc}")
+            return 1
+
+        if json_mode:
+            print(json.dumps(result.to_dict(), indent=2))
+        else:
+            print(agent_upgrader.format_upgrade_report(result))
         return 0
 
     def _handle_preview(self, args: argparse.Namespace) -> int:

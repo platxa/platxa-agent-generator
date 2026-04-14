@@ -41,6 +41,7 @@ from . import (
     agent_composer,
     agent_export,
     agent_generator,
+    agent_upgrader,
     agent_versioning,
     claudemd_generator,
     cli,
@@ -99,4 +100,5 @@ __all__ = [
     "agent_versioning",
     "agent_export",
     "agent_analyzer",
+    "agent_upgrader",
 ]
