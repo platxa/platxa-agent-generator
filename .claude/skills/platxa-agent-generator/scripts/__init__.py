@@ -43,6 +43,7 @@ from . import (
     agent_generator,
     agent_upgrader,
     agent_versioning,
+    batch_generator,
     claudemd_generator,
     cli,
     command_generator,
@@ -101,4 +102,5 @@ __all__ = [
     "agent_export",
     "agent_analyzer",
     "agent_upgrader",
+    "batch_generator",
 ]
