@@ -30,6 +30,14 @@ class PromptConfig:
     # prompt opens with explicit INSTRUCTIONS, CONTEXT, TASK, and OUTPUT
     # FORMAT so the model can locate each concern unambiguously.
     structure_format: str = "legacy"
+    # Whether this agent is expected to run long-horizon tasks (multi-phase
+    # workflows, large file scans, deep code explorations) where the
+    # tool-result history can pressure the context window. When True, the
+    # CONTEXT block gains a Context Management subsection telling the agent
+    # how to spot pressure and what to do about it (subagent delegation,
+    # /clear, in-conversation summarization). Agents with low maxTurns or
+    # narrow scope should leave this False to keep the prompt lean.
+    long_running: bool = False
 
 
 # Canonical ordering for the 4-block prompt structure. These are exported so
@@ -39,6 +47,30 @@ PROMPT_BLOCK_NAMES: tuple[str, ...] = ("INSTRUCTIONS", "CONTEXT", "TASK", "OUTPU
 PROMPT_BLOCK_XML_TAGS: tuple[str, ...] = ("instructions", "context", "task", "output_format")
 # Valid values for PromptConfig.structure_format.
 STRUCTURE_FORMATS: tuple[str, ...] = ("legacy", "markdown", "xml")
+
+# Heading rendered above the context-management bullets when
+# ``PromptConfig.long_running`` is True. Public so tests and quality
+# scorers can locate the block by exact string.
+CONTEXT_MANAGEMENT_HEADING: str = "**Context Management:**"
+
+# Canonical context-management guidance injected into long-running agent
+# prompts. Ordered by importance — host-side reminder injection truncates
+# from the tail, so the most load-bearing rule (early detection) sits
+# first. Each rule is a complete imperative, parseable as one bullet.
+CONTEXT_MANAGEMENT_RULES: tuple[str, ...] = (
+    "Monitor your tool-result history; once it exceeds ~50% of the "
+    "context window, plan a compaction step before the next major "
+    "tool call.",
+    "Delegate heavy exploration (multi-file searches, deep code reads) "
+    "to a subagent via the Task tool — the subagent runs in a fresh "
+    "context and returns a single summary, keeping your context lean.",
+    "Between unrelated sub-tasks, recommend the user run `/clear` to "
+    "reset the conversation — partial state from a finished task is "
+    "noise for the next one.",
+    "When you must keep working in a long thread, summarize the "
+    "exploration findings into a short note and continue from the "
+    "summary rather than re-reading raw tool outputs.",
+)
 
 
 @dataclass
@@ -592,6 +624,22 @@ def format_reminder_points_section(points: list[ReminderPoint]) -> str:
     return "\n".join(lines)
 
 
+def generate_context_management_section(config: PromptConfig) -> str:
+    """Render the Context Management subsection for long-running agents.
+
+    Returns the empty string when ``config.long_running`` is False — that
+    keeps the section opt-in so short-lived agents don't carry irrelevant
+    guidance. When True, emits :data:`CONTEXT_MANAGEMENT_HEADING` followed
+    by every rule in :data:`CONTEXT_MANAGEMENT_RULES` as a markdown bullet.
+    """
+    if not config.long_running:
+        return ""
+    lines: list[str] = [CONTEXT_MANAGEMENT_HEADING]
+    for rule in CONTEXT_MANAGEMENT_RULES:
+        lines.append(f"- {rule}")
+    return "\n".join(lines)
+
+
 def generate_prompt_blocks(config: PromptConfig) -> PromptBlocks:
     """Assemble the 4-block prompt body from the component generators.
 
@@ -627,6 +675,14 @@ def generate_prompt_blocks(config: PromptConfig) -> PromptBlocks:
     if tool_guidance:
         context_lines.append("")
         context_lines.append(tool_guidance)
+    # Long-running agents need explicit guidance on context window pressure;
+    # the section is opt-in (gated by ``config.long_running``) so short-lived
+    # agents stay terse. Appended to CONTEXT (not INSTRUCTIONS) because it's
+    # environment-aware advice rather than a hard rule.
+    context_management = generate_context_management_section(config)
+    if context_management:
+        context_lines.append("")
+        context_lines.append(context_management)
     context_body = "\n".join(context_lines)
 
     # TASK: the numbered workflow. This is *what the agent actually does*

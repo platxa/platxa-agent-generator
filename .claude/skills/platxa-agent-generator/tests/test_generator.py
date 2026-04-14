@@ -11911,5 +11911,120 @@ class TestPostInstallVerification:
         assert lines[:3] == ["False", "True", "True"], f"unexpected lines: {lines}"
 
 
+class TestContextManagementSection:
+    """Tests for context-management guidance in long-running agent prompts (#89).
+
+    Covers:
+    - CONTEXT_MANAGEMENT_HEADING / CONTEXT_MANAGEMENT_RULES public constants
+    - generate_context_management_section returns "" when long_running=False
+    - generate_context_management_section emits heading + every rule when True
+    - First rule mentions context-pressure detection (early-warning ordering)
+    - Rules cover subagent delegation AND /clear recommendation
+    - generate_prompt_blocks omits the section for short-lived agents
+    - generate_prompt_blocks includes the section in CONTEXT for long_running
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_constants_exposed(self) -> None:
+        """Public constants are stable for downstream parsers."""
+        result = self._run_py(
+            "from prompt_generator import (\n"
+            "    CONTEXT_MANAGEMENT_HEADING, CONTEXT_MANAGEMENT_RULES,\n"
+            ")\n"
+            "print(CONTEXT_MANAGEMENT_HEADING)\n"
+            "print(len(CONTEXT_MANAGEMENT_RULES))"
+        )
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().splitlines()
+        assert lines[0] == "**Context Management:**"
+        # Must have at least 3 rules to cover the verification criteria
+        # (detection, subagent delegation, /clear recommendation).
+        assert int(lines[1]) >= 3
+
+    def test_section_empty_when_short_lived(self) -> None:
+        """Short-lived agents (default) get no Context Management section."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_context_management_section\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read'],[],'json')\n"
+            "print(repr(generate_context_management_section(cfg)))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "''"
+
+    def test_section_renders_when_long_running(self) -> None:
+        """Long-running agents get heading + every canonical rule."""
+        result = self._run_py(
+            "from prompt_generator import (\n"
+            "    PromptConfig, generate_context_management_section,\n"
+            "    CONTEXT_MANAGEMENT_RULES,\n"
+            ")\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read'],[],'json',\n"
+            "                   long_running=True)\n"
+            "section = generate_context_management_section(cfg)\n"
+            "print('**Context Management:**' in section)\n"
+            "print(all(rule in section for rule in CONTEXT_MANAGEMENT_RULES))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True"]
+
+    def test_first_rule_targets_pressure_detection(self) -> None:
+        """First rule must address context-pressure detection (ordering matters)."""
+        result = self._run_py(
+            "from prompt_generator import CONTEXT_MANAGEMENT_RULES\n"
+            "first = CONTEXT_MANAGEMENT_RULES[0].lower()\n"
+            "print('context' in first and ('window' in first or 'history' in first))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_rules_cover_subagent_and_clear(self) -> None:
+        """Verification criteria require subagent delegation + /clear guidance."""
+        result = self._run_py(
+            "from prompt_generator import CONTEXT_MANAGEMENT_RULES\n"
+            "joined = ' '.join(CONTEXT_MANAGEMENT_RULES).lower()\n"
+            "print('subagent' in joined and 'task tool' in joined)\n"
+            "print('/clear' in joined)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True"]
+
+    def test_blocks_omit_section_for_short_lived(self) -> None:
+        """generate_prompt_blocks does not leak the section by default."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read'],[],'json')\n"
+            "blocks = generate_prompt_blocks(cfg)\n"
+            "print('Context Management' in blocks.context)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
+
+    def test_blocks_include_section_for_long_running(self) -> None:
+        """generate_prompt_blocks injects the section into CONTEXT when opted in."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read'],[],'json',\n"
+            "                   long_running=True)\n"
+            "blocks = generate_prompt_blocks(cfg)\n"
+            "print('**Context Management:**' in blocks.context)\n"
+            "print('subagent' in blocks.context.lower())\n"
+            "print('/clear' in blocks.context)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True", "True"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
