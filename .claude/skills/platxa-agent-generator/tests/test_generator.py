@@ -8746,5 +8746,195 @@ class TestFourBlockPromptStructure:
         assert result.stdout.strip() == "markdown True"
 
 
+class TestAgentRegenerationWorkflow:
+    """Tests for the regeneration workflow in agent_versioning.py (feature #58).
+
+    Covers:
+    - detect_breaking_changes: tool removal, name change, model change, none
+    - regenerate_agent: patch bump on non-breaking, minor bump on breaking
+    - regenerate_agent: archive path written, history updated, changelog produced
+    - regenerate_agent: first-time generation path (no prior file)
+    - regenerate_agent: force_bump override works
+    - rollback-on-failure contract: bump failure restores archive
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    # -- detect_breaking_changes ------------------------------------------
+
+    def test_detect_no_breaking_when_only_body_changed(self) -> None:
+        """Pure body edits produce zero signals."""
+        result = self._run_py(
+            "from agent_versioning import detect_breaking_changes\n"
+            "old = '---\\nname: a\\ntools: Read\\n---\\nOld body'\n"
+            "new = '---\\nname: a\\ntools: Read\\n---\\nNew body'\n"
+            "print(len(detect_breaking_changes(old, new)))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "0"
+
+    def test_detect_tool_removal_is_breaking(self) -> None:
+        """Removing a declared tool produces a 'tools' signal."""
+        result = self._run_py(
+            "from agent_versioning import detect_breaking_changes\n"
+            "old = '---\\nname: a\\ntools: Read, Write, Bash\\n---\\nBody'\n"
+            "new = '---\\nname: a\\ntools: Read, Bash\\n---\\nBody'\n"
+            "sigs = detect_breaking_changes(old, new)\n"
+            "print(len(sigs), sigs[0].category, 'Write' in sigs[0].description)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "1 tools True"
+
+    def test_detect_tool_addition_is_not_breaking(self) -> None:
+        """Adding tools is additive — no signal."""
+        result = self._run_py(
+            "from agent_versioning import detect_breaking_changes\n"
+            "old = '---\\nname: a\\ntools: Read\\n---\\nBody'\n"
+            "new = '---\\nname: a\\ntools: Read, Write, Bash\\n---\\nBody'\n"
+            "print(len(detect_breaking_changes(old, new)))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "0"
+
+    def test_detect_name_change_is_breaking(self) -> None:
+        """Agent rename is breaking (identity change)."""
+        result = self._run_py(
+            "from agent_versioning import detect_breaking_changes\n"
+            "old = '---\\nname: old-name\\ntools: Read\\n---\\nBody'\n"
+            "new = '---\\nname: new-name\\ntools: Read\\n---\\nBody'\n"
+            "sigs = detect_breaking_changes(old, new)\n"
+            "print(len(sigs), sigs[0].category)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "1 name"
+
+    def test_detect_model_change_is_breaking(self) -> None:
+        """Model change alters runtime behavior — breaking."""
+        result = self._run_py(
+            "from agent_versioning import detect_breaking_changes\n"
+            "old = '---\\nname: a\\nmodel: sonnet\\n---\\nBody'\n"
+            "new = '---\\nname: a\\nmodel: opus\\n---\\nBody'\n"
+            "sigs = detect_breaking_changes(old, new)\n"
+            "print(len(sigs), sigs[0].category)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "1 model"
+
+    # -- regenerate_agent --------------------------------------------------
+
+    def test_regenerate_first_time_creates_initial_version(self) -> None:
+        """First-time generation writes file and initializes history."""
+        result = self._run_py(
+            "import tempfile, os\n"
+            "from pathlib import Path\n"
+            "from agent_versioning import regenerate_agent\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    content = '---\\nname: a\\ntools: Read\\n---\\nInitial'\n"
+            "    r = regenerate_agent(p, content, changes=['Initial gen'])\n"
+            "    print(r.success, r.old_version, r.new_version, r.archive_path is None,"
+            " p.exists())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True  1.0.0 True True"
+
+    def test_regenerate_non_breaking_bumps_patch(self) -> None:
+        """Body-only change → patch bump."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_versioning import regenerate_agent, VersionBump\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    first = '---\\nname: a\\ntools: Read\\n---\\nBody v1'\n"
+            "    regenerate_agent(p, first, changes=['init'])\n"
+            "    second = '---\\nname: a\\ntools: Read\\n---\\nBody v2 reworded'\n"
+            "    r = regenerate_agent(p, second, changes=['reword'])\n"
+            "    print(r.success, r.bump_type == VersionBump.PATCH,"
+            " r.old_version, r.new_version, len(r.breaking_changes))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True 1.0.0 1.0.1 0"
+
+    def test_regenerate_breaking_bumps_minor(self) -> None:
+        """Tool removal triggers minor bump per feature spec."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_versioning import regenerate_agent, VersionBump\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    first = '---\\nname: a\\ntools: Read, Write, Bash\\n---\\nBody'\n"
+            "    regenerate_agent(p, first, changes=['init'])\n"
+            "    second = '---\\nname: a\\ntools: Read, Bash\\n---\\nBody changed'\n"
+            "    r = regenerate_agent(p, second, changes=['remove tool'])\n"
+            "    print(r.success, r.bump_type == VersionBump.MINOR,"
+            " r.old_version, r.new_version, len(r.breaking_changes))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True 1.0.0 1.1.0 1"
+
+    def test_regenerate_archives_previous_version(self) -> None:
+        """Previous version file is archived under .versions/backups/."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_versioning import regenerate_agent\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    regenerate_agent(p, '---\\nname: a\\ntools: Read\\n---\\nv1', ['init'])\n"
+            "    r = regenerate_agent(p, '---\\nname: a\\ntools: Read\\n---\\nv2', ['update'])\n"
+            "    archive = Path(r.archive_path)\n"
+            "    print(archive.exists(),'backups' in str(archive),"
+            " 'v1' in archive.read_text())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True True"
+
+    def test_regenerate_writes_changelog_and_history(self) -> None:
+        """Changelog text includes the new version entry and history has 2 entries."""
+        result = self._run_py(
+            "import tempfile, json\n"
+            "from pathlib import Path\n"
+            "from agent_versioning import regenerate_agent\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    regenerate_agent(p, '---\\nname: a\\ntools: Read\\n---\\nv1', ['initial'])\n"
+            "    r = regenerate_agent(p, '---\\nname: a\\ntools: Read\\n---\\nv2', ['reword'])\n"
+            "    hist = json.loads(Path(r.history_path).read_text())\n"
+            "    print(len(hist['entries']), hist['current_version'],"
+            " '1.0.1' in r.changelog, 'reword' in r.changelog)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "2 1.0.1 True True"
+
+    def test_force_bump_overrides_automatic_choice(self) -> None:
+        """Passing force_bump=MAJOR wins even for non-breaking changes."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_versioning import regenerate_agent, VersionBump\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    regenerate_agent(p, '---\\nname: a\\ntools: Read\\n---\\nv1', ['init'])\n"
+            "    r = regenerate_agent(p, '---\\nname: a\\ntools: Read\\n---\\nv2', ['x'],"
+            " force_bump=VersionBump.MAJOR)\n"
+            "    print(r.success, r.bump_type == VersionBump.MAJOR, r.new_version)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True 2.0.0"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

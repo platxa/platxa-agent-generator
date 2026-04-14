@@ -551,9 +551,7 @@ def apply_update(
 
         elif update_type == UpdateType.SELECTIVE:
             # Update only specific sections
-            selective_content = selective_update(
-                old_content, new_content, preserve_sections or []
-            )
+            selective_content = selective_update(old_content, new_content, preserve_sections or [])
             agent_path.write_text(selective_content)
             changes_applied.append(f"Selective update preserving: {preserve_sections}")
 
@@ -861,6 +859,284 @@ def generate_changelog(
     return "\n".join(lines)
 
 
+@dataclass
+class BreakingChangeSignal:
+    """A single detected breaking change between two agent versions.
+
+    Breaking changes here are things an *external* caller of the agent
+    would notice and need to adapt to — tool removal, identity change,
+    model change. Purely internal edits (rewording a capability bullet,
+    reordering examples) are not breaking and do not appear here.
+
+    Fields:
+        category: Short machine-readable tag — ``"tools"``, ``"name"``,
+            ``"model"``, or ``"description_shape"``.
+        description: Human-readable sentence explaining the change,
+            suitable for inclusion in a changelog.
+    """
+
+    category: str
+    description: str
+
+
+@dataclass
+class RegenerationResult:
+    """Outcome of :func:`regenerate_agent`.
+
+    The workflow is atomic from the caller's perspective: on success,
+    the agent file, version history, and archive are all consistent;
+    on failure, the agent file is rolled back to the archived content
+    and ``success`` is ``False``. Callers should inspect ``error``
+    when ``success`` is ``False``.
+    """
+
+    success: bool
+    old_version: str
+    new_version: str
+    bump_type: VersionBump
+    breaking_changes: list[BreakingChangeSignal] = field(default_factory=list)
+    changelog: str = ""
+    archive_path: str | None = None
+    history_path: str = ""
+    error: str = ""
+
+
+# Frontmatter fields that count toward breaking-change detection. Kept at
+# module scope so callers and tests can see (and extend) the contract
+# rather than it being an implementation detail inside the function.
+_BREAKING_FRONTMATTER_FIELDS: tuple[str, ...] = ("name", "model")
+
+
+def _parse_frontmatter_fields(content: str) -> dict[str, str]:
+    """Extract frontmatter as a flat ``{field: value}`` mapping.
+
+    Simpler than the full agent parser — only used by breaking-change
+    detection to read ``name``, ``tools``, and ``model``. Returns empty
+    dict when no frontmatter is present so callers don't have to branch.
+    """
+    if not content.startswith("---"):
+        return {}
+    parts = content.split("---", 2)
+    if len(parts) < 3:
+        return {}
+    fields: dict[str, str] = {}
+    for line in parts[1].split("\n"):
+        if ":" in line:
+            key, value = line.split(":", 1)
+            fields[key.strip()] = value.strip().strip("\"'")
+    return fields
+
+
+def _split_tools(tools_value: str) -> set[str]:
+    """Split a frontmatter ``tools`` value into a canonical set.
+
+    The tools field is comma-separated in Claude Code's agent format.
+    Empty entries and surrounding whitespace are stripped so
+    ``"Read, Write, "`` and ``"Read,Write"`` compare equal.
+    """
+    return {token.strip() for token in tools_value.split(",") if token.strip()}
+
+
+def detect_breaking_changes(old_content: str, new_content: str) -> list[BreakingChangeSignal]:
+    """Detect breaking changes between two agent versions.
+
+    The contract is deliberately narrow: only changes that would make an
+    *external* caller's existing integration fail or behave differently
+    are reported. This keeps the minor-version bump meaningful — every
+    signal here represents a real change in the agent's contract.
+
+    Detection rules (in canonical order so output is deterministic):
+
+    1. **name** — frontmatter ``name`` changed (identity breaking).
+    2. **model** — frontmatter ``model`` changed (runtime environment
+       changes; output behavior may differ even for identical prompts).
+    3. **tools** — any tool that was previously declared has been
+       *removed*. Adding tools is additive and not breaking.
+
+    Args:
+        old_content: The previous agent file content (including frontmatter).
+        new_content: The regenerated agent file content.
+
+    Returns:
+        Ordered list of detected signals. Empty list means the change is
+        backwards-compatible and only merits a patch bump.
+    """
+    old_fm = _parse_frontmatter_fields(old_content)
+    new_fm = _parse_frontmatter_fields(new_content)
+
+    signals: list[BreakingChangeSignal] = []
+
+    # 1+2. Single-value frontmatter fields whose change is breaking.
+    # Iterating over the module-level tuple keeps the contract in one
+    # place: to add a new breaking field (e.g. "role"), extend
+    # ``_BREAKING_FRONTMATTER_FIELDS`` — no changes here required.
+    for field_name in _BREAKING_FRONTMATTER_FIELDS:
+        old_value = old_fm.get(field_name, "")
+        new_value = new_fm.get(field_name, "")
+        if old_value and new_value and old_value != new_value:
+            signals.append(
+                BreakingChangeSignal(
+                    category=field_name,
+                    description=(
+                        f"{field_name.capitalize()} changed from '{old_value}' to '{new_value}'"
+                    ),
+                )
+            )
+
+    # 3. Tool removal (capability shrinkage)
+    old_tools = _split_tools(old_fm.get("tools", ""))
+    new_tools = _split_tools(new_fm.get("tools", ""))
+    removed = sorted(old_tools - new_tools)
+    for tool in removed:
+        signals.append(
+            BreakingChangeSignal(
+                category="tools",
+                description=f"Tool removed from declared set: {tool}",
+            )
+        )
+
+    return signals
+
+
+def regenerate_agent(
+    agent_path: Path,
+    new_content: str,
+    changes: list[str] | None = None,
+    author: str = "",
+    force_bump: VersionBump | None = None,
+) -> RegenerationResult:
+    """Apply the regeneration workflow to ``agent_path``.
+
+    Steps (atomic on success, rolled back on failure):
+
+    1. If the agent does not yet exist, treat this as first generation —
+       write the content and create the initial version history at 1.0.0.
+    2. Otherwise, detect breaking changes between the current file and
+       ``new_content`` via :func:`detect_breaking_changes`.
+    3. Archive the current file into ``.versions/backups/`` so the
+       previous version is preserved and rollback is possible.
+    4. Decide the bump type. ``force_bump`` wins if set; otherwise MINOR
+       when any breaking change is detected and PATCH for a purely
+       non-breaking regeneration. **Note:** this matches the feature spec
+       (breaking → minor). Strict semver would bump MAJOR for breaking
+       changes; callers needing that behavior pass ``force_bump=MAJOR``.
+    5. Write ``new_content`` and call :func:`bump_version` to update
+       both the frontmatter version and the history log.
+    6. Generate a changelog covering the new entry and return it.
+
+    On any failure after archival, the agent file is restored from the
+    archive so the caller never observes a half-written regeneration.
+
+    Args:
+        agent_path: Path to the agent file being regenerated.
+        new_content: The regenerated content (its frontmatter may or may
+            not contain a ``version:`` line — the workflow rewrites it).
+        changes: Human-readable change descriptions for the changelog.
+            Defaults to ``["Regenerated agent"]`` if omitted.
+        author: Author name for the version history entry.
+        force_bump: Override the automatic bump decision. Useful when
+            the caller knows the change warrants MAJOR or when a
+            non-breaking cosmetic edit should be PATCH even though the
+            detector would otherwise flag it.
+
+    Returns:
+        A :class:`RegenerationResult` describing the outcome.
+    """
+    if not agent_path.exists():
+        # First-time generation — no prior version to archive or compare.
+        agent_path.parent.mkdir(parents=True, exist_ok=True)
+        agent_path.write_text(new_content)
+        history = create_initial_version(
+            agent_path,
+            author=author,
+            changes=changes or ["Initial generation"],
+        )
+        return RegenerationResult(
+            success=True,
+            old_version="",
+            new_version=history.current_version,
+            bump_type=VersionBump.PATCH,
+            breaking_changes=[],
+            changelog=generate_changelog(history),
+            archive_path=None,
+            history_path=str(get_version_history_path(agent_path)),
+        )
+
+    old_content = agent_path.read_text()
+    old_version = extract_version_from_frontmatter(old_content) or "1.0.0"
+
+    breaking_signals = detect_breaking_changes(old_content, new_content)
+
+    # Bump selection: explicit > breaking-detected > default patch.
+    if force_bump is not None:
+        bump_type = force_bump
+    elif breaking_signals:
+        bump_type = VersionBump.MINOR
+    else:
+        bump_type = VersionBump.PATCH
+
+    # Archive before any mutation so rollback is always possible.
+    archive_path = create_backup(agent_path)
+    if archive_path is None:
+        return RegenerationResult(
+            success=False,
+            old_version=old_version,
+            new_version=old_version,
+            bump_type=bump_type,
+            breaking_changes=breaking_signals,
+            changelog="",
+            archive_path=None,
+            history_path="",
+            error="Failed to archive previous version before regeneration",
+        )
+
+    # Write new content; bump_version will then rewrite the version line.
+    agent_path.write_text(new_content)
+
+    change_entries = list(changes) if changes else ["Regenerated agent"]
+    breaking_descriptions = [s.description for s in breaking_signals]
+    if breaking_descriptions:
+        change_entries.extend(f"Breaking: {desc}" for desc in breaking_descriptions)
+
+    success, bump_result = bump_version(
+        agent_path,
+        bump_type,
+        changes=change_entries,
+        author=author,
+        breaking_changes=breaking_descriptions,
+    )
+
+    if not success:
+        # bump_version failed — restore from archive so the agent file
+        # is back to its previous content; the caller gets a clean failure.
+        restore_from_backup(agent_path, archive_path)
+        return RegenerationResult(
+            success=False,
+            old_version=old_version,
+            new_version=old_version,
+            bump_type=bump_type,
+            breaking_changes=breaking_signals,
+            changelog="",
+            archive_path=str(archive_path),
+            history_path="",
+            error=bump_result,
+        )
+
+    history = load_version_history(agent_path)
+    changelog = generate_changelog(history) if history else ""
+
+    return RegenerationResult(
+        success=True,
+        old_version=old_version,
+        new_version=bump_result,
+        bump_type=bump_type,
+        breaking_changes=breaking_signals,
+        changelog=changelog,
+        archive_path=str(archive_path),
+        history_path=str(get_version_history_path(agent_path)),
+    )
+
+
 def list_available_versions(agent_path: Path) -> list[str]:
     """List all available versions for an agent."""
     history = load_version_history(agent_path)
@@ -916,7 +1192,9 @@ def rollback_to_version(
         if timestamp_match:
             backup_ts = timestamp_match.group(1)
             # Compare with target entry timestamp
-            entry_ts = target_entry.timestamp[:19].replace("-", "").replace(":", "").replace("T", "_")
+            entry_ts = (
+                target_entry.timestamp[:19].replace("-", "").replace(":", "").replace("T", "_")
+            )
             if backup_ts <= entry_ts:
                 if target_backup is None or backup_ts > target_backup[0]:
                     target_backup = (backup_ts, backup)
@@ -956,9 +1234,7 @@ if __name__ == "__main__":
     # Bump command
     bump_parser = subparsers.add_parser("bump", help="Bump agent version")
     bump_parser.add_argument("agent", help="Path to agent file")
-    bump_parser.add_argument(
-        "type", choices=["major", "minor", "patch"], help="Version bump type"
-    )
+    bump_parser.add_argument("type", choices=["major", "minor", "patch"], help="Version bump type")
     bump_parser.add_argument("-m", "--message", required=True, help="Change description")
     bump_parser.add_argument("-a", "--author", default="", help="Author name")
 
@@ -1006,7 +1282,7 @@ if __name__ == "__main__":
         if history:
             print(f"Agent: {history.agent_name}")
             print(f"Current: {history.current_version}")
-            print(f"\nVersions:")
+            print("\nVersions:")
             for entry in history.entries:
                 print(f"  {entry.version} ({entry.timestamp[:10]})")
                 for change in entry.changes:
