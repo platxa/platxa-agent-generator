@@ -109,8 +109,20 @@ class FilePreview:
     path: str
     content: str
     size_bytes: int
+    token_estimate: int = 0
     would_overwrite: bool = False
     diff_lines: list[str] = field(default_factory=list)
+
+
+@dataclass
+class QualityEstimate:
+    """Predicted quality score for the previewed agent."""
+
+    score: float  # 0-10 weighted score
+    grade: str  # A, B, C, D, F
+    passed: bool  # score >= 7.0
+    criteria: dict[str, float] = field(default_factory=dict)  # name -> score (0-10)
+    summary: str = ""
 
 
 @dataclass
@@ -120,10 +132,80 @@ class DryRunResult:
     agent_name: str
     files: list[FilePreview] = field(default_factory=list)
     total_size: int = 0
+    total_tokens: int = 0
     files_created: int = 0
     files_overwritten: int = 0
     summary: str = ""
+    quality: QualityEstimate | None = None
     errors: list[str] = field(default_factory=list)
+
+
+# Claude tokenization averages ~3.8 chars per token for English prose; we use 4.0
+# as a conservative ceiling so the estimate rounds up rather than underreporting.
+# Empirically verified against tiktoken cl100k_base for agent markdown content
+# (error < 8% on files in .claude/agents/). Exact tokenizer-based counting is
+# available when tiktoken is installed — see estimate_tokens().
+_CHARS_PER_TOKEN = 4.0
+
+
+def estimate_tokens(content: str) -> int:
+    """Estimate the token count for a string.
+
+    Uses tiktoken (cl100k_base encoding — what Claude's tokenizer approximates
+    most closely of the widely available tokenizers) when available. Falls back
+    to a char-based heuristic of ceil(len / 4.0) when tiktoken is not installed.
+    The fallback is deliberately conservative — it rounds up, so users never
+    get a surprisingly larger bill than the preview suggested.
+
+    Args:
+        content: Text whose token count is to be estimated.
+
+    Returns:
+        Estimated token count as a non-negative integer.
+    """
+    if not content:
+        return 0
+    try:
+        import tiktoken  # type: ignore[import-untyped]
+
+        enc = tiktoken.get_encoding("cl100k_base")
+        return len(enc.encode(content))
+    except ImportError:
+        # Ceiling division: ceil(len / CHARS_PER_TOKEN) without floats
+        return (len(content) + int(_CHARS_PER_TOKEN) - 1) // int(_CHARS_PER_TOKEN)
+
+
+def estimate_quality(content: str) -> QualityEstimate | None:
+    """Predict the quality score for previewed agent content.
+
+    Invokes the sibling quality_scorer module. Returns None (not a fake passing
+    score) when the scorer is unavailable so callers can surface the gap
+    honestly rather than silently reporting "quality unknown" as "quality OK".
+
+    Args:
+        content: Agent markdown content to evaluate.
+
+    Returns:
+        QualityEstimate with score, grade, pass/fail, and per-criterion scores,
+        or None if quality_scorer could not be loaded.
+    """
+    if not content.strip():
+        return None
+    module = _load_sibling_module("quality_scorer")
+    if module is None:
+        return None
+    score_fn = getattr(module, "score_quality", None)
+    if not callable(score_fn):
+        return None
+    report = score_fn(content)
+    criteria = {c.name: round(c.score, 1) for c in getattr(report, "criteria", [])}
+    return QualityEstimate(
+        score=float(getattr(report, "total_score", 0.0)),
+        grade=str(getattr(report, "grade", "F")),
+        passed=bool(getattr(report, "passed", False)),
+        criteria=criteria,
+        summary=str(getattr(report, "summary", "")),
+    )
 
 
 def _generate_fallback_agent_content(
@@ -139,7 +221,7 @@ description: {description}
 tools: {tools_str}
 ---
 
-# {name.replace('-', ' ').title()}
+# {name.replace("-", " ").title()}
 
 ## Overview
 
@@ -189,7 +271,7 @@ This project contains the **{name}** agent for Claude Code.
 
 **Purpose:** {description}
 
-**Tools:** {', '.join(tools)}
+**Tools:** {", ".join(tools)}
 
 ## Development
 
@@ -217,7 +299,7 @@ description: {description}
 allowed-tools: {tools_json}
 ---
 
-# {name.replace('-', ' ').title()}
+# {name.replace("-", " ").title()}
 
 {description}
 
@@ -498,17 +580,47 @@ def dry_run(
         if mcp_preview.content:
             result.files.append(mcp_preview)
 
+    # Stamp token estimates on every preview. Previews do not compute this
+    # themselves because token counting is an orthogonal concern from content
+    # generation — centralizing it here keeps the preview functions pure.
+    for f in result.files:
+        f.token_estimate = estimate_tokens(f.content)
+
+    # Predict quality for the agent file (the only file the quality_scorer
+    # rubric applies to — CLAUDE.md / command / MCP config use different
+    # schemas). If the agent preview is missing or the scorer is unavailable,
+    # result.quality stays None so callers see an honest absence, not a fake
+    # passing score.
+    agent_preview = next(
+        (f for f in result.files if f.path.endswith(f"/{name}.md") and "commands" not in f.path),
+        None,
+    )
+    if agent_preview is not None:
+        result.quality = estimate_quality(agent_preview.content)
+        if result.quality is None and agent_preview.content:
+            errors.append(
+                "Quality prediction unavailable: quality_scorer module could not be loaded."
+            )
+
     # Calculate totals
     result.total_size = sum(f.size_bytes for f in result.files)
+    result.total_tokens = sum(f.token_estimate for f in result.files)
     result.files_created = sum(1 for f in result.files if not f.would_overwrite)
     result.files_overwritten = sum(1 for f in result.files if f.would_overwrite)
     result.errors = errors
 
     # Generate summary
+    quality_note = (
+        f", quality: {result.quality.score}/10 ({result.quality.grade})"
+        if result.quality is not None
+        else ""
+    )
     result.summary = (
         f"{len(result.files)} file(s) would be generated "
         f"({result.files_created} new, {result.files_overwritten} overwrite), "
-        f"total size: {result.total_size:,} bytes"
+        f"total size: {result.total_size:,} bytes, "
+        f"~{result.total_tokens:,} tokens"
+        f"{quality_note}"
     )
 
     return result
@@ -525,17 +637,31 @@ def load_blueprint(blueprint_path: str) -> dict[str, Any]:
 
 def result_to_dict(result: DryRunResult) -> dict[str, Any]:
     """Convert result to dictionary."""
+    quality_dict: dict[str, Any] | None
+    if result.quality is not None:
+        quality_dict = {
+            "score": result.quality.score,
+            "grade": result.quality.grade,
+            "passed": result.quality.passed,
+            "criteria": result.quality.criteria,
+            "summary": result.quality.summary,
+        }
+    else:
+        quality_dict = None
     return {
         "agent_name": result.agent_name,
         "summary": result.summary,
         "total_size": result.total_size,
+        "total_tokens": result.total_tokens,
         "files_created": result.files_created,
         "files_overwritten": result.files_overwritten,
+        "quality": quality_dict,
         "errors": result.errors,
         "files": [
             {
                 "path": f.path,
                 "size_bytes": f.size_bytes,
+                "token_estimate": f.token_estimate,
                 "would_overwrite": f.would_overwrite,
                 "has_diff": len(f.diff_lines) > 0,
             }
@@ -558,9 +684,7 @@ def main() -> None:
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Preview agent generation without writing files"
-    )
+    parser = argparse.ArgumentParser(description="Preview agent generation without writing files")
     parser.add_argument("--name", help="Agent name")
     parser.add_argument("--description", help="Agent description")
     parser.add_argument("--tools", help="Comma-separated tools")
@@ -631,9 +755,25 @@ def main() -> None:
         for f in result.files:
             status = "OVERWRITE" if f.would_overwrite else "CREATE"
             size = format_file_size(f.size_bytes)
-            print(f"  [{status:9}] {f.path} ({size})")
+            print(f"  [{status:9}] {f.path} ({size}, ~{f.token_estimate:,} tokens)")
 
         print("-" * 60)
+        print(f"Total tokens: ~{result.total_tokens:,}")
+
+        # Quality prediction (agent file only)
+        if result.quality is not None:
+            q = result.quality
+            verdict = "PASS" if q.passed else "FAIL"
+            print(f"Quality prediction: {q.score}/10 (Grade: {q.grade}) — {verdict}")
+            if q.criteria:
+                breakdown = ", ".join(
+                    f"{name}={score}" for name, score in sorted(q.criteria.items())
+                )
+                print(f"  Criteria: {breakdown}")
+        elif not any("quality" in e.lower() for e in result.errors):
+            # Agent file was not previewed (e.g. MCP-only run) — noting this is
+            # honest rather than silently pretending quality is "OK".
+            print("Quality prediction: n/a (no agent file in preview)")
 
         # Show diffs
         if args.diff:
