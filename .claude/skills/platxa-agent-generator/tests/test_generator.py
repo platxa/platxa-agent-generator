@@ -10924,5 +10924,200 @@ class TestClaudemdSubagentDelegation:
         assert result.stdout.strip() == "[]"
 
 
+class TestStateCheckpointRecovery:
+    """Tests for state_persistence checkpoint/resume (feature #74).
+
+    Covers:
+    - CHECKPOINT_PHASES tuple defines the canonical phase order
+    - Checkpoint dataclass (phase, completed_at, phase_data)
+    - SessionState.checkpoints defaults to empty list
+    - save_checkpoint appends; rejects unknown phase with ValueError
+    - save_checkpoint shallow-copies phase_data (caller mutations don't bleed)
+    - latest_checkpoint returns last appended or None
+    - resume_phase returns next phase, or None when none/finished
+    - clear_checkpoints empties the list (restart path)
+    - Round-trip through save/load preserves checkpoints
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_checkpoint_phases_constant(self) -> None:
+        """CHECKPOINT_PHASES is a 5-tuple in execution order."""
+        result = self._run_py(
+            "from state_persistence import CHECKPOINT_PHASES\nprint(CHECKPOINT_PHASES)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == (
+            "('discovery', 'architecture', 'generation', 'validation', 'installation')"
+        )
+
+    def test_checkpoint_dataclass(self) -> None:
+        """Checkpoint exposes phase, auto-set completed_at, default-empty phase_data."""
+        result = self._run_py(
+            "from state_persistence import Checkpoint\n"
+            "c = Checkpoint(phase='discovery')\n"
+            "print(c.phase, type(c.completed_at).__name__, c.phase_data)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "discovery str {}"
+
+    def test_session_state_checkpoints_defaults_empty(self) -> None:
+        """SessionState.checkpoints defaults to []."""
+        result = self._run_py(
+            "from state_persistence import SessionState, StateMetadata\n"
+            "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
+            "print(s.checkpoints)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "[]"
+
+    def test_save_checkpoint_appends(self) -> None:
+        """save_checkpoint appends a Checkpoint with phase + phase_data."""
+        result = self._run_py(
+            "from state_persistence import (\n"
+            "    SessionState, StateMetadata, save_checkpoint\n"
+            ")\n"
+            "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
+            "cp = save_checkpoint(s, 'discovery', {'agents_found': 3})\n"
+            "print(len(s.checkpoints), cp.phase, cp.phase_data['agents_found'])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "1 discovery 3"
+
+    def test_save_checkpoint_rejects_unknown_phase(self) -> None:
+        """Unknown phase → ValueError naming the bad phase."""
+        result = self._run_py(
+            "from state_persistence import (\n"
+            "    SessionState, StateMetadata, save_checkpoint\n"
+            ")\n"
+            "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
+            "try:\n"
+            "    save_checkpoint(s, 'bogus-phase', {})\n"
+            "    print('NO_RAISE')\n"
+            "except ValueError as e:\n"
+            "    print('RAISED', 'bogus-phase' in str(e))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "RAISED True"
+
+    def test_save_checkpoint_isolates_phase_data(self) -> None:
+        """Caller mutating phase_data after the call must not affect the checkpoint."""
+        result = self._run_py(
+            "from state_persistence import (\n"
+            "    SessionState, StateMetadata, save_checkpoint\n"
+            ")\n"
+            "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
+            "data = {'k': 1}\n"
+            "save_checkpoint(s, 'discovery', data)\n"
+            "data['k'] = 999\n"
+            "print(s.checkpoints[0].phase_data['k'])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "1"
+
+    def test_latest_checkpoint(self) -> None:
+        """latest_checkpoint returns the last appended; None when empty."""
+        result = self._run_py(
+            "from state_persistence import (\n"
+            "    SessionState, StateMetadata, save_checkpoint, latest_checkpoint\n"
+            ")\n"
+            "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
+            "print(latest_checkpoint(s))\n"
+            "save_checkpoint(s, 'discovery', {})\n"
+            "save_checkpoint(s, 'architecture', {})\n"
+            "print(latest_checkpoint(s).phase)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["None", "architecture"]
+
+    def test_resume_phase_returns_next(self) -> None:
+        """After 'discovery' checkpoint, resume_phase returns 'architecture'."""
+        result = self._run_py(
+            "from state_persistence import (\n"
+            "    SessionState, StateMetadata, save_checkpoint, resume_phase\n"
+            ")\n"
+            "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
+            "save_checkpoint(s, 'discovery', {})\n"
+            "print(resume_phase(s))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "architecture"
+
+    def test_resume_phase_none_when_no_checkpoints(self) -> None:
+        """No checkpoints → resume_phase returns None (start fresh)."""
+        result = self._run_py(
+            "from state_persistence import SessionState, StateMetadata, resume_phase\n"
+            "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
+            "print(resume_phase(s))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "None"
+
+    def test_resume_phase_none_when_complete(self) -> None:
+        """Last phase reached → resume_phase returns None (workflow done)."""
+        result = self._run_py(
+            "from state_persistence import (\n"
+            "    SessionState, StateMetadata, save_checkpoint, resume_phase\n"
+            ")\n"
+            "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
+            "save_checkpoint(s, 'installation', {})\n"
+            "print(resume_phase(s))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "None"
+
+    def test_clear_checkpoints(self) -> None:
+        """clear_checkpoints empties the list (restart path)."""
+        result = self._run_py(
+            "from state_persistence import (\n"
+            "    SessionState, StateMetadata, save_checkpoint, clear_checkpoints\n"
+            ")\n"
+            "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
+            "save_checkpoint(s, 'discovery', {})\n"
+            "save_checkpoint(s, 'architecture', {})\n"
+            "clear_checkpoints(s)\n"
+            "print(s.checkpoints)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "[]"
+
+    def test_round_trip_serialization_preserves_checkpoints(self) -> None:
+        """save → load preserves checkpoint phase + phase_data."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from state_persistence import (\n"
+            "    SessionState, StateMetadata, StatePersistence, save_checkpoint\n"
+            ")\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    persistence = StatePersistence(base_dir=Path(td))\n"
+            "    s = SessionState(metadata=StateMetadata(session_id='roundtrip'))\n"
+            "    save_checkpoint(s, 'discovery', {'a': 1})\n"
+            "    save_checkpoint(s, 'architecture', {'b': 2})\n"
+            "    persistence.save(s)\n"
+            "    loaded = persistence.load()\n"
+            "    print(\n"
+            "        len(loaded.checkpoints),\n"
+            "        loaded.checkpoints[0].phase,\n"
+            "        loaded.checkpoints[0].phase_data['a'],\n"
+            "        loaded.checkpoints[1].phase,\n"
+            "        loaded.checkpoints[1].phase_data['b'],\n"
+            "    )"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "2 discovery 1 architecture 2"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

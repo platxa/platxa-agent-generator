@@ -130,6 +130,35 @@ class GenerationRecord:
     validation_errors: list[str] = field(default_factory=list)
 
 
+# Canonical phases of the agent-generation workflow, in execution order.
+# Used by save_checkpoint to validate phase names and by resume_phase to
+# decide which phase to run next after a successful checkpoint. Pinned as
+# a tuple so callers cannot mutate it; ordering is load-bearing.
+CHECKPOINT_PHASES: tuple[str, ...] = (
+    "discovery",
+    "architecture",
+    "generation",
+    "validation",
+    "installation",
+)
+
+
+@dataclass
+class Checkpoint:
+    """A successful workflow phase boundary persisted to disk.
+
+    Each checkpoint records the phase that just completed, when it
+    completed, and any phase-specific output data the next phase needs
+    (e.g. discovery output → architecture input). The list of checkpoints
+    on a SessionState is append-only during a normal run; restart wipes
+    it via :func:`clear_checkpoints`.
+    """
+
+    phase: str
+    completed_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    phase_data: dict[str, Any] = field(default_factory=dict)
+
+
 @dataclass
 class SessionState:
     """Complete session state for persistence."""
@@ -140,6 +169,78 @@ class SessionState:
     generation_records: list[GenerationRecord] = field(default_factory=list)
     configuration: dict[str, Any] = field(default_factory=dict)
     error_log: list[dict[str, Any]] = field(default_factory=list)
+    checkpoints: list[Checkpoint] = field(default_factory=list)
+
+
+def save_checkpoint(
+    state: SessionState,
+    phase: str,
+    phase_data: dict[str, Any] | None = None,
+) -> Checkpoint:
+    """Append a successful-phase checkpoint to ``state.checkpoints``.
+
+    Args:
+        state: The session state being mutated. Modified in place.
+        phase: One of :data:`CHECKPOINT_PHASES`. Other values raise
+            ``ValueError`` rather than silently accepting unknown phases
+            (a typo in the phase name would defeat the resume logic).
+        phase_data: Phase-specific output to hand to the next phase.
+            Stored by value (shallow-copied) so subsequent caller
+            mutations don't bleed into the persisted checkpoint.
+
+    Returns:
+        The :class:`Checkpoint` just appended.
+
+    Raises:
+        ValueError: ``phase`` is not in :data:`CHECKPOINT_PHASES`.
+    """
+    if phase not in CHECKPOINT_PHASES:
+        raise ValueError(
+            f"Unknown checkpoint phase '{phase}'. Valid phases: {', '.join(CHECKPOINT_PHASES)}"
+        )
+    cp = Checkpoint(phase=phase, phase_data=dict(phase_data or {}))
+    state.checkpoints.append(cp)
+    return cp
+
+
+def latest_checkpoint(state: SessionState) -> Checkpoint | None:
+    """Return the most recently saved checkpoint, or ``None`` if none exist."""
+    return state.checkpoints[-1] if state.checkpoints else None
+
+
+def resume_phase(state: SessionState) -> str | None:
+    """Return the next phase to run after the latest checkpoint.
+
+    Returns ``None`` when:
+
+    - No checkpoints exist (start from the first phase via the caller's
+      normal entry path)
+    - The latest checkpoint is the final phase (workflow complete)
+
+    The function does not mutate ``state``; it just reads
+    ``checkpoints`` and computes the next-step phase from
+    :data:`CHECKPOINT_PHASES`. This is deliberate — callers may want
+    to inspect the next phase before deciding whether to resume or
+    restart.
+    """
+    cp = latest_checkpoint(state)
+    if cp is None:
+        return None
+    try:
+        idx = CHECKPOINT_PHASES.index(cp.phase)
+    except ValueError:
+        # An unknown phase landed in checkpoints somehow — treat as
+        # incoherent state and force restart by signalling no resume.
+        return None
+    next_idx = idx + 1
+    if next_idx >= len(CHECKPOINT_PHASES):
+        return None
+    return CHECKPOINT_PHASES[next_idx]
+
+
+def clear_checkpoints(state: SessionState) -> None:
+    """Wipe all checkpoints (used when the user chooses to restart)."""
+    state.checkpoints.clear()
 
 
 class FileLock:
@@ -330,9 +431,7 @@ class StatePersistence:
 
             # Create initial state if not exists
             if not self.state_file.exists():
-                initial_state = SessionState(
-                    metadata=StateMetadata(session_id=self._session_id)
-                )
+                initial_state = SessionState(metadata=StateMetadata(session_id=self._session_id))
                 self._write_state(initial_state)
 
             # Create default config if not exists
@@ -375,9 +474,7 @@ class StatePersistence:
             # Load current state
             current_state = self.load()
             if current_state is None:
-                current_state = SessionState(
-                    metadata=StateMetadata(session_id=self._session_id)
-                )
+                current_state = SessionState(metadata=StateMetadata(session_id=self._session_id))
 
             # Create backup before modification
             backup_data = self._serialize_state(current_state)
@@ -617,7 +714,10 @@ class StatePersistence:
             if stored_checksum == actual_checksum:
                 return True, "Integrity verified"
             else:
-                return False, f"Checksum mismatch: expected {stored_checksum[:16]}..., got {actual_checksum[:16]}..."
+                return (
+                    False,
+                    f"Checksum mismatch: expected {stored_checksum[:16]}..., got {actual_checksum[:16]}...",
+                )
         except OSError as e:
             return False, f"Error verifying integrity: {e}"
 
@@ -642,9 +742,7 @@ class StatePersistence:
             self.archive_session()
 
             # Create fresh state
-            initial_state = SessionState(
-                metadata=StateMetadata(session_id=self._session_id)
-            )
+            initial_state = SessionState(metadata=StateMetadata(session_id=self._session_id))
             return self.save(initial_state)
         except Exception as e:
             self._log_error("reset", str(e))
@@ -739,11 +837,17 @@ class StatePersistence:
             },
             "workflow_phase": state.workflow_phase,
             "workflow_data": state.workflow_data,
-            "generation_records": [
-                self._record_to_dict(r) for r in state.generation_records
-            ],
+            "generation_records": [self._record_to_dict(r) for r in state.generation_records],
             "configuration": state.configuration,
             "error_log": state.error_log,
+            "checkpoints": [
+                {
+                    "phase": cp.phase,
+                    "completed_at": cp.completed_at,
+                    "phase_data": cp.phase_data,
+                }
+                for cp in state.checkpoints
+            ],
         }
         return json.dumps(data, indent=2, sort_keys=True)
 
@@ -766,8 +870,15 @@ class StatePersistence:
             agent_name=data["metadata"].get("agent_name"),
         )
 
-        records = [
-            self._dict_to_record(r) for r in data.get("generation_records", [])
+        records = [self._dict_to_record(r) for r in data.get("generation_records", [])]
+
+        checkpoints = [
+            Checkpoint(
+                phase=cp["phase"],
+                completed_at=cp.get("completed_at", datetime.now().isoformat()),
+                phase_data=cp.get("phase_data", {}),
+            )
+            for cp in data.get("checkpoints", [])
         ]
 
         return SessionState(
@@ -777,6 +888,7 @@ class StatePersistence:
             generation_records=records,
             configuration=data.get("configuration", {}),
             error_log=data.get("error_log", []),
+            checkpoints=checkpoints,
         )
 
     def _record_to_dict(self, record: GenerationRecord) -> dict[str, Any]:
@@ -868,10 +980,17 @@ class StatePersistence:
         from_version: str,
         to_version: str,
     ) -> dict[str, Any]:
-        """Migrate state data between schema versions."""
-        # Version migration logic
-        # Currently only v1.0.0, add migrations as needed
+        """Migrate state data between schema versions.
+
+        ``from_version`` is currently informational — there is only one
+        live schema version — but it's recorded into the migrated payload
+        so future migrations can branch on the source version without
+        having to reverse-engineer it from the data.
+        """
+        if from_version == to_version:
+            return data
         data["schema_version"] = to_version
+        data["_migrated_from"] = from_version
         return data
 
     def _log_error(self, operation: str, message: str) -> None:
@@ -879,11 +998,13 @@ class StatePersistence:
         try:
             state = self.load()
             if state:
-                state.error_log.append({
-                    "timestamp": datetime.now().isoformat(),
-                    "operation": operation,
-                    "message": message,
-                })
+                state.error_log.append(
+                    {
+                        "timestamp": datetime.now().isoformat(),
+                        "operation": operation,
+                        "message": message,
+                    }
+                )
                 # Keep last 100 errors
                 state.error_log = state.error_log[-100:]
                 self._write_state(state)
@@ -976,7 +1097,7 @@ def main() -> None:
         if args.json:
             print(persistence._serialize_state(state))
         else:
-            print(f"\nCurrent State")
+            print("\nCurrent State")
             print("=" * 40)
             print(f"Session:  {state.metadata.session_id}")
             print(f"Phase:    {state.workflow_phase}")
@@ -992,10 +1113,12 @@ def main() -> None:
         )
 
         if args.json:
-            print(json.dumps(
-                [persistence._record_to_dict(r) for r in records],
-                indent=2,
-            ))
+            print(
+                json.dumps(
+                    [persistence._record_to_dict(r) for r in records],
+                    indent=2,
+                )
+            )
         else:
             print(f"\nGeneration History ({len(records)} records)")
             print("-" * 60)
