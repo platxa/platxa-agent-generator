@@ -9686,5 +9686,222 @@ class TestAgentUpgrader:
         assert "RC= 1" in result.stdout
 
 
+class TestComposeRouter:
+    """Tests for compose_router and RoutingRule in agent_composer.py (feature #67).
+
+    Covers:
+    - Generated router includes all categories in the routing table
+    - Each handler is referenced in the Handlers section
+    - Fallback section references fallback_handler.name when provided
+    - Fallback section describes ask-for-clarification when fallback is omitted
+    - Classification Hints emitted only when at least one rule has keywords
+    - Validation: empty handlers, empty rules, rule → unknown handler,
+      fallback_handler not in handlers list
+    - Pattern is CompositionPattern.CONDITIONAL on success
+    - Tools are merged from every handler
+    - Module-level header constants ROUTER_TABLE_HEADER and
+      ROUTER_FALLBACK_HEADER surface in the generated content
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    _BUILD_HANDLERS = (
+        "from agent_composer import AgentSpec, RoutingRule, compose_router\n"
+        "refactor = AgentSpec(name='refactor-agent',"
+        " description='Refactors code',"
+        " tools=['Read', 'Edit'])\n"
+        "bugfix = AgentSpec(name='bugfix-agent',"
+        " description='Fixes bugs',"
+        " tools=['Read', 'Bash'])\n"
+        "docs = AgentSpec(name='docs-agent',"
+        " description='Writes docs',"
+        " tools=['Read', 'Write'])\n"
+        "rules = [\n"
+        "    RoutingRule(category='refactor',"
+        " description='Improve structure',"
+        " handler_name='refactor-agent',"
+        " keywords=['refactor', 'rename']),\n"
+        "    RoutingRule(category='bug-fix',"
+        " description='Investigate and fix defects',"
+        " handler_name='bugfix-agent'),\n"
+        "]\n"
+    )
+
+    def test_router_includes_all_categories_in_table(self) -> None:
+        """Every rule's category and handler appear in the routing table."""
+        result = self._run_py(
+            self._BUILD_HANDLERS + "r = compose_router([refactor, bugfix], rules)\n"
+            "print(r.success)\n"
+            "print('refactor' in r.agent_content, 'bug-fix' in r.agent_content)\n"
+            "print('refactor-agent' in r.agent_content, 'bugfix-agent' in r.agent_content)"
+        )
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().splitlines()
+        assert lines == ["True", "True True", "True True"]
+
+    def test_router_emits_section_headers(self) -> None:
+        """ROUTER_TABLE_HEADER and ROUTER_FALLBACK_HEADER appear in content."""
+        result = self._run_py(
+            self._BUILD_HANDLERS
+            + "from agent_composer import ROUTER_TABLE_HEADER, ROUTER_FALLBACK_HEADER\n"
+            "r = compose_router([refactor, bugfix], rules)\n"
+            "print(ROUTER_TABLE_HEADER in r.agent_content,"
+            " ROUTER_FALLBACK_HEADER in r.agent_content)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_fallback_with_handler_references_fallback_name(self) -> None:
+        """fallback_handler present → its name is mentioned in fallback section."""
+        result = self._run_py(
+            self._BUILD_HANDLERS
+            + "r = compose_router([refactor, bugfix, docs], rules, fallback_handler=docs)\n"
+            "print(r.success, 'docs-agent' in r.agent_content)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_fallback_without_handler_describes_ask_protocol(self) -> None:
+        """Without fallback_handler, agent instructed to ask for clarification."""
+        result = self._run_py(
+            self._BUILD_HANDLERS + "r = compose_router([refactor, bugfix], rules)\n"
+            "content = r.agent_content.lower()\n"
+            "print(r.success, 'clarif' in content, 'unrouted' in content)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True True"
+
+    def test_classification_hints_emitted_when_keywords_present(self) -> None:
+        """Hints section emitted because at least one rule has keywords."""
+        result = self._run_py(
+            self._BUILD_HANDLERS + "r = compose_router([refactor, bugfix], rules)\n"
+            "print('Classification Hints' in r.agent_content,"
+            " '`refactor`' in r.agent_content)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_classification_hints_suppressed_without_keywords(self) -> None:
+        """No keywords on any rule → no Classification Hints section."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, RoutingRule, compose_router\n"
+            "a = AgentSpec(name='a', description='A', tools=['Read'])\n"
+            "b = AgentSpec(name='b', description='B', tools=['Read'])\n"
+            "rules = [\n"
+            "    RoutingRule(category='c1', description='desc', handler_name='a'),\n"
+            "    RoutingRule(category='c2', description='desc', handler_name='b'),\n"
+            "]\n"
+            "r = compose_router([a, b], rules)\n"
+            "print(r.success, 'Classification Hints' in r.agent_content)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True False"
+
+    def test_pattern_is_conditional_on_success(self) -> None:
+        """Successful compose_router produces pattern == CONDITIONAL."""
+        result = self._run_py(
+            self._BUILD_HANDLERS + "from agent_composer import CompositionPattern\n"
+            "r = compose_router([refactor, bugfix], rules)\n"
+            "print(r.success, r.pattern is CompositionPattern.CONDITIONAL)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_tools_merged_from_all_handlers(self) -> None:
+        """tools_merged contains the union of every handler's tools."""
+        result = self._run_py(
+            self._BUILD_HANDLERS + "r = compose_router([refactor, bugfix], rules)\n"
+            "merged = set(r.tools_merged)\n"
+            "print(r.success, {'Read', 'Edit', 'Bash'}.issubset(merged))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_empty_handlers_fails(self) -> None:
+        """No handlers → success=False with explicit error."""
+        result = self._run_py(
+            "from agent_composer import RoutingRule, compose_router\n"
+            "rules = [RoutingRule(category='c', description='d', handler_name='x')]\n"
+            "r = compose_router([], rules)\n"
+            "print(r.success, any('at least one handler' in e for e in r.errors))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_empty_rules_fails(self) -> None:
+        """No routing rules → success=False with explicit error."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, compose_router\n"
+            "a = AgentSpec(name='a', description='A', tools=['Read'])\n"
+            "r = compose_router([a], [])\n"
+            "print(r.success, any('routing rule' in e for e in r.errors))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_rule_references_unknown_handler_fails(self) -> None:
+        """Rule.handler_name not in handlers → success=False with named error."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, RoutingRule, compose_router\n"
+            "a = AgentSpec(name='a', description='A', tools=['Read'])\n"
+            "b = AgentSpec(name='b', description='B', tools=['Read'])\n"
+            "rules = [\n"
+            "    RoutingRule(category='c1', description='d', handler_name='a'),\n"
+            "    RoutingRule(category='c2', description='d', handler_name='ghost'),\n"
+            "]\n"
+            "r = compose_router([a, b], rules)\n"
+            "print(r.success, any(\"'ghost'\" in e for e in r.errors))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_fallback_not_in_handlers_fails(self) -> None:
+        """fallback_handler must be in the handlers list."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, RoutingRule, compose_router\n"
+            "a = AgentSpec(name='a', description='A', tools=['Read'])\n"
+            "b = AgentSpec(name='b', description='B', tools=['Read'])\n"
+            "external = AgentSpec(name='outside', description='X', tools=['Read'])\n"
+            "rules = [RoutingRule(category='c', description='d', handler_name='a')]\n"
+            "r = compose_router([a, b], rules, fallback_handler=external)\n"
+            "print(r.success, any('outside' in e for e in r.errors))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_rule_order_preserved_in_table(self) -> None:
+        """Rule order is preserved (first-match-wins priority)."""
+        result = self._run_py(
+            self._BUILD_HANDLERS + "r = compose_router([refactor, bugfix], rules)\n"
+            "idx_refactor = r.agent_content.find('`refactor`')\n"
+            "idx_bugfix = r.agent_content.find('`bug-fix`')\n"
+            "print(r.success, idx_refactor < idx_bugfix)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_custom_name_and_description_applied(self) -> None:
+        """Explicit name= and description= override defaults in frontmatter."""
+        result = self._run_py(
+            self._BUILD_HANDLERS + "r = compose_router([refactor, bugfix], rules,"
+            " name='my-router', description='Custom desc')\n"
+            "print(r.composite_name, 'name: my-router' in r.agent_content,"
+            " 'Custom desc' in r.agent_content)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "my-router True True"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

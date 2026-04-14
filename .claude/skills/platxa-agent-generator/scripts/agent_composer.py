@@ -93,6 +93,44 @@ class CompatibilityCheck:
     suggestions: list[str] = field(default_factory=list)
 
 
+@dataclass
+class RoutingRule:
+    """A single routing rule for the router-agent generator.
+
+    The router agent classifies an incoming request into a ``category``,
+    then dispatches to ``handler_name`` (which must match one of the
+    AgentSpec names passed to :func:`compose_router`).
+
+    Fields:
+        category: Short machine-friendly tag (e.g. ``"refactor"``,
+            ``"bug-fix"``). Surfaces in the generated routing table so
+            users can see categories at a glance.
+        description: One-line human-readable explanation of when this
+            rule fires. Becomes the rule's prose in the generated agent.
+        handler_name: The AgentSpec.name to dispatch to.
+        keywords: Optional list of substring matchers that bias the
+            classifier. The generated agent uses these as hints; the
+            actual classification still happens at runtime via Claude.
+            Empty list means "no automatic hints — rely on description".
+    """
+
+    category: str
+    description: str
+    handler_name: str
+    keywords: list[str] = field(default_factory=list)
+
+
+# Sentinel header emitted into generated router agents above the routing
+# table, so downstream parsers can locate the table without depending on
+# heading text. Kept as a module constant rather than an inline string so
+# the contract is one place and tests can assert on it.
+ROUTER_TABLE_HEADER: str = "## Routing Table"
+
+# Sentinel header for the fallback section. Same rationale as
+# ROUTER_TABLE_HEADER.
+ROUTER_FALLBACK_HEADER: str = "## Fallback Handler"
+
+
 def check_compatibility(agents: list[AgentSpec]) -> CompatibilityCheck:
     """
     Check if agents are compatible for composition.
@@ -625,6 +663,191 @@ If no rule matches:
         pattern=CompositionPattern.CONDITIONAL,
         agent_content=content,
         component_agents=[a.name for a in agents],
+        tools_merged=tools,
+        warnings=compat.suggestions,
+    )
+
+
+def compose_router(
+    handlers: list[AgentSpec],
+    routing_rules: list[RoutingRule],
+    fallback_handler: AgentSpec | None = None,
+    name: str | None = None,
+    description: str | None = None,
+) -> CompositionResult:
+    """Generate a router agent: classify input → dispatch to specialized handler.
+
+    Distinct from :func:`compose_conditional` (which takes a flat
+    ``{condition: agent_name}`` dict). This version:
+
+    - Treats categories as **first-class** (each rule has a category tag,
+      description, optional keyword hints).
+    - Requires every rule's ``handler_name`` to match one of ``handlers``,
+      so dangling references fail loud at compose time, not at runtime.
+    - Emits an explicit ``Fallback Handler`` section either pointing at
+      ``fallback_handler`` (when provided) or describing the
+      ask-for-clarification protocol (when not).
+
+    Args:
+        handlers: AgentSpecs for every specialized handler. Must include
+            ``fallback_handler`` if one is passed.
+        routing_rules: Ordered list of :class:`RoutingRule`. Order is
+            preserved in the generated table so authors can express
+            priority (first match wins).
+        fallback_handler: Optional handler to dispatch to when no rule
+            matches. When omitted, the generated agent's fallback
+            section instructs the agent to ask for clarification.
+        name: Override for the composite agent's frontmatter ``name``.
+            Defaults to ``router-{first-handler-name}``.
+        description: Override for the composite agent's frontmatter
+            ``description``. Defaults to a list of categories.
+
+    Returns:
+        :class:`CompositionResult`. ``success=False`` when handlers are
+        empty, when a rule references an unknown handler, or when
+        ``check_compatibility`` rejects the handler set.
+
+    Raises:
+        Never — all error conditions are reported via ``CompositionResult.errors``.
+    """
+    errors: list[str] = []
+
+    if not handlers:
+        errors.append("compose_router requires at least one handler")
+    if not routing_rules:
+        errors.append("compose_router requires at least one routing rule")
+
+    handler_names = {h.name for h in handlers}
+    for rule in routing_rules:
+        if rule.handler_name not in handler_names:
+            errors.append(
+                f"Routing rule for category '{rule.category}' references unknown "
+                f"handler '{rule.handler_name}' (handlers: {sorted(handler_names)})"
+            )
+    if fallback_handler and fallback_handler.name not in handler_names:
+        errors.append(f"fallback_handler '{fallback_handler.name}' is not in the handlers list")
+
+    if errors:
+        return CompositionResult(
+            success=False,
+            composite_name="",
+            pattern=CompositionPattern.CONDITIONAL,
+            agent_content="",
+            component_agents=[],
+            tools_merged=[],
+            errors=errors,
+        )
+
+    compat = check_compatibility(handlers)
+    if not compat.compatible:
+        return CompositionResult(
+            success=False,
+            composite_name="",
+            pattern=CompositionPattern.CONDITIONAL,
+            agent_content="",
+            component_agents=[],
+            tools_merged=[],
+            errors=compat.issues,
+        )
+
+    composite_name = name or f"router-{handlers[0].name}"
+    composite_desc = description or (
+        f"Routes requests across categories: {', '.join(r.category for r in routing_rules)}"
+    )
+
+    tools = merge_tools(handlers)
+    tools_str = ", ".join(tools)
+
+    # Routing table — first column is category, second is handler, third
+    # is one-line description. Markdown table so terminal renderers
+    # display it cleanly while machine parsers can still pluck rows.
+    table_lines: list[str] = [
+        "| Category | Handler | When to use |",
+        "|----------|---------|-------------|",
+    ]
+    for rule in routing_rules:
+        table_lines.append(f"| `{rule.category}` | `{rule.handler_name}` | {rule.description} |")
+
+    # Per-rule keyword hints — only emit the section when at least one
+    # rule has hints, so simple agents stay terse.
+    hint_section = ""
+    if any(r.keywords for r in routing_rules):
+        hint_lines = ["## Classification Hints", ""]
+        for rule in routing_rules:
+            if not rule.keywords:
+                continue
+            kw = ", ".join(f"`{k}`" for k in rule.keywords)
+            hint_lines.append(f"- **{rule.category}**: {kw}")
+        hint_section = "\n".join(hint_lines) + "\n"
+
+    if fallback_handler is not None:
+        fallback_body = (
+            f"When no routing rule matches, dispatch to the **fallback handler**:\n\n"
+            f"- **`{fallback_handler.name}`**: {fallback_handler.description}\n\n"
+            "The fallback handler is responsible for either handling the request "
+            "directly or surfacing a clear error explaining why no specialized "
+            "handler applied."
+        )
+    else:
+        fallback_body = (
+            "When no routing rule matches:\n\n"
+            "1. Ask the user a single clarifying question naming the "
+            "available categories from the routing table above.\n"
+            "2. If the user's reply matches a category, route accordingly.\n"
+            "3. Otherwise, return an explicit `unrouted` response so the "
+            "caller can decide whether to retry, escalate, or abort.\n\n"
+            "Never fabricate a routing decision when uncertain — uncertainty "
+            "must surface to the caller, not be silently absorbed."
+        )
+
+    handler_index = "\n".join(f"### `{h.name}`\n\n{h.description}\n" for h in handlers)
+
+    content = f"""---
+name: {composite_name}
+description: {composite_desc}
+tools: {tools_str}
+---
+
+# {composite_name.replace("-", " ").title()}
+
+## Overview
+
+{composite_desc}
+
+**Pattern:** Routing (classifier + specialized handlers)
+**Handlers:** {len(handlers)}
+**Routing rules:** {len(routing_rules)}
+
+## Classification Process
+
+1. Read the incoming request.
+2. Compare against each row of the routing table below in order — first match wins.
+3. If a match is found, dispatch to the named handler with the original input.
+4. If no rule matches, follow the {ROUTER_FALLBACK_HEADER.split("## ", 1)[1]} below.
+
+{ROUTER_TABLE_HEADER}
+
+{chr(10).join(table_lines)}
+
+{hint_section}{ROUTER_FALLBACK_HEADER}
+
+{fallback_body}
+
+## Handlers
+
+{handler_index}
+
+---
+
+*Composite router agent generated by Platxa Agent Composer*
+"""
+
+    return CompositionResult(
+        success=True,
+        composite_name=composite_name,
+        pattern=CompositionPattern.CONDITIONAL,
+        agent_content=content,
+        component_agents=[h.name for h in handlers],
         tools_merged=tools,
         warnings=compat.suggestions,
     )
