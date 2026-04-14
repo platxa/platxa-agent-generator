@@ -11748,5 +11748,168 @@ class TestAgentLint:
         assert result.returncode == 1, result.stderr or result.stdout
 
 
+class TestPostInstallVerification:
+    """Tests for verify_installation + install_agent integration (feature #88).
+
+    Covers:
+    - VERIFICATION_CHECK_ORDER constant exposes the canonical (syntax,
+      skills, mcp_servers) ordering
+    - verify_installation passes for a well-formed agent with no refs
+    - verify_installation flags missing skill references with a finding
+    - verify_installation flags mcpServers entries missing 'command'
+    - verify_installation accepts list-form 'skills' frontmatter
+    - install_agent re-runs verification on the *target* file post-copy
+    - install_agent surfaces verification findings via InstallResult
+      (success=False, verification.findings populated) when refs missing
+    - install_agent's --skip-validation path bypasses verification entirely
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def _write_minimal_agent(self, root: Path, *, extra_frontmatter: str = "") -> Path:
+        path = root / "minimal.md"
+        fm_extra = f"\n{extra_frontmatter}" if extra_frontmatter else ""
+        path.write_text(
+            "---\n"
+            "name: minimal-agent\n"
+            "description: Minimal agent for verification testing.\n"
+            "tools: Read, Write"
+            f"{fm_extra}\n"
+            "---\n"
+            "\n"
+            "# Minimal Agent\n"
+            "\n"
+            "## Overview\n"
+            "Does things.\n"
+        )
+        return path
+
+    def test_verification_check_order_constant(self) -> None:
+        """VERIFICATION_CHECK_ORDER pins the canonical check sequence."""
+        result = self._run_py(
+            "from install_agent import (\n"
+            "    VERIFICATION_CHECK_ORDER, CHECK_SYNTAX, CHECK_SKILLS, CHECK_MCP,\n"
+            ")\n"
+            "print(VERIFICATION_CHECK_ORDER)\n"
+            "print(CHECK_SYNTAX, CHECK_SKILLS, CHECK_MCP)"
+        )
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().splitlines()
+        assert lines[0] == "('syntax', 'skills', 'mcp_servers')"
+        assert lines[1] == "syntax skills mcp_servers"
+
+    def test_verify_passes_for_clean_agent(self, tmp_path: Path) -> None:
+        """A well-formed agent with no skill/MCP refs passes verification."""
+        agent = self._write_minimal_agent(tmp_path)
+        result = self._run_py(
+            "from install_agent import verify_installation\n"
+            f"v = verify_installation({str(agent)!r}, install_root={str(tmp_path)!r})\n"
+            "print(v.valid, v.findings, v.checks)"
+        )
+        assert result.returncode == 0, result.stderr
+        out = result.stdout.strip()
+        assert out.startswith("True []")
+        assert "syntax" in out and "skills" in out and "mcp_servers" in out
+
+    def test_verify_flags_missing_skill(self, tmp_path: Path) -> None:
+        """A 'skills:' reference with no SKILL.md surfaces a finding."""
+        agent = self._write_minimal_agent(tmp_path, extra_frontmatter="skills: nonexistent-skill")
+        (tmp_path / "skills").mkdir()
+        result = self._run_py(
+            "from pathlib import Path\n"
+            "from install_agent import verify_installation\n"
+            f"v = verify_installation({str(agent)!r}, install_root=Path({str(tmp_path)!r}))\n"
+            "print(v.valid)\n"
+            "print(any('nonexistent-skill' in f for f in v.findings))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["False", "True"]
+
+    def test_verify_accepts_list_form_skills(self, tmp_path: Path) -> None:
+        """YAML-list-style 'skills:' with valid manifest passes verification."""
+        skill_dir = tmp_path / "skills" / "my-skill"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: my-skill\ndescription: Test skill.\n---\n# My Skill\n"
+        )
+        agent = self._write_minimal_agent(tmp_path, extra_frontmatter="skills:\n  - my-skill")
+        result = self._run_py(
+            "from pathlib import Path\n"
+            "from install_agent import verify_installation\n"
+            f"v = verify_installation({str(agent)!r}, install_root=Path({str(tmp_path)!r}))\n"
+            "print(v.valid, v.findings)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True []"
+
+    def test_verify_flags_mcp_missing_command(self, tmp_path: Path) -> None:
+        """An mcpServers entry without 'command' surfaces a finding."""
+        agent = self._write_minimal_agent(
+            tmp_path,
+            extra_frontmatter="mcpServers:\n  broken:\n    args: ['x']",
+        )
+        result = self._run_py(
+            "from pathlib import Path\n"
+            "from install_agent import verify_installation\n"
+            f"v = verify_installation({str(agent)!r}, install_root=Path({str(tmp_path)!r}))\n"
+            "print(v.valid)\n"
+            "print(any('mcpServers.broken' in f and 'command' in f for f in v.findings))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["False", "True"]
+
+    def test_install_skip_validation_bypasses_verification(self, tmp_path: Path) -> None:
+        """skip_validation=True returns verification=None (intentional bypass)."""
+        source = self._write_minimal_agent(tmp_path)
+        target_dir = tmp_path / "agents"
+        result = self._run_py(
+            "import install_agent as ia\n"
+            "from pathlib import Path\n"
+            f"ia.get_user_agents_dir = lambda: Path({str(target_dir)!r})\n"
+            f"r = ia.install_agent({str(source)!r}, scope='user', skip_validation=True)\n"
+            "print(r.success, r.verification is None)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_install_surfaces_verification_failure(self, tmp_path: Path) -> None:
+        """When verification finds issues, install_agent returns success=False.
+
+        Source-side gates (syntax, security) are stubbed so the test reaches
+        the post-install verify_installation path; that is the unit under
+        test here, not the upstream gates.
+        """
+        source = self._write_minimal_agent(tmp_path, extra_frontmatter="skills: missing-skill")
+        target_dir = tmp_path / "agents"
+        result = self._run_py(
+            "import install_agent as ia\n"
+            "from pathlib import Path\n"
+            f"ia.get_user_agents_dir = lambda: Path({str(target_dir)!r})\n"
+            f"ia._install_root_for_scope = lambda scope: Path({str(tmp_path)!r})\n"
+            "ia.run_syntax_validation = lambda src: (True, [])\n"
+            "ia.run_security_scan = lambda src: (True, 10.0)\n"
+            f"r = ia.install_agent({str(source)!r}, scope='user')\n"
+            "print(r.success)\n"
+            "print(r.verification is not None and not r.verification.valid)\n"
+            "print(any('missing-skill' in f for f in (r.verification.findings if r.verification else [])))\n"
+            "print('MSG=', r.message)"
+        )
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().splitlines()
+        # Diagnostic message included in case assertion fails.
+        assert lines[:3] == ["False", "True", "True"], f"unexpected lines: {lines}"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
