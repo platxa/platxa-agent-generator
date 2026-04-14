@@ -24,6 +24,38 @@ class PromptConfig:
     tools: list[str]  # available tools
     constraints: list[str]  # specific constraints
     output_format: str  # expected output format
+    # Prompt rendering mode: "legacy" (section-list, backwards compat),
+    # "markdown" (4-block ## headers), or "xml" (4-block XML tags). The
+    # 4-block modes follow standard prompt engineering practice: every
+    # prompt opens with explicit INSTRUCTIONS, CONTEXT, TASK, and OUTPUT
+    # FORMAT so the model can locate each concern unambiguously.
+    structure_format: str = "legacy"
+
+
+# Canonical ordering for the 4-block prompt structure. These are exported so
+# quality_scorer and external validators can detect and grade them.
+PROMPT_BLOCK_NAMES: tuple[str, ...] = ("INSTRUCTIONS", "CONTEXT", "TASK", "OUTPUT FORMAT")
+# XML tag names (lowercase, snake_case) matching each block, in the same order.
+PROMPT_BLOCK_XML_TAGS: tuple[str, ...] = ("instructions", "context", "task", "output_format")
+# Valid values for PromptConfig.structure_format.
+STRUCTURE_FORMATS: tuple[str, ...] = ("legacy", "markdown", "xml")
+
+
+@dataclass
+class PromptBlocks:
+    """The 4-block prompt body, pre-rendered as strings ready for either
+    markdown or XML serialization.
+
+    Each field contains the inner content for that block — the block
+    header/tag is emitted by the formatter, never by the block content
+    itself, so the same PromptBlocks instance can be rendered in both
+    markdown and XML form without double-wrapping.
+    """
+
+    instructions: str  # role statement + constraints
+    context: str  # capabilities + tool guidance + domain
+    task: str  # workflow steps
+    output_format: str  # expected output description
 
 
 @dataclass
@@ -560,8 +592,129 @@ def format_reminder_points_section(points: list[ReminderPoint]) -> str:
     return "\n".join(lines)
 
 
+def generate_prompt_blocks(config: PromptConfig) -> PromptBlocks:
+    """Assemble the 4-block prompt body from the component generators.
+
+    Each block's inner content is fully rendered here (bullet lists,
+    numbered workflow, tool guidance paragraph). The formatter functions
+    (``format_blocks_markdown`` / ``format_blocks_xml``) only wrap the
+    result in headers or tags — they never reshape the content.
+    """
+    role = generate_role_statement(config)
+    capabilities = generate_capabilities(config)
+    workflow = generate_workflow(config)
+    constraints = generate_constraints(config)
+    output_guidance = generate_output_guidance(config)
+
+    # INSTRUCTIONS: role statement + constraints. The role is the single
+    # sentence defining what the agent is; constraints are the hard rules
+    # the agent must obey. Both belong in INSTRUCTIONS because they are
+    # non-negotiable directives rather than background information.
+    instructions_lines: list[str] = [role]
+    if constraints:
+        instructions_lines.append("")
+        instructions_lines.append("**Constraints:**")
+        for constraint in constraints:
+            instructions_lines.append(f"- {constraint}")
+    instructions_body = "\n".join(instructions_lines)
+
+    # CONTEXT: capabilities + tool guidance. These describe the agent's
+    # environment and available resources rather than imperatives.
+    context_lines: list[str] = ["**Capabilities:**"]
+    for cap in capabilities:
+        context_lines.append(f"- {cap}")
+    tool_guidance = generate_tool_guidance(config)
+    if tool_guidance:
+        context_lines.append("")
+        context_lines.append(tool_guidance)
+    context_body = "\n".join(context_lines)
+
+    # TASK: the numbered workflow. This is *what the agent actually does*
+    # when invoked — distinct from the capabilities (what it *can* do).
+    task_lines: list[str] = ["**Workflow:**"]
+    for i, step in enumerate(workflow, 1):
+        task_lines.append(f"{i}. {step}")
+    task_body = "\n".join(task_lines)
+
+    # OUTPUT FORMAT: strip the "**Output Format:**\n" prefix emitted by
+    # ``generate_output_guidance`` — the block header/tag replaces it, and
+    # leaving the prefix in would produce redundant "## OUTPUT FORMAT /
+    # **Output Format:**" headers.
+    output_body = output_guidance
+    legacy_prefix = "**Output Format:**\n"
+    if output_body.startswith(legacy_prefix):
+        output_body = output_body[len(legacy_prefix) :]
+
+    return PromptBlocks(
+        instructions=instructions_body,
+        context=context_body,
+        task=task_body,
+        output_format=output_body,
+    )
+
+
+def format_blocks_markdown(blocks: PromptBlocks) -> str:
+    """Render the 4-block structure as Markdown `##` sections.
+
+    Headers use the canonical names from ``PROMPT_BLOCK_NAMES`` in the
+    canonical order so downstream parsers can rely on the structure.
+    """
+    parts = [
+        f"## {PROMPT_BLOCK_NAMES[0]}",
+        "",
+        blocks.instructions,
+        "",
+        f"## {PROMPT_BLOCK_NAMES[1]}",
+        "",
+        blocks.context,
+        "",
+        f"## {PROMPT_BLOCK_NAMES[2]}",
+        "",
+        blocks.task,
+        "",
+        f"## {PROMPT_BLOCK_NAMES[3]}",
+        "",
+        blocks.output_format,
+    ]
+    return "\n".join(parts)
+
+
+def format_blocks_xml(blocks: PromptBlocks) -> str:
+    """Render the 4-block structure as XML tags.
+
+    XML tag names come from ``PROMPT_BLOCK_XML_TAGS`` in the canonical
+    order. Claude is specifically trained to respect XML-tagged regions,
+    so this form is preferred for agents driven by the Anthropic API.
+    """
+    tags = PROMPT_BLOCK_XML_TAGS
+    return (
+        f"<{tags[0]}>\n{blocks.instructions}\n</{tags[0]}>\n\n"
+        f"<{tags[1]}>\n{blocks.context}\n</{tags[1]}>\n\n"
+        f"<{tags[2]}>\n{blocks.task}\n</{tags[2]}>\n\n"
+        f"<{tags[3]}>\n{blocks.output_format}\n</{tags[3]}>"
+    )
+
+
 def generate_full_prompt(config: PromptConfig) -> GeneratedPrompt:
-    """Generate complete system prompt."""
+    """Generate complete system prompt.
+
+    Respects ``config.structure_format``:
+
+    - ``"legacy"`` (default) — backwards-compatible section list used by
+      existing generated agents; sections are stacked in the historical
+      order (role, capabilities, workflow, tools, constraints, output).
+    - ``"markdown"`` — renders the 4-block INSTRUCTIONS/CONTEXT/TASK/
+      OUTPUT FORMAT structure using ``##`` headers.
+    - ``"xml"`` — same 4-block structure using XML tags.
+
+    An invalid value raises ``ValueError`` rather than silently falling
+    back to legacy, so callers don't ship typos undetected.
+    """
+    if config.structure_format not in STRUCTURE_FORMATS:
+        raise ValueError(
+            f"structure_format must be one of {STRUCTURE_FORMATS}, got {config.structure_format!r}"
+        )
+
     role = generate_role_statement(config)
     capabilities = generate_capabilities(config)
     workflow = generate_workflow(config)
@@ -569,7 +722,27 @@ def generate_full_prompt(config: PromptConfig) -> GeneratedPrompt:
     output_guidance = generate_output_guidance(config)
     reminder_points = generate_reminder_points(config, workflow)
 
-    # Build full prompt
+    if config.structure_format in ("markdown", "xml"):
+        blocks = generate_prompt_blocks(config)
+        if config.structure_format == "markdown":
+            body = format_blocks_markdown(blocks)
+        else:
+            body = format_blocks_xml(blocks)
+
+        reminder_section = format_reminder_points_section(reminder_points)
+        full_prompt = body if not reminder_section else f"{body}\n\n{reminder_section}"
+
+        return GeneratedPrompt(
+            role_statement=role,
+            capabilities=capabilities,
+            workflow_steps=workflow,
+            constraints=constraints,
+            output_guidance=output_guidance,
+            reminder_points=reminder_points,
+            full_prompt=full_prompt,
+        )
+
+    # Legacy section-list rendering
     sections = []
 
     # Role statement

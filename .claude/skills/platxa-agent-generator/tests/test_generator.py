@@ -8544,5 +8544,207 @@ class TestPromptReminderPoints:
         assert result.stdout.strip() == "True"
 
 
+class TestFourBlockPromptStructure:
+    """Tests for the 4-block prompt structure (feature #56).
+
+    Covers:
+    - generate_prompt_blocks() returns all four blocks with expected content
+    - format_blocks_markdown() emits canonical headers in canonical order
+    - format_blocks_xml() emits canonical tags in canonical order
+    - generate_full_prompt() with structure_format="markdown" / "xml"
+    - invalid structure_format raises ValueError (no silent fallback)
+    - legacy format still works (backwards compatibility)
+    - quality_scorer.evaluate_prompt_structure() detects all three modes
+    - quality_scorer.score_prompt_structure() neutral-scores legacy agents
+      and grades structured agents on block completeness
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_generate_prompt_blocks_returns_all_four_blocks(self) -> None:
+        """generate_prompt_blocks populates instructions/context/task/output_format."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read','Grep'],[],'JSON')\n"
+            "b = generate_prompt_blocks(cfg)\n"
+            "print('I' if b.instructions else 'NO_I')\n"
+            "print('C' if b.context else 'NO_C')\n"
+            "print('T' if b.task else 'NO_T')\n"
+            "print('O' if b.output_format else 'NO_O')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["I", "C", "T", "O"]
+
+    def test_markdown_format_emits_canonical_headers(self) -> None:
+        """format_blocks_markdown emits ## INSTRUCTIONS etc in canonical order."""
+        result = self._run_py(
+            "from prompt_generator import generate\n"
+            "r = generate('analyzer','security','audit',['Read'],[],'JSON')\n"
+            "# legacy default — should not have block headers\n"
+            "print('NOHEADER' if '## INSTRUCTIONS' not in r.full_prompt else 'HEADER')\n"
+            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read'],[],'JSON','markdown')\n"
+            "p = generate_full_prompt(cfg).full_prompt\n"
+            "i = p.find('## INSTRUCTIONS')\n"
+            "c = p.find('## CONTEXT')\n"
+            "t = p.find('## TASK')\n"
+            "o = p.find('## OUTPUT FORMAT')\n"
+            "print('ORDER_OK' if 0 <= i < c < t < o else f'ORDER_BAD {i} {c} {t} {o}')"
+        )
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().split("\n")
+        assert lines[0] == "NOHEADER"
+        assert lines[1] == "ORDER_OK"
+
+    def test_xml_format_emits_canonical_tags(self) -> None:
+        """format_blocks_xml emits <instructions>..<output_format> in canonical order."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read'],[],'JSON','xml')\n"
+            "p = generate_full_prompt(cfg).full_prompt\n"
+            "i = p.find('<instructions>')\n"
+            "c = p.find('<context>')\n"
+            "t = p.find('<task>')\n"
+            "o = p.find('<output_format>')\n"
+            "print('ORDER_OK' if 0 <= i < c < t < o else 'ORDER_BAD')\n"
+            "# closing tags present\n"
+            "has_close = all(x in p for x in ['</instructions>','</context>','</task>','</output_format>'])\n"
+            "print('CLOSED' if has_close else 'UNCLOSED')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["ORDER_OK", "CLOSED"]
+
+    def test_invalid_structure_format_raises(self) -> None:
+        """Unknown structure_format raises ValueError — no silent fallback."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read'],[],'JSON','bogus')\n"
+            "try:\n"
+            "    generate_full_prompt(cfg)\n"
+            "    print('NO_RAISE')\n"
+            "except ValueError as e:\n"
+            "    print('RAISED', 'bogus' in str(e))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "RAISED True"
+
+    def test_legacy_format_unchanged(self) -> None:
+        """Legacy format still produces the historical section list (no block headers)."""
+        result = self._run_py(
+            "from prompt_generator import generate\n"
+            "r = generate('analyzer','security','audit',['Read','Grep'],[],'JSON')\n"
+            "p = r.full_prompt\n"
+            "# legacy uses **Capabilities:** and **Workflow:** bold markers,\n"
+            "# NOT ## block headers.\n"
+            "print('BOLD' if '**Capabilities:**' in p and '**Workflow:**' in p else 'NO_BOLD')\n"
+            "print('NO_BLOCKS' if '## INSTRUCTIONS' not in p and '<instructions>' not in p else 'HAS_BLOCKS')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["BOLD", "NO_BLOCKS"]
+
+    def test_evaluate_prompt_structure_markdown(self) -> None:
+        """evaluate_prompt_structure detects markdown-style 4-block content."""
+        result = self._run_py(
+            "from quality_scorer import evaluate_prompt_structure\n"
+            "md = '## INSTRUCTIONS\\nfoo\\n## CONTEXT\\nbar\\n## TASK\\nbaz\\n## OUTPUT FORMAT\\nqux'\n"
+            "r = evaluate_prompt_structure(md)\n"
+            "print(r.format, len(r.found_blocks), r.complete)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "markdown 4 True"
+
+    def test_evaluate_prompt_structure_xml(self) -> None:
+        """evaluate_prompt_structure detects XML-tagged 4-block content."""
+        result = self._run_py(
+            "from quality_scorer import evaluate_prompt_structure\n"
+            "xml = '<instructions>a</instructions>\\n<context>b</context>\\n<task>c</task>\\n<output_format>d</output_format>'\n"
+            "r = evaluate_prompt_structure(xml)\n"
+            "print(r.format, len(r.found_blocks), r.complete)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "xml 4 True"
+
+    def test_evaluate_prompt_structure_partial(self) -> None:
+        """Partial markdown structure is reported incomplete, format still 'markdown'."""
+        result = self._run_py(
+            "from quality_scorer import evaluate_prompt_structure\n"
+            "md = '## INSTRUCTIONS\\nfoo\\n## CONTEXT\\nbar'\n"
+            "r = evaluate_prompt_structure(md)\n"
+            "print(r.format, len(r.found_blocks), len(r.missing_blocks), r.complete)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "markdown 2 2 False"
+
+    def test_evaluate_prompt_structure_none(self) -> None:
+        """Legacy format (no block markers) reports format='none'."""
+        result = self._run_py(
+            "from quality_scorer import evaluate_prompt_structure\n"
+            "legacy = '# Some Agent\\n\\n**Capabilities:**\\n- x\\n\\n**Workflow:**\\n1. y'\n"
+            "r = evaluate_prompt_structure(legacy)\n"
+            "print(r.format, len(r.found_blocks))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "none 0"
+
+    def test_score_prompt_structure_legacy_neutral(self) -> None:
+        """Legacy content scores a neutral 7.0 with no penalty."""
+        result = self._run_py(
+            "from quality_scorer import score_prompt_structure\n"
+            "legacy = '# Agent\\n\\n## Overview\\nfoo'\n"
+            "s = score_prompt_structure(legacy)\n"
+            "print(round(s.score,1), s.weight, 'adopting' in ' '.join(s.suggestions).lower())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "7.0 0.0 True"
+
+    def test_score_prompt_structure_complete_wins(self) -> None:
+        """Complete 4-block structure scores 10.0 (all four blocks)."""
+        result = self._run_py(
+            "from quality_scorer import score_prompt_structure\n"
+            "md = '## INSTRUCTIONS\\na\\n## CONTEXT\\nb\\n## TASK\\nc\\n## OUTPUT FORMAT\\nd'\n"
+            "s = score_prompt_structure(md)\n"
+            "print(round(s.score,1))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "10.0"
+
+    def test_score_prompt_structure_partial_scales_linearly(self) -> None:
+        """2 of 4 blocks scores 5.0; complete is strictly higher than partial."""
+        result = self._run_py(
+            "from quality_scorer import score_prompt_structure\n"
+            "two = '## INSTRUCTIONS\\na\\n## CONTEXT\\nb'\n"
+            "three = '## INSTRUCTIONS\\na\\n## CONTEXT\\nb\\n## TASK\\nc'\n"
+            "print(round(score_prompt_structure(two).score,1),"
+            " round(score_prompt_structure(three).score,1))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "5.0 7.5"
+
+    def test_round_trip_markdown_scores_complete(self) -> None:
+        """Agent generated with structure_format='markdown' scores complete via scorer."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "from quality_scorer import evaluate_prompt_structure\n"
+            "cfg = PromptConfig('builder','documentation','write docs',"
+            "['Read','Write'],[],'Markdown docs','markdown')\n"
+            "p = generate_full_prompt(cfg).full_prompt\n"
+            "r = evaluate_prompt_structure(p)\n"
+            "print(r.format, r.complete)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "markdown True"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

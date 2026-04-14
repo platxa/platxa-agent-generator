@@ -120,6 +120,99 @@ CLARITY_NEGATIVE = [
 ]
 
 
+# Canonical block names for the 4-block prompt structure
+# (INSTRUCTIONS / CONTEXT / TASK / OUTPUT FORMAT). Mirrors
+# ``PROMPT_BLOCK_NAMES`` in prompt_generator.py — duplicated here rather than
+# imported to keep quality_scorer free of dependencies on the generator.
+PROMPT_BLOCK_NAMES: tuple[str, ...] = ("INSTRUCTIONS", "CONTEXT", "TASK", "OUTPUT FORMAT")
+
+# Matching XML tag names (lowercase, snake_case), same order.
+PROMPT_BLOCK_XML_TAGS: tuple[str, ...] = ("instructions", "context", "task", "output_format")
+
+
+@dataclass
+class PromptStructureReport:
+    """Detection result for the 4-block prompt structure.
+
+    The scorer uses this to decide whether a generated agent follows the
+    INSTRUCTIONS / CONTEXT / TASK / OUTPUT FORMAT convention and, if so,
+    whether the structure is complete. The report is also exposed as a
+    public helper so other tools (dry-run previewer, syntax validator)
+    can surface structure information without re-implementing detection.
+
+    Fields:
+        found_blocks: Canonical block names detected (uppercase, e.g.
+            ``"INSTRUCTIONS"``).
+        missing_blocks: Canonical block names not detected.
+        format: ``"markdown"`` (detected via ``##`` headers),
+            ``"xml"`` (detected via ``<instructions>...``), ``"mixed"``
+            (both forms present — valid, usually because markdown rendered
+            inside an XML tag), or ``"none"`` (agent uses legacy format
+            without explicit 4-block structure).
+        complete: ``True`` when all four canonical blocks were detected.
+    """
+
+    found_blocks: list[str] = field(default_factory=list)
+    missing_blocks: list[str] = field(default_factory=list)
+    format: str = "none"
+    complete: bool = False
+
+
+def evaluate_prompt_structure(content: str) -> PromptStructureReport:
+    """Detect the 4-block prompt structure (INSTRUCTIONS/CONTEXT/TASK/OUTPUT FORMAT).
+
+    Accepts either markdown-style headers (``## INSTRUCTIONS``, case-insensitive)
+    or XML-tagged blocks (``<instructions>...</instructions>``). Detection is
+    per-block — an agent that labels three blocks correctly and skips the
+    fourth is reported as incomplete rather than as ``"none"``.
+
+    Args:
+        content: Full file content (including frontmatter).
+
+    Returns:
+        A ``PromptStructureReport`` describing which blocks were found and
+        in which format.
+    """
+    md_found: list[str] = []
+    for name in PROMPT_BLOCK_NAMES:
+        # Header line like "## INSTRUCTIONS" or "### OUTPUT FORMAT". Allow
+        # 1–6 # signs (all markdown header levels), case-insensitive. The
+        # name must stand alone — no trailing descriptive text — so the
+        # regex anchors the name to end-of-line (optionally whitespace).
+        header_pattern = rf"^#{{1,6}}\s*{re.escape(name)}\s*$"
+        if re.search(header_pattern, content, re.IGNORECASE | re.MULTILINE):
+            md_found.append(name)
+
+    xml_found: list[str] = []
+    for name, tag in zip(PROMPT_BLOCK_NAMES, PROMPT_BLOCK_XML_TAGS):
+        # Opening tag with optional attributes. Matching closing tag is not
+        # required for detection — a well-formed block should have one but
+        # the scorer reports structure, not XML validity.
+        if re.search(rf"<{re.escape(tag)}(?:\s[^>]*)?>", content, re.IGNORECASE):
+            xml_found.append(name)
+
+    found_set = set(md_found) | set(xml_found)
+    # Preserve canonical order in output
+    found = [name for name in PROMPT_BLOCK_NAMES if name in found_set]
+    missing = [name for name in PROMPT_BLOCK_NAMES if name not in found_set]
+
+    if md_found and xml_found:
+        fmt = "mixed"
+    elif md_found:
+        fmt = "markdown"
+    elif xml_found:
+        fmt = "xml"
+    else:
+        fmt = "none"
+
+    return PromptStructureReport(
+        found_blocks=found,
+        missing_blocks=missing,
+        format=fmt,
+        complete=len(missing) == 0,
+    )
+
+
 def parse_agent_file(content: str) -> tuple[dict[str, str], dict[str, str], str]:
     """
     Parse agent file into frontmatter, sections, and body.
@@ -404,6 +497,63 @@ def score_completeness(frontmatter: dict[str, str], sections: dict[str, str]) ->
         weight=CRITERIA_WEIGHTS["completeness"],
         score=max(0, min(10, score)),
         weighted_score=max(0, min(10, score)) * CRITERIA_WEIGHTS["completeness"],
+        findings=findings,
+        suggestions=suggestions,
+    )
+
+
+def score_prompt_structure(content: str) -> CriterionScore:
+    """Score the 4-block prompt structure as a dedicated criterion.
+
+    This is an **opt-in** check: agents using the legacy section-list format
+    (no block headers at all) are reported as ``format="none"`` and given a
+    neutral 7.0 — they are not penalized for declining to adopt the
+    structured form. Once at least one block marker is detected the agent
+    is held to the full standard: all four blocks must be present for a
+    perfect score, and each missing block subtracts from the score.
+
+    The criterion does **not** get its own weight in ``CRITERIA_WEIGHTS``
+    (which must sum to 1.0). It is exposed as a public helper so callers
+    (dry-run preview, held-out evaluators, test suites) can inspect the
+    structure independently of the weighted quality total.
+
+    Returns:
+        A ``CriterionScore`` with ``weight=0.0`` (advisory) and a 0–10
+        ``score`` reflecting structure completeness.
+    """
+    report = evaluate_prompt_structure(content)
+    findings: list[str] = []
+    suggestions: list[str] = []
+
+    if report.format == "none":
+        # Legacy agents: neutral score, one suggestion, no penalty.
+        score = 7.0
+        findings.append(
+            "Agent uses legacy section-list format "
+            "(4-block INSTRUCTIONS/CONTEXT/TASK/OUTPUT FORMAT structure not detected)"
+        )
+        suggestions.append(
+            "Consider adopting the 4-block prompt structure "
+            "(INSTRUCTIONS / CONTEXT / TASK / OUTPUT FORMAT) for clearer role separation"
+        )
+    else:
+        # Opt-in: graded on completeness. Each of the 4 blocks is worth
+        # 2.5 points; score scales linearly with block count.
+        score = 2.5 * len(report.found_blocks)
+        findings.append(
+            f"4-block structure detected ({report.format} format): "
+            + ", ".join(report.found_blocks)
+        )
+        if report.missing_blocks:
+            suggestions.append("Add missing blocks: " + ", ".join(report.missing_blocks))
+        if report.complete:
+            findings.append("All 4 blocks present (structure complete)")
+
+    return CriterionScore(
+        name="Prompt Structure",
+        weight=0.0,  # advisory — not part of the weighted total
+        score=max(0.0, min(10.0, score)),
+        weighted_score=0.0,
         findings=findings,
         suggestions=suggestions,
     )
