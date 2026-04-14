@@ -167,7 +167,9 @@ def generate_workflow_section(definition: CommandDefinition) -> str:
     else:
         # Default workflow for agent invocation
         lines.append("1. **Parse Arguments**: Process any user-provided arguments")
-        lines.append(f"2. **Invoke Agent**: Launch the `{definition.agent_name}` agent via Task tool")
+        lines.append(
+            f"2. **Invoke Agent**: Launch the `{definition.agent_name}` agent via Task tool"
+        )
         lines.append("3. **Process Results**: Handle agent output and present to user")
         lines.append("4. **Report**: Summarize results and any recommended actions")
 
@@ -446,13 +448,141 @@ def generate(
     return True, content, output_file
 
 
+# Default project-scope commands directory. Kept here so the companion
+# command writer and any downstream tools reference one source of truth.
+DEFAULT_COMMANDS_DIR: str = ".claude/commands"
+
+
+def command_definition_from_agent(definition: Any) -> CommandDefinition:
+    """Translate an ``AgentDefinition`` into a ``CommandDefinition``.
+
+    Kept out of agent_generator.py to avoid a module-level import cycle.
+    Accepts ``Any`` so command_generator.py has no hard dependency on
+    agent_generator — callers pass their AgentDefinition and we read only
+    the attributes we need (name, description, tools).
+
+    The generated command routes through the agent via the Task tool,
+    wiring ``$ARGUMENTS`` into the agent prompt so users can invoke it
+    with arbitrary instructions.
+    """
+    agent_name = getattr(definition, "name", "")
+    description = getattr(definition, "description", f"Invoke the {agent_name} agent")
+    tools = list(getattr(definition, "tools", []))
+    if not tools:
+        tools = list(DEFAULT_AGENT_TOOLS)
+    return CommandDefinition(
+        name=agent_name,
+        description=description,
+        agent_name=agent_name,
+        argument_hint="[args]",
+        allowed_tools=tools,
+    )
+
+
+def should_generate_companion_command(definition: Any) -> bool:
+    """Opt-in: companion slash command is written only when the agent asks for it.
+
+    Reads ``definition.user_invocable``. Returning False for agents that
+    don't opt in keeps ``.claude/commands/`` focused on things users are
+    actually supposed to run — internal agents that orchestrators call
+    via Task shouldn't pollute the slash-command namespace.
+    """
+    return bool(getattr(definition, "user_invocable", False))
+
+
+def write_companion_command(
+    definition: Any,
+    commands_dir: Path | str = DEFAULT_COMMANDS_DIR,
+    force: bool = False,
+) -> Path | None:
+    """Write a ``.claude/commands/<name>.md`` wrapping the agent.
+
+    Args:
+        definition: AgentDefinition-shaped object. See
+            :func:`command_definition_from_agent` for the required
+            attribute shape.
+        commands_dir: Destination directory. Defaults to
+            :data:`DEFAULT_COMMANDS_DIR`. Parents are created as needed.
+        force: When True, skip :func:`should_generate_companion_command`
+            and always write. Useful when the caller has already made
+            the decision (e.g. regeneration workflow).
+
+    Returns:
+        The written :class:`~pathlib.Path` on success, ``None`` when
+        ``should_generate_companion_command`` returned False and
+        ``force=False`` (no file written).
+    """
+    if not force and not should_generate_companion_command(definition):
+        return None
+
+    cmd_def = command_definition_from_agent(definition)
+    content = generate_command_file(cmd_def)
+
+    base = Path(commands_dir)
+    base.mkdir(parents=True, exist_ok=True)
+    path = base / f"{cmd_def.name}.md"
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+# Substring that MUST appear in a companion command file so the command
+# forwards user input to the agent. Defined as a module constant so the
+# writer and the validator can't drift — a failing validator error
+# mentions the same token the generator emits.
+REQUIRED_ARGUMENTS_TOKEN: str = "$ARGUMENTS"
+
+
+def validate_command_file(path: Path | str) -> list[str]:
+    """Return a list of error messages for a malformed companion command file.
+
+    Checks:
+
+    - File exists and is readable
+    - Starts with ``---`` frontmatter
+    - Frontmatter contains ``description:``
+    - Body references ``$ARGUMENTS`` so the command forwards user input
+    - Body references the agent (``subagent_type`` or an explicit
+      ``Use the Task tool to invoke the agent``)
+
+    An empty list means the file is well-formed.
+    """
+    errors: list[str] = []
+    p = Path(path)
+    if not p.exists():
+        return [f"Command file does not exist: {p}"]
+    try:
+        text = p.read_text(encoding="utf-8")
+    except OSError as exc:
+        return [f"Command file unreadable: {p} ({exc})"]
+    if not text.startswith("---"):
+        errors.append(f"Command file {p} missing YAML frontmatter (must start with '---').")
+    else:
+        try:
+            end = text.index("\n---", 3)
+        except ValueError:
+            errors.append(f"Command file {p} has an unterminated frontmatter block.")
+            end = -1
+        frontmatter = text[3:end] if end > 0 else ""
+        if "description:" not in frontmatter:
+            errors.append(f"Command file {p} frontmatter missing 'description:'.")
+    if REQUIRED_ARGUMENTS_TOKEN not in text:
+        errors.append(
+            f"Command file {p} does not reference '{REQUIRED_ARGUMENTS_TOKEN}' "
+            "— commands must forward user input to the agent."
+        )
+    if "subagent_type" not in text and "Task tool" not in text:
+        errors.append(
+            f"Command file {p} does not invoke an agent via the Task tool "
+            "(no 'subagent_type' or 'Task tool' reference in body)."
+        )
+    return errors
+
+
 def main() -> None:
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Generate slash commands for agent invocation"
-    )
+    parser = argparse.ArgumentParser(description="Generate slash commands for agent invocation")
     parser.add_argument("--name", help="Command name (defaults to agent name)")
     parser.add_argument("--agent", help="Agent name to invoke")
     parser.add_argument("--agent-file", help="Path to agent.md file")

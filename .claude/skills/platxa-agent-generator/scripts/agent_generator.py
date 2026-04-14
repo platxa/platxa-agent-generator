@@ -226,6 +226,7 @@ class AgentDefinition:
     mcp_servers: dict[str, Any] = field(default_factory=dict)  # mcpServers frontmatter block
     recommended_hooks: dict[str, Any] = field(default_factory=dict)  # Companion hooks config
     skills: list[str] = field(default_factory=list)  # Skill names surfaced to the agent
+    user_invocable: bool = False  # True → generate a companion /<name> slash command
     sections: list[AgentSection] = field(default_factory=list)
     workers: list[WorkerDefinition] = field(default_factory=list)
     chain_steps: list[ChainStep] = field(default_factory=list)
