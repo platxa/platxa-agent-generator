@@ -563,6 +563,133 @@ Iteration | Score | Status
 """
         return content
 
+    def generate_writer_reviewer_orchestrator_markdown(self) -> str:
+        """Generate orchestrator markdown for the writer-reviewer feedback pattern.
+
+        The writer-reviewer pattern is a two-agent feedback loop:
+        - A **writer** agent implements in an isolated worktree with full
+          Write/Edit tooling, carrying the implementation context.
+        - A **reviewer** agent reviews the writer's artifacts in a separate
+          isolated worktree with read-only tools and NO access to the writer's
+          reasoning — a fresh-context reviewer to avoid implementation bias
+          (heuristic HE1: "generators don't evaluate themselves").
+
+        The orchestrator coordinates the feedback loop: it dispatches the
+        writer, captures artifacts (diff / changed files), hands those
+        artifacts to the reviewer in a clean context, and then either
+        finalizes (on APPROVE) or loops back to the writer with the
+        reviewer's findings.
+        """
+        worker_table = "\n".join(f"| {w.name} | {w.role} | {w.description} |" for w in self.workers)
+        writers = [w for w in self.workers if w.role == "writer"]
+        reviewers = [w for w in self.workers if w.role == "reviewer"]
+        writer_name = writers[0].name if writers else "writer"
+        reviewer_name = reviewers[0].name if reviewers else "reviewer"
+
+        content = f"""---
+name: {self.orchestrator.name}
+description: {self.orchestrator.description}
+tools: Task, Read, Bash
+---
+
+# {self.orchestrator.name.replace("-", " ").title()}
+
+## Overview
+Writer-reviewer feedback loop orchestrator. Dispatches a **writer** agent to
+implement, then dispatches a **reviewer** agent with a fresh context to
+evaluate only the artifacts (diff / files), not the writer's reasoning. This
+separation defeats the optimistic bias that self-reviewing generators exhibit.
+
+## Pattern
+Writer-Reviewer (Implement → Review with clean context → Loop or Finalize)
+
+## Agents
+| Agent | Role | Description |
+|-------|------|-------------|
+{worker_table}
+
+## Feedback Loop
+
+### Step 1: Dispatch Writer
+Spawn `{writer_name}` to implement the task. The writer runs in an isolated
+worktree so its file edits do not collide with concurrent reviewers or future
+iterations.
+
+```
+Task tool with:
+  subagent_type: {writer_name}
+  prompt: <requirements> (+ reviewer feedback on iterations 2+)
+  description: "Implement task"
+```
+
+### Step 2: Capture Artifacts
+After the writer returns, collect the artifacts for review:
+- `git diff` in the writer's worktree
+- List of changed files
+- Summary of writer output (NOT the writer's internal reasoning)
+
+Only these artifacts are forwarded to the reviewer.
+
+### Step 3: Dispatch Reviewer (Clean Context)
+Spawn `{reviewer_name}` in its own isolated worktree. The reviewer receives
+ONLY the artifacts from Step 2 — never the writer's transcript — so it
+evaluates the code fresh.
+
+```
+Task tool with:
+  subagent_type: {reviewer_name}
+  prompt: |
+    Review the following artifacts. Do not assume any context from prior
+    turns. Evaluate against the original requirements.
+
+    Requirements: <original task>
+    Diff: <git diff output>
+    Changed files: <list>
+
+    Return VERDICT: APPROVE or REQUEST_CHANGES with specific findings.
+  description: "Review writer artifacts with clean context"
+```
+
+**Decision Point:**
+- VERDICT: APPROVE → Proceed to Finalize
+- VERDICT: REQUEST_CHANGES and iteration < max_iterations → Loop to Step 1
+  with the reviewer's findings prepended to the writer prompt
+- iteration ≥ max_iterations → Finalize with outstanding review warnings
+
+### Step 4: Finalize
+1. Merge the writer's worktree into the main workspace
+2. Record the iteration history (writer output + reviewer verdict per round)
+3. Return the final artifacts with the approved review report
+
+## Clean-Context Invariants
+The reviewer MUST NOT receive:
+- The writer's internal reasoning, thought process, or draft outputs
+- Prior reviewer verdicts (each review starts fresh)
+- Conversation history from the orchestrator
+
+The reviewer MUST receive only:
+- The original task requirements
+- The diff / changed files produced by the writer
+
+These invariants prevent the reviewer from inheriting the writer's framing —
+which is the entire point of this pattern.
+
+## Iteration Tracking
+```
+Iteration | Writer output          | Reviewer verdict   | Action
+----------|------------------------|--------------------|-----------
+1         | Initial implementation | REQUEST_CHANGES    | Loop
+2         | Addresses findings #1  | APPROVE            | Finalize ✓
+```
+
+## Error Handling
+- Writer failure → Retry once, then escalate to user
+- Reviewer failure → Retain writer output, flag review as unverified
+- Max iterations reached → Finalize with outstanding findings documented
+- Worktree merge conflict → Halt, report conflict, do not overwrite
+"""
+        return content
+
     def generate_parallel_orchestrator_markdown(self) -> str:
         """Generate parallel orchestrator markdown with concurrent Task tool calls."""
         worker_table = "\n".join(
@@ -1012,6 +1139,108 @@ SYSTEM_TEMPLATES: dict[str, dict[str, Any]] = {
             },
         ],
     },
+    "writer-reviewer": {
+        "name": "writer-reviewer-system",
+        "description": (
+            "Writer-reviewer feedback loop. One agent implements, a second "
+            "reviews with a fresh context to defeat implementation bias."
+        ),
+        "pattern": "writer-reviewer",
+        # Feedback loop configuration — drives the writer→reviewer→writer cycle.
+        # Documented as a first-class field so tooling and tests can inspect
+        # the loop semantics without reverse-engineering the markdown.
+        "feedback_loop_config": {
+            "max_iterations": 3,
+            "clean_context": {
+                "reviewer_receives": [
+                    "Original task requirements",
+                    "Writer's diff (git diff)",
+                    "List of changed files",
+                ],
+                "reviewer_never_receives": [
+                    "Writer's internal reasoning or transcript",
+                    "Prior reviewer verdicts",
+                    "Orchestrator conversation history",
+                ],
+                "rationale": (
+                    "Each review starts fresh so the reviewer evaluates "
+                    "artifacts, not the writer's framing. See heuristic HE1: "
+                    "'generators don't evaluate themselves'."
+                ),
+            },
+            "termination": {
+                "approve": "Reviewer returns VERDICT: APPROVE",
+                "max_iterations": ("Loop hits max_iterations with outstanding REQUEST_CHANGES"),
+                "writer_failure": "Writer agent fails twice in a row",
+            },
+        },
+        "orchestrator": {
+            "name": "writer-reviewer-coordinator",
+            "description": (
+                "Coordinates the writer-reviewer feedback loop, isolating "
+                "the reviewer's context from the writer's reasoning."
+            ),
+            "role": "orchestrator",
+            "tools": ["Task", "Read", "Bash"],
+            "responsibilities": [
+                "Dispatch the writer agent with requirements (plus prior review findings on retry)",
+                "Capture writer artifacts (diff, changed files) without leaking writer reasoning",
+                "Dispatch the reviewer agent in a clean context with artifacts only",
+                "Parse reviewer verdict (APPROVE / REQUEST_CHANGES) and iteration-gate the loop",
+                "Finalize on APPROVE or at max_iterations with findings documented",
+            ],
+        },
+        "workers": [
+            {
+                "name": "writer",
+                "description": (
+                    "Implements the task in an isolated worktree, carrying "
+                    "the full implementation context across iterations."
+                ),
+                "role": "writer",
+                "tools": ["Read", "Write", "Edit", "Grep", "Glob", "Bash"],
+                "isolation": "worktree",
+                "responsibilities": [
+                    "Implement the requirements in the assigned worktree",
+                    "On iteration 2+, address specific reviewer findings",
+                    "Return a summary of changes alongside the diff",
+                ],
+                "inputs": [
+                    "Original requirements",
+                    "Reviewer findings (iterations 2+)",
+                ],
+                "outputs": [
+                    "Writer diff (git diff)",
+                    "List of changed files",
+                    "Change summary",
+                ],
+            },
+            {
+                "name": "reviewer",
+                "description": (
+                    "Reviews writer artifacts in a fresh worktree with "
+                    "read-only tools and no access to the writer's reasoning."
+                ),
+                "role": "reviewer",
+                "tools": ["Read", "Grep", "Glob"],
+                "isolation": "worktree",
+                "responsibilities": [
+                    "Evaluate the writer's diff against the original requirements only",
+                    "Return VERDICT: APPROVE or REQUEST_CHANGES with specific findings",
+                    "Do not assume context from prior turns, reviewers, or writer reasoning",
+                ],
+                "inputs": [
+                    "Original requirements",
+                    "Writer diff",
+                    "List of changed files",
+                ],
+                "outputs": [
+                    "VERDICT: APPROVE | REQUEST_CHANGES",
+                    "Specific findings list (when REQUEST_CHANGES)",
+                ],
+            },
+        ],
+    },
 }
 
 
@@ -1189,6 +1418,10 @@ def save_system(system: MultiAgentSystem, output_dir: Path) -> list[Path]:
         orchestrator_path.write_text(
             system.generate_parallel_orchestrator_markdown(), encoding="utf-8"
         )
+    elif system.pattern == "writer-reviewer":
+        orchestrator_path.write_text(
+            system.generate_writer_reviewer_orchestrator_markdown(), encoding="utf-8"
+        )
     else:
         orchestrator_path.write_text(system.generate_orchestrator_markdown(), encoding="utf-8")
     created_files.append(orchestrator_path)
@@ -1227,6 +1460,7 @@ def main() -> None:
             "routing",
             "evaluator-optimizer",
             "parallelization",
+            "writer-reviewer",
         ],
         default="orchestrator-workers",
         help="Workflow pattern",
@@ -1266,6 +1500,7 @@ def main() -> None:
             "routing",
             "evaluator-optimizer",
             "parallelization",
+            "writer-reviewer",
         ],
         default="orchestrator-workers",
         help="Pattern to show",
@@ -1343,6 +1578,8 @@ def main() -> None:
             system = create_system_from_template("evaluator-optimizer")
         elif args.pattern == "parallelization":
             system = create_system_from_template("parallelization")
+        elif args.pattern == "writer-reviewer":
+            system = create_system_from_template("writer-reviewer")
         else:
             system = create_system_from_template("test-suite")
 
@@ -1353,6 +1590,8 @@ def main() -> None:
                 print(system.generate_evaluator_orchestrator_markdown())
             elif system.pattern == "parallelization":
                 print(system.generate_parallel_orchestrator_markdown())
+            elif system.pattern == "writer-reviewer":
+                print(system.generate_writer_reviewer_orchestrator_markdown())
             else:
                 print(system.generate_orchestrator_markdown())
 

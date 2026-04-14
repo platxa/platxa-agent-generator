@@ -7100,5 +7100,181 @@ class TestMultiAgentHooks:
         assert data["events"] == ["TaskCompleted", "TaskCreated", "TeammateIdle"]
 
 
+class TestWriterReviewerTemplate:
+    """Tests for the writer-reviewer multi-agent template (Feature #42)."""
+
+    def _run_py(self, code: str) -> subprocess.CompletedProcess:
+        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        return subprocess.run(
+            [sys.executable, "-c", prologue + code],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_template_is_registered(self) -> None:
+        result = self._run_py(
+            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "print('writer-reviewer' in SYSTEM_TEMPLATES)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_template_declares_writer_reviewer_pattern(self) -> None:
+        result = self._run_py(
+            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "print(SYSTEM_TEMPLATES['writer-reviewer']['pattern'])"
+        )
+        assert result.stdout.strip() == "writer-reviewer"
+
+    def test_template_has_exactly_two_workers_with_complementary_roles(self) -> None:
+        result = self._run_py(
+            "import json; "
+            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "workers = SYSTEM_TEMPLATES['writer-reviewer']['workers']; "
+            "print(json.dumps([(w['name'], w['role']) for w in workers]))"
+        )
+        assert result.returncode == 0, result.stderr
+        pairs = json.loads(result.stdout)
+        roles = {role for _, role in pairs}
+        assert roles == {"writer", "reviewer"}, f"expected writer+reviewer, got {roles}"
+        assert len(pairs) == 2
+
+    def test_reviewer_has_clean_context_guarantees(self) -> None:
+        """Reviewer must have worktree isolation AND no file-modifying tools."""
+        result = self._run_py(
+            "import json; "
+            "from multiagent_generator import create_system_from_template; "
+            "sys_ = create_system_from_template('writer-reviewer'); "
+            "rev = next(w for w in sys_.workers if w.role == 'reviewer'); "
+            "print(json.dumps({'isolation': rev.isolation, 'tools': rev.tools}))"
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert data["isolation"] == "worktree", (
+            "reviewer must run in worktree isolation for fresh context"
+        )
+        forbidden = {"Write", "Edit", "Bash", "MultiEdit"}
+        overlap = forbidden & set(data["tools"])
+        assert not overlap, f"reviewer must be read-only; found write-tools: {overlap}"
+
+    def test_writer_has_worktree_isolation(self) -> None:
+        """Writer must run in an isolated worktree so iterations don't collide."""
+        result = self._run_py(
+            "from multiagent_generator import create_system_from_template; "
+            "sys_ = create_system_from_template('writer-reviewer'); "
+            "w = next(w for w in sys_.workers if w.role == 'writer'); "
+            "print(w.isolation)"
+        )
+        assert result.stdout.strip() == "worktree"
+
+    def test_feedback_loop_config_is_documented(self) -> None:
+        """feedback_loop_config must declare clean_context invariants and termination rules."""
+        result = self._run_py(
+            "import json; "
+            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "print(json.dumps(SYSTEM_TEMPLATES['writer-reviewer']['feedback_loop_config']))"
+        )
+        assert result.returncode == 0, result.stderr
+        cfg = json.loads(result.stdout)
+        assert cfg["max_iterations"] >= 1
+        cc = cfg["clean_context"]
+        assert isinstance(cc["reviewer_receives"], list) and cc["reviewer_receives"]
+        assert isinstance(cc["reviewer_never_receives"], list) and cc["reviewer_never_receives"]
+        never = " ".join(cc["reviewer_never_receives"]).lower()
+        assert "reasoning" in never or "transcript" in never, (
+            "clean_context must explicitly exclude writer reasoning/transcript"
+        )
+        term = cfg["termination"]
+        assert "approve" in term and "max_iterations" in term
+
+    def test_orchestrator_markdown_uses_writer_reviewer_generator(self, tmp_path: Path) -> None:
+        """save_system must route pattern=writer-reviewer to the dedicated generator."""
+        out_dir = tmp_path / "wr"
+        result = self._run_py(
+            "from pathlib import Path; "
+            "from multiagent_generator import create_system_from_template, save_system; "
+            "sys_ = create_system_from_template('writer-reviewer'); "
+            f"files = save_system(sys_, Path('{out_dir}')); "
+            "print('\\n'.join(str(f) for f in files))"
+        )
+        assert result.returncode == 0, result.stderr
+        files = [Path(p) for p in result.stdout.strip().splitlines()]
+        assert len(files) == 4, [p.name for p in files]
+        orch = next(f for f in files if "coordinator" in f.name and f.suffix == ".md")
+        content = orch.read_text()
+        assert "Writer-Reviewer" in content
+        assert "Clean-Context" in content or "clean context" in content.lower()
+        assert "fresh context" in content.lower() or "clean context" in content.lower()
+
+    def test_orchestrator_markdown_documents_feedback_loop_steps(self, tmp_path: Path) -> None:
+        """Orchestrator markdown must document the feedback loop steps + verdicts."""
+        out_dir = tmp_path / "wr2"
+        result = self._run_py(
+            "from pathlib import Path; "
+            "from multiagent_generator import create_system_from_template, save_system; "
+            "sys_ = create_system_from_template('writer-reviewer'); "
+            f"save_system(sys_, Path('{out_dir}'))"
+        )
+        assert result.returncode == 0, result.stderr
+        orch = next(Path(out_dir).glob("*coordinator*.md"))
+        content = orch.read_text()
+        assert "Dispatch Writer" in content
+        assert "Capture Artifacts" in content
+        assert "Dispatch Reviewer" in content
+        assert "Finalize" in content
+        assert "APPROVE" in content
+        assert "REQUEST_CHANGES" in content
+
+    def test_cli_example_command_supports_writer_reviewer(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "example",
+                "writer-reviewer",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        out = result.stdout
+        assert "Writer-Reviewer" in out or "writer-reviewer" in out.lower()
+        assert "APPROVE" in out
+
+    def test_cli_template_command_produces_files(self, tmp_path: Path) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "template",
+                "writer-reviewer",
+                "-o",
+                str(tmp_path),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        files = list(tmp_path.glob("*"))
+        assert len(files) == 4, [p.name for p in files]
+        names = {p.name for p in files}
+        assert any("writer" in n for n in names)
+        assert any("reviewer" in n for n in names)
+        assert any(p.suffix == ".json" for p in files)
+
+    def test_templates_listing_includes_writer_reviewer(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "multiagent_generator.py"),
+                "templates",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert "writer-reviewer" in result.stdout
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
