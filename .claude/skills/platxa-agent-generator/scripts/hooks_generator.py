@@ -42,7 +42,22 @@ HOOK_EVENTS = {
     "SubagentStop": "Triggered when a subagent completes",
     "PreCompact": "Triggered before context compaction",
     "UserPromptSubmit": "Triggered when user submits a prompt",
+    # Multi-agent team coordination events (no matcher support — fire unconditionally)
+    "TeammateIdle": "Triggered when an agent team teammate is about to go idle",
+    "TaskCreated": "Triggered when a task is created via TaskCreate",
+    "TaskCompleted": "Triggered when a task is being marked as completed",
 }
+
+# Events that do not support matchers (per Claude Code hook spec)
+NO_MATCHER_EVENTS = frozenset(
+    {
+        "UserPromptSubmit",
+        "Stop",
+        "TeammateIdle",
+        "TaskCreated",
+        "TaskCompleted",
+    }
+)
 
 # Common tool matchers
 TOOL_MATCHERS = {
@@ -630,9 +645,12 @@ def generate_pretooluse_deny_script(agent_name: str) -> str:
     Returns:
         Complete bash script as a string, ready to write to a file.
     """
-    # Build grep pattern alternation from DANGEROUS_COMMAND_PATTERNS
+    # Build grep pattern alternation from DANGEROUS_COMMAND_PATTERNS.
+    # Only the regex is consumed here; the SEC code / description are embedded
+    # in the generic stderr message written by the emitted script.
     grep_patterns = []
-    for pattern, code, desc in DANGEROUS_COMMAND_PATTERNS:
+    for entry in DANGEROUS_COMMAND_PATTERNS:
+        pattern = entry[0]
         # Escape single quotes for embedding in bash
         safe_pattern = pattern.replace("'", "'\\''")
         grep_patterns.append(f"    -e '{safe_pattern}'")
@@ -695,12 +713,19 @@ def generate_pretooluse_hook_config(agent_name: str, script_path: str) -> dict[s
     """Generate Claude Code settings.json hook config for dangerous command blocking.
 
     Args:
-        agent_name: Agent name
-        script_path: Absolute path to the deny script
+        agent_name: Agent name — validated for non-empty at the API boundary.
+        script_path: Absolute path to the deny script.
+
+    Raises:
+        ValueError: if agent_name or script_path is empty / whitespace-only.
 
     Returns:
         Dict in settings.json hooks format for PreToolUse.
     """
+    if not agent_name or not agent_name.strip():
+        raise ValueError("agent_name must be a non-empty string")
+    if not script_path or not script_path.strip():
+        raise ValueError("script_path must be a non-empty string")
     return {
         "PreToolUse": [
             {
@@ -819,12 +844,19 @@ def generate_posttooluse_lint_hook_config(agent_name: str, script_path: str) -> 
     """Generate Claude Code settings.json hook config for auto-linting after writes.
 
     Args:
-        agent_name: Agent name
-        script_path: Absolute path to the lint script
+        agent_name: Agent name — validated for non-empty at the API boundary.
+        script_path: Absolute path to the lint script.
+
+    Raises:
+        ValueError: if agent_name or script_path is empty / whitespace-only.
 
     Returns:
         Dict in settings.json hooks format for PostToolUse.
     """
+    if not agent_name or not agent_name.strip():
+        raise ValueError("agent_name must be a non-empty string")
+    if not script_path or not script_path.strip():
+        raise ValueError("script_path must be a non-empty string")
     return {
         "PostToolUse": [
             {
@@ -955,12 +987,19 @@ def generate_stop_verification_hook_config(agent_name: str, script_path: str) ->
     """Generate Claude Code settings.json hook config for Stop verification gate.
 
     Args:
-        agent_name: Agent name
-        script_path: Absolute path to the verification script
+        agent_name: Agent name — validated for non-empty at the API boundary.
+        script_path: Absolute path to the verification script.
+
+    Raises:
+        ValueError: if agent_name or script_path is empty / whitespace-only.
 
     Returns:
         Dict in settings.json hooks format for Stop event.
     """
+    if not agent_name or not agent_name.strip():
+        raise ValueError("agent_name must be a non-empty string")
+    if not script_path or not script_path.strip():
+        raise ValueError("script_path must be a non-empty string")
     return {
         "Stop": [
             {
@@ -1084,6 +1123,451 @@ def generate_hook_scripts(
         )
 
     return created_scripts, settings_hooks
+
+
+# ─── Multi-Agent Team Coordination Hooks (Feature #40) ───────────────────────
+# TeammateIdle / TaskCreated / TaskCompleted hooks for multi-agent quality
+# gates. These events fire during agent-team coordination (see Claude Code
+# agent-teams documentation). They do not support matchers.
+#
+# Exit code conventions:
+#   0  = allow the default behavior (go idle / create task / mark completed)
+#   2  = block the default behavior with reason on stderr (Claude Code convention)
+# JSON  `{"continue": false, "stopReason": "..."}` on stdout stops the teammate
+# entirely (matching Stop hook semantics).
+
+
+def generate_teammate_idle_script(agent_name: str, team_name: str = "") -> str:
+    """Generate a bash script for the TeammateIdle hook.
+
+    Keeps a worker active when there is still pending work in the team's task
+    list. Exit 2 prevents the teammate from going idle, giving it another turn
+    to pick up unclaimed tasks. Exit 0 lets the teammate go idle normally.
+
+    The script checks ``.claude/team-state/<team>/tasks.json`` (if present) for
+    any tasks whose status is ``pending`` and not yet claimed by a teammate.
+    If any are found, exits 2 with a message steering the teammate back to
+    TaskList.
+
+    Args:
+        agent_name: Agent name for log messages.
+        team_name: Optional team name. When empty, the script derives it from
+            the ``CLAUDE_TEAM_NAME`` environment variable at runtime.
+
+    Returns:
+        Complete bash script as a string.
+    """
+    team_default = team_name or "${CLAUDE_TEAM_NAME:-default}"
+    script = f"""#!/usr/bin/env bash
+# TeammateIdle hook for {agent_name}
+# Generated by platxa-agent-generator hooks_generator.py
+#
+# Keeps the worker active while unclaimed tasks remain in the team's task list.
+# Exit 0 = allow idle, Exit 2 = keep working (prevent idle).
+#
+# Usage in settings.json:
+#   "hooks": {{
+#     "TeammateIdle": [{{
+#       "hooks": [{{
+#         "type": "command",
+#         "command": "/path/to/{agent_name}-teammate-idle.sh"
+#       }}]
+#     }}]
+#   }}
+
+set -uo pipefail
+
+TEAM_NAME="{team_default}"
+TASKS_FILE=".claude/team-state/${{TEAM_NAME}}/tasks.json"
+
+# Read optional stdin JSON payload (teammate_name / team_name fields)
+TOOL_INPUT=$(cat 2>/dev/null || echo "{{}}")
+
+# If no task state file exists, allow idle (nothing to do)
+if [ ! -f "$TASKS_FILE" ]; then
+    exit 0
+fi
+
+# Count pending unclaimed tasks using python (falls back to grep if unavailable)
+PENDING=0
+if command -v python3 &>/dev/null; then
+    PENDING=$(python3 -c "
+import json, sys
+try:
+    with open('$TASKS_FILE') as f:
+        data = json.load(f)
+    tasks = data if isinstance(data, list) else data.get('tasks', [])
+    pending = [
+        t for t in tasks
+        if t.get('status', 'pending') == 'pending' and not t.get('owner')
+    ]
+    print(len(pending))
+except Exception:
+    print(0)
+" 2>/dev/null || echo 0)
+else
+    PENDING=$(grep -c '"status": *"pending"' "$TASKS_FILE" 2>/dev/null || echo 0)
+fi
+
+if [ "$PENDING" -gt 0 ]; then
+    echo "[{agent_name}] TeammateIdle: $PENDING unclaimed task(s) remain — staying active." >&2
+    echo "Run TaskList to pick up the next pending task in team '$TEAM_NAME'." >&2
+    exit 2
+fi
+
+exit 0
+"""
+    return script
+
+
+def generate_teammate_idle_hook_config(agent_name: str, script_path: str) -> dict[str, Any]:
+    """Generate Claude Code settings.json hook config for the TeammateIdle gate.
+
+    TeammateIdle does not support a matcher — it fires on every idle event.
+
+    Args:
+        agent_name: Agent name — validated for non-empty at the API boundary.
+        script_path: Absolute path to the idle script.
+
+    Raises:
+        ValueError: if agent_name or script_path is empty / whitespace-only.
+
+    Returns:
+        Dict in settings.json hooks format for TeammateIdle.
+    """
+    if not agent_name or not agent_name.strip():
+        raise ValueError("agent_name must be a non-empty string")
+    if not script_path or not script_path.strip():
+        raise ValueError("script_path must be a non-empty string")
+    return {
+        "TeammateIdle": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": script_path,
+                    }
+                ],
+            }
+        ]
+    }
+
+
+def generate_task_created_script(agent_name: str) -> str:
+    """Generate a bash script for the TaskCreated hook.
+
+    Enforces team task conventions: rejects tasks with empty / whitespace-only
+    subjects and tasks whose subject is shorter than a minimum length
+    (configurable via ``CLAUDE_TASK_MIN_SUBJECT`` env var, default 8 chars).
+
+    Input JSON from stdin (per Claude Code hook spec):
+        {
+          "task_id": "task-001",
+          "task_subject": "...",
+          "task_description": "...",
+          "teammate_name": "implementer",
+          "team_name": "my-project"
+        }
+
+    Exit codes:
+        0 = allow task creation
+        2 = deny task creation (stderr fed back to the model as feedback)
+
+    Args:
+        agent_name: Agent name for log messages.
+
+    Returns:
+        Complete bash script as a string.
+    """
+    script = f"""#!/usr/bin/env bash
+# TaskCreated hook for {agent_name}
+# Generated by platxa-agent-generator hooks_generator.py
+#
+# Enforces minimum quality for tasks created by teammates.
+# Exit 0 = allow task creation, Exit 2 = deny with reason on stderr.
+#
+# Usage in settings.json:
+#   "hooks": {{
+#     "TaskCreated": [{{
+#       "hooks": [{{
+#         "type": "command",
+#         "command": "/path/to/{agent_name}-task-created.sh"
+#       }}]
+#     }}]
+#   }}
+
+set -uo pipefail
+
+MIN_SUBJECT="${{CLAUDE_TASK_MIN_SUBJECT:-8}}"
+
+TOOL_INPUT=$(cat 2>/dev/null || echo "{{}}")
+
+SUBJECT=""
+DESCRIPTION=""
+if command -v python3 &>/dev/null; then
+    PARSED=$(echo "$TOOL_INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    d = {{}}
+print(d.get('task_subject', '') or '')
+print(d.get('task_description', '') or '')
+" 2>/dev/null || echo "")
+    SUBJECT=$(echo "$PARSED" | sed -n '1p')
+    DESCRIPTION=$(echo "$PARSED" | sed -n '2p')
+fi
+
+TRIMMED_SUBJECT=$(echo "$SUBJECT" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+if [ -z "$TRIMMED_SUBJECT" ]; then
+    echo "[{agent_name}] TaskCreated DENIED: task_subject is empty or missing." >&2
+    echo "Provide an imperative, specific subject (e.g., 'Add rate limiting to /api/login')." >&2
+    exit 2
+fi
+
+if [ "${{#TRIMMED_SUBJECT}}" -lt "$MIN_SUBJECT" ]; then
+    echo "[{agent_name}] TaskCreated DENIED: task_subject too short (${{#TRIMMED_SUBJECT}} < $MIN_SUBJECT chars)." >&2
+    echo "Subject: '$TRIMMED_SUBJECT'" >&2
+    echo "Rewrite with a specific, actionable subject." >&2
+    exit 2
+fi
+
+# Description is advisory (warn but allow)
+if [ -z "$DESCRIPTION" ]; then
+    echo "[{agent_name}] TaskCreated WARNING: task_description is empty." >&2
+fi
+
+exit 0
+"""
+    return script
+
+
+def generate_task_created_hook_config(agent_name: str, script_path: str) -> dict[str, Any]:
+    """Generate Claude Code settings.json hook config for the TaskCreated gate.
+
+    TaskCreated does not support a matcher — it fires on every task creation.
+
+    Args:
+        agent_name: Agent name — validated for non-empty at the API boundary.
+        script_path: Absolute path to the task-created script.
+
+    Raises:
+        ValueError: if agent_name or script_path is empty / whitespace-only.
+
+    Returns:
+        Dict in settings.json hooks format for TaskCreated.
+    """
+    if not agent_name or not agent_name.strip():
+        raise ValueError("agent_name must be a non-empty string")
+    if not script_path or not script_path.strip():
+        raise ValueError("script_path must be a non-empty string")
+    return {
+        "TaskCreated": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": script_path,
+                    }
+                ],
+            }
+        ]
+    }
+
+
+def generate_task_completed_script(agent_name: str) -> str:
+    """Generate a bash script for the TaskCompleted hook.
+
+    Validates deliverables before allowing a task to be marked completed.
+    The script checks for a deliverable manifest at
+    ``.claude/team-state/<team>/deliverables/<task_id>.json`` (or a plain
+    ``<task_id>.done`` marker) and verifies that any referenced file paths
+    exist on disk.
+
+    Exit codes:
+        0 = allow TaskCompleted
+        2 = deny (deliverable missing) with reason on stderr
+
+    Args:
+        agent_name: Agent name for log messages.
+
+    Returns:
+        Complete bash script as a string.
+    """
+    script = f"""#!/usr/bin/env bash
+# TaskCompleted hook for {agent_name}
+# Generated by platxa-agent-generator hooks_generator.py
+#
+# Validates that the task's declared deliverable exists before allowing the
+# task to be marked completed.
+# Exit 0 = allow, Exit 2 = deny with reason on stderr.
+#
+# Usage in settings.json:
+#   "hooks": {{
+#     "TaskCompleted": [{{
+#       "hooks": [{{
+#         "type": "command",
+#         "command": "/path/to/{agent_name}-task-completed.sh"
+#       }}]
+#     }}]
+#   }}
+
+set -uo pipefail
+
+TEAM_NAME="${{CLAUDE_TEAM_NAME:-default}}"
+
+TOOL_INPUT=$(cat 2>/dev/null || echo "{{}}")
+
+TASK_ID=""
+if command -v python3 &>/dev/null; then
+    TASK_ID=$(echo "$TOOL_INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    d = {{}}
+print(d.get('task_id', '') or '')
+" 2>/dev/null || echo "")
+fi
+
+if [ -z "$TASK_ID" ]; then
+    echo "[{agent_name}] TaskCompleted DENIED: no task_id in stdin payload." >&2
+    echo "The TaskCompleted hook contract requires a task_id; refusing to mark complete." >&2
+    echo "Check the teammate harness and ensure task_id is propagated to hook input." >&2
+    exit 2
+fi
+
+BASE_DIR=".claude/team-state/${{TEAM_NAME}}/deliverables"
+MANIFEST="$BASE_DIR/${{TASK_ID}}.json"
+MARKER="$BASE_DIR/${{TASK_ID}}.done"
+
+# Accept a simple marker file as valid
+if [ -f "$MARKER" ]; then
+    exit 0
+fi
+
+if [ ! -f "$MANIFEST" ]; then
+    echo "[{agent_name}] TaskCompleted DENIED for task '$TASK_ID':" >&2
+    echo "No deliverable manifest at $MANIFEST and no marker at $MARKER." >&2
+    echo "Write the manifest or touch the marker before marking the task complete." >&2
+    exit 2
+fi
+
+# Validate that every file listed under .files exists on disk
+if command -v python3 &>/dev/null; then
+    MISSING=$(python3 -c "
+import json, os, sys
+try:
+    with open('$MANIFEST') as f:
+        data = json.load(f)
+except Exception as e:
+    print(f'manifest parse error: {{e}}')
+    sys.exit(0)
+files = data.get('files', [])
+missing = [p for p in files if not os.path.exists(p)]
+print('\\n'.join(missing))
+" 2>/dev/null || echo "")
+    if [ -n "$MISSING" ]; then
+        echo "[{agent_name}] TaskCompleted DENIED for task '$TASK_ID':" >&2
+        echo "Declared deliverable files are missing:" >&2
+        echo "$MISSING" >&2
+        exit 2
+    fi
+fi
+
+exit 0
+"""
+    return script
+
+
+def generate_task_completed_hook_config(agent_name: str, script_path: str) -> dict[str, Any]:
+    """Generate Claude Code settings.json hook config for the TaskCompleted gate.
+
+    TaskCompleted does not support a matcher — it fires on every completion.
+
+    Args:
+        agent_name: Agent name — validated for non-empty at the API boundary.
+        script_path: Absolute path to the task-completed script.
+
+    Raises:
+        ValueError: if agent_name or script_path is empty / whitespace-only.
+
+    Returns:
+        Dict in settings.json hooks format for TaskCompleted.
+    """
+    if not agent_name or not agent_name.strip():
+        raise ValueError("agent_name must be a non-empty string")
+    if not script_path or not script_path.strip():
+        raise ValueError("script_path must be a non-empty string")
+    return {
+        "TaskCompleted": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": script_path,
+                    }
+                ],
+            }
+        ]
+    }
+
+
+def generate_multi_agent_hooks(
+    agent_name: str,
+    team_name: str = "",
+    output_dir: str | Path = ".claude/hooks",
+) -> tuple[list[Path], dict[str, Any]]:
+    """Generate all three multi-agent coordination hook scripts for a team.
+
+    Produces TeammateIdle, TaskCreated, and TaskCompleted scripts in
+    ``output_dir`` and returns the combined settings.json hook config.
+
+    Args:
+        agent_name: Agent name used in filenames and script messages.
+        team_name: Optional team name baked into the TeammateIdle script.
+            When empty, the script derives it from CLAUDE_TEAM_NAME at runtime.
+        output_dir: Directory where scripts will be written.
+
+    Returns:
+        Tuple of (list of created script Paths, merged settings.json hooks dict).
+    """
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    specs: list[tuple[str, str, Any]] = [
+        (
+            "teammate-idle",
+            generate_teammate_idle_script(agent_name, team_name),
+            generate_teammate_idle_hook_config,
+        ),
+        (
+            "task-created",
+            generate_task_created_script(agent_name),
+            generate_task_created_hook_config,
+        ),
+        (
+            "task-completed",
+            generate_task_completed_script(agent_name),
+            generate_task_completed_hook_config,
+        ),
+    ]
+
+    created: list[Path] = []
+    settings_hooks: dict[str, list[dict[str, Any]]] = {}
+
+    for suffix, script_content, config_fn in specs:
+        script_file = output_path / f"{agent_name}-{suffix}.sh"
+        script_file.write_text(script_content, encoding="utf-8")
+        script_file.chmod(0o755)
+        created.append(script_file)
+
+        entry = config_fn(agent_name, str(script_file.resolve()))
+        for event, hook_list in entry.items():
+            settings_hooks.setdefault(event, []).extend(hook_list)
+
+    return created, settings_hooks
 
 
 if __name__ == "__main__":

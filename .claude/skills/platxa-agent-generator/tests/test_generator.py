@@ -6695,5 +6695,410 @@ class TestEndToEndGeneration:
         assert tools_a != tools_b or result_a["content"] != result_b["content"]
 
 
+class TestMultiAgentHooks:
+    """Tests for TeammateIdle / TaskCreated / TaskCompleted hook generation (Feature #40).
+
+    Exercises the three new multi-agent coordination hook generators plus the
+    `generate_multi_agent_hooks` team bundle helper. Uses subprocess to invoke
+    scripts for real behavior verification (same pattern as sibling test classes).
+    """
+
+    # --- helpers ------------------------------------------------------------
+
+    def _run_py(self, code: str) -> subprocess.CompletedProcess:
+        """Run a Python snippet in a subprocess with SCRIPTS_DIR on sys.path."""
+        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        return subprocess.run(
+            [sys.executable, "-c", prologue + code],
+            capture_output=True,
+            text=True,
+        )
+
+    def _gen_idle(self, agent: str, team: str = "") -> str:
+        result = self._run_py(
+            "from hooks_generator import generate_teammate_idle_script; "
+            f"print(generate_teammate_idle_script({agent!r}, {team!r}))"
+        )
+        assert result.returncode == 0, f"idle gen failed: {result.stderr}"
+        return result.stdout
+
+    def _gen_task_created(self, agent: str) -> str:
+        result = self._run_py(
+            "from hooks_generator import generate_task_created_script; "
+            f"print(generate_task_created_script({agent!r}))"
+        )
+        assert result.returncode == 0, f"task_created gen failed: {result.stderr}"
+        return result.stdout
+
+    def _gen_task_completed(self, agent: str) -> str:
+        result = self._run_py(
+            "from hooks_generator import generate_task_completed_script; "
+            f"print(generate_task_completed_script({agent!r}))"
+        )
+        assert result.returncode == 0, f"task_completed gen failed: {result.stderr}"
+        return result.stdout
+
+    def _write_script(self, content: str, path: Path) -> Path:
+        path.write_text(content)
+        path.chmod(0o755)
+        return path
+
+    # --- HOOK_EVENTS registry ----------------------------------------------
+
+    def test_new_events_registered(self) -> None:
+        """HOOK_EVENTS and NO_MATCHER_EVENTS must include the three new events."""
+        result = self._run_py(
+            "import json; from hooks_generator import HOOK_EVENTS, NO_MATCHER_EVENTS; "
+            "print(json.dumps({"
+            "'events': sorted(HOOK_EVENTS), "
+            "'no_matcher': sorted(NO_MATCHER_EVENTS)"
+            "}))"
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        for ev in ("TeammateIdle", "TaskCreated", "TaskCompleted"):
+            assert ev in data["events"], f"{ev} missing from HOOK_EVENTS"
+            assert ev in data["no_matcher"], f"{ev} missing from NO_MATCHER_EVENTS"
+
+    # --- TeammateIdle script ------------------------------------------------
+
+    def test_teammate_idle_script_is_valid_bash(self, tmp_path: Path) -> None:
+        """TeammateIdle script must parse as valid bash."""
+        script = self._gen_idle("worker-1", "alpha")
+        path = self._write_script(script, tmp_path / "idle.sh")
+        result = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True)
+        assert result.returncode == 0, f"bash syntax error: {result.stderr}"
+
+    def test_teammate_idle_allows_when_no_state_file(self, tmp_path: Path) -> None:
+        """Without a tasks.json, TeammateIdle must allow going idle (exit 0)."""
+        script = self._gen_idle("worker-1", "alpha")
+        path = self._write_script(script, tmp_path / "idle.sh")
+        # Run from an empty project dir with no .claude/team-state/alpha/tasks.json
+        empty = tmp_path / "project"
+        empty.mkdir()
+        result = subprocess.run(
+            ["bash", str(path)], input="{}", capture_output=True, text=True, cwd=str(empty)
+        )
+        assert result.returncode == 0, (
+            f"should allow idle when no tasks file; stderr: {result.stderr}"
+        )
+
+    def test_teammate_idle_blocks_when_pending_tasks(self, tmp_path: Path) -> None:
+        """With unclaimed pending tasks, TeammateIdle must exit 2 (prevent idle)."""
+        script = self._gen_idle("worker-1", "alpha")
+        path = self._write_script(script, tmp_path / "idle.sh")
+
+        project = tmp_path / "project"
+        tasks_dir = project / ".claude" / "team-state" / "alpha"
+        tasks_dir.mkdir(parents=True)
+        (tasks_dir / "tasks.json").write_text(
+            json.dumps({"tasks": [{"id": "t-1", "status": "pending"}]})
+        )
+
+        result = subprocess.run(
+            ["bash", str(path)], input="{}", capture_output=True, text=True, cwd=str(project)
+        )
+        assert result.returncode == 2, (
+            f"should block idle when pending tasks exist; stderr: {result.stderr}"
+        )
+        assert "unclaimed" in result.stderr or "pending" in result.stderr.lower()
+
+    def test_teammate_idle_allows_when_all_claimed(self, tmp_path: Path) -> None:
+        """When every pending task has an owner, TeammateIdle must allow idle."""
+        script = self._gen_idle("worker-1", "alpha")
+        path = self._write_script(script, tmp_path / "idle.sh")
+
+        project = tmp_path / "project"
+        tasks_dir = project / ".claude" / "team-state" / "alpha"
+        tasks_dir.mkdir(parents=True)
+        (tasks_dir / "tasks.json").write_text(
+            json.dumps(
+                {
+                    "tasks": [
+                        {"id": "t-1", "status": "pending", "owner": "worker-2"},
+                        {"id": "t-2", "status": "completed"},
+                    ]
+                }
+            )
+        )
+
+        result = subprocess.run(
+            ["bash", str(path)], input="{}", capture_output=True, text=True, cwd=str(project)
+        )
+        assert result.returncode == 0, (
+            f"should allow idle when all tasks claimed/done; stderr: {result.stderr}"
+        )
+
+    def test_teammate_idle_honors_env_team_name(self, tmp_path: Path) -> None:
+        """When team_name is empty, script reads CLAUDE_TEAM_NAME at runtime."""
+        script = self._gen_idle("worker-1", "")  # no baked-in team
+        path = self._write_script(script, tmp_path / "idle.sh")
+
+        project = tmp_path / "project"
+        tasks_dir = project / ".claude" / "team-state" / "beta"
+        tasks_dir.mkdir(parents=True)
+        (tasks_dir / "tasks.json").write_text(
+            json.dumps({"tasks": [{"id": "t-1", "status": "pending"}]})
+        )
+
+        import os
+
+        env = {**os.environ, "CLAUDE_TEAM_NAME": "beta"}
+        result = subprocess.run(
+            ["bash", str(path)],
+            input="{}",
+            capture_output=True,
+            text=True,
+            cwd=str(project),
+            env=env,
+        )
+        assert result.returncode == 2, (
+            f"env-resolved team should still block; stderr: {result.stderr}"
+        )
+
+    # --- TaskCreated script -------------------------------------------------
+
+    def test_task_created_script_is_valid_bash(self, tmp_path: Path) -> None:
+        script = self._gen_task_created("worker-1")
+        path = self._write_script(script, tmp_path / "tc.sh")
+        result = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True)
+        assert result.returncode == 0, f"bash syntax error: {result.stderr}"
+
+    def test_task_created_denies_empty_subject(self, tmp_path: Path) -> None:
+        """Empty task_subject must be rejected with exit 2."""
+        script = self._gen_task_created("worker-1")
+        path = self._write_script(script, tmp_path / "tc.sh")
+        payload = json.dumps({"task_subject": "", "task_description": "anything"})
+        result = subprocess.run(["bash", str(path)], input=payload, capture_output=True, text=True)
+        assert result.returncode == 2
+        assert "empty" in result.stderr.lower() or "missing" in result.stderr.lower()
+
+    def test_task_created_denies_whitespace_subject(self, tmp_path: Path) -> None:
+        """Whitespace-only task_subject must be rejected with exit 2."""
+        script = self._gen_task_created("worker-1")
+        path = self._write_script(script, tmp_path / "tc.sh")
+        payload = json.dumps({"task_subject": "   \t  ", "task_description": "x"})
+        result = subprocess.run(["bash", str(path)], input=payload, capture_output=True, text=True)
+        assert result.returncode == 2
+
+    def test_task_created_denies_too_short_subject(self, tmp_path: Path) -> None:
+        """Subject shorter than MIN_SUBJECT (default 8) must be rejected."""
+        script = self._gen_task_created("worker-1")
+        path = self._write_script(script, tmp_path / "tc.sh")
+        payload = json.dumps({"task_subject": "fix", "task_description": "details"})
+        result = subprocess.run(["bash", str(path)], input=payload, capture_output=True, text=True)
+        assert result.returncode == 2
+        assert "too short" in result.stderr.lower()
+
+    def test_task_created_allows_valid_subject(self, tmp_path: Path) -> None:
+        """A specific actionable subject must be accepted (exit 0)."""
+        script = self._gen_task_created("worker-1")
+        path = self._write_script(script, tmp_path / "tc.sh")
+        payload = json.dumps(
+            {
+                "task_subject": "Add rate limiting to /api/login",
+                "task_description": "Limit to 5 req/min per IP",
+            }
+        )
+        result = subprocess.run(["bash", str(path)], input=payload, capture_output=True, text=True)
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+
+    def test_task_created_min_subject_env_override(self, tmp_path: Path) -> None:
+        """CLAUDE_TASK_MIN_SUBJECT env var must override the default minimum."""
+        script = self._gen_task_created("worker-1")
+        path = self._write_script(script, tmp_path / "tc.sh")
+        payload = json.dumps({"task_subject": "abc", "task_description": "x"})
+
+        import os
+
+        env = {**os.environ, "CLAUDE_TASK_MIN_SUBJECT": "2"}
+        result = subprocess.run(
+            ["bash", str(path)], input=payload, capture_output=True, text=True, env=env
+        )
+        assert result.returncode == 0, (
+            f"should accept 3-char subject when min=2; stderr: {result.stderr}"
+        )
+
+    # --- TaskCompleted script ----------------------------------------------
+
+    def test_task_completed_script_is_valid_bash(self, tmp_path: Path) -> None:
+        script = self._gen_task_completed("worker-1")
+        path = self._write_script(script, tmp_path / "done.sh")
+        result = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True)
+        assert result.returncode == 0, f"bash syntax error: {result.stderr}"
+
+    def test_task_completed_denies_missing_task_id(self, tmp_path: Path) -> None:
+        """TaskCompleted must DENY (exit 2) when task_id is missing — no silent success."""
+        script = self._gen_task_completed("worker-1")
+        path = self._write_script(script, tmp_path / "done.sh")
+        result = subprocess.run(["bash", str(path)], input="{}", capture_output=True, text=True)
+        assert result.returncode == 2, (
+            f"missing task_id must deny, got rc={result.returncode}; stderr: {result.stderr}"
+        )
+        assert "task_id" in result.stderr.lower()
+
+    def test_task_completed_denies_when_no_deliverable(self, tmp_path: Path) -> None:
+        """Without a manifest or marker, TaskCompleted must block (exit 2)."""
+        script = self._gen_task_completed("worker-1")
+        path = self._write_script(script, tmp_path / "done.sh")
+
+        project = tmp_path / "project"
+        project.mkdir()
+
+        payload = json.dumps({"task_id": "t-99"})
+        import os
+
+        env = {**os.environ, "CLAUDE_TEAM_NAME": "alpha"}
+        result = subprocess.run(
+            ["bash", str(path)],
+            input=payload,
+            capture_output=True,
+            text=True,
+            cwd=str(project),
+            env=env,
+        )
+        assert result.returncode == 2, f"stderr: {result.stderr}"
+        assert "deliverable" in result.stderr.lower() or "manifest" in result.stderr.lower()
+
+    def test_task_completed_allows_marker_file(self, tmp_path: Path) -> None:
+        """A .done marker file must satisfy the deliverable check."""
+        script = self._gen_task_completed("worker-1")
+        path = self._write_script(script, tmp_path / "done.sh")
+
+        project = tmp_path / "project"
+        deliv = project / ".claude" / "team-state" / "alpha" / "deliverables"
+        deliv.mkdir(parents=True)
+        (deliv / "t-42.done").write_text("")
+
+        import os
+
+        env = {**os.environ, "CLAUDE_TEAM_NAME": "alpha"}
+        result = subprocess.run(
+            ["bash", str(path)],
+            input=json.dumps({"task_id": "t-42"}),
+            capture_output=True,
+            text=True,
+            cwd=str(project),
+            env=env,
+        )
+        assert result.returncode == 0, f"marker should allow; stderr: {result.stderr}"
+
+    def test_task_completed_validates_manifest_files_exist(self, tmp_path: Path) -> None:
+        """When the manifest lists files, each must exist on disk."""
+        script = self._gen_task_completed("worker-1")
+        path = self._write_script(script, tmp_path / "done.sh")
+
+        project = tmp_path / "project"
+        deliv = project / ".claude" / "team-state" / "alpha" / "deliverables"
+        deliv.mkdir(parents=True)
+        (deliv / "t-7.json").write_text(json.dumps({"files": ["src/real.py", "src/missing.py"]}))
+        # Create only one of the two declared files
+        (project / "src").mkdir()
+        (project / "src" / "real.py").write_text("pass\n")
+
+        import os
+
+        env = {**os.environ, "CLAUDE_TEAM_NAME": "alpha"}
+        result = subprocess.run(
+            ["bash", str(path)],
+            input=json.dumps({"task_id": "t-7"}),
+            capture_output=True,
+            text=True,
+            cwd=str(project),
+            env=env,
+        )
+        assert result.returncode == 2, f"missing declared file must deny; stderr: {result.stderr}"
+        assert "missing.py" in result.stderr
+
+    def test_task_completed_allows_when_all_files_present(self, tmp_path: Path) -> None:
+        """When every manifest file exists, TaskCompleted must allow."""
+        script = self._gen_task_completed("worker-1")
+        path = self._write_script(script, tmp_path / "done.sh")
+
+        project = tmp_path / "project"
+        deliv = project / ".claude" / "team-state" / "alpha" / "deliverables"
+        deliv.mkdir(parents=True)
+        (deliv / "t-9.json").write_text(json.dumps({"files": ["a.txt"]}))
+        (project / "a.txt").write_text("ok")
+
+        import os
+
+        env = {**os.environ, "CLAUDE_TEAM_NAME": "alpha"}
+        result = subprocess.run(
+            ["bash", str(path)],
+            input=json.dumps({"task_id": "t-9"}),
+            capture_output=True,
+            text=True,
+            cwd=str(project),
+            env=env,
+        )
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+
+    # --- Hook config validation --------------------------------------------
+
+    def test_hook_configs_reject_empty_agent_name(self) -> None:
+        """All three config functions must raise ValueError on empty agent_name."""
+        for fn in (
+            "generate_teammate_idle_hook_config",
+            "generate_task_created_hook_config",
+            "generate_task_completed_hook_config",
+        ):
+            result = self._run_py(f"from hooks_generator import {fn}; {fn}('', '/tmp/x.sh')")
+            assert result.returncode != 0, f"{fn} accepted empty agent_name"
+            assert "agent_name" in result.stderr
+
+    def test_hook_configs_reject_empty_script_path(self) -> None:
+        """All three config functions must raise ValueError on empty script_path."""
+        for fn in (
+            "generate_teammate_idle_hook_config",
+            "generate_task_created_hook_config",
+            "generate_task_completed_hook_config",
+        ):
+            result = self._run_py(f"from hooks_generator import {fn}; {fn}('agent', '   ')")
+            assert result.returncode != 0, f"{fn} accepted whitespace script_path"
+            assert "script_path" in result.stderr
+
+    def test_hook_configs_have_no_matcher(self) -> None:
+        """Per Claude Code spec, TeammateIdle/TaskCreated/TaskCompleted have no matchers."""
+        for fn, event in (
+            ("generate_teammate_idle_hook_config", "TeammateIdle"),
+            ("generate_task_created_hook_config", "TaskCreated"),
+            ("generate_task_completed_hook_config", "TaskCompleted"),
+        ):
+            result = self._run_py(
+                "import json; "
+                f"from hooks_generator import {fn}; "
+                f"print(json.dumps({fn}('worker-1', '/path/to/s.sh')))"
+            )
+            assert result.returncode == 0, f"{fn} failed: {result.stderr}"
+            cfg = json.loads(result.stdout)
+            assert event in cfg
+            entry = cfg[event][0]
+            assert "matcher" not in entry, f"{event} must not declare a matcher (no-matcher event)"
+            assert entry["hooks"][0]["command"] == "/path/to/s.sh"
+
+    # --- Team bundle --------------------------------------------------------
+
+    def test_multi_agent_bundle_creates_three_executable_scripts(self, tmp_path: Path) -> None:
+        """generate_multi_agent_hooks must write 3 executable scripts + merged config."""
+        out_dir = tmp_path / "hooks"
+        result = self._run_py(
+            "import json, os; "
+            "from hooks_generator import generate_multi_agent_hooks; "
+            f"scripts, cfg = generate_multi_agent_hooks('worker-1', 'alpha', '{out_dir}'); "
+            "print(json.dumps({"
+            "'paths': [str(p) for p in scripts], "
+            "'modes': [oct(os.stat(p).st_mode)[-3:] for p in scripts], "
+            "'events': sorted(cfg.keys()) "
+            "}))"
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert len(data["paths"]) == 3
+        for mode in data["modes"]:
+            assert mode == "755", f"script must be executable, got mode {mode}"
+        assert data["events"] == ["TaskCompleted", "TaskCreated", "TeammateIdle"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
