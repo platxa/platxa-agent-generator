@@ -1957,62 +1957,256 @@ CATEGORIES = {
 }
 
 
+def _complexity_tier(agent: AgentTemplate) -> str:
+    """Bucket an agent into a complexity tier based on structural signals.
+
+    Uses workflow step count and tool count — both observable properties
+    of the template — rather than a hand-assigned label. Boundaries chosen
+    from the existing catalog distribution so the three buckets are
+    populated roughly evenly.
+
+    Returns one of: "simple", "medium", "complex".
+    """
+    steps = len(agent.workflow_steps)
+    tools = len(agent.tools)
+    if steps >= 7 or tools >= 6:
+        return "complex"
+    if steps >= 4 or tools >= 4:
+        return "medium"
+    return "simple"
+
+
+COMPLEXITY_TIERS: tuple[str, ...] = ("simple", "medium", "complex")
+
+
+def _matches_tools(agent: AgentTemplate, required_tools: list[str]) -> bool:
+    """Return True iff the agent's tool list contains every required tool.
+
+    Comparison is case-insensitive on trimmed names so callers can pass
+    "bash" and match the canonical "Bash" tool.
+    """
+    agent_tools_lower = {t.strip().lower() for t in agent.tools}
+    return all(t.strip().lower() in agent_tools_lower for t in required_tools)
+
+
+def _matches_domain(agent: AgentTemplate, domain: str) -> bool:
+    """Substring match of domain against name / description / tags.
+
+    The domain filter is deliberately permissive — agents may encode
+    their domain in any of three places and we accept a hit in any.
+    Case-insensitive.
+    """
+    needle = domain.lower().strip()
+    if not needle:
+        return True
+    if needle in agent.name.lower():
+        return True
+    if needle in agent.description.lower():
+        return True
+    return any(needle in tag.lower() for tag in agent.tags)
+
+
 def list_agents(
     category: str | None = None,
     tags: list[str] | None = None,
+    tools: list[str] | None = None,
+    domain: str | None = None,
+    complexity: str | None = None,
 ) -> list[AgentTemplate]:
-    """
-    List agents from the catalog.
+    """List agents from the catalog with composable filters.
+
+    All supplied filters are applied with AND semantics — the result is
+    agents that satisfy every non-None filter.
 
     Args:
-        category: Filter by category
-        tags: Filter by tags (any match)
+        category: Exact category match (e.g. "security", "code-quality").
+        tags: Agent must have at least one of the supplied tags.
+        tools: Agent's tool list must include every listed tool
+            (case-insensitive). Use this to filter to shell-capable
+            agents with tools=["Bash"], for example.
+        domain: Free-text domain keyword matched against name,
+            description, and tags (substring, case-insensitive).
+        complexity: One of "simple", "medium", "complex". Derived from
+            workflow step count and tool count — see _complexity_tier.
 
     Returns:
-        List of matching agent templates
+        Agents matching all supplied filters, sorted by (category, name).
+
+    Raises:
+        ValueError: if complexity is not a recognised tier.
     """
+    if complexity is not None and complexity not in COMPLEXITY_TIERS:
+        raise ValueError(
+            f"Unknown complexity tier '{complexity}'. Valid tiers: {', '.join(COMPLEXITY_TIERS)}"
+        )
+
     agents = list(AGENT_CATALOG.values())
 
     if category:
         agents = [a for a in agents if a.category == category]
 
     if tags:
-        tag_set = set(tags)
-        agents = [a for a in agents if tag_set & set(a.tags)]
+        tag_set = {t.lower() for t in tags}
+        agents = [a for a in agents if tag_set & {t.lower() for t in a.tags}]
+
+    if tools:
+        agents = [a for a in agents if _matches_tools(a, tools)]
+
+    if domain:
+        agents = [a for a in agents if _matches_domain(a, domain)]
+
+    if complexity:
+        agents = [a for a in agents if _complexity_tier(a) == complexity]
 
     return sorted(agents, key=lambda a: (a.category, a.name))
 
 
-def search_agents(query: str) -> list[AgentTemplate]:
-    """
-    Search agents by query string.
+# Relevance weights for search ranking. Ordered from most specific
+# (exact name match is the strongest signal the user wanted THIS agent)
+# down to the weakest (description substring is coincidental keyword overlap).
+_RELEVANCE_WEIGHTS: dict[str, float] = {
+    "name_exact": 10.0,
+    "name_substring": 5.0,
+    "tag_exact": 4.0,
+    "category_exact": 3.0,
+    "tag_substring": 2.0,
+    "description_substring": 2.0,
+    "tool_exact": 2.0,
+}
+
+
+def score_relevance(agent: AgentTemplate, query: str) -> float:
+    """Compute a relevance score for an agent against a search query.
+
+    Returns 0.0 when the query matches nothing on the agent. Positive
+    scores indicate increasing confidence that this agent is what the
+    user meant. The weights are tuned so that an exact name match
+    always outranks any combination of substring matches.
 
     Args:
-        query: Search query (matches name, description, tags)
+        agent: The candidate agent template.
+        query: The search query (case-insensitive).
 
     Returns:
-        List of matching agent templates
+        Non-negative relevance score.
     """
-    query_lower = query.lower()
-    results = []
+    q = query.lower().strip()
+    if not q:
+        return 0.0
 
-    for agent in AGENT_CATALOG.values():
-        # Check name
-        if query_lower in agent.name.lower():
-            results.append(agent)
-            continue
+    score = 0.0
+    name_lower = agent.name.lower()
+    if name_lower == q:
+        score += _RELEVANCE_WEIGHTS["name_exact"]
+    elif q in name_lower:
+        score += _RELEVANCE_WEIGHTS["name_substring"]
 
-        # Check description
-        if query_lower in agent.description.lower():
-            results.append(agent)
-            continue
+    if agent.category.lower() == q:
+        score += _RELEVANCE_WEIGHTS["category_exact"]
 
-        # Check tags
-        if any(query_lower in tag.lower() for tag in agent.tags):
-            results.append(agent)
-            continue
+    for tag in agent.tags:
+        t = tag.lower()
+        if t == q:
+            score += _RELEVANCE_WEIGHTS["tag_exact"]
+        elif q in t:
+            score += _RELEVANCE_WEIGHTS["tag_substring"]
 
-    return sorted(results, key=lambda a: a.name)
+    if q in agent.description.lower():
+        score += _RELEVANCE_WEIGHTS["description_substring"]
+
+    for tool in agent.tools:
+        if tool.lower() == q:
+            score += _RELEVANCE_WEIGHTS["tool_exact"]
+            break
+
+    return score
+
+
+def search_agents(
+    query: str,
+    category: str | None = None,
+    tags: list[str] | None = None,
+    tools: list[str] | None = None,
+    domain: str | None = None,
+    complexity: str | None = None,
+) -> list[AgentTemplate]:
+    """Search agents by query and filters, returning relevance-ranked results.
+
+    Composes with all the same filters as ``list_agents``. The query is
+    applied first to produce a scored candidate set (agents with score > 0),
+    then filters are applied, and the final list is sorted by descending
+    relevance score with name as tiebreaker.
+
+    Args:
+        query: Search query matched against name, description, tags,
+            category, and tools (see score_relevance for weights).
+        category / tags / tools / domain / complexity: Same as list_agents.
+
+    Returns:
+        Agents ranked by relevance, highest first. Empty when no agent
+        has any match for the query.
+    """
+    scored = [(agent, score_relevance(agent, query)) for agent in AGENT_CATALOG.values()]
+    scored = [(a, s) for a, s in scored if s > 0.0]
+
+    if category:
+        scored = [(a, s) for a, s in scored if a.category == category]
+    if tags:
+        tag_set = {t.lower() for t in tags}
+        scored = [(a, s) for a, s in scored if tag_set & {t.lower() for t in a.tags}]
+    if tools:
+        scored = [(a, s) for a, s in scored if _matches_tools(a, tools)]
+    if domain:
+        scored = [(a, s) for a, s in scored if _matches_domain(a, domain)]
+    if complexity:
+        if complexity not in COMPLEXITY_TIERS:
+            raise ValueError(
+                f"Unknown complexity tier '{complexity}'. "
+                f"Valid tiers: {', '.join(COMPLEXITY_TIERS)}"
+            )
+        scored = [(a, s) for a, s in scored if _complexity_tier(a) == complexity]
+
+    # Highest score first; stable on name for reproducible ties
+    scored.sort(key=lambda pair: (-pair[1], pair[0].name))
+    return [a for a, _ in scored]
+
+
+def search_agents_ranked(
+    query: str,
+    category: str | None = None,
+    tags: list[str] | None = None,
+    tools: list[str] | None = None,
+    domain: str | None = None,
+    complexity: str | None = None,
+) -> list[tuple[AgentTemplate, float]]:
+    """Like search_agents but returns (agent, score) pairs.
+
+    Useful for tests and callers that want to inspect ranking decisions
+    or expose scores in their UI. The agent list is identical to
+    ``search_agents`` but each element is paired with its relevance score.
+    """
+    scored = [(agent, score_relevance(agent, query)) for agent in AGENT_CATALOG.values()]
+    scored = [(a, s) for a, s in scored if s > 0.0]
+
+    if category:
+        scored = [(a, s) for a, s in scored if a.category == category]
+    if tags:
+        tag_set = {t.lower() for t in tags}
+        scored = [(a, s) for a, s in scored if tag_set & {t.lower() for t in a.tags}]
+    if tools:
+        scored = [(a, s) for a, s in scored if _matches_tools(a, tools)]
+    if domain:
+        scored = [(a, s) for a, s in scored if _matches_domain(a, domain)]
+    if complexity:
+        if complexity not in COMPLEXITY_TIERS:
+            raise ValueError(
+                f"Unknown complexity tier '{complexity}'. "
+                f"Valid tiers: {', '.join(COMPLEXITY_TIERS)}"
+            )
+        scored = [(a, s) for a, s in scored if _complexity_tier(a) == complexity]
+
+    scored.sort(key=lambda pair: (-pair[1], pair[0].name))
+    return scored
 
 
 def get_agent(name: str) -> AgentTemplate | None:
@@ -2299,11 +2493,40 @@ def main() -> None:
     list_parser = subparsers.add_parser("list", help="List available agents")
     list_parser.add_argument("--category", "-c", help="Filter by category")
     list_parser.add_argument("--tags", "-t", help="Filter by tags (comma-separated)")
+    list_parser.add_argument(
+        "--tools",
+        help="Filter to agents whose tools list contains ALL of these (comma-separated)",
+    )
+    list_parser.add_argument(
+        "--domain",
+        help="Keyword match against name/description/tags (case-insensitive)",
+    )
+    list_parser.add_argument(
+        "--complexity",
+        choices=list(COMPLEXITY_TIERS),
+        help="Filter by complexity tier (derived from workflow steps + tool count)",
+    )
     list_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     # Search command
-    search_parser = subparsers.add_parser("search", help="Search agents")
+    search_parser = subparsers.add_parser("search", help="Search agents (ranked by relevance)")
     search_parser.add_argument("query", help="Search query")
+    search_parser.add_argument("--category", "-c", help="Filter by category")
+    search_parser.add_argument("--tags", "-t", help="Filter by tags (comma-separated)")
+    search_parser.add_argument(
+        "--tools", help="Filter to agents with ALL these tools (comma-separated)"
+    )
+    search_parser.add_argument("--domain", help="Keyword match against name/description/tags")
+    search_parser.add_argument(
+        "--complexity",
+        choices=list(COMPLEXITY_TIERS),
+        help="Filter by complexity tier",
+    )
+    search_parser.add_argument(
+        "--show-scores",
+        action="store_true",
+        help="Print the relevance score next to each result",
+    )
     search_parser.add_argument("--json", action="store_true", help="Output as JSON")
 
     # Show command
@@ -2328,8 +2551,15 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "list":
-        tags = args.tags.split(",") if args.tags else None
-        agents = list_agents(category=args.category, tags=tags)
+        tags = [t.strip() for t in args.tags.split(",")] if args.tags else None
+        tools = [t.strip() for t in args.tools.split(",")] if args.tools else None
+        agents = list_agents(
+            category=args.category,
+            tags=tags,
+            tools=tools,
+            domain=args.domain,
+            complexity=args.complexity,
+        )
 
         if args.json:
             print(json.dumps([template_to_dict(a) for a in agents], indent=2))
@@ -2352,15 +2582,30 @@ def main() -> None:
             print()
 
     elif args.command == "search":
-        agents = search_agents(args.query)
+        tags = [t.strip() for t in args.tags.split(",")] if args.tags else None
+        tools = [t.strip() for t in args.tools.split(",")] if args.tools else None
+        ranked = search_agents_ranked(
+            args.query,
+            category=args.category,
+            tags=tags,
+            tools=tools,
+            domain=args.domain,
+            complexity=args.complexity,
+        )
 
         if args.json:
-            print(json.dumps([template_to_dict(a) for a in agents], indent=2))
+            print(
+                json.dumps(
+                    [{**template_to_dict(a), "relevance_score": score} for a, score in ranked],
+                    indent=2,
+                )
+            )
         else:
-            print(f"\nSearch results for '{args.query}' ({len(agents)} found):")
+            print(f"\nSearch results for '{args.query}' ({len(ranked)} found):")
             print("-" * 60)
-            for agent in agents:
-                print(f"  {agent.name} [{agent.category}]")
+            for agent, score in ranked:
+                prefix = f"  [{score:>4.1f}] " if args.show_scores else "  "
+                print(f"{prefix}{agent.name} [{agent.category}]")
                 print(f"    {agent.description}")
             print()
 

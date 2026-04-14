@@ -7741,5 +7741,254 @@ class TestToolWorkflowCrossValidation:
         assert any("ERROR" in s for s in data["undeclared"]), data["undeclared"]
 
 
+class TestCatalogSearchAndFilter:
+    """Tests for catalog search and filter (Feature #50).
+
+    Feature criteria:
+    - catalog list --category security returns security agents only
+    - --tools Bash filters to shell-capable agents
+    - search results are ranked by relevance
+    """
+
+    def _run_py(self, code: str) -> subprocess.CompletedProcess:
+        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        return subprocess.run(
+            [sys.executable, "-c", prologue + code],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_list_category_security_returns_only_security(self) -> None:
+        result = self._run_py(
+            "import json\n"
+            "from agent_catalog import list_agents\n"
+            "agents = list_agents(category='security')\n"
+            "print(json.dumps({"
+            "'count': len(agents), "
+            "'categories': sorted({a.category for a in agents})"
+            "}))"
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert data["count"] >= 1, "expected at least one security agent"
+        assert data["categories"] == ["security"], data
+
+    def test_list_tools_bash_filters_to_shell_capable(self) -> None:
+        result = self._run_py(
+            "import json\n"
+            "from agent_catalog import list_agents\n"
+            "agents = list_agents(tools=['Bash'])\n"
+            "names = [a.name for a in agents]\n"
+            "tools_ok = all('Bash' in a.tools for a in agents)\n"
+            "print(json.dumps({"
+            "'count': len(agents), 'tools_ok': tools_ok, 'names': names"
+            "}))"
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert data["count"] >= 1
+        assert data["tools_ok"]
+
+    def test_list_tools_filter_is_case_insensitive(self) -> None:
+        """--tools bash (lowercase) must match the canonical Bash tool."""
+        result = self._run_py(
+            "from agent_catalog import list_agents\n"
+            "lower = {a.name for a in list_agents(tools=['bash'])}\n"
+            "upper = {a.name for a in list_agents(tools=['Bash'])}\n"
+            "print('EQUAL' if lower == upper else 'MISMATCH')"
+        )
+        assert result.stdout.strip() == "EQUAL", result.stdout
+
+    def test_list_tools_requires_all_tools(self) -> None:
+        """Passing multiple tools requires the agent to have ALL of them."""
+        result = self._run_py(
+            "from agent_catalog import list_agents\n"
+            "both = list_agents(tools=['Read', 'Bash'])\n"
+            "print(all('Read' in a.tools and 'Bash' in a.tools for a in both))"
+        )
+        assert result.stdout.strip() == "True"
+
+    def test_list_domain_keyword_matches_name_description_or_tags(self) -> None:
+        result = self._run_py(
+            "from agent_catalog import list_agents\n"
+            "agents = list_agents(domain='review')\n"
+            "print(len(agents) > 0)\n"
+            "hits = [\n"
+            "    'review' in a.name.lower()\n"
+            "    or 'review' in a.description.lower()\n"
+            "    or any('review' in t.lower() for t in a.tags)\n"
+            "    for a in agents\n"
+            "]\n"
+            "print(all(hits))"
+        )
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().splitlines()
+        assert lines == ["True", "True"]
+
+    def test_list_complexity_tier_filters_deterministically(self) -> None:
+        """Every tier is a disjoint subset of the full catalog."""
+        result = self._run_py(
+            "import json\n"
+            "from agent_catalog import list_agents, AGENT_CATALOG, COMPLEXITY_TIERS\n"
+            "buckets = {t: {a.name for a in list_agents(complexity=t)} "
+            "for t in COMPLEXITY_TIERS}\n"
+            "total = sum(len(v) for v in buckets.values())\n"
+            "all_names = set().union(*buckets.values())\n"
+            "print(json.dumps({"
+            "'total_assigned': total, "
+            "'catalog_size': len(AGENT_CATALOG), "
+            "'disjoint': total == len(all_names), "
+            "'partitions_catalog': all_names == set(AGENT_CATALOG)"
+            "}))"
+        )
+        data = json.loads(result.stdout)
+        assert data["disjoint"], "complexity tiers must be disjoint"
+        assert data["partitions_catalog"], "tiers must partition the catalog"
+        assert data["total_assigned"] == data["catalog_size"]
+
+    def test_list_complexity_rejects_unknown_tier(self) -> None:
+        """An invalid complexity tier raises ValueError, not silent empty result."""
+        result = self._run_py(
+            "from agent_catalog import list_agents\n"
+            "try:\n"
+            "    list_agents(complexity='nonsense')\n"
+            "    print('NOT_RAISED')\n"
+            "except ValueError as e:\n"
+            "    print('RAISED' if 'nonsense' in str(e) else 'WRONG_MSG')"
+        )
+        assert result.stdout.strip() == "RAISED", result.stdout
+
+    def test_list_filters_compose_with_AND_semantics(self) -> None:
+        """security AND Read must equal the intersection of the two filters."""
+        result = self._run_py(
+            "from agent_catalog import list_agents\n"
+            "both = {a.name for a in list_agents(category='security', tools=['Read'])}\n"
+            "sec = {a.name for a in list_agents(category='security')}\n"
+            "reads = {a.name for a in list_agents(tools=['Read'])}\n"
+            "print('OK' if both == sec & reads else f'MISMATCH: {both} vs {sec & reads}')"
+        )
+        assert result.stdout.strip() == "OK", result.stdout
+
+    # --- ranking -------------------------------------------------------
+
+    def test_search_results_are_ranked_descending(self) -> None:
+        result = self._run_py(
+            "import json\n"
+            "from agent_catalog import search_agents_ranked\n"
+            "ranked = search_agents_ranked('review')\n"
+            "scores = [s for _, s in ranked]\n"
+            "print(json.dumps({'count': len(ranked), 'descending': "
+            "scores == sorted(scores, reverse=True)}))"
+        )
+        data = json.loads(result.stdout)
+        assert data["count"] > 0
+        assert data["descending"]
+
+    def test_exact_name_match_ranks_first(self) -> None:
+        """Searching for an exact agent name puts that agent at position 0."""
+        result = self._run_py(
+            "from agent_catalog import search_agents_ranked, AGENT_CATALOG\n"
+            "name = next(iter(AGENT_CATALOG))\n"
+            "ranked = search_agents_ranked(name)\n"
+            "print(ranked[0][0].name == name)"
+        )
+        assert result.stdout.strip() == "True", result.stdout
+
+    def test_name_match_outranks_description_only_match(self) -> None:
+        """Name hits must score strictly higher than description-only hits."""
+        result = self._run_py(
+            "from agent_catalog import score_relevance, AGENT_CATALOG\n"
+            "# Find an agent with 'review' in name\n"
+            "name_hit = next(a for a in AGENT_CATALOG.values() if 'review' in a.name.lower())\n"
+            "# Find an agent with 'review' in description but not name\n"
+            "desc_only = next(\n"
+            "    (a for a in AGENT_CATALOG.values() "
+            "if 'review' not in a.name.lower() and 'review' in a.description.lower()),\n"
+            "    None\n"
+            ")\n"
+            "if desc_only is None:\n"
+            "    print('SKIP')\n"
+            "else:\n"
+            "    n = score_relevance(name_hit, 'review')\n"
+            "    d = score_relevance(desc_only, 'review')\n"
+            "    print('OK' if n > d else f'FAIL: name={n} desc={d}')"
+        )
+        assert result.stdout.strip() in {"OK", "SKIP"}, result.stdout
+
+    def test_score_relevance_is_zero_for_no_match(self) -> None:
+        result = self._run_py(
+            "from agent_catalog import score_relevance, AGENT_CATALOG\n"
+            "agent = next(iter(AGENT_CATALOG.values()))\n"
+            "print(score_relevance(agent, 'xyzzy_no_match_nowhere'))"
+        )
+        assert float(result.stdout.strip()) == 0.0
+
+    def test_search_composes_query_with_filters(self) -> None:
+        """search_agents applies filters AFTER ranking, preserving order."""
+        result = self._run_py(
+            "from agent_catalog import search_agents\n"
+            "with_filter = search_agents('review', category='code-quality')\n"
+            "print(all(a.category == 'code-quality' for a in with_filter))"
+        )
+        assert result.stdout.strip() == "True"
+
+    # --- CLI ------------------------------------------------------------
+
+    def test_cli_list_category_security_json(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_catalog.py"),
+                "list",
+                "--category",
+                "security",
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert len(data) >= 1
+        assert all(a["category"] == "security" for a in data)
+
+    def test_cli_list_tools_bash_json(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_catalog.py"),
+                "list",
+                "--tools",
+                "Bash",
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert len(data) >= 1
+        assert all("Bash" in a["tools"] for a in data)
+
+    def test_cli_search_emits_relevance_scores_in_json(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "agent_catalog.py"),
+                "search",
+                "review",
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert len(data) >= 1
+        assert "relevance_score" in data[0]
+        scores = [a["relevance_score"] for a in data]
+        assert scores == sorted(scores, reverse=True), scores
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
