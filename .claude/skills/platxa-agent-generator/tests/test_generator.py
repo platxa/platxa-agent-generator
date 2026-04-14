@@ -7990,5 +7990,219 @@ class TestCatalogSearchAndFilter:
         assert scores == sorted(scores, reverse=True), scores
 
 
+class TestNLPConstraintExtraction:
+    """Tests for nlp_parser constraint extraction (Feature #53).
+
+    Feature criteria:
+    - 'read-only' removes Write/Edit/Bash from tools
+    - 'Python only' adds glob pattern guidance
+    - Constraints flow to disallowedTools
+    """
+
+    def _run_py(self, code: str) -> subprocess.CompletedProcess:
+        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        return subprocess.run(
+            [sys.executable, "-c", prologue + code],
+            capture_output=True,
+            text=True,
+        )
+
+    # --- read-only detection ----------------------------------------------
+
+    def test_read_only_removes_write_tools_from_positive_set(self) -> None:
+        result = self._run_py(
+            "import json\n"
+            "from nlp_parser import parse\n"
+            "r = parse('Create a read-only agent that scans code for security issues')\n"
+            "print(json.dumps({"
+            "'tools': r.tools, 'disallowed': r.disallowed_tools"
+            "}))"
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert "Write" not in data["tools"]
+        assert "Edit" not in data["tools"]
+        assert "Bash" not in data["tools"]
+        # and defense-in-depth: disallowed_tools contains them
+        assert set(data["disallowed"]) == {"Write", "Edit", "MultiEdit", "Bash"}
+
+    def test_read_only_phrase_variants_all_fire(self) -> None:
+        """Multiple surface forms all trigger the same read-only constraint."""
+        variants = [
+            "no file modifications",
+            "no writes",
+            "never modify",
+            "inspect only",
+            "reporting only",
+        ]
+        for phrase in variants:
+            result = self._run_py(
+                "from nlp_parser import extract_constraints\n"
+                f"c = extract_constraints('Create an agent — {phrase} — for code review')\n"
+                "print(c.read_only)"
+            )
+            assert result.stdout.strip() == "True", f"{phrase!r} did not trigger read-only"
+
+    def test_read_only_not_triggered_by_incidental_word(self) -> None:
+        """The word 'writes' alone must not trigger read-only."""
+        result = self._run_py(
+            "from nlp_parser import extract_constraints\n"
+            "c = extract_constraints('Create an agent that reads files and writes reports')\n"
+            "print(json.dumps({"
+            "'read_only': c.read_only, "
+            "'disallowed': c.disallowed_tools"
+            "}))\n".replace("json.dumps", "__import__('json').dumps")
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert not data["read_only"]
+        assert data["disallowed"] == []
+
+    # --- file-scope detection ---------------------------------------------
+
+    def test_python_only_adds_py_glob(self) -> None:
+        result = self._run_py(
+            "from nlp_parser import parse\n"
+            "r = parse('Build a Python only linter agent')\n"
+            "print(r.file_patterns)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "['**/*.py']"
+
+    def test_typescript_only_adds_ts_and_tsx_globs(self) -> None:
+        result = self._run_py(
+            "from nlp_parser import parse\n"
+            "r = parse('Create a TypeScript only code reviewer')\n"
+            "print(sorted(r.file_patterns))"
+        )
+        assert result.stdout.strip() == "['**/*.ts', '**/*.tsx']"
+
+    def test_multiple_language_scopes_accumulate(self) -> None:
+        result = self._run_py(
+            "from nlp_parser import parse\n"
+            "r = parse('Build a Python only and YAML only config validator')\n"
+            "print(sorted(r.file_patterns))"
+        )
+        assert result.returncode == 0, result.stderr
+        patterns = set(result.stdout.strip().strip("[]").replace("'", "").split(", "))
+        assert "**/*.py" in patterns
+        assert "**/*.yml" in patterns or "**/*.yaml" in patterns
+
+    def test_no_scope_phrase_leaves_file_patterns_empty(self) -> None:
+        result = self._run_py(
+            "from nlp_parser import parse\n"
+            "r = parse('Create a general code reviewer')\n"
+            "print(r.file_patterns)"
+        )
+        assert result.stdout.strip() == "[]"
+
+    # --- combined constraints ---------------------------------------------
+
+    def test_read_only_plus_python_only_compose(self) -> None:
+        """Read-only AND Python-only both fire; both flow to the requirements."""
+        result = self._run_py(
+            "import json\n"
+            "from nlp_parser import parse\n"
+            "r = parse('Create a read-only Python only security scanner')\n"
+            "print(json.dumps({"
+            "'disallowed': r.disallowed_tools, "
+            "'patterns': r.file_patterns, "
+            "'phrases': r.constraint_phrases"
+            "}))"
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert set(data["disallowed"]) == {"Write", "Edit", "MultiEdit", "Bash"}
+        assert data["patterns"] == ["**/*.py"]
+        assert "read-only" in data["phrases"]
+        assert "python only" in data["phrases"]
+
+    # --- observability ----------------------------------------------------
+
+    def test_constraint_phrases_captures_triggering_phrases(self) -> None:
+        """constraint_phrases must list the phrases that fired, for debugging."""
+        result = self._run_py(
+            "from nlp_parser import extract_constraints\n"
+            "c = extract_constraints('Create a read-only JSON only validator')\n"
+            "print(sorted(c.constraint_phrases))"
+        )
+        assert result.returncode == 0, result.stderr
+        out = result.stdout.strip()
+        assert "read-only" in out and "json only" in out
+
+    def test_empty_description_yields_empty_constraints(self) -> None:
+        result = self._run_py(
+            "from nlp_parser import extract_constraints\n"
+            "c = extract_constraints('')\n"
+            "print(c.read_only)\n"
+            "print(c.disallowed_tools)\n"
+            "print(c.file_patterns)\n"
+            "print(c.constraint_phrases)"
+        )
+        lines = result.stdout.strip().splitlines()
+        assert lines == ["False", "[]", "[]", "[]"]
+
+    # --- integration with parse() ----------------------------------------
+
+    def test_parse_default_fields_present_when_no_constraints(self) -> None:
+        """AgentRequirements always exposes the new fields, defaulting to empty."""
+        result = self._run_py(
+            "from nlp_parser import parse\n"
+            "r = parse('Create a simple reviewer')\n"
+            "print(r.disallowed_tools == [] and r.file_patterns == [] "
+            "and r.constraint_phrases == [])"
+        )
+        assert result.stdout.strip() == "True"
+
+    def test_disallowed_tools_are_deduped_and_ordered(self) -> None:
+        """Repeated read-only phrases do not double-add to disallowed_tools."""
+        result = self._run_py(
+            "from nlp_parser import extract_constraints\n"
+            "c = extract_constraints("
+            "'Create a read-only agent with no file modifications and no writes')\n"
+            "print(c.disallowed_tools)"
+        )
+        out = result.stdout.strip()
+        # Read-only fires once even across multiple phrases; disallowed remains
+        # the canonical 4 tools in consistent order.
+        assert out == "['Write', 'Edit', 'MultiEdit', 'Bash']", out
+
+    # --- CLI --------------------------------------------------------------
+
+    def test_cli_json_output_contains_constraint_fields(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "nlp_parser.py"),
+                "--json",
+                "Create a read-only Python only code reviewer",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert "disallowed_tools" in data
+        assert set(data["disallowed_tools"]) == {"Write", "Edit", "MultiEdit", "Bash"}
+        assert data["file_patterns"] == ["**/*.py"]
+        assert "read-only" in data["constraint_phrases"]
+
+    def test_cli_text_output_shows_constraints_when_present(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "nlp_parser.py"),
+                "Create a read-only Python only reviewer",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        out = result.stdout
+        assert "Disallowed:" in out
+        assert "File scope:" in out
+        assert "Constraints:" in out
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

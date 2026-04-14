@@ -16,7 +16,33 @@ Usage:
 import json
 import re
 import sys
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
+
+
+@dataclass
+class ExtractedConstraints:
+    """Constraints extracted from the description text.
+
+    Constraints are authoring signals that restrict or scope the generated
+    agent. They are distinct from positive tool signals (which *add* tools)
+    because they *remove* or *filter* capabilities.
+
+    Fields:
+        read_only: True if the description forbids file modification
+            (phrases like "read-only", "no file changes", "never modify").
+        disallowed_tools: Tool names that must appear in the agent's
+            ``disallowedTools`` frontmatter list (and be removed from the
+            positive tool set).
+        file_patterns: Glob patterns the agent should scope to (e.g.
+            ``**/*.py`` for "Python only").
+        constraint_phrases: Raw phrases that triggered each constraint.
+            Kept for observability so users can see why a constraint fired.
+    """
+
+    read_only: bool = False
+    disallowed_tools: list[str] = field(default_factory=list)
+    file_patterns: list[str] = field(default_factory=list)
+    constraint_phrases: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -30,6 +56,12 @@ class AgentRequirements:
     patterns: list[str]
     confidence: float
     domains: list[str]
+    # Negative/scope constraints extracted from phrases like "read-only",
+    # "Python only", "no file modifications". Default to empty so existing
+    # callers that don't check constraints continue to behave unchanged.
+    disallowed_tools: list[str] = field(default_factory=list)
+    file_patterns: list[str] = field(default_factory=list)
+    constraint_phrases: list[str] = field(default_factory=list)
 
 
 # Agent type classification keywords
@@ -782,6 +814,137 @@ def generate_description(original: str, agent_type: str) -> str:
     return desc
 
 
+# Constraint extraction tables
+# ---------------------------------------------------------------------------
+# Phrases are matched with word boundaries where possible. Each phrase maps to
+# the set of tools it forbids and/or the file patterns it implies. Kept as a
+# module-level constant so tests, docs, and external validators can inspect it.
+
+# Phrases that forbid file modification. When matched, we add Write / Edit /
+# MultiEdit / Bash to disallowed_tools (Bash because shell commands commonly
+# mutate the filesystem — a read-only agent should not run `rm`, `mv`, etc.).
+_READ_ONLY_PHRASES: tuple[str, ...] = (
+    "read-only",
+    "read only",
+    "no file modifications",
+    "no file modification",
+    "no file changes",
+    "no file writes",
+    "no writes",
+    "no modifications",
+    "never modify",
+    "don't modify files",
+    "do not modify files",
+    "should not modify",
+    "must not modify",
+    "without modifying",
+    "without writing",
+    "inspect only",
+    "reporting only",
+)
+
+# Tools removed when any read-only phrase is present.
+_READ_ONLY_DISALLOWED: tuple[str, ...] = ("Write", "Edit", "MultiEdit", "Bash")
+
+# File-scope phrases. Each entry maps one or more lowercase phrases to a list
+# of glob patterns the agent should scope to. The patterns appear in the
+# generated agent's system-prompt additions and in CLAUDE.md scope guidance.
+# Order matters only for reporting — the first matching phrase is recorded.
+_FILE_SCOPE_PATTERNS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+    (("python only", "only python files", "python files only", "only .py files"), ("**/*.py",)),
+    (
+        ("javascript only", "only javascript files", "only .js files", "js only"),
+        ("**/*.js", "**/*.jsx"),
+    ),
+    (
+        ("typescript only", "only typescript files", "only .ts files", "ts only"),
+        ("**/*.ts", "**/*.tsx"),
+    ),
+    (("go only", "only go files", "only .go files", "golang only"), ("**/*.go",)),
+    (("rust only", "only rust files", "only .rs files"), ("**/*.rs",)),
+    (("markdown only", "only markdown files", "only .md files", "docs only"), ("**/*.md",)),
+    (
+        ("yaml only", "only yaml files", "yml only", "only .yml files", "only .yaml files"),
+        ("**/*.yml", "**/*.yaml"),
+    ),
+    (("json only", "only json files", "only .json files"), ("**/*.json",)),
+)
+
+
+def _find_phrase(text: str, phrases: tuple[str, ...]) -> str | None:
+    """Return the first phrase that appears as a whole-word match in text.
+
+    Word-boundary on both sides so "read-only" matches "read-only mode" but
+    not "already-onliner". Hyphens and spaces are treated as part of the
+    boundary. Case-insensitive.
+    """
+    lower = text.lower()
+    for phrase in phrases:
+        # Use a character-class boundary: non-word chars (or start/end) on both
+        # sides. We don't use \b alone because phrases contain spaces/hyphens.
+        pattern = r"(?:^|(?<=[^a-z0-9]))" + re.escape(phrase) + r"(?=[^a-z0-9]|$)"
+        if re.search(pattern, lower):
+            return phrase
+    return None
+
+
+def extract_constraints(description: str) -> ExtractedConstraints:
+    """Extract negative / scoping constraints from a description.
+
+    Detects phrases like "read-only", "no file modifications", and
+    "Python only", translating each into:
+    - ``read_only`` flag + ``disallowed_tools`` when the description forbids
+      file modification.
+    - ``file_patterns`` (glob strings) when the description restricts scope
+      to specific languages or file types.
+    - ``constraint_phrases`` for observability — the exact phrase that
+      triggered each constraint, preserved in the original casing.
+
+    Constraints are not commutative: a read-only Python agent has BOTH
+    read_only=True AND file_patterns=["**/*.py"]. The two axes combine
+    freely.
+
+    Args:
+        description: Raw NLP description from the user.
+
+    Returns:
+        ExtractedConstraints. Empty (all defaults) when no constraint
+        phrases are found — a description with no constraints returns an
+        object where all booleans are False and all lists are empty.
+    """
+    constraints = ExtractedConstraints()
+
+    # Read-only detection
+    ro_phrase = _find_phrase(description, _READ_ONLY_PHRASES)
+    if ro_phrase is not None:
+        constraints.read_only = True
+        constraints.disallowed_tools.extend(_READ_ONLY_DISALLOWED)
+        constraints.constraint_phrases.append(ro_phrase)
+
+    # File-scope detection (multiple languages can be combined)
+    seen_patterns: set[str] = set()
+    for phrase_group, patterns in _FILE_SCOPE_PATTERNS:
+        hit = _find_phrase(description, phrase_group)
+        if hit is None:
+            continue
+        constraints.constraint_phrases.append(hit)
+        for pattern in patterns:
+            if pattern not in seen_patterns:
+                constraints.file_patterns.append(pattern)
+                seen_patterns.add(pattern)
+
+    # Deduplicate disallowed_tools while preserving order
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for tool in constraints.disallowed_tools:
+        if tool not in seen:
+            deduped.append(tool)
+            seen.add(tool)
+    constraints.disallowed_tools = deduped
+
+    return constraints
+
+
 def parse(description: str) -> AgentRequirements:
     """Parse natural language description into agent requirements."""
     name = extract_name(description)
@@ -790,6 +953,14 @@ def parse(description: str) -> AgentRequirements:
     tools = detect_tools(description, domains=domains)
     patterns = detect_patterns(description)
     clean_desc = generate_description(description, agent_type)
+    constraints = extract_constraints(description)
+
+    # Apply disallowed-tool constraints: any tool the description forbids
+    # must be removed from the positive tool set AND recorded in
+    # disallowed_tools so downstream frontmatter emits defense-in-depth.
+    if constraints.disallowed_tools:
+        forbidden = set(constraints.disallowed_tools)
+        tools = [t for t in tools if t not in forbidden]
 
     return AgentRequirements(
         name=name,
@@ -799,6 +970,9 @@ def parse(description: str) -> AgentRequirements:
         patterns=patterns,
         confidence=confidence,
         domains=domains,
+        disallowed_tools=list(constraints.disallowed_tools),
+        file_patterns=list(constraints.file_patterns),
+        constraint_phrases=list(constraints.constraint_phrases),
     )
 
 
@@ -827,6 +1001,12 @@ def main():
         print(f"Domains:     {', '.join(result.domains) if result.domains else '(none)'}")
         print(f"Tools:       {', '.join(result.tools)}")
         print(f"Patterns:    {', '.join(result.patterns)}")
+        if result.disallowed_tools:
+            print(f"Disallowed:  {', '.join(result.disallowed_tools)}")
+        if result.file_patterns:
+            print(f"File scope:  {', '.join(result.file_patterns)}")
+        if result.constraint_phrases:
+            print(f"Constraints: {', '.join(result.constraint_phrases)}")
         print(f"Confidence:  {result.confidence:.0%}")
 
 
