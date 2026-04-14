@@ -12160,5 +12160,126 @@ class TestSubagentDelegationSection:
         assert result.stdout.strip() == "True"
 
 
+class TestBackgroundFrontmatter:
+    """Tests for background-suitable agent classification (#6).
+
+    Covers:
+    - BACKGROUND_KEYWORDS public constant exposes the trigger vocabulary
+    - is_background_suitable detects monitoring / log tailing / CI watcher
+    - is_background_suitable returns False for unrelated descriptions
+    - Empty / whitespace descriptions return False (no raise)
+    - Word-boundary matching prevents partial-word false positives
+    - AgentDefinition.background=True surfaces as 'background: true' in
+      the rendered frontmatter; False/None omits the line
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_keywords_constant_exposed(self) -> None:
+        """BACKGROUND_KEYWORDS includes the spec-named vocabulary."""
+        result = self._run_py(
+            "from type_classifier import BACKGROUND_KEYWORDS\n"
+            "joined = '|'.join(BACKGROUND_KEYWORDS).lower()\n"
+            "print('monitor' in joined)\n"
+            "print('tail' in joined)\n"
+            "print('ci watcher' in joined)\n"
+            "print('background' in joined)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True"] * 4
+
+    def test_detects_monitoring_agent(self) -> None:
+        """Monitor / monitoring descriptions are flagged background-suitable."""
+        result = self._run_py(
+            "from type_classifier import is_background_suitable\n"
+            "print(is_background_suitable('Monitor disk usage every minute'))\n"
+            "print(is_background_suitable('Continuously observe build status'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True"]
+
+    def test_detects_log_tailer_and_ci_watcher(self) -> None:
+        """Log tailing and CI-watcher phrasing both trigger detection."""
+        result = self._run_py(
+            "from type_classifier import is_background_suitable\n"
+            "print(is_background_suitable('Tail application logs in production'))\n"
+            "print(is_background_suitable('CI watcher that polls for failures'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True"]
+
+    def test_returns_false_for_foreground_work(self) -> None:
+        """Unrelated descriptions return False (foreground is the safe default)."""
+        result = self._run_py(
+            "from type_classifier import is_background_suitable\n"
+            "print(is_background_suitable('Refactor the user authentication module'))\n"
+            "print(is_background_suitable('Generate documentation for the public API'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["False", "False"]
+
+    def test_empty_description_returns_false(self) -> None:
+        """Empty / whitespace input must not raise — quiet False is the contract."""
+        result = self._run_py(
+            "from type_classifier import is_background_suitable\n"
+            "print(is_background_suitable(''))\n"
+            "print(is_background_suitable('   '))\n"
+            "print(is_background_suitable('\\n\\t'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["False", "False", "False"]
+
+    def test_word_boundary_prevents_false_positives(self) -> None:
+        """Partial-word substrings must not trigger detection (e.g. 'tailored')."""
+        result = self._run_py(
+            "from type_classifier import is_background_suitable\n"
+            "print(is_background_suitable('Build a tailored onboarding wizard'))\n"
+            "print(is_background_suitable('Sort by polling rate descending'))"
+        )
+        assert result.returncode == 0, result.stderr
+        # 'tailored' must not match 'tail'; 'polling' is itself a keyword
+        # so the second line is a positive control to confirm detection still
+        # works in the same call — should be True.
+        lines = result.stdout.strip().splitlines()
+        assert lines[0] == "False"
+        assert lines[1] == "True"
+
+    def test_frontmatter_emits_background_when_true(self) -> None:
+        """AgentDefinition(background=True) emits 'background: true' in YAML."""
+        result = self._run_py(
+            "from agent_generator import AgentDefinition, generate_frontmatter\n"
+            "d = AgentDefinition(name='watcher', description='Tail logs',\n"
+            "                    tools=['Bash'], background=True)\n"
+            "fm = generate_frontmatter(d)\n"
+            "print('background: true' in fm)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_frontmatter_omits_background_when_unset(self) -> None:
+        """background=None / False must not emit the field — default-omit contract."""
+        result = self._run_py(
+            "from agent_generator import AgentDefinition, generate_frontmatter\n"
+            "d_none = AgentDefinition(name='x', description='y', tools=['Read'])\n"
+            "d_false = AgentDefinition(name='x', description='y', tools=['Read'],\n"
+            "                          background=False)\n"
+            "print('background' in generate_frontmatter(d_none))\n"
+            "print('background' in generate_frontmatter(d_false))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["False", "False"]
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

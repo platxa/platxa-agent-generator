@@ -352,6 +352,67 @@ MAX_TURNS_BY_TYPE: dict[str, dict[str, int]] = {
 }
 
 
+# Background-suitability indicators. Background agents are those whose
+# work doesn't block the main conversation: monitors, watchers, log
+# tailers, CI pollers, scheduled audits. Public so callers (NLP parser,
+# generation report) can reuse the same vocabulary and tests can pin it.
+#
+# Ordered conceptually: explicit "background" → continuous-observation
+# verbs → CI/scheduled-execution patterns. Word-boundary matching keeps
+# "monitoring" from firing on "monitorial" or unrelated substrings.
+BACKGROUND_KEYWORDS: tuple[str, ...] = (
+    "background",
+    "monitor",
+    "monitoring",
+    "watch",
+    "watcher",
+    "watching",
+    "tail",
+    "tailing",
+    "poll",
+    "polling",
+    "log tailer",
+    "log tailing",
+    "ci watcher",
+    "ci poller",
+    "scheduled",
+    "cron",
+    "long-running",
+    "long running",
+    "non-blocking",
+    "non blocking",
+    "observe continuously",
+    "continuously observe",
+)
+
+# Compiled once at module load — re.escape handles spaces and punctuation,
+# \b boundaries prevent partial-word false positives.
+_BACKGROUND_PATTERN = re.compile(
+    r"\b(?:" + "|".join(re.escape(k) for k in BACKGROUND_KEYWORDS) + r")\b",
+    re.IGNORECASE,
+)
+
+
+def is_background_suitable(description: str) -> bool:
+    """Return True when the description names work that should run in background mode.
+
+    Background-suitable agents typically observe state without acting on
+    the main conversation (log tailers, CI watchers, monitoring loops,
+    scheduled audits). The check is keyword-based and intentionally
+    conservative — false negatives are safer than false positives because
+    a missed flag just means the agent runs in the foreground (the safe
+    default), whereas a false positive would silently background work the
+    user expected to see.
+
+    Empty or whitespace-only descriptions return False rather than raising;
+    callers commonly pass partially-built descriptions during prompt
+    drafting and a hard error there would be noisier than a quiet False.
+    """
+    if not description or not description.strip():
+        return False
+    return _BACKGROUND_PATTERN.search(description) is not None
+
+
 def recommend_max_turns(architecture_type: str, complexity_score: int) -> int:
     """Recommend maxTurns based on architecture type and complexity.
 
