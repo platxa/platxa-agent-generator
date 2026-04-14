@@ -50,6 +50,7 @@ from . import (
     completeness_checker,
     dry_run,
     extended_thinking,
+    generation_report,
     hooks_generator,
     install_agent,
     interactive_prompts,
@@ -103,4 +104,5 @@ __all__ = [
     "agent_analyzer",
     "agent_upgrader",
     "batch_generator",
+    "generation_report",
 ]

@@ -11351,5 +11351,222 @@ class TestBatchGeneration:
         assert result.stdout.strip() == "True only True"
 
 
+class TestGenerationReport:
+    """Tests for generation_report.py (feature #76).
+
+    Covers:
+    - SecurityFindingSummary / QualityScoreSummary / GenerationReport dataclasses
+    - build_generation_report rejects out-of-range overall_score / negative tokens
+    - format_report_markdown emits all required sections (overview, quality,
+      tokens, tools, security, install)
+    - Markdown lists tools, install location, and security findings
+    - Empty findings → "_No security findings._" placeholder
+    - Empty install location → dry-run placeholder
+    - format_report_json returns a stable dict with all fields
+    - Findings sorted by SECURITY_SEVERITY_ORDER (highest first)
+    - Section heading constants exposed
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_section_constants_exposed(self) -> None:
+        """All section heading constants are public and pinned."""
+        result = self._run_py(
+            "from generation_report import (\n"
+            "    REPORT_HEADING, SECTION_OVERVIEW, SECTION_QUALITY,\n"
+            "    SECTION_TOKENS, SECTION_TOOLS, SECTION_SECURITY, SECTION_INSTALL,\n"
+            ")\n"
+            "print(REPORT_HEADING)\nprint(SECTION_QUALITY)\nprint(SECTION_INSTALL)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == [
+            "# Agent Generation Report",
+            "## Quality Score",
+            "## Install Location",
+        ]
+
+    def test_build_report_rejects_bad_score(self) -> None:
+        """overall_score outside [0, 10] → ValueError."""
+        result = self._run_py(
+            "from generation_report import build_generation_report\n"
+            "try:\n"
+            "    build_generation_report('a', 'd', ['Read'], overall_score=11.0)\n"
+            "    print('NO_RAISE')\n"
+            "except ValueError as e:\n"
+            "    print('RAISED', '[0, 10]' in str(e))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "RAISED True"
+
+    def test_build_report_rejects_negative_tokens(self) -> None:
+        """Negative token_estimate → ValueError."""
+        result = self._run_py(
+            "from generation_report import build_generation_report\n"
+            "try:\n"
+            "    build_generation_report('a', 'd', ['Read'],\n"
+            "        overall_score=8.0, token_estimate=-1)\n"
+            "    print('NO_RAISE')\n"
+            "except ValueError as e:\n"
+            "    print('RAISED', 'negative' in str(e))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "RAISED True"
+
+    def test_markdown_includes_all_sections(self) -> None:
+        """All six section headings appear in the markdown output."""
+        result = self._run_py(
+            "from generation_report import (\n"
+            "    build_generation_report, format_report_markdown,\n"
+            ")\n"
+            "report = build_generation_report(\n"
+            "    'reviewer', 'Reviews code', ['Read', 'Grep'],\n"
+            "    overall_score=8.5, token_estimate=420,\n"
+            "    install_location='/home/u/.claude/agents/reviewer.md',\n"
+            ")\n"
+            "md = format_report_markdown(report)\n"
+            "for h in ('# Agent Generation Report', '## Overview',\n"
+            "          '## Quality Score', '## Token Estimate',\n"
+            "          '## Tools', '## Security Findings', '## Install Location'):\n"
+            "    assert h in md, h\n"
+            "print('OK')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "OK"
+
+    def test_markdown_lists_tools_and_install(self) -> None:
+        """Tool list and install-location path appear in the markdown."""
+        result = self._run_py(
+            "from generation_report import (\n"
+            "    build_generation_report, format_report_markdown,\n"
+            ")\n"
+            "report = build_generation_report(\n"
+            "    'a', 'desc', ['Read', 'Edit'],\n"
+            "    overall_score=7.2, token_estimate=99,\n"
+            "    install_location='~/.claude/agents/a.md',\n"
+            ")\n"
+            "md = format_report_markdown(report)\n"
+            "print('- Read' in md, '- Edit' in md, '~/.claude/agents/a.md' in md,\n"
+            "      '~99 tokens' in md)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True True True"
+
+    def test_markdown_no_security_findings_placeholder(self) -> None:
+        """Empty findings list → friendly placeholder message."""
+        result = self._run_py(
+            "from generation_report import (\n"
+            "    build_generation_report, format_report_markdown,\n"
+            ")\n"
+            "report = build_generation_report(\n"
+            "    'a', 'd', ['Read'], overall_score=8.0,\n"
+            ")\n"
+            "md = format_report_markdown(report)\n"
+            "print('_No security findings._' in md)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_markdown_dry_run_install_placeholder(self) -> None:
+        """Empty install_location → dry-run placeholder."""
+        result = self._run_py(
+            "from generation_report import (\n"
+            "    build_generation_report, format_report_markdown,\n"
+            ")\n"
+            "report = build_generation_report(\n"
+            "    'a', 'd', ['Read'], overall_score=8.0,\n"
+            ")\n"
+            "md = format_report_markdown(report)\n"
+            "print('Not installed' in md)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_findings_sorted_by_severity(self) -> None:
+        """Critical findings appear before low/info in the markdown output."""
+        result = self._run_py(
+            "from generation_report import (\n"
+            "    SecurityFindingSummary,\n"
+            "    build_generation_report, format_report_markdown,\n"
+            ")\n"
+            "findings = [\n"
+            "    SecurityFindingSummary(severity='low', category='style',\n"
+            "        message='trailing space'),\n"
+            "    SecurityFindingSummary(severity='critical', category='auth',\n"
+            "        message='hardcoded secret'),\n"
+            "]\n"
+            "report = build_generation_report(\n"
+            "    'a', 'd', ['Read'], overall_score=8.0,\n"
+            "    security_findings=findings,\n"
+            ")\n"
+            "md = format_report_markdown(report)\n"
+            "crit_pos = md.find('hardcoded secret')\n"
+            "low_pos = md.find('trailing space')\n"
+            "print(crit_pos < low_pos, crit_pos > 0)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_json_shape_complete(self) -> None:
+        """format_report_json returns dict with every field of the report."""
+        result = self._run_py(
+            "from generation_report import (\n"
+            "    SecurityFindingSummary,\n"
+            "    build_generation_report, format_report_json,\n"
+            ")\n"
+            "findings = [SecurityFindingSummary(severity='high',\n"
+            "    category='auth', message='m', location='f.py:10')]\n"
+            "report = build_generation_report(\n"
+            "    'reviewer', 'Reviews code', ['Read'],\n"
+            "    overall_score=8.5,\n"
+            "    criteria_scores={'clarity': 9.0, 'security': 8.0},\n"
+            "    token_estimate=120,\n"
+            "    install_location='/path/to/agents/reviewer.md',\n"
+            "    security_findings=findings,\n"
+            ")\n"
+            "j = format_report_json(report)\n"
+            "print(\n"
+            "    j['agent_name'], j['quality']['overall'],\n"
+            "    j['quality']['criteria']['security'],\n"
+            "    j['token_estimate'], j['install_location'],\n"
+            "    j['security_findings'][0]['severity'],\n"
+            "    j['security_findings'][0]['location'],\n"
+            ")"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == (
+            "reviewer 8.5 8.0 120 /path/to/agents/reviewer.md high f.py:10"
+        )
+
+    def test_json_string_round_trip(self) -> None:
+        """report_to_json_string produces parseable JSON with same data."""
+        result = self._run_py(
+            "import json\n"
+            "from generation_report import (\n"
+            "    build_generation_report, report_to_json_string,\n"
+            ")\n"
+            "report = build_generation_report(\n"
+            "    'a', 'd', ['Read'], overall_score=7.5,\n"
+            "    token_estimate=50,\n"
+            ")\n"
+            "s = report_to_json_string(report)\n"
+            "parsed = json.loads(s)\n"
+            "print(parsed['agent_name'], parsed['quality']['overall'],\n"
+            "      parsed['token_estimate'])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "a 7.5 50"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
