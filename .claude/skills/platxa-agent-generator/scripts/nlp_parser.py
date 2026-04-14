@@ -46,6 +46,33 @@ class ExtractedConstraints:
 
 
 @dataclass
+class ComplexityEstimate:
+    """Complexity classification for an agent description.
+
+    Produced by ``estimate_complexity``. Drives two downstream decisions:
+
+    - **Pattern selection**: complex agents warrant orchestrator-workers or
+      evaluator-optimizer patterns; simple agents use prompt-chaining.
+    - **maxTurns budget**: higher-complexity agents need more conversational
+      turns to complete their workflow.
+
+    The tier/max_turns mapping is deterministic and documented in
+    ``_COMPLEXITY_MAX_TURNS``.
+
+    Fields:
+        tier: "simple" | "moderate" | "complex".
+        max_turns: Recommended ``maxTurns`` frontmatter value.
+        signals: Every classification cue that fired, keyed by cue name
+            (e.g. "short_single_verb", "multi_step_word", "orchestration_keyword")
+            mapped to the matched phrase/value. Kept for observability.
+    """
+
+    tier: str
+    max_turns: int
+    signals: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class AgentRequirements:
     """Extracted requirements from NLP description."""
 
@@ -62,6 +89,12 @@ class AgentRequirements:
     disallowed_tools: list[str] = field(default_factory=list)
     file_patterns: list[str] = field(default_factory=list)
     constraint_phrases: list[str] = field(default_factory=list)
+    # Complexity classification (Feature #54). Defaults to "simple" / 5 turns
+    # when the detector sees nothing special — matches the existing generator
+    # default for short descriptions.
+    complexity: str = "simple"
+    max_turns: int = 5
+    complexity_signals: dict[str, str] = field(default_factory=dict)
 
 
 # Agent type classification keywords
@@ -945,6 +978,192 @@ def extract_constraints(description: str) -> ExtractedConstraints:
     return constraints
 
 
+# ---------------------------------------------------------------------------
+# Complexity estimation (Feature #54)
+# ---------------------------------------------------------------------------
+
+# Recommended maxTurns per complexity tier. Picked to match observed workflow
+# lengths: simple agents finish in a handful of turns, moderate agents need
+# breathing room for multi-step execution, complex orchestrators need headroom
+# for worker dispatch + aggregation.
+_COMPLEXITY_MAX_TURNS: dict[str, int] = {
+    "simple": 5,
+    "moderate": 15,
+    "complex": 30,
+}
+
+# Public tier enumeration. Ordered "simple < moderate < complex" so callers
+# that rank agents by complexity (catalog filters, frontmatter generators,
+# CLI validators) can treat the index as an ordinal without recomputing the
+# ordering locally. Exposed as part of the public API.
+COMPLEXITY_TIERS: tuple[str, ...] = ("simple", "moderate", "complex")
+
+# Orchestration keywords elevate a description to "complex" outright. These
+# imply multiple cooperating components, which always warrants the larger
+# turn budget and an orchestrator-workers pattern.
+_ORCHESTRATION_KEYWORDS: tuple[str, ...] = (
+    "orchestrate",
+    "orchestrator",
+    "coordinate",
+    "multi-agent",
+    "multi agent",
+    "pipeline",
+    "parallel",
+    "workers",
+    "subagents",
+    "multiple agents",
+    "team of",
+    "distribute",
+    "aggregate results",
+)
+
+# Multi-step cue words elevate a description to "moderate". The presence of
+# sequencing language ("then", "after", "finally") or numbered steps signals
+# the agent must carry state across multiple phases.
+_MULTI_STEP_WORDS: tuple[str, ...] = (
+    "then",
+    "after",
+    "afterwards",
+    "once",
+    "finally",
+    "followed by",
+    "before",
+    "next",
+    "subsequently",
+)
+
+# Action-verb prefixes detected at the start of short descriptions, used to
+# confirm a "simple" classification (short + single verb).
+_COMMON_ACTION_VERBS: tuple[str, ...] = (
+    "analyze",
+    "check",
+    "scan",
+    "validate",
+    "verify",
+    "format",
+    "lint",
+    "review",
+    "build",
+    "generate",
+    "create",
+    "extract",
+    "convert",
+    "parse",
+    "count",
+    "find",
+    "fetch",
+    "read",
+    "list",
+    "rename",
+)
+
+_SIMPLE_MAX_CHARS = 80
+_MULTI_VERB_THRESHOLD = 3
+
+
+def _count_action_verbs(text: str) -> int:
+    """Count distinct action-verb occurrences in the description.
+
+    Used as a multi-step signal — descriptions with 3+ distinct verbs are
+    almost always multi-phase workflows, independent of whether the author
+    spelled out "then" / "next" / etc.
+    """
+    lower = text.lower()
+    return sum(1 for verb in _COMMON_ACTION_VERBS if re.search(rf"\b{re.escape(verb)}\b", lower))
+
+
+def _has_numbered_steps(text: str) -> bool:
+    """Detect numbered-list patterns like "1. do X, 2. do Y" or "step 1".
+
+    Matches both inline ("1. foo 2. bar") and list-style numbering, as well as
+    explicit "step N" phrasing.
+    """
+    if re.search(r"\b\d+\.\s+\w", text):
+        return True
+    if re.search(r"\bstep\s+\d+\b", text, re.IGNORECASE):
+        return True
+    return False
+
+
+def estimate_complexity(description: str) -> ComplexityEstimate:
+    """Classify description complexity for pattern + maxTurns selection.
+
+    Tier rules, highest-priority first:
+    1. **complex** — any orchestration keyword appears.
+    2. **moderate** — a multi-step cue word appears, OR numbered steps
+       exist, OR ≥ ``_MULTI_VERB_THRESHOLD`` action verbs appear.
+    3. **simple** — short (< ``_SIMPLE_MAX_CHARS`` chars) AND fewer than
+       the multi-verb threshold.
+    4. **moderate** (fallback) — anything that isn't clearly simple or
+       complex defaults to moderate. This is deliberate: the cost of
+       over-budgeting maxTurns is small; the cost of under-budgeting
+       is a truncated agent run.
+
+    Args:
+        description: Raw NLP description from the user.
+
+    Returns:
+        ComplexityEstimate with ``tier``, ``max_turns`` (from
+        _COMPLEXITY_MAX_TURNS), and ``signals`` documenting every cue
+        that contributed to the classification.
+    """
+    text = (description or "").strip()
+    signals: dict[str, str] = {}
+
+    # Rule 1: orchestration keywords → complex (highest priority).
+    for kw in _ORCHESTRATION_KEYWORDS:
+        if re.search(rf"\b{re.escape(kw)}\b", text, re.IGNORECASE):
+            signals["orchestration_keyword"] = kw
+            return ComplexityEstimate(
+                tier="complex",
+                max_turns=_COMPLEXITY_MAX_TURNS["complex"],
+                signals=signals,
+            )
+
+    # Rule 2 signals: any multi-step cue.
+    for word in _MULTI_STEP_WORDS:
+        if re.search(rf"\b{re.escape(word)}\b", text, re.IGNORECASE):
+            signals["multi_step_word"] = word
+            break
+
+    if _has_numbered_steps(text):
+        signals["numbered_steps"] = "detected"
+
+    verb_count = _count_action_verbs(text)
+    if verb_count >= _MULTI_VERB_THRESHOLD:
+        signals["multi_verb_count"] = str(verb_count)
+
+    if signals:
+        return ComplexityEstimate(
+            tier="moderate",
+            max_turns=_COMPLEXITY_MAX_TURNS["moderate"],
+            signals=signals,
+        )
+
+    # Rule 3: short + single-verb → simple.
+    is_short = len(text) <= _SIMPLE_MAX_CHARS
+    if is_short:
+        signals["short"] = str(len(text))
+        if verb_count <= 1:
+            signals["single_verb"] = str(verb_count)
+            return ComplexityEstimate(
+                tier="simple",
+                max_turns=_COMPLEXITY_MAX_TURNS["simple"],
+                signals=signals,
+            )
+
+    # Rule 4: default fallback. When the detector sees nothing definitive
+    # we return moderate. Under-budgeting maxTurns is worse than over-
+    # budgeting, and a long single-paragraph description without
+    # multi-step / orchestration signals is almost always moderate.
+    signals["fallback"] = "no_definitive_signal"
+    return ComplexityEstimate(
+        tier="moderate",
+        max_turns=_COMPLEXITY_MAX_TURNS["moderate"],
+        signals=signals,
+    )
+
+
 def parse(description: str) -> AgentRequirements:
     """Parse natural language description into agent requirements."""
     name = extract_name(description)
@@ -954,6 +1173,7 @@ def parse(description: str) -> AgentRequirements:
     patterns = detect_patterns(description)
     clean_desc = generate_description(description, agent_type)
     constraints = extract_constraints(description)
+    complexity = estimate_complexity(description)
 
     # Apply disallowed-tool constraints: any tool the description forbids
     # must be removed from the positive tool set AND recorded in
@@ -973,6 +1193,9 @@ def parse(description: str) -> AgentRequirements:
         disallowed_tools=list(constraints.disallowed_tools),
         file_patterns=list(constraints.file_patterns),
         constraint_phrases=list(constraints.constraint_phrases),
+        complexity=complexity.tier,
+        max_turns=complexity.max_turns,
+        complexity_signals=dict(complexity.signals),
     )
 
 
@@ -1007,6 +1230,10 @@ def main():
             print(f"File scope:  {', '.join(result.file_patterns)}")
         if result.constraint_phrases:
             print(f"Constraints: {', '.join(result.constraint_phrases)}")
+        print(f"Complexity:  {result.complexity} (maxTurns={result.max_turns})")
+        if result.complexity_signals:
+            signal_str = ", ".join(f"{k}={v}" for k, v in result.complexity_signals.items())
+            print(f"  Signals:   {signal_str}")
         print(f"Confidence:  {result.confidence:.0%}")
 
 

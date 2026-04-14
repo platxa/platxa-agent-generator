@@ -8204,5 +8204,210 @@ class TestNLPConstraintExtraction:
         assert "Constraints:" in out
 
 
+class TestNLPComplexityEstimation:
+    """Tests for nlp_parser complexity estimation (Feature #54).
+
+    Feature criteria:
+    - Short descriptions with single verbs classify as simple
+    - Multi-step descriptions as moderate
+    - Orchestration keywords as complex
+
+    Also validates the derived maxTurns mapping and signal reporting.
+    """
+
+    def _run_py(self, code: str) -> subprocess.CompletedProcess:
+        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        return subprocess.run(
+            [sys.executable, "-c", prologue + code],
+            capture_output=True,
+            text=True,
+        )
+
+    # --- Simple tier -------------------------------------------------------
+
+    def test_simple_tier_for_short_single_verb(self) -> None:
+        result = self._run_py(
+            "import json\n"
+            "from nlp_parser import parse\n"
+            "r = parse('Lint Python files')\n"
+            "print(json.dumps({'complexity': r.complexity, 'max_turns': r.max_turns, "
+            "'signals': r.complexity_signals}))"
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert data["complexity"] == "simple"
+        assert data["max_turns"] == 5
+        assert data["signals"].get("short")
+        assert data["signals"].get("single_verb")
+
+    def test_simple_tier_for_one_action(self) -> None:
+        result = self._run_py(
+            "from nlp_parser import parse\nprint(parse('Scan code for bugs').complexity)"
+        )
+        assert result.stdout.strip() == "simple"
+
+    # --- Moderate tier -----------------------------------------------------
+
+    def test_moderate_tier_for_multi_step_words(self) -> None:
+        result = self._run_py(
+            "import json\n"
+            "from nlp_parser import parse\n"
+            "r = parse('Read the code, then run tests, and finally report results')\n"
+            "print(json.dumps({'complexity': r.complexity, 'max_turns': r.max_turns, "
+            "'signals': r.complexity_signals}))"
+        )
+        data = json.loads(result.stdout)
+        assert data["complexity"] == "moderate"
+        assert data["max_turns"] == 15
+        assert "multi_step_word" in data["signals"]
+
+    def test_moderate_tier_for_numbered_steps(self) -> None:
+        result = self._run_py(
+            "from nlp_parser import parse\n"
+            "r = parse('Process data: 1. load inputs 2. transform 3. save outputs')\n"
+            "print(r.complexity)\n"
+            "print(r.complexity_signals.get('numbered_steps'))"
+        )
+        lines = result.stdout.strip().splitlines()
+        assert lines == ["moderate", "detected"]
+
+    def test_moderate_tier_for_multiple_action_verbs(self) -> None:
+        """3+ distinct action verbs triggers moderate even without cue words."""
+        result = self._run_py(
+            "from nlp_parser import parse\n"
+            "r = parse('Analyze the code, validate syntax, format output, build report')\n"
+            "print(r.complexity)\n"
+            "print('multi_verb_count' in r.complexity_signals)"
+        )
+        assert result.stdout.strip().splitlines() == ["moderate", "True"]
+
+    # --- Complex tier ------------------------------------------------------
+
+    def test_complex_tier_for_orchestration_keyword(self) -> None:
+        result = self._run_py(
+            "import json\n"
+            "from nlp_parser import parse\n"
+            "r = parse('Orchestrate code review across multiple agents')\n"
+            "print(json.dumps({'complexity': r.complexity, 'max_turns': r.max_turns, "
+            "'signal': r.complexity_signals.get('orchestration_keyword')}))"
+        )
+        data = json.loads(result.stdout)
+        assert data["complexity"] == "complex"
+        assert data["max_turns"] == 30
+        assert data["signal"] == "orchestrate"
+
+    def test_complex_tier_for_pipeline_keyword(self) -> None:
+        result = self._run_py(
+            "from nlp_parser import parse\nprint(parse('Build a multi-step pipeline').complexity)"
+        )
+        assert result.stdout.strip() == "complex"
+
+    def test_orchestration_outranks_multi_step(self) -> None:
+        """When both orchestration and multi-step words appear, complex wins."""
+        result = self._run_py(
+            "from nlp_parser import parse\n"
+            "print(parse('Coordinate review then aggregate results').complexity)"
+        )
+        assert result.stdout.strip() == "complex"
+
+    # --- maxTurns mapping -------------------------------------------------
+
+    def test_max_turns_monotonic_with_tier(self) -> None:
+        """simple < moderate < complex maxTurns, strictly increasing."""
+        result = self._run_py(
+            "import json\n"
+            "from nlp_parser import estimate_complexity\n"
+            "simple = estimate_complexity('lint it').max_turns\n"
+            "moderate = estimate_complexity("
+            "'analyze then format then report then publish').max_turns\n"
+            "complex_ = estimate_complexity('orchestrate workers').max_turns\n"
+            "print(json.dumps({'s': simple, 'm': moderate, 'c': complex_}))"
+        )
+        data = json.loads(result.stdout)
+        assert data["s"] < data["m"] < data["c"]
+
+    # --- signals are structured and ordered ------------------------------
+
+    def test_signals_report_every_matched_cue(self) -> None:
+        """complexity_signals must list every cue that contributed."""
+        result = self._run_py(
+            "import json\n"
+            "from nlp_parser import parse\n"
+            "r = parse('Orchestrate workers')\n"
+            "print(json.dumps(r.complexity_signals))"
+        )
+        data = json.loads(result.stdout)
+        assert data.get("orchestration_keyword") == "orchestrate"
+
+    # --- public COMPLEXITY_TIERS exposed for external callers ------------
+
+    def test_complexity_tiers_constant_is_ordered_and_public(self) -> None:
+        result = self._run_py(
+            "from nlp_parser import COMPLEXITY_TIERS\n"
+            "print(COMPLEXITY_TIERS)\n"
+            "print(COMPLEXITY_TIERS.index('simple') < "
+            "COMPLEXITY_TIERS.index('moderate') < "
+            "COMPLEXITY_TIERS.index('complex'))"
+        )
+        lines = result.stdout.strip().splitlines()
+        assert lines[0] == "('simple', 'moderate', 'complex')"
+        assert lines[1] == "True"
+
+    # --- AgentRequirements default fields are present --------------------
+
+    def test_agent_requirements_exposes_complexity_fields(self) -> None:
+        """Every parse() result carries complexity, max_turns, complexity_signals."""
+        result = self._run_py(
+            "import json\n"
+            "from dataclasses import asdict\n"
+            "from nlp_parser import parse\n"
+            "r = parse('Create a reviewer')\n"
+            "d = asdict(r)\n"
+            "print(json.dumps({"
+            "'has_complexity': 'complexity' in d, "
+            "'has_max_turns': 'max_turns' in d, "
+            "'has_signals': 'complexity_signals' in d}))"
+        )
+        data = json.loads(result.stdout)
+        assert data["has_complexity"]
+        assert data["has_max_turns"]
+        assert data["has_signals"]
+
+    # --- CLI ---------------------------------------------------------------
+
+    def test_cli_json_output_emits_complexity_fields(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "nlp_parser.py"),
+                "--json",
+                "Orchestrate a multi-agent code review",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert data["complexity"] == "complex"
+        assert data["max_turns"] == 30
+        assert data["complexity_signals"]
+
+    def test_cli_text_output_shows_complexity_and_max_turns(self) -> None:
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(SCRIPTS_DIR / "nlp_parser.py"),
+                "Build an orchestrator pipeline",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        out = result.stdout
+        assert "Complexity:" in out
+        assert "complex" in out
+        assert "maxTurns=30" in out
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
