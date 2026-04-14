@@ -10310,5 +10310,206 @@ class TestSkillsFrontmatter:
         assert result.stdout.strip() == "[]"
 
 
+class TestCompanionSkillGeneration:
+    """Tests for companion skill generation (feature #70).
+
+    Covers:
+    - should_generate_companion_skill: True for multi-section / orchestrator
+      / chained agents; False for trivial single-purpose agents
+    - generate_companion_skill_content emits valid SKILL.md frontmatter
+      (name, description, allowed-tools)
+    - write_companion_skill creates .claude/skills/<agent-name>/SKILL.md
+    - write_companion_skill appends agent.name to definition.skills (idempotent)
+    - write_companion_skill returns None for simple agents (no file written)
+    - force=True overrides the should-generate predicate
+    - COMPANION_SKILL_MIN_SECTIONS / COMPANION_SKILL_FILENAME exposed
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_constants_exposed(self) -> None:
+        """COMPANION_SKILL_MIN_SECTIONS and COMPANION_SKILL_FILENAME are public."""
+        result = self._run_py(
+            "from agent_generator import"
+            " COMPANION_SKILL_MIN_SECTIONS, COMPANION_SKILL_FILENAME\n"
+            "print(COMPANION_SKILL_MIN_SECTIONS, COMPANION_SKILL_FILENAME)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "3 SKILL.md"
+
+    def test_should_generate_for_multi_section_agent(self) -> None:
+        """≥3 sections triggers companion skill generation."""
+        result = self._run_py(
+            "from agent_generator import (\n"
+            "    AgentDefinition, AgentSection, should_generate_companion_skill\n"
+            ")\n"
+            "secs = [AgentSection(title='A', content='x'),\n"
+            "        AgentSection(title='B', content='y'),\n"
+            "        AgentSection(title='C', content='z')]\n"
+            "d = AgentDefinition(name='a', description='Agent',"
+            " tools=['Read'], sections=secs)\n"
+            "print(should_generate_companion_skill(d))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_should_not_generate_for_simple_agent(self) -> None:
+        """Trivial agent (0-2 sections, no workers/chain) → no companion skill."""
+        result = self._run_py(
+            "from agent_generator import"
+            " AgentDefinition, should_generate_companion_skill\n"
+            "d = AgentDefinition(name='a', description='Agent', tools=['Read'])\n"
+            "print(should_generate_companion_skill(d))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
+
+    def test_should_generate_for_orchestrator(self) -> None:
+        """Agent with workers (orchestrator pattern) triggers generation."""
+        result = self._run_py(
+            "from agent_generator import (\n"
+            "    AgentDefinition, WorkerDefinition, should_generate_companion_skill\n"
+            ")\n"
+            "w = WorkerDefinition(name='worker-a', role='does work',"
+            " tools=['Read'])\n"
+            "d = AgentDefinition(name='orch', description='Orchestrator',"
+            " tools=['Task'], workers=[w])\n"
+            "print(should_generate_companion_skill(d))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_skill_content_includes_frontmatter(self) -> None:
+        """SKILL.md content has name + description + allowed-tools frontmatter."""
+        result = self._run_py(
+            "from agent_generator import"
+            " AgentDefinition, generate_companion_skill_content\n"
+            "d = AgentDefinition(name='my-agent', description='Does X',"
+            " tools=['Read', 'Write'])\n"
+            "c = generate_companion_skill_content(d)\n"
+            "print('name: my-agent' in c,"
+            " 'description: Does X' in c,"
+            " 'allowed-tools:' in c,"
+            " '- Read' in c,"
+            " '- Write' in c)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True True True True"
+
+    def test_write_creates_file_in_skills_dir(self) -> None:
+        """write_companion_skill creates <skills_dir>/<name>/SKILL.md."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_generator import (\n"
+            "    AgentDefinition, AgentSection, write_companion_skill\n"
+            ")\n"
+            "secs = [AgentSection(title=f's{i}', content='x') for i in range(3)]\n"
+            "d = AgentDefinition(name='alpha', description='A',"
+            " tools=['Read'], sections=secs)\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    path = write_companion_skill(d, td)\n"
+            "    expected = Path(td) / 'alpha' / 'SKILL.md'\n"
+            "    print(path == expected, path.exists(),"
+            " 'name: alpha' in path.read_text())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True True"
+
+    def test_write_appends_skill_to_definition(self) -> None:
+        """After write_companion_skill, definition.skills contains the agent name."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from agent_generator import (\n"
+            "    AgentDefinition, AgentSection, write_companion_skill\n"
+            ")\n"
+            "secs = [AgentSection(title=f's{i}', content='x') for i in range(3)]\n"
+            "d = AgentDefinition(name='beta', description='B',"
+            " tools=['Read'], sections=secs)\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    write_companion_skill(d, td)\n"
+            "    print(d.skills)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "['beta']"
+
+    def test_write_is_idempotent_on_skills_list(self) -> None:
+        """Calling write twice does not duplicate the skill name in the list."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from agent_generator import (\n"
+            "    AgentDefinition, AgentSection, write_companion_skill\n"
+            ")\n"
+            "secs = [AgentSection(title=f's{i}', content='x') for i in range(3)]\n"
+            "d = AgentDefinition(name='gamma', description='G',"
+            " tools=['Read'], sections=secs)\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    write_companion_skill(d, td)\n"
+            "    write_companion_skill(d, td)\n"
+            "    print(d.skills)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "['gamma']"
+
+    def test_write_returns_none_for_simple_agent(self) -> None:
+        """Simple agent → None returned, no file written, skills untouched."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_generator import AgentDefinition, write_companion_skill\n"
+            "d = AgentDefinition(name='simple', description='S', tools=['Read'])\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    result = write_companion_skill(d, td)\n"
+            "    file_exists = (Path(td) / 'simple' / 'SKILL.md').exists()\n"
+            "    print(result is None, file_exists, d.skills)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True False []"
+
+    def test_force_overrides_predicate(self) -> None:
+        """force=True writes even when should_generate would say False."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_generator import AgentDefinition, write_companion_skill\n"
+            "d = AgentDefinition(name='forced', description='F', tools=['Read'])\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    path = write_companion_skill(d, td, force=True)\n"
+            "    print(path is not None, path.exists(), d.skills)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True ['forced']"
+
+    def test_round_trip_with_discover_available_skills(self) -> None:
+        """A written companion skill is found by discover_available_skills."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from agent_generator import (\n"
+            "    AgentDefinition, AgentSection,\n"
+            "    write_companion_skill, discover_available_skills,\n"
+            ")\n"
+            "secs = [AgentSection(title=f's{i}', content='x') for i in range(3)]\n"
+            "d = AgentDefinition(name='roundtrip', description='RT',"
+            " tools=['Read'], sections=secs)\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    write_companion_skill(d, td)\n"
+            "    found = discover_available_skills(td)\n"
+            "    print(found)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "{'roundtrip': 'RT'}"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

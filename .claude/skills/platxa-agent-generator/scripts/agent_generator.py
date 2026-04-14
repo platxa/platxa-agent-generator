@@ -651,6 +651,155 @@ def validate_skills_exist(
     return errors
 
 
+# Minimum number of sections an agent needs before a companion skill is worth
+# generating. Simple single-purpose agents (just description + overview) don't
+# benefit — the skill would duplicate the agent's own content. The threshold
+# matches the "medium complexity" tier in the feature pipeline: multi-phase
+# workflows, orchestrators, and agents with examples / prerequisites / error
+# handling are where domain knowledge worth extracting lives.
+COMPANION_SKILL_MIN_SECTIONS: int = 3
+
+# Companion-skill filename is the Claude Code skill convention; reused from
+# the discovery helpers so the two stay in lock-step — if the convention
+# ever changes, both discover_available_skills and write_companion_skill
+# pick it up from a single constant.
+COMPANION_SKILL_FILENAME: str = SKILL_MANIFEST_FILENAME
+
+
+def should_generate_companion_skill(definition: AgentDefinition) -> bool:
+    """Decide whether ``definition`` is complex enough to warrant a companion skill.
+
+    An agent gets a companion skill when **any** of these are true:
+
+    - It has ≥ ``COMPANION_SKILL_MIN_SECTIONS`` sections (multi-phase
+      workflows, prerequisites, examples, error handling — all of which
+      benefit from a separate reference doc)
+    - It uses an orchestrator / hierarchical pattern (has workers)
+    - It uses a prompt-chaining pattern (has chain_steps)
+
+    The predicate is deliberately conservative: false positives pollute
+    the skills catalog with near-empty SKILL.md files, so we err toward
+    "only generate when the agent actually has knowledge worth hoisting
+    into a reference."
+    """
+    if len(definition.sections) >= COMPANION_SKILL_MIN_SECTIONS:
+        return True
+    if definition.workers:
+        return True
+    if definition.chain_steps:
+        return True
+    return False
+
+
+def generate_companion_skill_content(definition: AgentDefinition) -> str:
+    """Build the SKILL.md file body (frontmatter + domain knowledge sections).
+
+    The generated skill captures agent-specific knowledge the agent will
+    reference at runtime via its ``skills:`` frontmatter. Sections emitted:
+
+    1. Frontmatter: ``name``, ``description``, ``allowed-tools``
+    2. Title + description
+    3. Workflow overview (if the agent has sections / workers / chain steps)
+    4. Related agent reference (so the skill can be found from the agent)
+
+    Returns a complete SKILL.md string ready to be written to disk.
+    """
+    allowed_tools = "\n".join(f"  - {tool}" for tool in definition.tools) or "  - Read"
+    # Build a short workflow summary so the skill is self-contained rather
+    # than a pointer back to the agent. If the agent has no workflow
+    # material, fall back to the description — better terse than empty.
+    workflow_lines: list[str] = []
+    if definition.chain_steps:
+        for idx, step in enumerate(definition.chain_steps, start=1):
+            name = getattr(step, "name", f"step-{idx}")
+            step_desc = getattr(step, "description", "")
+            workflow_lines.append(f"{idx}. **{name}** — {step_desc}".rstrip(" —"))
+    elif definition.workers:
+        for worker in definition.workers:
+            worker_role = getattr(worker, "role", "")
+            workflow_lines.append(f"- **{worker.name}** — {worker_role}".rstrip(" —"))
+    elif definition.sections:
+        for section in definition.sections:
+            title = getattr(section, "title", "")
+            if title:
+                workflow_lines.append(f"- {title}")
+
+    workflow_body = "\n".join(workflow_lines) if workflow_lines else definition.description
+
+    return (
+        "---\n"
+        f"name: {definition.name}\n"
+        f"description: {definition.description}\n"
+        "allowed-tools:\n"
+        f"{allowed_tools}\n"
+        "---\n"
+        "\n"
+        f"# {definition.name}\n"
+        "\n"
+        "## Overview\n"
+        "\n"
+        f"{definition.description}\n"
+        "\n"
+        "## Workflow\n"
+        "\n"
+        f"{workflow_body}\n"
+        "\n"
+        "## Related agent\n"
+        "\n"
+        f"This skill is the companion reference for the `{definition.name}` agent. "
+        "Agents reference it via their `skills:` frontmatter field so the "
+        "domain knowledge lives alongside the agent without bloating the "
+        "agent's own prompt.\n"
+    )
+
+
+def write_companion_skill(
+    definition: AgentDefinition,
+    skills_dir: Path | str = DEFAULT_SKILLS_DIR,
+    force: bool = False,
+) -> Path | None:
+    """Generate and write a companion SKILL.md for ``definition`` when warranted.
+
+    Args:
+        definition: The agent being generated. Its ``name`` is used as the
+            skill directory name.
+        skills_dir: Base directory for project skills. Defaults to
+            :data:`DEFAULT_SKILLS_DIR`.
+        force: When ``True``, skip the :func:`should_generate_companion_skill`
+            predicate and always write. Useful for tests and for callers
+            that have already made the decision externally.
+
+    Returns:
+        The written :class:`~pathlib.Path` when the companion skill was
+        generated, ``None`` when :func:`should_generate_companion_skill`
+        returned False (and ``force=False``).
+
+    Side effects:
+        - Creates ``<skills_dir>/<definition.name>/`` (parents included).
+        - Writes SKILL.md (overwrites if present — callers with concerns
+          about overwriting should check the path before calling).
+        - Appends ``definition.name`` to ``definition.skills`` if not
+          already present, so the agent's frontmatter references the
+          companion skill.
+    """
+    if not force and not should_generate_companion_skill(definition):
+        return None
+
+    base = Path(skills_dir)
+    skill_dir = base / definition.name
+    skill_dir.mkdir(parents=True, exist_ok=True)
+    path = skill_dir / COMPANION_SKILL_FILENAME
+    path.write_text(generate_companion_skill_content(definition), encoding="utf-8")
+
+    # Wire the new skill into the agent's frontmatter so the generated
+    # agent actually references the file we just wrote. Idempotent —
+    # repeat calls do not duplicate the entry.
+    if definition.name not in definition.skills:
+        definition.skills.append(definition.name)
+
+    return path
+
+
 # Role-based hook recommendations.
 # Maps description keywords to hook types and events.
 # Used by recommend_hooks_for_agent() to auto-generate companion hooks config.
