@@ -35,6 +35,7 @@ try:
         agent_analyzer,
         agent_catalog,
         agent_generator,
+        agent_linter,
         agent_upgrader,
         dry_run,
         extended_thinking,
@@ -52,6 +53,7 @@ except ImportError:
     import agent_analyzer  # type: ignore[import-not-found,no-redef]
     import agent_catalog  # type: ignore[import-not-found,no-redef]
     import agent_generator  # type: ignore[import-not-found,no-redef]
+    import agent_linter  # type: ignore[import-not-found,no-redef]
     import agent_upgrader  # type: ignore[import-not-found,no-redef]
     import dry_run  # type: ignore[import-not-found,no-redef]
     import extended_thinking  # type: ignore[import-not-found,no-redef]
@@ -133,6 +135,7 @@ Examples:
         self._add_analyze_command(subparsers)
         self._add_analyze_agent_command(subparsers)
         self._add_upgrade_command(subparsers)
+        self._add_lint_command(subparsers)
         self._add_preview_command(subparsers)
         self._add_status_command(subparsers)
 
@@ -230,6 +233,25 @@ Examples:
             help="Write changes back to the file (dry-run is the default)",
         )
 
+    def _add_lint_command(self, subparsers: Any) -> None:
+        """Add the lint subcommand.
+
+        Quick pre-commit-friendly structural check. Wraps
+        :func:`agent_linter.lint_paths` and exits with :data:`LINT_EXIT_OK`
+        (0) when every file is clean or :data:`LINT_EXIT_ERRORS` (1)
+        when any file has at least one error-severity finding.
+        """
+        lint = subparsers.add_parser(
+            "lint",
+            help="Fast structural lint for agent definition files",
+        )
+        lint.add_argument(
+            "paths",
+            nargs="+",
+            type=Path,
+            help="One or more agent .md files to lint",
+        )
+
     def _add_preview_command(self, subparsers: Any) -> None:
         """Add the preview subcommand."""
         preview = subparsers.add_parser("preview", help="Preview generation")
@@ -267,6 +289,7 @@ Examples:
             "analyze": self._handle_analyze,
             "analyze-agent": self._handle_analyze_agent,
             "upgrade": self._handle_upgrade,
+            "lint": self._handle_lint,
             "preview": self._handle_preview,
             "status": self._handle_status,
         }
@@ -651,6 +674,52 @@ Examples:
         else:
             print(agent_analyzer.format_analysis_report(analysis))
         return 0
+
+    def _handle_lint(self, args: argparse.Namespace) -> int:
+        """Handle the lint command.
+
+        Runs :func:`agent_linter.lint_paths` over the supplied files and
+        prints one report per file. Exit code is :data:`LINT_EXIT_OK`
+        (0) when all files pass and :data:`LINT_EXIT_ERRORS` (1) when
+        any file has at least one error-severity finding — matching the
+        contract pre-commit hooks expect.
+
+        ``--json`` switches to a machine-readable report (one JSON
+        object per file, plus a summary entry) so CI pipelines can parse
+        results without scraping text.
+        """
+        json_mode = bool(getattr(args, "json", False))
+        reports = agent_linter.lint_paths(list(args.paths))
+
+        if json_mode:
+            payload = {
+                "reports": [
+                    {
+                        "path": r.path,
+                        "passed": r.passed,
+                        "findings": [
+                            {"line": f.line, "code": f.code, "message": f.message}
+                            for f in r.findings
+                        ],
+                    }
+                    for r in reports
+                ],
+                "summary": {
+                    "total": len(reports),
+                    "passed": sum(1 for r in reports if r.passed),
+                    "failed": sum(1 for r in reports if not r.passed),
+                },
+            }
+            print(json.dumps(payload, indent=2))
+        else:
+            for report in reports:
+                print(agent_linter.format_lint_report(report))
+
+        return (
+            agent_linter.LINT_EXIT_OK
+            if all(r.passed for r in reports)
+            else agent_linter.LINT_EXIT_ERRORS
+        )
 
     def _handle_upgrade(self, args: argparse.Namespace) -> int:
         """Handle the upgrade command.
