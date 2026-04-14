@@ -393,6 +393,63 @@ _BACKGROUND_PATTERN = re.compile(
 )
 
 
+# Category → color mapping for the agent frontmatter `color:` field.
+# Colors are CSS named colors so they render uniformly across light/dark
+# Claude Code UI themes. Categories are matched by keyword on the
+# description; the first category whose keywords match wins. Public so
+# tests, the CLI catalog, and downstream tooling share one source of truth.
+#
+# Color choices are intentional: red signals risk (security work),
+# green signals validation (testing), blue signals reference (docs),
+# orange signals data flow (database/API), purple signals coordination
+# (orchestration), cyan signals analysis (review/audit). The default
+# (no match) returns None so callers can leave the field unset.
+CATEGORY_COLOR_MAP: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("red", ("security", "auth", "credential", "vulnerability", "threat", "exploit")),
+    ("green", ("test", "testing", "tdd", "coverage", "validation", "validator")),
+    ("blue", ("doc", "docs", "documentation", "manual", "reference")),
+    ("orange", ("database", "schema", "migration", "sql", "api", "endpoint")),
+    ("purple", ("orchestrat", "coordinate", "delegate", "multi-agent", "workflow")),
+    ("cyan", ("review", "audit", "analyze", "lint", "inspect")),
+)
+
+# Compile keyword patterns once. Each color has its own pattern so callers
+# can ask "did this category match?" cheaply, and the first-match-wins
+# rule above gives a deterministic answer per description.
+_CATEGORY_COLOR_PATTERNS: tuple[tuple[str, "re.Pattern[str]"], ...] = tuple(
+    (
+        color,
+        re.compile(
+            r"\b(?:" + "|".join(re.escape(k) for k in keywords) + r")\b",
+            re.IGNORECASE,
+        ),
+    )
+    for color, keywords in CATEGORY_COLOR_MAP
+)
+
+
+def recommend_color(description: str) -> str | None:
+    """Return a CSS color string recommended for the agent's frontmatter.
+
+    Walks :data:`CATEGORY_COLOR_MAP` in declaration order and returns the
+    color of the first category whose keywords appear in ``description``
+    with word-boundary matching. Returns ``None`` when no category matches
+    so the caller can omit the ``color:`` field — a missing color is the
+    correct default rather than a fallback (e.g. "gray") that would look
+    intentional but isn't.
+
+    Empty / whitespace input returns None for the same reason
+    :func:`is_background_suitable` does: callers commonly pass partial
+    descriptions during prompt drafting.
+    """
+    if not description or not description.strip():
+        return None
+    for color, pattern in _CATEGORY_COLOR_PATTERNS:
+        if pattern.search(description):
+            return color
+    return None
+
+
 def is_background_suitable(description: str) -> bool:
     """Return True when the description names work that should run in background mode.
 
