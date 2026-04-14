@@ -23,6 +23,22 @@ from typing import Any
 
 
 @dataclass
+class AvailableAgent:
+    """Metadata about a sibling agent available for subagent delegation.
+
+    Surfaces in the generated CLAUDE.md so the primary agent knows which
+    specialists it can dispatch via the Task tool and — crucially — *when*
+    to dispatch each one. The ``when_to_use`` hint is the most important
+    field: without it, generated CLAUDE.md just lists agent names and the
+    primary agent has no decision criterion.
+    """
+
+    name: str
+    description: str
+    when_to_use: str = ""
+
+
+@dataclass
 class AgentContext:
     """Context information for CLAUDE.md generation."""
 
@@ -36,6 +52,7 @@ class AgentContext:
     dependencies: list[str] = field(default_factory=list)
     mcp_servers: list[str] = field(default_factory=list)
     custom_sections: dict[str, str] = field(default_factory=dict)
+    available_agents: list[AvailableAgent] = field(default_factory=list)
 
 
 # Tool categories for generating contextual guidance
@@ -118,29 +135,19 @@ def infer_domain(name: str, description: str, tools: list[str]) -> str:
     combined = f"{name} {description} {' '.join(tools)}".lower()
 
     # Security domain
-    if any(
-        kw in combined
-        for kw in ["security", "vulnerability", "scan", "audit", "owasp", "cve"]
-    ):
+    if any(kw in combined for kw in ["security", "vulnerability", "scan", "audit", "owasp", "cve"]):
         return "security"
 
     # Testing domain
-    if any(
-        kw in combined for kw in ["test", "spec", "assert", "coverage", "pytest", "jest"]
-    ):
+    if any(kw in combined for kw in ["test", "spec", "assert", "coverage", "pytest", "jest"]):
         return "testing"
 
     # Documentation domain
-    if any(
-        kw in combined for kw in ["document", "docstring", "readme", "comment", "explain"]
-    ):
+    if any(kw in combined for kw in ["document", "docstring", "readme", "comment", "explain"]):
         return "documentation"
 
     # Refactoring domain
-    if any(
-        kw in combined
-        for kw in ["refactor", "restructure", "clean", "improve", "optimize"]
-    ):
+    if any(kw in combined for kw in ["refactor", "restructure", "clean", "improve", "optimize"]):
         return "refactoring"
 
     # Analysis domain
@@ -151,9 +158,7 @@ def infer_domain(name: str, description: str, tools: list[str]) -> str:
     return "analysis"
 
 
-def infer_input_output_types(
-    description: str, tools: list[str]
-) -> tuple[list[str], list[str]]:
+def infer_input_output_types(description: str, tools: list[str]) -> tuple[list[str], list[str]]:
     """Infer input and output types from description and tools."""
     desc_lower = description.lower()
     inputs: list[str] = []
@@ -206,9 +211,7 @@ def generate_project_overview(context: AgentContext) -> str:
     lines.append("")
 
     # Pattern description
-    pattern_desc = PATTERN_DESCRIPTIONS.get(
-        context.pattern, "Custom workflow pattern"
-    )
+    pattern_desc = PATTERN_DESCRIPTIONS.get(context.pattern, "Custom workflow pattern")
     lines.append(f"**Workflow Pattern:** {context.pattern.replace('-', ' ').title()}")
     lines.append(f"> {pattern_desc}")
     lines.append("")
@@ -329,7 +332,9 @@ def generate_development_section(context: AgentContext) -> str:
 
     if "Write" in context.tools or "Edit" in context.tools:
         lines.append("- **Read Before Write**: Always read files before modifying them")
-        lines.append("- **Preserve Behavior**: Maintain existing functionality unless explicitly changing it")
+        lines.append(
+            "- **Preserve Behavior**: Maintain existing functionality unless explicitly changing it"
+        )
 
     if "Bash" in context.tools:
         lines.append("- **Validate Commands**: Ensure commands are safe before execution")
@@ -390,6 +395,104 @@ def generate_references_section(context: AgentContext) -> str:
     return "\n".join(lines)
 
 
+# Default heading for the subagent-delegation section. Pinned to a constant
+# so the generator and any downstream parsers/tests agree on the literal
+# (changing the section title in one place would silently break the other).
+SUBAGENT_DELEGATION_HEADING: str = "## Subagent Delegation"
+
+# Default project-scope directory to scan when discovering sibling agents.
+# Kept in sync with the companion skill/command generators so the three
+# discoverers look in conventional Claude Code locations.
+DEFAULT_AGENTS_DIR: str = ".claude/agents"
+
+
+def generate_subagent_delegation_section(agents: list[AvailableAgent]) -> str:
+    """Render a Subagent Delegation section listing sibling agents.
+
+    Structure:
+
+    ```
+    ## Subagent Delegation
+
+    Use specialized agents for focused tasks:
+    - **agent-name**: description
+
+    ### When to use
+    - **agent-name**: when_to_use hint
+    ```
+
+    Agents without a ``when_to_use`` hint still appear in the main list
+    but are skipped from the "When to use" subsection — printing an
+    empty "use when:" line would be worse than leaving it out.
+
+    Returns an empty string when ``agents`` is empty so the caller can
+    conditionally append without checking.
+    """
+    if not agents:
+        return ""
+    lines: list[str] = [SUBAGENT_DELEGATION_HEADING, ""]
+    lines.append("Use specialized agents for focused tasks:")
+    lines.append("")
+    for agent in agents:
+        lines.append(f"- **{agent.name}**: {agent.description}")
+    lines.append("")
+    hinted = [a for a in agents if a.when_to_use]
+    if hinted:
+        lines.append("### When to use")
+        lines.append("")
+        for agent in hinted:
+            lines.append(f"- **{agent.name}**: {agent.when_to_use}")
+        lines.append("")
+    return "\n".join(lines)
+
+
+def discover_available_agents(agents_dir: Path | str = DEFAULT_AGENTS_DIR) -> list[AvailableAgent]:
+    """Scan ``agents_dir`` for agent .md files and return AvailableAgent list.
+
+    Reads YAML frontmatter for ``name`` and ``description`` (required) and
+    ``when-to-use`` or ``when_to_use`` (optional). Skips files without
+    frontmatter or with missing required fields — one malformed agent
+    doesn't blind discovery to the rest (same reasoning as
+    discover_available_skills in feature #69).
+
+    Returns an empty list when ``agents_dir`` does not exist — treat
+    "no agents available" as a normal state, not an error.
+    """
+    base = Path(agents_dir)
+    if not base.is_dir():
+        return []
+    results: list[AvailableAgent] = []
+    for child in sorted(base.iterdir()):
+        if not child.is_file() or child.suffix != ".md":
+            continue
+        try:
+            text = child.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if not text.startswith("---"):
+            continue
+        try:
+            end = text.index("\n---", 3)
+        except ValueError:
+            continue
+        frontmatter = text[3:end]
+        name: str | None = None
+        description: str | None = None
+        when_to_use = ""
+        for line in frontmatter.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("name:"):
+                name = stripped.split(":", 1)[1].strip()
+            elif stripped.startswith("description:"):
+                description = stripped.split(":", 1)[1].strip()
+            elif stripped.startswith("when-to-use:") or stripped.startswith("when_to_use:"):
+                when_to_use = stripped.split(":", 1)[1].strip()
+        if not name or not description:
+            continue
+        results.append(AvailableAgent(name=name, description=description, when_to_use=when_to_use))
+    return results
+
+
 def generate_claudemd(context: AgentContext) -> str:
     """Generate complete CLAUDE.md content for an agent."""
     parts = []
@@ -408,6 +511,14 @@ def generate_claudemd(context: AgentContext) -> str:
     parts.append(generate_architecture_section(context))
     parts.append(generate_development_section(context))
     parts.append(generate_references_section(context))
+
+    # Subagent Delegation — emitted only when the context knows about peer
+    # agents. Placed between development guidance and custom sections so
+    # "what can this project dispatch?" lives with the rest of the
+    # project-level guidance.
+    delegation = generate_subagent_delegation_section(context.available_agents)
+    if delegation:
+        parts.append(delegation)
 
     # Custom sections
     for title, content in context.custom_sections.items():
@@ -619,17 +730,13 @@ def main() -> None:
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Generate CLAUDE.md for agent-specific context"
-    )
+    parser = argparse.ArgumentParser(description="Generate CLAUDE.md for agent-specific context")
     parser.add_argument("--agent", help="Agent name to generate CLAUDE.md for")
     parser.add_argument("--agent-file", help="Path to existing agent.md file")
     parser.add_argument("--blueprint", help="Path to blueprint JSON file")
     parser.add_argument("--json", help="JSON input with agent definition")
     parser.add_argument("--output", help="Output directory for CLAUDE.md")
-    parser.add_argument(
-        "--stdout", action="store_true", help="Output to stdout instead of file"
-    )
+    parser.add_argument("--stdout", action="store_true", help="Output to stdout instead of file")
 
     args = parser.parse_args()
 
