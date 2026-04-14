@@ -139,6 +139,19 @@ class ValidationResult:
     warnings: list[str] = field(default_factory=list)
 
 
+# Project-root files that must travel with a shared agent bundle. Unlike
+# agent-local files (agents/, hooks/, scripts/) these live *above* the
+# .claude/ directory so the export/import round-trip must track them
+# separately. Currently only ``.mcp.json`` (project MCP server config) —
+# add new entries here when bundling gains more project-root artifacts.
+PROJECT_ROOT_CONFIG_FILES: tuple[str, ...] = (".mcp.json",)
+
+# In-bundle directory that receives the project-root config files. Named
+# ``config`` rather than ``root`` so the intent is self-documenting when a
+# human inspects an extracted bundle.
+BUNDLE_CONFIG_DIR: str = "config"
+
+
 # Sensitive patterns to sanitize during export
 SENSITIVE_PATTERNS = [
     r"api[_-]?key\s*[:=]\s*[\"']?[a-zA-Z0-9_-]+[\"']?",
@@ -217,6 +230,61 @@ def compute_checksum(file_paths: list[Path]) -> str:
             hasher.update(path.read_bytes())
 
     return hasher.hexdigest()[:32]
+
+
+def detect_project_root(agent_path: Path) -> Path:
+    """Infer the project root for a given agent file.
+
+    Claude Code agent files typically live at ``<project>/.claude/agents/*.md``,
+    so the project root is the parent of the ``.claude/`` directory. Two
+    fallbacks cover non-standard layouts without raising:
+
+    - If ``.claude/`` is missing, return ``agent_path.parent.parent`` so
+      callers still get a directory two levels up (matching the standard
+      layout structurally).
+    - If the path is so shallow that two parents would escape the
+      filesystem, return the highest available parent.
+
+    This helper is deliberately lenient rather than validating — it's used
+    during export to locate ``.mcp.json`` and should never fail on an
+    unusual directory layout.
+    """
+    candidate = agent_path
+    for _ in range(6):  # bounded walk — prevents infinite loops on symlinks
+        if candidate.parent.name == ".claude":
+            return candidate.parent.parent
+        candidate = candidate.parent
+        if candidate == candidate.parent:
+            break
+    # Fallback: standard layout structure, even if names don't match.
+    if agent_path.parent.parent.exists():
+        return agent_path.parent.parent
+    return agent_path.parent
+
+
+def collect_project_root_configs(agent_path: Path) -> list[Path]:
+    """Find project-root config files that should ship with a bundle.
+
+    These are files living at the project root (above ``.claude/``) that a
+    receiving project needs to recreate the agent's runtime environment —
+    currently only ``.mcp.json``. Non-existent files are silently omitted
+    so a project without MCP servers still produces a valid bundle.
+
+    Args:
+        agent_path: Path to the agent's ``.md`` file. The project root is
+            inferred via :func:`detect_project_root`.
+
+    Returns:
+        Ordered list of existing project-root config files. Empty list
+        when no configured files exist at the root.
+    """
+    project_root = detect_project_root(agent_path)
+    configs: list[Path] = []
+    for filename in PROJECT_ROOT_CONFIG_FILES:
+        candidate = project_root / filename
+        if candidate.exists() and candidate.is_file():
+            configs.append(candidate)
+    return configs
 
 
 def collect_agent_files(
@@ -342,6 +410,7 @@ def export_agent(
     sanitize: bool = True,
     author: str = "",
     license_type: str = "MIT",
+    include_mcp_config: bool = True,
 ) -> ExportResult:
     """
     Export an agent as a shareable package.
@@ -371,6 +440,12 @@ def export_agent(
     # Collect files to export
     files = collect_agent_files(agent_path, include_related)
 
+    # Collect project-root config files (.mcp.json etc). These live *above*
+    # .claude/ so they're tracked separately and routed to config/ in the
+    # bundle — independent from hooks/scripts/.versions which come from
+    # within the agent's .claude/ directory.
+    project_configs = collect_project_root_configs(agent_path) if include_mcp_config else []
+
     # Create manifest
     manifest = create_manifest(
         agent_path,
@@ -381,7 +456,13 @@ def export_agent(
 
     # Determine output path
     if output_path is None:
-        ext = ".zip" if format == ExportFormat.ZIP else ".tar.gz" if format == ExportFormat.TAR_GZ else ""
+        ext = (
+            ".zip"
+            if format == ExportFormat.ZIP
+            else ".tar.gz"
+            if format == ExportFormat.TAR_GZ
+            else ""
+        )
         output_path = agent_path.parent / f"{manifest.name}-{manifest.version}{ext}"
 
     # Create temporary directory for packaging
@@ -429,6 +510,26 @@ def export_agent(
                 shutil.copy2(src_file, dest_file)
 
             files_exported.append(str(dest_file.relative_to(package_dir)))
+
+        # Copy project-root config files (.mcp.json) to ``config/`` in the
+        # bundle. Kept out of the main ``files`` loop because these live
+        # above .claude/ and have a dedicated extraction target on import.
+        if project_configs:
+            config_dst = package_dir / BUNDLE_CONFIG_DIR
+            config_dst.mkdir(parents=True, exist_ok=True)
+            for config_src in project_configs:
+                if not config_src.exists():
+                    warnings.append(f"Project config not found, skipping: {config_src}")
+                    continue
+                dest_config = config_dst / config_src.name
+                content = config_src.read_text()
+                if sanitize:
+                    original = content
+                    content = sanitize_content(content)
+                    if content != original:
+                        warnings.append(f"Sanitized sensitive data in: {config_src.name}")
+                dest_config.write_text(content)
+                files_exported.append(str(dest_config.relative_to(package_dir)))
 
         # Write manifest
         manifest.files = files_exported
@@ -495,7 +596,7 @@ def generate_package_readme(manifest: PackageManifest) -> str:
         "## Installation",
         "",
         "```bash",
-        f"# Import the agent package",
+        "# Import the agent package",
         f"claude-agent import {manifest.name}-{manifest.version}.zip",
         "```",
         "",
@@ -508,35 +609,43 @@ def generate_package_readme(manifest: PackageManifest) -> str:
     ]
 
     if manifest.tools:
-        lines.extend([
-            "## Required Tools",
-            "",
-            ", ".join(manifest.tools),
-            "",
-        ])
+        lines.extend(
+            [
+                "## Required Tools",
+                "",
+                ", ".join(manifest.tools),
+                "",
+            ]
+        )
 
     if manifest.keywords:
-        lines.extend([
-            "## Keywords",
-            "",
-            ", ".join(manifest.keywords),
-            "",
-        ])
+        lines.extend(
+            [
+                "## Keywords",
+                "",
+                ", ".join(manifest.keywords),
+                "",
+            ]
+        )
 
     if manifest.homepage:
-        lines.extend([
-            "## Links",
-            "",
-            f"- [Homepage]({manifest.homepage})",
-        ])
+        lines.extend(
+            [
+                "## Links",
+                "",
+                f"- [Homepage]({manifest.homepage})",
+            ]
+        )
         if manifest.repository:
             lines.append(f"- [Repository]({manifest.repository})")
         lines.append("")
 
-    lines.extend([
-        "## Files",
-        "",
-    ])
+    lines.extend(
+        [
+            "## Files",
+            "",
+        ]
+    )
 
     for file in manifest.files:
         lines.append(f"- `{file}`")
@@ -645,7 +754,8 @@ def validate_package(package_path: Path) -> ValidationResult:
         if manifest and manifest.checksum:
             # Collect files and compute checksum
             package_files = [
-                f for f in package_dir.rglob("*")
+                f
+                for f in package_dir.rglob("*")
                 if f.is_file() and f.name not in ("manifest.json", "README.md")
             ]
             computed_checksum = compute_checksum(package_files)
@@ -801,6 +911,25 @@ def import_agent(
                     os.chmod(dst_file, 0o755)
                 files_installed.append(str(dst_file))
 
+        # Restore project-root config files (.mcp.json). target_dir is the
+        # ``.claude/`` directory, so ``target_dir.parent`` is the project
+        # root — where the receiving project expects these files to live.
+        # Refusal-to-overwrite keeps existing MCP configs intact unless the
+        # caller passes ``overwrite=True``.
+        config_src = package_dir / BUNDLE_CONFIG_DIR
+        if config_src.exists():
+            project_root = target_dir.parent
+            project_root.mkdir(parents=True, exist_ok=True)
+            for config_file in config_src.iterdir():
+                if not config_file.is_file():
+                    continue
+                dst_config = project_root / config_file.name
+                if dst_config.exists() and not overwrite:
+                    warnings.append(f"Skipping existing project config: {dst_config}")
+                    continue
+                shutil.copy2(config_file, dst_config)
+                files_installed.append(str(dst_config))
+
         installed_path = str(agents_dst / f"{agent_name}.md") if files_installed else ""
 
         return ImportResult(
@@ -838,13 +967,15 @@ def list_exportable_agents(
         content = agent_file.read_text()
         metadata = extract_agent_metadata(content)
 
-        agents.append({
-            "name": metadata.get("name", agent_file.stem),
-            "version": metadata.get("version", "1.0.0"),
-            "description": metadata.get("description", ""),
-            "path": str(agent_file),
-            "size_bytes": agent_file.stat().st_size,
-        })
+        agents.append(
+            {
+                "name": metadata.get("name", agent_file.stem),
+                "version": metadata.get("version", "1.0.0"),
+                "description": metadata.get("description", ""),
+                "path": str(agent_file),
+                "size_bytes": agent_file.stat().st_size,
+            }
+        )
 
     return agents
 
@@ -861,7 +992,8 @@ if __name__ == "__main__":
     export_parser.add_argument("agent", help="Path to agent file")
     export_parser.add_argument("-o", "--output", help="Output path")
     export_parser.add_argument(
-        "-f", "--format",
+        "-f",
+        "--format",
         choices=["zip", "tar.gz", "directory"],
         default="zip",
         help="Export format",
@@ -874,7 +1006,8 @@ if __name__ == "__main__":
     import_parser.add_argument("package", help="Path to package")
     import_parser.add_argument("-t", "--target", help="Target directory")
     import_parser.add_argument(
-        "-s", "--scope",
+        "-s",
+        "--scope",
         choices=["user", "project"],
         default="project",
         help="Installation scope",
@@ -965,7 +1098,11 @@ if __name__ == "__main__":
             print("Exportable agents:")
             for agent in agents:
                 print(f"  {agent['name']} v{agent['version']}")
-                print(f"    {agent['description'][:60]}..." if len(agent['description']) > 60 else f"    {agent['description']}")
+                print(
+                    f"    {agent['description'][:60]}..."
+                    if len(agent["description"]) > 60
+                    else f"    {agent['description']}"
+                )
                 print(f"    Path: {agent['path']}")
         else:
             print("No agents found")
