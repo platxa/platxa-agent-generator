@@ -38,6 +38,13 @@ class PromptConfig:
     # /clear, in-conversation summarization). Agents with low maxTurns or
     # narrow scope should leave this False to keep the prompt lean.
     long_running: bool = False
+    # Optional few-shot examples shown to the agent in the CONTEXT block.
+    # When ``structure_format == "xml"`` and this list is non-empty, examples
+    # are emitted inside a nested ``<examples>...<example>...</example>...
+    # </examples>`` block so Claude can locate them unambiguously. In
+    # markdown / legacy modes the same content renders as a "**Examples:**"
+    # bullet list. Empty list (default) suppresses the section entirely.
+    examples: list[str] = field(default_factory=list)
 
 
 # Canonical ordering for the 4-block prompt structure. These are exported so
@@ -45,6 +52,15 @@ class PromptConfig:
 PROMPT_BLOCK_NAMES: tuple[str, ...] = ("INSTRUCTIONS", "CONTEXT", "TASK", "OUTPUT FORMAT")
 # XML tag names (lowercase, snake_case) matching each block, in the same order.
 PROMPT_BLOCK_XML_TAGS: tuple[str, ...] = ("instructions", "context", "task", "output_format")
+# Nested XML sub-tags emitted INSIDE the 4-block structure when
+# ``structure_format == "xml"``. ``<constraints>`` lives inside
+# ``<instructions>`` (constraints are non-negotiable directives — a subset of
+# instructions); ``<examples>`` lives inside ``<context>`` (few-shot examples
+# are background information the agent draws on, not imperatives). These tags
+# give Claude unambiguous handles for sub-sections without flattening them
+# into the surrounding markdown bullets. quality_scorer mirrors this constant
+# to detect and grade nested structure.
+NESTED_XML_TAGS: tuple[str, ...] = ("constraints", "examples")
 # Valid values for PromptConfig.structure_format.
 STRUCTURE_FORMATS: tuple[str, ...] = ("legacy", "markdown", "xml")
 
@@ -719,16 +735,30 @@ def generate_prompt_blocks(config: PromptConfig) -> PromptBlocks:
     # sentence defining what the agent is; constraints are the hard rules
     # the agent must obey. Both belong in INSTRUCTIONS because they are
     # non-negotiable directives rather than background information.
+    #
+    # In xml mode, constraints get a nested ``<constraints>...</constraints>``
+    # tag instead of a markdown ``**Constraints:**`` heading so Claude has
+    # an unambiguous handle on the sub-section. In markdown / legacy modes
+    # the same bullets render under a bold heading.
+    is_xml = config.structure_format == "xml"
     instructions_lines: list[str] = [role]
     if constraints:
         instructions_lines.append("")
-        instructions_lines.append("**Constraints:**")
-        for constraint in constraints:
-            instructions_lines.append(f"- {constraint}")
+        if is_xml:
+            instructions_lines.append("<constraints>")
+            for constraint in constraints:
+                instructions_lines.append(f"- {constraint}")
+            instructions_lines.append("</constraints>")
+        else:
+            instructions_lines.append("**Constraints:**")
+            for constraint in constraints:
+                instructions_lines.append(f"- {constraint}")
     instructions_body = "\n".join(instructions_lines)
 
-    # CONTEXT: capabilities + tool guidance. These describe the agent's
-    # environment and available resources rather than imperatives.
+    # CONTEXT: capabilities + tool guidance + (optional) few-shot examples.
+    # These describe the agent's environment and available resources rather
+    # than imperatives. Examples are background the agent draws on, not hard
+    # rules — they belong in CONTEXT, not INSTRUCTIONS.
     context_lines: list[str] = ["**Capabilities:**"]
     for cap in capabilities:
         context_lines.append(f"- {cap}")
@@ -736,6 +766,23 @@ def generate_prompt_blocks(config: PromptConfig) -> PromptBlocks:
     if tool_guidance:
         context_lines.append("")
         context_lines.append(tool_guidance)
+    # Few-shot examples. xml mode wraps each entry in nested <example>
+    # tags inside an outer <examples> tag so Claude can locate individual
+    # examples unambiguously. Other modes render the same content as a
+    # bullet list under a "**Examples:**" heading.
+    if config.examples:
+        context_lines.append("")
+        if is_xml:
+            context_lines.append("<examples>")
+            for example in config.examples:
+                context_lines.append("  <example>")
+                context_lines.append(f"  {example}")
+                context_lines.append("  </example>")
+            context_lines.append("</examples>")
+        else:
+            context_lines.append("**Examples:**")
+            for example in config.examples:
+                context_lines.append(f"- {example}")
     # Subagent delegation is the *mechanism* for keeping context lean; the
     # broader Context Management section that may follow references it.
     # Order matters: tell the agent how to delegate before telling it when

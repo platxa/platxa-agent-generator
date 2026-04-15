@@ -8748,6 +8748,217 @@ class TestFourBlockPromptStructure:
         assert result.stdout.strip() == "markdown True"
 
 
+class TestXmlNestedTagStructure:
+    """Tests for nested XML sub-tags inside the 4-block structure (feature #57).
+
+    Covers:
+    - xml mode renders constraints inside ``<constraints>...</constraints>``
+      nested within ``<instructions>...</instructions>``
+    - markdown / legacy modes render constraints under ``**Constraints:**``
+      bold heading (no nested tag)
+    - xml mode renders examples inside ``<examples><example>...</example>``
+      nested within ``<context>...</context>``
+    - markdown / legacy modes render examples under ``**Examples:**`` bullet
+      list (no nested tag)
+    - quality_scorer.evaluate_prompt_structure detects nested tags and
+      populates ``nested_tags_found``
+    - nested tags are properly contained within parent block boundaries
+    - PromptConfig.examples defaults to empty list (backwards compat)
+    - empty examples list suppresses the section in xml mode (no empty
+      ``<examples>`` tag emitted)
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_xml_mode_wraps_constraints_in_nested_tag(self) -> None:
+        """xml mode emits <constraints>...</constraints> instead of bold heading."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read'],"
+            "['must scan all files','no destructive ops'],'JSON','xml')\n"
+            "p = generate_full_prompt(cfg).full_prompt\n"
+            "print('OPEN' if '<constraints>' in p else 'NO_OPEN')\n"
+            "print('CLOSE' if '</constraints>' in p else 'NO_CLOSE')\n"
+            "print('NO_BOLD' if '**Constraints:**' not in p else 'BOLD')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["OPEN", "CLOSE", "NO_BOLD"]
+
+    def test_markdown_mode_uses_bold_heading_for_constraints(self) -> None:
+        """markdown mode keeps **Constraints:** bold heading, no XML tags."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read'],"
+            "['must scan all'],'JSON','markdown')\n"
+            "p = generate_full_prompt(cfg).full_prompt\n"
+            "print('BOLD' if '**Constraints:**' in p else 'NO_BOLD')\n"
+            "print('NO_TAG' if '<constraints>' not in p else 'TAG')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["BOLD", "NO_TAG"]
+
+    def test_xml_mode_wraps_examples_in_nested_tags(self) -> None:
+        """xml mode emits <examples><example>...</example></examples>."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read'],[],"
+            "'JSON','xml')\n"
+            "cfg.examples = ['Input: foo / Output: bar', 'Input: baz / Output: qux']\n"
+            "p = generate_full_prompt(cfg).full_prompt\n"
+            "print('OUTER_OPEN' if '<examples>' in p else 'NO_OUTER_OPEN')\n"
+            "print('OUTER_CLOSE' if '</examples>' in p else 'NO_OUTER_CLOSE')\n"
+            "print('INNER_OPEN' if '<example>' in p else 'NO_INNER_OPEN')\n"
+            "print('INNER_CLOSE' if '</example>' in p else 'NO_INNER_CLOSE')\n"
+            "print('TWO' if p.count('<example>') == 2 else 'WRONG_COUNT')\n"
+            "print('NO_BOLD' if '**Examples:**' not in p else 'BOLD')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == [
+            "OUTER_OPEN",
+            "OUTER_CLOSE",
+            "INNER_OPEN",
+            "INNER_CLOSE",
+            "TWO",
+            "NO_BOLD",
+        ]
+
+    def test_markdown_mode_uses_bullet_list_for_examples(self) -> None:
+        """markdown mode emits **Examples:** bullet list, no XML tags."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read'],[],"
+            "'JSON','markdown')\n"
+            "cfg.examples = ['Input: foo / Output: bar']\n"
+            "p = generate_full_prompt(cfg).full_prompt\n"
+            "print('BOLD' if '**Examples:**' in p else 'NO_BOLD')\n"
+            "print('NO_TAG' if '<examples>' not in p and '<example>' not in p"
+            " else 'TAG')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["BOLD", "NO_TAG"]
+
+    def test_empty_examples_list_suppresses_section_in_xml(self) -> None:
+        """Empty examples list does not emit an empty <examples></examples>."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read'],[],"
+            "'JSON','xml')\n"
+            "p = generate_full_prompt(cfg).full_prompt\n"
+            "print('NO_EXAMPLES_TAG' if '<examples>' not in p else 'TAG')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "NO_EXAMPLES_TAG"
+
+    def test_nested_constraints_tag_inside_instructions_block(self) -> None:
+        """<constraints> opening tag falls between <instructions> open and close."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read'],"
+            "['no destructive ops'],'JSON','xml')\n"
+            "p = generate_full_prompt(cfg).full_prompt\n"
+            "i_open = p.find('<instructions>')\n"
+            "i_close = p.find('</instructions>')\n"
+            "c_open = p.find('<constraints>')\n"
+            "c_close = p.find('</constraints>')\n"
+            "ok = 0 <= i_open < c_open < c_close < i_close\n"
+            "print('NESTED_OK' if ok else f'BAD {i_open} {c_open} {c_close} {i_close}')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "NESTED_OK"
+
+    def test_nested_examples_tag_inside_context_block(self) -> None:
+        """<examples> opening tag falls between <context> open and close."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read'],[],"
+            "'JSON','xml')\n"
+            "cfg.examples = ['demo']\n"
+            "p = generate_full_prompt(cfg).full_prompt\n"
+            "c_open = p.find('<context>')\n"
+            "c_close = p.find('</context>')\n"
+            "e_open = p.find('<examples>')\n"
+            "e_close = p.find('</examples>')\n"
+            "ok = 0 <= c_open < e_open < e_close < c_close\n"
+            "print('NESTED_OK' if ok else f'BAD {c_open} {e_open} {e_close} {c_close}')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "NESTED_OK"
+
+    def test_legacy_mode_uses_bold_heading_for_constraints(self) -> None:
+        """legacy structure_format keeps the historic **Constraints:** heading."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read'],"
+            "['hard rule'],'JSON','legacy')\n"
+            "p = generate_full_prompt(cfg).full_prompt\n"
+            "print('BOLD' if '**Constraints:**' in p else 'NO_BOLD')\n"
+            "print('NO_TAG' if '<constraints>' not in p else 'TAG')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["BOLD", "NO_TAG"]
+
+    def test_evaluate_prompt_structure_detects_nested_constraints(self) -> None:
+        """evaluate_prompt_structure populates nested_tags_found with 'constraints'."""
+        result = self._run_py(
+            "from quality_scorer import evaluate_prompt_structure\n"
+            "x = '<instructions>foo\\n<constraints>- a</constraints>"
+            "\\n</instructions>\\n<context>b</context>\\n<task>c</task>"
+            "\\n<output_format>d</output_format>'\n"
+            "r = evaluate_prompt_structure(x)\n"
+            "print(r.format, 'constraints' in r.nested_tags_found,"
+            " 'examples' in r.nested_tags_found)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "xml True False"
+
+    def test_evaluate_prompt_structure_detects_nested_examples(self) -> None:
+        """evaluate_prompt_structure populates nested_tags_found with 'examples'."""
+        result = self._run_py(
+            "from quality_scorer import evaluate_prompt_structure\n"
+            "x = '<instructions>a</instructions>\\n<context>b\\n"
+            "<examples><example>e1</example></examples></context>\\n"
+            "<task>c</task>\\n<output_format>d</output_format>'\n"
+            "r = evaluate_prompt_structure(x)\n"
+            "print(r.format, 'constraints' in r.nested_tags_found,"
+            " 'examples' in r.nested_tags_found)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "xml False True"
+
+    def test_evaluate_prompt_structure_no_nested_tags_when_absent(self) -> None:
+        """nested_tags_found is empty list when neither sub-tag is present."""
+        result = self._run_py(
+            "from quality_scorer import evaluate_prompt_structure\n"
+            "x = '<instructions>a</instructions>\\n<context>b</context>"
+            "\\n<task>c</task>\\n<output_format>d</output_format>'\n"
+            "r = evaluate_prompt_structure(x)\n"
+            "print(r.nested_tags_found)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "[]"
+
+    def test_promptconfig_examples_defaults_to_empty_list(self) -> None:
+        """Backwards compat: PromptConfig.examples defaults to empty list."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig\n"
+            "cfg = PromptConfig('a','cat','desc',['Read'],[],'JSON')\n"
+            "print(cfg.examples == [], type(cfg.examples).__name__)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True list"
+
+
 class TestAgentRegenerationWorkflow:
     """Tests for the regeneration workflow in agent_versioning.py (feature #58).
 

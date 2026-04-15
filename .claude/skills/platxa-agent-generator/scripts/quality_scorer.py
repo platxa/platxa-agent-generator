@@ -129,6 +129,15 @@ PROMPT_BLOCK_NAMES: tuple[str, ...] = ("INSTRUCTIONS", "CONTEXT", "TASK", "OUTPU
 # Matching XML tag names (lowercase, snake_case), same order.
 PROMPT_BLOCK_XML_TAGS: tuple[str, ...] = ("instructions", "context", "task", "output_format")
 
+# Nested XML sub-tags emitted INSIDE the 4-block structure when an agent
+# uses ``structure_format == "xml"`` (mirrored from prompt_generator.py).
+# ``<constraints>`` lives inside ``<instructions>``; ``<examples>`` lives
+# inside ``<context>``. Detection is opt-in: a structured agent that omits
+# constraints/examples is still complete; the nested tags are reported
+# separately so callers can distinguish "uses XML" from "uses XML with
+# nested sub-sections".
+NESTED_XML_TAGS: tuple[str, ...] = ("constraints", "examples")
+
 
 @dataclass
 class PromptStructureReport:
@@ -150,12 +159,18 @@ class PromptStructureReport:
             inside an XML tag), or ``"none"`` (agent uses legacy format
             without explicit 4-block structure).
         complete: ``True`` when all four canonical blocks were detected.
+        nested_tags_found: Nested XML sub-tags detected inside the main
+            blocks (subset of ``NESTED_XML_TAGS``: ``"constraints"``,
+            ``"examples"``). Empty list when the agent uses markdown/legacy
+            mode or omits both sub-sections. Reported separately from
+            ``complete`` because nested sub-tags are opt-in.
     """
 
     found_blocks: list[str] = field(default_factory=list)
     missing_blocks: list[str] = field(default_factory=list)
     format: str = "none"
     complete: bool = False
+    nested_tags_found: list[str] = field(default_factory=list)
 
 
 def evaluate_prompt_structure(content: str) -> PromptStructureReport:
@@ -205,11 +220,21 @@ def evaluate_prompt_structure(content: str) -> PromptStructureReport:
     else:
         fmt = "none"
 
+    # Detect nested XML sub-tags (constraints, examples). These are opt-in
+    # and only meaningful when the outer structure uses XML, but we scan
+    # regardless so a "mixed" agent that uses XML sub-tags inside markdown
+    # blocks still surfaces them.
+    nested_found: list[str] = []
+    for tag in NESTED_XML_TAGS:
+        if re.search(rf"<{re.escape(tag)}(?:\s[^>]*)?>", content, re.IGNORECASE):
+            nested_found.append(tag)
+
     return PromptStructureReport(
         found_blocks=found,
         missing_blocks=missing,
         format=fmt,
         complete=len(missing) == 0,
+        nested_tags_found=nested_found,
     )
 
 
