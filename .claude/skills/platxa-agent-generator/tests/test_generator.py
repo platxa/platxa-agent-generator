@@ -10049,6 +10049,176 @@ class TestAgentDependencyDocumentation:
             assert result.returncode == 2
 
 
+class TestGenerationAttributionFooter:
+    """Tests for inline generation comments in agent_generator.py (feature #79).
+
+    Covers:
+    - PLATXA_GENERATOR_VERSION constant exists and is non-empty
+    - GENERATION_FOOTER_MARKER opens the footer (locatable by parsers)
+    - Footer is HTML comment (invisible in rendered Markdown)
+    - Footer includes generator version, timestamp, score, parameters
+    - Pinned timestamp produces deterministic output (tests can assert)
+    - Quality score formats as N.NN/10 when provided
+    - Quality score reports "not measured" when None
+    - Empty tools list renders as "(none)"
+    - generate_agent_file appends footer as the last block
+    - Pre-existing 14 sections still present (regression check)
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_version_constant_is_set(self) -> None:
+        """PLATXA_GENERATOR_VERSION exists and is non-empty."""
+        result = self._run_py(
+            "from agent_generator import PLATXA_GENERATOR_VERSION\n"
+            "print(bool(PLATXA_GENERATOR_VERSION), '.' in PLATXA_GENERATOR_VERSION)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_footer_marker_is_locatable(self) -> None:
+        """GENERATION_FOOTER_MARKER opens the footer block."""
+        result = self._run_py(
+            "from agent_generator import (\n"
+            "    AgentDefinition, GENERATION_FOOTER_MARKER,\n"
+            "    generate_attribution_footer,\n"
+            ")\n"
+            "d = AgentDefinition(name='x', description='d', tools=['Read'])\n"
+            "footer = generate_attribution_footer(d, timestamp='2026-04-15T10:00:00Z')\n"
+            "print(footer.startswith(GENERATION_FOOTER_MARKER))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_footer_is_html_comment(self) -> None:
+        """Footer wraps in <!-- ... --> so it's invisible in rendered markdown."""
+        result = self._run_py(
+            "from agent_generator import AgentDefinition, generate_attribution_footer\n"
+            "d = AgentDefinition(name='x', description='d', tools=[])\n"
+            "footer = generate_attribution_footer(d, timestamp='2026-04-15T10:00:00Z')\n"
+            "print(footer.startswith('<!--'), footer.endswith('-->'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_footer_includes_required_metadata(self) -> None:
+        """Footer contains version, timestamp, score, name, pattern, model, tools."""
+        result = self._run_py(
+            "from agent_generator import (\n"
+            "    AgentDefinition, PLATXA_GENERATOR_VERSION,\n"
+            "    generate_attribution_footer,\n"
+            ")\n"
+            "d = AgentDefinition(name='scanner', description='d', tools=['Read', 'Grep'],"
+            " model='sonnet')\n"
+            "f = generate_attribution_footer(d, pattern='orchestrator-workers',"
+            " quality_score=8.42, timestamp='2026-04-15T10:30:00Z')\n"
+            "print('v' + PLATXA_GENERATOR_VERSION in f)\n"
+            "print('2026-04-15T10:30:00Z' in f)\n"
+            "print('8.42/10' in f)\n"
+            "print('scanner' in f)\n"
+            "print('orchestrator-workers' in f)\n"
+            "print('sonnet' in f)\n"
+            "print('Read, Grep' in f)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["True"] * 7
+
+    def test_pinned_timestamp_produces_deterministic_output(self) -> None:
+        """Same definition + same pinned timestamp → identical footer."""
+        result = self._run_py(
+            "from agent_generator import AgentDefinition, generate_attribution_footer\n"
+            "d = AgentDefinition(name='x', description='d', tools=['Read'])\n"
+            "ts = '2026-04-15T12:00:00Z'\n"
+            "f1 = generate_attribution_footer(d, timestamp=ts)\n"
+            "f2 = generate_attribution_footer(d, timestamp=ts)\n"
+            "print(f1 == f2)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_quality_score_omitted_renders_not_measured(self) -> None:
+        """Score=None reports 'not measured' instead of fabricating a 0."""
+        result = self._run_py(
+            "from agent_generator import AgentDefinition, generate_attribution_footer\n"
+            "d = AgentDefinition(name='x', description='d', tools=[])\n"
+            "f = generate_attribution_footer(d, quality_score=None,"
+            " timestamp='2026-04-15T10:00:00Z')\n"
+            "print('not measured' in f, '0.00/10' not in f)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_empty_tools_renders_as_none(self) -> None:
+        """An agent with no tools shows '(none)' rather than an empty string."""
+        result = self._run_py(
+            "from agent_generator import AgentDefinition, generate_attribution_footer\n"
+            "d = AgentDefinition(name='x', description='d', tools=[])\n"
+            "f = generate_attribution_footer(d, timestamp='2026-04-15T10:00:00Z')\n"
+            "print('(none)' in f)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_generated_file_ends_with_footer(self) -> None:
+        """generate_agent_file appends the footer as the last block."""
+        result = self._run_py(
+            "from agent_generator import (\n"
+            "    AgentDefinition, GENERATION_FOOTER_MARKER, generate_agent_file,\n"
+            ")\n"
+            "d = AgentDefinition(name='demo', description='d', tools=['Read'])\n"
+            "out = generate_agent_file(d, quality_score=9.5, "
+            "timestamp='2026-04-15T11:00:00Z')\n"
+            "# Footer marker present and it appears in the last few lines\n"
+            "print(GENERATION_FOOTER_MARKER in out)\n"
+            "tail = out.rstrip().splitlines()[-10:]\n"
+            "print(any(GENERATION_FOOTER_MARKER in line for line in tail))\n"
+            "# Footer is the final ``-->`` line\n"
+            "print(out.rstrip().endswith('-->'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["True", "True", "True"]
+
+    def test_default_timestamp_is_iso8601_utc(self) -> None:
+        """Default (no timestamp arg) emits ISO-8601 UTC with trailing Z."""
+        result = self._run_py(
+            "import re\n"
+            "from agent_generator import AgentDefinition, generate_attribution_footer\n"
+            "d = AgentDefinition(name='x', description='d', tools=[])\n"
+            "f = generate_attribution_footer(d)\n"
+            "# Footer should contain a Z-suffixed ISO-8601 timestamp\n"
+            "m = re.search(r'\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z', f)\n"
+            "print(m is not None)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_existing_sections_preserved(self) -> None:
+        """Adding the footer didn't break any of the 14 pre-existing sections."""
+        result = self._run_py(
+            "from agent_generator import AgentDefinition, generate_agent_file\n"
+            "d = AgentDefinition(name='demo', description='d', tools=['Read'])\n"
+            "out = generate_agent_file(d, timestamp='2026-04-15T11:00:00Z')\n"
+            "# Spot-check that the canonical headings still appear\n"
+            "for h in ['## Overview', '## Workflow', '## Examples',\n"
+            "         '## Error Handling', '## Output Format', '## Verification']:\n"
+            "    assert h in out, f'missing: {h}'\n"
+            "print('OK')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "OK"
+
+
 class TestAgentRegenerationWorkflow:
     """Tests for the regeneration workflow in agent_versioning.py (feature #58).
 
