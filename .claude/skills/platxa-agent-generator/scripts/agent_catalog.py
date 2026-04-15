@@ -66,11 +66,18 @@ class AgentTemplate:
     name: str
     description: str
     category: str
-    version: str = "1.0.0"
+    # version / pattern / author default to None as a sentinel for "unset:
+    # inherit from base if present, else fall back to the registered default
+    # at render time". This lets a child template legitimately pin
+    # pattern="prompt-chaining" / version="1.0.0" / author="Platxa" and have
+    # those values WIN over a base that declares a different value — without
+    # the sentinel, the child's choice would be silently swapped for the
+    # base's. Render-time defaults are applied by `_default_*` helpers.
+    version: str | None = None
     tools: list[str] = field(default_factory=list)
-    pattern: str = "prompt-chaining"
+    pattern: str | None = None
     tags: list[str] = field(default_factory=list)
-    author: str = "Platxa"
+    author: str | None = None
     examples: list[str] = field(default_factory=list)
     requirements: list[str] = field(default_factory=list)
     mcp_servers: list[str] = field(default_factory=list)
@@ -83,6 +90,13 @@ class AgentTemplate:
     quality_criteria: list[str] = field(default_factory=list)
     error_handling: list[str] = field(default_factory=list)
     output_schema: dict[str, Any] = field(default_factory=dict)
+    # Template inheritance — when set, this template's fields overlay onto the
+    # named base template from the catalog. By default the customization
+    # OVERRIDES the corresponding section on the base (child wins for any
+    # non-empty / non-default field). To EXTEND a list field with the base's
+    # entries instead of replacing them, name the field in `extends`.
+    base_template: str | None = None
+    extends: list[str] = field(default_factory=list)
 
 
 # Pre-built agent catalog
@@ -2215,6 +2229,208 @@ def get_agent(name: str) -> AgentTemplate | None:
     return AGENT_CATALOG.get(resolved)
 
 
+# Names of fields supported by the `extends` (additive merge) opt-in. These
+# are list fields where additive composition makes semantic sense — e.g. a
+# child wants its own tags/tools/best-practices PLUS what the base provides.
+# Other fields (workflow_steps, output_schema, scalars) use override-only
+# semantics because additive merging would produce incoherent agents
+# (interleaved workflow steps, conflicting schema keys, scalar concatenation).
+_EXTENDABLE_FIELDS: frozenset[str] = frozenset(
+    {
+        "tools",
+        "tags",
+        "examples",
+        "requirements",
+        "mcp_servers",
+        "security_considerations",
+        "best_practices",
+        "quality_criteria",
+        "error_handling",
+    }
+)
+
+
+def resolve_template(
+    template: AgentTemplate,
+    catalog: dict[str, AgentTemplate] | None = None,
+) -> AgentTemplate:
+    """Resolve template inheritance into a fully materialized AgentTemplate.
+
+    When ``template.base_template`` is set, this function looks up the named
+    base in ``catalog`` (defaulting to the global ``AGENT_CATALOG``) and
+    merges the child's customizations onto it:
+
+    - **Override semantics (default)**: For every field, the child's value
+      wins when "set" — non-default for scalars (description, category,
+      pattern, version, author, system_prompt_additions), non-empty for
+      lists / dicts (workflow_steps, detailed_examples, output_schema,
+      and any list field NOT named in ``template.extends``). Otherwise
+      the base's value is inherited.
+
+    - **Extend semantics (opt-in via ``extends``)**: For each list field
+      named in ``template.extends`` that is also in
+      ``_EXTENDABLE_FIELDS``, the child's entries are appended to the
+      base's entries with deduplication (preserving order of first
+      occurrence). This lets a child agent layer additional tools, tags,
+      or best practices on top of the base without losing any.
+
+    Inheritance is transitive: bases that themselves declare a
+    ``base_template`` are recursively resolved before the child's overlay
+    is applied. Cycles raise ``ValueError`` rather than infinite-looping.
+
+    Args:
+        template: The (possibly child) template to resolve. Returned
+            unchanged when ``base_template`` is None.
+        catalog: Mapping of name to AgentTemplate used to look up bases.
+            Defaults to the global ``AGENT_CATALOG``.
+
+    Raises:
+        ValueError: if ``base_template`` names an entry not in the
+            catalog, if ``extends`` contains a field name that is not in
+            ``_EXTENDABLE_FIELDS`` (caller probably mistyped or named a
+            non-list field), or if a cycle is detected in the
+            inheritance chain.
+
+    Returns:
+        A new ``AgentTemplate`` with the merged fields. The input is
+        never mutated.
+    """
+    return _resolve_template_impl(template, catalog or AGENT_CATALOG, [])
+
+
+def _resolve_template_impl(
+    template: AgentTemplate,
+    catalog: dict[str, AgentTemplate],
+    chain: list[str],
+) -> AgentTemplate:
+    """Recursive worker for resolve_template.
+
+    `chain` is the ordered list of template names already visited on this
+    resolution path. Using a list (not a set) preserves traversal order so
+    cycle errors report the actual A → B → C → A path the caller can
+    follow, not an alphabetized scramble of the names involved.
+    """
+    if template.base_template is None:
+        # Validate `extends` even when there is no base — a stray entry
+        # signals a misconfiguration the caller should fix loudly.
+        if template.extends:
+            invalid = [f for f in template.extends if f not in _EXTENDABLE_FIELDS]
+            if invalid:
+                raise ValueError(
+                    f"template {template.name!r}: extends names unknown / non-extendable "
+                    f"field(s) {invalid}; valid choices: {sorted(_EXTENDABLE_FIELDS)}"
+                )
+        return template
+
+    base_name = template.base_template
+    if base_name in chain or base_name == template.name:
+        # Build the path including the closing edge so the message shows
+        # exactly which link closes the cycle.
+        cycle_path = " -> ".join([*chain, template.name, base_name])
+        raise ValueError(
+            f"template {template.name!r}: inheritance cycle detected ({cycle_path}); "
+            "remove or rewire base_template to break the cycle"
+        )
+
+    base = catalog.get(base_name)
+    if base is None:
+        raise ValueError(
+            f"template {template.name!r}: base_template {base_name!r} is not in the "
+            f"catalog; check spelling or register the base agent first"
+        )
+
+    invalid = [f for f in template.extends if f not in _EXTENDABLE_FIELDS]
+    if invalid:
+        raise ValueError(
+            f"template {template.name!r}: extends names unknown / non-extendable "
+            f"field(s) {invalid}; valid choices: {sorted(_EXTENDABLE_FIELDS)}"
+        )
+
+    # Resolve base first so multi-level inheritance works (A → B → C).
+    # Append the current template's name to the chain so a deeper recursion
+    # can detect a cycle that closes back through us.
+    resolved_base = _resolve_template_impl(base, catalog, [*chain, template.name])
+
+    def _merge_list(field_name: str, base_value: list[Any], child_value: list[Any]) -> list[Any]:
+        """Override-by-default; extend (with dedup) when opted in via `extends`."""
+        if field_name in template.extends:
+            seen_items: list[Any] = []
+            for item in (*base_value, *child_value):
+                if item not in seen_items:
+                    seen_items.append(item)
+            return seen_items
+        # Override: child wins when non-empty, else inherit base
+        return list(child_value) if child_value else list(base_value)
+
+    # Scalars: child wins when "set". For required-string fields without a
+    # natural unset value (description, category) we treat empty string as
+    # "inherit". For optional fields with sentinel defaults (version, pattern,
+    # author) we use `is not None` so a child can legitimately pin a value
+    # equal to the registered default and still override the base.
+    description = template.description or resolved_base.description
+    category = template.category or resolved_base.category
+    pattern = template.pattern if template.pattern is not None else resolved_base.pattern
+    version = template.version if template.version is not None else resolved_base.version
+    author = template.author if template.author is not None else resolved_base.author
+    system_prompt_additions = (
+        template.system_prompt_additions or resolved_base.system_prompt_additions
+    )
+
+    # Dict: shallow merge (base entries first, child overrides per-key)
+    output_schema = (
+        {**resolved_base.output_schema, **template.output_schema}
+        if (resolved_base.output_schema or template.output_schema)
+        else {}
+    )
+
+    return AgentTemplate(
+        name=template.name,  # always the child's identity
+        description=description,
+        category=category,
+        version=version,
+        tools=_merge_list("tools", resolved_base.tools, template.tools),
+        pattern=pattern,
+        tags=_merge_list("tags", resolved_base.tags, template.tags),
+        author=author,
+        examples=_merge_list("examples", resolved_base.examples, template.examples),
+        requirements=_merge_list("requirements", resolved_base.requirements, template.requirements),
+        mcp_servers=_merge_list("mcp_servers", resolved_base.mcp_servers, template.mcp_servers),
+        # workflow_steps and detailed_examples use override-only semantics
+        # (interleaving steps would produce an incoherent workflow).
+        workflow_steps=(
+            list(template.workflow_steps)
+            if template.workflow_steps
+            else list(resolved_base.workflow_steps)
+        ),
+        detailed_examples=(
+            list(template.detailed_examples)
+            if template.detailed_examples
+            else list(resolved_base.detailed_examples)
+        ),
+        system_prompt_additions=system_prompt_additions,
+        security_considerations=_merge_list(
+            "security_considerations",
+            resolved_base.security_considerations,
+            template.security_considerations,
+        ),
+        best_practices=_merge_list(
+            "best_practices", resolved_base.best_practices, template.best_practices
+        ),
+        quality_criteria=_merge_list(
+            "quality_criteria", resolved_base.quality_criteria, template.quality_criteria
+        ),
+        error_handling=_merge_list(
+            "error_handling", resolved_base.error_handling, template.error_handling
+        ),
+        output_schema=output_schema,
+        # The resolved template is fully materialized — clearing
+        # base_template/extends prevents accidental re-resolution and
+        # signals downstream consumers that this is the final shape.
+        base_template=None,
+        extends=[],
+    )
+
+
 def generate_agent_content(template: AgentTemplate) -> str:
     """
     Generate agent.md content from a template.
@@ -2225,15 +2441,23 @@ def generate_agent_content(template: AgentTemplate) -> str:
     Returns:
         Generated agent.md content
     """
+    # Resolve any template inheritance before rendering — children that
+    # declare base_template only carry their overrides, never the full
+    # materialized shape. Resolution is a no-op for templates without a base.
+    template = resolve_template(template)
+    # Coalesce sentinel-None scalars to their registered defaults at render
+    # time. The dataclass uses None as a sentinel for "unset" so inheritance
+    # can distinguish "explicitly chose this value" from "left at default";
+    # the rendered markdown still needs concrete strings.
+    pattern = template.pattern if template.pattern is not None else "prompt-chaining"
+    version = template.version if template.version is not None else "1.0.0"
     tools_str = ", ".join(template.tools)
     tags_str = ", ".join(template.tags)
 
     # Build workflow section
     if template.workflow_steps:
         workflow_section = "## Workflow\n\n"
-        workflow_section += (
-            f"This agent uses a **{template.pattern}** pattern for task execution.\n\n"
-        )
+        workflow_section += f"This agent uses a **{pattern}** pattern for task execution.\n\n"
         workflow_section += "### Steps\n\n"
         for i, step in enumerate(template.workflow_steps, 1):
             workflow_section += f"#### {i}. {step.name}\n\n"
@@ -2245,7 +2469,7 @@ def generate_agent_content(template: AgentTemplate) -> str:
     else:
         workflow_section = f"""## Workflow
 
-This agent uses a **{template.pattern}** pattern for task execution.
+This agent uses a **{pattern}** pattern for task execution.
 
 ### Steps
 
@@ -2346,7 +2570,7 @@ tools: {tools_str}
 {template.description}
 
 **Category:** {template.category}
-**Version:** {template.version}
+**Version:** {version}
 **Tags:** {tags_str}
 
 {system_additions}{workflow_section}
@@ -2358,7 +2582,7 @@ This agent has access to the following tools:
 
 {security_section}{best_practices_section}{quality_section}{error_section}{output_section}---
 
-*Generated from Platxa Agent Catalog v{template.version}*
+*Generated from Platxa Agent Catalog v{version}*
 """
     return content
 
@@ -2423,15 +2647,18 @@ def install_from_catalog(
 
 def template_to_dict(template: AgentTemplate) -> dict[str, Any]:
     """Convert template to dictionary."""
+    # Coalesce sentinel-None scalars to their registered defaults so the
+    # serialized manifest is backwards-compatible with consumers that expect
+    # concrete strings (the None sentinel is an internal "unset" marker only).
     result: dict[str, Any] = {
         "name": template.name,
         "description": template.description,
         "category": template.category,
-        "version": template.version,
+        "version": template.version if template.version is not None else "1.0.0",
         "tools": template.tools,
-        "pattern": template.pattern,
+        "pattern": template.pattern if template.pattern is not None else "prompt-chaining",
         "tags": template.tags,
-        "author": template.author,
+        "author": template.author if template.author is not None else "Platxa",
         "examples": template.examples,
         "requirements": template.requirements,
         "mcp_servers": template.mcp_servers,
@@ -2469,6 +2696,12 @@ def template_to_dict(template: AgentTemplate) -> dict[str, Any]:
         result["error_handling"] = template.error_handling
     if template.output_schema:
         result["output_schema"] = template.output_schema
+    # Surface inheritance metadata so consumers can inspect the unresolved
+    # overlay shape (e.g. for diffing against a base, or for reserialization).
+    if template.base_template is not None:
+        result["base_template"] = template.base_template
+    if template.extends:
+        result["extends"] = list(template.extends)
     return result
 
 
