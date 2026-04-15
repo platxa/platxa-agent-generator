@@ -9,8 +9,10 @@ Run with: pytest tests/test_generator.py -v
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -12395,6 +12397,401 @@ class TestColorFrontmatter:
         )
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == "True"
+
+
+class TestSubagentAuditHooks:
+    """Tests for SubagentStart/SubagentStop JSONL audit hooks (Feature #15).
+
+    Exercises generate_subagent_audit_script / _hook_config / _hooks plus the
+    ``subagent-audit`` dispatch branch in generate_hooks. Tests run the
+    generated bash script in a subprocess against simulated Claude Code hook
+    JSON payloads on stdin and assert on the resulting JSONL audit log.
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        return subprocess.run(
+            [sys.executable, "-c", prologue + code],
+            capture_output=True,
+            text=True,
+        )
+
+    def _gen_script(self, agent: str, log_file: str = ".claude/audit.jsonl") -> str:
+        result = self._run_py(
+            "from hooks_generator import generate_subagent_audit_script; "
+            f"print(generate_subagent_audit_script({agent!r}, {log_file!r}))"
+        )
+        assert result.returncode == 0, f"script gen failed: {result.stderr}"
+        return result.stdout
+
+    def _write_script(self, content: str, path: Path) -> Path:
+        path.write_text(content)
+        path.chmod(0o755)
+        return path
+
+    def _read_jsonl(self, path: Path) -> list[dict]:
+        if not path.exists():
+            return []
+        return [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+
+    # --- HOOK_EVENTS registry ----------------------------------------------
+
+    def test_subagent_start_event_registered(self) -> None:
+        """HOOK_EVENTS must include SubagentStart so validate_event accepts it."""
+        result = self._run_py(
+            "from hooks_generator import HOOK_EVENTS, validate_event; "
+            "import json; "
+            "ok, err = validate_event('SubagentStart'); "
+            "print(json.dumps({'in_events': 'SubagentStart' in HOOK_EVENTS, 'valid': ok}))"
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert data["in_events"], "SubagentStart missing from HOOK_EVENTS"
+        assert data["valid"], "validate_event should accept SubagentStart"
+
+    # --- script generation --------------------------------------------------
+
+    def test_script_is_valid_bash(self, tmp_path: Path) -> None:
+        """Generated audit script must parse as valid bash."""
+        script = self._gen_script("worker-1")
+        path = self._write_script(script, tmp_path / "audit.sh")
+        result = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True)
+        assert result.returncode == 0, f"bash syntax error: {result.stderr}"
+
+    def test_script_substitutes_placeholders(self, tmp_path: Path) -> None:
+        """Generator must replace __AGENT_NAME__ and __LOG_FILE__ placeholders."""
+        script = self._gen_script("worker-1", str(tmp_path / "log.jsonl"))
+        assert "__AGENT_NAME__" not in script
+        assert "__LOG_FILE__" not in script
+        assert "worker-1" in script
+        assert str(tmp_path / "log.jsonl") in script
+
+    def test_empty_agent_name_raises(self) -> None:
+        """generate_subagent_audit_script must reject empty agent_name."""
+        result = self._run_py(
+            "from hooks_generator import generate_subagent_audit_script\n"
+            "try:\n"
+            "    generate_subagent_audit_script('')\n"
+            "    print('no-error')\n"
+            "except ValueError as e:\n"
+            "    print('value-error:', str(e))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "value-error" in result.stdout, result.stdout
+
+    # --- runtime behavior ---------------------------------------------------
+
+    def test_subagent_start_logs_agent_id_and_type(self, tmp_path: Path) -> None:
+        """SubagentStart hook must write JSONL with agent_id and agent_type."""
+        log_file = tmp_path / "audit.jsonl"
+        script = self._gen_script("auditor", str(log_file))
+        path = self._write_script(script, tmp_path / "audit.sh")
+
+        payload = json.dumps(
+            {
+                "hook_event_name": "SubagentStart",
+                "agent_id": "sa-001",
+                "agent_type": "code-reviewer",
+            }
+        )
+        result = subprocess.run(["bash", str(path)], input=payload, capture_output=True, text=True)
+        assert result.returncode == 0, f"script failed: {result.stderr}"
+
+        records = self._read_jsonl(log_file)
+        assert len(records) == 1, f"expected 1 record, got {records}"
+        rec = records[0]
+        assert rec["event"] == "SubagentStart"
+        assert rec["agent_id"] == "sa-001"
+        assert rec["agent_type"] == "code-reviewer"
+        assert rec["agent"] == "auditor"
+        assert "timestamp" in rec
+
+    def test_subagent_stop_logs_last_message_and_duration(self, tmp_path: Path) -> None:
+        """SubagentStop must log last_assistant_message and a positive duration_ms."""
+        log_file = tmp_path / "audit.jsonl"
+        script = self._gen_script("auditor", str(log_file))
+        path = self._write_script(script, tmp_path / "audit.sh")
+
+        # First fire SubagentStart so the timing file is written
+        start_payload = json.dumps(
+            {
+                "hook_event_name": "SubagentStart",
+                "agent_id": "sa-002",
+                "agent_type": "researcher",
+            }
+        )
+        subprocess.run(["bash", str(path)], input=start_payload, capture_output=True, text=True)
+
+        # Sleep a measurable amount so duration_ms > 0
+        time.sleep(0.05)
+
+        stop_payload = json.dumps(
+            {
+                "hook_event_name": "SubagentStop",
+                "agent_id": "sa-002",
+                "last_assistant_message": "Reviewed 3 files; no issues found.",
+            }
+        )
+        result = subprocess.run(
+            ["bash", str(path)], input=stop_payload, capture_output=True, text=True
+        )
+        assert result.returncode == 0, f"script failed: {result.stderr}"
+
+        records = self._read_jsonl(log_file)
+        assert len(records) == 2, f"expected 2 records, got {records}"
+        stop = records[1]
+        assert stop["event"] == "SubagentStop"
+        assert stop["agent_id"] == "sa-002"
+        assert stop["last_assistant_message"] == "Reviewed 3 files; no issues found."
+        assert stop["duration_ms"] > 0, (
+            f"duration_ms should be positive after sleep, got {stop['duration_ms']}"
+        )
+
+    def test_logs_to_default_claude_audit_jsonl(self, tmp_path: Path) -> None:
+        """Default log_file must be .claude/audit.jsonl relative to cwd."""
+        script = self._gen_script("auditor")  # default log file
+        path = self._write_script(script, tmp_path / "audit.sh")
+
+        payload = json.dumps({"hook_event_name": "SubagentStart", "agent_id": "x"})
+        result = subprocess.run(
+            ["bash", str(path)],
+            input=payload,
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+        )
+        assert result.returncode == 0, result.stderr
+        log = tmp_path / ".claude" / "audit.jsonl"
+        assert log.exists(), f".claude/audit.jsonl not created under {tmp_path}"
+        records = self._read_jsonl(log)
+        assert len(records) == 1
+        assert records[0]["event"] == "SubagentStart"
+
+    def test_env_var_fallback_when_stdin_empty(self, tmp_path: Path) -> None:
+        """When stdin payload is empty, env vars must supply the fields."""
+        log_file = tmp_path / "audit.jsonl"
+        script = self._gen_script("auditor", str(log_file))
+        path = self._write_script(script, tmp_path / "audit.sh")
+
+        env = {
+            **os.environ,
+            "CLAUDE_HOOK_EVENT": "SubagentStart",
+            "CLAUDE_AGENT_ID": "env-007",
+            "CLAUDE_AGENT_TYPE": "fallback-agent",
+        }
+        result = subprocess.run(
+            ["bash", str(path)], input="", capture_output=True, text=True, env=env
+        )
+        assert result.returncode == 0, result.stderr
+
+        records = self._read_jsonl(log_file)
+        assert len(records) == 1
+        rec = records[0]
+        assert rec["agent_id"] == "env-007"
+        assert rec["agent_type"] == "fallback-agent"
+
+    def test_unknown_event_logs_warning_record(self, tmp_path: Path) -> None:
+        """Unknown hook_event_name must surface visibly: a warning record in the
+        audit log AND a stderr line. Silent drops would hide hook misconfiguration
+        from observability systems."""
+        log_file = tmp_path / "audit.jsonl"
+        script = self._gen_script("auditor", str(log_file))
+        path = self._write_script(script, tmp_path / "audit.sh")
+
+        payload = json.dumps({"hook_event_name": "NotARealEvent", "agent_id": "x-99"})
+        result = subprocess.run(["bash", str(path)], input=payload, capture_output=True, text=True)
+        assert result.returncode == 0
+        # Loud failure: warning emitted on stderr
+        assert "[subagent-audit]" in result.stderr
+        assert "NotARealEvent" in result.stderr
+        # Loud failure: a structured warning record is appended to the audit log
+        records = self._read_jsonl(log_file)
+        assert len(records) == 1, f"expected 1 warning record, got {records}"
+        rec = records[0]
+        assert rec["event"] == "UnknownSubagentEvent"
+        assert rec["received_event"] == "NotARealEvent"
+        assert rec["agent_id"] == "x-99"
+
+    def test_concurrent_same_agent_id_different_sessions(self, tmp_path: Path) -> None:
+        """Two concurrent subagents sharing an agent_id but in different sessions
+        must NOT collide on the timing file. session_id is part of the timing key,
+        so each pair tracks its own duration correctly."""
+        log_file = tmp_path / "audit.jsonl"
+        script = self._gen_script("auditor", str(log_file))
+        path = self._write_script(script, tmp_path / "audit.sh")
+
+        # Session A starts subagent "sa-shared"
+        subprocess.run(
+            ["bash", str(path)],
+            input=json.dumps(
+                {
+                    "hook_event_name": "SubagentStart",
+                    "session_id": "sess-A",
+                    "agent_id": "sa-shared",
+                    "agent_type": "reviewer",
+                }
+            ),
+            capture_output=True,
+            text=True,
+        )
+        time.sleep(0.04)
+        # Session B starts subagent with the SAME agent_id
+        subprocess.run(
+            ["bash", str(path)],
+            input=json.dumps(
+                {
+                    "hook_event_name": "SubagentStart",
+                    "session_id": "sess-B",
+                    "agent_id": "sa-shared",
+                    "agent_type": "researcher",
+                }
+            ),
+            capture_output=True,
+            text=True,
+        )
+        time.sleep(0.06)
+        # Stop session A first — must measure ~100ms (40+60 sleep), not 60ms
+        subprocess.run(
+            ["bash", str(path)],
+            input=json.dumps(
+                {
+                    "hook_event_name": "SubagentStop",
+                    "session_id": "sess-A",
+                    "agent_id": "sa-shared",
+                    "last_assistant_message": "A done",
+                }
+            ),
+            capture_output=True,
+            text=True,
+        )
+        # Stop session B — must measure ~60ms (only the second sleep)
+        subprocess.run(
+            ["bash", str(path)],
+            input=json.dumps(
+                {
+                    "hook_event_name": "SubagentStop",
+                    "session_id": "sess-B",
+                    "agent_id": "sa-shared",
+                    "last_assistant_message": "B done",
+                }
+            ),
+            capture_output=True,
+            text=True,
+        )
+
+        records = self._read_jsonl(log_file)
+        stops = [r for r in records if r["event"] == "SubagentStop"]
+        assert len(stops) == 2
+        a_stop = next(r for r in stops if r["last_assistant_message"] == "A done")
+        b_stop = next(r for r in stops if r["last_assistant_message"] == "B done")
+        # Both durations must be positive and A > B (A started 40ms earlier).
+        # If sessions collided on the timing file, A's duration would be wrong
+        # (overwritten by B's start) and likely smaller than B's.
+        assert a_stop["duration_ms"] > 0
+        assert b_stop["duration_ms"] > 0
+        assert a_stop["duration_ms"] > b_stop["duration_ms"], (
+            f"session collision suspected: A={a_stop['duration_ms']}ms "
+            f"B={b_stop['duration_ms']}ms (expected A > B)"
+        )
+
+    def test_missing_timing_file_emits_warning(self, tmp_path: Path) -> None:
+        """SubagentStop with no prior SubagentStart must surface the missing
+        timing file (stderr warning + duration_ms=0), not silently report 0."""
+        log_file = tmp_path / "audit.jsonl"
+        script = self._gen_script("auditor", str(log_file))
+        path = self._write_script(script, tmp_path / "audit.sh")
+
+        payload = json.dumps(
+            {
+                "hook_event_name": "SubagentStop",
+                "agent_id": "orphan",
+                "last_assistant_message": "no start",
+            }
+        )
+        result = subprocess.run(["bash", str(path)], input=payload, capture_output=True, text=True)
+        assert result.returncode == 0
+        assert "no timing file" in result.stderr
+        records = self._read_jsonl(log_file)
+        assert len(records) == 1
+        assert records[0]["event"] == "SubagentStop"
+        assert records[0]["duration_ms"] == 0
+
+    # --- hook_config + bundle helper ---------------------------------------
+
+    def test_hook_config_registers_both_events(self) -> None:
+        """generate_subagent_audit_hook_config must register SubagentStart + Stop."""
+        result = self._run_py(
+            "import json; from hooks_generator import generate_subagent_audit_hook_config; "
+            "cfg = generate_subagent_audit_hook_config('a', '/tmp/a-audit.sh'); "
+            "print(json.dumps(sorted(cfg.keys())))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == ["SubagentStart", "SubagentStop"]
+
+    def test_hook_config_validates_inputs(self) -> None:
+        """Empty agent_name or script_path must raise ValueError."""
+        result = self._run_py(
+            "from hooks_generator import generate_subagent_audit_hook_config\n"
+            "try:\n"
+            "    generate_subagent_audit_hook_config('', '/tmp/x.sh')\n"
+            "except ValueError:\n"
+            "    print('agent-error')\n"
+            "try:\n"
+            "    generate_subagent_audit_hook_config('a', '')\n"
+            "except ValueError:\n"
+            "    print('path-error')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "agent-error" in result.stdout
+        assert "path-error" in result.stdout
+
+    def test_bundle_writes_executable_script(self, tmp_path: Path) -> None:
+        """generate_subagent_audit_hooks writes a chmod-755 script + returns config."""
+        result = self._run_py(
+            "import json, os; "
+            "from hooks_generator import generate_subagent_audit_hooks; "
+            f"paths, cfg = generate_subagent_audit_hooks('demo', {str(tmp_path)!r}); "
+            "out = {'paths': [str(p) for p in paths], "
+            "'cfg_keys': sorted(cfg.keys()), "
+            "'is_exec': os.access(str(paths[0]), os.X_OK)}; "
+            "print(json.dumps(out))"
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert len(data["paths"]) == 1
+        assert data["paths"][0].endswith("demo-subagent-audit.sh")
+        assert data["cfg_keys"] == ["SubagentStart", "SubagentStop"]
+        assert data["is_exec"], "generated script must be executable"
+
+    # --- generate_hooks dispatch -------------------------------------------
+
+    def test_generate_hooks_subagent_audit_branch(self) -> None:
+        """generate_hooks(['subagent-audit']) must produce both event configs."""
+        result = self._run_py(
+            "import json; "
+            "from hooks_generator import generate_hooks, definition_to_settings_format; "
+            "defn = generate_hooks('a', ['subagent-audit']); "
+            "settings = definition_to_settings_format(defn); "
+            "print(json.dumps(sorted(settings.keys())))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout) == ["SubagentStart", "SubagentStop"]
+
+    def test_generate_hooks_subagent_audit_custom_path(self) -> None:
+        """generate_hooks must respect custom audit_script_path from config."""
+        result = self._run_py(
+            "import json; "
+            "from hooks_generator import generate_hooks, definition_to_settings_format; "
+            "defn = generate_hooks('a', ['subagent-audit'], "
+            "    custom_config={'audit_script_path': '/custom/path.sh'}); "
+            "settings = definition_to_settings_format(defn); "
+            "cmds = [h['hooks'][0]['command'] "
+            "        for entries in settings.values() for h in entries]; "
+            "print(json.dumps(cmds))"
+        )
+        assert result.returncode == 0, result.stderr
+        cmds = json.loads(result.stdout)
+        assert all(c == "/custom/path.sh" for c in cmds), cmds
 
 
 if __name__ == "__main__":
