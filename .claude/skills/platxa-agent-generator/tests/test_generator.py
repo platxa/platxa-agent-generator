@@ -9822,6 +9822,233 @@ class TestDomainKnowledgeImports:
         assert result.stdout.strip() == "True list"
 
 
+class TestAgentDependencyDocumentation:
+    """Tests for agent dependency documentation in agent_composer.py (feature #78).
+
+    Covers:
+    - build_dependency_graph: edges keyed by every agent (incl. isolated)
+    - build_dependency_graph: roots = agents nothing else depends on
+    - build_dependency_graph: detects missing dependencies (typos, renames)
+    - build_dependency_graph: detects simple 2-cycle
+    - build_dependency_graph: detects longer cycle (3-node)
+    - Cycle deduplication: same ring entered from two starts reported once
+    - render_dependency_diagram: emits Mermaid ``graph TD`` with all nodes
+    - render_dependency_diagram: cycle edges use dotted ``-.->`` arrows
+    - render_dependency_diagram: missing deps tagged with ``MISSING:`` prefix
+    - render_dependency_readme_section: includes heading + diagram + roots
+    - render_dependency_readme_section: cycle warning when cycles present
+    - CLI ``deps`` exits non-zero on cycles (CI gate behavior)
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_build_graph_edges_include_isolated_agents(self) -> None:
+        """Agents with no dependencies still appear in the edges map."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, build_dependency_graph\n"
+            "agents = [\n"
+            "    AgentSpec(name='loner', description='', dependencies=[]),\n"
+            "    AgentSpec(name='a', description='', dependencies=['b']),\n"
+            "    AgentSpec(name='b', description='', dependencies=[]),\n"
+            "]\n"
+            "g = build_dependency_graph(agents)\n"
+            "print(sorted(g.edges))\n"
+            "print(g.edges['loner'])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["['a', 'b', 'loner']", "[]"]
+
+    def test_build_graph_identifies_roots(self) -> None:
+        """Roots are agents nobody depends on."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, build_dependency_graph\n"
+            "agents = [\n"
+            "    AgentSpec(name='top', description='', dependencies=['mid']),\n"
+            "    AgentSpec(name='mid', description='', dependencies=['leaf']),\n"
+            "    AgentSpec(name='leaf', description='', dependencies=[]),\n"
+            "]\n"
+            "g = build_dependency_graph(agents)\n"
+            "print(g.roots)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "['top']"
+
+    def test_build_graph_detects_missing_dependencies(self) -> None:
+        """Names referenced but not defined go into missing_dependencies."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, build_dependency_graph\n"
+            "agents = [AgentSpec(name='a', description='', "
+            "dependencies=['nonexistent', 'also_missing'])]\n"
+            "g = build_dependency_graph(agents)\n"
+            "print(sorted(g.missing_dependencies['a']))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "['also_missing', 'nonexistent']"
+
+    def test_build_graph_detects_simple_cycle(self) -> None:
+        """A → B → A cycle is reported with closing element."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, build_dependency_graph\n"
+            "agents = [\n"
+            "    AgentSpec(name='a', description='', dependencies=['b']),\n"
+            "    AgentSpec(name='b', description='', dependencies=['a']),\n"
+            "]\n"
+            "g = build_dependency_graph(agents)\n"
+            "# Exactly one cycle, length 3 (a, b, a) — closing element\n"
+            "print(len(g.cycles), len(g.cycles[0]) if g.cycles else 0)\n"
+            "# First and last names match (closing the loop)\n"
+            "print(g.cycles[0][0] == g.cycles[0][-1] if g.cycles else False)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["1 3", "True"]
+
+    def test_build_graph_detects_three_node_cycle(self) -> None:
+        """A → B → C → A forms one cycle, not three."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, build_dependency_graph\n"
+            "agents = [\n"
+            "    AgentSpec(name='a', description='', dependencies=['b']),\n"
+            "    AgentSpec(name='b', description='', dependencies=['c']),\n"
+            "    AgentSpec(name='c', description='', dependencies=['a']),\n"
+            "]\n"
+            "g = build_dependency_graph(agents)\n"
+            "# Cycle deduped by rotation: only one ring even though entered\n"
+            "# from three different start nodes during DFS.\n"
+            "print(len(g.cycles))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "1"
+
+    def test_render_diagram_emits_mermaid_block(self) -> None:
+        """Mermaid output starts with ```mermaid + graph TD and lists all nodes."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, build_dependency_graph,"
+            " render_dependency_diagram\n"
+            "agents = [\n"
+            "    AgentSpec(name='top', description='', dependencies=['leaf']),\n"
+            "    AgentSpec(name='leaf', description='', dependencies=[]),\n"
+            "]\n"
+            "out = render_dependency_diagram(build_dependency_graph(agents))\n"
+            "print(out.startswith('```mermaid'))\n"
+            "print('graph TD' in out)\n"
+            "print('top[top]' in out, 'leaf[leaf]' in out)\n"
+            "print('top --> leaf' in out)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == [
+            "True",
+            "True",
+            "True True",
+            "True",
+        ]
+
+    def test_render_diagram_marks_cycle_edges_with_dotted_arrow(self) -> None:
+        """Edges participating in a cycle render as -.-> instead of -->."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, build_dependency_graph,"
+            " render_dependency_diagram\n"
+            "agents = [\n"
+            "    AgentSpec(name='a', description='', dependencies=['b']),\n"
+            "    AgentSpec(name='b', description='', dependencies=['a']),\n"
+            "]\n"
+            "out = render_dependency_diagram(build_dependency_graph(agents))\n"
+            "# Both cycle edges should be dotted; no solid --> arrows\n"
+            "print('-.->' in out)\n"
+            "print(' --> ' not in out)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["True", "True"]
+
+    def test_render_diagram_marks_missing_dependencies(self) -> None:
+        """Missing-dep targets render with the MISSING: label prefix."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, build_dependency_graph,"
+            " render_dependency_diagram\n"
+            "agents = [AgentSpec(name='a', description='', dependencies=['ghost'])]\n"
+            "out = render_dependency_diagram(build_dependency_graph(agents))\n"
+            "print('MISSING: ghost' in out)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_render_readme_section_includes_diagram_and_roots(self) -> None:
+        """Full README section has heading, Mermaid block, and entry points."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, build_dependency_graph,"
+            " render_dependency_readme_section\n"
+            "agents = [\n"
+            "    AgentSpec(name='top', description='', dependencies=['leaf']),\n"
+            "    AgentSpec(name='leaf', description='', dependencies=[]),\n"
+            "]\n"
+            "out = render_dependency_readme_section(build_dependency_graph(agents))\n"
+            "print('## Agent Dependencies' in out)\n"
+            "print('```mermaid' in out)\n"
+            "print('Entry points' in out and '`top`' in out)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["True", "True", "True"]
+
+    def test_render_readme_section_warns_on_cycles(self) -> None:
+        """README section calls out circular dependencies in a warning block."""
+        result = self._run_py(
+            "from agent_composer import AgentSpec, build_dependency_graph,"
+            " render_dependency_readme_section\n"
+            "agents = [\n"
+            "    AgentSpec(name='a', description='', dependencies=['b']),\n"
+            "    AgentSpec(name='b', description='', dependencies=['a']),\n"
+            "]\n"
+            "out = render_dependency_readme_section(build_dependency_graph(agents))\n"
+            "print('Circular dependencies' in out)\n"
+            "print('a → b → a' in out or 'b → a → b' in out)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["True", "True"]
+
+    def test_cli_deps_exits_nonzero_on_cycles(self) -> None:
+        """CI-friendly: ``deps`` subcommand exits 2 when cycles are detected."""
+        import subprocess
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            agents_dir = tmp_path / "agents"
+            agents_dir.mkdir()
+            # Two agents that depend on each other
+            (agents_dir / "a.md").write_text(
+                "---\nname: a\ndescription: Agent a\ndependencies: [b]\n---\nbody"
+            )
+            (agents_dir / "b.md").write_text(
+                "---\nname: b\ndescription: Agent b\ndependencies: [a]\n---\nbody"
+            )
+            scripts_dir = Path(__file__).parent.parent / "scripts"
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(scripts_dir / "agent_composer.py"),
+                    "deps",
+                    str(agents_dir / "a.md"),
+                    str(agents_dir / "b.md"),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            # Mermaid still printed before the SystemExit(2)
+            assert "```mermaid" in result.stdout
+            assert result.returncode == 2
+
+
 class TestAgentRegenerationWorkflow:
     """Tests for the regeneration workflow in agent_versioning.py (feature #58).
 

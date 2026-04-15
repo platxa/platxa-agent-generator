@@ -268,6 +268,263 @@ def _has_cycle(graph: dict[str, list[str]]) -> bool:
     return False
 
 
+@dataclass
+class DependencyGraph:
+    """A computed dependency graph across a set of AgentSpecs.
+
+    Captured separately from any rendering so the same graph can drive
+    multiple outputs (Mermaid diagram, README section, CLI output) and
+    so the cycle-detection results are inspectable by callers — not
+    just bundled into the rendered string.
+
+    Fields:
+        edges: ``{agent_name: [dependency_names...]}`` keyed by every
+            agent in the input set, including agents with no
+            dependencies (whose value is ``[]``). The list preserves
+            the order the dependencies were declared in the source
+            ``AgentSpec.dependencies``.
+        cycles: List of cycle paths as ``list[str]`` where the first
+            and last elements are the same agent (closing the loop).
+            Empty list means no cycles. Each cycle is reported once
+            even when multiple traversal paths reach it.
+        missing_dependencies: ``{agent_name: [missing_dep_names...]}``
+            for entries declared as dependencies but not present in
+            the input set. Empty dict means every dependency resolved.
+            Reported separately from cycles because a missing-dep is
+            a *naming* problem (typo, agent renamed) rather than a
+            structural one.
+        roots: Agents that nothing else depends on — the natural entry
+            points for a top-down read of the graph.
+    """
+
+    edges: dict[str, list[str]] = field(default_factory=dict)
+    cycles: list[list[str]] = field(default_factory=list)
+    missing_dependencies: dict[str, list[str]] = field(default_factory=dict)
+    roots: list[str] = field(default_factory=list)
+
+
+def build_dependency_graph(agents: list[AgentSpec]) -> DependencyGraph:
+    """Compute the dependency graph for a list of agents.
+
+    Walks each agent's ``dependencies`` list to build the adjacency
+    map, then surfaces three pieces of derived information that
+    callers commonly need:
+
+    1. **Cycles** — found via DFS with an explicit traversal path so
+       the cycle is reported as the actual ring of names rather than
+       just a boolean. The ring closes on the first revisited node so
+       the user can read the loop directly.
+    2. **Missing dependencies** — names referenced from a
+       ``dependencies`` list that don't match any agent in the input.
+       Common when an agent is renamed without updating its consumers.
+    3. **Roots** — agents that are not depended on by anyone. These
+       are the natural starting points for documenting or executing
+       the graph top-down.
+
+    Args:
+        agents: The agents whose dependency relationships should be
+            analyzed. May be empty.
+
+    Returns:
+        :class:`DependencyGraph` with the four populated fields.
+    """
+    # Build adjacency map keyed by every agent name (so isolated
+    # agents still appear in the graph).
+    edges: dict[str, list[str]] = {a.name: list(a.dependencies) for a in agents}
+    known_names = set(edges)
+
+    # Surface unresolved dependency names. Don't drop them from the
+    # adjacency map — keeping them lets the cycle detector still see
+    # the declared edge, and the caller can render them as red nodes.
+    missing: dict[str, list[str]] = {}
+    for name, deps in edges.items():
+        unresolved = [d for d in deps if d not in known_names]
+        if unresolved:
+            missing[name] = unresolved
+
+    cycles = _find_dependency_cycles(edges)
+
+    # Roots: nodes that no other node depends on. Order preserved from
+    # input so the output is deterministic.
+    referenced: set[str] = set()
+    for deps in edges.values():
+        for dep in deps:
+            referenced.add(dep)
+    roots = [name for name in edges if name not in referenced]
+
+    return DependencyGraph(
+        edges=edges,
+        cycles=cycles,
+        missing_dependencies=missing,
+        roots=roots,
+    )
+
+
+def _find_dependency_cycles(edges: dict[str, list[str]]) -> list[list[str]]:
+    """Find every distinct cycle in a directed dependency graph.
+
+    Returns each cycle as a list of names ending where it began (so
+    ``[a, b, c, a]`` reads as "a depends on b, b on c, c on a"). The
+    closing element makes the loop visually obvious in CLI output and
+    Mermaid diagrams without forcing the renderer to add it.
+
+    Cycles are deduplicated by their normalized rotation: a single
+    ring reached from two different start nodes is reported once.
+    """
+    cycles_found: list[list[str]] = []
+    seen_signatures: set[tuple[str, ...]] = set()
+
+    def dfs(node: str, path: list[str], visiting: set[str]) -> None:
+        for neighbor in edges.get(node, []):
+            if neighbor in visiting:
+                # Slice the path from the first occurrence of neighbor
+                # so the reported cycle is exactly the loop, not the
+                # tail leading into it.
+                start_idx = path.index(neighbor)
+                cycle = path[start_idx:] + [neighbor]
+                # Deduplicate by rotation. Normalize so the smallest
+                # name is first; then the same ring entered from any
+                # vertex hashes identically.
+                ring = cycle[:-1]
+                pivot = min(range(len(ring)), key=lambda i: ring[i])
+                normalized = tuple(ring[pivot:] + ring[:pivot])
+                if normalized not in seen_signatures:
+                    seen_signatures.add(normalized)
+                    cycles_found.append(cycle)
+                continue
+            if neighbor not in edges:
+                continue  # Missing dep — handled separately
+            visiting.add(neighbor)
+            path.append(neighbor)
+            dfs(neighbor, path, visiting)
+            path.pop()
+            visiting.remove(neighbor)
+
+    for start in edges:
+        dfs(start, [start], {start})
+
+    return cycles_found
+
+
+def render_dependency_diagram(graph: DependencyGraph) -> str:
+    """Render a DependencyGraph as a Mermaid flowchart.
+
+    Mermaid is the de-facto standard for Markdown-embedded diagrams
+    (GitHub, GitLab, and most documentation pipelines render it
+    natively), so the output drops straight into a README without any
+    extra tooling. The diagram uses ``graph TD`` (top-down) so root
+    agents appear at the top and leaves at the bottom, matching how
+    most readers walk a dependency tree.
+
+    The rendering deliberately surfaces structural problems visually:
+
+    - Missing dependencies render as nodes with the prefix
+      ``MISSING:`` so they stand out in the diagram.
+    - Cycle edges are tagged as ``-.->`` (dotted) so a reader sees the
+      cycle without needing to cross-reference the ``cycles`` field.
+
+    Args:
+        graph: The dependency graph to render.
+
+    Returns:
+        A complete Mermaid diagram block, including the fenced-code
+        wrapper Markdown renderers expect (``" ```mermaid ... ``` "``).
+        Empty graph returns the wrapper with just the directive line so
+        downstream parsers always see a valid Mermaid block.
+    """
+    lines: list[str] = ["```mermaid", "graph TD"]
+
+    if not graph.edges:
+        lines.append("```")
+        return "\n".join(lines)
+
+    # Track edges that participate in a cycle so they can be rendered
+    # with the dotted arrow style. Build a set of (from, to) pairs by
+    # walking each cycle path.
+    cycle_edges: set[tuple[str, str]] = set()
+    for cycle in graph.cycles:
+        for i in range(len(cycle) - 1):
+            cycle_edges.add((cycle[i], cycle[i + 1]))
+
+    # Emit every node first so isolated agents (no dependencies, not
+    # depended on) still appear in the diagram.
+    for name in graph.edges:
+        safe = _mermaid_id(name)
+        lines.append(f"    {safe}[{name}]")
+
+    # Emit edges. Mermaid uses ``A --> B`` for "A depends on B" — we
+    # follow the dependency direction (depender → dependency) so the
+    # arrow visually points at what each agent needs.
+    for name, deps in graph.edges.items():
+        src = _mermaid_id(name)
+        for dep in deps:
+            dst = _mermaid_id(dep)
+            arrow = "-.->" if (name, dep) in cycle_edges else "-->"
+            if dep in graph.missing_dependencies.get(name, []):
+                # Inline-declare the missing node with a MISSING: prefix
+                # so it stands out from regular agents.
+                lines.append(f"    {src} {arrow} {dst}[MISSING: {dep}]")
+            else:
+                lines.append(f"    {src} {arrow} {dst}")
+
+    lines.append("```")
+    return "\n".join(lines)
+
+
+def _mermaid_id(name: str) -> str:
+    """Convert an agent name to a Mermaid-safe node identifier.
+
+    Mermaid identifiers cannot contain hyphens or special characters,
+    so we substitute underscores. The original name is preserved as
+    the node label (in square brackets) so the diagram still reads
+    naturally.
+    """
+    return "".join(c if c.isalnum() else "_" for c in name)
+
+
+def render_dependency_readme_section(graph: DependencyGraph) -> str:
+    """Render the dependency graph as a README-ready Markdown section.
+
+    Combines the Mermaid diagram with prose summaries the diagram
+    cannot convey: a roots list (entry points for top-down reading), a
+    cycle warning when applicable, and a missing-dependency callout.
+    Always emits the same heading (``## Agent Dependencies``) so the
+    section can be located and replaced by automated documentation
+    pipelines.
+    """
+    lines: list[str] = ["## Agent Dependencies", ""]
+
+    if not graph.edges:
+        lines.append("_No agents to document._")
+        lines.append("")
+        return "\n".join(lines)
+
+    lines.append(render_dependency_diagram(graph))
+    lines.append("")
+
+    if graph.roots:
+        lines.append("**Entry points:** " + ", ".join(f"`{r}`" for r in graph.roots))
+        lines.append("")
+
+    if graph.cycles:
+        lines.append("> **Warning:** Circular dependencies detected:")
+        lines.append("")
+        for cycle in graph.cycles:
+            arrow_chain = " → ".join(cycle)
+            lines.append(f"> - {arrow_chain}")
+        lines.append("")
+
+    if graph.missing_dependencies:
+        lines.append("> **Warning:** Missing dependencies (referenced but not defined):")
+        lines.append("")
+        for name, missing in graph.missing_dependencies.items():
+            for m in missing:
+                lines.append(f"> - `{name}` → `{m}`")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 def _schema_fields(schema: dict[str, Any]) -> set[str]:
     """Extract top-level field names from a JSON-schema-like dict.
 
@@ -1121,10 +1378,23 @@ def load_agent_spec(file_path: Path | str) -> AgentSpec | None:
     tools_str = frontmatter.get("tools", "")
     tools = [t.strip() for t in tools_str.split(",") if t.strip()]
 
+    # Dependencies may be declared as a YAML list (``dependencies: [a, b]``)
+    # or as a comma-separated string (``dependencies: "a, b"``). Accept both
+    # so authors can use whichever feels natural; downstream code only sees
+    # the parsed list.
+    deps_raw = frontmatter.get("dependencies", [])
+    if isinstance(deps_raw, str):
+        dependencies = [d.strip() for d in deps_raw.split(",") if d.strip()]
+    elif isinstance(deps_raw, list):
+        dependencies = [str(d).strip() for d in deps_raw if str(d).strip()]
+    else:
+        dependencies = []
+
     return AgentSpec(
         name=name,
         description=description,
         tools=tools,
+        dependencies=dependencies,
     )
 
 
@@ -1172,6 +1442,22 @@ def main() -> None:
     check_parser = subparsers.add_parser("check", help="Check compatibility")
     check_parser.add_argument("agents", nargs="+", help="Agent files to check")
 
+    # Dependency-graph command — renders the dependency graph as a
+    # Mermaid diagram (default) or full README section. Exits non-zero
+    # when circular dependencies are detected so CI pipelines can gate
+    # on graph health.
+    deps_parser = subparsers.add_parser(
+        "deps",
+        help="Render agent dependency graph (Mermaid diagram + cycle detection)",
+    )
+    deps_parser.add_argument("agents", nargs="+", help="Agent files to analyze")
+    deps_parser.add_argument(
+        "--format",
+        choices=["mermaid", "readme"],
+        default="mermaid",
+        help="Output format (default: mermaid diagram only)",
+    )
+
     args = parser.parse_args()
 
     if args.command == "sequential":
@@ -1206,6 +1492,18 @@ def main() -> None:
             print(msg)
         else:
             print(f"Error: {result.errors}")
+
+    elif args.command == "deps":
+        agents = [load_agent_spec(f) for f in args.agents]
+        agents = [a for a in agents if a is not None]
+        graph = build_dependency_graph(agents)
+        if args.format == "readme":
+            print(render_dependency_readme_section(graph))
+        else:
+            print(render_dependency_diagram(graph))
+        # Exit non-zero on cycles so CI pipelines can fail closed.
+        if graph.cycles:
+            raise SystemExit(2)
 
     elif args.command == "check":
         agents = [load_agent_spec(f) for f in args.agents]
