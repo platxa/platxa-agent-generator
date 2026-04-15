@@ -8959,6 +8959,212 @@ class TestXmlNestedTagStructure:
         assert result.stdout.strip() == "True list"
 
 
+class TestAgentDiffComparison:
+    """Tests for agent diff comparison in agent_versioning.py (feature #59).
+
+    Covers:
+    - diff_agents detects frontmatter additions / removals / changes
+      (excluding tools, which are handled separately)
+    - diff_agents detects tool additions and removals as sorted lists
+    - diff_agents detects section additions / removals / modifications
+    - whitespace-only section changes do not count as modified
+    - is_empty() returns True for identical content, False otherwise
+    - format_agent_diff renders human-readable output with +/-/~ symbols
+    - format_agent_diff returns "No changes." for empty diff
+    - format_agent_diff omits empty subsections (no "Tools:" header when
+      no tool changes)
+    - CLI ``diff`` subcommand prints expected output and exits 0
+    - CLI ``diff`` exits non-zero when a path is missing
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_diff_detects_frontmatter_changes(self) -> None:
+        """Frontmatter add/remove/change populate the right buckets."""
+        result = self._run_py(
+            "from agent_versioning import diff_agents\n"
+            "old = '---\\nname: a\\nmodel: sonnet\\nold_field: x\\n---\\n'\n"
+            "new = '---\\nname: b\\nmodel: sonnet\\nnew_field: y\\n---\\n'\n"
+            "d = diff_agents(old, new)\n"
+            "print(sorted(d.frontmatter_added), sorted(d.frontmatter_removed),"
+            " sorted(d.frontmatter_changed))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "['new_field'] ['old_field'] ['name']"
+
+    def test_diff_detects_tool_changes(self) -> None:
+        """Tool additions and removals are sorted lists, set semantics."""
+        result = self._run_py(
+            "from agent_versioning import diff_agents\n"
+            "old = '---\\nname: x\\ntools: Read, Grep, WebFetch\\n---\\n'\n"
+            "new = '---\\nname: x\\ntools: Read, Bash, Edit\\n---\\n'\n"
+            "d = diff_agents(old, new)\n"
+            "print(d.tools_added, d.tools_removed)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "['Bash', 'Edit'] ['Grep', 'WebFetch']"
+
+    def test_diff_excludes_tools_from_frontmatter_diff(self) -> None:
+        """Changing tools must not appear in frontmatter_changed."""
+        result = self._run_py(
+            "from agent_versioning import diff_agents\n"
+            "old = '---\\nname: x\\ntools: Read\\n---\\n'\n"
+            "new = '---\\nname: x\\ntools: Bash\\n---\\n'\n"
+            "d = diff_agents(old, new)\n"
+            "print('FM_CHANGED' if d.frontmatter_changed else 'FM_OK',"
+            " 'TOOLS_OK' if d.tools_added and d.tools_removed else 'TOOLS_BAD')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "FM_OK TOOLS_OK"
+
+    def test_diff_detects_section_add_remove_change(self) -> None:
+        """Sections added, removed, and modified land in correct buckets."""
+        result = self._run_py(
+            "from agent_versioning import diff_agents\n"
+            "old = '---\\nname: x\\n---\\n## Overview\\nold body\\n## Removed Sec\\nbye'\n"
+            "new = '---\\nname: x\\n---\\n## Overview\\nNEW body\\n## Added Sec\\nhi'\n"
+            "d = diff_agents(old, new)\n"
+            "print(d.sections_added, d.sections_removed, d.sections_changed)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "['Added Sec'] ['Removed Sec'] ['Overview']"
+
+    def test_diff_ignores_whitespace_only_section_changes(self) -> None:
+        """Bodies differing only in trailing space / blank lines are equal."""
+        result = self._run_py(
+            "from agent_versioning import diff_agents\n"
+            "old = '---\\nname: x\\n---\\n## Sec\\nbody line\\n'\n"
+            "new = '---\\nname: x\\n---\\n## Sec\\nbody line   \\n\\n\\n'\n"
+            "d = diff_agents(old, new)\n"
+            "print(d.sections_changed, d.is_empty())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "[] True"
+
+    def test_diff_is_empty_for_identical_content(self) -> None:
+        """Identical content yields an empty diff."""
+        result = self._run_py(
+            "from agent_versioning import diff_agents\n"
+            "c = '---\\nname: x\\ntools: Read\\n---\\n## A\\nbody'\n"
+            "d = diff_agents(c, c)\n"
+            "print(d.is_empty())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_diff_is_empty_returns_false_when_any_change(self) -> None:
+        """Adding a single tool flips is_empty to False."""
+        result = self._run_py(
+            "from agent_versioning import diff_agents\n"
+            "old = '---\\nname: x\\ntools: Read\\n---\\n'\n"
+            "new = '---\\nname: x\\ntools: Read, Bash\\n---\\n'\n"
+            "d = diff_agents(old, new)\n"
+            "print(d.is_empty())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
+
+    def test_format_renders_human_readable_with_symbols(self) -> None:
+        """Output uses +/-/~ markers and segregates frontmatter/tools/sections."""
+        result = self._run_py(
+            "from agent_versioning import diff_agents, format_agent_diff\n"
+            "old = '---\\nname: a\\ntools: Read, WebFetch\\n---\\n## A\\nold'\n"
+            "new = '---\\nname: b\\ntools: Read, Bash\\n---\\n## A\\nnew\\n## B\\nhi'\n"
+            "out = format_agent_diff(diff_agents(old, new))\n"
+            "checks = [\n"
+            "    'Agent Diff' in out,\n"
+            "    'Frontmatter:' in out,\n"
+            "    'Tools:' in out,\n"
+            "    'Sections:' in out,\n"
+            "    \"~ name: 'a' -> 'b'\" in out,\n"
+            "    '+ Added: Bash' in out,\n"
+            "    '- Removed: WebFetch' in out,\n"
+            "    '~ Changed: A' in out,\n"
+            "    '+ Added: B' in out,\n"
+            "]\n"
+            "print(all(checks), checks.count(False))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True 0"
+
+    def test_format_returns_no_changes_for_empty_diff(self) -> None:
+        """Empty diff renders as a stable single-line marker."""
+        result = self._run_py(
+            "from agent_versioning import AgentDiff, format_agent_diff\n"
+            "print(repr(format_agent_diff(AgentDiff())))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "'No changes.\\n'"
+
+    def test_format_omits_empty_subsections(self) -> None:
+        """Diff with only tool changes omits Frontmatter and Sections headings."""
+        result = self._run_py(
+            "from agent_versioning import diff_agents, format_agent_diff\n"
+            "old = '---\\nname: x\\ntools: Read\\n---\\n'\n"
+            "new = '---\\nname: x\\ntools: Read, Bash\\n---\\n'\n"
+            "out = format_agent_diff(diff_agents(old, new))\n"
+            "print('Tools:' in out, 'Frontmatter:' not in out, 'Sections:' not in out)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True True"
+
+    def test_cli_diff_command_prints_diff_and_exits_zero(self) -> None:
+        """``versions diff old new`` prints the formatted diff and exits 0."""
+        import subprocess
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            old_path = Path(tmp) / "old.md"
+            new_path = Path(tmp) / "new.md"
+            old_path.write_text("---\nname: a\ntools: Read\n---\n## A\nold\n")
+            new_path.write_text("---\nname: b\ntools: Read\n---\n## A\nold\n")
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(Path(__file__).parent.parent / "scripts" / "agent_versioning.py"),
+                    "diff",
+                    str(old_path),
+                    str(new_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            assert result.returncode == 0, result.stderr
+            assert "Agent Diff" in result.stdout
+            assert "~ name: 'a' -> 'b'" in result.stdout
+
+    def test_cli_diff_command_exits_nonzero_on_missing_file(self) -> None:
+        """Missing path causes the CLI to exit with non-zero status."""
+        import subprocess
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).parent.parent / "scripts" / "agent_versioning.py"),
+                "diff",
+                "/nonexistent/old.md",
+                "/nonexistent/new.md",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert result.returncode != 0
+        assert "not found" in result.stdout.lower()
+
+
 class TestAgentRegenerationWorkflow:
     """Tests for the regeneration workflow in agent_versioning.py (feature #58).
 

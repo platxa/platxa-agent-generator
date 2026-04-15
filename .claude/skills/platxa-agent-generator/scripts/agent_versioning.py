@@ -998,6 +998,284 @@ def detect_breaking_changes(old_content: str, new_content: str) -> list[Breaking
     return signals
 
 
+@dataclass
+class AgentDiff:
+    """Comprehensive diff between two agent versions for human review.
+
+    Sibling to :class:`BreakingChangeSignal` but broader: this captures
+    *every* observable difference (additions, removals, modifications)
+    across frontmatter, tools, and markdown sections — not just changes
+    that break external callers. It is the data model behind the
+    ``versions diff`` CLI command and is rendered by
+    :func:`format_agent_diff` for terminal output.
+
+    Tool changes are reported separately from the rest of the
+    frontmatter because tools are list-valued (set semantics: order does
+    not matter, additions and removals are independent) and rendering
+    them as a single "before/after" string would obscure the actual
+    capability shift the reviewer cares about.
+
+    Section changes are ordered by markdown header text. The header
+    itself is the section identifier — bodies are compared verbatim
+    (whitespace-insensitive) to decide whether a section changed.
+
+    Fields:
+        frontmatter_added: ``{field: new_value}`` for fields present in
+            the new version but absent in the old. ``tools`` is excluded
+            (handled by ``tools_added`` / ``tools_removed``).
+        frontmatter_removed: ``{field: old_value}`` for fields present
+            in the old version but absent in the new. ``tools``
+            excluded.
+        frontmatter_changed: ``{field: (old_value, new_value)}`` for
+            fields present in both versions whose value changed.
+            ``tools`` excluded.
+        tools_added: Tool names declared in the new version but not the
+            old, sorted alphabetically for deterministic output.
+        tools_removed: Tool names declared in the old version but not
+            the new, sorted alphabetically.
+        sections_added: Markdown header text for sections present only
+            in the new version, in the order they appear in that
+            version.
+        sections_removed: Markdown header text for sections present
+            only in the old version, in the order they appeared there.
+        sections_changed: Markdown header text for sections present in
+            both versions whose body content (whitespace-normalized)
+            differs.
+    """
+
+    frontmatter_added: dict[str, str] = field(default_factory=dict)
+    frontmatter_removed: dict[str, str] = field(default_factory=dict)
+    frontmatter_changed: dict[str, tuple[str, str]] = field(default_factory=dict)
+    tools_added: list[str] = field(default_factory=list)
+    tools_removed: list[str] = field(default_factory=list)
+    sections_added: list[str] = field(default_factory=list)
+    sections_removed: list[str] = field(default_factory=list)
+    sections_changed: list[str] = field(default_factory=list)
+
+    def is_empty(self) -> bool:
+        """``True`` when no observable difference exists between the versions.
+
+        Useful for short-circuiting renderers (skip the "no changes"
+        boilerplate when called from a CLI that pipes output) and for
+        regression tests asserting that round-tripping does not
+        introduce phantom diffs.
+        """
+        return (
+            not self.frontmatter_added
+            and not self.frontmatter_removed
+            and not self.frontmatter_changed
+            and not self.tools_added
+            and not self.tools_removed
+            and not self.sections_added
+            and not self.sections_removed
+            and not self.sections_changed
+        )
+
+
+# Section keys produced by ``parse_markdown_sections`` that are not actual
+# user-facing sections. ``__frontmatter__`` is handled by the frontmatter
+# diff; ``__intro__`` is the implicit pre-header content (often empty)
+# whose changes are surfaced via the frontmatter or first-real-section
+# diff. Excluding them keeps the section diff focused on named headings.
+_SECTION_DIFF_EXCLUDE_KEYS: frozenset[str] = frozenset({"__frontmatter__", "__intro__"})
+
+
+def _normalize_section_body(body: str) -> str:
+    """Collapse whitespace inside a section body for comparison.
+
+    Two sections that differ only in trailing whitespace, blank-line
+    count, or line-ending style should not be reported as changed. This
+    matches the reviewer's intuition: "did anything substantive change
+    in this section?" — not "is the byte content identical?".
+
+    Tabs are preserved (they may be load-bearing inside fenced code
+    blocks); only runs of spaces and blank lines are collapsed.
+    """
+    # Strip trailing whitespace per line, then collapse runs of blank
+    # lines into a single blank line, then strip leading/trailing
+    # whitespace on the whole body.
+    lines = [line.rstrip() for line in body.split("\n")]
+    collapsed: list[str] = []
+    prev_blank = False
+    for line in lines:
+        if not line:
+            if prev_blank:
+                continue
+            prev_blank = True
+        else:
+            prev_blank = False
+        collapsed.append(line)
+    return "\n".join(collapsed).strip()
+
+
+def diff_agents(old_content: str, new_content: str) -> AgentDiff:
+    """Compute a comprehensive diff between two agent file contents.
+
+    The diff is symmetric in structure but directional in meaning: every
+    "added" / "removed" label is from the perspective of the *new*
+    version (added = present in new but not old; removed = present in
+    old but not new). This matches how a reviewer reads a PR: "what did
+    this change introduce or take away?".
+
+    Three independent diffs are computed and packaged into one
+    :class:`AgentDiff`:
+
+    1. **Frontmatter** — every field except ``tools`` is treated as a
+       single string value; differences are categorized as added,
+       removed, or changed. Quotes are stripped during parsing so
+       ``name: "x"`` and ``name: x`` compare equal.
+    2. **Tools** — split into a set with :func:`_split_tools` so order
+       and whitespace are normalized; reported as alphabetically sorted
+       added / removed lists. A tool that exists in both with the same
+       name is unchanged (there is no "tool body" to diff).
+    3. **Sections** — markdown bodies are parsed by
+       :func:`parse_markdown_sections` and compared with whitespace
+       normalization. The internal ``__frontmatter__`` and ``__intro__``
+       keys are filtered out because they are not user-facing sections.
+
+    Args:
+        old_content: The previous agent file content (with frontmatter).
+        new_content: The new agent file content (with frontmatter).
+
+    Returns:
+        An :class:`AgentDiff` populated with every observed difference.
+        Use :meth:`AgentDiff.is_empty` to check for "no changes".
+    """
+    old_fm = _parse_frontmatter_fields(old_content)
+    new_fm = _parse_frontmatter_fields(new_content)
+
+    # Frontmatter diff (excluding tools — handled separately because
+    # set-valued comparison gives a more useful signal than string
+    # comparison would).
+    diff = AgentDiff()
+    old_keys = set(old_fm) - {"tools"}
+    new_keys = set(new_fm) - {"tools"}
+    for key in sorted(new_keys - old_keys):
+        diff.frontmatter_added[key] = new_fm[key]
+    for key in sorted(old_keys - new_keys):
+        diff.frontmatter_removed[key] = old_fm[key]
+    for key in sorted(old_keys & new_keys):
+        if old_fm[key] != new_fm[key]:
+            diff.frontmatter_changed[key] = (old_fm[key], new_fm[key])
+
+    # Tools diff — set-valued. A tool absent from the frontmatter parses
+    # as the empty string, which ``_split_tools`` correctly returns as
+    # an empty set; that means "agent had no tools field" and "agent
+    # had an empty tools field" are treated identically (correct: both
+    # mean the agent declared no tools).
+    old_tools = _split_tools(old_fm.get("tools", ""))
+    new_tools = _split_tools(new_fm.get("tools", ""))
+    diff.tools_added = sorted(new_tools - old_tools)
+    diff.tools_removed = sorted(old_tools - new_tools)
+
+    # Section diff. parse_markdown_sections returns a dict whose
+    # iteration order matches source order in Python 3.7+, so iterating
+    # the new sections preserves the order a reviewer reads.
+    old_sections = parse_markdown_sections(old_content)
+    new_sections = parse_markdown_sections(new_content)
+    old_section_keys = [k for k in old_sections if k not in _SECTION_DIFF_EXCLUDE_KEYS]
+    new_section_keys = [k for k in new_sections if k not in _SECTION_DIFF_EXCLUDE_KEYS]
+    old_section_set = set(old_section_keys)
+    new_section_set = set(new_section_keys)
+
+    diff.sections_added = [k for k in new_section_keys if k not in old_section_set]
+    diff.sections_removed = [k for k in old_section_keys if k not in new_section_set]
+    for key in new_section_keys:
+        if key in old_section_set:
+            old_body = _normalize_section_body(old_sections[key])
+            new_body = _normalize_section_body(new_sections[key])
+            if old_body != new_body:
+                diff.sections_changed.append(key)
+
+    return diff
+
+
+# Symbols used in formatted diff output. Centralized so the rendering
+# stays consistent across CLI, logs, and any embedding (e.g., changelog
+# entries). Mirrors the standard +/-/~ convention used by ``diff`` and
+# ``git`` so reviewers don't have to learn a new language.
+_DIFF_SYMBOL_ADDED: str = "+"
+_DIFF_SYMBOL_REMOVED: str = "-"
+_DIFF_SYMBOL_CHANGED: str = "~"
+
+
+def format_agent_diff(diff: AgentDiff) -> str:
+    """Render an :class:`AgentDiff` as a human-readable plain-text report.
+
+    Output structure (sections appear only when non-empty so the report
+    stays focused on actual changes):
+
+    ::
+
+        Agent Diff
+        ==========
+
+        Frontmatter:
+          ~ name: 'old' -> 'new'
+          + new_field: 'value'
+          - removed_field: 'value'
+
+        Tools:
+          + Added: Bash, Edit
+          - Removed: WebFetch
+
+        Sections:
+          + Added: ## New Section
+          - Removed: ## Old Section
+          ~ Changed: ## Workflow
+
+    The ``+`` / ``-`` / ``~`` symbols match git's diff convention so
+    reviewers can read the output without a key. When the diff is empty
+    a single ``"No changes."`` line is returned — non-empty so callers
+    that pipe to other tools always see a definite signal.
+
+    Args:
+        diff: Result of :func:`diff_agents`.
+
+    Returns:
+        Plain-text report. Always has a trailing newline so concatenating
+        multiple diffs produces clean blocks.
+    """
+    if diff.is_empty():
+        return "No changes.\n"
+
+    lines: list[str] = ["Agent Diff", "=========="]
+
+    if diff.frontmatter_added or diff.frontmatter_removed or diff.frontmatter_changed:
+        lines.append("")
+        lines.append("Frontmatter:")
+        # Order: changed (most common), added, removed. Within each
+        # bucket sort by field name for deterministic output.
+        for key in sorted(diff.frontmatter_changed):
+            old_val, new_val = diff.frontmatter_changed[key]
+            lines.append(f"  {_DIFF_SYMBOL_CHANGED} {key}: '{old_val}' -> '{new_val}'")
+        for key in sorted(diff.frontmatter_added):
+            lines.append(f"  {_DIFF_SYMBOL_ADDED} {key}: '{diff.frontmatter_added[key]}'")
+        for key in sorted(diff.frontmatter_removed):
+            lines.append(f"  {_DIFF_SYMBOL_REMOVED} {key}: '{diff.frontmatter_removed[key]}'")
+
+    if diff.tools_added or diff.tools_removed:
+        lines.append("")
+        lines.append("Tools:")
+        if diff.tools_added:
+            lines.append(f"  {_DIFF_SYMBOL_ADDED} Added: {', '.join(diff.tools_added)}")
+        if diff.tools_removed:
+            lines.append(f"  {_DIFF_SYMBOL_REMOVED} Removed: {', '.join(diff.tools_removed)}")
+
+    if diff.sections_added or diff.sections_removed or diff.sections_changed:
+        lines.append("")
+        lines.append("Sections:")
+        for key in diff.sections_added:
+            lines.append(f"  {_DIFF_SYMBOL_ADDED} Added: {key}")
+        for key in diff.sections_removed:
+            lines.append(f"  {_DIFF_SYMBOL_REMOVED} Removed: {key}")
+        for key in diff.sections_changed:
+            lines.append(f"  {_DIFF_SYMBOL_CHANGED} Changed: {key}")
+
+    lines.append("")
+    return "\n".join(lines)
+
+
 def regenerate_agent(
     agent_path: Path,
     new_content: str,
@@ -1253,6 +1531,15 @@ if __name__ == "__main__":
     init_parser.add_argument("agent", help="Path to agent file")
     init_parser.add_argument("-v", "--version", default="1.0.0", help="Initial version")
 
+    # Diff command — compare two agent files (paths) and print the
+    # human-readable diff. Useful for code review and changelog drafting.
+    diff_parser = subparsers.add_parser(
+        "diff",
+        help="Diff two agent versions and print human-readable changes",
+    )
+    diff_parser.add_argument("old", help="Path to the old agent file")
+    diff_parser.add_argument("new", help="Path to the new agent file")
+
     args = parser.parse_args()
 
     if args.command == "version":
@@ -1305,6 +1592,21 @@ if __name__ == "__main__":
     elif args.command == "init":
         history = create_initial_version(Path(args.agent), version=args.version)
         print(f"Initialized versioning for {history.agent_name} at v{history.current_version}")
+
+    elif args.command == "diff":
+        old_path = Path(args.old)
+        new_path = Path(args.new)
+        if not old_path.exists():
+            print(f"Old agent not found: {old_path}")
+            raise SystemExit(1)
+        if not new_path.exists():
+            print(f"New agent not found: {new_path}")
+            raise SystemExit(1)
+        diff = diff_agents(old_path.read_text(), new_path.read_text())
+        # ``end=""`` because format_agent_diff already terminates with
+        # a newline; print() would add a second one, distorting downstream
+        # piping (e.g. into changelog generation).
+        print(format_agent_diff(diff), end="")
 
     else:
         parser.print_help()
