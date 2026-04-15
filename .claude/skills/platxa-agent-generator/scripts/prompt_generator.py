@@ -15,6 +15,36 @@ from typing import Any
 
 
 @dataclass
+class DomainKnowledge:
+    """A unit of domain knowledge attachable to an agent.
+
+    Each entry carries both a path (for emitting Claude Code's
+    ``@path/to/file`` import syntax when the combined corpus is large
+    enough to merit externalization) and the inline content (used when
+    the corpus is small enough to embed directly in the prompt). The
+    pair lets the renderer decide based on actual size rather than
+    forcing the caller to choose up front.
+
+    Fields:
+        import_path: Path used when emitting an ``@import`` reference.
+            Should be relative to the project root or expressed as a
+            user-home path so Claude Code's loader can resolve it
+            (``@.claude/agents/foo-context.md`` works for project
+            scope; ``@~/.claude/foo-context.md`` for user scope).
+        content: The actual knowledge text. Used when the corpus is
+            small enough to inline; written to ``import_path`` by the
+            caller when the renderer chose to externalize.
+        title: Optional short heading shown above the inlined content
+            (or above the @import line) so the agent can identify
+            sections at a glance. Empty string suppresses the heading.
+    """
+
+    import_path: str
+    content: str
+    title: str = ""
+
+
+@dataclass
 class PromptConfig:
     """Configuration for prompt generation."""
 
@@ -45,6 +75,17 @@ class PromptConfig:
     # markdown / legacy modes the same content renders as a "**Examples:**"
     # bullet list. Empty list (default) suppresses the section entirely.
     examples: list[str] = field(default_factory=list)
+    # Optional domain knowledge to attach to the agent. When the combined
+    # token estimate exceeds ``DOMAIN_KNOWLEDGE_IMPORT_THRESHOLD_TOKENS``
+    # the rendered prompt switches from inlining each entry's content to
+    # emitting Claude Code's ``@path/to/file`` import syntax — so the
+    # agent's own prompt stays compact and Claude resolves the import
+    # transparently at load time. Each entry has both a path (for the
+    # @import line) and inline content (used when below threshold). The
+    # caller is responsible for ensuring ``import_path`` actually points
+    # to a file on disk before the agent runs; the generator only emits
+    # the reference.
+    domain_knowledge: list[DomainKnowledge] = field(default_factory=list)
 
 
 # Canonical ordering for the 4-block prompt structure. These are exported so
@@ -63,6 +104,99 @@ PROMPT_BLOCK_XML_TAGS: tuple[str, ...] = ("instructions", "context", "task", "ou
 NESTED_XML_TAGS: tuple[str, ...] = ("constraints", "examples")
 # Valid values for PromptConfig.structure_format.
 STRUCTURE_FORMATS: tuple[str, ...] = ("legacy", "markdown", "xml")
+
+# Token threshold above which the renderer switches from inlining
+# domain-knowledge entries to emitting Claude Code's @import references.
+# 2000 tokens is the design target from the spec for feature #73 — large
+# enough that small reference notes stay inline (cheap to read), small
+# enough that anything reference-heavy gets externalized so the agent's
+# own prompt stays under control.
+DOMAIN_KNOWLEDGE_IMPORT_THRESHOLD_TOKENS: int = 2000
+
+# Heading rendered above the domain-knowledge section. Public for tests
+# and downstream parsers that want to locate the section by exact label.
+DOMAIN_KNOWLEDGE_HEADING: str = "**Domain Knowledge:**"
+
+
+def estimate_tokens(text: str) -> int:
+    """Estimate token count for a string.
+
+    Uses the well-known ~4-characters-per-token heuristic that the
+    OpenAI / Anthropic tokenizer documentation cites as a reasonable
+    rule of thumb for English prose. Avoiding a real tokenizer keeps
+    this module zero-dependency; the import-vs-inline decision only
+    needs an order-of-magnitude estimate, not exact accuracy. Empty
+    input returns 0.
+    """
+    if not text:
+        return 0
+    # Round half-up so a single short line never reports 0 tokens.
+    return max(1, (len(text) + 3) // 4)
+
+
+def total_domain_knowledge_tokens(items: list[DomainKnowledge]) -> int:
+    """Sum the token estimates across a list of domain-knowledge entries."""
+    return sum(estimate_tokens(item.content) for item in items)
+
+
+def should_use_domain_knowledge_imports(
+    items: list[DomainKnowledge],
+    threshold_tokens: int = DOMAIN_KNOWLEDGE_IMPORT_THRESHOLD_TOKENS,
+) -> bool:
+    """Decide whether to externalize domain knowledge as @import refs.
+
+    Returns ``True`` when the combined token estimate strictly exceeds
+    the threshold. Equality returns ``False`` so the threshold acts as
+    "anything larger than this" — matches the spec language ("larger
+    than 2000 tokens"). Empty list always returns ``False``.
+    """
+    if not items:
+        return False
+    return total_domain_knowledge_tokens(items) > threshold_tokens
+
+
+def format_domain_knowledge_block(
+    items: list[DomainKnowledge],
+    threshold_tokens: int = DOMAIN_KNOWLEDGE_IMPORT_THRESHOLD_TOKENS,
+) -> str:
+    """Render a list of DomainKnowledge entries for the CONTEXT block.
+
+    Decides between inline and @import based on
+    :func:`should_use_domain_knowledge_imports`. Both modes emit a
+    leading :data:`DOMAIN_KNOWLEDGE_HEADING` so the agent (and any
+    downstream parser) can locate the section by exact string. Empty
+    input returns the empty string so the caller can suppress the
+    section entirely.
+
+    @import mode: one ``@<path>`` line per entry, prefixed by the
+    optional title. Claude Code's CLAUDE.md loader resolves these
+    transparently at agent-load time, keeping the agent's own prompt
+    compact even when the underlying knowledge is large.
+
+    Inline mode: each entry's title (when present) becomes a subheading,
+    followed by the verbatim content. Used when the corpus is small
+    enough that the @import indirection would just add noise.
+    """
+    if not items:
+        return ""
+
+    use_imports = should_use_domain_knowledge_imports(items, threshold_tokens)
+    lines: list[str] = [DOMAIN_KNOWLEDGE_HEADING]
+    if use_imports:
+        for item in items:
+            if item.title:
+                lines.append(f"- {item.title}: @{item.import_path}")
+            else:
+                lines.append(f"- @{item.import_path}")
+    else:
+        for item in items:
+            lines.append("")
+            if item.title:
+                lines.append(f"### {item.title}")
+                lines.append("")
+            lines.append(item.content)
+    return "\n".join(lines)
+
 
 # Heading rendered above the context-management bullets when
 # ``PromptConfig.long_running`` is True. Public so tests and quality
@@ -783,6 +917,18 @@ def generate_prompt_blocks(config: PromptConfig) -> PromptBlocks:
             context_lines.append("**Examples:**")
             for example in config.examples:
                 context_lines.append(f"- {example}")
+    # Domain knowledge — emitted before subagent guidance because it is
+    # background reading the agent draws on, while subagent delegation
+    # and context-management are environment-aware *practices*. Putting
+    # the reference material first matches how humans read briefings
+    # ("here are the facts, here is how to behave"). The renderer
+    # decides between inlining the content and emitting @import refs
+    # based on the combined token estimate, so the agent's own prompt
+    # stays compact when the corpus is large.
+    domain_knowledge_block = format_domain_knowledge_block(config.domain_knowledge)
+    if domain_knowledge_block:
+        context_lines.append("")
+        context_lines.append(domain_knowledge_block)
     # Subagent delegation is the *mechanism* for keeping context lean; the
     # broader Context Management section that may follow references it.
     # Order matters: tell the agent how to delegate before telling it when

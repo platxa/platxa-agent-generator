@@ -9633,6 +9633,195 @@ class TestProgressTrackerTodoWrite:
             assert result.stdout.strip() == "[]"
 
 
+class TestDomainKnowledgeImports:
+    """Tests for CLAUDE.md @import support in prompt_generator.py (feature #73).
+
+    Covers:
+    - estimate_tokens uses ~4 chars/token heuristic; empty → 0; tiny → 1
+    - total_domain_knowledge_tokens sums across entries
+    - should_use_domain_knowledge_imports: empty → False; under threshold
+      → False; equal to threshold → False (strict greater-than); over → True
+    - format_domain_knowledge_block: empty input → empty string
+    - Inline mode: emits content under section heading with optional title
+    - Import mode: emits @path references when content exceeds threshold
+    - Per-entry title surfaced in both modes
+    - Generated agent: small corpus → content inlined in CONTEXT
+    - Generated agent: large corpus → @import paths in CONTEXT, content NOT
+      inlined (verifies the actual size-driven switch)
+    - PromptConfig.domain_knowledge defaults to empty list (backwards compat)
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_estimate_tokens_basic_cases(self) -> None:
+        """Empty → 0, tiny → 1, ~4 chars per token approximation."""
+        result = self._run_py(
+            "from prompt_generator import estimate_tokens\n"
+            "print(estimate_tokens(''))\n"
+            "print(estimate_tokens('x'))\n"
+            "# 400 chars → ~100 tokens (4 chars/token heuristic)\n"
+            "print(estimate_tokens('a' * 400))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["0", "1", "100"]
+
+    def test_total_tokens_sums_across_entries(self) -> None:
+        """total_domain_knowledge_tokens aggregates the per-entry estimate."""
+        result = self._run_py(
+            "from prompt_generator import DomainKnowledge, total_domain_knowledge_tokens\n"
+            "items = [DomainKnowledge(import_path='a', content='a' * 400),\n"
+            "         DomainKnowledge(import_path='b', content='b' * 800)]\n"
+            "print(total_domain_knowledge_tokens(items))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "300"
+
+    def test_should_use_imports_threshold_behavior(self) -> None:
+        """Empty/under/at/over the threshold all map to expected booleans."""
+        result = self._run_py(
+            "from prompt_generator import DomainKnowledge, should_use_domain_knowledge_imports\n"
+            "empty = []\n"
+            "# 100 chars → 25 tokens, well under threshold of 50\n"
+            "small = [DomainKnowledge(import_path='a', content='a' * 100)]\n"
+            "# Exactly 50 tokens (200 chars / 4) → at threshold\n"
+            "at = [DomainKnowledge(import_path='b', content='b' * 200)]\n"
+            "# 60 tokens (240 chars / 4) → over threshold\n"
+            "over = [DomainKnowledge(import_path='c', content='c' * 240)]\n"
+            "print(should_use_domain_knowledge_imports(empty, threshold_tokens=50),"
+            " should_use_domain_knowledge_imports(small, threshold_tokens=50),"
+            " should_use_domain_knowledge_imports(at, threshold_tokens=50),"
+            " should_use_domain_knowledge_imports(over, threshold_tokens=50))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False False False True"
+
+    def test_format_block_empty_returns_empty_string(self) -> None:
+        """Empty list → empty string so the caller can suppress the section."""
+        result = self._run_py(
+            "from prompt_generator import format_domain_knowledge_block\n"
+            "print(repr(format_domain_knowledge_block([])))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "''"
+
+    def test_format_block_inline_mode_below_threshold(self) -> None:
+        """Small corpus inlines content under the section heading."""
+        result = self._run_py(
+            "from prompt_generator import (\n"
+            "    DOMAIN_KNOWLEDGE_HEADING, DomainKnowledge, format_domain_knowledge_block\n"
+            ")\n"
+            "items = [DomainKnowledge(import_path='ctx.md', "
+            "content='Important fact', title='Background')]\n"
+            "out = format_domain_knowledge_block(items, threshold_tokens=2000)\n"
+            "print(DOMAIN_KNOWLEDGE_HEADING in out)\n"
+            "print('### Background' in out)\n"
+            "print('Important fact' in out)\n"
+            "print('@ctx.md' not in out)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["True", "True", "True", "True"]
+
+    def test_format_block_import_mode_above_threshold(self) -> None:
+        """Large corpus emits @import refs and OMITS the inline content."""
+        result = self._run_py(
+            "from prompt_generator import (\n"
+            "    DOMAIN_KNOWLEDGE_HEADING, DomainKnowledge, format_domain_knowledge_block\n"
+            ")\n"
+            "# 12000 chars → ~3000 tokens, well over default 2000 threshold\n"
+            "big = 'X' * 12000\n"
+            "items = [DomainKnowledge(import_path='.claude/big.md', "
+            "content=big, title='Big Reference')]\n"
+            "out = format_domain_knowledge_block(items)\n"
+            "print(DOMAIN_KNOWLEDGE_HEADING in out)\n"
+            "print('@.claude/big.md' in out)\n"
+            "print('Big Reference' in out)\n"
+            "# Content must NOT be inlined when @import is used\n"
+            "print('XXXXXX' not in out)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["True", "True", "True", "True"]
+
+    def test_format_block_handles_missing_title(self) -> None:
+        """Entries without a title still render in both modes."""
+        result = self._run_py(
+            "from prompt_generator import DomainKnowledge, format_domain_knowledge_block\n"
+            "# Inline path: no title means no '### ' heading\n"
+            "small = [DomainKnowledge(import_path='a.md', content='body', title='')]\n"
+            "inline = format_domain_knowledge_block(small, threshold_tokens=2000)\n"
+            "print('### ' not in inline, 'body' in inline)\n"
+            "# Import path: no title means '- @path' not '- title: @path'\n"
+            "big = [DomainKnowledge(import_path='b.md', content='X' * 12000, title='')]\n"
+            "imports = format_domain_knowledge_block(big)\n"
+            "print('- @b.md' in imports, ': @' not in imports)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["True True", "True True"]
+
+    def test_generate_full_prompt_inlines_small_domain_knowledge(self) -> None:
+        """Small corpus appears verbatim inside the generated agent prompt."""
+        result = self._run_py(
+            "from prompt_generator import (\n"
+            "    DomainKnowledge, PromptConfig, generate_full_prompt\n"
+            ")\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read'],[],"
+            "'JSON','markdown')\n"
+            "cfg.domain_knowledge = [DomainKnowledge(\n"
+            "    import_path='.claude/notes.md',\n"
+            "    content='OWASP Top 10 — focus on injection.',\n"
+            "    title='Reference Notes',\n"
+            ")]\n"
+            "p = generate_full_prompt(cfg).full_prompt\n"
+            "print('OWASP Top 10' in p)\n"
+            "print('@.claude/notes.md' not in p)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["True", "True"]
+
+    def test_generate_full_prompt_uses_imports_for_large_domain_knowledge(self) -> None:
+        """Above threshold: prompt cites @paths and omits the source content."""
+        result = self._run_py(
+            "from prompt_generator import (\n"
+            "    DomainKnowledge, PromptConfig, generate_full_prompt\n"
+            ")\n"
+            "cfg = PromptConfig('analyzer','security','audit',['Read'],[],"
+            "'JSON','markdown')\n"
+            "cfg.domain_knowledge = [DomainKnowledge(\n"
+            "    import_path='.claude/big-context.md',\n"
+            "    content='SECRET-MARKER ' * 1500,  # ~6000 tokens\n"
+            "    title='Comprehensive Reference',\n"
+            ")]\n"
+            "p = generate_full_prompt(cfg).full_prompt\n"
+            "print('@.claude/big-context.md' in p)\n"
+            "# Content must not be inlined when @import is used\n"
+            "print('SECRET-MARKER' not in p)\n"
+            "# Title still appears as the @import label\n"
+            "print('Comprehensive Reference' in p)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().split("\n") == ["True", "True", "True"]
+
+    def test_promptconfig_domain_knowledge_defaults_to_empty(self) -> None:
+        """Backwards compat: domain_knowledge defaults to []."""
+        result = self._run_py(
+            "from prompt_generator import PromptConfig\n"
+            "cfg = PromptConfig('a','cat','desc',['Read'],[],'JSON')\n"
+            "print(cfg.domain_knowledge == [], type(cfg.domain_knowledge).__name__)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True list"
+
+
 class TestAgentRegenerationWorkflow:
     """Tests for the regeneration workflow in agent_versioning.py (feature #58).
 
