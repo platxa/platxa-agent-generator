@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 
 class ExportFormat(Enum):
@@ -150,6 +150,23 @@ PROJECT_ROOT_CONFIG_FILES: tuple[str, ...] = (".mcp.json",)
 # ``config`` rather than ``root`` so the intent is self-documenting when a
 # human inspects an extracted bundle.
 BUNDLE_CONFIG_DIR: str = "config"
+
+
+# --- Plugin export constants ---------------------------------------------
+#
+# Claude Code plugins (the format consumed by ``/plugin install`` and the
+# plugin marketplace) follow a fixed directory layout that differs from the
+# share-bundle layout above. Constants are centralised here so the writer
+# (``export_as_plugin``), the CLI command, and the test suite all reference
+# the same names — drift between them would silently produce plugins that
+# Claude Code refuses to load.
+_PLUGIN_METADATA_DIR: str = ".claude-plugin"
+_PLUGIN_MANIFEST_FILENAME: str = "plugin.json"
+_PLUGIN_AGENTS_DIR: str = "agents"
+_PLUGIN_COMMANDS_DIR: str = "commands"
+_PLUGIN_SCRIPTS_DIR: str = "scripts"
+_PLUGIN_HOOKS_DIR: str = "hooks"
+_PLUGIN_HOOKS_FILENAME: str = "hooks.json"
 
 
 # Sensitive patterns to sanitize during export
@@ -400,6 +417,438 @@ def create_manifest(
         checksum=checksum,
         files=relative_files,
     )
+
+
+def build_plugin_manifest(manifest: PackageManifest) -> dict[str, Any]:
+    """Translate a :class:`PackageManifest` into Claude Code plugin metadata.
+
+    The plugin marketplace consumes a single ``plugin.json`` placed under
+    ``.claude-plugin/``. The schema is a strict subset of our richer
+    package manifest — only the fields a marketplace UI surfaces are
+    written, and field names align with the plugin spec rather than our
+    internal vocabulary (e.g., ``min_claude_code_version`` →
+    ``claudeCodeMinVersion``).
+
+    Empty optional fields are omitted from the output rather than emitted
+    as empty strings, because the marketplace renderer treats absent
+    fields differently from empty strings (the latter shows as a literal
+    blank line in author/license columns).
+
+    Args:
+        manifest: The internal package manifest produced by
+            :func:`create_manifest`.
+
+    Returns:
+        Dict ready to be ``json.dump``-ed into
+        ``<plugin>/.claude-plugin/plugin.json``.
+    """
+    plugin_meta: dict[str, Any] = {
+        "name": manifest.name,
+        "version": manifest.version,
+        "description": manifest.description,
+        # ``claudeCodeMinVersion`` is the spec's required gate field —
+        # the marketplace refuses to install a plugin that omits it.
+        "claudeCodeMinVersion": manifest.min_claude_code_version,
+    }
+    # Optional metadata — emit only when non-empty. The marketplace
+    # treats missing keys as "not specified"; emitting empty strings
+    # would render as blank columns in the listing.
+    if manifest.author:
+        plugin_meta["author"] = manifest.author
+    if manifest.license:
+        plugin_meta["license"] = manifest.license
+    if manifest.homepage:
+        plugin_meta["homepage"] = manifest.homepage
+    if manifest.repository:
+        plugin_meta["repository"] = manifest.repository
+    if manifest.keywords:
+        plugin_meta["keywords"] = list(manifest.keywords)
+    return plugin_meta
+
+
+def build_plugin_hooks_config(hook_files: list[Path]) -> dict[str, Any]:
+    """Generate the ``hooks/hooks.json`` body for a plugin export.
+
+    Claude Code's hooks.json declares which lifecycle events trigger
+    which scripts. The plugin format requires this file to exist even
+    when the plugin ships no hooks (the marketplace treats a missing
+    file as a malformed plugin), so the function always returns a
+    valid dict.
+
+    Behaviour:
+
+    - Empty ``hook_files`` → ``{}`` (empty hooks config; the file
+      exists, satisfies the schema, declares no hooks).
+    - Non-empty ``hook_files`` → for each script, register a
+      ``PostToolUse`` entry pointing at ``${CLAUDE_PLUGIN_ROOT}/hooks/<file>``.
+      ``PostToolUse`` is the conservative default because it cannot
+      block tool invocation; users who need ``PreToolUse`` semantics can
+      edit the generated file. The matcher is ``"*"`` so the script
+      sees every event — agents commonly want to filter inside the
+      script anyway.
+
+    The ``${CLAUDE_PLUGIN_ROOT}`` variable is the spec-defined token
+    Claude Code substitutes with the installed plugin's directory at
+    runtime, so the generated paths remain valid regardless of where
+    the plugin is installed (user vs project scope).
+
+    Args:
+        hook_files: Hook script files that will be copied into
+            ``hooks/`` of the plugin bundle.
+
+    Returns:
+        Dict ready to be ``json.dump``-ed into
+        ``<plugin>/hooks/hooks.json``.
+    """
+    if not hook_files:
+        return {}
+    entries: list[dict[str, Any]] = []
+    for hook_file in hook_files:
+        # Use the script name (relative within hooks/) so the path stays
+        # portable. ``${CLAUDE_PLUGIN_ROOT}`` is the spec's token for the
+        # installed plugin root — Claude Code resolves it at hook fire
+        # time, so the generated path works for both user and project
+        # installations.
+        entries.append(
+            {
+                "matcher": "*",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": (
+                            f"${{CLAUDE_PLUGIN_ROOT}}/{_PLUGIN_HOOKS_DIR}/{hook_file.name}"
+                        ),
+                    }
+                ],
+            }
+        )
+    # PostToolUse is the conservative default — it observes events
+    # rather than gating them, so an auto-generated hook that misbehaves
+    # cannot block the user's workflow. Authors needing PreToolUse
+    # semantics edit the generated file.
+    return {"PostToolUse": entries}
+
+
+def generate_plugin_readme(manifest: PackageManifest) -> str:
+    """Generate a README tailored to the plugin export.
+
+    Differs from :func:`generate_package_readme` only in the install
+    section: the plugin is installed via Claude Code's ``/plugin install``
+    command (or by adding it to a marketplace), not via the share-bundle
+    ``claude-agent import`` flow. Mixing the two would leave a contradiction
+    in the artifact's own contract — the README would tell users to run a
+    command that doesn't apply to a plugin directory.
+    """
+    lines = [
+        f"# {manifest.name}",
+        "",
+        manifest.description or "A Claude Code plugin.",
+        "",
+        "## Installation",
+        "",
+        "Install via Claude Code's plugin command:",
+        "",
+        "```",
+        f"/plugin install {manifest.name}",
+        "```",
+        "",
+        "Or add the plugin directory to a marketplace.",
+        "",
+        "## Details",
+        "",
+        f"- **Version**: {manifest.version}",
+        f"- **Author**: {manifest.author or 'Unknown'}",
+        f"- **License**: {manifest.license}",
+        f"- **Min Claude Code Version**: {manifest.min_claude_code_version}",
+        "",
+    ]
+    if manifest.tools:
+        lines.extend(["## Required Tools", "", ", ".join(manifest.tools), ""])
+    if manifest.keywords:
+        lines.extend(["## Keywords", "", ", ".join(manifest.keywords), ""])
+    if manifest.homepage:
+        lines.extend(["## Links", "", f"- [Homepage]({manifest.homepage})"])
+        if manifest.repository:
+            lines.append(f"- [Repository]({manifest.repository})")
+        lines.append("")
+    lines.extend(["## Files", ""])
+    for file in manifest.files:
+        lines.append(f"- `{file}`")
+    return "\n".join(lines) + "\n"
+
+
+def export_as_plugin(
+    agent_path: Path,
+    output_dir: Path,
+    include_related: bool = True,
+    sanitize: bool = True,
+    author: str = "",
+    license_type: str = "MIT",
+    homepage: str = "",
+    repository: str = "",
+    keywords: list[str] | None = None,
+    overwrite: bool = False,
+) -> ExportResult:
+    """Export an agent in Claude Code plugin format.
+
+    Produces a directory layout consumable by ``/plugin install`` and
+    the plugin marketplace::
+
+        <output_dir>/
+        ├── .claude-plugin/
+        │   └── plugin.json     # Marketplace metadata (gate-required)
+        ├── agents/
+        │   └── <agent>.md      # Agent definition(s)
+        ├── commands/           # Slash commands (only if any exist)
+        │   └── <agent>.md
+        ├── hooks/
+        │   ├── hooks.json      # Always present (empty when no hooks)
+        │   └── <hook scripts>  # Only when the agent ships hooks
+        ├── scripts/            # Helper scripts (only if any exist)
+        │   └── <agent>*
+        └── README.md
+
+    The function reuses :func:`collect_agent_files` and
+    :func:`create_manifest` so the discovery semantics are identical to
+    the share-bundle export — same agent, same companions, just a
+    different layout. Sanitization is applied to text files when
+    ``sanitize=True``, mirroring :func:`export_agent`.
+
+    Why a directory-only output (no zip)? The plugin marketplace
+    consumes directories (typically as git submodules / repo paths).
+    Wrapping the output in an archive would be a one-line shell command
+    away (``shutil.make_archive``) and would muddle the function's
+    contract; keeping it focused on layout makes the intent
+    self-documenting.
+
+    Args:
+        agent_path: Path to the agent ``.md`` file to package.
+        output_dir: Target directory; created if missing. Must be empty
+            unless ``overwrite=True``.
+        include_related: Bundle commands, hooks, scripts, version
+            history alongside the agent.
+        sanitize: Strip API keys / secrets from text payloads.
+        author: Plugin author (surfaced in the marketplace listing).
+        license_type: License identifier (defaults to ``"MIT"``).
+        homepage: Optional homepage URL.
+        repository: Optional source-repository URL.
+        keywords: Optional keywords for marketplace search.
+        overwrite: When ``True``, an existing non-empty output_dir is
+            removed before writing. When ``False`` (default), the
+            function refuses to overwrite and returns an error result.
+
+    Returns:
+        :class:`ExportResult`. ``success`` is ``True`` only when every
+        required file (plugin.json, hooks.json, at least one agent
+        definition) was written successfully.
+    """
+    if not agent_path.exists():
+        return ExportResult(
+            success=False,
+            export_path="",
+            errors=[f"Agent file not found: {agent_path}"],
+        )
+
+    warnings: list[str] = []
+
+    # Refuse to overwrite an existing non-empty directory unless asked.
+    # The plugin layout writes into multiple subdirectories; silently
+    # merging into an existing directory is the kind of "did it work?"
+    # ambiguity that produces broken installs in the marketplace.
+    if output_dir.exists() and any(output_dir.iterdir()):
+        if not overwrite:
+            return ExportResult(
+                success=False,
+                export_path="",
+                errors=[
+                    f"Output directory is not empty: {output_dir} (pass overwrite=True to replace)"
+                ],
+            )
+        shutil.rmtree(output_dir)
+
+    files = collect_agent_files(agent_path, include_related)
+    manifest = create_manifest(
+        agent_path,
+        files,
+        author=author,
+        license_type=license_type,
+        homepage=homepage,
+        repository=repository,
+        keywords=keywords or [],
+    )
+
+    # Stage every write inside a sibling temporary directory and only
+    # rename it into ``output_dir`` once everything succeeded. This makes
+    # the export atomic from the caller's perspective: either the final
+    # path contains a complete, valid plugin or it does not exist at all.
+    # A mid-export failure cannot leave a half-written plugin that future
+    # invocations would have to ``--overwrite`` to recover from.
+    #
+    # Why a sibling instead of the system tempdir: same-filesystem
+    # ``os.replace`` is atomic; cross-filesystem rename would silently
+    # fall back to copy-and-delete and lose the atomicity guarantee. The
+    # parent of ``output_dir`` is the only location guaranteed to be on
+    # the same filesystem as the final target.
+    output_parent = output_dir.parent
+    output_parent.mkdir(parents=True, exist_ok=True)
+    staging_dir = Path(
+        tempfile.mkdtemp(prefix=f".{output_dir.name}-staging-", dir=str(output_parent))
+    )
+    # finally: clean up the staging dir if it still exists. The atomic
+    # rename below renames it OUT of existence on success, so this only
+    # runs cleanup on the failure paths (early validation return,
+    # exception during staging, exception during swap). Guarantees no
+    # orphan ``.{name}-staging-*`` directories pile up next to
+    # ``output_dir``.
+    try:
+        populated = _populate_plugin_staging(
+            files=files,
+            staging_dir=staging_dir,
+            sanitize=sanitize,
+            warnings=warnings,
+        )
+        files_exported = populated.files
+        hook_files = populated.hook_files
+
+        # Verify the agent file actually landed in agents/ — without
+        # this the plugin is malformed regardless of how many other
+        # files we copied. Surface a real failure rather than producing
+        # a broken plugin on disk. The ``finally`` block cleans up the
+        # staging dir.
+        staged_agents = staging_dir / _PLUGIN_AGENTS_DIR
+        if not staged_agents.exists() or not any(staged_agents.glob("*.md")):
+            return ExportResult(
+                success=False,
+                export_path=str(output_dir),
+                errors=["No agent definitions written to agents/ — plugin is invalid"],
+                warnings=warnings,
+            )
+
+        # hooks/hooks.json is always present (even empty {}); marketplace
+        # treats a missing file as schema violation.
+        staged_hooks_dir = staging_dir / _PLUGIN_HOOKS_DIR
+        staged_hooks_dir.mkdir(parents=True, exist_ok=True)
+        hooks_config = build_plugin_hooks_config(hook_files)
+        staged_hooks_json = staged_hooks_dir / _PLUGIN_HOOKS_FILENAME
+        staged_hooks_json.write_text(json.dumps(hooks_config, indent=2) + "\n")
+        files_exported.append(str(staged_hooks_json.relative_to(staging_dir)))
+
+        # Marketplace metadata under .claude-plugin/.
+        staged_metadata = staging_dir / _PLUGIN_METADATA_DIR
+        staged_metadata.mkdir(parents=True, exist_ok=True)
+        plugin_manifest = build_plugin_manifest(manifest)
+        staged_manifest_path = staged_metadata / _PLUGIN_MANIFEST_FILENAME
+        staged_manifest_path.write_text(json.dumps(plugin_manifest, indent=2) + "\n")
+        files_exported.append(str(staged_manifest_path.relative_to(staging_dir)))
+
+        # Plugin-specific README (mentions /plugin install, not the
+        # share-bundle ``claude-agent import`` command).
+        manifest.files = files_exported
+        (staging_dir / "README.md").write_text(generate_plugin_readme(manifest))
+        files_exported.append("README.md")
+
+        # Atomic swap. If output_dir already exists at this point the
+        # caller passed ``overwrite=True`` (the early gate refused
+        # otherwise) so removing it is the contracted behaviour. The
+        # rmtree-then-replace window is the only point where output_dir
+        # is briefly absent, but this is the same window every "replace
+        # directory" operation has — there is no atomic equivalent of
+        # ``rename(2)`` for replacing a populated directory.
+        if output_dir.exists():
+            shutil.rmtree(output_dir)
+        os.replace(staging_dir, output_dir)
+    finally:
+        if staging_dir.exists():
+            shutil.rmtree(staging_dir, ignore_errors=True)
+
+    size_bytes = sum(f.stat().st_size for f in output_dir.rglob("*") if f.is_file())
+
+    return ExportResult(
+        success=True,
+        export_path=str(output_dir),
+        manifest=manifest,
+        files_exported=files_exported,
+        warnings=warnings,
+        size_bytes=size_bytes,
+    )
+
+
+class _PluginStagingResult(NamedTuple):
+    """Return value of :func:`_populate_plugin_staging`.
+
+    Using a NamedTuple instead of a dict keeps the value types separate
+    (``list[str]`` vs ``list[Path]``) so the caller does not need
+    ``cast`` annotations on every append.
+    """
+
+    files: list[str]
+    hook_files: list[Path]
+
+
+def _populate_plugin_staging(
+    files: list[Path],
+    staging_dir: Path,
+    sanitize: bool,
+    warnings: list[str],
+) -> _PluginStagingResult:
+    """Copy collected files into the plugin staging directory.
+
+    Extracted from :func:`export_as_plugin` so the staging step is
+    independently readable and the atomic-swap logic stays focused on
+    the rename. Mutates ``warnings`` in place when files are missing or
+    sanitization rewrites content.
+
+    Returns:
+        :class:`_PluginStagingResult` with:
+        - ``files``: relative paths (str) of every file written, in
+          insertion order, for the manifest.
+        - ``hook_files``: source ``Path`` of each bundled hook script,
+          used by the caller to synthesize ``hooks.json``.
+    """
+    files_exported: list[str] = []
+    hook_files: list[Path] = []
+
+    for src_file in files:
+        if not src_file.exists():
+            warnings.append(f"File not found, skipping: {src_file}")
+            continue
+
+        # Substring path classification. Mirrors the share-bundle export
+        # in :func:`export_agent`; pre-existing limitation when user
+        # workspace paths contain these keywords (caught by the
+        # agents-dir gate in the caller). Tracked as ADV in the feature
+        # #61 review.
+        src_str = str(src_file)
+        if "commands" in src_str:
+            dest_dir = staging_dir / _PLUGIN_COMMANDS_DIR
+        elif "hooks" in src_str:
+            dest_dir = staging_dir / _PLUGIN_HOOKS_DIR
+            hook_files.append(src_file)
+        elif "scripts" in src_str:
+            dest_dir = staging_dir / _PLUGIN_SCRIPTS_DIR
+        elif ".versions" in src_str:
+            # Version history is operational metadata, not part of the
+            # plugin contract — the marketplace does not need it.
+            continue
+        else:
+            dest_dir = staging_dir / _PLUGIN_AGENTS_DIR
+
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_file = dest_dir / src_file.name
+
+        if src_file.suffix in (".md", ".py", ".sh", ".yaml", ".yml", ".json"):
+            content = src_file.read_text()
+            if sanitize:
+                original = content
+                content = sanitize_content(content)
+                if content != original:
+                    warnings.append(f"Sanitized sensitive data in: {src_file.name}")
+            dest_file.write_text(content)
+        else:
+            shutil.copy2(src_file, dest_file)
+        files_exported.append(str(dest_file.relative_to(staging_dir)))
+
+    return _PluginStagingResult(files=files_exported, hook_files=hook_files)
 
 
 def export_agent(
@@ -1001,6 +1450,29 @@ if __name__ == "__main__":
     export_parser.add_argument("--no-sanitize", action="store_true", help="Skip sanitization")
     export_parser.add_argument("-a", "--author", default="", help="Package author")
 
+    # Plugin export — separate subcommand because the layout, output
+    # contract (directory only), and metadata schema differ from the
+    # generic share bundle. Sharing argparse arguments would force a
+    # branch on every flag, so we keep the surfaces independent.
+    plugin_parser = subparsers.add_parser(
+        "export-plugin",
+        help="Export an agent as a Claude Code plugin (directory layout)",
+    )
+    plugin_parser.add_argument("agent", help="Path to agent file")
+    plugin_parser.add_argument(
+        "-o", "--output", required=True, help="Output directory (created if missing)"
+    )
+    plugin_parser.add_argument("-a", "--author", default="", help="Plugin author")
+    plugin_parser.add_argument("--license", default="MIT", help="License identifier")
+    plugin_parser.add_argument("--homepage", default="", help="Homepage URL")
+    plugin_parser.add_argument("--repository", default="", help="Source repo URL")
+    plugin_parser.add_argument("--no-sanitize", action="store_true", help="Skip sanitization")
+    plugin_parser.add_argument(
+        "--overwrite",
+        action="store_true",
+        help="Replace the output directory if it already exists",
+    )
+
     # Import command
     import_parser = subparsers.add_parser("import", help="Import an agent package")
     import_parser.add_argument("package", help="Path to package")
@@ -1050,6 +1522,32 @@ if __name__ == "__main__":
             print("Export failed:")
             for e in result.errors:
                 print(f"  - {e}")
+
+    elif args.command == "export-plugin":
+        result = export_as_plugin(
+            Path(args.agent),
+            output_dir=Path(args.output),
+            sanitize=not args.no_sanitize,
+            author=args.author,
+            license_type=args.license,
+            homepage=args.homepage,
+            repository=args.repository,
+            overwrite=args.overwrite,
+        )
+
+        if result.success:
+            print(f"Plugin exported to: {result.export_path}")
+            print(f"Files: {len(result.files_exported)}")
+            print(f"Size: {result.size_bytes:,} bytes")
+            if result.warnings:
+                print("\nWarnings:")
+                for w in result.warnings:
+                    print(f"  - {w}")
+        else:
+            print("Plugin export failed:")
+            for e in result.errors:
+                print(f"  - {e}")
+            raise SystemExit(1)
 
     elif args.command == "import":
         result = import_agent(
