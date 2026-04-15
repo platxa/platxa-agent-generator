@@ -172,11 +172,7 @@ class ProgressDisplay:
         partial = 1 if (width * percent / 100) - filled >= 0.5 else 0
         empty = width - filled - partial
 
-        bar = (
-            cls.BAR_FILLED * filled +
-            cls.BAR_PARTIAL * partial +
-            cls.BAR_EMPTY * empty
-        )
+        bar = cls.BAR_FILLED * filled + cls.BAR_PARTIAL * partial + cls.BAR_EMPTY * empty
 
         if show_percent:
             return f"[{bar}] {percent:3d}%"
@@ -226,6 +222,64 @@ class ProgressDisplay:
             return f"  {icon} {phase.title()}: ⊘ Skipped"
         else:
             return f"  {icon} {phase.title()}: ○ Pending"
+
+
+_TODOWRITE_PHASE_ORDER: tuple[ProgressPhase, ...] = (
+    ProgressPhase.DISCOVERY,
+    ProgressPhase.ARCHITECTURE,
+    ProgressPhase.GENERATION,
+    ProgressPhase.VALIDATION,
+    ProgressPhase.INSTALLATION,
+)
+
+
+# Per-phase TodoWrite labels: ``(content_label, active_label)``. The
+# content label is the noun phrase the user sees when the item is
+# pending or completed; the active label is the present-participle
+# phrase shown while the item is in_progress (matching Claude Code's
+# TodoWrite ``activeForm`` convention).
+_TODOWRITE_PHASE_LABELS: dict[ProgressPhase, tuple[str, str]] = {
+    ProgressPhase.DISCOVERY: ("Discovery", "Discovering"),
+    ProgressPhase.ARCHITECTURE: ("Architecture", "Designing architecture"),
+    ProgressPhase.GENERATION: ("Generation", "Generating files"),
+    ProgressPhase.VALIDATION: ("Validation", "Validating"),
+    ProgressPhase.INSTALLATION: ("Installation", "Installing"),
+}
+
+
+# Map phase status (PhaseProgress.status) → TodoWrite item status. A
+# ``skipped`` phase is reported as ``completed`` because TodoWrite has
+# no "skipped" state and the workflow has moved past it. A ``failed``
+# phase stays ``in_progress`` so the user sees it as the active row
+# that needs attention rather than silently ticking it off.
+_TODOWRITE_STATUS_MAP: dict[str, str] = {
+    "pending": "pending",
+    "running": "in_progress",
+    "completed": "completed",
+    "skipped": "completed",
+    "failed": "in_progress",
+}
+
+
+def _phase_to_todowrite_item(
+    phase: ProgressPhase,
+    phase_progress: PhaseProgress,
+) -> dict[str, str]:
+    """Convert one PhaseProgress into a single TodoWrite item.
+
+    Status mapping mirrors the docstring on
+    :meth:`ProgressTracker.to_todowrite_items`. Kept as a free function
+    so the conversion can be unit-tested in isolation, without needing
+    a full ProgressTracker / state file.
+    """
+    content_label, active_label = _TODOWRITE_PHASE_LABELS[phase]
+    suffix = f" [{phase_progress.progress_percent}%]"
+    todo_status = _TODOWRITE_STATUS_MAP.get(phase_progress.status, "pending")
+    return {
+        "content": content_label + suffix,
+        "status": todo_status,
+        "activeForm": active_label + suffix,
+    }
 
 
 class ProgressTracker:
@@ -313,9 +367,7 @@ class ProgressTracker:
                     prev_phase.completed_at = datetime.now().isoformat()
                     prev_phase.progress_percent = 100
                     if self._phase_start_time:
-                        prev_phase.duration_ms = int(
-                            (time.time() - self._phase_start_time) * 1000
-                        )
+                        prev_phase.duration_ms = int((time.time() - self._phase_start_time) * 1000)
 
             # Start new phase
             self._state.current_phase = phase_name
@@ -505,6 +557,50 @@ class ProgressTracker:
             return "{}"
         return json.dumps(self._serialize_state(self._state), indent=2)
 
+    def to_todowrite_items(self) -> list[dict[str, str]]:
+        """Render progress as a TodoWrite-compatible item list.
+
+        Claude Code's TodoWrite tool consumes a list of items shaped as
+        ``{"content", "status", "activeForm"}``. Each phase from the
+        agent generation workflow becomes one item, in canonical order
+        (discovery → architecture → generation → validation →
+        installation), so the user sees exactly five rows that tick from
+        pending → in_progress → completed as the workflow advances.
+
+        Status mapping:
+
+        - ``pending`` (phase has not started) → ``pending``
+        - ``running`` (phase is in flight)   → ``in_progress``
+        - ``completed`` (phase finished)     → ``completed``
+        - ``skipped`` (phase deliberately skipped) → ``completed``
+          (a skipped phase is "done" from the workflow's perspective)
+        - ``failed`` → ``in_progress`` (kept active so the user sees
+          it as the current row that needs attention; the failure
+          appears in ``activeForm`` text)
+
+        Content shape:
+
+        - ``content``: imperative noun phrase shown when the item is
+          ``pending`` / ``completed``, with the per-phase percentage
+          appended in brackets (e.g. ``"Discovery [60%]"``).
+        - ``activeForm``: present-participle phrase shown when the item
+          is ``in_progress``, also with the percentage appended.
+
+        Returns:
+            List of TodoWrite item dicts in workflow order. Empty list
+            when no tracking is active.
+        """
+        if self._state is None:
+            return []
+
+        items: list[dict[str, str]] = []
+        for phase in _TODOWRITE_PHASE_ORDER:
+            phase_progress = self._state.phases.get(phase.phase_name)
+            if phase_progress is None:
+                continue
+            items.append(_phase_to_todowrite_item(phase, phase_progress))
+        return items
+
     # Private methods
 
     def _calculate_overall_progress(self) -> None:
@@ -570,10 +666,7 @@ class ProgressTracker:
         if total_weight == 0:
             return
 
-        completed_weight = sum(
-            s.weight * s.progress_percent / 100
-            for s in phase.subtasks
-        )
+        completed_weight = sum(s.weight * s.progress_percent / 100 for s in phase.subtasks)
 
         phase.progress_percent = int(completed_weight / total_weight * 100)
 
@@ -771,6 +864,15 @@ def main() -> None:
     status_parser.add_argument("--compact", action="store_true", help="Compact output")
     status_parser.add_argument("--json", action="store_true", help="JSON output")
 
+    # TodoWrite command — emits the current progress as a JSON list of
+    # TodoWrite items so an orchestrator wrapper can pipe the output
+    # straight into Claude Code's TodoWrite tool. This is the
+    # integration point for showing per-phase progress to the user.
+    subparsers.add_parser(
+        "todowrite",
+        help="Emit current progress as a JSON list of TodoWrite items",
+    )
+
     # Demo command
     subparsers.add_parser("demo", help="Run demo progress display")
 
@@ -808,6 +910,14 @@ def main() -> None:
                 print(tracker.render(compact=args.compact))
         else:
             print("No active progress tracking.")
+
+    elif args.command == "todowrite":
+        # Print the JSON list to stdout. Empty array when no tracking
+        # is active — callers can detect that without parsing.
+        if tracker.load_state():
+            print(json.dumps(tracker.to_todowrite_items(), indent=2))
+        else:
+            print("[]")
 
     elif args.command == "demo":
         # Run a demo progress display
