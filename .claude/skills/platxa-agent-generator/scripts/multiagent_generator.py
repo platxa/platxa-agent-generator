@@ -41,6 +41,11 @@ class AgentDefinition:
     inputs: list[str] = field(default_factory=list)
     outputs: list[str] = field(default_factory=list)
     isolation: str | None = None  # "worktree" for parallel file-modifying workers
+    # Optional pattern-specific metadata. hypothesis_focus tags an investigator
+    # in the competing-hypothesis pattern with the theory it pursues (e.g.
+    # "recent-change", "concurrency-timing"). Kept as a simple optional field
+    # so other patterns can ignore it without change.
+    hypothesis_focus: str | None = None
 
     def to_markdown(self) -> str:
         """Generate agent markdown definition with team compatibility.
@@ -157,7 +162,7 @@ from the orchestrator.
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
-        return {
+        data: dict[str, Any] = {
             "name": self.name,
             "description": self.description,
             "role": self.role,
@@ -166,6 +171,11 @@ from the orchestrator.
             "inputs": self.inputs,
             "outputs": self.outputs,
         }
+        if self.isolation is not None:
+            data["isolation"] = self.isolation
+        if self.hypothesis_focus is not None:
+            data["hypothesis_focus"] = self.hypothesis_focus
+        return data
 
 
 @dataclass
@@ -690,6 +700,141 @@ Iteration | Writer output          | Reviewer verdict   | Action
 """
         return content
 
+    def generate_competing_hypothesis_orchestrator_markdown(self) -> str:
+        """Generate orchestrator markdown for the competing-hypothesis pattern.
+
+        Coordinates N investigators (3-5) across three adversarial rounds:
+
+        1. Investigation — each investigator independently gathers evidence
+           for its assigned hypothesis (no peer information)
+        2. Challenge — every investigator must cite at least one peer's
+           finding and present counter-evidence or a failed falsification test
+        3. Refinement — investigators update their hypothesis in response
+           to challenges; hypotheses that cannot address challenges are
+           marked falsified
+
+        The orchestrator then selects the surviving hypothesis with the
+        strongest evidence and fewest unaddressed challenges, or escalates
+        ties to the user.
+        """
+        investigators = [w for w in self.workers if w.role == "investigator"]
+        if not investigators:
+            # The pattern is meaningless without investigators; emitting an
+            # empty "Dispatch all 0 investigators" template would silently
+            # ship a broken orchestrator. Fail loud at generation time.
+            raise ValueError(
+                "competing-hypothesis system has no workers with role='investigator'; "
+                "use create_competing_hypothesis_system() or ensure each worker dict "
+                "in the template declares role='investigator'"
+            )
+        investigator_count = len(investigators)
+        investigator_table = "\n".join(
+            f"| {w.name} | {w.hypothesis_focus or 'unspecified'} | {w.description} |"
+            for w in investigators
+        )
+        dispatch_block = "\n".join(
+            f"- `{w.name}` → hypothesis: **{w.hypothesis_focus or 'unspecified'}**"
+            for w in investigators
+        )
+
+        content = f"""---
+name: {self.orchestrator.name}
+description: {self.orchestrator.description}
+tools: Task, Read, Write, Bash
+---
+
+# {self.orchestrator.name.replace("-", " ").title()}
+
+## Overview
+Competing-hypothesis debugging orchestrator. Dispatches {investigator_count}
+investigators — each pursuing a distinct theory about the bug — then forces
+them to challenge each other's findings in an adversarial round. This
+defeats confirmation bias: no single investigator's theory passes
+unchallenged, and the root cause survives the strongest counter-evidence.
+
+## Pattern
+Competing-Hypothesis (Assign → Investigate in parallel → Challenge → Refine → Select)
+
+## Investigators
+| Agent | Hypothesis Focus | Description |
+|-------|------------------|-------------|
+{investigator_table}
+
+## Adversarial Workflow
+
+### Round 1: Independent Investigation
+Dispatch all {investigator_count} investigators in **parallel** via the Task
+tool, each with its assigned hypothesis focus and NO visibility into peer
+hypotheses. Independent investigation prevents framing contagion.
+
+```
+Parallel Task dispatches:
+{dispatch_block}
+```
+
+Each investigator returns:
+- Evidence chain linking its hypothesis to the observed bug
+- At least one falsification test attempted (even if it failed to falsify)
+- Confidence score (0-10) with justification
+
+### Round 2: Peer Challenge
+Broadcast each investigator's round-1 findings to ALL peers. Dispatch each
+investigator again with the challenge brief. Every investigator MUST cite
+at least one peer finding and present either:
+- Counter-evidence that contradicts the peer's evidence chain, OR
+- A falsification test the peer did not run, OR
+- A logical gap in the peer's reasoning
+
+Passes without a challenge are rejected — the orchestrator re-dispatches the
+investigator with an explicit "cite a specific peer finding and challenge it"
+instruction. This enforces adversarial pressure; unchallenged hypotheses are
+the failure mode this pattern exists to prevent.
+
+### Round 3: Refinement
+Forward every challenge each investigator received back to its author. Each
+investigator must either:
+- Address the challenge with new evidence or a counter-argument, OR
+- Concede the challenge and mark its hypothesis as falsified
+
+### Selection
+Tally per hypothesis:
+- Evidence strength (original + refinement)
+- Count of unaddressed challenges
+- Count of falsification tests survived
+
+Select the hypothesis with the **strongest evidence AND fewest unaddressed
+challenges**. Ties escalate to the user with both hypotheses + their
+evidence summaries — do not pick arbitrarily.
+
+### Degenerate Case: Unanimous Round-1 Agreement
+If all investigators converge on the same hypothesis in round 1 with no
+surfaced challenges, treat this as insufficient adversarial pressure and
+require a second challenge round with an explicit instruction to each
+investigator: "find the weakest evidence in the shared hypothesis and
+challenge it." Genuine root causes survive this stress test; brittle
+consensus does not.
+
+## Iteration Tracking
+```
+Round | Investigator          | Hypothesis           | Evidence | Challenges
+------|-----------------------|----------------------|----------|------------
+1     | investigator-1        | recent-change        | strong   | —
+1     | investigator-2        | concurrency-timing   | weak     | —
+1     | investigator-3        | environment-dep      | medium   | —
+2     | investigator-1        | (challenges peer 2)  | —        | 1 issued
+2     | investigator-2        | (challenges peer 1)  | —        | 1 issued
+3     | investigator-2        | falsified            | —        | unaddressed
+```
+
+## Error Handling
+- Investigator failure → Retry once with the same brief; on second failure
+  record the slot as empty and reduce challenge counts accordingly
+- All investigators fail → Halt, report; do not select a hypothesis
+- User escalation on tie → Present both hypotheses with full evidence
+  chains, recommend which falsification test to run next
+"""
+        return content
+
     def generate_parallel_orchestrator_markdown(self) -> str:
         """Generate parallel orchestrator markdown with concurrent Task tool calls."""
         worker_table = "\n".join(
@@ -1139,6 +1284,141 @@ SYSTEM_TEMPLATES: dict[str, dict[str, Any]] = {
             },
         ],
     },
+    "competing-hypothesis": {
+        "name": "competing-hypothesis-system",
+        "description": (
+            "Competing-hypothesis debugging system. Spawns 3-5 investigators that "
+            "each pursue a distinct theory about the bug, then challenge each "
+            "other's findings in an adversarial round to surface the root cause."
+        ),
+        "pattern": "competing-hypothesis",
+        # Adversarial workflow configuration — drives the challenge rounds.
+        # First-class field so tests and tooling can inspect semantics
+        # without reverse-engineering the markdown.
+        "adversarial_config": {
+            "min_investigators": 3,
+            "max_investigators": 5,
+            "default_investigators": 3,
+            "rounds": {
+                "investigation": {
+                    "order": 1,
+                    "description": (
+                        "Each investigator gathers evidence for its assigned "
+                        "hypothesis independently, without seeing peers' findings."
+                    ),
+                },
+                "challenge": {
+                    "order": 2,
+                    "description": (
+                        "Every investigator must cite at least one peer's "
+                        "finding and present counter-evidence or a failed "
+                        "falsification test. No hypothesis passes unchallenged."
+                    ),
+                    "min_challenges_per_investigator": 1,
+                },
+                "refinement": {
+                    "order": 3,
+                    "description": (
+                        "Each investigator updates its hypothesis and evidence "
+                        "in response to challenges received. Hypotheses that "
+                        "cannot address challenges are marked as falsified."
+                    ),
+                },
+            },
+            "convergence": {
+                "criteria": (
+                    "Orchestrator selects the hypothesis with the strongest "
+                    "evidence AND the fewest unaddressed challenges. Ties "
+                    "escalate to the user with both hypotheses presented."
+                ),
+                "reject_unanimous_agreement": (
+                    "If all investigators converge on the same hypothesis in "
+                    "round 1 with no challenges surfaced, the orchestrator "
+                    "treats this as insufficient adversarial pressure and "
+                    "requires a second challenge round."
+                ),
+            },
+        },
+        "orchestrator": {
+            "name": "hypothesis-coordinator",
+            "description": (
+                "Coordinates 3-5 investigators across three adversarial rounds: "
+                "independent investigation, peer challenge, and refinement."
+            ),
+            "role": "orchestrator",
+            "tools": ["Task", "Read", "Write", "Bash"],
+            "responsibilities": [
+                "Assign a distinct hypothesis focus to each investigator",
+                "Dispatch all investigators in parallel for round 1 (independent investigation)",
+                "Broadcast each investigator's findings to peers for round 2 (challenge)",
+                "Enforce min_challenges_per_investigator=1 — reject passes without citing a peer",
+                "Collect refinements in round 3 and tally evidence strength + unaddressed challenges",
+                "Select the surviving hypothesis or escalate ties to the user",
+            ],
+        },
+        "workers": [
+            {
+                "name": "hypothesis-investigator-1",
+                "description": (
+                    "Investigates the recent-change hypothesis: the bug was "
+                    "introduced by a recent commit, dependency bump, or config "
+                    "change. Uses git log / git blame / recent diffs as evidence."
+                ),
+                "role": "investigator",
+                "tools": ["Read", "Grep", "Glob", "Bash"],
+                "isolation": "worktree",
+                "hypothesis_focus": "recent-change",
+                "responsibilities": [
+                    "Enumerate commits since the last known-good state",
+                    "Bisect or diff-walk to pinpoint suspect changes",
+                    "Provide reproducible evidence linking change to failure",
+                    "In round 2, challenge at least one peer's finding with counter-evidence",
+                ],
+                "inputs": ["Bug description", "Known-good reference (commit/tag)"],
+                "outputs": ["Evidence chain", "Falsification tests", "Challenges to peers"],
+            },
+            {
+                "name": "hypothesis-investigator-2",
+                "description": (
+                    "Investigates the concurrency / timing hypothesis: the bug "
+                    "stems from race conditions, ordering, deadlocks, or "
+                    "timing-sensitive code paths."
+                ),
+                "role": "investigator",
+                "tools": ["Read", "Grep", "Glob", "Bash"],
+                "isolation": "worktree",
+                "hypothesis_focus": "concurrency-timing",
+                "responsibilities": [
+                    "Identify shared state, locks, and async boundaries",
+                    "Construct stress / ordering reproductions",
+                    "Distinguish timing-dependent failures from deterministic ones",
+                    "In round 2, challenge at least one peer's finding with counter-evidence",
+                ],
+                "inputs": ["Bug description", "Observed failure frequency"],
+                "outputs": ["Evidence chain", "Falsification tests", "Challenges to peers"],
+            },
+            {
+                "name": "hypothesis-investigator-3",
+                "description": (
+                    "Investigates the environment / dependency hypothesis: the "
+                    "bug is caused by version drift, missing env vars, OS/"
+                    "platform differences, or external service behavior."
+                ),
+                "role": "investigator",
+                "tools": ["Read", "Grep", "Glob", "Bash"],
+                "isolation": "worktree",
+                "hypothesis_focus": "environment-dependency",
+                "responsibilities": [
+                    "Compare failing environment to known-good environment",
+                    "Check dependency versions, env vars, and external services",
+                    "Attempt to reproduce in a clean environment",
+                    "In round 2, challenge at least one peer's finding with counter-evidence",
+                ],
+                "inputs": ["Bug description", "Environment details"],
+                "outputs": ["Evidence chain", "Falsification tests", "Challenges to peers"],
+            },
+        ],
+    },
     "writer-reviewer": {
         "name": "writer-reviewer-system",
         "description": (
@@ -1273,6 +1553,7 @@ def create_agent_from_dict(data: dict[str, Any]) -> AgentDefinition:
         inputs=data.get("inputs", []),
         outputs=data.get("outputs", []),
         isolation=isolation,
+        hypothesis_focus=data.get("hypothesis_focus"),
     )
 
 
@@ -1289,6 +1570,210 @@ def create_system_from_template(template_name: str) -> MultiAgentSystem | None:
         name=template["name"],
         description=template["description"],
         pattern=template["pattern"],
+        orchestrator=orchestrator,
+        workers=workers,
+    )
+
+
+# Canonical debugging hypotheses used by the competing-hypothesis factory
+# when the caller does not supply custom hypotheses. Ordered from most- to
+# least-common root causes in real debugging sessions, so fewer-investigator
+# runs still cover the highest-value theories.
+DEFAULT_COMPETING_HYPOTHESES: list[dict[str, Any]] = [
+    {
+        "focus": "recent-change",
+        "description": (
+            "Investigates the recent-change hypothesis: the bug was introduced "
+            "by a recent commit, dependency bump, or config change. Uses git "
+            "log / git blame / recent diffs as evidence."
+        ),
+        "responsibilities": [
+            "Enumerate commits since the last known-good state",
+            "Bisect or diff-walk to pinpoint suspect changes",
+            "Provide reproducible evidence linking change to failure",
+        ],
+        "inputs": ["Bug description", "Known-good reference (commit/tag)"],
+    },
+    {
+        "focus": "concurrency-timing",
+        "description": (
+            "Investigates the concurrency / timing hypothesis: the bug stems "
+            "from race conditions, ordering, deadlocks, or timing-sensitive "
+            "code paths."
+        ),
+        "responsibilities": [
+            "Identify shared state, locks, and async boundaries",
+            "Construct stress / ordering reproductions",
+            "Distinguish timing-dependent failures from deterministic ones",
+        ],
+        "inputs": ["Bug description", "Observed failure frequency"],
+    },
+    {
+        "focus": "environment-dependency",
+        "description": (
+            "Investigates the environment / dependency hypothesis: the bug "
+            "is caused by version drift, missing env vars, OS / platform "
+            "differences, or external service behavior."
+        ),
+        "responsibilities": [
+            "Compare failing environment to known-good environment",
+            "Check dependency versions, env vars, and external services",
+            "Attempt to reproduce in a clean environment",
+        ],
+        "inputs": ["Bug description", "Environment details"],
+    },
+    {
+        "focus": "data-state",
+        "description": (
+            "Investigates the data / state hypothesis: the bug is triggered "
+            "by specific input values, corrupted persisted state, or "
+            "accumulated side effects from prior operations."
+        ),
+        "responsibilities": [
+            "Enumerate input shapes / edge cases that trigger the failure",
+            "Inspect persisted state, caches, and accumulators",
+            "Reproduce from a clean-state baseline to isolate data dependency",
+        ],
+        "inputs": ["Bug description", "Input samples or state dump"],
+    },
+    {
+        "focus": "integration-contract",
+        "description": (
+            "Investigates the integration-contract hypothesis: the bug "
+            "results from a mismatch between system boundaries — API "
+            "contract violations, schema drift, or protocol assumption "
+            "failures between components."
+        ),
+        "responsibilities": [
+            "Map the failing operation across component boundaries",
+            "Diff expected vs actual payloads at each boundary",
+            "Identify which side of the contract is non-conforming",
+        ],
+        "inputs": ["Bug description", "Component interaction trace"],
+    },
+]
+
+
+def create_competing_hypothesis_system(
+    investigator_count: int = 3,
+    hypotheses: list[dict[str, Any]] | None = None,
+    name: str = "competing-hypothesis-system",
+) -> MultiAgentSystem:
+    """Build a competing-hypothesis debugging system with N investigators.
+
+    Each investigator pursues a distinct hypothesis focus and participates
+    in the three-round adversarial workflow documented by the orchestrator
+    (investigation → challenge → refinement). The factory exists so callers
+    can choose the investigator count (3-5) and optionally supply custom
+    hypotheses for domain-specific debugging sessions.
+
+    Args:
+        investigator_count: How many investigators to spawn. Must be in
+            [3, 5]. Values outside this range raise ValueError — three is
+            the floor for meaningful adversarial pressure, five is the
+            ceiling before orchestration overhead dominates.
+        hypotheses: Optional list of hypothesis dicts with keys `focus`
+            (str), `description` (str), `responsibilities` (list[str]),
+            and `inputs` (list[str]). When None, ``DEFAULT_COMPETING_
+            HYPOTHESES`` is used. Duplicate focuses raise ValueError.
+        name: System name (default ``competing-hypothesis-system``).
+
+    Raises:
+        ValueError: if ``investigator_count`` is outside [3, 5], if
+            ``hypotheses`` is supplied but shorter than ``investigator_count``,
+            or if hypothesis focuses are not distinct.
+
+    Returns:
+        MultiAgentSystem with an orchestrator and ``investigator_count``
+        workers, each tagged with ``hypothesis_focus`` and pre-configured
+        for the adversarial workflow.
+    """
+    if not 3 <= investigator_count <= 5:
+        raise ValueError(
+            f"investigator_count must be in [3, 5], got {investigator_count}; "
+            "outside this range the adversarial pattern loses its value "
+            "(too few = no pressure, too many = coordination overhead)"
+        )
+
+    selected = list(hypotheses) if hypotheses is not None else DEFAULT_COMPETING_HYPOTHESES
+    if len(selected) < investigator_count:
+        raise ValueError(
+            f"need at least {investigator_count} hypotheses, got {len(selected)}; "
+            "each investigator must have its own distinct theory"
+        )
+
+    selected = selected[:investigator_count]
+
+    # Validate every hypothesis carries the required keys before agent
+    # construction. Without this, malformed dicts surface as opaque KeyError
+    # deep in agent construction; the caller cannot tell which hypothesis or
+    # which key is the problem.
+    required_keys = ("focus", "description", "responsibilities")
+    for idx, hypothesis in enumerate(selected):
+        if not isinstance(hypothesis, dict):
+            raise ValueError(f"hypotheses[{idx}] must be a dict, got {type(hypothesis).__name__}")
+        missing = [k for k in required_keys if k not in hypothesis]
+        if missing:
+            raise ValueError(
+                f"hypotheses[{idx}] missing required key(s) {missing}; "
+                "each hypothesis must declare focus, description, and responsibilities"
+            )
+
+    focuses = [h["focus"] for h in selected]
+    if len(set(focuses)) != len(focuses):
+        dupes = [f for f in focuses if focuses.count(f) > 1]
+        raise ValueError(f"hypothesis focuses must be distinct; duplicates: {sorted(set(dupes))}")
+
+    orchestrator = AgentDefinition(
+        name="hypothesis-coordinator",
+        description=(
+            f"Coordinates {investigator_count} investigators across three "
+            "adversarial rounds: independent investigation, peer challenge, "
+            "and refinement."
+        ),
+        role="orchestrator",
+        tools=["Task", "Read", "Write", "Bash"],
+        responsibilities=[
+            "Assign a distinct hypothesis focus to each investigator",
+            "Dispatch all investigators in parallel for round 1 (independent investigation)",
+            "Broadcast each investigator's findings to peers for round 2 (challenge)",
+            "Enforce min_challenges_per_investigator=1 — reject passes without citing a peer",
+            "Collect refinements in round 3 and tally evidence vs unaddressed challenges",
+            "Select the surviving hypothesis or escalate ties to the user",
+        ],
+    )
+
+    workers: list[AgentDefinition] = []
+    for idx, hypothesis in enumerate(selected, start=1):
+        workers.append(
+            AgentDefinition(
+                name=f"hypothesis-investigator-{idx}",
+                description=hypothesis["description"],
+                role="investigator",
+                tools=["Read", "Grep", "Glob", "Bash"],
+                isolation="worktree",
+                hypothesis_focus=hypothesis["focus"],
+                responsibilities=[
+                    *hypothesis["responsibilities"],
+                    "In round 2, challenge at least one peer's finding with counter-evidence",
+                ],
+                inputs=list(hypothesis.get("inputs", ["Bug description"])),
+                outputs=[
+                    "Evidence chain",
+                    "Falsification tests",
+                    "Challenges to peers",
+                ],
+            )
+        )
+
+    return MultiAgentSystem(
+        name=name,
+        description=(
+            f"Competing-hypothesis debugging system with {investigator_count} "
+            "investigators. Each investigator pursues a distinct theory; all "
+            "must challenge peer findings before a root cause is selected."
+        ),
+        pattern="competing-hypothesis",
         orchestrator=orchestrator,
         workers=workers,
     )
@@ -1422,6 +1907,10 @@ def save_system(system: MultiAgentSystem, output_dir: Path) -> list[Path]:
         orchestrator_path.write_text(
             system.generate_writer_reviewer_orchestrator_markdown(), encoding="utf-8"
         )
+    elif system.pattern == "competing-hypothesis":
+        orchestrator_path.write_text(
+            system.generate_competing_hypothesis_orchestrator_markdown(), encoding="utf-8"
+        )
     else:
         orchestrator_path.write_text(system.generate_orchestrator_markdown(), encoding="utf-8")
     created_files.append(orchestrator_path)
@@ -1461,6 +1950,7 @@ def main() -> None:
             "evaluator-optimizer",
             "parallelization",
             "writer-reviewer",
+            "competing-hypothesis",
         ],
         default="orchestrator-workers",
         help="Workflow pattern",
@@ -1501,6 +1991,7 @@ def main() -> None:
             "evaluator-optimizer",
             "parallelization",
             "writer-reviewer",
+            "competing-hypothesis",
         ],
         default="orchestrator-workers",
         help="Pattern to show",

@@ -12794,5 +12794,363 @@ class TestSubagentAuditHooks:
         assert all(c == "/custom/path.sh" for c in cmds), cmds
 
 
+class TestCompetingHypothesisTemplate:
+    """Tests for the competing-hypothesis multi-agent template (Feature #41).
+
+    Exercises template registration, adversarial_config semantics, the
+    configurable `create_competing_hypothesis_system` factory (3-5
+    investigators with distinct hypothesis focuses and input validation),
+    and the generated orchestrator markdown (adversarial workflow steps).
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        return subprocess.run(
+            [sys.executable, "-c", prologue + code],
+            capture_output=True,
+            text=True,
+        )
+
+    # --- template registration ---------------------------------------------
+
+    def test_template_is_registered(self) -> None:
+        result = self._run_py(
+            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "print('competing-hypothesis' in SYSTEM_TEMPLATES)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_template_declares_competing_hypothesis_pattern(self) -> None:
+        result = self._run_py(
+            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "print(SYSTEM_TEMPLATES['competing-hypothesis']['pattern'])"
+        )
+        assert result.stdout.strip() == "competing-hypothesis"
+
+    def test_adversarial_config_documents_rounds_and_convergence(self) -> None:
+        """adversarial_config must declare investigator bounds, three rounds,
+        and convergence criteria — downstream tooling inspects this field."""
+        result = self._run_py(
+            "import json; "
+            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "print(json.dumps(SYSTEM_TEMPLATES['competing-hypothesis']['adversarial_config']))"
+        )
+        assert result.returncode == 0, result.stderr
+        cfg = json.loads(result.stdout)
+        assert cfg["min_investigators"] == 3
+        assert cfg["max_investigators"] == 5
+        assert cfg["default_investigators"] == 3
+        rounds = cfg["rounds"]
+        assert set(rounds.keys()) == {"investigation", "challenge", "refinement"}
+        assert rounds["challenge"]["min_challenges_per_investigator"] >= 1
+        assert "criteria" in cfg["convergence"]
+        assert "reject_unanimous_agreement" in cfg["convergence"]
+
+    def test_template_default_has_three_investigators_with_distinct_focus(self) -> None:
+        """create_system_from_template must yield 3 investigators with
+        distinct hypothesis_focus values."""
+        result = self._run_py(
+            "import json; "
+            "from multiagent_generator import create_system_from_template; "
+            "sys_ = create_system_from_template('competing-hypothesis'); "
+            "invs = [w for w in sys_.workers if w.role == 'investigator']; "
+            "print(json.dumps([(w.name, w.hypothesis_focus) for w in invs]))"
+        )
+        assert result.returncode == 0, result.stderr
+        pairs = json.loads(result.stdout)
+        assert len(pairs) == 3
+        focuses = [focus for _, focus in pairs]
+        assert len(set(focuses)) == 3, f"focuses not distinct: {focuses}"
+        assert all(f for f in focuses), "every investigator must have a non-empty focus"
+
+    def test_investigators_are_worktree_isolated(self) -> None:
+        """Parallel investigators must run in isolated worktrees so their
+        evidence-gathering doesn't collide with each other."""
+        result = self._run_py(
+            "import json; "
+            "from multiagent_generator import create_system_from_template; "
+            "sys_ = create_system_from_template('competing-hypothesis'); "
+            "invs = [w for w in sys_.workers if w.role == 'investigator']; "
+            "print(json.dumps([w.isolation for w in invs]))"
+        )
+        assert result.returncode == 0, result.stderr
+        isolations = json.loads(result.stdout)
+        assert all(i == "worktree" for i in isolations), (
+            f"all investigators must have worktree isolation; got {isolations}"
+        )
+
+    # --- factory: configurable investigator count --------------------------
+
+    def test_factory_produces_configurable_count(self) -> None:
+        """Factory must support 3, 4, and 5 investigators, each with a
+        distinct hypothesis focus drawn from DEFAULT_COMPETING_HYPOTHESES."""
+        for n in (3, 4, 5):
+            result = self._run_py(
+                "import json; "
+                "from multiagent_generator import create_competing_hypothesis_system; "
+                f"sys_ = create_competing_hypothesis_system(investigator_count={n}); "
+                "invs = [w for w in sys_.workers if w.role == 'investigator']; "
+                "print(json.dumps([w.hypothesis_focus for w in invs]))"
+            )
+            assert result.returncode == 0, f"n={n}: {result.stderr}"
+            focuses = json.loads(result.stdout)
+            assert len(focuses) == n, f"n={n}: got {len(focuses)} investigators"
+            assert len(set(focuses)) == n, f"n={n}: focuses not distinct: {focuses}"
+
+    def test_factory_rejects_count_below_three(self) -> None:
+        """count < 3 has no adversarial pressure — must raise ValueError."""
+        result = self._run_py(
+            "from multiagent_generator import create_competing_hypothesis_system\n"
+            "try:\n"
+            "    create_competing_hypothesis_system(investigator_count=2)\n"
+            "    print('no-error')\n"
+            "except ValueError as e:\n"
+            "    print('value-error:', str(e))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "value-error" in result.stdout, result.stdout
+        assert "3" in result.stdout or "5" in result.stdout
+
+    def test_factory_rejects_count_above_five(self) -> None:
+        """count > 5 exceeds coordination budget — must raise ValueError."""
+        result = self._run_py(
+            "from multiagent_generator import create_competing_hypothesis_system\n"
+            "try:\n"
+            "    create_competing_hypothesis_system(investigator_count=6)\n"
+            "    print('no-error')\n"
+            "except ValueError:\n"
+            "    print('value-error')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "value-error" in result.stdout
+
+    def test_factory_rejects_duplicate_focuses(self) -> None:
+        """Hypothesis focuses must be distinct — duplicates defeat the pattern."""
+        result = self._run_py(
+            "from multiagent_generator import create_competing_hypothesis_system\n"
+            "dup = [{'focus': 'x', 'description': 'd', "
+            "        'responsibilities': ['r'], 'inputs': ['i']}] * 3\n"
+            "try:\n"
+            "    create_competing_hypothesis_system(investigator_count=3, hypotheses=dup)\n"
+            "    print('no-error')\n"
+            "except ValueError as e:\n"
+            "    print('value-error:', str(e))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "value-error" in result.stdout
+        assert "distinct" in result.stdout.lower() or "duplicate" in result.stdout.lower()
+
+    def test_factory_rejects_malformed_hypothesis_dict(self) -> None:
+        """Hypothesis dicts missing required keys must raise ValueError with
+        actionable message — not the opaque KeyError the caller would otherwise
+        see surfacing from inside agent construction."""
+        result = self._run_py(
+            "from multiagent_generator import create_competing_hypothesis_system\n"
+            "bad = [\n"
+            "  {'focus': 'a', 'description': 'd', 'responsibilities': ['r']},\n"
+            "  {'focus': 'b', 'responsibilities': ['r']},\n"
+            "  {'focus': 'c', 'description': 'd', 'responsibilities': ['r']},\n"
+            "]\n"
+            "try:\n"
+            "    create_competing_hypothesis_system(investigator_count=3, hypotheses=bad)\n"
+            "    print('no-error')\n"
+            "except ValueError as e:\n"
+            "    print('value-error:', str(e))\n"
+            "except KeyError as e:\n"
+            "    print('key-error:', str(e))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "value-error" in result.stdout, (
+            f"factory must raise ValueError (not KeyError) for malformed hypothesis "
+            f"so the caller knows which key is missing; got: {result.stdout}"
+        )
+        assert "description" in result.stdout, (
+            "error message must name the missing key so the caller can fix it"
+        )
+        assert "hypotheses[1]" in result.stdout, (
+            "error message must name the offending hypothesis index"
+        )
+
+    def test_factory_rejects_non_dict_hypothesis(self) -> None:
+        """Non-dict entries in hypotheses must raise ValueError with type info."""
+        result = self._run_py(
+            "from multiagent_generator import create_competing_hypothesis_system\n"
+            "bad = [\n"
+            "  {'focus': 'a', 'description': 'd', 'responsibilities': ['r']},\n"
+            "  'not-a-dict',\n"
+            "  {'focus': 'c', 'description': 'd', 'responsibilities': ['r']},\n"
+            "]\n"
+            "try:\n"
+            "    create_competing_hypothesis_system(investigator_count=3, hypotheses=bad)\n"
+            "    print('no-error')\n"
+            "except ValueError as e:\n"
+            "    print('value-error:', str(e))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "value-error" in result.stdout
+        assert "str" in result.stdout, "must report the actual offending type"
+
+    def test_orchestrator_markdown_rejects_no_investigators(self) -> None:
+        """Generating the orchestrator markdown for a competing-hypothesis
+        system with zero investigators must fail loud — silently emitting
+        'Dispatch all 0 investigators' would ship a broken orchestrator."""
+        result = self._run_py(
+            "from multiagent_generator import (\n"
+            "    AgentDefinition, MultiAgentSystem,\n"
+            ")\n"
+            "orch = AgentDefinition(name='c', description='d',\n"
+            "                       role='orchestrator', tools=['Task'],\n"
+            "                       responsibilities=['r'])\n"
+            "broken = MultiAgentSystem(name='broken', description='d',\n"
+            "                          pattern='competing-hypothesis',\n"
+            "                          orchestrator=orch, workers=[])\n"
+            "try:\n"
+            "    broken.generate_competing_hypothesis_orchestrator_markdown()\n"
+            "    print('no-error')\n"
+            "except ValueError as e:\n"
+            "    print('value-error:', str(e))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "value-error" in result.stdout, (
+            f"empty-investigators must fail loud; got: {result.stdout}"
+        )
+        assert "investigator" in result.stdout, (
+            "error must explain what is missing so the caller can fix it"
+        )
+
+    def test_cli_generate_pattern_choices_include_competing_hypothesis(self) -> None:
+        """`generate --pattern` choices must include competing-hypothesis so
+        users discovering patterns via --help see it (consistency with
+        writer-reviewer being added to all CLI surfaces)."""
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "multiagent_generator.py"), "generate", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "competing-hypothesis" in result.stdout, (
+            f"--pattern choices missing competing-hypothesis: {result.stdout}"
+        )
+
+    def test_cli_example_pattern_choices_include_competing_hypothesis(self) -> None:
+        """`example` subcommand pattern choices must include competing-hypothesis."""
+        result = subprocess.run(
+            [sys.executable, str(SCRIPTS_DIR / "multiagent_generator.py"), "example", "--help"],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "competing-hypothesis" in result.stdout, (
+            f"example pattern choices missing competing-hypothesis: {result.stdout}"
+        )
+
+    def test_factory_rejects_too_few_hypotheses(self) -> None:
+        """Supplying fewer hypotheses than investigators must raise ValueError."""
+        result = self._run_py(
+            "from multiagent_generator import create_competing_hypothesis_system\n"
+            "short = [{'focus': 'a', 'description': 'd', 'responsibilities': ['r'], "
+            "          'inputs': ['i']}]\n"
+            "try:\n"
+            "    create_competing_hypothesis_system(investigator_count=4, hypotheses=short)\n"
+            "    print('no-error')\n"
+            "except ValueError:\n"
+            "    print('value-error')"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "value-error" in result.stdout
+
+    def test_factory_accepts_custom_hypotheses(self) -> None:
+        """Caller-supplied hypotheses must propagate to investigator metadata."""
+        result = self._run_py(
+            "import json; "
+            "from multiagent_generator import create_competing_hypothesis_system; "
+            "custom = ["
+            "  {'focus': 'cache-corruption', 'description': 'cache-focused', "
+            "   'responsibilities': ['check caches'], 'inputs': ['bug']},"
+            "  {'focus': 'memory-leak', 'description': 'memory-focused', "
+            "   'responsibilities': ['profile memory'], 'inputs': ['bug']},"
+            "  {'focus': 'serialization', 'description': 'ser-focused', "
+            "   'responsibilities': ['diff payloads'], 'inputs': ['bug']}"
+            "]; "
+            "sys_ = create_competing_hypothesis_system("
+            "  investigator_count=3, hypotheses=custom); "
+            "invs = [w for w in sys_.workers if w.role == 'investigator']; "
+            "print(json.dumps(sorted([w.hypothesis_focus for w in invs])))"
+        )
+        assert result.returncode == 0, result.stderr
+        focuses = json.loads(result.stdout)
+        assert focuses == ["cache-corruption", "memory-leak", "serialization"]
+
+    # --- orchestrator markdown ---------------------------------------------
+
+    def test_orchestrator_markdown_documents_three_adversarial_rounds(self, tmp_path: Path) -> None:
+        """save_system must render the competing-hypothesis markdown with
+        all three rounds + convergence + degenerate-case handling."""
+        out_dir = tmp_path / "ch"
+        result = self._run_py(
+            "from pathlib import Path; "
+            "from multiagent_generator import create_system_from_template, save_system; "
+            "sys_ = create_system_from_template('competing-hypothesis'); "
+            f"save_system(sys_, Path('{out_dir}'))"
+        )
+        assert result.returncode == 0, result.stderr
+        orch_files = list(Path(out_dir).glob("*coordinator*.md"))
+        assert orch_files, f"no coordinator markdown in {out_dir}"
+        content = orch_files[0].read_text()
+        assert "Round 1: Independent Investigation" in content
+        assert "Round 2: Peer Challenge" in content
+        assert "Round 3: Refinement" in content
+        assert "Selection" in content
+        assert "Competing-Hypothesis" in content or "competing-hypothesis" in content
+        # Must spell out the adversarial invariant (no unchallenged hypothesis)
+        assert "cite" in content.lower() and "peer" in content.lower()
+        # Must cover the degenerate case
+        assert "Unanimous" in content or "unanimous" in content
+
+    def test_orchestrator_markdown_lists_distinct_hypothesis_focuses(self, tmp_path: Path) -> None:
+        """The investigator table must surface each distinct focus so
+        the orchestrator can assign them without ambiguity."""
+        out_dir = tmp_path / "ch2"
+        result = self._run_py(
+            "from pathlib import Path; "
+            "from multiagent_generator import create_competing_hypothesis_system, save_system; "
+            "sys_ = create_competing_hypothesis_system(investigator_count=5); "
+            f"save_system(sys_, Path('{out_dir}'))"
+        )
+        assert result.returncode == 0, result.stderr
+        orch_files = list(Path(out_dir).glob("*coordinator*.md"))
+        content = orch_files[0].read_text()
+        # The default 5 focuses should all appear in the investigator table
+        for focus in (
+            "recent-change",
+            "concurrency-timing",
+            "environment-dependency",
+            "data-state",
+            "integration-contract",
+        ):
+            assert focus in content, f"focus {focus!r} missing from orchestrator markdown"
+
+    def test_manifest_preserves_hypothesis_focus(self, tmp_path: Path) -> None:
+        """save_system's JSON manifest must preserve hypothesis_focus so
+        downstream tools can inspect it without re-running the factory."""
+        out_dir = tmp_path / "ch3"
+        result = self._run_py(
+            "from pathlib import Path; "
+            "from multiagent_generator import create_system_from_template, save_system; "
+            "sys_ = create_system_from_template('competing-hypothesis'); "
+            f"save_system(sys_, Path('{out_dir}'))"
+        )
+        assert result.returncode == 0, result.stderr
+        manifest_files = list(Path(out_dir).glob("*-manifest.json"))
+        assert manifest_files, "no manifest JSON written"
+        manifest = json.loads(manifest_files[0].read_text())
+        workers = [w for w in manifest["workers"] if w["role"] == "investigator"]
+        assert workers, "no investigators in manifest"
+        focuses = [w.get("hypothesis_focus") for w in workers]
+        assert all(f for f in focuses), f"manifest dropped hypothesis_focus: {focuses}"
+        assert len(set(focuses)) == len(focuses), "manifest focuses not distinct"
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
