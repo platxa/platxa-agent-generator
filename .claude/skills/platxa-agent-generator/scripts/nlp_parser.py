@@ -836,6 +836,25 @@ def generate_description(original: str, agent_type: str) -> str:
                 desc_lower = desc[0].lower() + desc[1:] if desc else ""
                 desc = f"{type_verbs[agent_type]} {desc_lower}"
 
+    # YAML-safe whitespace collapse.
+    #
+    # The returned description flows into the ``description:`` key of
+    # generated agent frontmatter. YAML delimits documents with a
+    # ``---`` sequence on its own line, so ANY embedded newline in
+    # the emitted value lets a crafted input close the frontmatter
+    # early and inject arbitrary keys (``tools: Bash, Write``, a
+    # different ``name``, etc.) into the target agent file. The
+    # whole attack vector is newline-dependent.
+    #
+    # Fix at the source: collapse every run of whitespace (newlines,
+    # tabs, carriage returns, form-feeds, the lot) into a single
+    # ASCII space. A crafted description like ``x\n---\nname: evil``
+    # becomes ``x --- name: evil`` — no line boundary, no frontmatter
+    # escape. This is lossless for legitimate descriptions (which
+    # are single-line prose by convention) and defensive against
+    # hostile ones. See TestNlpParserMalformedInput.test_yaml_injection_via_description.
+    desc = re.sub(r"\s+", " ", desc).strip()
+
     # Final cleanup: ensure first letter is capitalized
     if desc:
         desc = desc[0].upper() + desc[1:]
