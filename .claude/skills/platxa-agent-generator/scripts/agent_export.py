@@ -1144,6 +1144,57 @@ def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
         zf.extract(member, dest)
 
 
+def _safe_extract_tar(tf: tarfile.TarFile, dest: Path) -> None:
+    """Safely extract a tar archive under ``dest``.
+
+    Validates every ``TarInfo`` before any member is written. Raises
+    ``ValueError`` on:
+
+    * Absolute member paths (POSIX or Windows-style) — CWE-22.
+    * Any path component equal to ``..`` (parent-directory traversal).
+    * Resolved target path that escapes ``dest`` — CWE-22 belt-and-braces
+      against exotic encodings (e.g. ``foo/./../../etc``) that survive the
+      component scan.
+    * Symlinks (``LNKTYPE``/``SYMTYPE``) — CWE-59: the link target can
+      re-anchor later writes outside ``dest``, even when the member name
+      looks safe.
+    * Hardlinks and device/FIFO nodes (``CHRTYPE``/``BLKTYPE``/``FIFOTYPE``):
+      agent bundles only ever ship regular files and directories, so these
+      are both unnecessary and a privilege-escalation vector.
+
+    Validation runs to completion before any extraction, so a hostile
+    member aborts the whole operation instead of leaving a partial tree.
+    """
+    dest_resolved = dest.resolve()
+    for member in tf.getmembers():
+        name = member.name
+        # Absolute paths: reject POSIX ("/etc"), UNC/backslash ("\\srv"),
+        # and Windows drive ("C:\\") prefixes.
+        if os.path.isabs(name) or name.startswith(("/", "\\")):
+            raise ValueError(f"Unsafe tar member (absolute path): {name}")
+        if len(name) >= 2 and name[1] == ":":
+            raise ValueError(f"Unsafe tar member (drive path): {name}")
+        # Any ".." component anywhere in the path is rejected outright —
+        # the feature spec requires this over resolution-only checks.
+        parts = Path(name).parts
+        if ".." in parts:
+            raise ValueError(f"Unsafe tar member (parent traversal): {name}")
+        # Reject link types and non-regular device nodes before resolving
+        # paths — resolution on a symlink member would follow the link.
+        if member.issym() or member.islnk():
+            raise ValueError(f"Unsafe tar member (symlink or hardlink): {name}")
+        if member.ischr() or member.isblk() or member.isfifo() or member.isdev():
+            raise ValueError(f"Unsafe tar member (device or fifo): {name}")
+        # Belt-and-braces: require the resolved target to stay under dest.
+        target = (dest_resolved / name).resolve()
+        try:
+            target.relative_to(dest_resolved)
+        except ValueError as exc:
+            raise ValueError(f"Unsafe tar member (path traversal): {name}") from exc
+    for member in tf.getmembers():
+        tf.extract(member, dest)
+
+
 def validate_package(package_path: Path) -> ValidationResult:
     """
     Validate an agent package before import.
@@ -1174,7 +1225,7 @@ def validate_package(package_path: Path) -> ValidationResult:
                 package_dir = dirs[0] if dirs else temp_path
             elif str(package_path).endswith(".tar.gz"):
                 with tarfile.open(package_path, "r:gz") as tf:
-                    tf.extractall(temp_path)
+                    _safe_extract_tar(tf, temp_path)
                 dirs = list(temp_path.iterdir())
                 package_dir = dirs[0] if dirs else temp_path
             else:
@@ -1319,7 +1370,7 @@ def import_agent(
                 package_dir = dirs[0] if dirs else temp_path
             elif str(package_path).endswith(".tar.gz"):
                 with tarfile.open(package_path, "r:gz") as tf:
-                    tf.extractall(temp_path)
+                    _safe_extract_tar(tf, temp_path)
                 dirs = list(temp_path.iterdir())
                 package_dir = dirs[0] if dirs else temp_path
             else:

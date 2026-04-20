@@ -1489,3 +1489,80 @@ class TestAgentExportZipSlip:
             pytest.raises(ValueError, match="symlink"),
         ):
             _safe_extract_zip(zf, dest)
+
+
+class TestAgentExportTarSlip:
+    """Tar-slip defense for agent_export._safe_extract_tar (feature #3)."""
+
+    def test_rejects_path_traversal(self, tmp_path: Path) -> None:
+        """A member with ``../`` traversal must raise ValueError."""
+        import io as _io
+        import tarfile as _tf
+
+        from agent_export import _safe_extract_tar
+
+        dest = tmp_path / "dest"
+        dest.mkdir()
+        malicious_tar = tmp_path / "traversal.tar.gz"
+        with _tf.open(malicious_tar, "w:gz") as tf:
+            info = _tf.TarInfo(name="../escape.txt")
+            data = b"pwned"
+            info.size = len(data)
+            tf.addfile(info, _io.BytesIO(data))
+
+        with (
+            _tf.open(malicious_tar, "r:gz") as tf,
+            pytest.raises(ValueError, match="parent traversal|path traversal"),
+        ):
+            _safe_extract_tar(tf, dest)
+
+        # Parent-of-dest must not have been written to.
+        assert not (tmp_path / "escape.txt").exists()
+
+    def test_rejects_absolute_path(self, tmp_path: Path) -> None:
+        """A member whose name is an absolute path must raise ValueError."""
+        import io as _io
+        import tarfile as _tf
+
+        from agent_export import _safe_extract_tar
+
+        dest = tmp_path / "dest"
+        dest.mkdir()
+        malicious_tar = tmp_path / "absolute.tar.gz"
+        with _tf.open(malicious_tar, "w:gz") as tf:
+            info = _tf.TarInfo(name="/tmp/evil.txt")
+            data = b"pwned"
+            info.size = len(data)
+            tf.addfile(info, _io.BytesIO(data))
+
+        with (
+            _tf.open(malicious_tar, "r:gz") as tf,
+            pytest.raises(ValueError, match="absolute path"),
+        ):
+            _safe_extract_tar(tf, dest)
+
+    def test_rejects_symlink(self, tmp_path: Path) -> None:
+        """A symlink member must raise ValueError regardless of its target.
+
+        Guards CWE-59: a symlink member whose link target points outside
+        ``dest`` can re-anchor subsequent writes, so symlinks are refused
+        outright rather than trying to filter safe targets.
+        """
+        import tarfile as _tf
+
+        from agent_export import _safe_extract_tar
+
+        dest = tmp_path / "dest"
+        dest.mkdir()
+        malicious_tar = tmp_path / "symlink.tar.gz"
+        with _tf.open(malicious_tar, "w:gz") as tf:
+            info = _tf.TarInfo(name="link-to-etc")
+            info.type = _tf.SYMTYPE
+            info.linkname = "/etc/passwd"
+            tf.addfile(info)
+
+        with (
+            _tf.open(malicious_tar, "r:gz") as tf,
+            pytest.raises(ValueError, match="symlink or hardlink"),
+        ):
+            _safe_extract_tar(tf, dest)
