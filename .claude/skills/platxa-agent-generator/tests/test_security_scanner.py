@@ -1164,30 +1164,80 @@ class TestParseAgentFile:
         """Tools as comma-separated string are parsed correctly."""
         p = tmp_path / "test.md"
         p.write_text("---\nname: t\ndescription: t\ntools: Read, Write, Bash\n---\n\n# A\n")
-        _, _fm, tools = parse_agent_file(p)
+        _, _fm, tools, parse_findings = parse_agent_file(p)
         assert tools == ["Read", "Write", "Bash"]
+        assert parse_findings == []
 
     def test_parses_tools_as_list(self, tmp_path: Path) -> None:
         """Tools as YAML list are parsed correctly."""
         p = tmp_path / "test.md"
         p.write_text("---\nname: t\ndescription: t\ntools:\n  - Read\n  - Write\n---\n\n# A\n")
-        _, _fm, tools = parse_agent_file(p)
+        _, _fm, tools, parse_findings = parse_agent_file(p)
         assert tools == ["Read", "Write"]
+        assert parse_findings == []
 
     def test_no_frontmatter_returns_empty(self, tmp_path: Path) -> None:
         """File without frontmatter returns empty tools list."""
         p = tmp_path / "test.md"
         p.write_text("# Agent\n\nJust content, no frontmatter.\n")
-        _, fm, tools = parse_agent_file(p)
+        _, fm, tools, parse_findings = parse_agent_file(p)
         assert fm is None
         assert tools == []
+        assert parse_findings == []
 
-    def test_invalid_yaml_returns_empty(self, tmp_path: Path) -> None:
-        """Invalid YAML frontmatter returns empty tools."""
+    def test_invalid_yaml_surfaces_finding(self, tmp_path: Path) -> None:
+        """Invalid YAML frontmatter surfaces a HIGH FRONTMATTER_UNPARSEABLE finding."""
         p = tmp_path / "test.md"
         p.write_text("---\n: invalid: yaml: [broken\n---\n\n# Agent\n")
-        _, _fm, tools = parse_agent_file(p)
+        _, _fm, tools, parse_findings = parse_agent_file(p)
         assert tools == []
+        assert any(
+            f.severity == Severity.HIGH and f.code == "FRONTMATTER_UNPARSEABLE"
+            for f in parse_findings
+        )
+
+
+# ---------------------------------------------------------------------------
+# Test Class: FRONTMATTER_UNPARSEABLE propagation (feature #5)
+# ---------------------------------------------------------------------------
+
+
+class TestSecurityScannerYamlError:
+    """Malformed YAML frontmatter must surface a HIGH finding and fail the scan.
+
+    Silently swallowing `yaml.YAMLError` inverts the scanner's purpose: the scanner
+    cannot enumerate declared tools when the frontmatter is unparseable, so it
+    must emit `FRONTMATTER_UNPARSEABLE` (HIGH) and mark the result as not
+    passing.
+    """
+
+    _MALFORMED = "---\n: invalid: yaml: [broken\n---\n\n# Agent\n"
+
+    def test_malformed_yaml_emits_high_finding(self, tmp_path: Path) -> None:
+        """scan_file surfaces HIGH FRONTMATTER_UNPARSEABLE on malformed frontmatter."""
+        p = tmp_path / "broken.md"
+        p.write_text(self._MALFORMED)
+        result = scan_file(p)
+        assert any(
+            f.severity == Severity.HIGH and f.code == "FRONTMATTER_UNPARSEABLE"
+            for f in result.findings
+        )
+
+    def test_scanner_does_not_pass_on_malformed(self, tmp_path: Path) -> None:
+        """scan_file must mark the result as not passing when frontmatter is unparseable."""
+        p = tmp_path / "broken.md"
+        p.write_text(self._MALFORMED)
+        result = scan_file(p)
+        assert result.passed is False
+
+    def test_scan_content_emits_high_finding(self) -> None:
+        """scan_content also surfaces HIGH FRONTMATTER_UNPARSEABLE and fails pass."""
+        result = scan_content(self._MALFORMED)
+        assert any(
+            f.severity == Severity.HIGH and f.code == "FRONTMATTER_UNPARSEABLE"
+            for f in result.findings
+        )
+        assert result.passed is False
 
 
 # ---------------------------------------------------------------------------

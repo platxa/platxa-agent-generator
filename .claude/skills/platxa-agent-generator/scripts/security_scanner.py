@@ -470,16 +470,25 @@ DANGEROUS_TOOL_COMBINATIONS = [
 ]
 
 
-def parse_agent_file(file_path: Path) -> tuple[str, dict | None, list[str]]:
+def parse_agent_file(
+    file_path: Path,
+) -> tuple[str, dict | None, list[str], list[SecurityFinding]]:
     """
     Parse agent file and extract content, frontmatter, and tools.
 
     Returns:
-        Tuple of (content, frontmatter, tools_list)
+        Tuple of (content, frontmatter, tools_list, findings).
+
+        findings is a list of SecurityFinding objects surfaced while parsing
+        (e.g. FRONTMATTER_UNPARSEABLE when the YAML block is malformed). An
+        unparseable frontmatter means the scanner cannot determine which tools
+        the agent has permission to use, so it must surface a HIGH finding
+        rather than silently returning an empty tools list.
     """
     content = file_path.read_text(encoding="utf-8")
     frontmatter = None
     tools: list[str] = []
+    findings: list[SecurityFinding] = []
 
     # Extract frontmatter
     lines = content.split("\n")
@@ -500,10 +509,24 @@ def parse_agent_file(file_path: Path) -> tuple[str, dict | None, list[str]]:
                         tools = [str(t) for t in tools_value]
                     elif isinstance(tools_value, str):
                         tools = [t.strip() for t in tools_value.split(",")]
-            except yaml.YAMLError:
-                pass
+            except yaml.YAMLError as exc:
+                findings.append(
+                    SecurityFinding(
+                        severity=Severity.HIGH,
+                        code="FRONTMATTER_UNPARSEABLE",
+                        title="Unparseable agent frontmatter",
+                        description=(
+                            "unparseable frontmatter - cannot scan tool permissions safely"
+                        ),
+                        evidence=str(exc),
+                        recommendation=(
+                            "Fix the YAML frontmatter block so the scanner "
+                            "can enumerate declared tools."
+                        ),
+                    )
+                )
 
-    return content, frontmatter, tools
+    return content, frontmatter, tools, findings
 
 
 def scan_patterns(
@@ -870,8 +893,8 @@ def scan_file(file_path: str | Path) -> ScanResult:
             ],
         )
 
-    content, _frontmatter, tools = parse_agent_file(path)
-    all_findings: list[SecurityFinding] = []
+    content, _frontmatter, tools, parse_findings = parse_agent_file(path)
+    all_findings: list[SecurityFinding] = list(parse_findings)
 
     # Scan for critical patterns
     all_findings.extend(scan_patterns(content, CRITICAL_PATTERNS, Severity.CRITICAL))
@@ -896,7 +919,8 @@ def scan_file(file_path: str | Path) -> ScanResult:
 
     # Determine pass/fail (critical findings or score < 5 = fail)
     has_critical = any(f.severity == Severity.CRITICAL for f in all_findings)
-    passed = not has_critical and score >= 5.0
+    has_unparseable = any(f.code == "FRONTMATTER_UNPARSEABLE" for f in all_findings)
+    passed = not has_critical and not has_unparseable and score >= 5.0
 
     # Risk summary
     risk_summary = {
@@ -945,8 +969,22 @@ def scan_content(content: str, tools: list[str] | None = None) -> ScanResult:
                                 tools = [str(t) for t in tools_value]
                             elif isinstance(tools_value, str):
                                 tools = [t.strip() for t in tools_value.split(",")]
-                    except yaml.YAMLError:
-                        pass
+                    except yaml.YAMLError as exc:
+                        all_findings.append(
+                            SecurityFinding(
+                                severity=Severity.HIGH,
+                                code="FRONTMATTER_UNPARSEABLE",
+                                title="Unparseable agent frontmatter",
+                                description=(
+                                    "unparseable frontmatter - cannot scan tool permissions safely"
+                                ),
+                                evidence=str(exc),
+                                recommendation=(
+                                    "Fix the YAML frontmatter block so the "
+                                    "scanner can enumerate declared tools."
+                                ),
+                            )
+                        )
                     break
 
     # Scan for patterns
@@ -966,7 +1004,8 @@ def scan_content(content: str, tools: list[str] | None = None) -> ScanResult:
 
     # Determine pass/fail
     has_critical = any(f.severity == Severity.CRITICAL for f in all_findings)
-    passed = not has_critical and score >= 5.0
+    has_unparseable = any(f.code == "FRONTMATTER_UNPARSEABLE" for f in all_findings)
+    passed = not has_critical and not has_unparseable and score >= 5.0
 
     # Risk summary
     risk_summary = {
