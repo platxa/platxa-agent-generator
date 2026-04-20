@@ -13221,6 +13221,154 @@ class TestStatePersistenceConfig:
         assert "unchanged: True" in result.stdout
 
 
+class TestStatePersistenceWriteSurfacing:
+    """Tests for state_persistence write/lock/CLI surfacing (Feature #12).
+
+    Three silent-failure sites were hiding real environmental problems:
+
+    - ``_save_to_history`` swallowed OSError with ``pass``, so a full disk
+      or read-only agents_dir would quietly drop per-agent history without
+      the operator ever learning the write didn't happen. The fix emits a
+      stderr warning naming the target path and the error class.
+
+    - ``FileLock.release`` swallowed OSError on ``fcntl.flock(..., LOCK_UN)``
+      so a lock that failed to release looked successful, and the next
+      acquirer could spin until timeout without any explanation of why.
+      The fix emits a stderr warning naming the lock path and the error.
+
+    - The CLI ``config --set KEY VALUE`` path silently coerced
+      non-JSON values to plain strings. Operators typing
+      ``--set port 8080`` expected the int; typing ``--set greeting hello``
+      expected the string. Silently deciding means the operator can't tell
+      which branch ran. The fix emits a stderr notice when the JSON parse
+      falls back to string storage.
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        return subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+
+    def test_oserror_on_save_prints_stderr(self) -> None:
+        """OSError inside ``_save_to_history`` must emit a stderr warning
+        that names the target history file and the error class.
+
+        The previous ``except (json.JSONDecodeError, OSError): pass``
+        hid the failure entirely. Operators lost per-agent history with
+        zero diagnostic. The fix emits a warning to stderr without
+        changing the swallow-and-continue contract (history is
+        best-effort; the state update in ``add_generation_record``
+        already succeeded by the time ``_save_to_history`` runs).
+        """
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from unittest.mock import patch\n"
+            "from state_persistence import StatePersistence, GenerationRecord\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = StatePersistence(base_dir=Path(td))\n"
+            "    rec = GenerationRecord(\n"
+            "        agent_name='demo', description='d', pattern='chaining',\n"
+            "        tools=[], generated_at='2026-04-20T00:00:00',\n"
+            "        output_path='/tmp/x', success=True,\n"
+            "    )\n"
+            "    with patch.object(\n"
+            "        Path, 'write_text',\n"
+            "        side_effect=OSError('no space left'),\n"
+            "    ):\n"
+            "        p._save_to_history(rec)\n"
+            "    print('completed')\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "completed" in result.stdout
+        # Warning must name the target path (by agent name) and the error class.
+        assert "demo.json" in result.stderr
+        assert "OSError" in result.stderr
+        assert "no space left" in result.stderr
+
+    def test_lock_release_failure_warns(self) -> None:
+        """Lock release failure (flock LOCK_UN raising OSError) must emit a
+        stderr warning that names the lock path and the error.
+
+        The previous ``except (IOError, OSError): pass`` made a failing
+        unlock indistinguishable from a clean one, which is the worst
+        failure mode for a lock primitive — the caller sees "released"
+        but the kernel state disagrees. The fix surfaces the failure
+        while preserving the swallow (release is called from cleanup
+        paths that cannot raise).
+        """
+        result = self._run_py(
+            "import tempfile\n"
+            "import fcntl\n"
+            "from pathlib import Path\n"
+            "from unittest.mock import patch\n"
+            "from state_persistence import FileLock\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    lock_path = Path(td) / 'test.lock'\n"
+            "    lock = FileLock(lock_path)\n"
+            "    assert lock.acquire(), 'acquire failed'\n"
+            "    original_flock = fcntl.flock\n"
+            "    def fake_flock(fd, op):\n"
+            "        if op == fcntl.LOCK_UN:\n"
+            "            raise OSError('unlock failed')\n"
+            "        return original_flock(fd, op)\n"
+            "    with patch('state_persistence.fcntl.flock', fake_flock):\n"
+            "        lock.release()\n"
+            "    print('completed')\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "completed" in result.stdout
+        # Warning must name the lock path and the error class/message.
+        assert "test.lock" in result.stderr
+        assert "OSError" in result.stderr
+        assert "unlock failed" in result.stderr
+
+    def test_cli_set_json_fallback_notice(self) -> None:
+        """CLI ``config --set KEY VALUE`` must emit a stderr notice when the
+        VALUE fails JSON parse and is stored as a plain string.
+
+        Previously the fallback was silent — ``--set port 8080`` stored
+        the int 8080, ``--set port eight-thousand`` stored the string
+        "eight-thousand", and the operator had no way to tell which
+        branch ran for any given invocation. The fix emits a one-line
+        notice when the JSONDecodeError is caught.
+        """
+        import tempfile
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        script = scripts_dir / "state_persistence.py"
+        with tempfile.TemporaryDirectory() as td:
+            # `set_config` writes to .claude/config/generator.json; the
+            # directory must exist before the CLI runs or the write fails
+            # with an unrelated OSError that masks the fallback-notice path.
+            (Path(td) / ".claude" / "config").mkdir(parents=True, exist_ok=True)
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(script),
+                    "config",
+                    "--set",
+                    "mykey",
+                    "not_json_value",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=td,
+                check=False,
+            )
+        assert result.returncode == 0, result.stderr
+        # Notice must name the key and flag the fallback.
+        assert "mykey" in result.stderr
+        assert "string" in result.stderr.lower()
+        # And the set still succeeded on stdout.
+        assert "Set mykey" in result.stdout
+
+
 class TestBatchGeneration:
     """Tests for batch agent generation (feature #75).
 

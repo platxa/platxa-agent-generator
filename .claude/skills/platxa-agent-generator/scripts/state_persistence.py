@@ -328,14 +328,28 @@ class FileLock:
                 try:
                     fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
                     lock_file.close()
-                except (IOError, OSError):
-                    pass
+                except (IOError, OSError) as e:
+                    # Swallow-and-continue preserved because release() is
+                    # invoked from cleanup paths that must not raise, but
+                    # a silent unlock failure is the worst failure mode
+                    # for a lock primitive — the caller sees "released"
+                    # while the kernel state disagrees. Surface the path
+                    # and error so the desync becomes diagnosable.
+                    print(
+                        f"warning: failed to release lock "
+                        f"{self.lock_path}: {type(e).__name__}: {e}",
+                        file=sys.stderr,
+                    )
 
                 # Clean up lock file
                 try:
                     self.lock_path.unlink(missing_ok=True)
-                except OSError:
-                    pass
+                except OSError as e:
+                    print(
+                        f"warning: failed to remove lock file "
+                        f"{self.lock_path}: {type(e).__name__}: {e}",
+                        file=sys.stderr,
+                    )
 
     @property
     def is_held(self) -> bool:
@@ -1031,8 +1045,18 @@ class StatePersistence:
                 json.dumps({"records": records}, indent=2),
                 encoding="utf-8",
             )
-        except (json.JSONDecodeError, OSError):
-            pass
+        except (json.JSONDecodeError, OSError) as e:
+            # History is best-effort — the state mutation in
+            # add_generation_record has already committed by the time we
+            # get here. But silently dropping the per-agent record meant
+            # operators lost diagnostic history with zero indication.
+            # Surface the path and error class so the failure is visible
+            # without changing the swallow-and-continue contract.
+            print(
+                f"warning: state_persistence failed to write history file "
+                f"{history_file}: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
 
     def _migrate_schema(
         self,
@@ -1252,11 +1276,20 @@ def main() -> None:
                     sys.exit(1)
             elif args.set:
                 key, value = args.set
-                # Try to parse as JSON, fall back to string
+                # Try to parse as JSON, fall back to string. Surface the
+                # fallback on stderr so the operator can tell which branch
+                # ran — ``--set port 8080`` stores int 8080, but
+                # ``--set port eight-thousand`` silently stores a string,
+                # and the difference changes how downstream consumers read
+                # the config. The notice makes the coercion observable.
                 try:
                     value = json.loads(value)
                 except json.JSONDecodeError:
-                    pass
+                    print(
+                        f"notice: value for '{key}' is not valid JSON; "
+                        f"storing as string",
+                        file=sys.stderr,
+                    )
                 if persistence.set_config(**{key: value}):
                     print(f"Set {key} = {value}")
                 else:
