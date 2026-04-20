@@ -52,6 +52,17 @@ try:
 except ImportError:
     from shared.paths import get_project_agents_dir  # type: ignore[import-not-found,no-redef]
 
+# Canonical ``tools`` normalizer (feature #27). Replaces the inline
+# ``[t.strip() for t in tools_str.split(",") if t.strip()]`` that
+# previously lived in ``parse_agent_spec_from_file`` with a single
+# reviewed implementation shared across the generator suite.
+try:
+    from .shared.tool_utils import parse_tools_string
+except ImportError:
+    from shared.tool_utils import (  # type: ignore[import-not-found,no-redef]
+        parse_tools_string,
+    )
+
 
 class CompositionPattern(Enum):
     """Supported composition patterns."""
@@ -1409,8 +1420,11 @@ def load_agent_spec(file_path: Path | str) -> AgentSpec | None:
 
     name = frontmatter.get("name", "")
     description = frontmatter.get("description", "")
-    tools_str = frontmatter.get("tools", "")
-    tools = [t.strip() for t in tools_str.split(",") if t.strip()]
+    # Tools value normalized via shared.tool_utils.parse_tools_string
+    # (feature #27). Handles None/empty/list inputs and drops empty
+    # tokens from trailing or doubled commas uniformly across the
+    # generator suite.
+    tools = parse_tools_string(frontmatter.get("tools", ""))
 
     # Dependencies may be declared as a YAML list (``dependencies: [a, b]``)
     # or as a comma-separated string (``dependencies: "a, b"``). Accept both

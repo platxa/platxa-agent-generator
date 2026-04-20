@@ -5388,6 +5388,102 @@ class TestSharedFrontmatter:
         )
 
 
+class TestSharedToolUtils:
+    """Tests for Feature #27: scripts/shared/tool_utils.py canonical normalizer.
+
+    Verifies the single ``parse_tools_string`` function that replaces the
+    ``[t.strip() for t in tools_str.split(",") if t.strip()]`` pattern
+    that had proliferated across ``agent_composer.py``,
+    ``agent_generator.py`` and a dozen sibling modules. Two deterministic
+    invariants are pinned below: (1) at least two modules in ``scripts/``
+    import from ``shared.tool_utils`` so the migration does not quietly
+    revert to inline parsing, and (2) the core behaviours required by
+    the spec — basic, whitespace, empty, single inputs — stay consistent
+    across Python invocations.
+    """
+
+    def test_canonical_normalization(self) -> None:
+        """parse_tools_string handles basic, whitespace, empty, single, and list inputs.
+
+        Exercises every contract clause from ``shared/tool_utils.py`` in a
+        single subprocess so the test stays fast while still pinning the
+        behaviour callers depend on. Empty-token dropping (from trailing
+        or doubled commas) is also asserted — that is the canonical
+        change the refactor introduced.
+        """
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import json; "
+                    "from scripts.shared.tool_utils import parse_tools_string; "
+                    "print(json.dumps({"
+                    "'basic': parse_tools_string('Read, Write, Edit'), "
+                    "'whitespace': parse_tools_string("
+                    "'  Read  ,  Write  ,  Edit  '), "
+                    "'empty_string': parse_tools_string(''), "
+                    "'none_input': parse_tools_string(None), "
+                    "'single': parse_tools_string('Read'), "
+                    "'trailing_comma': parse_tools_string('Read, Write,'), "
+                    "'doubled_comma': parse_tools_string('Read,, Write'), "
+                    "'list_input': parse_tools_string(['Read', ' Write ']), "
+                    "'list_with_empty': parse_tools_string("
+                    "['Read', '', '  ', 'Write']), "
+                    "}))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.returncode == 0, f"parse_tools_string failed: {result.stderr}"
+        data = json.loads(result.stdout.strip())
+
+        assert data["basic"] == ["Read", "Write", "Edit"]
+        assert data["whitespace"] == ["Read", "Write", "Edit"]
+        assert data["empty_string"] == []
+        assert data["none_input"] == []
+        assert data["single"] == ["Read"]
+        # Trailing and doubled commas drop empty tokens uniformly.
+        assert data["trailing_comma"] == ["Read", "Write"]
+        assert data["doubled_comma"] == ["Read", "Write"]
+        # List inputs are normalized (stripped) without losing order.
+        assert data["list_input"] == ["Read", "Write"]
+        assert data["list_with_empty"] == ["Read", "Write"]
+
+    def test_callsite_migration_count(self) -> None:
+        """Deterministic invariant: at least two scripts import from shared.tool_utils.
+
+        Enforces the spec gate ``rg 'from shared.tool_utils import' scripts/
+        returns >=2 hits`` — if a future edit reverts one of the migrated
+        call sites to inline ``[t.strip() for t in s.split(',')]``, this
+        test breaks instead of the invariant silently drifting.
+        """
+        result = subprocess.run(
+            [
+                "grep",
+                "-rln",
+                "from .*shared.tool_utils import",
+                str(SCRIPTS_DIR),
+                "--include=*.py",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        # grep returns 0 on match, 1 on no match; both are valid here.
+        assert result.returncode in (0, 1), f"grep failed: {result.stderr}"
+        hits = [line for line in result.stdout.splitlines() if line.strip()]
+        # Exclude the module itself; we only count importers.
+        importers = [
+            h for h in hits if "shared/tool_utils.py" not in h.replace("\\", "/")
+        ]
+        assert len(importers) >= 2, (
+            "Expected >=2 modules importing from shared.tool_utils; found "
+            f"{len(importers)}: {importers}"
+        )
+
+
 class TestSharedTaskListTemplate:
     """Tests for Feature #36: Orchestrator-workers with shared task list."""
 
@@ -14593,14 +14689,17 @@ class TestAgentComposerScan:
         assert result.returncode == 0, result.stderr
         # Valid agents preserved, broken one became None.
         assert "names: alpha|NONE|beta" in result.stdout
-        # Warning must name the broken file's path and an error class.
-        # PyYAML raises a ``yaml.YAMLError`` subclass (typically
-        # ``ScannerError`` or ``ParserError``) for malformed frontmatter;
-        # either surfaces as ``type(e).__name__``. Asserting just on
-        # "Error" keeps the test robust to PyYAML's internal subclass
-        # naming without sacrificing the "class name is present" check.
+        # Warning must name the broken file's path and the canonical
+        # error code. Feature #26 replaced the pre-existing
+        # ``type(e).__name__: e`` surface with the canonical
+        # ``E001|E002|E003: <message>`` shape produced by
+        # ``parse_frontmatter_safe`` — a malformed YAML body surfaces
+        # as E003 regardless of which PyYAML subclass raised. Asserting
+        # on ``E003`` (rather than the legacy ``Error`` substring) pins
+        # the new canonical contract so a future refactor that reverts
+        # to raw PyYAML class names breaks this test.
         assert "broken.md" in result.stderr
-        assert "Error" in result.stderr
+        assert "E003" in result.stderr
         # And must NOT name the valid files.
         assert "good_a.md" not in result.stderr
         assert "good_b.md" not in result.stderr

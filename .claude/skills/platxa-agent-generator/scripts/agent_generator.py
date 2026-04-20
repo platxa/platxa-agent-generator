@@ -23,6 +23,16 @@ try:
 except ImportError:
     from shared.paths import DEFAULT_AGENTS_DIR  # type: ignore[import-not-found,no-redef]
 
+# Canonical tools-string normalizer (feature #27). Consolidates the
+# ``[t.strip() for t in s.split(",") if t.strip()]`` pattern that was
+# scattered across create_definition_from_dict + worker/step parsing.
+try:
+    from .shared.tool_utils import parse_tools_string
+except ImportError:
+    from shared.tool_utils import (  # type: ignore[import-not-found,no-redef]
+        parse_tools_string,
+    )
+
 # Generator version embedded in the attribution footer of every
 # generated agent file (feature #79). Bumped manually when the
 # generator's output format changes in ways downstream tools care
@@ -3210,17 +3220,19 @@ def estimate_context_budget(content: str) -> ContextBudgetResult:
 
 def create_definition_from_dict(data: dict[str, Any]) -> AgentDefinition:
     """Create AgentDefinition from dictionary."""
-    # Parse tools
-    tools = data.get("tools", [])
-    if isinstance(tools, str):
-        tools = [t.strip() for t in tools.split(",")]
+    # Parse tools via the canonical normalizer (feature #27). The
+    # previous inline ``[t.strip() for t in tools.split(",")]`` kept
+    # empty strings produced by trailing/doubled commas — those are
+    # always authoring errors that the normalizer now drops uniformly
+    # across the suite. ``parse_tools_string`` also accepts a list
+    # input so the pre-existing ``isinstance(tools, str)`` branch
+    # collapses into a single call.
+    tools = parse_tools_string(data.get("tools", []))
 
     # Parse workers
     workers = []
     for w in data.get("workers", []):
-        worker_tools = w.get("tools", [])
-        if isinstance(worker_tools, str):
-            worker_tools = [t.strip() for t in worker_tools.split(",")]
+        worker_tools = parse_tools_string(w.get("tools", []))
         workers.append(
             WorkerDefinition(
                 name=w.get("name", "worker"),
@@ -3245,9 +3257,7 @@ def create_definition_from_dict(data: dict[str, Any]) -> AgentDefinition:
     # Parse chain_steps for prompt-chaining pattern
     chain_steps = []
     for cs in data.get("chain_steps", []):
-        step_tools = cs.get("tools", [])
-        if isinstance(step_tools, str):
-            step_tools = [t.strip() for t in step_tools.split(",")]
+        step_tools = parse_tools_string(cs.get("tools", []))
         chain_steps.append(
             ChainStep(
                 name=cs.get("name", "Step"),
