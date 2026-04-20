@@ -13369,6 +13369,123 @@ class TestStatePersistenceWriteSurfacing:
         assert "Set mykey" in result.stdout
 
 
+class TestExtendedThinkingLoadHistory:
+    """Tests for extended_thinking.py per-record load handling (Feature #13).
+
+    ``_load_usage_history`` previously wrapped the entire per-record loop
+    in one ``except (json.JSONDecodeError, OSError, KeyError)`` that caught
+    and silently dropped the exception. When a single record in the file
+    was malformed (missing a required key like ``task_id``), the KeyError
+    aborted the loop, leaving only the records loaded before the bad one
+    in memory. On the next ``_save_usage_history`` write, the file was
+    rewritten from that partial in-memory list, silently destroying the
+    valid records that appeared AFTER the bad one on disk.
+
+    The fix:
+    - Keep the outer try/except for whole-file failures (JSONDecodeError
+      and OSError from the initial read).
+    - Add a per-record try/except INSIDE the loop that catches KeyError
+      (and re-catches JSONDecodeError for belt-and-suspenders), logs a
+      stderr warning naming the record index, and ``continue``s so
+      subsequent valid records still load.
+    - Resulting ``_usage_records`` contains every well-formed record,
+      regardless of where the bad ones sit in the file.
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        return subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+
+    def test_bad_record_skipped_not_drops(self) -> None:
+        """A single bad record mid-file must not abort load of later records.
+
+        Writes a 3-record file where record #2 is missing ``task_id``
+        (forces KeyError inside ThinkingUsageRecord construction).
+        Asserts:
+        - Exactly 2 valid records are loaded (the first and third).
+        - stderr contains a warning naming the failing record.
+        - The file bytes on disk are unchanged (load does not rewrite).
+        """
+        result = self._run_py(
+            "import json, tempfile\n"
+            "from pathlib import Path\n"
+            "from extended_thinking import ThinkingIntegration\n"
+            "good_1 = {\n"
+            "    'task_id': 'task-1', 'task_description': 'first',\n"
+            "    'intensity_used': 'think', 'complexity_score': 0.3,\n"
+            "    'started_at': '2026-04-20T00:00:00'}\n"
+            "bad = {\n"
+            "    'task_description': 'missing task_id',\n"
+            "    'intensity_used': 'think', 'complexity_score': 0.4,\n"
+            "    'started_at': '2026-04-20T00:01:00'}\n"
+            "good_3 = {\n"
+            "    'task_id': 'task-3', 'task_description': 'third',\n"
+            "    'intensity_used': 'think', 'complexity_score': 0.5,\n"
+            "    'started_at': '2026-04-20T00:02:00'}\n"
+            "payload = json.dumps({'schema_version': '1.0.0',\n"
+            "    'last_updated': '2026-04-20T00:03:00',\n"
+            "    'records': [good_1, bad, good_3]}, indent=2)\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    path = Path(td) / 'thinking_usage.json'\n"
+            "    path.write_text(payload, encoding='utf-8')\n"
+            "    original_bytes = path.read_bytes()\n"
+            "    integ = ThinkingIntegration(usage_log_path=path)\n"
+            "    recs = integ._usage_records\n"
+            "    ids = [r.task_id for r in recs]\n"
+            "    print('count:', len(recs))\n"
+            "    print('ids:', ','.join(ids))\n"
+            "    # File on disk must be byte-identical after load\n"
+            "    print('unchanged:', path.read_bytes() == original_bytes)\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "count: 2" in result.stdout
+        assert "ids: task-1,task-3" in result.stdout
+        assert "unchanged: True" in result.stdout
+        # stderr must name the failing record index and the error class.
+        assert "KeyError" in result.stderr or "task_id" in result.stderr
+        # Some identifier of the record position should appear (index 1
+        # == second record) so operators can find the bad entry.
+        assert "1" in result.stderr or "record" in result.stderr.lower()
+
+    def test_all_good_records_load(self) -> None:
+        """Baseline: all-valid file loads every record with no stderr noise.
+
+        Regression guard — if the per-record error path accidentally
+        fires for well-formed records, this test catches it.
+        """
+        result = self._run_py(
+            "import json, tempfile\n"
+            "from pathlib import Path\n"
+            "from extended_thinking import ThinkingIntegration\n"
+            "records = [\n"
+            "    {'task_id': f'task-{i}', 'task_description': f'desc-{i}',\n"
+            "     'intensity_used': 'think', 'complexity_score': 0.1 * i,\n"
+            "     'started_at': '2026-04-20T00:00:00'}\n"
+            "    for i in range(1, 4)]\n"
+            "payload = json.dumps({'schema_version': '1.0.0',\n"
+            "    'last_updated': '2026-04-20T00:03:00',\n"
+            "    'records': records}, indent=2)\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    path = Path(td) / 'thinking_usage.json'\n"
+            "    path.write_text(payload, encoding='utf-8')\n"
+            "    integ = ThinkingIntegration(usage_log_path=path)\n"
+            "    recs = integ._usage_records\n"
+            "    print('count:', len(recs))\n"
+            "    print('ids:', ','.join(r.task_id for r in recs))\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "count: 3" in result.stdout
+        assert "ids: task-1,task-2,task-3" in result.stdout
+        # No per-record warning should fire on a clean file.
+        assert "KeyError" not in result.stderr
+
+
 class TestBatchGeneration:
     """Tests for batch agent generation (feature #75).
 

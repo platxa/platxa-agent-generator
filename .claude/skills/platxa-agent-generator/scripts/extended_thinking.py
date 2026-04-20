@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -748,13 +749,36 @@ class ThinkingIntegration:
         return f"Using {intensity.trigger_phrase} will likely provide: {', '.join(benefits)}."
 
     def _load_usage_history(self) -> None:
-        """Load usage history from file."""
+        """Load usage history from file.
+
+        Per-record failures (KeyError from a malformed record missing a
+        required field) are caught inside the loop so one bad record
+        does not abort load of the rest. The previous behavior wrapped
+        the entire loop in a single ``except`` clause: the first bad
+        record aborted iteration, the in-memory list held only the
+        records before it, and the next ``_save_usage_history`` rewrote
+        the file from that partial list — silently deleting every
+        valid record that appeared AFTER the bad one on disk.
+
+        Whole-file errors (OSError opening the path, JSONDecodeError
+        on the top-level parse) still abort load as a whole — there is
+        nothing to recover from at that point.
+        """
         if not self.usage_log_path.exists():
             return
 
         try:
             data = json.loads(self.usage_log_path.read_text(encoding="utf-8"))
-            for record_data in data.get("records", []):
+        except (json.JSONDecodeError, OSError) as e:
+            print(
+                f"warning: extended_thinking failed to read usage log "
+                f"{self.usage_log_path}: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
+            return
+
+        for index, record_data in enumerate(data.get("records", [])):
+            try:
                 intensity = ThinkingIntensity.STANDARD
                 for i in ThinkingIntensity:
                     if i.trigger_phrase == record_data.get("intensity_used"):
@@ -773,8 +797,17 @@ class ThinkingIntegration:
                     notes=record_data.get("notes", ""),
                 )
                 self._usage_records.append(record)
-        except (json.JSONDecodeError, OSError, KeyError):
-            pass
+            except (KeyError, TypeError, AttributeError) as e:
+                # KeyError: missing required field.
+                # TypeError/AttributeError: record_data is not a dict.
+                # Log the index and skip so later valid records still load.
+                print(
+                    f"warning: extended_thinking skipping malformed "
+                    f"record #{index} in {self.usage_log_path}: "
+                    f"{type(e).__name__}: {e}",
+                    file=sys.stderr,
+                )
+                continue
 
     def _save_usage_history(self) -> None:
         """Save usage history to file."""
