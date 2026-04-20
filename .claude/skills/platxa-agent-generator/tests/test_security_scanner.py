@@ -1566,3 +1566,107 @@ class TestAgentExportTarSlip:
             pytest.raises(ValueError, match="symlink or hardlink"),
         ):
             _safe_extract_tar(tf, dest)
+
+
+class TestAgentExportPlugin:
+    """Staging-directory TOCTOU defenses for export_as_plugin (feature #4)."""
+
+    def test_staging_dir_mode(self, tmp_path: Path) -> None:
+        """The staging directory must be created with mode 0o700.
+
+        Guards CWE-377 / CWE-379: a world- or group-readable staging
+        dir leaks agent contents (secrets, private prompts) during
+        the window between mkdtemp and the final os.replace.
+        """
+        import os as _os
+        import shutil as _shutil
+
+        from agent_export import _create_plugin_staging_dir
+
+        output_dir = tmp_path / "out" / "myplugin"
+        staging = _create_plugin_staging_dir(output_dir)
+        try:
+            mode = _os.stat(staging).st_mode & 0o777
+            assert mode == 0o700, f"expected mode 0o700, got {oct(mode)}"
+        finally:
+            _shutil.rmtree(staging, ignore_errors=True)
+
+    def test_uses_system_temp_by_default(self, tmp_path: Path) -> None:
+        """When system tempdir and output_parent share a filesystem,
+        nothing must land in output_parent prior to os.replace.
+
+        Defends against the TOCTOU race where a concurrent observer
+        of output_parent sees a partially populated staging dir
+        during the export window.
+        """
+        import os as _os
+        import shutil as _shutil
+        import tempfile as _tf
+
+        from agent_export import _create_plugin_staging_dir
+
+        # pytest's tmp_path lives under the system tempdir by
+        # default, so same_device will be true — exercise the
+        # default (system-temp) branch.
+        output_dir = tmp_path / "out" / "myplugin"
+        output_parent = output_dir.parent
+        system_tmp = Path(_tf.gettempdir())
+
+        # Precondition: tmp_path must share a device with the system
+        # tempdir for the default branch to apply. On unusual CI
+        # configurations (e.g. TMPDIR on a different tmpfs) skip
+        # rather than report a spurious failure.
+        if _os.stat(system_tmp).st_dev != _os.stat(tmp_path).st_dev:
+            pytest.skip("tmp_path is not on the same filesystem as system tempdir")
+
+        staging = _create_plugin_staging_dir(output_dir)
+        try:
+            # Staging dir must live under system tempdir, not under
+            # output_parent — that's the "by default" invariant.
+            assert system_tmp in staging.parents, (
+                f"staging {staging} is not a child of system tempdir {system_tmp}"
+            )
+            assert output_parent not in staging.parents, (
+                f"staging {staging} leaked into output_parent {output_parent}"
+            )
+            # output_parent itself may be created (os.replace needs
+            # it), but it must contain zero staging artifacts prior
+            # to the rename.
+            assert list(output_parent.iterdir()) == [], (
+                f"output_parent was written to before os.replace: {list(output_parent.iterdir())}"
+            )
+        finally:
+            _shutil.rmtree(staging, ignore_errors=True)
+
+    def test_falls_back_to_output_parent_cross_filesystem(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """When the system tempdir and output_parent are on different
+        filesystems, stage inside output_parent to keep os.replace
+        a same-device (atomic) rename. The fallback path must also
+        enforce 0o700.
+        """
+        import os as _os
+        import shutil as _shutil
+
+        import agent_export as _ae
+
+        # Force the same-filesystem probe to report False without
+        # actually remounting a filesystem. Patching the helper is
+        # safer than patching os.stat globally — no collateral
+        # damage to tempfile.mkdtemp's own stat calls.
+        monkeypatch.setattr(_ae, "_same_filesystem", lambda _a, _b: False)
+
+        output_dir = tmp_path / "out" / "myplugin"
+        output_parent = output_dir.parent
+
+        staging = _ae._create_plugin_staging_dir(output_dir)
+        try:
+            # Fallback: staging dir IS a child of output_parent.
+            assert output_parent in staging.parents, (
+                f"fallback should stage inside output_parent, got {staging}"
+            )
+            mode = _os.stat(staging).st_mode & 0o777
+            assert mode == 0o700, f"expected mode 0o700, got {oct(mode)}"
+        finally:
+            _shutil.rmtree(staging, ignore_errors=True)

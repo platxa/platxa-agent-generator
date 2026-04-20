@@ -578,6 +578,75 @@ def generate_plugin_readme(manifest: PackageManifest) -> str:
     return "\n".join(lines) + "\n"
 
 
+def _same_filesystem(a: Path, b: Path) -> bool:
+    """True when ``a`` and ``b`` live on the same device.
+
+    Wraps the ``os.stat().st_dev`` comparison so the same-filesystem
+    probe is mockable in tests without patching the global
+    ``os.stat``. Returns ``False`` on ``OSError`` (permission or a
+    race with a concurrent unlink) — callers that need atomicity
+    should treat a failed probe as "different filesystem" and fall
+    back to the sibling-staging path.
+    """
+    try:
+        return os.stat(a).st_dev == os.stat(b).st_dev
+    except OSError:
+        return False
+
+
+def _create_plugin_staging_dir(output_dir: Path) -> Path:
+    """Create a private staging directory for plugin export.
+
+    Prefers the system tempdir so nothing lands in ``output_dir``'s
+    parent until the atomic ``os.replace`` at the end of the export.
+    Falls back to a sibling of ``output_dir`` only when the system
+    tempdir is on a different filesystem — ``os.replace`` is only
+    atomic within one filesystem, so a cross-device staging dir would
+    silently degrade to a copy-and-delete that loses atomicity.
+
+    The returned path always has mode ``0o700`` (owner-only).
+    ``tempfile.mkdtemp`` uses this mode on POSIX by default, but the
+    explicit ``os.chmod`` here makes the permission a testable
+    invariant rather than a platform default — guarding against
+    information disclosure (CWE-377, CWE-379) during the window
+    between ``mkdtemp`` and ``os.replace`` when the staging dir
+    contains the unsealed plugin contents.
+
+    Why not ``tempfile.TemporaryDirectory()``: the caller moves the
+    staging directory via ``os.replace`` past the normal context-
+    manager lifetime, so the manual ``mkdtemp`` + ``try/finally``
+    ``shutil.rmtree`` pattern at the call site is the right shape.
+
+    Args:
+        output_dir: Final output directory. Used to derive the
+            staging prefix and, when a cross-filesystem fallback is
+            required, the staging parent.
+
+    Returns:
+        Absolute path to a freshly created staging directory. The
+        caller owns cleanup on every failure path.
+    """
+    output_parent = output_dir.parent
+    output_parent.mkdir(parents=True, exist_ok=True)
+
+    system_tmp = Path(tempfile.gettempdir())
+    if _same_filesystem(system_tmp, output_parent):
+        # Default path. Nothing appears in output_parent until the
+        # atomic os.replace below.
+        staging_dir = Path(tempfile.mkdtemp(prefix=f".{output_dir.name}-staging-"))
+    else:
+        # Cross-filesystem fallback. Stage inside output_parent so
+        # os.replace stays a same-device rename.
+        staging_dir = Path(
+            tempfile.mkdtemp(prefix=f".{output_dir.name}-staging-", dir=str(output_parent))
+        )
+
+    # Enforce 0o700 explicitly. Defense-in-depth against platform
+    # default drift and to make the invariant assertion-testable.
+    os.chmod(staging_dir, 0o700)
+    return staging_dir
+
+
 def export_as_plugin(
     agent_path: Path,
     output_dir: Path,
@@ -678,23 +747,13 @@ def export_as_plugin(
         keywords=keywords or [],
     )
 
-    # Stage every write inside a sibling temporary directory and only
+    # Stage every write inside a private temporary directory and only
     # rename it into ``output_dir`` once everything succeeded. This makes
     # the export atomic from the caller's perspective: either the final
     # path contains a complete, valid plugin or it does not exist at all.
     # A mid-export failure cannot leave a half-written plugin that future
     # invocations would have to ``--overwrite`` to recover from.
-    #
-    # Why a sibling instead of the system tempdir: same-filesystem
-    # ``os.replace`` is atomic; cross-filesystem rename would silently
-    # fall back to copy-and-delete and lose the atomicity guarantee. The
-    # parent of ``output_dir`` is the only location guaranteed to be on
-    # the same filesystem as the final target.
-    output_parent = output_dir.parent
-    output_parent.mkdir(parents=True, exist_ok=True)
-    staging_dir = Path(
-        tempfile.mkdtemp(prefix=f".{output_dir.name}-staging-", dir=str(output_parent))
-    )
+    staging_dir = _create_plugin_staging_dir(output_dir)
     # finally: clean up the staging dir if it still exists. The atomic
     # rename below renames it OUT of existence on success, so this only
     # runs cleanup on the failure paths (early validation return,
