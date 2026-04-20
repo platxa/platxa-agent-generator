@@ -13061,6 +13061,154 @@ class TestBatchPolicy:
         assert result.stdout.strip() == "True True []"
 
 
+class TestInstallScopeRecommender:
+    """Tests for install_agent.recommend_scope (feature #87).
+
+    Covers all three verification criteria:
+    - install_agent.py analyzes agent for project-specific references
+    - recommends scope (user vs project)
+    - explains reasoning (non-empty reasons list always)
+
+    Plus edge cases: unreadable source falls back to user with reason,
+    content kwarg bypasses disk I/O, signal matches carry category
+    labels, multi-signal agents accumulate all matches.
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_constants_and_dataclass_exposed(self) -> None:
+        """PROJECT_SCOPE_SIGNALS + ScopeRecommendation are public."""
+        result = self._run_py(
+            "from install_agent import (\n"
+            "    PROJECT_SCOPE_SIGNALS, ScopeRecommendation, recommend_scope,\n"
+            ")\n"
+            "print('language' in PROJECT_SCOPE_SIGNALS,\n"
+            "      'framework' in PROJECT_SCOPE_SIGNALS,\n"
+            "      'linter' in PROJECT_SCOPE_SIGNALS)\n"
+            "r = ScopeRecommendation(scope='user')\n"
+            "print(r.scope, r.reasons, r.matched_signals)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == [
+            "True True True",
+            "user [] []",
+        ]
+
+    def test_universal_agent_recommends_user(self) -> None:
+        """Agent with no project-specific tokens → user scope + reasoning."""
+        result = self._run_py(
+            "from install_agent import recommend_scope\n"
+            "rec = recommend_scope(content=\n"
+            "    '---\\nname: explorer\\n"
+            "description: Generic code explorer using search\\n"
+            "tools: Read, Grep, Glob\\n---\\n'\n"
+            "    '# Explorer\\n\\nSearch and read files.\\n'\n"
+            ")\n"
+            "print(rec.scope, len(rec.reasons) >= 1,\n"
+            "      'user scope' in rec.reasons[-1].lower(),\n"
+            "      rec.matched_signals)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "user True True []"
+
+    def test_language_specific_agent_recommends_project(self) -> None:
+        """Agent mentioning Python + pytest + ruff → project scope."""
+        result = self._run_py(
+            "from install_agent import recommend_scope\n"
+            "rec = recommend_scope(content=\n"
+            "    '---\\nname: py-reviewer\\n"
+            "description: Reviews Python code and runs pytest + ruff\\n"
+            "---\\n'\n"
+            "    '# Reviewer\\n'\n"
+            ")\n"
+            "print(rec.scope, len(rec.matched_signals) >= 2,\n"
+            "      any('language: python' in s for s in rec.matched_signals),\n"
+            "      any('test_runner: pytest' in s for s in rec.matched_signals),\n"
+            "      any('linter: ruff' in s for s in rec.matched_signals))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "project True True True True"
+
+    def test_framework_mention_recommends_project(self) -> None:
+        """Framework name (e.g. 'React') alone triggers project scope."""
+        result = self._run_py(
+            "from install_agent import recommend_scope\n"
+            "rec = recommend_scope(content=\n"
+            "    '---\\nname: x\\ndescription: React component helper\\n---\\n'\n"
+            ")\n"
+            "print(rec.scope,\n"
+            "      any('framework: react' in s for s in rec.matched_signals))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "project True"
+
+    def test_missing_file_falls_back_to_user(self) -> None:
+        """Unreadable source → user recommendation with explanation, no crash."""
+        result = self._run_py(
+            "from install_agent import recommend_scope\n"
+            "rec = recommend_scope('/tmp/__definitely_no_agent_here__.md')\n"
+            "print(rec.scope, 'unable to read' in rec.reasons[0].lower()\n"
+            "      or 'no source' in rec.reasons[0].lower(),\n"
+            "      rec.matched_signals)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "user True []"
+
+    def test_content_overrides_source(self) -> None:
+        """Explicit content kwarg wins over source path (helpful for tests)."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from install_agent import recommend_scope\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'a.md'\n"
+            "    p.write_text('no-tokens-here')\n"
+            "    # Content kwarg contains pytest → should win\n"
+            "    rec = recommend_scope(p, content='pytest is required')\n"
+            "    print(rec.scope,\n"
+            "          any('pytest' in s for s in rec.matched_signals))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "project True"
+
+    def test_reasons_always_non_empty(self) -> None:
+        """Both user and project recommendations always explain themselves."""
+        result = self._run_py(
+            "from install_agent import recommend_scope\n"
+            "u = recommend_scope(content='generic')\n"
+            "p = recommend_scope(content='uses pnpm')\n"
+            "print(bool(u.reasons), bool(p.reasons),\n"
+            "      u.scope, p.scope)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True user project"
+
+    def test_matched_signals_ordering_stable(self) -> None:
+        """Signal ordering follows PROJECT_SCOPE_SIGNALS category order."""
+        result = self._run_py(
+            "from install_agent import recommend_scope\n"
+            "# Mentions linter (ruff) + language (python) + test_runner (pytest)\n"
+            "# in a random order; result should follow dict declaration order\n"
+            "rec = recommend_scope(content='ruff python pytest')\n"
+            "cats = [s.split(':')[0] for s in rec.matched_signals]\n"
+            "print(cats.index('language') < cats.index('test_runner'),\n"
+            "      cats.index('test_runner') < cats.index('linter'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+
 class TestAgentReadmeGenerator:
     """Tests for agent_readme_generator.py (feature #86).
 

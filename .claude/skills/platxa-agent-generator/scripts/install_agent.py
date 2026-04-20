@@ -27,6 +27,7 @@ import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+from typing import Literal
 
 try:
     from .syntax_validator import parse_frontmatter, validate_file
@@ -79,6 +80,194 @@ class InstallResult:
     backup_path: str | None = None
     agent_name: str | None = None
     verification: PostInstallVerification | None = None
+
+
+# Tokens that, when present in an agent's description or body, indicate the
+# agent is coupled to a specific language, framework, or project tooling —
+# meaning it should live under ``project`` scope rather than be installed
+# globally. Matching is case-insensitive and substring-based (intentional —
+# see ``_scan_project_signals`` docstring for the rationale; tokens like
+# ``src/`` and ``next.js`` don't play nicely with word-boundary regex).
+#
+# Grouped by reason for explainability: each match contributes a
+# human-readable ``"<category>: <token>"`` entry to the recommendation's
+# reasoning list so operators can trace why a given agent was flagged.
+PROJECT_SCOPE_SIGNALS: dict[str, tuple[str, ...]] = {
+    "language": (
+        "python",
+        "typescript",
+        "javascript",
+        "rust",
+        "golang",
+        "ruby",
+    ),
+    "framework": (
+        "react",
+        "next.js",
+        "nextjs",
+        "django",
+        "fastapi",
+        "flask",
+        "vue",
+        "svelte",
+        "rails",
+    ),
+    "test_runner": (
+        "pytest",
+        "vitest",
+        "jest",
+        "mocha",
+        "cargo test",
+        "go test",
+    ),
+    "linter": (
+        "ruff",
+        "eslint",
+        "pyright",
+        "mypy",
+        "prettier",
+        "tsc",
+        "rustfmt",
+    ),
+    "package_manager": (
+        "npm",
+        "pnpm",
+        "yarn",
+        "pip install",
+        "cargo",
+        "poetry",
+    ),
+    "project_path": (
+        "src/",
+        "packages/",
+        "apps/",
+        "tests/",
+        "node_modules",
+    ),
+}
+
+
+@dataclass
+class ScopeRecommendation:
+    """Suggested install scope for an agent, with explainable reasoning.
+
+    Fields:
+        scope: ``"user"`` or ``"project"``. ``"user"`` means the agent is
+            generic enough to be useful across projects; ``"project"``
+            means it references language/framework/tooling specifics
+            that tie it to a particular codebase.
+        reasons: Ordered list of human-readable reasons the recommendation
+            came out this way. Always populated — even for a ``user``
+            recommendation, reasons include "no project-specific signals
+            detected" so the caller can always explain the choice.
+        matched_signals: The raw token matches (``"<category>: <token>"``)
+            that drove the recommendation. Empty for ``user``; non-empty
+            for ``project``. Kept separate from ``reasons`` so
+            programmatic consumers can enumerate matches without parsing
+            prose.
+    """
+
+    scope: Literal["user", "project"]
+    reasons: list[str] = field(default_factory=list)
+    matched_signals: list[str] = field(default_factory=list)
+
+
+def _read_agent_text(source: Path | str) -> str | None:
+    """Return the text content of an agent file, or None on read failure.
+
+    Centralised so the recommender can be used against both string
+    content (tests, in-memory analysis) and on-disk files without each
+    caller implementing its own I/O error handling.
+    """
+    try:
+        return Path(source).read_text(encoding="utf-8")
+    except OSError:
+        return None
+
+
+def _scan_project_signals(text: str) -> list[str]:
+    """Return ``<category>: <token>`` matches for project-scope signals.
+
+    Matching is case-insensitive and substring-based. Substring is
+    intentional here (not word-boundary regex): signals like ``src/``,
+    ``next.js``, and ``pip install`` contain punctuation that trips up
+    naive word boundaries, and false positives on common English words
+    are already mitigated by the deliberately technical token list.
+
+    Order preserves the declaration order in :data:`PROJECT_SCOPE_SIGNALS`
+    so the returned list is stable across runs.
+    """
+    matches: list[str] = []
+    lower = text.lower()
+    for category, tokens in PROJECT_SCOPE_SIGNALS.items():
+        for token in tokens:
+            if token.lower() in lower:
+                matches.append(f"{category}: {token}")
+    return matches
+
+
+def recommend_scope(
+    source: Path | str | None = None,
+    *,
+    content: str | None = None,
+) -> ScopeRecommendation:
+    """Recommend ``user`` vs ``project`` scope for an agent.
+
+    Pass either ``source`` (filesystem path) *or* ``content`` (in-memory
+    text). When both are given, ``content`` wins — useful for tests
+    exercising the recommender without writing temp files.
+
+    Decision rule:
+
+    - If any token from :data:`PROJECT_SCOPE_SIGNALS` appears in the
+      agent's frontmatter description or body, recommend
+      ``"project"`` scope. These signals mean the agent understands or
+      emits code tied to a specific stack, so it belongs in the
+      project's ``.claude/agents/`` where that stack context lives.
+    - Otherwise recommend ``"user"`` scope. A generic agent (e.g. a
+      code-explorer that only uses Read/Grep/Glob) is reusable across
+      projects and belongs in ``~/.claude/agents/``.
+
+    The returned :class:`ScopeRecommendation` always carries a non-empty
+    ``reasons`` list so the caller can explain the choice to the user
+    without having to replicate the heuristic.
+
+    Graceful degradation: if the source cannot be read (missing file,
+    permission error), the function returns a ``user``-scope
+    recommendation with a single "unable to read source" reason rather
+    than raising — the CLI can still show something useful to the
+    operator, who can then decide whether to override.
+    """
+    text = content if content is not None else _read_agent_text(source) if source else None
+    if text is None:
+        return ScopeRecommendation(
+            scope="user",
+            reasons=[
+                "No source content available; defaulting to user scope "
+                "(the safer choice — user-scope agents are always visible)."
+            ],
+        )
+
+    matches = _scan_project_signals(text)
+    if matches:
+        return ScopeRecommendation(
+            scope="project",
+            reasons=[
+                "Agent references project-specific tooling or stack "
+                f"({len(matches)} signal{'s' if len(matches) != 1 else ''} matched).",
+                "Install under project scope so the agent ships with the codebase "
+                "that provides its context.",
+            ],
+            matched_signals=matches,
+        )
+    return ScopeRecommendation(
+        scope="user",
+        reasons=[
+            "No project-specific tokens detected (no language, framework, "
+            "linter, test runner, package manager, or project-path references).",
+            "Install under user scope so the agent is reusable across all projects.",
+        ],
+    )
 
 
 def get_user_agents_dir() -> Path:
