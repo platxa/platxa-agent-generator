@@ -26,11 +26,53 @@ Usage:
 from __future__ import annotations
 
 import json
+import re
+import shlex
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+# Feature #1 (SECURITY CRITICAL): agent_name must match this pattern before it
+# can be embedded into any generated shell command, filename, or script body.
+# Restricts to [a-zA-Z0-9_-] so no shell metacharacters, path-traversal
+# sequences, or whitespace survive interpolation. This is the root-cause fix
+# for the remote-code-execution surface discovered in the 2026-04-20 review.
+AGENT_NAME_PATTERN: re.Pattern[str] = re.compile(r"^[a-zA-Z0-9_-]+$")
+
+
+def _validate_agent_name(agent_name: str) -> str:
+    """Validate agent_name for safe shell and filesystem interpolation.
+
+    Every public function in this module that embeds ``agent_name`` into
+    generated shell commands, filenames, or script bodies MUST call this
+    helper at the API boundary before any downstream use.
+
+    Args:
+        agent_name: Candidate agent name.
+
+    Returns:
+        The validated agent name (unchanged on success).
+
+    Raises:
+        ValueError: If ``agent_name`` is empty or whitespace-only, or
+            contains any character outside ``[a-zA-Z0-9_-]``. The message
+            explicitly names the security reason so operators can
+            distinguish this rejection from unrelated ``ValueError``
+            raises elsewhere in the codebase.
+    """
+    if not agent_name or not agent_name.strip():
+        raise ValueError(
+            "agent_name must be a non-empty string; disallowed to prevent shell injection"
+        )
+    if not AGENT_NAME_PATTERN.match(agent_name):
+        raise ValueError(
+            f"agent_name must match ^[a-zA-Z0-9_-]+$ (got {agent_name!r}); "
+            "disallowed to prevent shell injection"
+        )
+    return agent_name
+
 
 # Valid hook event types in Claude Code
 HOOK_EVENTS = {
@@ -93,12 +135,19 @@ class HookConfig:
 
 @dataclass
 class HooksDefinition:
-    """Complete hooks definition for an agent."""
+    """Complete hooks definition for an agent.
+
+    ``agent_name`` is validated in ``__post_init__`` so no path that
+    constructs a ``HooksDefinition`` can bypass the injection guard.
+    """
 
     agent_name: str
     hooks: list[HookConfig] = field(default_factory=list)
     description: str = ""
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
+
+    def __post_init__(self) -> None:
+        _validate_agent_name(self.agent_name)
 
 
 def validate_event(event: str) -> tuple[bool, str]:
@@ -143,29 +192,33 @@ def create_audit_hook(
     log_file: str = "/tmp/claude-audit.log",
 ) -> HookConfig:
     """Create an audit logging hook."""
+    _validate_agent_name(agent_name)
+    quoted_name = shlex.quote(agent_name)
     timestamp_cmd = "date -Iseconds"
 
     if event == "SessionStart":
-        command = f'echo "[{agent_name}] $({timestamp_cmd}) SESSION_START user=$USER" >> {log_file}'
+        command = (
+            f'echo "[{quoted_name}] $({timestamp_cmd}) SESSION_START user=$USER" >> {log_file}'
+        )
     elif event == "Stop":
-        command = f'echo "[{agent_name}] $({timestamp_cmd}) SESSION_END" >> {log_file}'
+        command = f'echo "[{quoted_name}] $({timestamp_cmd}) SESSION_END" >> {log_file}'
     elif event == "PreToolUse":
-        command = f'echo "[{agent_name}] $({timestamp_cmd}) PRE_TOOL tool=$CLAUDE_TOOL_NAME" >> {log_file}'
+        command = f'echo "[{quoted_name}] $({timestamp_cmd}) PRE_TOOL tool=$CLAUDE_TOOL_NAME" >> {log_file}'
     elif event == "PostToolUse":
-        command = f'echo "[{agent_name}] $({timestamp_cmd}) POST_TOOL tool=$CLAUDE_TOOL_NAME" >> {log_file}'
+        command = f'echo "[{quoted_name}] $({timestamp_cmd}) POST_TOOL tool=$CLAUDE_TOOL_NAME" >> {log_file}'
     elif event == "SubagentStart":
         command = (
-            f'echo "[{agent_name}] $({timestamp_cmd}) SUBAGENT_START '
+            f'echo "[{quoted_name}] $({timestamp_cmd}) SUBAGENT_START '
             f"agent_id=${{CLAUDE_AGENT_ID:-unknown}} "
             f'agent_type=${{CLAUDE_AGENT_TYPE:-unknown}}" >> {log_file}'
         )
     elif event == "SubagentStop":
         command = (
-            f'echo "[{agent_name}] $({timestamp_cmd}) SUBAGENT_STOP '
+            f'echo "[{quoted_name}] $({timestamp_cmd}) SUBAGENT_STOP '
             f'agent_id=${{CLAUDE_AGENT_ID:-unknown}}" >> {log_file}'
         )
     else:
-        command = f'echo "[{agent_name}] $({timestamp_cmd}) {event}" >> {log_file}'
+        command = f'echo "[{quoted_name}] $({timestamp_cmd}) {event}" >> {log_file}'
 
     return HookConfig(
         event=event,
@@ -181,11 +234,13 @@ def create_compliance_hook(
     policy_script: str | None = None,
 ) -> HookConfig:
     """Create a compliance enforcement hook."""
+    _validate_agent_name(agent_name)
+    quoted_name = shlex.quote(agent_name)
     if policy_script:
-        command = f"{policy_script} --agent {agent_name} --event {event}"
+        command = f"{policy_script} --agent {quoted_name} --event {event}"
     else:
         # Default compliance check
-        command = f"{agent_name}-compliance-check --event {event} 2>/dev/null || true"
+        command = f"{quoted_name}-compliance-check --event {event} 2>/dev/null || true"
 
     return HookConfig(
         event=event,
@@ -201,16 +256,18 @@ def create_metrics_hook(
     metrics_endpoint: str | None = None,
 ) -> HookConfig:
     """Create a metrics collection hook."""
+    _validate_agent_name(agent_name)
+    quoted_name = shlex.quote(agent_name)
     if metrics_endpoint:
         command = (
             f"curl -s -X POST {metrics_endpoint} "
-            f'-d "agent={agent_name}&event={event}&timestamp=$(date +%s)" '
+            f'-d "agent={quoted_name}&event={event}&timestamp=$(date +%s)" '
             f"2>/dev/null || true"
         )
     else:
         # Default: log to metrics file
         command = (
-            f'echo "{agent_name},{event},$(date +%s)" '
+            f'echo "{quoted_name},{event},$(date +%s)" '
             f">> /tmp/claude-metrics.csv 2>/dev/null || true"
         )
 
@@ -228,16 +285,18 @@ def create_security_hook(
     matcher: str = "",
 ) -> HookConfig:
     """Create a security validation hook."""
+    _validate_agent_name(agent_name)
+    quoted_name = shlex.quote(agent_name)
     if event == "PreToolUse":
         # Validate before dangerous operations
-        command = f'{agent_name}-security-gate --tool "$CLAUDE_TOOL_NAME" 2>/dev/null || true'
+        command = f'{quoted_name}-security-gate --tool "$CLAUDE_TOOL_NAME" 2>/dev/null || true'
         if not matcher:
             matcher = TOOL_MATCHERS["dangerous"]
     elif event == "PostToolUse":
         # Audit after operations
-        command = f'{agent_name}-security-audit --tool "$CLAUDE_TOOL_NAME" 2>/dev/null || true'
+        command = f'{quoted_name}-security-audit --tool "$CLAUDE_TOOL_NAME" 2>/dev/null || true'
     else:
-        command = f"{agent_name}-security-check --event {event} 2>/dev/null || true"
+        command = f"{quoted_name}-security-check --event {event} 2>/dev/null || true"
 
     return HookConfig(
         event=event,
@@ -253,16 +312,18 @@ def create_notification_hook(
     events: list[str] | None = None,
 ) -> list[HookConfig]:
     """Create notification hooks for important events."""
+    _validate_agent_name(agent_name)
+    quoted_name = shlex.quote(agent_name)
     hooks = []
     target_events = events or ["SessionStart", "Stop"]
 
     for event in target_events:
         if event == "SessionStart":
-            message = f"{agent_name} session started"
+            message = f"{quoted_name} session started"
         elif event == "Stop":
-            message = f"{agent_name} session ended"
+            message = f"{quoted_name} session ended"
         else:
-            message = f"{agent_name}: {event}"
+            message = f"{quoted_name}: {event}"
 
         command = f'notify-send -i dialog-information "{title}" "{message}" 2>/dev/null || true'
 
@@ -285,13 +346,15 @@ def create_logging_hook(
     log_file: str | None = None,
 ) -> HookConfig:
     """Create a structured logging hook."""
+    _validate_agent_name(agent_name)
+    quoted_name = shlex.quote(agent_name)
     if log_file is None:
-        log_file = f"/tmp/{agent_name}.log"
+        log_file = f"/tmp/{quoted_name}.log"
 
     # Structured JSON logging
     command = (
         f'echo \'{{"timestamp":"\'$(date -Iseconds)\'","level":"{log_level}",'
-        f'"agent":"{agent_name}","event":"{event}",'
+        f'"agent":"{quoted_name}","event":"{event}",'
         f'"tool":"\'$CLAUDE_TOOL_NAME\'"}}\' >> {log_file}'
     )
 
@@ -308,19 +371,21 @@ def create_performance_hook(
     event: str,
 ) -> HookConfig:
     """Create a performance timing hook."""
+    _validate_agent_name(agent_name)
+    quoted_name = shlex.quote(agent_name)
     if event == "PreToolUse":
         # Record start time
-        command = f"echo $(date +%s%N) > /tmp/{agent_name}-timing-start 2>/dev/null || true"
+        command = f"echo $(date +%s%N) > /tmp/{quoted_name}-timing-start 2>/dev/null || true"
     elif event == "PostToolUse":
         # Calculate and log duration
         command = (
-            f"START=$(cat /tmp/{agent_name}-timing-start 2>/dev/null || echo 0); "
+            f"START=$(cat /tmp/{quoted_name}-timing-start 2>/dev/null || echo 0); "
             f"END=$(date +%s%N); "
             f"DURATION=$((($END - $START) / 1000000)); "
-            f'echo "{agent_name},$CLAUDE_TOOL_NAME,$DURATION" >> /tmp/{agent_name}-perf.csv 2>/dev/null || true'
+            f'echo "{quoted_name},$CLAUDE_TOOL_NAME,$DURATION" >> /tmp/{quoted_name}-perf.csv 2>/dev/null || true'
         )
     else:
-        command = f'echo "{agent_name},{event},$(date +%s%N)" >> /tmp/{agent_name}-timing.csv'
+        command = f'echo "{quoted_name},{event},$(date +%s%N)" >> /tmp/{quoted_name}-timing.csv'
 
     return HookConfig(
         event=event,
@@ -348,12 +413,14 @@ def generate_hooks(
     Returns:
         HooksDefinition with all configured hooks
     """
+    _validate_agent_name(agent_name)
+    quoted_name = shlex.quote(agent_name)
     config = custom_config or {}
     target_events = events or ["SessionStart", "Stop", "PreToolUse", "PostToolUse"]
 
     definition = HooksDefinition(
         agent_name=agent_name,
-        description=f"Generated hooks for {agent_name} agent",
+        description=f"Generated hooks for {quoted_name} agent",
     )
 
     for hook_type in hook_types:
@@ -516,6 +583,7 @@ def generate(
     Returns:
         (success, result_dict_or_error, output_path)
     """
+    _validate_agent_name(agent_name)
     # Defaults
     if hook_types is None:
         hook_types = ["audit", "logging"]
@@ -664,6 +732,7 @@ def generate_pretooluse_deny_script(agent_name: str) -> str:
 
     The script reads tool input from stdin (Claude Code passes tool_input JSON via stdin
     to PreToolUse hooks), checks the 'command' field against DANGEROUS_COMMAND_PATTERNS,
+    _validate_agent_name(agent_name)
     and exits with code 2 (deny) if a match is found.
 
     Args:
@@ -749,8 +818,7 @@ def generate_pretooluse_hook_config(agent_name: str, script_path: str) -> dict[s
     Returns:
         Dict in settings.json hooks format for PreToolUse.
     """
-    if not agent_name or not agent_name.strip():
-        raise ValueError("agent_name must be a non-empty string")
+    _validate_agent_name(agent_name)
     if not script_path or not script_path.strip():
         raise ValueError("script_path must be a non-empty string")
     return {
@@ -773,6 +841,7 @@ def generate_posttooluse_lint_script(agent_name: str) -> str:
 
     The script reads tool input from stdin (Claude Code passes tool_input JSON via
     stdin to PostToolUse hooks), extracts the file_path, detects the language by
+    _validate_agent_name(agent_name)
     extension, and runs the appropriate linter. Lint output is returned as
     additionalContext so Claude sees the violations inline.
 
@@ -880,8 +949,7 @@ def generate_posttooluse_lint_hook_config(agent_name: str, script_path: str) -> 
     Returns:
         Dict in settings.json hooks format for PostToolUse.
     """
-    if not agent_name or not agent_name.strip():
-        raise ValueError("agent_name must be a non-empty string")
+    _validate_agent_name(agent_name)
     if not script_path or not script_path.strip():
         raise ValueError("script_path must be a non-empty string")
     return {
@@ -906,6 +974,7 @@ def generate_stop_verification_script(agent_name: str) -> str:
     It detects the project's test framework by checking for config files,
     runs the test suite, and blocks completion (exit 2) if tests fail.
 
+    _validate_agent_name(agent_name)
     Detection order:
     1. pytest (pyproject.toml with [tool.pytest] or pytest.ini or conftest.py)
     2. vitest (vitest.config.ts or vite.config.ts with test)
@@ -1023,8 +1092,7 @@ def generate_stop_verification_hook_config(agent_name: str, script_path: str) ->
     Returns:
         Dict in settings.json hooks format for Stop event.
     """
-    if not agent_name or not agent_name.strip():
-        raise ValueError("agent_name must be a non-empty string")
+    _validate_agent_name(agent_name)
     if not script_path or not script_path.strip():
         raise ValueError("script_path must be a non-empty string")
     return {
@@ -1105,6 +1173,7 @@ def generate_hook_scripts(
     Returns:
         Tuple of (list of created script Paths, settings.json hooks dict).
     """
+    _validate_agent_name(agent_name)
     if hook_types is None:
         hook_types = ["audit", "logging"]
 
@@ -1172,6 +1241,7 @@ def generate_teammate_idle_script(agent_name: str, team_name: str = "") -> str:
     to pick up unclaimed tasks. Exit 0 lets the teammate go idle normally.
 
     The script checks ``.claude/team-state/<team>/tasks.json`` (if present) for
+    _validate_agent_name(agent_name)
     any tasks whose status is ``pending`` and not yet claimed by a teammate.
     If any are found, exits 2 with a message steering the teammate back to
     TaskList.
@@ -1262,8 +1332,7 @@ def generate_teammate_idle_hook_config(agent_name: str, script_path: str) -> dic
     Returns:
         Dict in settings.json hooks format for TeammateIdle.
     """
-    if not agent_name or not agent_name.strip():
-        raise ValueError("agent_name must be a non-empty string")
+    _validate_agent_name(agent_name)
     if not script_path or not script_path.strip():
         raise ValueError("script_path must be a non-empty string")
     return {
@@ -1287,6 +1356,7 @@ def generate_task_created_script(agent_name: str) -> str:
     subjects and tasks whose subject is shorter than a minimum length
     (configurable via ``CLAUDE_TASK_MIN_SUBJECT`` env var, default 8 chars).
 
+    _validate_agent_name(agent_name)
     Input JSON from stdin (per Claude Code hook spec):
         {
           "task_id": "task-001",
@@ -1385,8 +1455,7 @@ def generate_task_created_hook_config(agent_name: str, script_path: str) -> dict
     Returns:
         Dict in settings.json hooks format for TaskCreated.
     """
-    if not agent_name or not agent_name.strip():
-        raise ValueError("agent_name must be a non-empty string")
+    _validate_agent_name(agent_name)
     if not script_path or not script_path.strip():
         raise ValueError("script_path must be a non-empty string")
     return {
@@ -1410,6 +1479,7 @@ def generate_task_completed_script(agent_name: str) -> str:
     The script checks for a deliverable manifest at
     ``.claude/team-state/<team>/deliverables/<task_id>.json`` (or a plain
     ``<task_id>.done`` marker) and verifies that any referenced file paths
+    _validate_agent_name(agent_name)
     exist on disk.
 
     Exit codes:
@@ -1523,8 +1593,7 @@ def generate_task_completed_hook_config(agent_name: str, script_path: str) -> di
     Returns:
         Dict in settings.json hooks format for TaskCompleted.
     """
-    if not agent_name or not agent_name.strip():
-        raise ValueError("agent_name must be a non-empty string")
+    _validate_agent_name(agent_name)
     if not script_path or not script_path.strip():
         raise ValueError("script_path must be a non-empty string")
     return {
@@ -1711,8 +1780,7 @@ def generate_subagent_audit_script(
     Returns:
         Complete bash script as a string.
     """
-    if not agent_name or not agent_name.strip():
-        raise ValueError("agent_name must be a non-empty string")
+    _validate_agent_name(agent_name)
     if not log_file or not log_file.strip():
         raise ValueError("log_file must be a non-empty string")
     return _SUBAGENT_AUDIT_TEMPLATE.replace("__AGENT_NAME__", agent_name).replace(
@@ -1741,8 +1809,7 @@ def generate_subagent_audit_hook_config(
         Dict in settings.json hooks format containing both SubagentStart and
         SubagentStop registrations pointing at ``script_path``.
     """
-    if not agent_name or not agent_name.strip():
-        raise ValueError("agent_name must be a non-empty string")
+    _validate_agent_name(agent_name)
     if not script_path or not script_path.strip():
         raise ValueError("script_path must be a non-empty string")
 
@@ -1783,6 +1850,7 @@ def generate_subagent_audit_hooks(
     Returns:
         Tuple of (list with the single created Path, settings.json hooks dict).
     """
+    _validate_agent_name(agent_name)
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
@@ -1814,6 +1882,7 @@ def generate_multi_agent_hooks(
     Returns:
         Tuple of (list of created script Paths, merged settings.json hooks dict).
     """
+    _validate_agent_name(agent_name)
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 

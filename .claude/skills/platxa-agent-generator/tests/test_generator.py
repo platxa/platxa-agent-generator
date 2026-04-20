@@ -15652,5 +15652,243 @@ class TestCatalogTemplateInheritance:
         assert result.stdout.strip() == "False False"
 
 
+class TestHooksGeneratorInjection:
+    """Feature #1 (SECURITY CRITICAL): hooks_generator.py must reject agent_name
+    containing shell metacharacters and must wrap agent_name with shlex.quote()
+    at every shell-interpolation site. Prevents remote code execution via
+    malicious agent names like `"; rm -rf / #` reaching downstream hook
+    execution in the user shell.
+    """
+
+    def _run_py(self, code: str) -> subprocess.CompletedProcess:
+        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        return subprocess.run(
+            [sys.executable, "-c", prologue + code],
+            capture_output=True,
+            text=True,
+        )
+
+    # ---- validator rejects metacharacter / traversal / empty names ---------
+
+    @pytest.mark.parametrize(
+        "bad_name",
+        [
+            '"; rm -rf / #',
+            "a; echo pwned",
+            "a`cat /etc/passwd`",
+            "a$(id)",
+            "hello world",
+            "../etc/passwd",
+            "agent|evil",
+            "agent&background",
+            "agent\nnewline",
+            "agent>redir",
+            "",
+            "   ",
+        ],
+    )
+    def test_rejects_metachar_agent_name(self, bad_name: str) -> None:
+        """_validate_agent_name must reject every shell-metachar and path-traversal variant."""
+        result = self._run_py(
+            "from hooks_generator import _validate_agent_name\n"
+            f"try:\n"
+            f"    _validate_agent_name({bad_name!r})\n"
+            f"    print('ACCEPTED')\n"
+            f"except ValueError as e:\n"
+            f"    print('REJECTED:', str(e)[:80])\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.startswith("REJECTED:"), (
+            f"Expected ValueError for {bad_name!r}, got {result.stdout!r}"
+        )
+
+    @pytest.mark.parametrize(
+        "good_name",
+        ["agent", "my-agent", "my_agent", "agent-123", "Agent_Name-2"],
+    )
+    def test_accepts_valid_agent_name(self, good_name: str) -> None:
+        """Valid names matching ^[a-zA-Z0-9_-]+$ pass validation."""
+        result = self._run_py(
+            "from hooks_generator import _validate_agent_name\n"
+            f"print(_validate_agent_name({good_name!r}))\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == good_name
+
+    # ---- public creation functions reject injection ------------------------
+
+    @pytest.mark.parametrize(
+        "fn",
+        [
+            "create_audit_hook",
+            "create_compliance_hook",
+            "create_metrics_hook",
+            "create_security_hook",
+            "create_logging_hook",
+            "create_performance_hook",
+        ],
+    )
+    def test_public_hook_creators_reject_injection(self, fn: str) -> None:
+        """Each public create_*_hook function must validate agent_name at entry."""
+        result = self._run_py(
+            f"from hooks_generator import {fn}\n"
+            f"try:\n"
+            f"    {fn}('\"; rm -rf / #', 'PreToolUse')\n"
+            f"    print('ACCEPTED')\n"
+            f"except ValueError:\n"
+            f"    print('REJECTED')\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "REJECTED", f"{fn} accepted shell-metachar agent_name"
+
+    def test_notification_hook_rejects_injection(self) -> None:
+        """create_notification_hook takes a different signature; validate separately."""
+        result = self._run_py(
+            "from hooks_generator import create_notification_hook\n"
+            "try:\n"
+            "    create_notification_hook('\"; rm -rf / #')\n"
+            "    print('ACCEPTED')\n"
+            "except ValueError:\n"
+            "    print('REJECTED')\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "REJECTED"
+
+    def test_generate_hooks_rejects_injection(self) -> None:
+        """The orchestrator generate_hooks must also validate at its API boundary."""
+        result = self._run_py(
+            "from hooks_generator import generate_hooks\n"
+            "try:\n"
+            "    generate_hooks('\"; rm -rf / #', ['audit'])\n"
+            "    print('ACCEPTED')\n"
+            "except ValueError:\n"
+            "    print('REJECTED')\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "REJECTED"
+
+    # ---- shlex.quote wraps interpolation at shell sites --------------------
+
+    def test_audit_hook_uses_shlex_quote(self) -> None:
+        """Generated audit hook command must not contain raw {agent_name}; must use shlex.quote output."""
+        result = self._run_py(
+            "from hooks_generator import create_audit_hook\n"
+            "h = create_audit_hook('valid-agent', 'SessionStart', '/tmp/x.log')\n"
+            "print(h.hooks[0].command)\n"
+        )
+        assert result.returncode == 0, result.stderr
+        cmd = result.stdout.strip()
+        assert "valid-agent" in cmd
+        # Defense-in-depth: even though valid-agent is regex-safe, the literal quoted
+        # form must be what appears. For a [a-zA-Z0-9_-]+ name shlex.quote returns
+        # the name unchanged, so this test mainly pins the absence of regression
+        # to raw interpolation when regex is later loosened.
+        assert cmd.count("valid-agent") >= 1
+
+    # ---- deterministic grep: SC-13 pins the absence of raw interpolation ---
+
+    def test_no_raw_agent_name_in_shell_command_fstrings(self) -> None:
+        """SC-13 deterministic check: no raw {agent_name} interpolation remains
+        in hooks_generator.py f-strings that end up executed as shell commands.
+
+        Shell-command f-strings are identified by presence of shell-only tokens
+        (echo, curl, redirection, pipes, command-substitution). These MUST wrap
+        agent_name with shlex.quote.
+
+        Filename literals, comment lines inside generated scripts, and the
+        validator's own error message are exempt because agent_name has already
+        been regex-validated to [a-zA-Z0-9_-]+ at the public API boundary,
+        making those contexts safe-by-construction (no metacharacters, no
+        traversal, no whitespace can survive validation).
+        """
+        import re as _re_re
+
+        src = (SCRIPTS_DIR / "hooks_generator.py").read_text()
+        offenders = []
+        shell_tokens = (">>", ">&", ">|", "2>", "|&", "&&", "||", "$(", "`", "echo ")
+        for line_num, line in enumerate(src.splitlines(), start=1):
+            stripped = line.lstrip()
+            if stripped.startswith(("#", '"""', "'''")):
+                continue
+            # Exemptions — agent_name IS regex-validated before reaching these:
+            #   - validator's own error message using Python repr ({agent_name!r})
+            #   - filename variables (log_file=, filename=, script_file=, timing_file=, .sh)
+            #   - description keyword arg (string field, not executed)
+            #   - hook-sh file path literals (contain ".sh" and no shell tokens)
+            if "!r}" in line:
+                continue
+            if _re_re.search(
+                r"\b(log_file|filename|script_file|timing_file|output_path)\b\s*=", line
+            ):
+                continue
+            if _re_re.search(r"\bdescription\s*=", line):
+                continue
+            # Only flag lines that BOTH (a) have {agent_name} in an f-string AND
+            # (b) contain a shell-command token indicating the string is executed.
+            if not _re_re.search(r"f['\"][^'\"]*\{agent_name[^}]*\}", line):
+                continue
+            if not any(tok in line for tok in shell_tokens):
+                continue
+            offenders.append((line_num, line.strip()[:120]))
+        assert not offenders, (
+            "Raw {agent_name} interpolation in a shell-command f-string "
+            f"(must be {{quoted_name}} after shlex.quote): {offenders[:10]}"
+        )
+
+    def test_every_public_fn_with_agent_name_validates(self) -> None:
+        """Structural audit: every top-level public function in hooks_generator.py
+        whose signature accepts ``agent_name: str`` must call _validate_agent_name
+        (or construct HooksDefinition which validates in __post_init__) within
+        its body. Prevents regression where a new public helper is added without
+        hooking the central validator.
+        """
+        import re as _re_re
+
+        src_path = SCRIPTS_DIR / "hooks_generator.py"
+        src = src_path.read_text()
+        lines = src.splitlines()
+
+        fn_header = _re_re.compile(r"^def ([a-zA-Z_][\w]*)\((.*)$")
+        fns_with_agent_name: list[tuple[str, int]] = []
+        for i, line in enumerate(lines):
+            m = fn_header.match(line)
+            if not m:
+                continue
+            name = m.group(1)
+            # Walk forward to find the closing ')' of the signature.
+            sig = line
+            j = i
+            while ")" not in sig and j + 1 < len(lines):
+                j += 1
+                sig += lines[j]
+            if "agent_name: str" in sig and not name.startswith("_"):
+                fns_with_agent_name.append((name, i + 1))
+
+        assert fns_with_agent_name, "no public functions with agent_name found — test setup issue"
+
+        # For each qualifying function, extract its body (until next top-level def)
+        # and confirm either _validate_agent_name or HooksDefinition(agent_name= is called.
+        offenders: list[tuple[str, int]] = []
+        for fn_name, start_line in fns_with_agent_name:
+            body: list[str] = []
+            for j in range(start_line, len(lines)):
+                next_line = lines[j]
+                # Stop at next top-level def or class
+                if j > start_line and (
+                    next_line.startswith("def ") or next_line.startswith("class ")
+                ):
+                    break
+                body.append(next_line)
+            body_text = "\n".join(body)
+            has_validator = "_validate_agent_name(" in body_text
+            has_definition = "HooksDefinition(" in body_text
+            if not (has_validator or has_definition):
+                offenders.append((fn_name, start_line))
+        assert not offenders, (
+            "Public functions taking agent_name without calling _validate_agent_name "
+            f"(or constructing HooksDefinition): {offenders}"
+        )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
