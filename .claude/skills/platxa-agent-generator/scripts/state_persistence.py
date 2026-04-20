@@ -94,6 +94,17 @@ class StateNotFoundError(Exception):
     """Raised when state file doesn't exist."""
 
 
+class ConfigCorruptError(Exception):
+    """Raised when the generator configuration file exists but is not valid JSON.
+
+    Distinct from a missing file (which ``get_config`` treats as empty config).
+    Callers must decide whether to surface the error, recover, or bail out —
+    the previous behavior of silently returning ``{}`` on corruption masked
+    real configuration drift and let ``set_config`` overwrite the corrupt
+    file, destroying whatever intent the user had typed.
+    """
+
+
 class PersistenceMode(Enum):
     """Persistence operation modes."""
 
@@ -763,19 +774,54 @@ class StatePersistence:
             return False, str(e)
 
     def get_config(self) -> dict[str, Any]:
-        """Get generator configuration."""
+        """Get generator configuration.
+
+        Returns an empty dict when the config file does not exist. Raises
+        :class:`ConfigCorruptError` when the file exists but contains invalid
+        JSON — callers must decide how to handle corruption rather than
+        receiving a silent empty-dict fallback that masks the damage.
+
+        Raises:
+            ConfigCorruptError: when the config file is present but malformed.
+            OSError: when the file exists but cannot be read (permissions,
+                I/O failure, etc.). Reading a configuration the user owns is
+                best surfaced to the caller rather than silently swallowed.
+        """
         if not self.config_file.exists():
             return {}
+        raw = self.config_file.read_text(encoding="utf-8")
         try:
-            return json.loads(self.config_file.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, OSError):
-            return {}
+            loaded = json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise ConfigCorruptError(
+                f"config file {self.config_file} is not valid JSON: {e}"
+            ) from e
+        if not isinstance(loaded, dict):
+            raise ConfigCorruptError(
+                f"config file {self.config_file} must be a JSON object, got {type(loaded).__name__}"
+            )
+        return loaded
 
     def set_config(self, **kwargs: Any) -> bool:
-        """Update generator configuration."""
+        """Update generator configuration.
+
+        Refuses to overwrite a corrupt config file — ``get_config`` will
+        raise :class:`ConfigCorruptError` before any write occurs, preventing
+        the previous silent-overwrite pattern from destroying the user's
+        original configuration on top of whatever damaged it.
+
+        Returns:
+            True on successful write. False on filesystem error (OSError).
+
+        Raises:
+            ConfigCorruptError: when the existing config file is corrupt.
+                The write is refused so the operator can inspect the
+                original file before it is overwritten.
+        """
+        # get_config raises ConfigCorruptError on malformed JSON; propagate.
+        config = self.get_config()
+        config.update(kwargs)
         try:
-            config = self.get_config()
-            config.update(kwargs)
             self.config_file.write_text(
                 json.dumps(config, indent=2),
                 encoding="utf-8",
@@ -1189,31 +1235,38 @@ def main() -> None:
             sys.exit(1)
 
     elif args.command == "config":
-        if args.list:
-            config = persistence.get_config()
-            print(json.dumps(config, indent=2))
-        elif args.get:
-            config = persistence.get_config()
-            value = config.get(args.get)
-            if value is not None:
-                print(value)
+        # Catch ConfigCorruptError for the whole subcommand so the CLI exits
+        # cleanly with exit code 1 and a readable message instead of dumping
+        # a Python traceback for the very scenario this feature protects.
+        try:
+            if args.list:
+                config = persistence.get_config()
+                print(json.dumps(config, indent=2))
+            elif args.get:
+                config = persistence.get_config()
+                value = config.get(args.get)
+                if value is not None:
+                    print(value)
+                else:
+                    print(f"Config key '{args.get}' not found", file=sys.stderr)
+                    sys.exit(1)
+            elif args.set:
+                key, value = args.set
+                # Try to parse as JSON, fall back to string
+                try:
+                    value = json.loads(value)
+                except json.JSONDecodeError:
+                    pass
+                if persistence.set_config(**{key: value}):
+                    print(f"Set {key} = {value}")
+                else:
+                    print("Failed to set config", file=sys.stderr)
+                    sys.exit(1)
             else:
-                print(f"Config key '{args.get}' not found", file=sys.stderr)
-                sys.exit(1)
-        elif args.set:
-            key, value = args.set
-            # Try to parse as JSON, fall back to string
-            try:
-                value = json.loads(value)
-            except json.JSONDecodeError:
-                pass
-            if persistence.set_config(**{key: value}):
-                print(f"Set {key} = {value}")
-            else:
-                print("Failed to set config", file=sys.stderr)
-                sys.exit(1)
-        else:
-            print(json.dumps(persistence.get_config(), indent=2))
+                print(json.dumps(persistence.get_config(), indent=2))
+        except ConfigCorruptError as e:
+            print(f"Config file is corrupt: {e}", file=sys.stderr)
+            sys.exit(1)
 
     else:
         parser.print_help()

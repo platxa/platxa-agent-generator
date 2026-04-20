@@ -13112,6 +13112,115 @@ class TestStatePersistenceErrorHandling:
         assert "values: True None" in result.stdout
 
 
+class TestStatePersistenceConfig:
+    """Tests for get_config/set_config corruption semantics (Feature #11).
+
+    Previously get_config() returned ``{}`` for both "file does not exist"
+    and "file is corrupt JSON", so set_config() would cheerfully overwrite
+    a corrupt config with a fresh empty-plus-update dict — erasing the
+    operator's intent on top of whatever had damaged it. The fix:
+
+    - get_config() still returns ``{}`` for missing file.
+    - get_config() now raises ConfigCorruptError when the file exists but
+      contains invalid JSON (or parses to a non-object root).
+    - set_config() no longer catches that error, so an overwrite is refused
+      until the operator repairs or deletes the file.
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        return subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+
+    def test_missing_file_returns_empty(self) -> None:
+        """When the config file does not exist, get_config() returns ``{}``."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from state_persistence import StatePersistence\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = StatePersistence(base_dir=Path(td))\n"
+            "    # config_file is under base_dir and does not exist yet\n"
+            "    print('exists_before:', p.config_file.exists())\n"
+            "    cfg = p.get_config()\n"
+            "    print('returned:', cfg)\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "exists_before: False" in result.stdout
+        assert "returned: {}" in result.stdout
+
+    def test_corrupt_file_raises(self) -> None:
+        """Corrupt JSON in the config file raises ConfigCorruptError.
+
+        Includes coverage for the non-dict root case (JSON parses but is
+        not an object) — both are forms of config corruption the caller
+        must not silently inherit as an empty dict.
+        """
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from state_persistence import StatePersistence, ConfigCorruptError\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = StatePersistence(base_dir=Path(td))\n"
+            "    # Case A: malformed JSON\n"
+            "    p.config_file.parent.mkdir(parents=True, exist_ok=True)\n    p.config_file.write_text('{not valid json', encoding='utf-8')\n"
+            "    try:\n"
+            "        p.get_config()\n"
+            "        print('A: swallowed')\n"
+            "    except ConfigCorruptError as e:\n"
+            "        print('A: raised')\n"
+            "        print('A_msg_has_path:', str(p.config_file) in str(e))\n"
+            "    # Case B: valid JSON but non-object root\n"
+            '    p.config_file.parent.mkdir(parents=True, exist_ok=True)\n    p.config_file.write_text(\'["not", "a", "dict"]\', encoding=\'utf-8\')\n'
+            "    try:\n"
+            "        p.get_config()\n"
+            "        print('B: swallowed')\n"
+            "    except ConfigCorruptError as e:\n"
+            "        print('B: raised')\n"
+            "        print('B_msg_has_type:', 'list' in str(e))\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "A: raised" in result.stdout
+        assert "A_msg_has_path: True" in result.stdout
+        assert "B: raised" in result.stdout
+        assert "B_msg_has_type: True" in result.stdout
+
+    def test_set_config_refuses_corrupt(self) -> None:
+        """set_config() must refuse to overwrite a corrupt config file.
+
+        The previous implementation caught the parse error inside
+        get_config(), got ``{}`` back, merged kwargs into that empty dict,
+        and wrote it out — destroying whatever was in the corrupt file.
+        After the fix, the ConfigCorruptError propagates from get_config()
+        out through set_config() and the original file bytes stay intact.
+        """
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from state_persistence import StatePersistence, ConfigCorruptError\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = StatePersistence(base_dir=Path(td))\n"
+            "    original = '{not valid json'\n"
+            "    p.config_file.parent.mkdir(parents=True, exist_ok=True)\n    p.config_file.write_text(original, encoding='utf-8')\n"
+            "    try:\n"
+            "        p.set_config(new_key='new_value')\n"
+            "        print('set: allowed')\n"
+            "    except ConfigCorruptError:\n"
+            "        print('set: refused')\n"
+            "    # Original bytes must be unchanged\n"
+            "    print('unchanged:',\n"
+            "          p.config_file.read_text(encoding='utf-8') == original)\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "set: refused" in result.stdout
+        assert "unchanged: True" in result.stdout
+
+
 class TestBatchGeneration:
     """Tests for batch agent generation (feature #75).
 
