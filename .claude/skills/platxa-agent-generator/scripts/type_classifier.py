@@ -72,12 +72,14 @@ ARCHITECTURE_INDICATORS: dict[ArchitectureType, dict[str, list[str]]] = {
             "multi-agent",
             "multiple agents",
             "agent team",
-            "collaborate",
+            # Prefix form matches "collaborate", "collaborating", "collaboration"
+            # without requiring each conjugation as a separate indicator
+            # (mirrors the "orchestrat" / "decompos" prefix style above).
+            "collaborat",
             "peer agents",
             "independent agents",
             "agent network",
             "agents working together",
-            "agent collaboration",
         ],
         "moderate": [
             "several agents",
@@ -274,22 +276,46 @@ def classify(description: str) -> ClassificationResult:
     best_type = max(scores.keys(), key=lambda t: scores[t][0])
     best_score, best_matches = scores[best_type]
 
-    # If no clear winner (score too low), default to SIMPLE
+    # Detect low-confidence classifications so confidence can be set
+    # directly rather than being inflated by the margin formula below.
+    # Two distinct cases both warrant SIMPLE with low confidence:
+    #   (a) ambiguous: no indicator cleared the 0.15 floor
+    #   (b) tie-break: multiple non-SIMPLE types scored identically
+    #       above zero (the margin formula can't disambiguate a tie)
+    low_confidence_default = False
+
     if best_score < 0.15:
+        # Case (a): nothing matched — default to SIMPLE
         best_type = ArchitectureType.SIMPLE
         best_score = 0.5
         best_matches = []
+        low_confidence_default = True
+    else:
+        # Case (b): check for top-score ties. Only trigger when the tie
+        # is among non-SIMPLE types (if SIMPLE is already the winner,
+        # the margin formula is well-defined).
+        tied = [t for t, (s, _) in scores.items() if s == best_score]
+        if len(tied) > 1 and ArchitectureType.SIMPLE not in tied:
+            best_type = ArchitectureType.SIMPLE
+            best_score, best_matches = scores[ArchitectureType.SIMPLE]
+            low_confidence_default = True
 
     # Calculate confidence
-    # Higher if clear winner, lower if close race
-    other_scores = [s for t, (s, _) in scores.items() if t != best_type]
-    max_other = max(other_scores) if other_scores else 0
-
-    if best_score > 0:
-        margin = (best_score - max_other) / best_score
-        confidence = min(0.5 + margin * 0.5, 1.0)
+    if low_confidence_default:
+        # Explicit low value so the caller can gate on < 0.5 to detect
+        # "we're guessing." 0.3 puts it solidly under that threshold
+        # without pretending to be zero (the default really is SIMPLE).
+        confidence = 0.3
     else:
-        confidence = 0.5
+        # Higher if clear winner, lower if close race
+        other_scores = [s for t, (s, _) in scores.items() if t != best_type]
+        max_other = max(other_scores) if other_scores else 0
+
+        if best_score > 0:
+            margin = (best_score - max_other) / best_score
+            confidence = min(0.5 + margin * 0.5, 1.0)
+        else:
+            confidence = 0.5
 
     # Round confidence
     confidence = round(confidence, 2)
