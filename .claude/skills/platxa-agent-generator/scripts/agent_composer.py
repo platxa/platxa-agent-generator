@@ -1367,46 +1367,42 @@ def load_agent_spec(file_path: Path | str) -> AgentSpec | None:
 
     content = path.read_text(encoding="utf-8")
 
-    # Parse frontmatter
-    if not content.startswith("---"):
-        return None
-
-    parts = content.split("---", 2)
-    if len(parts) < 3:
-        return None
-
+    # Parse frontmatter via the shared canonical parser (feature #26).
+    # parse_frontmatter_safe handles opening/closing delimiter checks,
+    # YAML loading, MarkedYAMLError line reporting, and non-mapping
+    # root rejection — so the pre-refactor ImportError/YAMLError/
+    # AttributeError chain collapses into a single fail-with-warning
+    # path. The warning format is preserved (type + message) so that
+    # operators searching logs by "agent_composer failed to parse" still
+    # hit this branch.
+    #
+    # Import locally (same scope as before) so the module still loads in
+    # environments where shared.frontmatter transitively fails to import
+    # — the caller keeps getting a ``None`` return rather than a
+    # top-level ImportError at module load time.
     try:
-        import yaml
-
-        frontmatter = yaml.safe_load(parts[1])
+        try:
+            from .shared.frontmatter import parse_frontmatter_safe
+        except ImportError:
+            from shared.frontmatter import (  # type: ignore[import-not-found,no-redef]
+                parse_frontmatter_safe,
+            )
     except ImportError as e:
-        # PyYAML missing at runtime means we cannot parse any agent
-        # frontmatter. The previous broad ``except Exception: return None``
-        # hid this environmental failure so every composition call
-        # silently treated every agent as invalid. Surface the path and
-        # error class so operators can see which dependency is missing.
-        # Python evaluates except-tuple classes eagerly, so ImportError
-        # cannot share a tuple with ``yaml.YAMLError`` (the latter would
-        # raise NameError when ``yaml`` isn't bound); the two paths live
-        # in separate except clauses.
         print(
             f"warning: agent_composer failed to parse frontmatter "
             f"in {path}: {type(e).__name__}: {e}",
             file=sys.stderr,
         )
         return None
-    except (yaml.YAMLError, AttributeError) as e:
-        # yaml.YAMLError: malformed YAML syntax in the frontmatter block
-        # (e.g. unclosed quote, bad indentation).
-        # AttributeError: defensive catch for edge cases where yaml's
-        # loader returns a non-dict (bare string, list) that lacks the
-        # attribute access the downstream ``frontmatter.get(...)`` calls
-        # expect — kept INSIDE the narrowed except so the warning names
-        # this specific agent file rather than dying with a traceback
-        # in the caller.
+
+    frontmatter, errors = parse_frontmatter_safe(content)
+    if frontmatter is None:
+        first_error = errors[0] if errors else None
+        error_summary = (
+            f"{first_error.code}: {first_error.message}" if first_error else "unknown parse failure"
+        )
         print(
-            f"warning: agent_composer failed to parse frontmatter "
-            f"in {path}: {type(e).__name__}: {e}",
+            f"warning: agent_composer failed to parse frontmatter in {path}: {error_summary}",
             file=sys.stderr,
         )
         return None

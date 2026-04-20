@@ -14,18 +14,20 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-import yaml
+# ValidationError is sourced from the shared canonical parser
+# (feature #26) so agent_linter and the new shared.frontmatter module
+# speak the same vocabulary. The re-export below preserves backward
+# compatibility for callers that still do ``from syntax_validator
+# import ValidationError``.
+try:
+    from .shared.frontmatter import ValidationError, parse_frontmatter_safe
+except ImportError:
+    from shared.frontmatter import (  # type: ignore[import-not-found,no-redef]
+        ValidationError,
+        parse_frontmatter_safe,
+    )
 
-
-@dataclass
-class ValidationError:
-    """A single validation error."""
-
-    line: int
-    column: int
-    severity: str  # "error" or "warning"
-    code: str  # error code like "E001"
-    message: str
+__all__ = ["ValidationError"]  # re-export for syntax_validator consumers
 
 
 @dataclass
@@ -129,87 +131,50 @@ FIELD_CONSTRAINTS = {
 def parse_frontmatter(
     content: str,
 ) -> tuple[dict | None, list[ValidationError], int, dict | None]:
+    """Parse YAML frontmatter and return the tuple this module's callers expect.
+
+    Delegates the delimiter + YAML load + type check to
+    ``shared.frontmatter.parse_frontmatter_safe`` so there is a single
+    reviewed implementation across the whole suite (feature #26). The
+    4-tuple return shape is kept for backward compatibility: the extra
+    ``end_line`` and ``raw_frontmatter`` slots are used by this module's
+    downstream line-numbered validators.
     """
-    Parse YAML frontmatter from content using PyYAML.
+    # Delegate the core parse. ``parse_frontmatter_safe`` emits
+    # ValidationError(E001/E002/E003) so this function only needs to
+    # compute the accompanying end_line + raw_frontmatter slots.
+    frontmatter, errors = parse_frontmatter_safe(content)
 
-    Returns:
-        Tuple of (normalized_dict, errors, end_line, raw_frontmatter)
-        normalized_dict has scalar values as strings; raw_frontmatter preserves nested structures.
-    """
-    errors: list[ValidationError] = []
-    lines = content.split("\n")
+    if frontmatter is None:
+        # Determine end_line for the failure-mode return shape. The
+        # 4-tuple contract is unchanged: callers that depend on
+        # ``end_line`` after a failure (e.g. to anchor subsequent
+        # warnings) still get the same numbers they got pre-refactor.
+        lines = content.split("\n")
+        if errors and errors[0].code == "E001":
+            fallback_end_line = 0
+        elif errors and errors[0].code == "E002":
+            fallback_end_line = len(lines)
+        else:
+            # E003 — we successfully found both delimiters; recompute
+            # end_line here because parse_frontmatter_safe doesn't
+            # return it (spec pins the 2-tuple shape).
+            fallback_end_line = -1
+            for i, line in enumerate(lines[1:], start=2):
+                if line.strip() == "---":
+                    fallback_end_line = i
+                    break
+        return None, errors, fallback_end_line, None
 
-    # Check for opening delimiter
-    if not lines or lines[0].strip() != "---":
-        errors.append(
-            ValidationError(
-                line=1,
-                column=1,
-                severity="error",
-                code="E001",
-                message="Missing frontmatter opening delimiter '---'",
-            )
-        )
-        return None, errors, 0, None
-
-    # Find closing delimiter
+    # Find closing delimiter's line number for downstream message
+    # anchoring. parse_frontmatter_safe already proved one exists, so
+    # this linear scan is guaranteed to find it.
     end_line = -1
+    lines = content.split("\n")
     for i, line in enumerate(lines[1:], start=2):
         if line.strip() == "---":
             end_line = i
             break
-
-    if end_line == -1:
-        errors.append(
-            ValidationError(
-                line=1,
-                column=1,
-                severity="error",
-                code="E002",
-                message="Missing frontmatter closing delimiter '---'",
-            )
-        )
-        return None, errors, len(lines), None
-
-    # Extract YAML content between delimiters
-    yaml_content = "\n".join(lines[1 : end_line - 1])
-
-    # Parse YAML using PyYAML
-    try:
-        frontmatter = yaml.safe_load(yaml_content)
-        if frontmatter is None:
-            frontmatter = {}
-        if not isinstance(frontmatter, dict):
-            errors.append(
-                ValidationError(
-                    line=2,
-                    column=1,
-                    severity="error",
-                    code="E003",
-                    message=f"Frontmatter must be a YAML mapping, got {type(frontmatter).__name__}",
-                )
-            )
-            return None, errors, end_line, None
-    except yaml.YAMLError as e:
-        # Extract line number and message from YAML error
-        error_line = 2  # Default to first line of frontmatter
-        error_msg = str(e)
-
-        # MarkedYAMLError has problem_mark with line info
-        if isinstance(e, yaml.MarkedYAMLError) and e.problem_mark is not None:
-            error_line = e.problem_mark.line + 2  # Adjust for frontmatter start
-            error_msg = e.problem if e.problem else str(e)
-
-        errors.append(
-            ValidationError(
-                line=error_line,
-                column=1,
-                severity="error",
-                code="E003",
-                message=f"Invalid YAML syntax: {error_msg}",
-            )
-        )
-        return None, errors, end_line, None
 
     # Keep raw frontmatter for nested structure validation (mcpServers, hooks)
     raw_frontmatter = dict(frontmatter)

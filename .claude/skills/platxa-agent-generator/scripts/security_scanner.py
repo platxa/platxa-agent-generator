@@ -16,7 +16,17 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
-import yaml
+# Frontmatter parsing is delegated to ``shared.frontmatter`` (feature
+# #26) so this module no longer loads YAML directly — one reviewed
+# implementation of delimiter handling + parsing lives in
+# ``shared/frontmatter.py``. The try/except shape mirrors the rest of
+# the suite's dual-mode imports (package vs direct-script invocation).
+try:
+    from .shared.frontmatter import parse_frontmatter_safe
+except ImportError:
+    from shared.frontmatter import (  # type: ignore[import-not-found,no-redef]
+        parse_frontmatter_safe,
+    )
 
 
 class Severity(Enum):
@@ -490,41 +500,42 @@ def parse_agent_file(
     tools: list[str] = []
     findings: list[SecurityFinding] = []
 
-    # Extract frontmatter
-    lines = content.split("\n")
-    if lines and lines[0].strip() == "---":
-        end_line = -1
-        for i, line in enumerate(lines[1:], start=1):
-            if line.strip() == "---":
-                end_line = i
-                break
-
-        if end_line > 0:
-            yaml_content = "\n".join(lines[1:end_line])
-            try:
-                frontmatter = yaml.safe_load(yaml_content)
-                if frontmatter and "tools" in frontmatter:
-                    tools_value = frontmatter["tools"]
-                    if isinstance(tools_value, list):
-                        tools = [str(t) for t in tools_value]
-                    elif isinstance(tools_value, str):
-                        tools = [t.strip() for t in tools_value.split(",")]
-            except yaml.YAMLError as exc:
-                findings.append(
-                    SecurityFinding(
-                        severity=Severity.HIGH,
-                        code="FRONTMATTER_UNPARSEABLE",
-                        title="Unparseable agent frontmatter",
-                        description=(
-                            "unparseable frontmatter - cannot scan tool permissions safely"
-                        ),
-                        evidence=str(exc),
-                        recommendation=(
-                            "Fix the YAML frontmatter block so the scanner "
-                            "can enumerate declared tools."
-                        ),
-                    )
+    # Delegate parsing to shared.frontmatter (feature #26). A YAML-level
+    # failure still produces a HIGH FRONTMATTER_UNPARSEABLE finding — the
+    # SecurityFinding shape is preserved so existing callers see no diff
+    # in behavior, only a cleaner parser underneath. Missing delimiter
+    # errors (E001/E002) don't raise a finding: the pre-refactor code
+    # only acted when both delimiters were present, so a missing-``---``
+    # file is treated as "no frontmatter to scan" and silently skipped
+    # — same shape as before.
+    fm_data, fm_errors = parse_frontmatter_safe(content)
+    if fm_data is not None:
+        frontmatter = fm_data
+        if "tools" in frontmatter:
+            tools_value = frontmatter["tools"]
+            if isinstance(tools_value, list):
+                tools = [str(t) for t in tools_value]
+            elif isinstance(tools_value, str):
+                tools = [t.strip() for t in tools_value.split(",")]
+    else:
+        # Only raise FRONTMATTER_UNPARSEABLE for YAML-level errors (E003).
+        # E001/E002 (no delimiters) means the file has no frontmatter to
+        # scan, which is the silently-accepted shape from pre-refactor.
+        e003 = next((e for e in fm_errors if e.code == "E003"), None)
+        if e003 is not None:
+            findings.append(
+                SecurityFinding(
+                    severity=Severity.HIGH,
+                    code="FRONTMATTER_UNPARSEABLE",
+                    title="Unparseable agent frontmatter",
+                    description=("unparseable frontmatter - cannot scan tool permissions safely"),
+                    evidence=e003.message,
+                    recommendation=(
+                        "Fix the YAML frontmatter block so the scanner "
+                        "can enumerate declared tools."
+                    ),
                 )
+            )
 
     return content, frontmatter, tools, findings
 
@@ -953,39 +964,40 @@ def scan_content(content: str, tools: list[str] | None = None) -> ScanResult:
     """
     all_findings: list[SecurityFinding] = []
 
-    # Extract tools from content if not provided
+    # Extract tools from content if not provided. Parsing delegates to
+    # shared.frontmatter.parse_frontmatter_safe (feature #26); see the
+    # scan_file() sibling above for the matching shape — we reproduce
+    # that shape here (same finding for yaml-level errors, silent skip
+    # for missing delimiters) rather than sharing a helper because
+    # the two callers are structurally different (this one already has
+    # ``tools=None`` sentinel handling baked in).
     if tools is None:
         tools = []
-        lines = content.split("\n")
-        if lines and lines[0].strip() == "---":
-            for i, line in enumerate(lines[1:], start=1):
-                if line.strip() == "---":
-                    yaml_content = "\n".join(lines[1:i])
-                    try:
-                        parsed_fm = yaml.safe_load(yaml_content)
-                        if parsed_fm and "tools" in parsed_fm:
-                            tools_value = parsed_fm["tools"]
-                            if isinstance(tools_value, list):
-                                tools = [str(t) for t in tools_value]
-                            elif isinstance(tools_value, str):
-                                tools = [t.strip() for t in tools_value.split(",")]
-                    except yaml.YAMLError as exc:
-                        all_findings.append(
-                            SecurityFinding(
-                                severity=Severity.HIGH,
-                                code="FRONTMATTER_UNPARSEABLE",
-                                title="Unparseable agent frontmatter",
-                                description=(
-                                    "unparseable frontmatter - cannot scan tool permissions safely"
-                                ),
-                                evidence=str(exc),
-                                recommendation=(
-                                    "Fix the YAML frontmatter block so the "
-                                    "scanner can enumerate declared tools."
-                                ),
-                            )
-                        )
-                    break
+        parsed_fm, fm_errors = parse_frontmatter_safe(content)
+        if parsed_fm is not None and "tools" in parsed_fm:
+            tools_value = parsed_fm["tools"]
+            if isinstance(tools_value, list):
+                tools = [str(t) for t in tools_value]
+            elif isinstance(tools_value, str):
+                tools = [t.strip() for t in tools_value.split(",")]
+        elif parsed_fm is None:
+            e003 = next((e for e in fm_errors if e.code == "E003"), None)
+            if e003 is not None:
+                all_findings.append(
+                    SecurityFinding(
+                        severity=Severity.HIGH,
+                        code="FRONTMATTER_UNPARSEABLE",
+                        title="Unparseable agent frontmatter",
+                        description=(
+                            "unparseable frontmatter - cannot scan tool permissions safely"
+                        ),
+                        evidence=e003.message,
+                        recommendation=(
+                            "Fix the YAML frontmatter block so the "
+                            "scanner can enumerate declared tools."
+                        ),
+                    )
+                )
 
     # Scan for patterns
     all_findings.extend(scan_patterns(content, CRITICAL_PATTERNS, Severity.CRITICAL))

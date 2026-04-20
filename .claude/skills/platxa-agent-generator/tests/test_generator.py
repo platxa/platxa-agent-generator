@@ -5264,6 +5264,130 @@ class TestSharedPaths:
         assert result.stdout.strip() == "OK: .claude/agents"
 
 
+class TestSharedFrontmatter:
+    """Tests for Feature #26: scripts/shared/frontmatter.py canonical parser.
+
+    Verifies the single consolidated parser that replaces four divergent
+    ``yaml.safe_load`` call sites (``syntax_validator.py``, ``agent_composer.py``,
+    and two blocks inside ``security_scanner.py``) with one (dict|None, errors)
+    contract. Deterministic invariant (enforced by the spec): outside of
+    ``shared/frontmatter.py`` itself, no other script calls ``yaml.safe_load``.
+    """
+
+    def test_canonical_error_reporting(self) -> None:
+        """parse_frontmatter_safe returns (None, [E003]) with a line number on bad YAML.
+
+        Exercises the happy path (dict + empty errors list), the E001 missing-
+        opening case, and the E003 MarkedYAMLError line-reporting branch in a
+        single subprocess so the test stays fast while pinning the canonical
+        error shape.
+        """
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import json; "
+                    "from scripts.shared.frontmatter import parse_frontmatter_safe; "
+                    "ok_data, ok_errs = parse_frontmatter_safe("
+                    "'---\\nname: x\\ndescription: y\\n---\\nbody'); "
+                    "no_open_data, no_open_errs = parse_frontmatter_safe("
+                    "'no delimiter here'); "
+                    "bad_data, bad_errs = parse_frontmatter_safe("
+                    "'---\\nname: x\\n  bad: [unclosed\\n---\\n'); "
+                    "print(json.dumps({"
+                    "'ok_data': ok_data, "
+                    "'ok_errs': [e.code for e in ok_errs], "
+                    "'no_open_data': no_open_data, "
+                    "'no_open_codes': [e.code for e in no_open_errs], "
+                    "'no_open_msg': no_open_errs[0].message if no_open_errs else '', "
+                    "'bad_data': bad_data, "
+                    "'bad_codes': [e.code for e in bad_errs], "
+                    "'bad_line_ge_2': bad_errs[0].line >= 2 if bad_errs else False, "
+                    "}))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.returncode == 0, f"parse_frontmatter_safe failed: {result.stderr}"
+        data = json.loads(result.stdout.strip())
+
+        # Happy path: dict returned, errors list is empty.
+        assert data["ok_data"] == {"name": "x", "description": "y"}
+        assert data["ok_errs"] == []
+
+        # E001: opening delimiter missing.
+        assert data["no_open_data"] is None
+        assert data["no_open_codes"] == ["E001"]
+        assert "opening delimiter" in data["no_open_msg"]
+
+        # E003: malformed YAML body — must report a line >= 2 (i.e. inside the
+        # frontmatter, not line 1 which is the opening ``---``).
+        assert data["bad_data"] is None
+        assert data["bad_codes"] == ["E003"]
+        assert data["bad_line_ge_2"] is True
+
+    def test_missing_closing_delimiter(self) -> None:
+        """A frontmatter with no closing ``---`` returns (None, [E002]).
+
+        Pinned separately from the multi-mode test above because this branch
+        is the primary reason four call sites diverged pre-refactor — one used
+        to raise a SecurityFinding, another silently returned ``None`` — and
+        we need a regression anchor for the unified behavior.
+        """
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import json; "
+                    "from scripts.shared.frontmatter import parse_frontmatter_safe; "
+                    "data, errs = parse_frontmatter_safe("
+                    "'---\\nname: x\\ndescription: y\\nnot_closed_ever'); "
+                    "print(json.dumps({"
+                    "'data': data, "
+                    "'codes': [e.code for e in errs], "
+                    "'msg': errs[0].message if errs else '', "
+                    "'line': errs[0].line if errs else 0, "
+                    "}))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.returncode == 0, f"parse_frontmatter_safe failed: {result.stderr}"
+        data = json.loads(result.stdout.strip())
+
+        assert data["data"] is None
+        assert data["codes"] == ["E002"]
+        assert "closing delimiter" in data["msg"]
+        assert data["line"] == 1
+
+    def test_yaml_safe_load_only_in_shared_frontmatter(self) -> None:
+        """Deterministic invariant: every ``yaml.safe_load`` call lives in shared/frontmatter.py.
+
+        This test enforces the spec's deterministic gate — if a future edit
+        reintroduces a direct ``yaml.safe_load`` call in any sibling module,
+        this test breaks instead of the invariant silently drifting.
+        """
+        result = subprocess.run(
+            ["grep", "-rn", "yaml.safe_load", str(SCRIPTS_DIR), "--include=*.py"],
+            capture_output=True,
+            text=True,
+        )
+        # grep returns 0 on match, 1 on no match; both are valid here.
+        assert result.returncode in (0, 1), f"grep failed: {result.stderr}"
+        hits = [line for line in result.stdout.splitlines() if line.strip()]
+        offenders = [h for h in hits if "shared/frontmatter.py" not in h.replace("\\", "/")]
+        assert offenders == [], (
+            "yaml.safe_load must only appear in shared/frontmatter.py, found:\n"
+            + "\n".join(offenders)
+        )
+
+
 class TestSharedTaskListTemplate:
     """Tests for Feature #36: Orchestrator-workers with shared task list."""
 
