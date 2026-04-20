@@ -2016,7 +2016,31 @@ tools: Read, Glob, Grep
         assert output["score"] >= 5.0
 
     def test_dangerous_tools_detected(self, tmp_path: Path) -> None:
-        """Real test: dangerous tool combinations should be flagged."""
+        """The Bash+Write+WebFetch triple must fire the SEC046 rule
+        specifically — not just "some warning, somewhere, somehow".
+
+        Prior assertion was ``len(warnings) > 0 or score < 10.0``, which
+        silently kept passing even if the specific dangerous-combo rule
+        were deleted: (a) ``"warnings"`` is not a JSON key the scanner
+        emits (it emits ``"findings"``), so the first clause was always
+        False; (b) ``score < 10.0`` can be triggered by ANY other rule
+        (missing description, long line, etc.), so the SEC046 rule
+        could vanish and this test would still pass on some other
+        penalty — exactly the regression shape the feature spec
+        called out as a mutation-test blind spot.
+
+        Tightened to mutation-detectable form:
+        - Finding list contains ``code == "SEC046"`` (the
+          ``WebFetch + Bash + Write`` triple, severity CRITICAL,
+          title "Remote code execution chain").
+        - Its ``evidence`` names all three tools so an operator
+          reading the report knows WHY the rule fired.
+        - Severity is CRITICAL, not demoted.
+
+        Mutation guarantee: delete the SEC046 entry from
+        ``DANGEROUS_TOOL_COMBINATIONS`` in security_scanner.py and this
+        test MUST fail (no finding will have code=SEC046).
+        """
         agent_file = tmp_path / "dangerous-agent.md"
         agent_file.write_text("""---
 name: dangerous-agent
@@ -2042,8 +2066,27 @@ tools: Bash, Write, WebFetch
             text=True,
         )
         output = json.loads(result.stdout)
-        # Should have warnings or lower score for dangerous combination
-        assert len(output.get("warnings", [])) > 0 or output["score"] < 10.0
+        findings = output.get("findings", [])
+        # Mutation-sensitive assertion: the SPECIFIC rule for this
+        # triple must fire — not just any rule that happens to drop
+        # the score.
+        sec046 = next((f for f in findings if f.get("code") == "SEC046"), None)
+        assert sec046 is not None, (
+            "SEC046 (WebFetch+Bash+Write remote-code-execution-chain rule) "
+            "did not fire. Finding codes present: "
+            f"{sorted({f.get('code') for f in findings})}"
+        )
+        # Evidence must name all three tools so the report is actionable.
+        evidence = sec046.get("evidence") or ""
+        assert "Bash" in evidence, f"evidence missing 'Bash': {evidence!r}"
+        assert "Write" in evidence, f"evidence missing 'Write': {evidence!r}"
+        assert "WebFetch" in evidence, f"evidence missing 'WebFetch': {evidence!r}"
+        # Severity pin: this rule is defined CRITICAL in the combo
+        # table; a silent demotion (e.g. to MEDIUM) would weaken the
+        # gate and must show up as a test failure.
+        assert sec046.get("severity") == "critical", (
+            f"SEC046 severity demoted: {sec046.get('severity')!r}"
+        )
 
 
 class TestErrorHandlingGeneration:
