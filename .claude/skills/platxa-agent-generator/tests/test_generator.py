@@ -13486,6 +13486,105 @@ class TestExtendedThinkingLoadHistory:
         assert "KeyError" not in result.stderr
 
 
+class TestSilentWriteSurfacing:
+    """Tests for bundled state-write OSError surfacing (Feature #14).
+
+    Two state-persistence helpers had symmetric silent-failure sites that
+    were hiding environmental problems:
+
+    - ``extended_thinking.ThinkingIntegration._save_usage_history``
+      swallowed OSError with ``pass`` when writing the per-task usage log.
+      A full disk or a read-only ``.claude/`` meant the log silently
+      stopped growing — the operator had no way to tell a healthy
+      "no new records yet" from a broken "every write is dropping on
+      the floor".
+
+    - ``progress_tracker.ProgressTracker._save_state`` had the same
+      pattern for the cross-phase progress checkpoint. Silent drops here
+      meant a failed resume anchor looked identical to a fresh start,
+      which is the worst failure mode for a resume-on-crash primitive.
+
+    The fix emits a stderr warning that names the target path and the
+    error class in both sites, without changing the swallow-and-continue
+    contract (both writes are best-effort; the caller already holds the
+    live in-memory record).
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        return subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+
+    def test_extended_thinking_oserror(self) -> None:
+        """OSError inside ``_save_usage_history`` must emit a stderr warning
+        that names the target usage log path and the error class.
+
+        The previous ``except OSError: pass`` hid disk-full / permissions
+        failures entirely. Operators lost their thinking-usage log with
+        zero diagnostic. The fix emits a warning to stderr without
+        changing the swallow-and-continue contract (records are captured
+        in-memory by the caller before save).
+        """
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from unittest.mock import patch\n"
+            "from extended_thinking import ThinkingIntegration\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    log_path = Path(td) / 'thinking_usage.json'\n"
+            "    integ = ThinkingIntegration(usage_log_path=log_path)\n"
+            "    with patch.object(\n"
+            "        Path, 'write_text',\n"
+            "        side_effect=OSError('no space left'),\n"
+            "    ):\n"
+            "        integ._save_usage_history()\n"
+            "    print('completed')\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "completed" in result.stdout
+        # Warning must name the target path and the error class/message.
+        assert "thinking_usage.json" in result.stderr
+        assert "OSError" in result.stderr
+        assert "no space left" in result.stderr
+
+    def test_progress_tracker_oserror(self) -> None:
+        """OSError inside ``_save_state`` must emit a stderr warning that
+        names the target state file and the error class.
+
+        The previous ``except OSError: pass`` hid resume-anchor write
+        failures — a crashed run could not be distinguished from a run
+        that never persisted its checkpoint. The fix surfaces the failure
+        while preserving the best-effort contract (the caller holds the
+        live ProgressState).
+        """
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from unittest.mock import patch\n"
+            "from progress_tracker import ProgressTracker\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    state_path = Path(td) / 'progress.json'\n"
+            "    tracker = ProgressTracker(state_file=state_path)\n"
+            "    with patch.object(\n"
+            "        Path, 'write_text',\n"
+            "        side_effect=OSError('disk full'),\n"
+            "    ):\n"
+            "        tracker.start('demo-task')\n"
+            "    print('completed')\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "completed" in result.stdout
+        # Warning must name the target path and the error class/message.
+        assert "progress.json" in result.stderr
+        assert "OSError" in result.stderr
+        assert "disk full" in result.stderr
+
+
 class TestBatchGeneration:
     """Tests for batch agent generation (feature #75).
 

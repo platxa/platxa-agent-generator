@@ -822,8 +822,19 @@ class ThinkingIntegration:
                 json.dumps(data, indent=2),
                 encoding="utf-8",
             )
-        except OSError:
-            pass
+        except OSError as e:
+            # Usage history is best-effort (records are captured in-memory
+            # by the caller before save), but silently dropping the write
+            # meant operators lost their thinking-usage log with zero
+            # indication — no way to tell a disk-full failure from a
+            # successful no-op. Surface the path and error class so the
+            # failure is visible without changing the swallow-and-continue
+            # contract.
+            print(
+                f"warning: extended_thinking failed to write usage history "
+                f"{self.usage_log_path}: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
 
 
 def analyze_for_agent_generation(

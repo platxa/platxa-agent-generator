@@ -682,8 +682,19 @@ class ProgressTracker:
                 json.dumps(data, indent=2),
                 encoding="utf-8",
             )
-        except OSError:
-            pass
+        except OSError as e:
+            # Progress state is best-effort (the caller holds the live
+            # ProgressState in memory), but silently dropping the write
+            # meant a disk-full or read-only filesystem looked identical
+            # to a successful save — operators lost their cross-session
+            # resume anchor with zero diagnostic. Surface the path and
+            # error class so the failure is visible without changing the
+            # swallow-and-continue contract.
+            print(
+                f"warning: progress_tracker failed to write state "
+                f"{self.state_file}: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
 
     def _notify(self) -> None:
         """Notify progress callback."""
