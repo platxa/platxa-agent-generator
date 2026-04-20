@@ -1415,3 +1415,77 @@ class TestPromptInjectionDetection:
         codes = {f.code for f in findings}
         for code in ["SEC060", "SEC061", "SEC062", "SEC063", "SEC064", "SEC065"]:
             assert code in codes, f"Missing injection code: {code}"
+
+
+class TestAgentExportZipSlip:
+    """Zip-slip defense for agent_export._safe_extract_zip (feature #2)."""
+
+    def test_rejects_path_traversal(self, tmp_path: Path) -> None:
+        """A member with ``../`` traversal must raise ValueError before extracting."""
+        import zipfile as _zf
+
+        from agent_export import _safe_extract_zip
+
+        dest = tmp_path / "dest"
+        dest.mkdir()
+        malicious_zip = tmp_path / "traversal.zip"
+        with _zf.ZipFile(malicious_zip, "w") as zf:
+            zf.writestr("../escape.txt", b"pwned")
+
+        with (
+            _zf.ZipFile(malicious_zip, "r") as zf,
+            pytest.raises(ValueError, match="path traversal|absolute path"),
+        ):
+            _safe_extract_zip(zf, dest)
+
+        # Parent-of-dest must not have been written to.
+        assert not (tmp_path / "escape.txt").exists()
+
+    def test_rejects_absolute_path_member(self, tmp_path: Path) -> None:
+        """A member whose name is an absolute path must raise ValueError."""
+        import zipfile as _zf
+
+        from agent_export import _safe_extract_zip
+
+        dest = tmp_path / "dest"
+        dest.mkdir()
+        malicious_zip = tmp_path / "absolute.zip"
+        # ZipFile normalizes leading slashes off the archive path when writing
+        # via ZipInfo, so build the ZipInfo explicitly to preserve "/tmp/...".
+        info = _zf.ZipInfo(filename="/tmp/evil.txt")
+        with _zf.ZipFile(malicious_zip, "w") as zf:
+            zf.writestr(info, b"pwned")
+
+        with (
+            _zf.ZipFile(malicious_zip, "r") as zf,
+            pytest.raises(ValueError, match="absolute path"),
+        ):
+            _safe_extract_zip(zf, dest)
+
+    def test_rejects_symlink_member(self, tmp_path: Path) -> None:
+        """A member with Unix S_IFLNK mode must raise ValueError.
+
+        Guards CWE-59 (symlink following): a zip can carry a symlink
+        whose target points outside ``dest`` even when the member name
+        itself is clean.
+        """
+        import stat as _stat
+        import zipfile as _zf
+
+        from agent_export import _safe_extract_zip
+
+        dest = tmp_path / "dest"
+        dest.mkdir()
+        malicious_zip = tmp_path / "symlink.zip"
+        # Encode S_IFLNK in the top 16 bits of external_attr, the same way
+        # zip producers (e.g. ``zip -y``) signal that a member is a symlink.
+        info = _zf.ZipInfo(filename="link-to-etc")
+        info.external_attr = (_stat.S_IFLNK | 0o777) << 16
+        with _zf.ZipFile(malicious_zip, "w") as zf:
+            zf.writestr(info, b"/etc/passwd")
+
+        with (
+            _zf.ZipFile(malicious_zip, "r") as zf,
+            pytest.raises(ValueError, match="symlink"),
+        ):
+            _safe_extract_zip(zf, dest)

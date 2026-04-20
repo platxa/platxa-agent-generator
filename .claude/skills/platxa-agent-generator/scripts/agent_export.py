@@ -17,6 +17,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import tarfile
 import tempfile
 import zipfile
@@ -1102,6 +1103,47 @@ def generate_package_readme(manifest: PackageManifest) -> str:
     return "\n".join(lines)
 
 
+def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
+    """Safely extract a ZIP archive under ``dest``.
+
+    Validates every member before writing any file. Raises ``ValueError`` on:
+
+    * Absolute member paths (POSIX ``/etc/...`` or Windows ``C:\\...``)
+      — CWE-22.
+    * Parent-directory traversal that resolves outside ``dest`` — CWE-22.
+    * Symlink members (Unix mode ``S_IFLNK``) — CWE-59: a symlink member
+      can re-anchor subsequent writes outside ``dest`` even after path
+      validation, so we refuse archives that contain them.
+
+    Validation runs to completion before any extraction, so a malicious
+    member aborts the whole operation rather than leaving a partial tree.
+    """
+    dest_resolved = dest.resolve()
+    for member in zf.infolist():
+        name = member.filename
+        # Absolute paths: reject POSIX ("/etc"), UNC/backslash ("\\srv") and
+        # Windows drives ("C:\\"). ``os.path.isabs`` alone is platform-
+        # dependent, so combine it with explicit prefix checks.
+        if os.path.isabs(name) or name.startswith(("/", "\\")):
+            raise ValueError(f"Unsafe zip member (absolute path): {name}")
+        if len(name) >= 2 and name[1] == ":":
+            raise ValueError(f"Unsafe zip member (drive path): {name}")
+        # Symlinks: Unix mode is encoded in the top 16 bits of external_attr.
+        # Reject before resolving because the symlink's *target* could point
+        # outside ``dest`` even when the member name itself looks safe.
+        unix_mode = member.external_attr >> 16
+        if unix_mode and stat.S_ISLNK(unix_mode):
+            raise ValueError(f"Unsafe zip member (symlink): {name}")
+        # Traversal: resolve the target and require it to stay under dest.
+        target = (dest_resolved / name).resolve()
+        try:
+            target.relative_to(dest_resolved)
+        except ValueError as exc:
+            raise ValueError(f"Unsafe zip member (path traversal): {name}") from exc
+    for member in zf.infolist():
+        zf.extract(member, dest)
+
+
 def validate_package(package_path: Path) -> ValidationResult:
     """
     Validate an agent package before import.
@@ -1126,7 +1168,7 @@ def validate_package(package_path: Path) -> ValidationResult:
                 package_dir = package_path
             elif package_path.suffix == ".zip":
                 with zipfile.ZipFile(package_path, "r") as zf:
-                    zf.extractall(temp_path)
+                    _safe_extract_zip(zf, temp_path)
                 # Find the package directory
                 dirs = list(temp_path.iterdir())
                 package_dir = dirs[0] if dirs else temp_path
@@ -1272,7 +1314,7 @@ def import_agent(
                 package_dir = package_path
             elif package_path.suffix == ".zip":
                 with zipfile.ZipFile(package_path, "r") as zf:
-                    zf.extractall(temp_path)
+                    _safe_extract_zip(zf, temp_path)
                 dirs = list(temp_path.iterdir())
                 package_dir = dirs[0] if dirs else temp_path
             elif str(package_path).endswith(".tar.gz"):
