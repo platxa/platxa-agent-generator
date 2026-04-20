@@ -533,7 +533,7 @@ class StatePersistence:
             self._log_error("save", str(e))
             return False
 
-    def update(self, **kwargs: Any) -> bool:
+    def update(self, **kwargs: Any) -> tuple[bool, str | None]:
         """
         Update specific fields in the current state.
 
@@ -541,7 +541,12 @@ class StatePersistence:
             **kwargs: Fields to update
 
         Returns:
-            True if updated successfully
+            ``(True, None)`` on success, ``(False, error_msg)`` when an
+            environmental failure (OSError, json.JSONDecodeError, ValueError,
+            IntegrityError) was caught. Programmer errors (AttributeError,
+            TypeError, KeyError, etc.) propagate unchanged so bugs are not
+            silently swallowed as they were by the previous ``except
+            Exception`` wrapper.
         """
         try:
             with self.transaction() as state:
@@ -553,12 +558,13 @@ class StatePersistence:
                     else:
                         state.workflow_data[key] = value
                 state.metadata.updated_at = datetime.now().isoformat()
-            return True
-        except Exception as e:
+            return True, None
+        # json.JSONDecodeError is a ValueError subclass; both listed for clarity.
+        except (OSError, json.JSONDecodeError, ValueError, IntegrityError) as e:
             self._log_error("update", str(e))
-            return False
+            return False, str(e)
 
-    def add_generation_record(self, record: GenerationRecord) -> bool:
+    def add_generation_record(self, record: GenerationRecord) -> tuple[bool, str | None]:
         """
         Add a generation record to the state.
 
@@ -566,7 +572,8 @@ class StatePersistence:
             record: GenerationRecord to add
 
         Returns:
-            True if added successfully
+            ``(True, None)`` on success, ``(False, error_msg)`` when an
+            environmental failure was caught. Programmer errors propagate.
         """
         try:
             with self.transaction() as state:
@@ -575,10 +582,11 @@ class StatePersistence:
 
             # Also save to history
             self._save_to_history(record)
-            return True
-        except Exception as e:
+            return True, None
+        # json.JSONDecodeError is a ValueError subclass; both listed for clarity.
+        except (OSError, json.JSONDecodeError, ValueError, IntegrityError) as e:
             self._log_error("add_generation_record", str(e))
-            return False
+            return False, str(e)
 
     def get_generation_history(
         self,
@@ -730,12 +738,13 @@ class StatePersistence:
         """
         return self._recover_from_backup()
 
-    def reset(self) -> bool:
+    def reset(self) -> tuple[bool, str | None]:
         """
         Reset state to initial values.
 
         Returns:
-            True if reset successfully
+            ``(True, None)`` on success, ``(False, error_msg)`` when an
+            environmental failure was caught. Programmer errors propagate.
         """
         try:
             # Archive current state first
@@ -743,10 +752,15 @@ class StatePersistence:
 
             # Create fresh state
             initial_state = SessionState(metadata=StateMetadata(session_id=self._session_id))
-            return self.save(initial_state)
-        except Exception as e:
+            if self.save(initial_state):
+                return True, None
+            # save() already surfaced the real cause via _log_error — the error
+            # log has the OSError/LockError detail the CLI caller cannot see.
+            return False, "save returned False after reset (see error log for details)"
+        # json.JSONDecodeError is a ValueError subclass; both listed for clarity.
+        except (OSError, json.JSONDecodeError, ValueError, IntegrityError) as e:
             self._log_error("reset", str(e))
-            return False
+            return False, str(e)
 
     def get_config(self) -> dict[str, Any]:
         """Get generator configuration."""
@@ -994,7 +1008,12 @@ class StatePersistence:
         return data
 
     def _log_error(self, operation: str, message: str) -> None:
-        """Log error to state error log."""
+        """Log error to state error log.
+
+        Swallows only environmental failures — programmer errors still
+        propagate so the original caller sees them. The error-logging
+        path itself must never mask bugs.
+        """
         try:
             state = self.load()
             if state:
@@ -1008,8 +1027,9 @@ class StatePersistence:
                 # Keep last 100 errors
                 state.error_log = state.error_log[-100:]
                 self._write_state(state)
-        except Exception:
-            pass  # Don't fail on error logging
+        # json.JSONDecodeError is a ValueError subclass; both listed for clarity.
+        except (OSError, json.JSONDecodeError, ValueError, IntegrityError):
+            pass  # Don't fail on environmental error-logging issues
 
 
 def main() -> None:
@@ -1082,10 +1102,11 @@ def main() -> None:
         if args.data:
             updates["workflow_data"] = json.loads(args.data)
 
-        if persistence.update(**updates):
+        ok, err = persistence.update(**updates)
+        if ok:
             print("State saved successfully")
         else:
-            print("Failed to save state", file=sys.stderr)
+            print(f"Failed to save state: {err}", file=sys.stderr)
             sys.exit(1)
 
     elif args.command == "load":
@@ -1152,10 +1173,11 @@ def main() -> None:
             sys.exit(1)
 
     elif args.command == "reset":
-        if persistence.reset():
+        ok, err = persistence.reset()
+        if ok:
             print("State reset successfully")
         else:
-            print("Failed to reset state", file=sys.stderr)
+            print(f"Failed to reset state: {err}", file=sys.stderr)
             sys.exit(1)
 
     elif args.command == "archive":

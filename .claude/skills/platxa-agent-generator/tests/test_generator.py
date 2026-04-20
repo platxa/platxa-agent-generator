@@ -12977,6 +12977,141 @@ class TestStateCheckpointRecovery:
         assert result.stdout.strip() == "2 discovery 1 architecture 2"
 
 
+class TestStatePersistenceErrorHandling:
+    """Tests for state_persistence broad-except narrowing (Feature #10).
+
+    The module used to wrap ``update``, ``add_generation_record``, ``reset``,
+    and ``_log_error`` in ``except Exception``, conflating environmental
+    failures (OSError, json.JSONDecodeError, ValueError, IntegrityError) with
+    programmer errors (AttributeError, TypeError, KeyError) and silently
+    returning ``False``. That swallowed real bugs.
+
+    The fix:
+    - Narrow the except clauses to the environmental exception set only.
+    - Return a structured ``(bool, str | None)`` tuple from the public
+      mutation methods so callers can surface the failure reason.
+    - Let programmer-error exceptions propagate naturally.
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        return subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+
+    def test_update_returns_structured_error(self) -> None:
+        """update() must return (bool, str | None).
+
+        On success: ``(True, None)``.
+        On a caught environmental error: ``(False, error_msg)``.
+        """
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from unittest.mock import patch\n"
+            "from state_persistence import StatePersistence\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = StatePersistence(base_dir=Path(td))\n"
+            "    # Success path\n"
+            "    r1 = p.update(workflow_phase='discovery')\n"
+            "    print('success_shape:', isinstance(r1, tuple), len(r1))\n"
+            "    print('success_values:', r1[0], r1[1])\n"
+            "    # Caught error path: OSError in _write_state propagates\n"
+            "    # through transaction().__exit__ and is swallowed by update()\n"
+            "    with patch.object(\n"
+            "        StatePersistence, '_write_state',\n"
+            "        side_effect=OSError('disk full'),\n"
+            "    ):\n"
+            "        r2 = p.update(workflow_phase='generation')\n"
+            "    print('fail_shape:', isinstance(r2, tuple), len(r2))\n"
+            "    print('fail_values:', r2[0], 'disk full' in (r2[1] or ''))\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "success_shape: True 2" in result.stdout
+        assert "success_values: True None" in result.stdout
+        assert "fail_shape: True 2" in result.stdout
+        assert "fail_values: False True" in result.stdout
+
+    def test_programmer_error_propagates(self) -> None:
+        """AttributeError (programmer error) must propagate, not be swallowed.
+
+        The old broad ``except Exception`` swallowed AttributeError and returned
+        ``False``, hiding real bugs. The narrowed except must let it out.
+        """
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from unittest.mock import patch\n"
+            "from state_persistence import StatePersistence\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = StatePersistence(base_dir=Path(td))\n"
+            "    with patch.object(\n"
+            "        StatePersistence, '_write_state',\n"
+            "        side_effect=AttributeError('bad attr access'),\n"
+            "    ):\n"
+            "        try:\n"
+            "            p.update(workflow_phase='discovery')\n"
+            "            print('swallowed')\n"
+            "        except AttributeError as e:\n"
+            "            print('propagated:', str(e))\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "propagated: bad attr access" in result.stdout
+
+    def test_add_generation_record_returns_structured_error(self) -> None:
+        """add_generation_record() must also return (bool, str | None)."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from unittest.mock import patch\n"
+            "from state_persistence import (\n"
+            "    StatePersistence, GenerationRecord\n"
+            ")\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = StatePersistence(base_dir=Path(td))\n"
+            "    rec = GenerationRecord(\n"
+            "        agent_name='demo', description='d', pattern='chaining',\n"
+            "        tools=[], generated_at='2026-04-20T00:00:00',\n"
+            "        output_path='/tmp/x', success=True,\n"
+            "    )\n"
+            "    r1 = p.add_generation_record(rec)\n"
+            "    print('success_shape:', isinstance(r1, tuple), len(r1))\n"
+            "    print('success_values:', r1[0], r1[1])\n"
+            "    with patch.object(\n"
+            "        StatePersistence, '_write_state',\n"
+            "        side_effect=OSError('io fail'),\n"
+            "    ):\n"
+            "        r2 = p.add_generation_record(rec)\n"
+            "    print('fail_shape:', isinstance(r2, tuple), len(r2))\n"
+            "    print('fail_values:', r2[0], 'io fail' in (r2[1] or ''))\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "success_shape: True 2" in result.stdout
+        assert "success_values: True None" in result.stdout
+        assert "fail_shape: True 2" in result.stdout
+        assert "fail_values: False True" in result.stdout
+
+    def test_reset_returns_structured_error(self) -> None:
+        """reset() must also return (bool, str | None)."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from state_persistence import StatePersistence\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = StatePersistence(base_dir=Path(td))\n"
+            "    r = p.reset()\n"
+            "    print('shape:', isinstance(r, tuple), len(r))\n"
+            "    print('values:', r[0], r[1])\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "shape: True 2" in result.stdout
+        assert "values: True None" in result.stdout
+
+
 class TestBatchGeneration:
     """Tests for batch agent generation (feature #75).
 
