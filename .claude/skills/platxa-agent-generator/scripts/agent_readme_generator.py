@@ -35,11 +35,15 @@ try:
 except ImportError:
     from syntax_validator import parse_frontmatter  # type: ignore[import-not-found,no-redef]
 
+try:
+    from .shared.paths import DEFAULT_AGENTS_DIR
+except ImportError:
+    from shared.paths import DEFAULT_AGENTS_DIR  # type: ignore[import-not-found,no-redef]
 
-# Default directory the scanner looks in. Matches
-# batch_generator.DEFAULT_BATCH_OUTPUT_DIR and the agent_export conventions
-# so all tooling agrees on where deployed agents live.
-DEFAULT_AGENTS_DIR: str = ".claude/agents"
+
+# Default directory the scanner looks in. Sourced from ``shared.constants``
+# so batch_generator.DEFAULT_BATCH_OUTPUT_DIR and the agent_export conventions
+# all agree on where deployed agents live without each copy drifting.
 
 # Default filename for the generated README. Lives alongside the agents
 # it documents so a project reader can discover the agent catalogue

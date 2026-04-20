@@ -40,10 +40,16 @@ except ImportError:
         generate_frontmatter,
     )
 
-# Default directory where batch-generated agent files land. Kept in sync
-# with claudemd_generator.DEFAULT_AGENTS_DIR so discovery (feature #72)
-# and generation (this feature) agree on the convention.
-DEFAULT_BATCH_OUTPUT_DIR: str = ".claude/agents"
+# Default directory where batch-generated agent files land. Sourced from
+# ``shared.constants`` so discovery (feature #72) and generation (this
+# feature) cannot drift from the canonical ``.claude/agents`` convention.
+try:
+    from .shared.paths import DEFAULT_AGENTS_DIR as _DEFAULT_AGENTS_DIR
+except ImportError:
+    from shared.paths import (  # type: ignore[import-not-found,no-redef]
+        DEFAULT_AGENTS_DIR as _DEFAULT_AGENTS_DIR,
+    )
+DEFAULT_BATCH_OUTPUT_DIR: str = _DEFAULT_AGENTS_DIR
 
 # Extension used for generated agent files. Pinned as a constant so the
 # writer and any downstream validators cannot drift.

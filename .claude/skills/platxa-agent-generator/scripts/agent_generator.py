@@ -18,6 +18,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+try:
+    from .shared.paths import DEFAULT_AGENTS_DIR
+except ImportError:
+    from shared.paths import DEFAULT_AGENTS_DIR  # type: ignore[import-not-found,no-redef]
+
 # Generator version embedded in the attribution footer of every
 # generated agent file (feature #79). Bumped manually when the
 # generator's output format changes in ways downstream tools care
@@ -268,11 +273,13 @@ VALID_TOOLS = {
     "Skill",
 }
 
-# Allowed directories for blueprint files
+# Allowed directories for blueprint files. ``.claude/agents`` is sourced
+# from ``shared.paths.DEFAULT_AGENTS_DIR`` so this allowlist cannot drift
+# from the canonical agents-directory convention.
 ALLOWED_BLUEPRINT_DIRS = [
     ".claude",
     ".claude/skills",
-    ".claude/agents",
+    DEFAULT_AGENTS_DIR,
     "blueprints",
 ]
 

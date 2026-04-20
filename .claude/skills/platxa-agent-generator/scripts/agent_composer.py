@@ -47,6 +47,11 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
+try:
+    from .shared.paths import get_project_agents_dir
+except ImportError:
+    from shared.paths import get_project_agents_dir  # type: ignore[import-not-found,no-redef]
+
 
 class CompositionPattern(Enum):
     """Supported composition patterns."""
@@ -1319,7 +1324,7 @@ Strategy: **{decomposition_strategy.title()}**
 
 def save_composite_agent(
     result: CompositionResult,
-    output_dir: Path | str = Path(".claude/agents"),
+    output_dir: Path | str | None = None,
 ) -> tuple[bool, str]:
     """
     Save a composite agent to file.
@@ -1334,7 +1339,10 @@ def save_composite_agent(
     if not result.success:
         return False, f"Cannot save failed composition: {result.errors}"
 
-    output_path = Path(output_dir)
+    # None sentinel → source the project-scope agents directory from
+    # ``shared.paths`` so this callsite cannot drift from the other
+    # seven migrated sites that key off the same helper.
+    output_path = Path(output_dir) if output_dir is not None else get_project_agents_dir()
     output_path.mkdir(parents=True, exist_ok=True)
 
     file_path = output_path / f"{result.composite_name}.md"

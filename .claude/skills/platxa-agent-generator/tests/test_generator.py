@@ -5193,6 +5193,77 @@ class TestAgentTeamCompatibility:
             assert "## Team Compatibility" in content
 
 
+class TestSharedPaths:
+    """Tests for Feature #25: scripts/shared/{paths,constants}.py dedup.
+
+    Verifies the shared module that centralizes the ``.claude/agents`` convention
+    so the eight pre-existing call sites no longer each reproduce the literal.
+    """
+
+    def test_get_agents_dir_project_vs_user(self) -> None:
+        """get_agents_dir(user=False) returns project-scope, user=True returns user-scope.
+
+        Also pins the expectation that the two dedicated helpers return the
+        same values as the ``user`` flag selects, so callers can use whichever
+        form reads best without diverging behavior.
+        """
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import json; "
+                    "from scripts.shared.paths import (get_agents_dir, "
+                    "get_project_agents_dir, get_user_agents_dir); "
+                    "print(json.dumps({"
+                    "'project_flag': str(get_agents_dir(user=False)), "
+                    "'user_flag': str(get_agents_dir(user=True)), "
+                    "'project_direct': str(get_project_agents_dir()), "
+                    "'user_direct': str(get_user_agents_dir()), "
+                    "}))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.returncode == 0, f"shared.paths failed: {result.stderr}"
+        data = json.loads(result.stdout.strip())
+
+        # Project-scope is the cwd-relative ``.claude/agents``.
+        assert data["project_flag"] == ".claude/agents"
+        assert data["project_direct"] == ".claude/agents"
+        assert data["project_flag"] == data["project_direct"]
+
+        # User-scope is rooted at the current user's home directory.
+        assert data["user_flag"].endswith("/.claude/agents"), data["user_flag"]
+        assert data["user_flag"] != ".claude/agents", (
+            "user-scope must not collapse to the project-scope string"
+        )
+        assert data["user_flag"] == data["user_direct"]
+
+    def test_constants_import(self) -> None:
+        """DEFAULT_AGENTS_DIR is exported from shared.constants and re-exported by shared.paths."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from scripts.shared.constants import DEFAULT_AGENTS_DIR as c; "
+                    "from scripts.shared.paths import DEFAULT_AGENTS_DIR as p; "
+                    "assert c == p, (c, p); "
+                    "assert c == '.claude/agents', c; "
+                    "print('OK:', c)"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.returncode == 0, f"constants import failed: {result.stderr}"
+        assert result.stdout.strip() == "OK: .claude/agents"
+
+
 class TestSharedTaskListTemplate:
     """Tests for Feature #36: Orchestrator-workers with shared task list."""
 

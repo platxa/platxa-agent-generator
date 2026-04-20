@@ -37,6 +37,11 @@ except ImportError:
         validate_file,
     )
 
+try:
+    from .shared.paths import DEFAULT_AGENTS_DIR
+except ImportError:
+    from shared.paths import DEFAULT_AGENTS_DIR  # type: ignore[import-not-found,no-redef]
+
 # Default subdirectory layout for an installed agent's companion artifacts,
 # rooted at the install scope (``~/.claude`` for user, ``<project>/.claude``
 # for project). Public so callers (tests, custom installers) can override.
@@ -272,7 +277,7 @@ def recommend_scope(
 
 def get_user_agents_dir() -> Path:
     """Get the user-scope agents directory."""
-    return Path.home() / ".claude" / "agents"
+    return Path.home() / DEFAULT_AGENTS_DIR
 
 
 def get_project_root() -> Path | None:
@@ -307,7 +312,7 @@ def get_project_agents_dir() -> Path | None:
     project_root = get_project_root()
     if project_root is None:
         return None
-    return project_root / ".claude" / "agents"
+    return project_root / DEFAULT_AGENTS_DIR
 
 
 def get_agents_dir(scope: str) -> Path | None:

@@ -401,9 +401,12 @@ def generate_references_section(context: AgentContext) -> str:
 SUBAGENT_DELEGATION_HEADING: str = "## Subagent Delegation"
 
 # Default project-scope directory to scan when discovering sibling agents.
-# Kept in sync with the companion skill/command generators so the three
-# discoverers look in conventional Claude Code locations.
-DEFAULT_AGENTS_DIR: str = ".claude/agents"
+# Sourced from ``shared.constants`` so the three discoverers (claudemd,
+# agent_readme, batch_generator) all reference the same canonical path.
+try:
+    from .shared.paths import DEFAULT_AGENTS_DIR
+except ImportError:
+    from shared.paths import DEFAULT_AGENTS_DIR  # type: ignore[import-not-found,no-redef]
 
 
 def generate_subagent_delegation_section(agents: list[AvailableAgent]) -> str:

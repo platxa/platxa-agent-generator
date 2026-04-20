@@ -26,6 +26,14 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
+try:
+    from .shared.paths import get_project_agents_dir, get_user_agents_dir
+except ImportError:
+    from shared.paths import (  # type: ignore[import-not-found,no-redef]
+        get_project_agents_dir,
+        get_user_agents_dir,
+    )
+
 
 @dataclass
 class ExistingAgent:
@@ -139,11 +147,11 @@ def scan_all_agents(
     agents: list[ExistingAgent] = []
 
     # Project scope
-    proj = Path(project_dir) if project_dir else Path(".claude/agents")
+    proj = Path(project_dir) if project_dir else get_project_agents_dir()
     agents.extend(scan_directory(proj, scope="project"))
 
     # User scope
-    usr = Path(user_dir) if user_dir else Path.home() / ".claude" / "agents"
+    usr = Path(user_dir) if user_dir else get_user_agents_dir()
     agents.extend(scan_directory(usr, scope="user"))
 
     return agents

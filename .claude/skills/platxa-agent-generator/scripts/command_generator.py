@@ -19,6 +19,14 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+try:
+    from .shared.paths import get_project_agents_dir, get_user_agents_dir
+except ImportError:
+    from shared.paths import (  # type: ignore[import-not-found,no-redef]
+        get_project_agents_dir,
+        get_user_agents_dir,
+    )
+
 
 @dataclass
 class CommandDefinition:
@@ -392,8 +400,8 @@ def generate(
             return False, f"Could not parse agent file: {agent_file}", ""
 
     elif agent_name:
-        # Try to find agent file
-        for search_dir in [Path(".claude/agents"), Path.home() / ".claude/agents"]:
+        # Try to find agent file in project and user agent directories
+        for search_dir in [get_project_agents_dir(), get_user_agents_dir()]:
             agent_path = search_dir / f"{agent_name}.md"
             if agent_path.exists():
                 definition = create_definition_from_agent_file(agent_path)
