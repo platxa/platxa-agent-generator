@@ -125,6 +125,22 @@ CLAUDE.md
 .claude/**/.pytest_cache/
 .claude/**/.benchmarks/
 
+# platxa-code-agent spec-workflow harness state (regenerated per run)
+.claude/.last_milestone
+.claude/CHANGELOG.md
+.claude/claude-progress.txt
+.claude/feature_list.json.lock
+.claude/feature_list_snapshots/
+.claude/hook_context_chars.jsonl
+.claude/observations.jsonl
+.claude/pre_compact_state.json
+.claude/review-output.md
+.claude/reviewer-summary.txt
+# Nested .claude/ dirs created when hooks run inside a subdirectory —
+# these are duplicates of root .claude/ state and should never be tracked
+**/.claude/observations.jsonl
+.claude/skills/**/.claude/
+
 # Hatch
 .hatch/
 
