@@ -3051,6 +3051,236 @@ tools: Read, Write
         output = json.loads(result.stdout)
         assert isinstance(output, list)
 
+    # ------------------------------------------------------------------
+    # Feature #20: pin file-state + error-JSON shape for flag combinations
+    #
+    # Prior coverage had only two happy-paths (install + list). The flag
+    # branches below are the ones an operator actually hits — accidental
+    # reinstall, --force overwrite, --no-backup, and a read-only target
+    # filesystem. These tests pin the observable contract (target bytes,
+    # backup file, JSON keys) so a refactor that silently drops a branch
+    # fails loudly.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _make_agent_file(path: Path, agent_name: str, body: str) -> Path:
+        """Write a minimally valid agent .md file with the given name/body."""
+        path.write_text(
+            "---\n"
+            f"name: {agent_name}\n"
+            "description: Install flag test agent\n"
+            "tools: Read, Write\n"
+            "---\n"
+            "\n"
+            "# Flag Test Agent\n"
+            "\n"
+            "## Workflow\n"
+            f"1. {body}\n",
+            encoding="utf-8",
+        )
+        return path
+
+    @staticmethod
+    def _install(
+        source: Path,
+        project_dir: Path,
+        *,
+        force: bool = False,
+        no_backup: bool = False,
+    ) -> "subprocess.CompletedProcess[str]":
+        """Invoke the CLI installer to project scope with --skip-validation."""
+        argv: list[str] = [
+            sys.executable,
+            str(SCRIPTS_DIR / "install_agent.py"),
+            "install",
+            str(source),
+            "--scope",
+            "project",
+            "--skip-validation",
+            "--json",
+        ]
+        if force:
+            argv.append("--force")
+        if no_backup:
+            argv.append("--no-backup")
+        return subprocess.run(
+            argv,
+            capture_output=True,
+            text=True,
+            cwd=str(project_dir),
+            check=False,
+        )
+
+    @staticmethod
+    def _prep_project(tmp_path: Path) -> Path:
+        """Create a fresh project/.claude/agents tree and return project dir."""
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / ".claude" / "agents").mkdir(parents=True)
+        return project_dir
+
+    def test_force_replaces_existing(self, tmp_path: Path) -> None:
+        """``--force`` overwrites an existing installed agent with new body.
+
+        Pins:
+        - Second install succeeds (``success: true``, exit 0).
+        - Target file bytes match the SECOND source (content was replaced,
+          not silently kept).
+        - ``installed_path`` in the JSON points at the expected location.
+        """
+        project_dir = self._prep_project(tmp_path)
+        first = self._make_agent_file(
+            tmp_path / "agent-v1.md", "force-agent", "first body"
+        )
+        second = self._make_agent_file(
+            tmp_path / "agent-v2.md", "force-agent", "second body"
+        )
+
+        r1 = self._install(first, project_dir)
+        assert r1.returncode == 0, r1.stderr
+        out1 = json.loads(r1.stdout)
+        assert out1["success"] is True, out1
+
+        r2 = self._install(second, project_dir, force=True)
+        assert r2.returncode == 0, r2.stderr
+        out2 = json.loads(r2.stdout)
+        assert out2["success"] is True, out2
+        assert out2["agent_name"] == "force-agent"
+
+        target = project_dir / ".claude" / "agents" / "force-agent.md"
+        # The replaced target must contain the second source's body, not
+        # the first's — otherwise the overwrite silently dropped the
+        # update.
+        target_bytes = target.read_bytes()
+        assert b"second body" in target_bytes, target_bytes
+        assert b"first body" not in target_bytes, target_bytes
+        assert out2["installed_path"] == str(target)
+
+    def test_backup_writes_bak_file(self, tmp_path: Path) -> None:
+        """Default install path creates a timestamped backup on --force.
+
+        Pins:
+        - ``backup_path`` field is populated (non-null) in the JSON.
+        - That file exists on disk with the ``.backup-{timestamp}.md``
+          naming pattern.
+        - The backup contents equal the ORIGINAL (pre-force) file, so a
+          mistaken overwrite is recoverable.
+        """
+        project_dir = self._prep_project(tmp_path)
+        first = self._make_agent_file(
+            tmp_path / "agent-a.md", "backup-agent", "original"
+        )
+        second = self._make_agent_file(
+            tmp_path / "agent-b.md", "backup-agent", "replacement"
+        )
+
+        self._install(first, project_dir)
+        r2 = self._install(second, project_dir, force=True)
+        assert r2.returncode == 0, r2.stderr
+        out2 = json.loads(r2.stdout)
+
+        assert out2["success"] is True
+        assert out2["backup_path"] is not None, out2
+        backup = Path(out2["backup_path"])
+        assert backup.exists(), f"backup file missing: {backup}"
+        # Naming pattern: <agent_name>.backup-<timestamp>.md
+        assert backup.name.startswith("backup-agent.backup-"), backup.name
+        assert backup.name.endswith(".md"), backup.name
+        # Contents of the backup must match the ORIGINAL first install,
+        # so recovery is possible after a clobber.
+        backup_text = backup.read_text(encoding="utf-8")
+        assert "original" in backup_text, backup_text
+        assert "replacement" not in backup_text, backup_text
+
+    def test_overwrite_without_force_errors(self, tmp_path: Path) -> None:
+        """Reinstalling an existing agent without ``--force`` fails cleanly.
+
+        Pins the error-JSON shape an operator sees when a naive reinstall
+        hits an existing agent:
+        - ``success: false``, CLI exit code 1.
+        - ``message`` names 'already exists' AND points them at
+          ``--force`` — the actionable remediation, not a stack trace.
+        - ``agent_name`` is still populated so the caller knows which
+          name collided, without reparsing the source.
+        - The target file on disk is byte-identical to the first install
+          (the failed second install MUST NOT have mutated it).
+        """
+        project_dir = self._prep_project(tmp_path)
+        first = self._make_agent_file(
+            tmp_path / "agent-a.md", "overwrite-agent", "first"
+        )
+        second = self._make_agent_file(
+            tmp_path / "agent-b.md", "overwrite-agent", "second"
+        )
+
+        r1 = self._install(first, project_dir)
+        assert r1.returncode == 0, r1.stderr
+        target = project_dir / ".claude" / "agents" / "overwrite-agent.md"
+        target_before = target.read_bytes()
+
+        # Second install WITHOUT --force must fail.
+        r2 = self._install(second, project_dir, force=False)
+        assert r2.returncode == 1, (r2.stdout, r2.stderr)
+        out2 = json.loads(r2.stdout)
+        assert out2["success"] is False, out2
+        assert out2["agent_name"] == "overwrite-agent"
+        msg = out2["message"]
+        assert "already exists" in msg, msg
+        assert "--force" in msg, msg
+        # No silent mutation — target bytes must be unchanged.
+        assert target.read_bytes() == target_before
+
+    def test_readonly_target_errors(self, tmp_path: Path) -> None:
+        """Installing onto a read-only target file surfaces the OSError
+        as a structured ``Failed to install`` JSON result.
+
+        Pins the copy-path failure branch in ``install_agent``:
+        ``shutil.copy2(source, target_path)`` raises PermissionError when
+        ``target_path`` is read-only, and the caller converts it to a
+        structured result rather than letting the traceback escape.
+
+        The failure mode is root-dependent (root ignores chmod bits), so
+        the test skips when running as uid 0 — the same pragmatic guard
+        used across pytest suites that need real filesystem permissions.
+        """
+        if os.geteuid() == 0:
+            pytest.skip("read-only file permissions are bypassed when running as root")
+        project_dir = self._prep_project(tmp_path)
+        first = self._make_agent_file(
+            tmp_path / "agent-orig.md", "readonly-agent", "pre-freeze"
+        )
+        # Seed the target, then freeze its permissions to r--r--r--.
+        r1 = self._install(first, project_dir)
+        assert r1.returncode == 0, r1.stderr
+        target = project_dir / ".claude" / "agents" / "readonly-agent.md"
+        original_bytes = target.read_bytes()
+        os.chmod(target, 0o444)
+
+        try:
+            # --force ensures we reach the copy (past the "already
+            # exists" gate); --no-backup avoids a separate failure mode
+            # (backup creation) masking the one under test.
+            second = self._make_agent_file(
+                tmp_path / "agent-new.md", "readonly-agent", "post-freeze"
+            )
+            r2 = self._install(second, project_dir, force=True, no_backup=True)
+            # CLI exit code must be 1 (installer failed), JSON must be
+            # well-formed with the documented keys, and success=False.
+            assert r2.returncode == 1, (r2.stdout, r2.stderr)
+            out2 = json.loads(r2.stdout)
+            assert out2["success"] is False, out2
+            assert out2["agent_name"] == "readonly-agent"
+            # Message must name the failure; the exact errno string is
+            # OS-dependent but 'Failed to install' is the code-owned
+            # prefix.
+            assert "Failed to install" in out2["message"], out2["message"]
+            # No silent mutation of the frozen target.
+            assert target.read_bytes() == original_bytes
+        finally:
+            # Restore writability so pytest's tmp_path cleanup doesn't
+            # fail on the read-only bit.
+            os.chmod(target, 0o644)
+
 
 class TestInstallAgentSubprocess:
     """Subprocess robustness for run_syntax_validation / run_security_scan.
