@@ -2904,6 +2904,113 @@ tools: Read, Write
         assert isinstance(output, list)
 
 
+class TestInstallAgentSubprocess:
+    """Subprocess robustness for run_syntax_validation / run_security_scan.
+
+    A validator that crashes (non-zero returncode) must not be misreported
+    as 'invalid agent' and must not blow up on JSONDecodeError silently —
+    the operator needs to see the exit code and truncated stderr so they
+    can distinguish a broken validator from a legitimately invalid agent.
+
+    The companion scripts (syntax_validator.py, security_scanner.py) exist
+    next to install_agent.py in SCRIPTS_DIR, so the real Path.exists guard
+    passes without any monkeypatching — we only need to stub subprocess.run
+    to control the simulated process outcome.
+    """
+
+    @staticmethod
+    def _load_install_agent():  # type: ignore[no-untyped-def]
+        """Import install_agent after ensuring SCRIPTS_DIR is on sys.path."""
+        if str(SCRIPTS_DIR) not in sys.path:
+            sys.path.insert(0, str(SCRIPTS_DIR))
+        import install_agent
+
+        return install_agent
+
+    def test_validator_crash_returns_crash_message(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Non-zero returncode surfaces 'validator crashed (exit N): <stderr>'."""
+        install_agent = self._load_install_agent()
+        source = tmp_path / "agent.md"
+        source.write_text("---\nname: x\n---\n")
+
+        class _CrashedProc:
+            returncode = 1
+            stdout = ""
+            stderr = "traceback: something exploded\nfinal: boom"
+
+        monkeypatch.setattr(install_agent.subprocess, "run", lambda *a, **k: _CrashedProc())
+
+        ok, errors = install_agent.run_syntax_validation(source)
+        assert ok is False
+        assert len(errors) == 1
+        assert errors[0].startswith("validator crashed (exit 1):")
+        # Stderr must be surfaced so the operator can diagnose the crash.
+        assert "boom" in errors[0]
+
+    def test_json_decode_error_includes_stderr(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """JSONDecodeError (returncode 0 but garbage stdout) carries truncated stderr."""
+        install_agent = self._load_install_agent()
+        source = tmp_path / "agent.md"
+        source.write_text("---\nname: x\n---\n")
+
+        class _GarbledProc:
+            returncode = 0
+            stdout = "not valid json {"
+            stderr = "deprecation warning: foo"
+
+        monkeypatch.setattr(install_agent.subprocess, "run", lambda *a, **k: _GarbledProc())
+
+        ok, errors = install_agent.run_syntax_validation(source)
+        assert ok is False
+        assert len(errors) == 1
+        assert "Failed to parse validation output" in errors[0]
+        assert "deprecation warning: foo" in errors[0]
+
+    def test_security_scan_crash_returns_false(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """run_security_scan must fail closed AND surface the crash to stderr.
+
+        A crashed scanner (exit != 0) cannot have produced a trustworthy
+        JSON verdict, so parsing its stdout would be a bug; the function
+        must return (False, 0.0) without attempting json.loads. Because the
+        return signature has no error channel, the crash reason must be
+        logged to stderr so the operator can distinguish a scanner crash
+        from a clean scan that flagged critical findings.
+        """
+        install_agent = self._load_install_agent()
+        source = tmp_path / "agent.md"
+        source.write_text("---\nname: x\n---\n")
+
+        class _CrashedProc:
+            returncode = 2
+            # Deliberately set stdout to something that would json.loads to
+            # passed=True if the returncode guard were missing — proving the
+            # guard short-circuits before the (untrustworthy) parse attempt.
+            stdout = '{"passed": true, "score": 10.0}'
+            stderr = "scanner exploded"
+
+        monkeypatch.setattr(install_agent.subprocess, "run", lambda *a, **k: _CrashedProc())
+
+        passed, score = install_agent.run_security_scan(source)
+        assert passed is False
+        assert score == 0.0
+
+        # The crash MUST surface to stderr — a silent (False, 0.0) would be
+        # indistinguishable from a clean scan that found critical issues.
+        err = capsys.readouterr().err
+        assert "scanner crashed" in err
+        assert "exit 2" in err
+        assert "scanner exploded" in err
+
+
 class TestIntegration:
     """Integration tests that exercise multiple modules together."""
 

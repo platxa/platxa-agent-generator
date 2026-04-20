@@ -421,6 +421,15 @@ def run_syntax_validation(source: Path) -> tuple[bool, list[str]]:
             timeout=30,
         )
 
+        # Distinguish validator crash (returncode != 0) from invalid-agent
+        # (returncode == 0 + valid=False in JSON). Without this check a
+        # crashed validator's empty/garbled stdout would surface as a
+        # JSONDecodeError or be misreported as a parsing failure rather
+        # than a validator crash.
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()[:500]
+            return False, [f"validator crashed (exit {result.returncode}): {stderr}"]
+
         output = json.loads(result.stdout)
         if output.get("valid", False):
             return True, []
@@ -431,7 +440,8 @@ def run_syntax_validation(source: Path) -> tuple[bool, list[str]]:
     except subprocess.TimeoutExpired:
         return False, ["Syntax validation timed out"]
     except json.JSONDecodeError:
-        return False, ["Failed to parse validation output"]
+        stderr = (result.stderr or "").strip()[:500]
+        return False, [f"Failed to parse validation output; stderr: {stderr}"]
     except OSError as e:
         return False, [f"Failed to run validation: {e}"]
 
@@ -457,16 +467,38 @@ def run_security_scan(source: Path) -> tuple[bool, float]:
             timeout=30,
         )
 
+        # A crashed scanner (non-zero returncode) cannot have produced a
+        # trustworthy JSON verdict; treat it as a hard fail rather than
+        # attempting to parse a potentially empty or truncated stdout.
+        # The return signature is (bool, float) with no error channel, so
+        # we surface the crash reason to stderr — silently returning
+        # (False, 0.0) would be indistinguishable from a clean scan that
+        # flagged critical findings.
+        if result.returncode != 0:
+            stderr = (result.stderr or "").strip()[:500]
+            print(
+                f"run_security_scan: scanner crashed (exit {result.returncode}): {stderr}",
+                file=sys.stderr,
+            )
+            return False, 0.0
+
         output = json.loads(result.stdout)
         passed = output.get("passed", False)
         score = output.get("score", 0.0)
         return passed, score
 
     except subprocess.TimeoutExpired:
+        print("run_security_scan: scanner timed out after 30s", file=sys.stderr)
         return False, 0.0
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
+        stderr = (result.stderr or "").strip()[:500]
+        print(
+            f"run_security_scan: failed to parse scanner output ({exc}); stderr: {stderr}",
+            file=sys.stderr,
+        )
         return False, 0.0
-    except OSError:
+    except OSError as exc:
+        print(f"run_security_scan: failed to run scanner: {exc}", file=sys.stderr)
         return False, 0.0
 
 
