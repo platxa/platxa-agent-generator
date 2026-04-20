@@ -407,6 +407,22 @@ def bump_version(
     new_version = current.bump(bump_type)
     new_version_str = str(new_version)
 
+    # Prevent duplicate-version conflicts in the history catalog.
+    # ``history.entries`` is append-only and downstream tooling keys
+    # off ``entry.version`` as a unique identifier (rollback lookup,
+    # changelog generation, diff indexing). Writing two entries with
+    # the same version would corrupt those lookups — the entry that
+    # "wins" depends on insertion order, which is not a contract we
+    # want to rely on. Refuse cleanly instead. The conflict is
+    # reachable when ``current_version`` and ``entries`` drift (e.g.
+    # a partially-restored backup) or on concurrent bumps.
+    if any(e.version == new_version_str for e in history.entries):
+        return False, (
+            f"version {new_version_str} already exists in history "
+            f"(tag conflict); resolve the drift between current_version="
+            f"{history.current_version!r} and entries before bumping"
+        )
+
     # Read content and compute hash
     content = agent_path.read_text()
     content_hash = compute_content_hash(content)
@@ -526,6 +542,32 @@ def apply_update(
         old_content = ""
 
     new_version = extract_version_from_frontmatter(new_content) or "1.0.0"
+
+    # Refuse downgrades. apply_update is the forward-update path: a
+    # remote catalog that claims a lower semver than the local install
+    # either (a) is malformed, (b) is a malicious rollback attempt,
+    # or (c) a legitimate rollback that should go through the
+    # explicit ``rollback_to_version`` API instead. Silently writing
+    # a lower-numbered version into the agent would corrupt the
+    # semver-ordered history assumed by downstream tooling
+    # (check_compatibility, generate_changelog, list_available_versions).
+    try:
+        if compare_versions(new_version, old_version) < 0:
+            return UpdateResult(
+                success=False,
+                old_version=old_version,
+                new_version=new_version,
+                changes_applied=[],
+                conflicts=[
+                    f"Refusing downgrade: {old_version} -> {new_version}. "
+                    f"Use rollback_to_version for intentional rollbacks."
+                ],
+            )
+    except ValueError:
+        # Malformed version strings fall through to the regular update
+        # path; the downstream parsers will surface the parse error
+        # with better context than we can here.
+        pass
 
     # Create backup
     backup_path = create_backup(agent_path) if agent_path.exists() else None

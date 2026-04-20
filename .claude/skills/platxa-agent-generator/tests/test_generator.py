@@ -10023,6 +10023,227 @@ class TestAgentDiffComparison:
         assert "not found" in result.stdout.lower()
 
 
+class TestAgentVersioning:
+    """Tests for agent_versioning version-mutation paths (feature #23).
+
+    Prior coverage (``TestAgentDiffComparison``, ``TestAgentRegenerationWorkflow``)
+    exercised diff and regeneration. The three mutation paths that actually
+    write the version catalog were untested, which is the highest-blast-radius
+    gap in the module — a regression here corrupts the on-disk version
+    history that downstream tooling (rollback, changelog, compatibility
+    checks) keys off.
+
+    Pins:
+    - ``bump_version(PATCH)``: the Z coordinate increments, the agent
+      frontmatter reflects the new version, and a new history entry is
+      appended.
+    - Tag conflict: bumping to a version that already lives in
+      ``history.entries`` is refused cleanly (``success=False`` +
+      diagnostic message), rather than silently appending a duplicate
+      entry that would corrupt the catalog.
+    - Downgrade: ``apply_update`` refuses incoming content whose
+      version is lower than the installed version. Legitimate rollback
+      goes through ``rollback_to_version``; ``apply_update`` is the
+      forward path only.
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        return subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+
+    @staticmethod
+    def _agent_md(version: str = "1.0.0") -> str:
+        """Minimal valid agent file with a version frontmatter field."""
+        return (
+            "---\n"
+            "name: version-test\n"
+            f"version: {version}\n"
+            "description: Agent for version tests\n"
+            "tools: Read\n"
+            "---\n"
+            "\n"
+            "# Version Test Agent\n"
+        )
+
+    def test_patch_bump_increments_z(self) -> None:
+        """``bump_version(PATCH)`` on 1.0.0 produces 1.0.1 in both the
+        returned value, the file frontmatter, and the appended history
+        entry.
+
+        Pins the full write-path: (a) return tuple ``(True, '1.0.1')``,
+        (b) file frontmatter rewritten to ``version: 1.0.1``, (c)
+        ``history.json`` ``current_version`` updated and a new entry
+        with ``version: '1.0.1'`` appended.
+        """
+        result = self._run_py(
+            "import json, tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_versioning import (\n"
+            "    VersionBump, bump_version, load_version_history,\n"
+            "    extract_version_from_frontmatter,\n"
+            ")\n"
+            + "md = '''"
+            + self._agent_md("1.0.0")
+            + "'''\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    path = Path(td) / 'agent.md'\n"
+            "    path.write_text(md, encoding='utf-8')\n"
+            "    ok, new_ver = bump_version(\n"
+            "        path, VersionBump.PATCH, changes=['fix typo'],\n"
+            "    )\n"
+            "    history = load_version_history(path)\n"
+            "    fm_ver = extract_version_from_frontmatter(\n"
+            "        path.read_text(encoding='utf-8')\n"
+            "    )\n"
+            "    print(json.dumps({\n"
+            "        'ok': ok,\n"
+            "        'returned_version': new_ver,\n"
+            "        'frontmatter_version': fm_ver,\n"
+            "        'history_current': history.current_version if history else None,\n"
+            "        'history_entries': [e.version for e in history.entries] if history else [],\n"
+            "    }))\n"
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert data["ok"] is True
+        assert data["returned_version"] == "1.0.1"
+        assert data["frontmatter_version"] == "1.0.1"
+        assert data["history_current"] == "1.0.1"
+        # The new patch version is present in the entries list.
+        assert "1.0.1" in data["history_entries"], data["history_entries"]
+
+    def test_tag_conflict_errors(self) -> None:
+        """Bumping when the computed version already lives in history
+        is refused with ``(False, message)`` — no duplicate entry
+        written, no frontmatter mutation.
+
+        The attack shape: drift between ``current_version`` and
+        ``entries`` (e.g. a partially-restored backup). Without the
+        guard, ``bump_version`` would happily append a duplicate
+        ``1.0.1`` entry, corrupting the catalog. The guard returns
+        cleanly; operators see the conflict and can resolve the drift
+        deliberately.
+        """
+        result = self._run_py(
+            "import json, tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_versioning import (\n"
+            "    VersionBump, bump_version, load_version_history,\n"
+            "    save_version_history, VersionEntry, VersionHistory,\n"
+            "    extract_version_from_frontmatter,\n"
+            ")\n"
+            + "md = '''"
+            + self._agent_md("1.0.0")
+            + "'''\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    path = Path(td) / 'agent.md'\n"
+            "    path.write_text(md, encoding='utf-8')\n"
+            "    # Seed a history where 1.0.1 ALREADY exists in entries,\n"
+            "    # but current_version is still 1.0.0 — the exact drift\n"
+            "    # that a partial rollback or concurrent bump produces.\n"
+            "    hist = VersionHistory(\n"
+            "        agent_name='version-test',\n"
+            "        current_version='1.0.0',\n"
+            "        created_at='2026-04-21T00:00:00+00:00',\n"
+            "        entries=[\n"
+            "            VersionEntry(version='1.0.0',\n"
+            "                timestamp='2026-04-21T00:00:00+00:00',\n"
+            "                changes=['seed'], content_hash='a'),\n"
+            "            VersionEntry(version='1.0.1',\n"
+            "                timestamp='2026-04-21T00:01:00+00:00',\n"
+            "                changes=['seed conflict'], content_hash='b'),\n"
+            "        ])\n"
+            "    save_version_history(path, hist)\n"
+            "    # bump PATCH from 1.0.0 would compute 1.0.1 -> collide.\n"
+            "    ok, msg = bump_version(\n"
+            "        path, VersionBump.PATCH, changes=['fix']\n"
+            "    )\n"
+            "    # Reload to prove no duplicate append happened.\n"
+            "    reloaded = load_version_history(path)\n"
+            "    fm_ver = extract_version_from_frontmatter(\n"
+            "        path.read_text(encoding='utf-8')\n"
+            "    )\n"
+            "    dup_count = sum(\n"
+            "        1 for e in reloaded.entries if e.version == '1.0.1'\n"
+            "    ) if reloaded else 0\n"
+            "    print(json.dumps({\n"
+            "        'ok': ok,\n"
+            "        'msg': msg,\n"
+            "        'frontmatter_version': fm_ver,\n"
+            "        'dup_count': dup_count,\n"
+            "        'history_current': reloaded.current_version if reloaded else None,\n"
+            "    }))\n"
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert data["ok"] is False, data
+        assert "1.0.1" in data["msg"], data["msg"]
+        assert "exists" in data["msg"].lower() or "conflict" in data["msg"].lower()
+        # File frontmatter MUST NOT have been rewritten — the guard runs
+        # before the write.
+        assert data["frontmatter_version"] == "1.0.0", data
+        # History must still have exactly ONE 1.0.1 entry (the seeded
+        # one) — not two.
+        assert data["dup_count"] == 1, data
+        # current_version must not have advanced to the conflicting tag.
+        assert data["history_current"] == "1.0.0", data
+
+    def test_downgrade_rejected(self) -> None:
+        """``apply_update`` refuses content whose version is lower
+        than the installed version and reports the refusal in the
+        structured result.
+
+        Pins the UpdateResult shape for the refusal path:
+        ``success=False``, ``old_version=installed``, ``new_version=incoming``,
+        ``conflicts`` names the refusal. The file on disk is NOT
+        rewritten (hash unchanged), so a rejected downgrade is truly
+        a no-op, not a partial mutation.
+        """
+        result = self._run_py(
+            "import hashlib, json, tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_versioning import apply_update\n"
+            + "installed = '''"
+            + self._agent_md("2.0.0")
+            + "'''\n"
+            + "incoming = '''"
+            + self._agent_md("1.0.0")
+            + "'''\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    path = Path(td) / 'agent.md'\n"
+            "    path.write_text(installed, encoding='utf-8')\n"
+            "    hash_before = hashlib.sha256(path.read_bytes()).hexdigest()\n"
+            "    r = apply_update(path, incoming)\n"
+            "    hash_after = hashlib.sha256(path.read_bytes()).hexdigest()\n"
+            "    print(json.dumps({\n"
+            "        'success': r.success,\n"
+            "        'old_version': r.old_version,\n"
+            "        'new_version': r.new_version,\n"
+            "        'conflicts': r.conflicts,\n"
+            "        'unchanged': hash_before == hash_after,\n"
+            "    }))\n"
+        )
+        assert result.returncode == 0, result.stderr
+        data = json.loads(result.stdout)
+        assert data["success"] is False, data
+        assert data["old_version"] == "2.0.0"
+        assert data["new_version"] == "1.0.0"
+        # The file bytes on disk must be unchanged — refusal is a no-op,
+        # not a partial write.
+        assert data["unchanged"] is True, data
+        # The conflicts list must explain WHY (operator-visible).
+        assert any(
+            "downgrade" in c.lower() or "rollback" in c.lower()
+            for c in data["conflicts"]
+        ), data["conflicts"]
+
+
 class TestPluginExport:
     """Tests for plugin-format export in agent_export.py (feature #61).
 
