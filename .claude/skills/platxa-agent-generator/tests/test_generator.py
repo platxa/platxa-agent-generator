@@ -12824,6 +12824,243 @@ class TestBatchGeneration:
         assert result.stdout.strip() == "True only True"
 
 
+class TestBatchPolicy:
+    """Tests for BatchPolicy + enforce_batch_policy (feature #81).
+
+    Covers the three verification criteria:
+    - Batch mode respects --allowedTools flag (tools outside the allowlist
+      trigger a policy violation with a helpful message).
+    - WebSearch disabled in offline mode (scrubbed from every generated
+      agent, per-agent warnings recorded, non-fatal).
+    - Write restricted to .claude/ paths (output_dir outside the scope
+      prefix blocks generation with cross_validation_errors populated).
+
+    Also covers policy constants and backwards-compat (no policy = old
+    behaviour).
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_policy_constants_exposed(self) -> None:
+        """DEFAULT_OUTPUT_SCOPE and OFFLINE_DISABLED_TOOLS are public."""
+        result = self._run_py(
+            "from batch_generator import DEFAULT_OUTPUT_SCOPE, OFFLINE_DISABLED_TOOLS\n"
+            "print(DEFAULT_OUTPUT_SCOPE, '|',"
+            " 'WebSearch' in OFFLINE_DISABLED_TOOLS,"
+            " 'WebFetch' in OFFLINE_DISABLED_TOOLS)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == ".claude | True True"
+
+    def test_allowed_tools_blocks_disallowed_agent(self) -> None:
+        """Agent requesting tools outside allowlist → policy violation."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from batch_generator import (\n"
+            "    BatchSpec, BatchAgentDef, BatchPolicy, generate_batch\n"
+            ")\n"
+            "spec = BatchSpec(\n"
+            "    name='eco', description='d',\n"
+            "    agents=[BatchAgentDef(name='a', description='x',\n"
+            "        tools=['Read', 'Bash'])],\n"
+            ")\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    policy = BatchPolicy(\n"
+            "        allowed_tools=['Read', 'Grep'],\n"
+            "        output_scope=td,\n"
+            "    )\n"
+            "    result = generate_batch(spec, td, policy=policy)\n"
+            "    print(result.success,\n"
+            "          len(result.cross_validation_errors),\n"
+            "          'Bash' in result.cross_validation_errors[0],\n"
+            "          (Path(td) / 'a.md').exists())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False 1 True False"
+
+    def test_allowed_tools_accepts_subset(self) -> None:
+        """Agent within allowlist → succeeds, file written."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from batch_generator import (\n"
+            "    BatchSpec, BatchAgentDef, BatchPolicy, generate_batch\n"
+            ")\n"
+            "spec = BatchSpec(\n"
+            "    name='eco', description='d',\n"
+            "    agents=[BatchAgentDef(name='a', description='x',\n"
+            "        tools=['Read'])],\n"
+            ")\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    policy = BatchPolicy(\n"
+            "        allowed_tools=['Read', 'Grep'],\n"
+            "        output_scope=td,\n"
+            "    )\n"
+            "    result = generate_batch(spec, td, policy=policy)\n"
+            "    print(result.success, (Path(td) / 'a.md').exists())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_offline_strips_websearch(self) -> None:
+        """offline=True removes WebSearch/WebFetch from generated agents."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from batch_generator import (\n"
+            "    BatchSpec, BatchAgentDef, BatchPolicy, generate_batch\n"
+            ")\n"
+            "spec = BatchSpec(\n"
+            "    name='eco', description='d',\n"
+            "    agents=[BatchAgentDef(name='net', description='x',\n"
+            "        tools=['Read', 'WebSearch', 'WebFetch'])],\n"
+            ")\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    policy = BatchPolicy(offline=True, output_scope=td)\n"
+            "    result = generate_batch(spec, td, policy=policy)\n"
+            "    body = (Path(td) / 'net.md').read_text()\n"
+            "    warnings = result.agents[0].warnings\n"
+            "    print(result.success,\n"
+            "          'WebSearch' not in body,\n"
+            "          'WebFetch' not in body,\n"
+            "          'Read' in body,\n"
+            "          any('WebSearch' in w for w in warnings))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True True True True"
+
+    def test_offline_allowlist_passes_after_scrub(self) -> None:
+        """Offline scrub runs BEFORE allowlist check — spec with WebSearch
+        + allowlist not containing WebSearch still passes.
+        """
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from batch_generator import (\n"
+            "    BatchSpec, BatchAgentDef, BatchPolicy, generate_batch\n"
+            ")\n"
+            "spec = BatchSpec(\n"
+            "    name='eco', description='d',\n"
+            "    agents=[BatchAgentDef(name='n', description='x',\n"
+            "        tools=['Read', 'WebSearch'])],\n"
+            ")\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    policy = BatchPolicy(\n"
+            "        allowed_tools=['Read'],\n"
+            "        offline=True,\n"
+            "        output_scope=td,\n"
+            "    )\n"
+            "    result = generate_batch(spec, td, policy=policy)\n"
+            "    print(result.success, len(result.cross_validation_errors))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True 0"
+
+    def test_output_scope_blocks_outside_path(self) -> None:
+        """Output dir outside scope → fatal policy violation, no files."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from batch_generator import (\n"
+            "    BatchSpec, BatchAgentDef, BatchPolicy, generate_batch\n"
+            ")\n"
+            "spec = BatchSpec(\n"
+            "    name='eco', description='d',\n"
+            "    agents=[BatchAgentDef(name='a', description='x')],\n"
+            ")\n"
+            "with tempfile.TemporaryDirectory() as outer:\n"
+            "    with tempfile.TemporaryDirectory() as inner:\n"
+            "        # scope = inner, but output_dir = outer — disjoint.\n"
+            "        policy = BatchPolicy(output_scope=inner)\n"
+            "        result = generate_batch(spec, outer, policy=policy)\n"
+            "        print(result.success,\n"
+            "              len(result.cross_validation_errors),\n"
+            "              'outside' in result.cross_validation_errors[0],\n"
+            "              (Path(outer) / 'a.md').exists())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False 1 True False"
+
+    def test_output_scope_allows_nested_path(self) -> None:
+        """Output dir nested under scope → allowed."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from batch_generator import (\n"
+            "    BatchSpec, BatchAgentDef, BatchPolicy, generate_batch\n"
+            ")\n"
+            "spec = BatchSpec(\n"
+            "    name='eco', description='d',\n"
+            "    agents=[BatchAgentDef(name='a', description='x')],\n"
+            ")\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    nested = Path(td) / 'sub' / 'agents'\n"
+            "    policy = BatchPolicy(output_scope=td)\n"
+            "    result = generate_batch(spec, nested, policy=policy)\n"
+            "    print(result.success, (nested / 'a.md').exists())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True"
+
+    def test_enforce_policy_standalone(self) -> None:
+        """enforce_batch_policy is a public helper with no side effects."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from batch_generator import (\n"
+            "    BatchSpec, BatchAgentDef, BatchPolicy, enforce_batch_policy\n"
+            ")\n"
+            "spec = BatchSpec(\n"
+            "    name='eco', description='d',\n"
+            "    agents=[BatchAgentDef(name='a', description='x',\n"
+            "        tools=['Read', 'Bash'])],\n"
+            ")\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    errors = enforce_batch_policy(\n"
+            "        spec,\n"
+            "        BatchPolicy(allowed_tools=['Read'], output_scope=td),\n"
+            "        td,\n"
+            "    )\n"
+            "    print(len(errors), 'Bash' in errors[0])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "1 True"
+
+    def test_no_policy_preserves_old_behaviour(self) -> None:
+        """Calling generate_batch without policy behaves identically to pre-#81."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from batch_generator import (\n"
+            "    BatchSpec, BatchAgentDef, generate_batch\n"
+            ")\n"
+            "spec = BatchSpec(\n"
+            "    name='eco', description='d',\n"
+            "    agents=[BatchAgentDef(name='a', description='x',\n"
+            "        tools=['Read', 'WebSearch'])],\n"
+            ")\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    result = generate_batch(spec, td)  # no policy arg\n"
+            "    body = (Path(td) / 'a.md').read_text()\n"
+            "    print(result.success,\n"
+            "          'WebSearch' in body,\n"
+            "          result.agents[0].warnings)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True []"
+
+
 class TestGenerationReport:
     """Tests for generation_report.py (feature #76).
 

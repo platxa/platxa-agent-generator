@@ -138,6 +138,7 @@ Examples:
         self._add_lint_command(subparsers)
         self._add_preview_command(subparsers)
         self._add_status_command(subparsers)
+        self._add_batch_command(subparsers)
 
         return parser
 
@@ -264,6 +265,60 @@ Examples:
         status = subparsers.add_parser("status", help="Show progress")
         status.add_argument("--compact", action="store_true")
 
+    def _add_batch_command(self, subparsers: Any) -> None:
+        """Add the batch subcommand for unattended ecosystem generation.
+
+        The batch command runs in offline/unattended contexts (CI,
+        scheduled orchestrators) where the generator's capabilities
+        must be bounded ahead of time. Flags mirror BatchPolicy:
+
+        - ``--allowedTools`` restricts which tools each generated agent
+          may declare (repeatable/nargs="+").
+        - ``--offline`` strips network tools (WebSearch/WebFetch) from
+          every agent and prevents the generator itself from relying on
+          them.
+        - ``--output-scope`` enforces a filesystem prefix for all
+          writes; default ``.claude`` satisfies the verification
+          criterion "Write restricted to .claude/ paths".
+        """
+        batch = subparsers.add_parser(
+            "batch",
+            help="Generate an agent ecosystem from a JSON batch spec",
+        )
+        batch.add_argument(
+            "spec_path",
+            type=Path,
+            help="Path to a batch-spec JSON file",
+        )
+        batch.add_argument(
+            "-o",
+            "--output",
+            type=Path,
+            default=None,
+            help="Output directory (default: .claude/agents)",
+        )
+        batch.add_argument(
+            "--allowedTools",
+            dest="allowed_tools",
+            nargs="+",
+            default=None,
+            help="Allowlist of tool names each generated agent may declare. "
+            "Empty/omitted disables allowlist enforcement.",
+        )
+        batch.add_argument(
+            "--offline",
+            action="store_true",
+            help="Strip WebSearch/WebFetch from every generated agent",
+        )
+        batch.add_argument(
+            "--output-scope",
+            dest="output_scope",
+            default=None,
+            help="Filesystem prefix the output directory must resolve "
+            "inside (default: .claude). Unattended runs should leave "
+            "this at the default; tests may override.",
+        )
+
     def run(self, args: list[str] | None = None) -> int:
         """Run the CLI with given arguments."""
         parsed = self.parser.parse_args(args)
@@ -292,6 +347,7 @@ Examples:
             "lint": self._handle_lint,
             "preview": self._handle_preview,
             "status": self._handle_status,
+            "batch": self._handle_batch,
         }
 
         handler = handlers.get(parsed.command)
@@ -790,6 +846,77 @@ Examples:
             print("No active generation in progress.")
 
         return 0
+
+    def _handle_batch(self, args: argparse.Namespace) -> int:
+        """Handle the batch subcommand.
+
+        Loads the JSON spec, builds a BatchPolicy from the CLI flags
+        (only populating fields the user supplied — this keeps the
+        policy-free default path available for callers that don't
+        care about scoping), and returns 0 iff
+        :func:`batch_generator.generate_batch` reports full success.
+
+        Output format follows the CLI's existing convention: JSON when
+        ``--json`` / ``--non-interactive`` is set, otherwise a compact
+        human-readable summary with the per-agent warnings/errors.
+        """
+        try:
+            from . import batch_generator as bg
+        except ImportError:
+            import batch_generator as bg  # type: ignore[import-not-found,no-redef]
+
+        try:
+            spec = bg.load_batch_spec(args.spec_path)
+        except (FileNotFoundError, ValueError) as exc:
+            msg = str(exc)
+            if getattr(args, "json", False):
+                print(json.dumps({"error": msg}, indent=2))
+            else:
+                print(f"Error: {msg}")
+            return 1
+
+        policy_kwargs: dict[str, Any] = {}
+        if args.allowed_tools is not None:
+            policy_kwargs["allowed_tools"] = list(args.allowed_tools)
+        if args.offline:
+            policy_kwargs["offline"] = True
+        if args.output_scope is not None:
+            policy_kwargs["output_scope"] = args.output_scope
+        policy = bg.BatchPolicy(**policy_kwargs) if policy_kwargs else None
+
+        output_dir = args.output or Path(bg.DEFAULT_BATCH_OUTPUT_DIR)
+        result = bg.generate_batch(spec, output_dir, policy=policy)
+
+        if getattr(args, "json", False):
+            payload = {
+                "ecosystem": result.ecosystem,
+                "success": result.success,
+                "cross_validation_errors": result.cross_validation_errors,
+                "agents": [
+                    {
+                        "name": a.name,
+                        "success": a.success,
+                        "output_path": a.output_path,
+                        "errors": a.errors,
+                        "warnings": a.warnings,
+                    }
+                    for a in result.agents
+                ],
+            }
+            print(json.dumps(payload, indent=2))
+        else:
+            status = "OK" if result.success else "FAILED"
+            print(f"Batch '{result.ecosystem}': {status}")
+            for err in result.cross_validation_errors:
+                print(f"  ! {err}")
+            for agent in result.agents:
+                flag = "+" if agent.success else "-"
+                print(f"  {flag} {agent.name} → {agent.output_path or '(not written)'}")
+                for warning in agent.warnings:
+                    print(f"      warning: {warning}")
+                for err in agent.errors:
+                    print(f"      error: {err}")
+        return 0 if result.success else 1
 
 
 def main() -> NoReturn:
