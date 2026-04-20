@@ -15289,6 +15289,116 @@ class TestSubagentAuditHooks:
         assert all(c == "/custom/path.sh" for c in cmds), cmds
 
 
+class TestHooksGeneratorAuditHook:
+    """Tests for subagent audit hook malformed-JSON fail-closed (Feature #9).
+
+    The generated audit script previously caught json.loads errors with a
+    _warn() call and fell back to data={}, then continued to write a
+    possibly-incomplete record using whichever CLAUDE_* env vars happened
+    to be set. That hid payload corruption from observability and could
+    produce meaningless audit records whose event was taken from the env
+    var escape hatch.
+
+    The fail-closed fix: on malformed JSON the script must exit 2 with an
+    error on stderr and must NOT append any record to the audit log.
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        return subprocess.run(
+            [sys.executable, "-c", prologue + code],
+            capture_output=True,
+            text=True,
+        )
+
+    def _gen_script(self, agent: str, log_file: str) -> str:
+        result = self._run_py(
+            "from hooks_generator import generate_subagent_audit_script; "
+            f"print(generate_subagent_audit_script({agent!r}, {log_file!r}))"
+        )
+        assert result.returncode == 0, f"script gen failed: {result.stderr}"
+        return result.stdout
+
+    def _write_script(self, content: str, path: Path) -> Path:
+        path.write_text(content)
+        path.chmod(0o755)
+        return path
+
+    def test_malformed_json_exits_2(self, tmp_path: Path) -> None:
+        """Malformed stdin JSON must deny (exit 2) with a stderr message.
+
+        Replaces the previous `_warn + data={}` silent fallback that masked
+        payload corruption and kept writing potentially-fabricated records.
+        """
+        log_file = tmp_path / "audit.jsonl"
+        script = self._gen_script("auditor", str(log_file))
+        path = self._write_script(script, tmp_path / "audit.sh")
+
+        result = subprocess.run(
+            ["bash", str(path)],
+            input="this-is-not-json{{{",
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 2, (
+            f"Malformed JSON must deny (exit 2). Got exit={result.returncode}, "
+            f"stderr={result.stderr!r}, stdout={result.stdout!r}"
+        )
+        assert "not valid JSON" in result.stderr or "JSON" in result.stderr, (
+            f"Stderr must cite the JSON parse failure. stderr={result.stderr!r}"
+        )
+        assert "[subagent-audit]" in result.stderr, (
+            f"Stderr must carry the subagent-audit tag. stderr={result.stderr!r}"
+        )
+
+    def test_no_empty_record_written(self, tmp_path: Path) -> None:
+        """Malformed JSON must leave the audit log untouched.
+
+        Prevents the silent-fallback path from writing a garbage record
+        populated by CLAUDE_* env vars: on denial the log must stay
+        absent (or, if pre-existing, its contents must be unchanged).
+        """
+        log_file = tmp_path / "audit.jsonl"
+        script = self._gen_script("auditor", str(log_file))
+        path = self._write_script(script, tmp_path / "audit.sh")
+
+        # Case A: log file does not exist beforehand — it must stay absent.
+        env = {
+            **os.environ,
+            "CLAUDE_HOOK_EVENT": "SubagentStart",
+            "CLAUDE_AGENT_ID": "env-should-not-leak",
+            "CLAUDE_AGENT_TYPE": "fallback-type",
+        }
+        result = subprocess.run(
+            ["bash", str(path)],
+            input="}malformed{",
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert result.returncode == 2
+        assert not log_file.exists(), (
+            f"audit log must not be created on malformed JSON; found: "
+            f"{log_file.read_text() if log_file.exists() else '<absent>'}"
+        )
+
+        # Case B: log file exists with prior content — it must be unchanged.
+        prior = '{"event": "SubagentStart", "agent_id": "prior-1"}\n'
+        log_file.write_text(prior)
+        result = subprocess.run(
+            ["bash", str(path)],
+            input="}malformed{",
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert result.returncode == 2
+        assert log_file.read_text() == prior, (
+            f"audit log must not be mutated on malformed JSON; "
+            f"expected {prior!r}, got {log_file.read_text()!r}"
+        )
+
+
 class TestCompetingHypothesisTemplate:
     """Tests for the competing-hypothesis multi-agent template (Feature #41).
 

@@ -1692,14 +1692,18 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 
 export TOOL_INPUT AGENT_NAME LOG_FILE
-python3 - <<'PYEOF' || true
+python3 - <<'PYEOF'
 import json
 import os
 import sys
 import time
 
 
-# _warn surfaces failures on stderr without breaking the hook (always exit 0).
+# _warn surfaces non-fatal operational failures on stderr without breaking
+# the hook (the script still appends a record and exits 0). It is NOT used
+# for malformed stdin JSON — that is a fail-closed case handled below, so
+# the orchestrator observes the corruption instead of getting a record
+# fabricated from CLAUDE_* env-var fallbacks.
 def _warn(msg):
     sys.stderr.write(f"[subagent-audit] {msg}\n")
 
@@ -1709,8 +1713,15 @@ log_file = os.environ.get("LOG_FILE", ".claude/audit.jsonl")
 try:
     data = json.loads(os.environ.get("TOOL_INPUT") or "{}")
 except Exception as e:
-    _warn(f"stdin payload not valid JSON: {e}; falling back to env vars")
-    data = {}
+    # Fail closed: corrupt payload -> exit 2, no record written. Previously
+    # we logged a warning and fell through to data={}, which silently
+    # produced records populated from env-var fallbacks whose event string
+    # might not even match the actual hook invocation. Observability is
+    # better served by a visible denial than a fabricated entry.
+    sys.stderr.write(
+        f"[subagent-audit] stdin payload not valid JSON: {e}\n"
+    )
+    sys.exit(2)
 
 event = data.get("hook_event_name") or os.environ.get("CLAUDE_HOOK_EVENT", "")
 agent_id = data.get("agent_id") or os.environ.get("CLAUDE_AGENT_ID", "")
@@ -1793,6 +1804,10 @@ if record is not None:
     except OSError as e:
         _warn(f"could not append to audit log {log_file}: {e}")
 PYEOF
+PY_EXIT=$?
+if [ "$PY_EXIT" -ne 0 ]; then
+    exit "$PY_EXIT"
+fi
 
 exit 0
 """
