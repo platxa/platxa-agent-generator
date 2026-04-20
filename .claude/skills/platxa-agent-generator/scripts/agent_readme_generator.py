@@ -26,6 +26,7 @@ agent files or regenerate their frontmatter — that's what
 from __future__ import annotations
 
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -188,12 +189,21 @@ def scan_agents(agents_dir: Path | str = DEFAULT_AGENTS_DIR) -> list[AgentSummar
     A missing or empty directory returns an empty list — the caller
     decides whether that's a configuration error or just a project
     with no agents yet.
+
+    Surfaces any skipped agent files as a single stderr summary line at
+    end of scan (``skipped N malformed agents: <paths>``). The returned
+    list still omits malformed entries — the stderr line is purely
+    additive so operators can diagnose why an expected agent didn't
+    appear in the generated README. The project's ``README.md`` output
+    is an artifact, not an agent, and is not counted as malformed.
+    Silent on stderr when every file parses cleanly.
     """
     path = Path(agents_dir)
     if not path.exists() or not path.is_dir():
         return []
 
     summaries: list[AgentSummary] = []
+    skipped: list[Path] = []
     for file in sorted(path.glob("*.md")):
         # Skip the README itself if it happens to live in the agents
         # directory — it's an output, not an agent definition.
@@ -202,7 +212,15 @@ def scan_agents(agents_dir: Path | str = DEFAULT_AGENTS_DIR) -> list[AgentSummar
         parsed = _parse_agent_file(file)
         if parsed is not None:
             summaries.append(parsed)
+        else:
+            skipped.append(file)
     summaries.sort(key=lambda a: a.name)
+    if skipped:
+        paths = ", ".join(str(p) for p in skipped)
+        print(
+            f"skipped {len(skipped)} malformed agents: {paths}",
+            file=sys.stderr,
+        )
     return summaries
 
 

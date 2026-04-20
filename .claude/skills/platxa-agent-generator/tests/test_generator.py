@@ -14585,6 +14585,151 @@ class TestAgentReadmeGenerator:
         assert result.stdout.strip() == "True True True"
 
 
+class TestCatalogSkippedAgents:
+    """Tests for feature #17: stderr surfacing of skipped malformed agents.
+
+    Both bundled catalog scanners — ``discover_available_agents`` in
+    ``claudemd_generator`` and ``scan_agents`` in ``agent_readme_generator`` —
+    silently drop agent files that fail frontmatter parsing (OSError,
+    missing ``---`` fences, missing ``name``/``description``). Silent drops
+    are hostile to diagnosis: a user who expects their agent in the catalog
+    has no signal why it disappeared.
+
+    This class pins the surfacing contract: at end of each scan, when any
+    files were skipped as malformed, the scanner emits a single stderr
+    summary line naming the offending paths so users can fix them.
+
+    The CLAUDE.md / README generated downstream still omits the malformed
+    agent (silent-omit behavior is unchanged) — the stderr line is purely
+    additive.
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    def test_claudemd_summary(self) -> None:
+        """discover_available_agents emits stderr naming the malformed path.
+
+        Three agents (2 valid, 1 malformed): returned list has the 2 valid
+        names, CLAUDE.md delegation section omits the malformed agent, and
+        stderr carries a single summary line with the malformed file path.
+        """
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from claudemd_generator import (\n"
+            "    AgentContext, discover_available_agents, generate_claudemd,\n"
+            ")\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    base = Path(td)\n"
+            "    (base / 'alpha.md').write_text(\n"
+            "        '---\\nname: alpha\\ndescription: Valid one\\n---\\n'\n"
+            "    )\n"
+            "    (base / 'beta.md').write_text(\n"
+            "        '---\\nname: beta\\ndescription: Valid two\\n---\\n'\n"
+            "    )\n"
+            "    (base / 'totally-malformed.md').write_text('no frontmatter')\n"
+            "    found = discover_available_agents(base)\n"
+            "    ctx = AgentContext(name='host', description='d',\n"
+            "                       tools=['Task'], available_agents=found)\n"
+            "    md = generate_claudemd(ctx)\n"
+            "    print('names:', sorted(a.name for a in found))\n"
+            "    print('malformed-in-md:', 'totally-malformed' in md)\n"
+        )
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().splitlines()
+        assert lines[0] == "names: ['alpha', 'beta']"
+        assert lines[1] == "malformed-in-md: False"
+        assert "skipped 1 malformed agents" in result.stderr
+        assert "totally-malformed.md" in result.stderr
+
+    def test_readme_summary(self) -> None:
+        """scan_agents emits stderr naming the malformed path.
+
+        Same shape as test_claudemd_summary but via the README generator:
+        generated README omits the malformed agent, stderr carries one
+        summary line with the malformed file path.
+        """
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_readme_generator import generate_agent_readme\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    agents = Path(td) / 'agents'\n"
+            "    agents.mkdir()\n"
+            "    (agents / 'alpha.md').write_text(\n"
+            "        '---\\nname: alpha\\ndescription: Valid one\\n---\\n'\n"
+            "    )\n"
+            "    (agents / 'beta.md').write_text(\n"
+            "        '---\\nname: beta\\ndescription: Valid two\\n---\\n'\n"
+            "    )\n"
+            "    (agents / 'totally-malformed.md').write_text('no frontmatter')\n"
+            "    target = Path(td) / 'README.md'\n"
+            "    generate_agent_readme(agents, target)\n"
+            "    content = target.read_text()\n"
+            "    print('alpha-in-readme:', '`alpha`' in content)\n"
+            "    print('beta-in-readme:', '`beta`' in content)\n"
+            "    print('malformed-in-readme:', 'totally-malformed' in content)\n"
+        )
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().splitlines()
+        assert lines[0] == "alpha-in-readme: True"
+        assert lines[1] == "beta-in-readme: True"
+        assert lines[2] == "malformed-in-readme: False"
+        assert "skipped 1 malformed agents" in result.stderr
+        assert "totally-malformed.md" in result.stderr
+
+    def test_claudemd_no_summary_when_all_valid(self) -> None:
+        """No stderr summary when no agents are skipped.
+
+        The summary is a diagnostic for a pathological state; emitting it
+        unconditionally (e.g., ``skipped 0 malformed agents``) would spam
+        stderr on healthy runs and dilute the signal.
+        """
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from claudemd_generator import discover_available_agents\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    base = Path(td)\n"
+            "    (base / 'solo.md').write_text(\n"
+            "        '---\\nname: solo\\ndescription: d\\n---\\n'\n"
+            "    )\n"
+            "    discover_available_agents(base)\n"
+            "    print('done')\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "done"
+        assert "skipped" not in result.stderr
+
+    def test_readme_no_summary_when_all_valid(self) -> None:
+        """scan_agents stays silent on stderr when no files are skipped."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_readme_generator import scan_agents\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    (Path(td) / 'solo.md').write_text(\n"
+            "        '---\\nname: solo\\ndescription: d\\n---\\n'\n"
+            "    )\n"
+            "    scan_agents(td)\n"
+            "    print('done')\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "done"
+        assert "skipped" not in result.stderr
+
+
 class TestGenerationReport:
     """Tests for generation_report.py (feature #76).
 

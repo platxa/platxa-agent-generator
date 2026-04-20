@@ -457,23 +457,34 @@ def discover_available_agents(agents_dir: Path | str = DEFAULT_AGENTS_DIR) -> li
 
     Returns an empty list when ``agents_dir`` does not exist — treat
     "no agents available" as a normal state, not an error.
+
+    Surfaces any skipped ``.md`` files as a single stderr summary line at
+    end of scan (``skipped N malformed agents: <paths>``). The return
+    value still omits malformed entries — the stderr line is purely
+    additive so users can diagnose why an expected agent didn't appear.
+    Non-``.md`` entries and subdirectories are not malformed and are not
+    reported. Silent on stderr when every file parses cleanly.
     """
     base = Path(agents_dir)
     if not base.is_dir():
         return []
     results: list[AvailableAgent] = []
+    skipped: list[Path] = []
     for child in sorted(base.iterdir()):
         if not child.is_file() or child.suffix != ".md":
             continue
         try:
             text = child.read_text(encoding="utf-8")
         except OSError:
+            skipped.append(child)
             continue
         if not text.startswith("---"):
+            skipped.append(child)
             continue
         try:
             end = text.index("\n---", 3)
         except ValueError:
+            skipped.append(child)
             continue
         frontmatter = text[3:end]
         name: str | None = None
@@ -488,8 +499,15 @@ def discover_available_agents(agents_dir: Path | str = DEFAULT_AGENTS_DIR) -> li
             elif stripped.startswith("when-to-use:") or stripped.startswith("when_to_use:"):
                 when_to_use = stripped.split(":", 1)[1].strip()
         if not name or not description:
+            skipped.append(child)
             continue
         results.append(AvailableAgent(name=name, description=description, when_to_use=when_to_use))
+    if skipped:
+        paths = ", ".join(str(p) for p in skipped)
+        print(
+            f"skipped {len(skipped)} malformed agents: {paths}",
+            file=sys.stderr,
+        )
     return results
 
 
