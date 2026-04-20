@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -1592,6 +1593,153 @@ class TestStopVerificationScript:
         assert result.returncode == 0, (
             f"Script should allow completion when no framework detected. stderr: {result.stderr}"
         )
+
+
+class TestHooksGeneratorTaskCompleted:
+    """Tests for TaskCompleted hook corrupt-manifest handling (Feature #8).
+
+    Verifies that the generated TaskCompleted script denies completion (exit 2,
+    stderr has error, stdout empty) for every form of corrupt manifest —
+    including non-dict JSON, which previously silently passed due to Python's
+    AttributeError being swallowed by the `|| echo ""` fallback in bash.
+
+    Valid manifests must still exit 0.
+    """
+
+    def _generate_script(self, agent_name: str) -> str:
+        """Generate TaskCompleted script via subprocess (same pattern as sibling tests)."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+                    "from hooks_generator import generate_task_completed_script; "
+                    f"print(generate_task_completed_script('{agent_name}'))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script generation failed: {result.stderr}"
+        return result.stdout
+
+    def _prepare_workspace(self, tmp_path: Path, manifest_content: str | None) -> Path:
+        """Set up .claude/team-state/default/deliverables/T1.json with given content.
+
+        Pass manifest_content=None to omit the manifest entirely (exercises the
+        missing-manifest path, not the corrupt-parse path).
+        """
+        deliverables = tmp_path / ".claude" / "team-state" / "default" / "deliverables"
+        deliverables.mkdir(parents=True)
+        if manifest_content is not None:
+            (deliverables / "T1.json").write_text(manifest_content)
+        return tmp_path
+
+    def _run_script(self, tmp_path: Path, script: str) -> subprocess.CompletedProcess:
+        """Run the generated script with task_id=T1 stdin, cwd=tmp_path."""
+        script_path = tmp_path / "task-completed.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+        return subprocess.run(
+            ["bash", str(script_path)],
+            input='{"task_id":"T1"}',
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+        )
+
+    @pytest.mark.parametrize(
+        "corrupt_content,label",
+        [
+            ("not valid json", "malformed_json"),
+            ('"just a string"', "non_dict_string"),
+            ("[1, 2, 3]", "non_dict_array"),
+            ("42", "non_dict_number"),
+            ("null", "non_dict_null"),
+            ('{"files": "should be a list"}', "files_wrong_type"),
+        ],
+    )
+    def test_corrupt_manifest_exits_2(
+        self, tmp_path: Path, corrupt_content: str, label: str
+    ) -> None:
+        """Corrupt manifest in any form: exit 2, stderr has error, stdout empty.
+
+        Previously, non-dict JSON silently passed because Python's AttributeError
+        was swallowed by `|| echo ""`. Root-cause fix: Python owns exit-code
+        signaling; bash checks $? directly.
+        """
+        workspace = self._prepare_workspace(tmp_path, corrupt_content)
+        script = self._generate_script("test-agent")
+        result = self._run_script(workspace, script)
+
+        assert result.returncode == 2, (
+            f"Corrupt manifest [{label}] must deny (exit 2). Got exit={result.returncode}, "
+            f"stderr={result.stderr!r}, stdout={result.stdout!r}"
+        )
+        assert result.stderr.strip(), (
+            f"Corrupt manifest [{label}] must print error to stderr. stderr={result.stderr!r}"
+        )
+        assert result.stdout == "", (
+            f"Corrupt manifest [{label}] must keep stdout empty. stdout={result.stdout!r}"
+        )
+
+    def test_valid_manifest_exits_0(self, tmp_path: Path) -> None:
+        """Valid manifest with all declared files present must allow (exit 0)."""
+        artifact = tmp_path / "artifact.txt"
+        artifact.write_text("content")
+        workspace = self._prepare_workspace(tmp_path, json.dumps({"files": [str(artifact)]}))
+        script = self._generate_script("test-agent")
+        result = self._run_script(workspace, script)
+
+        assert result.returncode == 0, (
+            f"Valid manifest must allow (exit 0). Got exit={result.returncode}, "
+            f"stderr={result.stderr!r}"
+        )
+
+    def test_python3_missing_fails_closed(self, tmp_path: Path) -> None:
+        """Without python3 on PATH, the script must fail closed (exit 2).
+
+        The manifest validator depends on python3 for JSON parsing and type
+        checks; silently skipping validation when python3 is absent would be
+        the same silent-pass class of bug this feature exists to close.
+        """
+        # Even a "valid" manifest must be denied if python3 is unavailable.
+        artifact = tmp_path / "artifact.txt"
+        artifact.write_text("content")
+        workspace = self._prepare_workspace(tmp_path, json.dumps({"files": [str(artifact)]}))
+        script = self._generate_script("test-agent")
+
+        script_path = workspace / "task-completed.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+
+        # Locate bash once via the host's real PATH before we restrict the
+        # env — then pass an empty PATH into the child so the generated
+        # script's `command -v python3` sees no python3 at all.
+        bash_path = shutil.which("bash")
+        assert bash_path, "bash is required for this test to run"
+
+        env = os.environ.copy()
+        env["PATH"] = ""
+
+        result = subprocess.run(
+            [bash_path, str(script_path)],
+            input='{"task_id":"T1"}',
+            capture_output=True,
+            text=True,
+            cwd=str(workspace),
+            env=env,
+        )
+
+        assert result.returncode == 2, (
+            f"Missing python3 must deny (exit 2). Got exit={result.returncode}, "
+            f"stderr={result.stderr!r}"
+        )
+        assert "python3" in result.stderr, (
+            f"Denial message must cite python3. stderr={result.stderr!r}"
+        )
+        assert result.stdout == "", f"Stdout must stay empty on denial. stdout={result.stdout!r}"
 
 
 class TestHookScriptGeneration:
