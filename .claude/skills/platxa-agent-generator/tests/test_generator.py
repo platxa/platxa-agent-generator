@@ -13585,6 +13585,135 @@ class TestSilentWriteSurfacing:
         assert "disk full" in result.stderr
 
 
+class TestAgentComposerScan:
+    """Tests for agent_composer.load_agent_spec frontmatter narrowing (Feature #15).
+
+    ``load_agent_spec`` previously caught every exception from
+    ``yaml.safe_load`` with ``except Exception: return None``. When a
+    directory of agents was scanned, a single malformed agent file
+    would silently disappear from the result — no log line, no warning
+    — making it indistinguishable from "file never existed". Operators
+    adding a new agent and mistyping its YAML had no signal that the
+    frontmatter was broken; the agent simply didn't appear.
+
+    The fix narrows the catch to the three expected failure modes:
+
+    - ``ImportError`` — PyYAML missing at runtime. Warrants its own
+      except clause because Python evaluates the except-tuple classes
+      eagerly; ``yaml.YAMLError`` in the same tuple would raise
+      NameError when ``yaml`` isn't bound.
+    - ``yaml.YAMLError`` — malformed YAML syntax in the frontmatter.
+    - ``AttributeError`` — defensive catch for edge cases where the
+      loader returns a non-dict that would crash the downstream
+      ``frontmatter.get(...)`` calls.
+
+    Both paths emit a stderr warning naming the offending agent file
+    and the error class so operators can see which file is broken and
+    why. Scanning still returns None for the bad file (callers are
+    expected to filter None out of their list comprehensions), so
+    valid agents around a broken one are preserved.
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        return subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+
+    def test_malformed_agent_logged(self) -> None:
+        """Scanning a directory with one malformed YAML agent and two
+        valid ones must: (a) emit a stderr warning naming the broken
+        file's path, (b) exclude the broken file from the result list
+        (load_agent_spec returns None for it), and (c) preserve the
+        valid agents in the result.
+        """
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from agent_composer import load_agent_spec\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    root = Path(td)\n"
+            "    good_a = root / 'good_a.md'\n"
+            "    bad = root / 'broken.md'\n"
+            "    good_b = root / 'good_b.md'\n"
+            # Valid frontmatter for both good agents.
+            "    good_a.write_text('---\\nname: alpha\\n"
+            "description: first good agent\\ntools: Read\\n---\\n"
+            "# Alpha\\n', encoding='utf-8')\n"
+            "    good_b.write_text('---\\nname: beta\\n"
+            "description: second good agent\\ntools: Write\\n---\\n"
+            "# Beta\\n', encoding='utf-8')\n"
+            # Malformed YAML — unclosed quote triggers yaml.YAMLError.
+            "    bad.write_text('---\\nname: \"unterminated\\n"
+            "description: broken\\n---\\n# Broken\\n', "
+            "encoding='utf-8')\n"
+            "    results = [\n"
+            "        load_agent_spec(good_a),\n"
+            "        load_agent_spec(bad),\n"
+            "        load_agent_spec(good_b),\n"
+            "    ]\n"
+            "    print('names:', '|'.join(\n"
+            "        r.name if r is not None else 'NONE' for r in results\n"
+            "    ))\n"
+        )
+        assert result.returncode == 0, result.stderr
+        # Valid agents preserved, broken one became None.
+        assert "names: alpha|NONE|beta" in result.stdout
+        # Warning must name the broken file's path and an error class.
+        # PyYAML raises a ``yaml.YAMLError`` subclass (typically
+        # ``ScannerError`` or ``ParserError``) for malformed frontmatter;
+        # either surfaces as ``type(e).__name__``. Asserting just on
+        # "Error" keeps the test robust to PyYAML's internal subclass
+        # naming without sacrificing the "class name is present" check.
+        assert "broken.md" in result.stderr
+        assert "Error" in result.stderr
+        # And must NOT name the valid files.
+        assert "good_a.md" not in result.stderr
+        assert "good_b.md" not in result.stderr
+
+    def test_import_missing_logged(self) -> None:
+        """If PyYAML is missing at runtime (simulated by making ``import
+        yaml`` raise ImportError inside load_agent_spec), the ImportError
+        path must also emit a stderr warning naming the agent file and
+        the error class. Result is still None — a missing parser means
+        we cannot interpret the frontmatter.
+        """
+        result = self._run_py(
+            "import sys\n"
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            # Pre-poison sys.modules so the inline ``import yaml`` inside
+            # load_agent_spec raises ImportError. Any prior import of
+            # yaml at module load would shadow this, so we purge it.
+            "sys.modules.pop('yaml', None)\n"
+            "import builtins\n"
+            "_real_import = builtins.__import__\n"
+            "def _fake_import(name, *a, **k):\n"
+            "    if name == 'yaml':\n"
+            "        raise ImportError('No module named yaml')\n"
+            "    return _real_import(name, *a, **k)\n"
+            "builtins.__import__ = _fake_import\n"
+            "from agent_composer import load_agent_spec\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    agent_path = Path(td) / 'agent.md'\n"
+            "    agent_path.write_text('---\\nname: demo\\n"
+            "description: d\\ntools: Read\\n---\\n# Demo\\n', "
+            "encoding='utf-8')\n"
+            "    result = load_agent_spec(agent_path)\n"
+            "    print('result_is_none:', result is None)\n"
+        )
+        assert result.returncode == 0, result.stderr
+        # Parser missing → None.
+        assert "result_is_none: True" in result.stdout
+        # Warning must name the agent file and the error class.
+        assert "agent.md" in result.stderr
+        assert "ImportError" in result.stderr
+
+
 class TestBatchGeneration:
     """Tests for batch agent generation (feature #75).
 
