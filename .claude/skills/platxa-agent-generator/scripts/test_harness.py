@@ -484,7 +484,11 @@ def run_live_test(
         if found_forbidden:
             details.append(f"Found forbidden: {', '.join(found_forbidden)}")
         if result.returncode != 0:
-            details.append(f"Exit code: {result.returncode}")
+            # OQ-4 resolved: any non-zero exit code unconditionally fails the
+            # test regardless of pattern match. A matching pattern in output
+            # does not override a process-level failure signal.
+            details.append(f"Exit code: {result.returncode} (non-zero exit forces failure)")
+            passed = False
 
         return TestResult(
             test_name=test.name,

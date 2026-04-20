@@ -5075,6 +5075,136 @@ class TestLiveAgentInvocation:
         assert data["type"] in ("str", "NoneType")
 
 
+class TestTestHarnessExitCode:
+    """Tests for Feature #7: non-zero subprocess returncode always fails.
+
+    OQ-4 resolved (always-fail): when the claude subprocess exits with a
+    non-zero return code, run_live_test() must set passed=False regardless
+    of whether expected_patterns matched. The exit code is surfaced in the
+    result details. The zero-exit baseline (pattern-match only) is preserved.
+    """
+
+    def _create_agent_file(self, tmp_path: Path) -> Path:
+        """Create a minimal valid agent file for testing."""
+        agent_md = tmp_path / "exit-code-agent.md"
+        agent_md.write_text(
+            "---\n"
+            "name: exit-code-agent\n"
+            "description: Test agent used to verify exit-code handling\n"
+            "tools: Read\n"
+            "---\n\n"
+            "# Exit Code Agent\n\n"
+            "## Workflow\n"
+            "1. Run\n\n"
+            "## Examples\n"
+            "### Example 1: Basic Usage\n"
+            "```\nUse exit-code-agent\n```\n"
+        )
+        return agent_md
+
+    def test_nonzero_exit_is_failure(self, tmp_path: Path) -> None:
+        """Non-zero exit unconditionally fails even when patterns match.
+
+        A fake claude that prints a matching pattern but exits with code 127
+        (command-not-found style) must produce passed=False, and the exit
+        code must appear in result.details.
+        """
+        agent_md = self._create_agent_file(tmp_path)
+        # Fake claude: emits a string that matches expected_patterns, then
+        # exits 127 (process-level failure signal).
+        fake_claude = tmp_path / "fake_claude.sh"
+        fake_claude.write_text('#!/bin/bash\necho "exit-code-agent running analysis"\nexit 127\n')
+        fake_claude.chmod(0o755)
+
+        test_script = tmp_path / "test_nonzero_exit.py"
+        test_script.write_text(
+            "import json, sys\n"
+            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
+            "from test_harness import run_live_test, TestCase\n"
+            "from pathlib import Path\n"
+            "tc = TestCase(\n"
+            "    name='live_exit_127',\n"
+            "    description='nonzero exit with matching pattern',\n"
+            "    input_prompt='hello',\n"
+            "    expected_patterns=['exit-code-agent', 'analysis'],\n"
+            "    timeout_seconds=5,\n"
+            ")\n"
+            "result = run_live_test(tc, Path('" + str(agent_md) + "'), "
+            "claude_binary='" + str(fake_claude) + "')\n"
+            "print(json.dumps({\n"
+            "    'passed': result.passed,\n"
+            "    'message': result.message,\n"
+            "    'details': result.details,\n"
+            "}))\n"
+        )
+        result = subprocess.run(
+            [sys.executable, str(test_script)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        data = json.loads(result.stdout)
+        assert data["passed"] is False, (
+            "Non-zero exit (127) must force failure even with matching patterns"
+        )
+        assert data["message"] == "FAIL"
+        # Exit code must be surfaced in details (reproducibility requirement)
+        assert any("127" in d for d in data["details"]), (
+            f"Expected exit code 127 in details, got: {data['details']}"
+        )
+        assert any("non-zero exit forces failure" in d for d in data["details"]), (
+            f"Expected failure reason in details, got: {data['details']}"
+        )
+
+    def test_zero_exit_unchanged_behavior(self, tmp_path: Path) -> None:
+        """Zero-exit baseline preserved: pattern-match still determines pass.
+
+        A fake claude that emits matching patterns and exits 0 must still
+        pass, proving the fix only affects the non-zero branch.
+        """
+        agent_md = self._create_agent_file(tmp_path)
+        fake_claude = tmp_path / "fake_claude.sh"
+        fake_claude.write_text('#!/bin/bash\necho "exit-code-agent completed analysis"\nexit 0\n')
+        fake_claude.chmod(0o755)
+
+        test_script = tmp_path / "test_zero_exit.py"
+        test_script.write_text(
+            "import json, sys\n"
+            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
+            "from test_harness import run_live_test, TestCase\n"
+            "from pathlib import Path\n"
+            "tc = TestCase(\n"
+            "    name='live_exit_0',\n"
+            "    description='zero exit with matching pattern',\n"
+            "    input_prompt='hello',\n"
+            "    expected_patterns=['exit-code-agent', 'analysis'],\n"
+            "    timeout_seconds=5,\n"
+            ")\n"
+            "result = run_live_test(tc, Path('" + str(agent_md) + "'), "
+            "claude_binary='" + str(fake_claude) + "')\n"
+            "print(json.dumps({\n"
+            "    'passed': result.passed,\n"
+            "    'message': result.message,\n"
+            "    'details': result.details,\n"
+            "}))\n"
+        )
+        result = subprocess.run(
+            [sys.executable, str(test_script)],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        data = json.loads(result.stdout)
+        assert data["passed"] is True, (
+            "Zero exit with matching patterns must still pass (baseline preserved)"
+        )
+        assert data["message"] == "PASS"
+        # No exit-code detail should be present on zero exit
+        assert not any("Exit code:" in d for d in data["details"]), (
+            f"Zero exit should not emit exit-code detail, got: {data['details']}"
+        )
+
+
 class TestAutoGenerateTestsFromExamples:
     """Tests for Feature #44: Auto-generate test cases from agent examples."""
 
