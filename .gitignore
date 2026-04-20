@@ -152,3 +152,8 @@ CLAUDE.md
 # MAO state and checkpoints
 mao_state.db
 checkpoints/
+
+# Spec workflow artifacts (local-only; historical backups and living spec)
+.claude/feature_list.json.build-complete-90of90-backup-20260420
+.claude/generated_features.json.pre-hardening-backup-20260420
+.claude/spec.md
