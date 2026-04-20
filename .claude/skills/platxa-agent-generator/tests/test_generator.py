@@ -14730,6 +14730,421 @@ class TestCatalogSkippedAgents:
         assert "skipped" not in result.stderr
 
 
+class TestMcpConfigGenerator:
+    """Tests for mcp_config_generator.py (feature #18).
+
+    The 865-LOC ``mcp_config_generator`` module had zero tests before this
+    class. It generates ``.mcp.json`` files that Claude Code will load at
+    startup, so every validator is on the trust boundary — a URL, command,
+    or path that slips through here ends up on the agent's tool surface.
+
+    Coverage:
+    - ``validate_server_name``: empty/length/charset/hyphen-edge rejection
+    - ``validate_url``: scheme whitelist (http/https), env placeholders,
+      javascript:/ftp:/empty rejected
+    - ``validate_command``: safelist enforcement, basename parsing,
+      traversal (``../../bin/sh``) rejected, metacharacter embedding
+      rejected, absolute-path bypass pinned as current behavior
+    - ``validate_path_safe``: cwd/home/tmp root enforcement,
+      shell-metacharacter (``$`` ``;`` `` ` ``) rejection
+    - ``.mcp.json`` emission via ``generate_mcp_json``: wrapped
+      ``mcpServers`` format, unknown-server rejection, empty-list
+      rejection, adversarial ``output_path`` rejection
+    - Round-trip: ``server_to_dict`` ⇄ ``create_server_from_dict`` is
+      lossless for stdio and http shapes
+    - Duplicate handling: ``recommend_mcp_servers`` dedupes via count
+      dict; ``generate_config`` collapses duplicate names to last-write-
+      wins (pins current dict-based behavior)
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        import subprocess
+
+        scripts_dir = Path(__file__).parent.parent / "scripts"
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(scripts_dir),
+            check=False,
+        )
+        return result
+
+    # ------------------------------------------------------------------
+    # validate_server_name
+    # ------------------------------------------------------------------
+
+    def test_validate_server_name_empty_rejected(self) -> None:
+        """Empty name is rejected with an explicit message."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_server_name\n"
+            "ok, msg = validate_server_name('')\n"
+            "print(ok, 'empty' in msg.lower())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_validate_server_name_valid_alphanumeric_with_hyphen(self) -> None:
+        """Lowercase alphanumeric + interior hyphen is accepted."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_server_name\n"
+            "print(validate_server_name('brave-search-v2'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "(True, '')"
+
+    def test_validate_server_name_uppercase_rejected(self) -> None:
+        """Uppercase letters are rejected — spec allows only lowercase."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_server_name\n"
+            "ok, msg = validate_server_name('GitHub')\n"
+            "print(ok, 'lowercase' in msg.lower())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_validate_server_name_edge_hyphens_rejected(self) -> None:
+        """Leading or trailing hyphen is rejected."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_server_name\n"
+            "print(validate_server_name('-leading')[0],\n"
+            "      validate_server_name('trailing-')[0])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False False"
+
+    # ------------------------------------------------------------------
+    # validate_url — scheme whitelist
+    # ------------------------------------------------------------------
+
+    def test_validate_url_empty_rejected(self) -> None:
+        """Empty URL is rejected."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_url\n"
+            "ok, msg = validate_url('')\n"
+            "print(ok, 'empty' in msg.lower())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_validate_url_https_accepted(self) -> None:
+        """https:// URLs are accepted."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_url\n"
+            "print(validate_url('https://api.example.com/mcp'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "(True, '')"
+
+    def test_validate_url_http_accepted(self) -> None:
+        """http:// URLs are accepted (common for local dev)."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_url\n"
+            "print(validate_url('http://localhost:8080/mcp'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "(True, '')"
+
+    def test_validate_url_ftp_rejected(self) -> None:
+        """ftp:// is rejected — not in the http(s) scheme whitelist."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_url\n"
+            "ok, msg = validate_url('ftp://files.example.com/x')\n"
+            "print(ok, 'http' in msg)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_validate_url_javascript_scheme_rejected(self) -> None:
+        """javascript: URI is rejected — protects against scheme injection."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_url\n"
+            "print(validate_url('javascript:alert(1)')[0])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
+
+    def test_validate_url_env_placeholder_accepted(self) -> None:
+        """${VAR}-form placeholder is accepted (late binding via env)."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_url\n"
+            "print(validate_url('${MCP_REMOTE_URL}'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "(True, '')"
+
+    # ------------------------------------------------------------------
+    # validate_command — traversal, empty, metachars
+    # ------------------------------------------------------------------
+
+    def test_validate_command_empty_rejected(self) -> None:
+        """stdio servers require a non-empty command."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_command\n"
+            "ok, msg = validate_command('')\n"
+            "print(ok, 'empty' in msg.lower())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_validate_command_safelisted_node_accepted(self) -> None:
+        """'node' (bare safelist entry) is accepted."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_command\n"
+            "print(validate_command('node'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "(True, '')"
+
+    def test_validate_command_unsafe_bare_rejected(self) -> None:
+        """'rm' is rejected — not on the safe-command whitelist."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_command\n"
+            "ok, msg = validate_command('rm')\n"
+            "print(ok, 'allowed' in msg)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_validate_command_relative_traversal_rejected(self) -> None:
+        """``../../bin/sh`` is rejected — basename 'sh' not in safelist.
+
+        Pins the traversal-rejection: a relative path escaping upward
+        doesn't start with ``/``, and its basename isn't on the
+        safelist, so both fallback branches fail.
+        """
+        result = self._run_py(
+            "from mcp_config_generator import validate_command\n"
+            "print(validate_command('../../bin/sh')[0])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
+
+    def test_validate_command_metachar_embedded_rejected(self) -> None:
+        """``node;rm -rf /`` is rejected — metachar-laced string is not the token 'node'."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_command\n"
+            "print(validate_command('node;rm -rf /')[0])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
+
+    def test_validate_command_absolute_path_accepted(self) -> None:
+        """Absolute paths are accepted (current permissive behavior).
+
+        Pins an intentional design choice: an operator-provided absolute
+        path bypasses the safelist. Worth pinning explicitly so any
+        future tightening (e.g. requiring basename ∈ safelist even for
+        absolute paths) shows up as a test failure rather than a silent
+        behavior change.
+        """
+        result = self._run_py(
+            "from mcp_config_generator import validate_command\n"
+            "print(validate_command('/usr/local/bin/node'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "(True, '')"
+
+    # ------------------------------------------------------------------
+    # validate_path_safe
+    # ------------------------------------------------------------------
+
+    def test_validate_path_safe_cwd_relative_accepted(self) -> None:
+        """A plain relative path resolves under cwd and is accepted."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_path_safe\n"
+            "print(validate_path_safe('./output.json'))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "(True, '')"
+
+    def test_validate_path_safe_outside_roots_rejected(self) -> None:
+        """A path that resolves outside cwd/home/tmp is rejected."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_path_safe\n"
+            "ok, msg = validate_path_safe('/etc/passwd')\n"
+            "print(ok, 'within' in msg)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_validate_path_safe_dollar_rejected(self) -> None:
+        """``$`` is treated as a suspicious shell metacharacter."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_path_safe\n"
+            "ok, msg = validate_path_safe('./$PWD/out.json')\n"
+            "print(ok, 'Suspicious' in msg and '$' in msg)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_validate_path_safe_semicolon_rejected(self) -> None:
+        """``;`` (command separator) is rejected."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_path_safe\n"
+            "ok, msg = validate_path_safe('./out.json;rm -rf .')\n"
+            "print(ok, 'Suspicious' in msg)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True"
+
+    def test_validate_path_safe_backtick_rejected(self) -> None:
+        """Backtick (command substitution) is rejected."""
+        result = self._run_py(
+            "from mcp_config_generator import validate_path_safe\n"
+            "ok, _ = validate_path_safe('./out`whoami`.json')\n"
+            "print(ok)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
+
+    # ------------------------------------------------------------------
+    # .mcp.json emission — adversarial inputs
+    # ------------------------------------------------------------------
+
+    def test_generate_mcp_json_writes_wrapped_format(self) -> None:
+        """``generate_mcp_json`` writes a file with the mcpServers wrapper."""
+        result = self._run_py(
+            "import json, tempfile\n"
+            "from pathlib import Path\n"
+            "from mcp_config_generator import generate_mcp_json\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    ok, _msg, path = generate_mcp_json(['playwright'], td)\n"
+            "    data = json.loads(Path(path).read_text())\n"
+            "    print(ok,\n"
+            "          'mcpServers' in data,\n"
+            "          'playwright' in data['mcpServers'],\n"
+            "          data['mcpServers']['playwright']['command'])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True True True npx"
+
+    def test_generate_mcp_json_unknown_server_rejected(self) -> None:
+        """Unknown server names are rejected — no file is written."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from mcp_config_generator import generate_mcp_json\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    ok, msg, path = generate_mcp_json(['definitely-not-a-server'], td)\n"
+            "    print(ok, 'Unknown' in msg, path, (Path(td) / '.mcp.json').exists())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True  False"
+
+    def test_generate_mcp_json_empty_rejected(self) -> None:
+        """Empty server list is rejected before any filesystem work."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from mcp_config_generator import generate_mcp_json\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    ok, msg, path = generate_mcp_json([], td)\n"
+            "    print(ok, 'No servers' in msg, (Path(td) / '.mcp.json').exists())"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True False"
+
+    def test_generate_rejects_adversarial_output_path(self) -> None:
+        """``generate`` refuses output paths containing shell metacharacters.
+
+        Even when the servers validate cleanly, an output_path like
+        ``./foo;rm -rf .`` must be rejected by ``validate_path_safe``
+        before any file is written.
+        """
+        result = self._run_py(
+            "from mcp_config_generator import generate, SERVER_TEMPLATES\n"
+            "ok, msg, path = generate(\n"
+            "    servers=[SERVER_TEMPLATES['playwright']],\n"
+            "    output_path='./foo;rm -rf .',\n"
+            ")\n"
+            "print(ok, 'Invalid output path' in msg, repr(path))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True ''"
+
+    # ------------------------------------------------------------------
+    # Round-trip: server_to_dict ⇄ create_server_from_dict
+    # ------------------------------------------------------------------
+
+    def test_stdio_server_roundtrip_lossless(self) -> None:
+        """A stdio MCPServer survives server_to_dict → create_server_from_dict."""
+        result = self._run_py(
+            "from mcp_config_generator import (\n"
+            "    MCPServer, create_server_from_dict, server_to_dict,\n"
+            ")\n"
+            "orig = MCPServer(name='db', server_type='stdio', command='node',\n"
+            "                 args=['server.js'], env={'PORT': '5432'})\n"
+            "d = server_to_dict(orig)\n"
+            "d['name'] = 'db'\n"
+            "rt = create_server_from_dict(d)\n"
+            "print(rt.name, rt.server_type, rt.command, rt.args, rt.env)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "db stdio node ['server.js'] {'PORT': '5432'}"
+
+    def test_http_server_roundtrip_lossless(self) -> None:
+        """An http MCPServer survives server_to_dict → create_server_from_dict."""
+        result = self._run_py(
+            "from mcp_config_generator import (\n"
+            "    MCPServer, create_server_from_dict, server_to_dict,\n"
+            ")\n"
+            "orig = MCPServer(name='api', server_type='http',\n"
+            "                 url='https://api.example.com/mcp',\n"
+            "                 headers={'Authorization': 'Bearer X'})\n"
+            "d = server_to_dict(orig)\n"
+            "d['name'] = 'api'\n"
+            "rt = create_server_from_dict(d)\n"
+            "print(rt.name, rt.server_type, rt.url, rt.headers)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == (
+            "api http https://api.example.com/mcp {'Authorization': 'Bearer X'}"
+        )
+
+    # ------------------------------------------------------------------
+    # Duplicate handling
+    # ------------------------------------------------------------------
+
+    def test_recommend_dedupes_server_recommended_by_multiple_domains(self) -> None:
+        """``recommend_mcp_servers`` returns a server once even when
+        multiple domain keywords recommend it.
+
+        'web' and 'search' domains both include ``fetch``; a description
+        mentioning both should list 'fetch' exactly once and rank it
+        first (highest match count).
+        """
+        result = self._run_py(
+            "from mcp_config_generator import recommend_mcp_servers\n"
+            "rec = recommend_mcp_servers(description='web search agent')\n"
+            "print(rec.count('fetch'), rec[0])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "1 fetch"
+
+    def test_generate_config_duplicate_names_last_wins(self) -> None:
+        """Two servers with the same name collapse to one entry (last wins).
+
+        Pins the current dict-based emission: ``generate_config`` writes
+        ``servers_dict[server.name] = server_to_dict(server)`` in order,
+        so duplicates silently overwrite. This is the de-facto rejection
+        behavior — worth pinning so a future explicit-rejection change
+        shows up as a test update rather than a silent behavior flip.
+        """
+        result = self._run_py(
+            "from mcp_config_generator import MCPServer, MCPConfig, generate_config\n"
+            "a = MCPServer(name='dup', server_type='stdio', command='node',\n"
+            "              args=['first.js'])\n"
+            "b = MCPServer(name='dup', server_type='stdio', command='node',\n"
+            "              args=['second.js'])\n"
+            "cfg = MCPConfig(servers=[a, b])\n"
+            "out = generate_config(cfg)\n"
+            "print(len(out), out['dup']['args'])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "1 ['second.js']"
+
+
 class TestGenerationReport:
     """Tests for generation_report.py (feature #76).
 
