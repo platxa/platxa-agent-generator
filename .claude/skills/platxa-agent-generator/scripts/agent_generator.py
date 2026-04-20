@@ -39,7 +39,7 @@ except ImportError:
 # about — purely additive sections do not warrant a bump. Single
 # source of truth so the footer string and any version-checking code
 # stay in sync.
-PLATXA_GENERATOR_VERSION: str = "1.0.0"
+PLATXA_GENERATOR_VERSION: str = "1.0.1"
 
 # Sentinel string that opens the attribution footer. Public constant
 # so tests, regeneration tooling, and documentation pipelines can

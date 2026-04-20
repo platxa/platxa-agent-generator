@@ -19528,5 +19528,89 @@ class TestExtendedThinking:
         ]
 
 
+class TestVersionBump:
+    """Tests for Feature #28: pyproject.toml + PLATXA_GENERATOR_VERSION bump.
+
+    Pins the coupled version constants that advance in lockstep at the end
+    of a hardening sprint. Two invariants:
+
+    - ``pyproject.toml`` ``[project].version`` matches the expected patch.
+    - ``agent_generator.PLATXA_GENERATOR_VERSION`` matches ``pyproject.toml``
+      so the attribution footer emitted into every generated agent file
+      stays consistent with the package version on PyPI.
+
+    Drift between these two strings has surfaced in the past as footer
+    metadata pointing to a package version that doesn't exist — so this
+    class enforces equality rather than spot-checking each in isolation.
+    """
+
+    # Expected post-bump version. Hard-coded (rather than read from
+    # pyproject.toml) so the test itself is the oracle: if a future
+    # refactor regresses the pyproject version, ``test_pyproject_version``
+    # breaks before ``test_constant_matches`` obscures the failure by
+    # also reading from the same drifted source.
+    EXPECTED_VERSION: str = "1.0.1"
+
+    @staticmethod
+    def _project_root() -> Path:
+        """Resolve the repo root (two dirs above ``tests/``).
+
+        ``SCRIPTS_DIR`` is ``scripts/`` and its parent is the skill root
+        (``platxa-agent-generator``). We walk up to ``platxa-agent-generator``
+        (the git repo) by going two levels above ``tests/``. Computed
+        lazily so the helper stays usable even if the module moves.
+        """
+        return SCRIPTS_DIR.parent.parent.parent.parent
+
+    def test_pyproject_version(self) -> None:
+        """pyproject.toml ``[project].version`` equals the expected patch."""
+        pyproject = self._project_root() / "pyproject.toml"
+        assert pyproject.exists(), f"pyproject.toml missing at {pyproject}"
+        content = pyproject.read_text(encoding="utf-8")
+        # Match the ``version = "X.Y.Z"`` line under ``[project]`` without
+        # pulling in tomllib — the regex is intentionally specific so a
+        # ``version`` key under a different TOML table (e.g. a build-system
+        # dependency) does not false-positive.
+        match = re.search(r'^version\s*=\s*"([^"]+)"', content, re.MULTILINE)
+        assert match is not None, (
+            "pyproject.toml must declare a top-level ``version = \"X.Y.Z\"`` "
+            "line; none found"
+        )
+        assert match.group(1) == self.EXPECTED_VERSION, (
+            f"pyproject.toml version {match.group(1)!r} != expected "
+            f"{self.EXPECTED_VERSION!r}"
+        )
+
+    def test_constant_matches(self) -> None:
+        """agent_generator.PLATXA_GENERATOR_VERSION equals pyproject version.
+
+        Drift between these two strings means the footer emitted into
+        generated agents claims a package version that does not match the
+        installed distribution. Enforced in a subprocess so the test
+        reads the constant as the running generator would, not the source
+        file text.
+        """
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from scripts.agent_generator import "
+                    "PLATXA_GENERATOR_VERSION; print(PLATXA_GENERATOR_VERSION)"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR.parent),
+        )
+        assert result.returncode == 0, (
+            f"PLATXA_GENERATOR_VERSION import failed: {result.stderr}"
+        )
+        assert result.stdout.strip() == self.EXPECTED_VERSION, (
+            f"PLATXA_GENERATOR_VERSION {result.stdout.strip()!r} != expected "
+            f"{self.EXPECTED_VERSION!r}"
+        )
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
