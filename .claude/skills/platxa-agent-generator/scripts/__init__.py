@@ -42,6 +42,7 @@ from . import (
     agent_export,
     agent_generator,
     agent_linter,
+    agent_readme_generator,
     agent_upgrader,
     agent_versioning,
     batch_generator,
@@ -107,4 +108,5 @@ __all__ = [
     "agent_linter",
     "batch_generator",
     "generation_report",
+    "agent_readme_generator",
 ]
