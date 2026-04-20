@@ -50,11 +50,21 @@ def _load_sibling_module(module_name: str) -> Any | None:
     Returns:
         The loaded module or None if not found
     """
-    # First, try relative import (when running as package)
-    try:
-        return importlib.import_module(f".{module_name}", package=__package__)
-    except (ImportError, TypeError):
-        pass
+    # First, try relative import (only meaningful when this module was
+    # itself loaded as part of a package — i.e. ``__package__`` is a
+    # non-empty string). Calling ``importlib.import_module(".name",
+    # package="")`` or ``package=None`` raises ``TypeError`` because a
+    # relative import has no parent to resolve against; guarding here
+    # eliminates that code path at its source instead of catching the
+    # TypeError after the fact. Once guarded, the only expected failure
+    # mode is ``ImportError`` (the sibling genuinely does not exist
+    # within the package), which we swallow to let the disk-based
+    # fallback run below.
+    if __package__:
+        try:
+            return importlib.import_module(f".{module_name}", package=__package__)
+        except ImportError:
+            pass
 
     # Second, try loading from same directory (standalone execution)
     script_dir = Path(__file__).parent
@@ -70,13 +80,26 @@ def _load_sibling_module(module_name: str) -> Any | None:
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
 
+    # Narrow the catch to ``ImportError`` so a genuinely broken sibling
+    # module — ``SyntaxError`` in its body, ``RuntimeError`` from a
+    # top-level initializer, a missing third-party dependency that
+    # surfaces as ``ModuleNotFoundError`` (a subclass of ImportError) is
+    # the only masked failure — surfaces to the caller instead of being
+    # silently converted into a ``return None``. Silent fallback on
+    # ``except Exception`` previously let a single syntax error in any
+    # generator disable ``--dry-run`` with no signal to the user.
+    # Pop the partial registration on every failure path so a retry
+    # does not see stale state; do this before re-raising so the caller
+    # gets a clean sys.modules even on propagation.
     try:
         spec.loader.exec_module(module)
-        return module
-    except Exception:
-        # Clean up on failure
+    except ImportError:
         sys.modules.pop(module_name, None)
         return None
+    except BaseException:
+        sys.modules.pop(module_name, None)
+        raise
+    return module
 
 
 def _get_generator(module_name: str) -> GeneratorProtocol | None:

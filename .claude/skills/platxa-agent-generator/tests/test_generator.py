@@ -17122,5 +17122,114 @@ class TestHooksGeneratorInjection:
         )
 
 
+class TestDryRunImportBroken:
+    """Tests for dry_run._load_sibling_module narrowing (Feature #16).
+
+    Previously ``_load_sibling_module`` caught every exception raised by
+    ``spec.loader.exec_module`` with ``except Exception: return None``,
+    and the first-try relative import caught ``(ImportError, TypeError)``
+    to paper over a call that was fundamentally wrong when
+    ``__package__`` was not a real package. When a generator module
+    (e.g. ``agent_generator.py``) developed a ``SyntaxError`` in its
+    body, the broad except silently converted it to ``None`` and
+    ``--dry-run`` quietly fell back to the embedded fallback templates —
+    users saw output that looked correct and never learned their
+    generator was broken.
+
+    The fix has two parts:
+
+    - **First-try guard.** The relative import ``importlib.import_module(".mod",
+      package=__package__)`` is only meaningful when ``__package__`` is
+      a non-empty string. Otherwise it raises ``TypeError`` ("the
+      'package' argument is required to perform a relative import") on
+      Python 3.12, which the old code silently swallowed. Guarding with
+      ``if __package__`` eliminates the TypeError path at its source,
+      so the narrowed ``except ImportError`` is sufficient for the real
+      failure mode (sibling missing inside a real package).
+    - **Second-try narrowing.** The exec_module catch is narrowed to
+      ``except ImportError`` so ``SyntaxError``, ``RuntimeError``, and
+      any other programmer error surfaces to the caller. The partial
+      registration in ``sys.modules`` is popped on both the
+      ImportError path and the propagation path to avoid leaving stale
+      state that would mask a retry.
+
+    Baseline preserved: a sibling that simply does not exist on disk
+    still returns ``None`` — that is the legitimate "module not
+    available" signal, not a bug indicator.
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        return subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def test_missing_module_returns_none(self, tmp_path: Path) -> None:
+        """When the sibling module file does not exist on disk,
+        ``_load_sibling_module`` must return ``None`` — the baseline
+        "module not available" signal.
+
+        Exercises the disk-lookup branch end-to-end: we relocate the
+        ``__file__`` of dry_run to an empty tmp dir so the script-dir
+        path search finds nothing, then assert None is returned without
+        raising. This must not regress after the narrowing.
+        """
+        result = self._run_py(
+            "import sys\n"
+            f"sys.path.insert(0, {str(SCRIPTS_DIR)!r})\n"
+            "import dry_run\n"
+            # Redirect the script dir to an empty tmp path so the disk
+            # lookup finds nothing.
+            f"dry_run.__file__ = {str(tmp_path / 'dry_run.py')!r}\n"
+            "result = dry_run._load_sibling_module('nonexistent_sibling_abc123')\n"
+            "print('result_is_none:', result is None)\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "result_is_none: True" in result.stdout
+
+    def test_syntax_error_propagates(self, tmp_path: Path) -> None:
+        """A sibling module whose body contains a ``SyntaxError`` must
+        raise that SyntaxError up to the caller — not be silently
+        swallowed and converted to ``None``.
+
+        This is the bug the narrowing fixes: under the old
+        ``except Exception`` clause, a broken generator disabled
+        ``--dry-run`` with no signal. Now the SyntaxError propagates
+        so the user sees the real problem in the real file.
+        """
+        # Write a sibling module with invalid Python syntax into a tmp
+        # dir, then point dry_run.__file__ at that dir so the script-dir
+        # lookup finds and attempts to exec it.
+        broken = tmp_path / "broken_sibling.py"
+        broken.write_text("def foo(\n    # unterminated parameter list\n", encoding="utf-8")
+        fake_script = tmp_path / "dry_run.py"
+        fake_script.touch()
+
+        result = self._run_py(
+            "import sys\n"
+            f"sys.path.insert(0, {str(SCRIPTS_DIR)!r})\n"
+            "import dry_run\n"
+            f"dry_run.__file__ = {str(fake_script)!r}\n"
+            # Purge any prior registration so exec_module is actually
+            # invoked against our broken file.
+            "sys.modules.pop('broken_sibling', None)\n"
+            "try:\n"
+            "    dry_run._load_sibling_module('broken_sibling')\n"
+            "    print('outcome: silently_returned')\n"
+            "except SyntaxError as e:\n"
+            "    print('outcome: syntax_error_raised')\n"
+            # sys.modules must be cleaned up on the propagation path so
+            # a retry does not see stale state.
+            "    print('sys_modules_clean:', 'broken_sibling' not in sys.modules)\n"
+            "except BaseException as e:\n"
+            "    print(f'outcome: unexpected_{type(e).__name__}')\n"
+        )
+        assert result.returncode == 0, result.stderr
+        assert "outcome: syntax_error_raised" in result.stdout, result.stdout
+        assert "sys_modules_clean: True" in result.stdout, result.stdout
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
