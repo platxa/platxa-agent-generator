@@ -4,13 +4,13 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - 'scripts/**'
+      - 'src/**'
       - 'tests/**'
       - 'templates/**'
   pull_request:
     branches: [main]
     paths:
-      - 'scripts/**'
+      - 'src/**'
       - 'tests/**'
       - 'templates/**'
 
@@ -43,7 +43,7 @@ jobs:
         run: |
           pytest tests/ -v \
             --tb=short \
-            --cov=scripts \
+            --cov=src/platxa_agent_generator \
             --cov-report=term-missing \
             --cov-report=xml
 
@@ -75,7 +75,7 @@ jobs:
       - name: Test catalog listing
         run: |
           python -c "
-          from scripts.agent_catalog import list_agents, CATEGORIES
+          from platxa_agent_generator.agent_catalog import list_agents, CATEGORIES
 
           print('Available Categories:')
           for cat, desc in CATEGORIES.items():
@@ -91,10 +91,10 @@ jobs:
       - name: Test catalog generation
         run: |
           python -c "
-          from scripts.agent_catalog import get_agent, generate_agent_content
+          from platxa_agent_generator.agent_catalog import get_agent, generate_agent_content
 
           # Test each agent generates valid content
-          from scripts.agent_catalog import AGENT_CATALOG
+          from platxa_agent_generator.agent_catalog import AGENT_CATALOG
 
           for name, template in AGENT_CATALOG.items():
               content = generate_agent_content(template)
@@ -134,7 +134,7 @@ jobs:
       - name: Test dry run generation
         run: |
           python -c "
-          from scripts.dry_run import dry_run
+          from platxa_agent_generator.dry_run import dry_run
 
           # Test dry run for a simple agent
           result = dry_run(
@@ -176,7 +176,7 @@ jobs:
       - name: Test quality scoring
         run: |
           python -c "
-          from scripts.quality_scorer import score_quality
+          from platxa_agent_generator.quality_scorer import score_quality
 
           # Test with a well-formed agent definition
           good_agent = '''---

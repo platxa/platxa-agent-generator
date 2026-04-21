@@ -65,8 +65,8 @@ jobs:
 
           errors = []
           agent_dirs = [
-              Path('.claude/agents'),
-              Path('.claude/skills/platxa-agent-generator/templates'),
+              Path('agents'),
+              Path('skills/platxa-agent-generator/templates'),
           ]
 
           for agent_dir in agent_dirs:
@@ -114,13 +114,13 @@ jobs:
       - name: Check reference files exist
         run: |
           required_files=(
-            "references/README.md"
-            "references/prompt-chaining.md"
-            "references/routing.md"
-            "references/parallelization.md"
-            "references/orchestrator-workers.md"
-            "references/evaluator-optimizer.md"
-            "references/best-practices.md"
+            "skills/platxa-agent-generator/references/README.md"
+            "skills/platxa-agent-generator/references/prompt-chaining.md"
+            "skills/platxa-agent-generator/references/routing.md"
+            "skills/platxa-agent-generator/references/parallelization.md"
+            "skills/platxa-agent-generator/references/orchestrator-workers.md"
+            "skills/platxa-agent-generator/references/evaluator-optimizer.md"
+            "skills/platxa-agent-generator/references/best-practices.md"
           )
 
           missing=()
@@ -146,7 +146,7 @@ jobs:
           from pathlib import Path
 
           errors = []
-          for md_file in Path('references').glob('*.md'):
+          for md_file in Path('skills/platxa-agent-generator/references').glob('*.md'):
               content = md_file.read_text()
               # Find markdown links
               links = re.findall(r'\[.*?\]\(((?!http)[^)]+)\)', content)
