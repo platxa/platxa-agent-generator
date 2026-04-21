@@ -24,11 +24,10 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyright pytest ruff
-          pip install -r requirements.txt || true
+          pip install -e ".[dev]"
 
       - name: Type checking with Pyright
-        run: pyright .
+        run: pyright
 
       - name: Linting with Ruff
         run: |
@@ -64,9 +63,11 @@ jobs:
           import yaml
 
           errors = []
+          # Only real agent definitions (agents/) have frontmatter. Pattern
+          # docs under skills/platxa-agent-generator/templates/ and references/
+          # are instructional markdown, not installable agents.
           agent_dirs = [
               Path('agents'),
-              Path('skills/platxa-agent-generator/templates'),
           ]
 
           for agent_dir in agent_dirs:

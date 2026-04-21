@@ -58,7 +58,7 @@ packages = ["src/platxa_agent_generator"]
 [tool.pyright]
 pythonVersion = "3.10"
 typeCheckingMode = "basic"
-include = ["src/platxa_agent_generator"]
+include = ["src/platxa_agent_generator", "tests"]
 exclude = ["**/__pycache__", "**/.pytest_cache"]
 
 [tool.ruff]

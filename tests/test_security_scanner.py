@@ -1038,6 +1038,7 @@ class TestPatternDetection:
         findings = scan_patterns(content, CRITICAL_PATTERNS, Severity.CRITICAL)
         sudo_finding = next((f for f in findings if f.code == "SEC002"), None)
         assert sudo_finding is not None
+        assert sudo_finding.evidence is not None
         assert "sudo" in sudo_finding.evidence
 
 
