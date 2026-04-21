@@ -119,8 +119,7 @@ class WorkflowState:
             valid = [p.value for p in self.get_valid_transitions()]
             return (
                 False,
-                f"Invalid transition: {self.current_phase.value} → {target.value}. "
-                f"Valid: {valid}",
+                f"Invalid transition: {self.current_phase.value} → {target.value}. Valid: {valid}",
             )
 
         # Record result for current phase before transitioning
@@ -324,9 +323,7 @@ def main() -> None:
     """CLI entry point."""
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Workflow state machine for agent generation"
-    )
+    parser = argparse.ArgumentParser(description="Workflow state machine for agent generation")
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # New workflow command
@@ -359,9 +356,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "new":
-        state = create_workflow(
-            agent_name=args.name, agent_description=args.description
-        )
+        state = create_workflow(agent_name=args.name, agent_description=args.description)
 
         if args.output:
             state.save(args.output)

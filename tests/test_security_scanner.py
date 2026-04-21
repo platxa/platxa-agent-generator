@@ -11,16 +11,11 @@ Run with: pytest tests/test_security_scanner.py -v
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 
 import pytest
 
-SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
-
-from security_scanner import (  # noqa: E402
+from platxa_agent_generator.security_scanner import (
     CRITICAL_PATTERNS,
     HIGH_RISK_PATTERNS,
     LOW_RISK_PATTERNS,
@@ -1474,7 +1469,7 @@ class TestAgentExportZipSlip:
         """A member with ``../`` traversal must raise ValueError before extracting."""
         import zipfile as _zf
 
-        from agent_export import _safe_extract_zip
+        from platxa_agent_generator.agent_export import _safe_extract_zip
 
         dest = tmp_path / "dest"
         dest.mkdir()
@@ -1495,7 +1490,7 @@ class TestAgentExportZipSlip:
         """A member whose name is an absolute path must raise ValueError."""
         import zipfile as _zf
 
-        from agent_export import _safe_extract_zip
+        from platxa_agent_generator.agent_export import _safe_extract_zip
 
         dest = tmp_path / "dest"
         dest.mkdir()
@@ -1522,7 +1517,7 @@ class TestAgentExportZipSlip:
         import stat as _stat
         import zipfile as _zf
 
-        from agent_export import _safe_extract_zip
+        from platxa_agent_generator.agent_export import _safe_extract_zip
 
         dest = tmp_path / "dest"
         dest.mkdir()
@@ -1549,7 +1544,7 @@ class TestAgentExportTarSlip:
         import io as _io
         import tarfile as _tf
 
-        from agent_export import _safe_extract_tar
+        from platxa_agent_generator.agent_export import _safe_extract_tar
 
         dest = tmp_path / "dest"
         dest.mkdir()
@@ -1574,7 +1569,7 @@ class TestAgentExportTarSlip:
         import io as _io
         import tarfile as _tf
 
-        from agent_export import _safe_extract_tar
+        from platxa_agent_generator.agent_export import _safe_extract_tar
 
         dest = tmp_path / "dest"
         dest.mkdir()
@@ -1600,7 +1595,7 @@ class TestAgentExportTarSlip:
         """
         import tarfile as _tf
 
-        from agent_export import _safe_extract_tar
+        from platxa_agent_generator.agent_export import _safe_extract_tar
 
         dest = tmp_path / "dest"
         dest.mkdir()
@@ -1631,7 +1626,7 @@ class TestAgentExportPlugin:
         import os as _os
         import shutil as _shutil
 
-        from agent_export import _create_plugin_staging_dir
+        from platxa_agent_generator.agent_export import _create_plugin_staging_dir
 
         output_dir = tmp_path / "out" / "myplugin"
         staging = _create_plugin_staging_dir(output_dir)
@@ -1653,7 +1648,7 @@ class TestAgentExportPlugin:
         import shutil as _shutil
         import tempfile as _tf
 
-        from agent_export import _create_plugin_staging_dir
+        from platxa_agent_generator.agent_export import _create_plugin_staging_dir
 
         # pytest's tmp_path lives under the system tempdir by
         # default, so same_device will be true — exercise the
@@ -1699,7 +1694,7 @@ class TestAgentExportPlugin:
         import os as _os
         import shutil as _shutil
 
-        import agent_export as _ae
+        from platxa_agent_generator import agent_export as _ae
 
         # Force the same-filesystem probe to report False without
         # actually remounting a filesystem. Patching the helper is

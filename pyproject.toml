@@ -50,15 +50,15 @@ Repository = "https://github.com/platxa/platxa-agent-generator"
 Documentation = "https://github.com/platxa/platxa-agent-generator#readme"
 
 [project.scripts]
-platxa-agent = "scripts.cli:main"
+platxa-agent = "platxa_agent_generator.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = [".claude/skills/platxa-agent-generator/scripts"]
+packages = ["src/platxa_agent_generator"]
 
 [tool.pyright]
 pythonVersion = "3.10"
 typeCheckingMode = "basic"
-include = [".claude/skills/platxa-agent-generator/scripts"]
+include = ["src/platxa_agent_generator"]
 exclude = ["**/__pycache__", "**/.pytest_cache"]
 
 [tool.ruff]
@@ -70,5 +70,4 @@ select = ["E", "F", "I", "W"]
 ignore = ["E501"]
 
 [tool.pytest.ini_options]
-testpaths = [".claude/skills/platxa-agent-generator/tests"]
-pythonpath = [".claude/skills/platxa-agent-generator"]
+testpaths = ["tests"]

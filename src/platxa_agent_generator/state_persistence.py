@@ -1286,8 +1286,7 @@ def main() -> None:
                     value = json.loads(value)
                 except json.JSONDecodeError:
                     print(
-                        f"notice: value for '{key}' is not valid JSON; "
-                        f"storing as string",
+                        f"notice: value for '{key}' is not valid JSON; storing as string",
                         file=sys.stderr,
                     )
                 if persistence.set_config(**{key: value}):

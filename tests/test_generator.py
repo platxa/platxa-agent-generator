@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-SCRIPTS_DIR = Path(__file__).parent.parent / "scripts"
+SCRIPTS_DIR = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
 
 
 class TestSyntaxValidator:
@@ -368,7 +368,7 @@ class TestTypeClassifier:
                 "-c",
                 (
                     "import json, dataclasses; "
-                    "from scripts.type_classifier import classify; "
+                    "from platxa_agent_generator.type_classifier import classify; "
                     f"print(json.dumps(dataclasses.asdict(classify({description!r}))))"
                 ),
             ],
@@ -431,7 +431,7 @@ class TestTypeClassifierMaxTurns:
             [
                 sys.executable,
                 "-c",
-                "from scripts.type_classifier import recommend_max_turns; print(recommend_max_turns('simple', 1))",
+                "from platxa_agent_generator.type_classifier import recommend_max_turns; print(recommend_max_turns('simple', 1))",
             ],
             capture_output=True,
             text=True,
@@ -445,7 +445,7 @@ class TestTypeClassifierMaxTurns:
             [
                 sys.executable,
                 "-c",
-                "from scripts.type_classifier import recommend_max_turns; print(recommend_max_turns('orchestrator', 3))",
+                "from platxa_agent_generator.type_classifier import recommend_max_turns; print(recommend_max_turns('orchestrator', 3))",
             ],
             capture_output=True,
             text=True,
@@ -459,7 +459,7 @@ class TestTypeClassifierMaxTurns:
             [
                 sys.executable,
                 "-c",
-                "from scripts.type_classifier import recommend_max_turns; print(recommend_max_turns('multi-agent', 5))",
+                "from platxa_agent_generator.type_classifier import recommend_max_turns; print(recommend_max_turns('multi-agent', 5))",
             ],
             capture_output=True,
             text=True,
@@ -473,7 +473,7 @@ class TestTypeClassifierMaxTurns:
             [
                 sys.executable,
                 "-c",
-                "from scripts.type_classifier import recommend_max_turns; print(recommend_max_turns('pipeline', 3))",
+                "from platxa_agent_generator.type_classifier import recommend_max_turns; print(recommend_max_turns('pipeline', 3))",
             ],
             capture_output=True,
             text=True,
@@ -487,7 +487,7 @@ class TestTypeClassifierMaxTurns:
             [
                 sys.executable,
                 "-c",
-                "from scripts.type_classifier import recommend_max_turns; print(recommend_max_turns('unknown', 3))",
+                "from platxa_agent_generator.type_classifier import recommend_max_turns; print(recommend_max_turns('unknown', 3))",
             ],
             capture_output=True,
             text=True,
@@ -601,7 +601,7 @@ class TestModelRouting:
             [
                 sys.executable,
                 "-c",
-                "from scripts.type_classifier import recommend_model; print(recommend_model('simple', 1))",
+                "from platxa_agent_generator.type_classifier import recommend_model; print(recommend_model('simple', 1))",
             ],
             capture_output=True,
             text=True,
@@ -615,7 +615,7 @@ class TestModelRouting:
             [
                 sys.executable,
                 "-c",
-                "from scripts.type_classifier import recommend_model; print(recommend_model('orchestrator', 3))",
+                "from platxa_agent_generator.type_classifier import recommend_model; print(recommend_model('orchestrator', 3))",
             ],
             capture_output=True,
             text=True,
@@ -629,7 +629,7 @@ class TestModelRouting:
             [
                 sys.executable,
                 "-c",
-                "from scripts.type_classifier import recommend_model; print(recommend_model('orchestrator', 5))",
+                "from platxa_agent_generator.type_classifier import recommend_model; print(recommend_model('orchestrator', 5))",
             ],
             capture_output=True,
             text=True,
@@ -643,7 +643,7 @@ class TestModelRouting:
             [
                 sys.executable,
                 "-c",
-                "from scripts.type_classifier import recommend_model; print(recommend_model('multi-agent', 3))",
+                "from platxa_agent_generator.type_classifier import recommend_model; print(recommend_model('multi-agent', 3))",
             ],
             capture_output=True,
             text=True,
@@ -657,7 +657,7 @@ class TestModelRouting:
             [
                 sys.executable,
                 "-c",
-                "from scripts.type_classifier import recommend_model; print(recommend_model('pipeline', 1))",
+                "from platxa_agent_generator.type_classifier import recommend_model; print(recommend_model('pipeline', 1))",
             ],
             capture_output=True,
             text=True,
@@ -804,7 +804,7 @@ class TestDisallowedToolsRecommendation:
                 sys.executable,
                 "-c",
                 (
-                    "from scripts.security_scanner import recommend_disallowed_tools; "
+                    "from platxa_agent_generator.security_scanner import recommend_disallowed_tools; "
                     "print(','.join(recommend_disallowed_tools("
                     "['Read', 'Grep', 'Glob'], description='read-only code analyzer')))"
                 ),
@@ -826,7 +826,7 @@ class TestDisallowedToolsRecommendation:
                 sys.executable,
                 "-c",
                 (
-                    "from scripts.security_scanner import recommend_disallowed_tools; "
+                    "from platxa_agent_generator.security_scanner import recommend_disallowed_tools; "
                     "r = recommend_disallowed_tools(['Read', 'Bash'], description='analyzer'); "
                     "print('Bash' not in r and 'Read' not in r)"
                 ),
@@ -844,7 +844,7 @@ class TestDisallowedToolsRecommendation:
                 sys.executable,
                 "-c",
                 (
-                    "from scripts.security_scanner import recommend_disallowed_tools; "
+                    "from platxa_agent_generator.security_scanner import recommend_disallowed_tools; "
                     "print(','.join(recommend_disallowed_tools("
                     "['Read', 'Grep'], description='some generic agent')))"
                 ),
@@ -1104,18 +1104,13 @@ class TestHooksRecommendation:
         return json.loads(result.stdout) if result.stdout.strip() else {}
 
     def _import_recommend(self) -> tuple:
-        """Import recommend_hooks_for_agent from scripts dir."""
-        import importlib
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location(
-            "agent_generator",
-            SCRIPTS_DIR / "agent_generator.py",
+        """Import recommend_hooks_for_agent from the installed package."""
+        from platxa_agent_generator.agent_generator import (
+            generate_hooks_section,
+            recommend_hooks_for_agent,
         )
-        assert spec is not None and spec.loader is not None
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        return mod.recommend_hooks_for_agent, mod.generate_hooks_section
+
+        return recommend_hooks_for_agent, generate_hooks_section
 
     def test_security_agent_gets_pretooluse_hooks(self) -> None:
         """Security agents should get PreToolUse validation hooks."""
@@ -1233,8 +1228,8 @@ class TestPreToolUseDenyScript:
                 sys.executable,
                 "-c",
                 (
-                    "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
-                    "from hooks_generator import generate_pretooluse_deny_script; "
+                    ""
+                    "from platxa_agent_generator.hooks_generator import generate_pretooluse_deny_script; "
                     f"print(generate_pretooluse_deny_script('{agent_name}'))"
                 ),
             ],
@@ -1330,8 +1325,8 @@ class TestPreToolUseDenyScript:
                 sys.executable,
                 "-c",
                 (
-                    "import sys, json; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
-                    "from hooks_generator import generate_pretooluse_hook_config; "
+                    "import json; "
+                    "from platxa_agent_generator.hooks_generator import generate_pretooluse_hook_config; "
                     "print(json.dumps(generate_pretooluse_hook_config("
                     "'my-agent', '/path/to/deny.sh')))"
                 ),
@@ -1363,8 +1358,8 @@ class TestPostToolUseLintScript:
                 sys.executable,
                 "-c",
                 (
-                    "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
-                    "from hooks_generator import generate_posttooluse_lint_script; "
+                    ""
+                    "from platxa_agent_generator.hooks_generator import generate_posttooluse_lint_script; "
                     f"print(generate_posttooluse_lint_script('{agent_name}'))"
                 ),
             ],
@@ -1381,8 +1376,8 @@ class TestPostToolUseLintScript:
                 sys.executable,
                 "-c",
                 (
-                    "import sys, json; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
-                    "from hooks_generator import generate_posttooluse_lint_hook_config; "
+                    "import json; "
+                    "from platxa_agent_generator.hooks_generator import generate_posttooluse_lint_hook_config; "
                     f"print(json.dumps(generate_posttooluse_lint_hook_config('{agent_name}', '{script_path}')))"
                 ),
             ],
@@ -1535,8 +1530,8 @@ class TestStopVerificationScript:
                 sys.executable,
                 "-c",
                 (
-                    "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
-                    "from hooks_generator import generate_stop_verification_script; "
+                    ""
+                    "from platxa_agent_generator.hooks_generator import generate_stop_verification_script; "
                     f"print(generate_stop_verification_script('{agent_name}'))"
                 ),
             ],
@@ -1553,8 +1548,8 @@ class TestStopVerificationScript:
                 sys.executable,
                 "-c",
                 (
-                    "import sys, json; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
-                    "from hooks_generator import generate_stop_verification_hook_config; "
+                    "import json; "
+                    "from platxa_agent_generator.hooks_generator import generate_stop_verification_hook_config; "
                     f"print(json.dumps(generate_stop_verification_hook_config('{agent_name}', '{script_path}')))"
                 ),
             ],
@@ -1685,8 +1680,8 @@ class TestHooksGeneratorTaskCompleted:
                 sys.executable,
                 "-c",
                 (
-                    "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
-                    "from hooks_generator import generate_task_completed_script; "
+                    ""
+                    "from platxa_agent_generator.hooks_generator import generate_task_completed_script; "
                     f"print(generate_task_completed_script('{agent_name}'))"
                 ),
             ],
@@ -1820,8 +1815,8 @@ class TestHookScriptGeneration:
     def _run_generate(self, agent_name: str, hook_types: str, output_dir: str) -> dict:
         """Run generate_hook_scripts via subprocess, return JSON result."""
         code = (
-            "import sys, json; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
-            "from hooks_generator import generate_hook_scripts; "
+            "import json; "
+            "from platxa_agent_generator.hooks_generator import generate_hook_scripts; "
             f"scripts, config = generate_hook_scripts("
             f"'{agent_name}', "
             f"hook_types={hook_types!r}.split(','), "
@@ -2172,8 +2167,8 @@ class TestErrorHandlingGeneration:
                 sys.executable,
                 "-c",
                 (
-                    "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
-                    "from agent_generator import AgentDefinition, generate_error_handling_section; "
+                    ""
+                    "from platxa_agent_generator.agent_generator import AgentDefinition, generate_error_handling_section; "
                     f"d = AgentDefinition(name='t', description='t', tools={tools_str}); "
                     "print(generate_error_handling_section(d))"
                 ),
@@ -2253,8 +2248,8 @@ class TestContextBudgetEstimation:
                 sys.executable,
                 "-c",
                 (
-                    "import sys, json; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
-                    "from agent_generator import estimate_context_budget; "
+                    "import json, sys; "
+                    "from platxa_agent_generator.agent_generator import estimate_context_budget; "
                     "import dataclasses; "
                     "r = estimate_context_budget(sys.stdin.read()); "
                     "print(json.dumps(dataclasses.asdict(r)))"
@@ -3399,10 +3394,8 @@ class TestInstallAgentSubprocess:
 
     @staticmethod
     def _load_install_agent():  # type: ignore[no-untyped-def]
-        """Import install_agent after ensuring SCRIPTS_DIR is on sys.path."""
-        if str(SCRIPTS_DIR) not in sys.path:
-            sys.path.insert(0, str(SCRIPTS_DIR))
-        import install_agent
+        """Import install_agent from the installed package."""
+        from platxa_agent_generator import install_agent
 
         return install_agent
 
@@ -5213,7 +5206,7 @@ class TestSharedPaths:
                 "-c",
                 (
                     "import json; "
-                    "from scripts.shared.paths import (get_agents_dir, "
+                    "from platxa_agent_generator.shared.paths import (get_agents_dir, "
                     "get_project_agents_dir, get_user_agents_dir); "
                     "print(json.dumps({"
                     "'project_flag': str(get_agents_dir(user=False)), "
@@ -5249,8 +5242,8 @@ class TestSharedPaths:
                 sys.executable,
                 "-c",
                 (
-                    "from scripts.shared.constants import DEFAULT_AGENTS_DIR as c; "
-                    "from scripts.shared.paths import DEFAULT_AGENTS_DIR as p; "
+                    "from platxa_agent_generator.shared.constants import DEFAULT_AGENTS_DIR as c; "
+                    "from platxa_agent_generator.shared.paths import DEFAULT_AGENTS_DIR as p; "
                     "assert c == p, (c, p); "
                     "assert c == '.claude/agents', c; "
                     "print('OK:', c)"
@@ -5288,7 +5281,7 @@ class TestSharedFrontmatter:
                 "-c",
                 (
                     "import json; "
-                    "from scripts.shared.frontmatter import parse_frontmatter_safe; "
+                    "from platxa_agent_generator.shared.frontmatter import parse_frontmatter_safe; "
                     "ok_data, ok_errs = parse_frontmatter_safe("
                     "'---\\nname: x\\ndescription: y\\n---\\nbody'); "
                     "no_open_data, no_open_errs = parse_frontmatter_safe("
@@ -5343,7 +5336,7 @@ class TestSharedFrontmatter:
                 "-c",
                 (
                     "import json; "
-                    "from scripts.shared.frontmatter import parse_frontmatter_safe; "
+                    "from platxa_agent_generator.shared.frontmatter import parse_frontmatter_safe; "
                     "data, errs = parse_frontmatter_safe("
                     "'---\\nname: x\\ndescription: y\\nnot_closed_ever'); "
                     "print(json.dumps({"
@@ -5417,7 +5410,7 @@ class TestSharedToolUtils:
                 "-c",
                 (
                     "import json; "
-                    "from scripts.shared.tool_utils import parse_tools_string; "
+                    "from platxa_agent_generator.shared.tool_utils import parse_tools_string; "
                     "print(json.dumps({"
                     "'basic': parse_tools_string('Read, Write, Edit'), "
                     "'whitespace': parse_tools_string("
@@ -5455,7 +5448,7 @@ class TestSharedToolUtils:
     def test_callsite_migration_count(self) -> None:
         """Deterministic invariant: at least two scripts import from shared.tool_utils.
 
-        Enforces the spec gate ``rg 'from shared.tool_utils import' scripts/
+        Enforces the spec gate ``rg 'from platxa_agent_generator.shared.tool_utils import' scripts/
         returns >=2 hits`` — if a future edit reverts one of the migrated
         call sites to inline ``[t.strip() for t in s.split(',')]``, this
         test breaks instead of the invariant silently drifting.
@@ -5638,8 +5631,8 @@ class TestLiveAgentInvocation:
         test_script = tmp_path / "test_live_flag.py"
         test_script.write_text(
             "import json, sys\n"
-            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
-            "from test_harness import parse_agent_file, create_live_tests\n"
+            ""
+            "from platxa_agent_generator.test_harness import parse_agent_file, create_live_tests\n"
             "from pathlib import Path\n"
             "agent = parse_agent_file(Path('" + str(agent_md) + "'))\n"
             "tests = create_live_tests(agent)\n"
@@ -5665,8 +5658,8 @@ class TestLiveAgentInvocation:
         test_script = tmp_path / "test_live.py"
         test_script.write_text(
             "import json, sys\n"
-            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
-            "from test_harness import run_live_test, TestCase\n"
+            ""
+            "from platxa_agent_generator.test_harness import run_live_test, TestCase\n"
             "from pathlib import Path\n"
             "tc = TestCase(\n"
             "    name='live_test',\n"
@@ -5700,8 +5693,8 @@ class TestLiveAgentInvocation:
         test_script = tmp_path / "test_timeout.py"
         test_script.write_text(
             "import json, sys\n"
-            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
-            "from test_harness import run_live_test, TestCase\n"
+            ""
+            "from platxa_agent_generator.test_harness import run_live_test, TestCase\n"
             "from pathlib import Path\n"
             "tc = TestCase(\n"
             "    name='live_timeout_test',\n"
@@ -5736,8 +5729,8 @@ class TestLiveAgentInvocation:
         test_script = tmp_path / "test_pattern.py"
         test_script.write_text(
             "import json, sys\n"
-            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
-            "from test_harness import run_live_test, TestCase\n"
+            ""
+            "from platxa_agent_generator.test_harness import run_live_test, TestCase\n"
             "from pathlib import Path\n"
             "tc = TestCase(\n"
             "    name='live_pattern_test',\n"
@@ -5771,8 +5764,8 @@ class TestLiveAgentInvocation:
         test_script = tmp_path / "test_forbidden.py"
         test_script.write_text(
             "import json, sys\n"
-            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
-            "from test_harness import run_live_test, TestCase\n"
+            ""
+            "from platxa_agent_generator.test_harness import run_live_test, TestCase\n"
             "from pathlib import Path\n"
             "tc = TestCase(\n"
             "    name='live_forbidden_test',\n"
@@ -5800,8 +5793,8 @@ class TestLiveAgentInvocation:
         test_script = tmp_path / "test_create.py"
         test_script.write_text(
             "import json, sys\n"
-            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
-            "from test_harness import create_live_tests, AgentInfo\n"
+            ""
+            "from platxa_agent_generator.test_harness import create_live_tests, AgentInfo\n"
             "agent = AgentInfo(\n"
             "    name='scanner',\n"
             "    description='Scans code for security vulnerabilities and issues',\n"
@@ -5830,8 +5823,8 @@ class TestLiveAgentInvocation:
         test_script = tmp_path / "test_find.py"
         test_script.write_text(
             "import json, sys\n"
-            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
-            "from test_harness import find_claude_binary\n"
+            ""
+            "from platxa_agent_generator.test_harness import find_claude_binary\n"
             "result = find_claude_binary()\n"
             "print(json.dumps({'result': result, 'type': type(result).__name__}))\n"
         )
@@ -5889,8 +5882,8 @@ class TestTestHarnessExitCode:
         test_script = tmp_path / "test_nonzero_exit.py"
         test_script.write_text(
             "import json, sys\n"
-            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
-            "from test_harness import run_live_test, TestCase\n"
+            ""
+            "from platxa_agent_generator.test_harness import run_live_test, TestCase\n"
             "from pathlib import Path\n"
             "tc = TestCase(\n"
             "    name='live_exit_127',\n"
@@ -5940,8 +5933,8 @@ class TestTestHarnessExitCode:
         test_script = tmp_path / "test_zero_exit.py"
         test_script.write_text(
             "import json, sys\n"
-            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
-            "from test_harness import run_live_test, TestCase\n"
+            ""
+            "from platxa_agent_generator.test_harness import run_live_test, TestCase\n"
             "from pathlib import Path\n"
             "tc = TestCase(\n"
             "    name='live_exit_0',\n"
@@ -6078,8 +6071,8 @@ class TestAutoGenerateTestsFromExamples:
         md_file = tmp_path / "parse-test-agent.md"
         test_script.write_text(
             "import json, sys\n"
-            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
-            "from test_harness import parse_agent_file\n"
+            ""
+            "from platxa_agent_generator.test_harness import parse_agent_file\n"
             "from pathlib import Path\n"
             "agent = parse_agent_file(Path('" + str(md_file) + "'))\n"
             "user_reqs = [e.get('user_request', '') for e in agent.examples]\n"
@@ -6123,8 +6116,8 @@ class TestAutoGenerateTestsFromExamples:
         md_file = tmp_path / "actions-agent.md"
         test_script.write_text(
             "import json, sys\n"
-            "sys.path.insert(0, '" + str(SCRIPTS_DIR) + "')\n"
-            "from test_harness import parse_agent_file\n"
+            ""
+            "from platxa_agent_generator.test_harness import parse_agent_file\n"
             "from pathlib import Path\n"
             "agent = parse_agent_file(Path('" + str(md_file) + "'))\n"
             "actions = [e.get('agent_actions', '') for e in agent.examples]\n"
@@ -6790,9 +6783,7 @@ class TestAgentCatalogSeeding:
             [
                 sys.executable,
                 "-c",
-                "import sys; sys.path.insert(0, '"
-                + str(SCRIPTS_DIR)
-                + "'); from agent_catalog import SEED_AGENTS; print(len(SEED_AGENTS))",
+                "from platxa_agent_generator.agent_catalog import SEED_AGENTS; print(len(SEED_AGENTS))",
             ],
             capture_output=True,
             text=True,
@@ -6908,9 +6899,7 @@ class TestDomainDetection:
             [
                 sys.executable,
                 "-c",
-                "import sys; sys.path.insert(0, '"
-                + str(SCRIPTS_DIR)
-                + "'); from nlp_parser import DOMAIN_KEYWORDS; "
+                "from platxa_agent_generator.nlp_parser import DOMAIN_KEYWORDS; "
                 "total = sum(len(v) for v in DOMAIN_KEYWORDS.values()); "
                 "print(total)",
             ],
@@ -6931,7 +6920,7 @@ class TestCompositionValidation:
     def _run_composer(self, code: str) -> str:
         """Run Python code that imports from agent_composer and prints result."""
         full_code = (
-            f"import sys; sys.path.insert(0, '{SCRIPTS_DIR}'); from agent_composer import *; {code}"
+            f"from platxa_agent_generator.agent_composer import *; {code}"
         )
         result = subprocess.run(
             [sys.executable, "-c", full_code],
@@ -7068,7 +7057,7 @@ class TestCompositionValidation:
     def test_schemas_compatible_extra_output_fields_ok(self):
         """Output having extra fields beyond what input requires is fine."""
         out = self._run_composer(
-            "from agent_composer import _schemas_compatible; "
+            "from platxa_agent_generator.agent_composer import _schemas_compatible; "
             "ok, issues = _schemas_compatible("
             "{'properties': {'a': {'type': 'string'}, 'b': {'type': 'number'}}}, "
             "{'properties': {'a': {'type': 'string'}}, 'required': ['a']}); "
@@ -7716,7 +7705,7 @@ class TestMultiAgentHooks:
 
     def _run_py(self, code: str) -> subprocess.CompletedProcess:
         """Run a Python snippet in a subprocess with SCRIPTS_DIR on sys.path."""
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -7725,7 +7714,7 @@ class TestMultiAgentHooks:
 
     def _gen_idle(self, agent: str, team: str = "") -> str:
         result = self._run_py(
-            "from hooks_generator import generate_teammate_idle_script; "
+            "from platxa_agent_generator.hooks_generator import generate_teammate_idle_script; "
             f"print(generate_teammate_idle_script({agent!r}, {team!r}))"
         )
         assert result.returncode == 0, f"idle gen failed: {result.stderr}"
@@ -7733,7 +7722,7 @@ class TestMultiAgentHooks:
 
     def _gen_task_created(self, agent: str) -> str:
         result = self._run_py(
-            "from hooks_generator import generate_task_created_script; "
+            "from platxa_agent_generator.hooks_generator import generate_task_created_script; "
             f"print(generate_task_created_script({agent!r}))"
         )
         assert result.returncode == 0, f"task_created gen failed: {result.stderr}"
@@ -7741,7 +7730,7 @@ class TestMultiAgentHooks:
 
     def _gen_task_completed(self, agent: str) -> str:
         result = self._run_py(
-            "from hooks_generator import generate_task_completed_script; "
+            "from platxa_agent_generator.hooks_generator import generate_task_completed_script; "
             f"print(generate_task_completed_script({agent!r}))"
         )
         assert result.returncode == 0, f"task_completed gen failed: {result.stderr}"
@@ -7757,7 +7746,7 @@ class TestMultiAgentHooks:
     def test_new_events_registered(self) -> None:
         """HOOK_EVENTS and NO_MATCHER_EVENTS must include the three new events."""
         result = self._run_py(
-            "import json; from hooks_generator import HOOK_EVENTS, NO_MATCHER_EVENTS; "
+            "import json; from platxa_agent_generator.hooks_generator import HOOK_EVENTS, NO_MATCHER_EVENTS; "
             "print(json.dumps({"
             "'events': sorted(HOOK_EVENTS), "
             "'no_matcher': sorted(NO_MATCHER_EVENTS)"
@@ -8052,7 +8041,7 @@ class TestMultiAgentHooks:
             "generate_task_created_hook_config",
             "generate_task_completed_hook_config",
         ):
-            result = self._run_py(f"from hooks_generator import {fn}; {fn}('', '/tmp/x.sh')")
+            result = self._run_py(f"from platxa_agent_generator.hooks_generator import {fn}; {fn}('', '/tmp/x.sh')")
             assert result.returncode != 0, f"{fn} accepted empty agent_name"
             assert "agent_name" in result.stderr
 
@@ -8063,7 +8052,7 @@ class TestMultiAgentHooks:
             "generate_task_created_hook_config",
             "generate_task_completed_hook_config",
         ):
-            result = self._run_py(f"from hooks_generator import {fn}; {fn}('agent', '   ')")
+            result = self._run_py(f"from platxa_agent_generator.hooks_generator import {fn}; {fn}('agent', '   ')")
             assert result.returncode != 0, f"{fn} accepted whitespace script_path"
             assert "script_path" in result.stderr
 
@@ -8076,7 +8065,7 @@ class TestMultiAgentHooks:
         ):
             result = self._run_py(
                 "import json; "
-                f"from hooks_generator import {fn}; "
+                f"from platxa_agent_generator.hooks_generator import {fn}; "
                 f"print(json.dumps({fn}('worker-1', '/path/to/s.sh')))"
             )
             assert result.returncode == 0, f"{fn} failed: {result.stderr}"
@@ -8093,7 +8082,7 @@ class TestMultiAgentHooks:
         out_dir = tmp_path / "hooks"
         result = self._run_py(
             "import json, os; "
-            "from hooks_generator import generate_multi_agent_hooks; "
+            "from platxa_agent_generator.hooks_generator import generate_multi_agent_hooks; "
             f"scripts, cfg = generate_multi_agent_hooks('worker-1', 'alpha', '{out_dir}'); "
             "print(json.dumps({"
             "'paths': [str(p) for p in scripts], "
@@ -8113,7 +8102,7 @@ class TestWriterReviewerTemplate:
     """Tests for the writer-reviewer multi-agent template (Feature #42)."""
 
     def _run_py(self, code: str) -> subprocess.CompletedProcess:
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -8122,7 +8111,7 @@ class TestWriterReviewerTemplate:
 
     def test_template_is_registered(self) -> None:
         result = self._run_py(
-            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "from platxa_agent_generator.multiagent_generator import SYSTEM_TEMPLATES; "
             "print('writer-reviewer' in SYSTEM_TEMPLATES)"
         )
         assert result.returncode == 0, result.stderr
@@ -8130,7 +8119,7 @@ class TestWriterReviewerTemplate:
 
     def test_template_declares_writer_reviewer_pattern(self) -> None:
         result = self._run_py(
-            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "from platxa_agent_generator.multiagent_generator import SYSTEM_TEMPLATES; "
             "print(SYSTEM_TEMPLATES['writer-reviewer']['pattern'])"
         )
         assert result.stdout.strip() == "writer-reviewer"
@@ -8138,7 +8127,7 @@ class TestWriterReviewerTemplate:
     def test_template_has_exactly_two_workers_with_complementary_roles(self) -> None:
         result = self._run_py(
             "import json; "
-            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "from platxa_agent_generator.multiagent_generator import SYSTEM_TEMPLATES; "
             "workers = SYSTEM_TEMPLATES['writer-reviewer']['workers']; "
             "print(json.dumps([(w['name'], w['role']) for w in workers]))"
         )
@@ -8152,7 +8141,7 @@ class TestWriterReviewerTemplate:
         """Reviewer must have worktree isolation AND no file-modifying tools."""
         result = self._run_py(
             "import json; "
-            "from multiagent_generator import create_system_from_template; "
+            "from platxa_agent_generator.multiagent_generator import create_system_from_template; "
             "sys_ = create_system_from_template('writer-reviewer'); "
             "rev = next(w for w in sys_.workers if w.role == 'reviewer'); "
             "print(json.dumps({'isolation': rev.isolation, 'tools': rev.tools}))"
@@ -8169,7 +8158,7 @@ class TestWriterReviewerTemplate:
     def test_writer_has_worktree_isolation(self) -> None:
         """Writer must run in an isolated worktree so iterations don't collide."""
         result = self._run_py(
-            "from multiagent_generator import create_system_from_template; "
+            "from platxa_agent_generator.multiagent_generator import create_system_from_template; "
             "sys_ = create_system_from_template('writer-reviewer'); "
             "w = next(w for w in sys_.workers if w.role == 'writer'); "
             "print(w.isolation)"
@@ -8180,7 +8169,7 @@ class TestWriterReviewerTemplate:
         """feedback_loop_config must declare clean_context invariants and termination rules."""
         result = self._run_py(
             "import json; "
-            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "from platxa_agent_generator.multiagent_generator import SYSTEM_TEMPLATES; "
             "print(json.dumps(SYSTEM_TEMPLATES['writer-reviewer']['feedback_loop_config']))"
         )
         assert result.returncode == 0, result.stderr
@@ -8201,7 +8190,7 @@ class TestWriterReviewerTemplate:
         out_dir = tmp_path / "wr"
         result = self._run_py(
             "from pathlib import Path; "
-            "from multiagent_generator import create_system_from_template, save_system; "
+            "from platxa_agent_generator.multiagent_generator import create_system_from_template, save_system; "
             "sys_ = create_system_from_template('writer-reviewer'); "
             f"files = save_system(sys_, Path('{out_dir}')); "
             "print('\\n'.join(str(f) for f in files))"
@@ -8220,7 +8209,7 @@ class TestWriterReviewerTemplate:
         out_dir = tmp_path / "wr2"
         result = self._run_py(
             "from pathlib import Path; "
-            "from multiagent_generator import create_system_from_template, save_system; "
+            "from platxa_agent_generator.multiagent_generator import create_system_from_template, save_system; "
             "sys_ = create_system_from_template('writer-reviewer'); "
             f"save_system(sys_, Path('{out_dir}'))"
         )
@@ -8297,7 +8286,7 @@ class TestDryRunPreviewEnhancements:
     """
 
     def _run_py(self, code: str) -> subprocess.CompletedProcess:
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -8307,14 +8296,14 @@ class TestDryRunPreviewEnhancements:
     # --- token estimation --------------------------------------------------
 
     def test_estimate_tokens_empty_string_is_zero(self) -> None:
-        result = self._run_py("from dry_run import estimate_tokens; print(estimate_tokens(''))")
+        result = self._run_py("from platxa_agent_generator.dry_run import estimate_tokens; print(estimate_tokens(''))")
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == "0"
 
     def test_estimate_tokens_scales_with_content_length(self) -> None:
         """Longer content must yield a larger token estimate."""
         result = self._run_py(
-            "from dry_run import estimate_tokens; "
+            "from platxa_agent_generator.dry_run import estimate_tokens; "
             "short = estimate_tokens('hi'); "
             "long = estimate_tokens('x' * 1000); "
             "print(f'{short} {long}')"
@@ -8327,7 +8316,7 @@ class TestDryRunPreviewEnhancements:
 
     def test_estimate_tokens_is_non_negative(self) -> None:
         result = self._run_py(
-            "from dry_run import estimate_tokens; "
+            "from platxa_agent_generator.dry_run import estimate_tokens; "
             "vals = [estimate_tokens(s) for s in "
             "['', 'a', 'hello world', '### heading\\n\\ntext']]; "
             "print(all(v >= 0 for v in vals))"
@@ -8338,7 +8327,7 @@ class TestDryRunPreviewEnhancements:
 
     def test_estimate_quality_returns_none_for_empty(self) -> None:
         result = self._run_py(
-            "from dry_run import estimate_quality; print(estimate_quality('') is None)"
+            "from platxa_agent_generator.dry_run import estimate_quality; print(estimate_quality('') is None)"
         )
         assert result.stdout.strip() == "True"
 
@@ -8358,7 +8347,7 @@ class TestDryRunPreviewEnhancements:
         )
         code = (
             "import json\n"
-            "from dry_run import estimate_quality\n"
+            "from platxa_agent_generator.dry_run import estimate_quality\n"
             f"q = estimate_quality({agent_md!r})\n"
             "print(json.dumps({"
             "'has_score': q is not None and 0.0 <= q.score <= 10.0, "
@@ -8380,7 +8369,7 @@ class TestDryRunPreviewEnhancements:
     def test_dry_run_writes_no_files_to_disk(self, tmp_path: Path) -> None:
         """The whole point of dry-run: no files appear on disk."""
         result = self._run_py(
-            "from dry_run import dry_run; "
+            "from platxa_agent_generator.dry_run import dry_run; "
             "r = dry_run(name='x-agent', description='X agent for tests', "
             f"tools=['Read','Grep'], output_base={str(tmp_path)!r}); "
             "print(len(r.files))"
@@ -8393,7 +8382,7 @@ class TestDryRunPreviewEnhancements:
     def test_dry_run_includes_complete_preview_content(self, tmp_path: Path) -> None:
         """Each FilePreview must carry the actual file content (frontmatter + body)."""
         code = (
-            "from dry_run import dry_run\n"
+            "from platxa_agent_generator.dry_run import dry_run\n"
             "r = dry_run(name='complete-agent', description='Full preview test', "
             f"tools=['Read','Grep'], output_base={str(tmp_path)!r})\n"
             "agent = next(f for f in r.files if f.path.endswith('complete-agent.md') "
@@ -8411,7 +8400,7 @@ class TestDryRunPreviewEnhancements:
     def test_dry_run_stamps_token_estimate_on_every_preview(self, tmp_path: Path) -> None:
         """Every FilePreview in the result must carry a positive token_estimate."""
         result = self._run_py(
-            "from dry_run import dry_run\n"
+            "from platxa_agent_generator.dry_run import dry_run\n"
             "r = dry_run(name='token-agent', description='Token estimate test', "
             f"tools=['Read','Grep'], output_base={str(tmp_path)!r})\n"
             "print(all(f.token_estimate > 0 for f in r.files))\n"
@@ -8426,7 +8415,7 @@ class TestDryRunPreviewEnhancements:
         """result.quality must be a QualityEstimate when an agent file is previewed."""
         result = self._run_py(
             "import json\n"
-            "from dry_run import dry_run\n"
+            "from platxa_agent_generator.dry_run import dry_run\n"
             "r = dry_run(name='quality-agent', description='Quality prediction test', "
             f"tools=['Read','Grep','Glob'], output_base={str(tmp_path)!r})\n"
             "q = r.quality\n"
@@ -8448,7 +8437,7 @@ class TestDryRunPreviewEnhancements:
         """Serialized result must include total_tokens, quality, and per-file token_estimate."""
         result = self._run_py(
             "import json\n"
-            "from dry_run import dry_run, result_to_dict\n"
+            "from platxa_agent_generator.dry_run import dry_run, result_to_dict\n"
             "r = dry_run(name='dict-agent', description='Dict serialization test', "
             f"tools=['Read'], output_base={str(tmp_path)!r})\n"
             "d = result_to_dict(r)\n"
@@ -8529,7 +8518,7 @@ class TestToolWorkflowCrossValidation:
     """
 
     def _run_py(self, code: str) -> subprocess.CompletedProcess:
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -8551,7 +8540,7 @@ class TestToolWorkflowCrossValidation:
         )
         result = self._run_py(
             "import json\n"
-            "from quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
+            "from platxa_agent_generator.quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
             f"fm, sec, _ = parse_agent_file({content!r})\n"
             "r = cross_validate_tools_vs_workflow(fm, sec)\n"
             "print(json.dumps({"
@@ -8582,7 +8571,7 @@ class TestToolWorkflowCrossValidation:
         )
         result = self._run_py(
             "import json\n"
-            "from quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
+            "from platxa_agent_generator.quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
             f"fm, sec, _ = parse_agent_file({content!r})\n"
             "r = cross_validate_tools_vs_workflow(fm, sec)\n"
             "print(json.dumps({'unused': r.unused, 'undeclared': r.undeclared, "
@@ -8608,7 +8597,7 @@ class TestToolWorkflowCrossValidation:
         )
         result = self._run_py(
             "import json\n"
-            "from quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
+            "from platxa_agent_generator.quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
             f"fm, sec, _ = parse_agent_file({content!r})\n"
             "r = cross_validate_tools_vs_workflow(fm, sec)\n"
             "print(json.dumps({'unused': r.unused, 'undeclared': r.undeclared, "
@@ -8633,7 +8622,7 @@ class TestToolWorkflowCrossValidation:
         )
         result = self._run_py(
             "import json\n"
-            "from quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
+            "from platxa_agent_generator.quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
             f"fm, sec, _ = parse_agent_file({content!r})\n"
             "r = cross_validate_tools_vs_workflow(fm, sec)\n"
             "print(json.dumps({'referenced': r.referenced, 'undeclared': r.undeclared}))"
@@ -8656,7 +8645,7 @@ class TestToolWorkflowCrossValidation:
         )
         result = self._run_py(
             "import json\n"
-            "from quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
+            "from platxa_agent_generator.quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
             f"fm, sec, _ = parse_agent_file({content!r})\n"
             "r = cross_validate_tools_vs_workflow(fm, sec)\n"
             "print(json.dumps({'unused': r.unused, 'undeclared': r.undeclared}))"
@@ -8679,7 +8668,7 @@ class TestToolWorkflowCrossValidation:
         )
         result = self._run_py(
             "import json\n"
-            "from quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
+            "from platxa_agent_generator.quality_scorer import parse_agent_file, cross_validate_tools_vs_workflow\n"
             f"fm, sec, _ = parse_agent_file({content!r})\n"
             "r = cross_validate_tools_vs_workflow(fm, sec)\n"
             "print(json.dumps({'matched': r.matched, "
@@ -8712,7 +8701,7 @@ class TestToolWorkflowCrossValidation:
         )
         result = self._run_py(
             "import json\n"
-            "from quality_scorer import score_quality\n"
+            "from platxa_agent_generator.quality_scorer import score_quality\n"
             f"clean = {clean!r}\nunused = {unused!r}\nundeclared = {undeclared!r}\n"
             "def td(c):\n"
             "    return next(x for x in score_quality(c).criteria if x.name == 'Tool Design').score\n"
@@ -8738,7 +8727,7 @@ class TestToolWorkflowCrossValidation:
         )
         result = self._run_py(
             "import json\n"
-            "from quality_scorer import score_quality\n"
+            "from platxa_agent_generator.quality_scorer import score_quality\n"
             f"u = {unused!r}\nd = {undeclared!r}\n"
             "def sugg(c):\n"
             "    td = next(x for x in score_quality(c).criteria if x.name == 'Tool Design')\n"
@@ -8760,7 +8749,7 @@ class TestCatalogSearchAndFilter:
     """
 
     def _run_py(self, code: str) -> subprocess.CompletedProcess:
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -8770,7 +8759,7 @@ class TestCatalogSearchAndFilter:
     def test_list_category_security_returns_only_security(self) -> None:
         result = self._run_py(
             "import json\n"
-            "from agent_catalog import list_agents\n"
+            "from platxa_agent_generator.agent_catalog import list_agents\n"
             "agents = list_agents(category='security')\n"
             "print(json.dumps({"
             "'count': len(agents), "
@@ -8785,7 +8774,7 @@ class TestCatalogSearchAndFilter:
     def test_list_tools_bash_filters_to_shell_capable(self) -> None:
         result = self._run_py(
             "import json\n"
-            "from agent_catalog import list_agents\n"
+            "from platxa_agent_generator.agent_catalog import list_agents\n"
             "agents = list_agents(tools=['Bash'])\n"
             "names = [a.name for a in agents]\n"
             "tools_ok = all('Bash' in a.tools for a in agents)\n"
@@ -8801,7 +8790,7 @@ class TestCatalogSearchAndFilter:
     def test_list_tools_filter_is_case_insensitive(self) -> None:
         """--tools bash (lowercase) must match the canonical Bash tool."""
         result = self._run_py(
-            "from agent_catalog import list_agents\n"
+            "from platxa_agent_generator.agent_catalog import list_agents\n"
             "lower = {a.name for a in list_agents(tools=['bash'])}\n"
             "upper = {a.name for a in list_agents(tools=['Bash'])}\n"
             "print('EQUAL' if lower == upper else 'MISMATCH')"
@@ -8811,7 +8800,7 @@ class TestCatalogSearchAndFilter:
     def test_list_tools_requires_all_tools(self) -> None:
         """Passing multiple tools requires the agent to have ALL of them."""
         result = self._run_py(
-            "from agent_catalog import list_agents\n"
+            "from platxa_agent_generator.agent_catalog import list_agents\n"
             "both = list_agents(tools=['Read', 'Bash'])\n"
             "print(all('Read' in a.tools and 'Bash' in a.tools for a in both))"
         )
@@ -8819,7 +8808,7 @@ class TestCatalogSearchAndFilter:
 
     def test_list_domain_keyword_matches_name_description_or_tags(self) -> None:
         result = self._run_py(
-            "from agent_catalog import list_agents\n"
+            "from platxa_agent_generator.agent_catalog import list_agents\n"
             "agents = list_agents(domain='review')\n"
             "print(len(agents) > 0)\n"
             "hits = [\n"
@@ -8838,7 +8827,7 @@ class TestCatalogSearchAndFilter:
         """Every tier is a disjoint subset of the full catalog."""
         result = self._run_py(
             "import json\n"
-            "from agent_catalog import list_agents, AGENT_CATALOG, COMPLEXITY_TIERS\n"
+            "from platxa_agent_generator.agent_catalog import list_agents, AGENT_CATALOG, COMPLEXITY_TIERS\n"
             "buckets = {t: {a.name for a in list_agents(complexity=t)} "
             "for t in COMPLEXITY_TIERS}\n"
             "total = sum(len(v) for v in buckets.values())\n"
@@ -8858,7 +8847,7 @@ class TestCatalogSearchAndFilter:
     def test_list_complexity_rejects_unknown_tier(self) -> None:
         """An invalid complexity tier raises ValueError, not silent empty result."""
         result = self._run_py(
-            "from agent_catalog import list_agents\n"
+            "from platxa_agent_generator.agent_catalog import list_agents\n"
             "try:\n"
             "    list_agents(complexity='nonsense')\n"
             "    print('NOT_RAISED')\n"
@@ -8870,7 +8859,7 @@ class TestCatalogSearchAndFilter:
     def test_list_filters_compose_with_AND_semantics(self) -> None:
         """security AND Read must equal the intersection of the two filters."""
         result = self._run_py(
-            "from agent_catalog import list_agents\n"
+            "from platxa_agent_generator.agent_catalog import list_agents\n"
             "both = {a.name for a in list_agents(category='security', tools=['Read'])}\n"
             "sec = {a.name for a in list_agents(category='security')}\n"
             "reads = {a.name for a in list_agents(tools=['Read'])}\n"
@@ -8883,7 +8872,7 @@ class TestCatalogSearchAndFilter:
     def test_search_results_are_ranked_descending(self) -> None:
         result = self._run_py(
             "import json\n"
-            "from agent_catalog import search_agents_ranked\n"
+            "from platxa_agent_generator.agent_catalog import search_agents_ranked\n"
             "ranked = search_agents_ranked('review')\n"
             "scores = [s for _, s in ranked]\n"
             "print(json.dumps({'count': len(ranked), 'descending': "
@@ -8896,7 +8885,7 @@ class TestCatalogSearchAndFilter:
     def test_exact_name_match_ranks_first(self) -> None:
         """Searching for an exact agent name puts that agent at position 0."""
         result = self._run_py(
-            "from agent_catalog import search_agents_ranked, AGENT_CATALOG\n"
+            "from platxa_agent_generator.agent_catalog import search_agents_ranked, AGENT_CATALOG\n"
             "name = next(iter(AGENT_CATALOG))\n"
             "ranked = search_agents_ranked(name)\n"
             "print(ranked[0][0].name == name)"
@@ -8906,7 +8895,7 @@ class TestCatalogSearchAndFilter:
     def test_name_match_outranks_description_only_match(self) -> None:
         """Name hits must score strictly higher than description-only hits."""
         result = self._run_py(
-            "from agent_catalog import score_relevance, AGENT_CATALOG\n"
+            "from platxa_agent_generator.agent_catalog import score_relevance, AGENT_CATALOG\n"
             "# Find an agent with 'review' in name\n"
             "name_hit = next(a for a in AGENT_CATALOG.values() if 'review' in a.name.lower())\n"
             "# Find an agent with 'review' in description but not name\n"
@@ -8926,7 +8915,7 @@ class TestCatalogSearchAndFilter:
 
     def test_score_relevance_is_zero_for_no_match(self) -> None:
         result = self._run_py(
-            "from agent_catalog import score_relevance, AGENT_CATALOG\n"
+            "from platxa_agent_generator.agent_catalog import score_relevance, AGENT_CATALOG\n"
             "agent = next(iter(AGENT_CATALOG.values()))\n"
             "print(score_relevance(agent, 'xyzzy_no_match_nowhere'))"
         )
@@ -8935,7 +8924,7 @@ class TestCatalogSearchAndFilter:
     def test_search_composes_query_with_filters(self) -> None:
         """search_agents applies filters AFTER ranking, preserving order."""
         result = self._run_py(
-            "from agent_catalog import search_agents\n"
+            "from platxa_agent_generator.agent_catalog import search_agents\n"
             "with_filter = search_agents('review', category='code-quality')\n"
             "print(all(a.category == 'code-quality' for a in with_filter))"
         )
@@ -9009,7 +8998,7 @@ class TestNLPConstraintExtraction:
     """
 
     def _run_py(self, code: str) -> subprocess.CompletedProcess:
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -9021,7 +9010,7 @@ class TestNLPConstraintExtraction:
     def test_read_only_removes_write_tools_from_positive_set(self) -> None:
         result = self._run_py(
             "import json\n"
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Create a read-only agent that scans code for security issues')\n"
             "print(json.dumps({"
             "'tools': r.tools, 'disallowed': r.disallowed_tools"
@@ -9046,7 +9035,7 @@ class TestNLPConstraintExtraction:
         ]
         for phrase in variants:
             result = self._run_py(
-                "from nlp_parser import extract_constraints\n"
+                "from platxa_agent_generator.nlp_parser import extract_constraints\n"
                 f"c = extract_constraints('Create an agent — {phrase} — for code review')\n"
                 "print(c.read_only)"
             )
@@ -9055,7 +9044,7 @@ class TestNLPConstraintExtraction:
     def test_read_only_not_triggered_by_incidental_word(self) -> None:
         """The word 'writes' alone must not trigger read-only."""
         result = self._run_py(
-            "from nlp_parser import extract_constraints\n"
+            "from platxa_agent_generator.nlp_parser import extract_constraints\n"
             "c = extract_constraints('Create an agent that reads files and writes reports')\n"
             "print(json.dumps({"
             "'read_only': c.read_only, "
@@ -9071,7 +9060,7 @@ class TestNLPConstraintExtraction:
 
     def test_python_only_adds_py_glob(self) -> None:
         result = self._run_py(
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Build a Python only linter agent')\n"
             "print(r.file_patterns)"
         )
@@ -9080,7 +9069,7 @@ class TestNLPConstraintExtraction:
 
     def test_typescript_only_adds_ts_and_tsx_globs(self) -> None:
         result = self._run_py(
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Create a TypeScript only code reviewer')\n"
             "print(sorted(r.file_patterns))"
         )
@@ -9088,7 +9077,7 @@ class TestNLPConstraintExtraction:
 
     def test_multiple_language_scopes_accumulate(self) -> None:
         result = self._run_py(
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Build a Python only and YAML only config validator')\n"
             "print(sorted(r.file_patterns))"
         )
@@ -9099,7 +9088,7 @@ class TestNLPConstraintExtraction:
 
     def test_no_scope_phrase_leaves_file_patterns_empty(self) -> None:
         result = self._run_py(
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Create a general code reviewer')\n"
             "print(r.file_patterns)"
         )
@@ -9111,7 +9100,7 @@ class TestNLPConstraintExtraction:
         """Read-only AND Python-only both fire; both flow to the requirements."""
         result = self._run_py(
             "import json\n"
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Create a read-only Python only security scanner')\n"
             "print(json.dumps({"
             "'disallowed': r.disallowed_tools, "
@@ -9131,7 +9120,7 @@ class TestNLPConstraintExtraction:
     def test_constraint_phrases_captures_triggering_phrases(self) -> None:
         """constraint_phrases must list the phrases that fired, for debugging."""
         result = self._run_py(
-            "from nlp_parser import extract_constraints\n"
+            "from platxa_agent_generator.nlp_parser import extract_constraints\n"
             "c = extract_constraints('Create a read-only JSON only validator')\n"
             "print(sorted(c.constraint_phrases))"
         )
@@ -9141,7 +9130,7 @@ class TestNLPConstraintExtraction:
 
     def test_empty_description_yields_empty_constraints(self) -> None:
         result = self._run_py(
-            "from nlp_parser import extract_constraints\n"
+            "from platxa_agent_generator.nlp_parser import extract_constraints\n"
             "c = extract_constraints('')\n"
             "print(c.read_only)\n"
             "print(c.disallowed_tools)\n"
@@ -9156,7 +9145,7 @@ class TestNLPConstraintExtraction:
     def test_parse_default_fields_present_when_no_constraints(self) -> None:
         """AgentRequirements always exposes the new fields, defaulting to empty."""
         result = self._run_py(
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Create a simple reviewer')\n"
             "print(r.disallowed_tools == [] and r.file_patterns == [] "
             "and r.constraint_phrases == [])"
@@ -9166,7 +9155,7 @@ class TestNLPConstraintExtraction:
     def test_disallowed_tools_are_deduped_and_ordered(self) -> None:
         """Repeated read-only phrases do not double-add to disallowed_tools."""
         result = self._run_py(
-            "from nlp_parser import extract_constraints\n"
+            "from platxa_agent_generator.nlp_parser import extract_constraints\n"
             "c = extract_constraints("
             "'Create a read-only agent with no file modifications and no writes')\n"
             "print(c.disallowed_tools)"
@@ -9225,7 +9214,7 @@ class TestNLPComplexityEstimation:
     """
 
     def _run_py(self, code: str) -> subprocess.CompletedProcess:
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -9237,7 +9226,7 @@ class TestNLPComplexityEstimation:
     def test_simple_tier_for_short_single_verb(self) -> None:
         result = self._run_py(
             "import json\n"
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Lint Python files')\n"
             "print(json.dumps({'complexity': r.complexity, 'max_turns': r.max_turns, "
             "'signals': r.complexity_signals}))"
@@ -9251,7 +9240,7 @@ class TestNLPComplexityEstimation:
 
     def test_simple_tier_for_one_action(self) -> None:
         result = self._run_py(
-            "from nlp_parser import parse\nprint(parse('Scan code for bugs').complexity)"
+            "from platxa_agent_generator.nlp_parser import parse\nprint(parse('Scan code for bugs').complexity)"
         )
         assert result.stdout.strip() == "simple"
 
@@ -9260,7 +9249,7 @@ class TestNLPComplexityEstimation:
     def test_moderate_tier_for_multi_step_words(self) -> None:
         result = self._run_py(
             "import json\n"
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Read the code, then run tests, and finally report results')\n"
             "print(json.dumps({'complexity': r.complexity, 'max_turns': r.max_turns, "
             "'signals': r.complexity_signals}))"
@@ -9272,7 +9261,7 @@ class TestNLPComplexityEstimation:
 
     def test_moderate_tier_for_numbered_steps(self) -> None:
         result = self._run_py(
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Process data: 1. load inputs 2. transform 3. save outputs')\n"
             "print(r.complexity)\n"
             "print(r.complexity_signals.get('numbered_steps'))"
@@ -9283,7 +9272,7 @@ class TestNLPComplexityEstimation:
     def test_moderate_tier_for_multiple_action_verbs(self) -> None:
         """3+ distinct action verbs triggers moderate even without cue words."""
         result = self._run_py(
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Analyze the code, validate syntax, format output, build report')\n"
             "print(r.complexity)\n"
             "print('multi_verb_count' in r.complexity_signals)"
@@ -9295,7 +9284,7 @@ class TestNLPComplexityEstimation:
     def test_complex_tier_for_orchestration_keyword(self) -> None:
         result = self._run_py(
             "import json\n"
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Orchestrate code review across multiple agents')\n"
             "print(json.dumps({'complexity': r.complexity, 'max_turns': r.max_turns, "
             "'signal': r.complexity_signals.get('orchestration_keyword')}))"
@@ -9307,14 +9296,14 @@ class TestNLPComplexityEstimation:
 
     def test_complex_tier_for_pipeline_keyword(self) -> None:
         result = self._run_py(
-            "from nlp_parser import parse\nprint(parse('Build a multi-step pipeline').complexity)"
+            "from platxa_agent_generator.nlp_parser import parse\nprint(parse('Build a multi-step pipeline').complexity)"
         )
         assert result.stdout.strip() == "complex"
 
     def test_orchestration_outranks_multi_step(self) -> None:
         """When both orchestration and multi-step words appear, complex wins."""
         result = self._run_py(
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "print(parse('Coordinate review then aggregate results').complexity)"
         )
         assert result.stdout.strip() == "complex"
@@ -9325,7 +9314,7 @@ class TestNLPComplexityEstimation:
         """simple < moderate < complex maxTurns, strictly increasing."""
         result = self._run_py(
             "import json\n"
-            "from nlp_parser import estimate_complexity\n"
+            "from platxa_agent_generator.nlp_parser import estimate_complexity\n"
             "simple = estimate_complexity('lint it').max_turns\n"
             "moderate = estimate_complexity("
             "'analyze then format then report then publish').max_turns\n"
@@ -9341,7 +9330,7 @@ class TestNLPComplexityEstimation:
         """complexity_signals must list every cue that contributed."""
         result = self._run_py(
             "import json\n"
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Orchestrate workers')\n"
             "print(json.dumps(r.complexity_signals))"
         )
@@ -9352,7 +9341,7 @@ class TestNLPComplexityEstimation:
 
     def test_complexity_tiers_constant_is_ordered_and_public(self) -> None:
         result = self._run_py(
-            "from nlp_parser import COMPLEXITY_TIERS\n"
+            "from platxa_agent_generator.nlp_parser import COMPLEXITY_TIERS\n"
             "print(COMPLEXITY_TIERS)\n"
             "print(COMPLEXITY_TIERS.index('simple') < "
             "COMPLEXITY_TIERS.index('moderate') < "
@@ -9369,7 +9358,7 @@ class TestNLPComplexityEstimation:
         result = self._run_py(
             "import json\n"
             "from dataclasses import asdict\n"
-            "from nlp_parser import parse\n"
+            "from platxa_agent_generator.nlp_parser import parse\n"
             "r = parse('Create a reviewer')\n"
             "d = asdict(r)\n"
             "print(json.dumps({"
@@ -9440,7 +9429,7 @@ class TestNlpParserMalformedInput:
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -9508,7 +9497,7 @@ class TestNlpParserMalformedInput:
 
     _EMIT_JSON = (
         "import json, sys\n"
-        "from nlp_parser import parse\n"
+        "from platxa_agent_generator.nlp_parser import parse\n"
         "try:\n"
         "    r = parse(desc)\n"
         "except ValueError as e:\n"
@@ -9617,7 +9606,7 @@ class TestPromptReminderPoints:
     """
 
     def _run_py(self, code: str) -> subprocess.CompletedProcess:
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -9627,7 +9616,7 @@ class TestPromptReminderPoints:
     def test_exploration_complete_fires_for_long_running_with_read_tools(self) -> None:
         result = self._run_py(
             "import json\n"
-            "from prompt_generator import generate\n"
+            "from platxa_agent_generator.prompt_generator import generate\n"
             "r = generate(agent_type='analyzer', domain='security', "
             "purpose='audit', tools=['Read','Grep','Glob'])\n"
             "triggers = sorted({p.trigger for p in r.reminder_points})\n"
@@ -9638,7 +9627,7 @@ class TestPromptReminderPoints:
 
     def test_before_destructive_fires_when_write_tools_present(self) -> None:
         result = self._run_py(
-            "from prompt_generator import generate\n"
+            "from platxa_agent_generator.prompt_generator import generate\n"
             "r = generate(agent_type='builder', domain='general', purpose='x', "
             "tools=['Read','Write','Edit'])\n"
             "print('before_destructive' in {p.trigger for p in r.reminder_points})"
@@ -9647,7 +9636,7 @@ class TestPromptReminderPoints:
 
     def test_no_destructive_reminder_when_no_write_tools(self) -> None:
         result = self._run_py(
-            "from prompt_generator import generate\n"
+            "from platxa_agent_generator.prompt_generator import generate\n"
             "r = generate(agent_type='analyzer', domain='general', purpose='x', "
             "tools=['Read','Grep'])\n"
             "print('before_destructive' in {p.trigger for p in r.reminder_points})"
@@ -9656,7 +9645,7 @@ class TestPromptReminderPoints:
 
     def test_security_domain_gets_security_decision_reminder(self) -> None:
         result = self._run_py(
-            "from prompt_generator import generate\n"
+            "from platxa_agent_generator.prompt_generator import generate\n"
             "r = generate(agent_type='validator', domain='security', "
             "purpose='audit', tools=['Read','Grep'])\n"
             "print('security_decision' in {p.trigger for p in r.reminder_points})"
@@ -9665,7 +9654,7 @@ class TestPromptReminderPoints:
 
     def test_bash_tool_gets_security_decision_even_without_security_domain(self) -> None:
         result = self._run_py(
-            "from prompt_generator import generate\n"
+            "from platxa_agent_generator.prompt_generator import generate\n"
             "r = generate(agent_type='automation', domain='devops', "
             "purpose='deploy', tools=['Read','Bash'])\n"
             "print('security_decision' in {p.trigger for p in r.reminder_points})"
@@ -9676,7 +9665,7 @@ class TestPromptReminderPoints:
         """For a workflow with >= _PHASE_BOUNDARY_MIN_STEPS, boundaries fire between each step pair."""
         result = self._run_py(
             "import json\n"
-            "from prompt_generator import generate\n"
+            "from platxa_agent_generator.prompt_generator import generate\n"
             "r = generate(agent_type='analyzer', domain='general', purpose='x', "
             "tools=['Read'])\n"
             "boundaries = [p for p in r.reminder_points if p.trigger == 'phase_boundary']\n"
@@ -9690,7 +9679,7 @@ class TestPromptReminderPoints:
 
     def test_reminder_section_in_full_prompt_when_points_exist(self) -> None:
         result = self._run_py(
-            "from prompt_generator import generate\n"
+            "from platxa_agent_generator.prompt_generator import generate\n"
             "r = generate(agent_type='analyzer', domain='security', purpose='audit', "
             "tools=['Read','Grep','Bash'])\n"
             "print('Mid-Conversation Refresh Points' in r.full_prompt)\n"
@@ -9703,7 +9692,7 @@ class TestPromptReminderPoints:
     def test_format_section_suppressed_when_no_points(self) -> None:
         """format_reminder_points_section returns empty string when no points."""
         result = self._run_py(
-            "from prompt_generator import format_reminder_points_section\n"
+            "from platxa_agent_generator.prompt_generator import format_reminder_points_section\n"
             "print(repr(format_reminder_points_section([])))"
         )
         assert result.stdout.strip() == "''"
@@ -9711,7 +9700,7 @@ class TestPromptReminderPoints:
     def test_reminder_rules_include_constraints(self) -> None:
         """Rules at reminder points must include the agent's constraints."""
         result = self._run_py(
-            "from prompt_generator import generate\n"
+            "from platxa_agent_generator.prompt_generator import generate\n"
             "r = generate(agent_type='analyzer', domain='security', purpose='audit', "
             "tools=['Read','Grep'], constraints=['custom rule A', 'custom rule B'])\n"
             "expl = next(p for p in r.reminder_points if p.trigger == 'exploration_complete')\n"
@@ -9723,7 +9712,7 @@ class TestPromptReminderPoints:
     def test_before_destructive_prepends_verify_rule(self) -> None:
         """The before-destructive reminder must lead with a verify-before-mutating rule."""
         result = self._run_py(
-            "from prompt_generator import generate\n"
+            "from platxa_agent_generator.prompt_generator import generate\n"
             "r = generate(agent_type='builder', domain='general', purpose='x', "
             "tools=['Write','Edit'])\n"
             "pts = [p for p in r.reminder_points if p.trigger == 'before_destructive']\n"
@@ -9735,7 +9724,7 @@ class TestPromptReminderPoints:
     def test_reminder_points_have_rationale(self) -> None:
         """Every emitted reminder point must carry a non-empty rationale."""
         result = self._run_py(
-            "from prompt_generator import generate\n"
+            "from platxa_agent_generator.prompt_generator import generate\n"
             "r = generate(agent_type='analyzer', domain='security', purpose='audit', "
             "tools=['Read','Grep','Bash'])\n"
             "print(all(p.rationale.strip() for p in r.reminder_points))"
@@ -9761,7 +9750,7 @@ class TestFourBlockPromptStructure:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -9774,7 +9763,7 @@ class TestFourBlockPromptStructure:
     def test_generate_prompt_blocks_returns_all_four_blocks(self) -> None:
         """generate_prompt_blocks populates instructions/context/task/output_format."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_prompt_blocks\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read','Grep'],[],'JSON')\n"
             "b = generate_prompt_blocks(cfg)\n"
             "print('I' if b.instructions else 'NO_I')\n"
@@ -9788,11 +9777,11 @@ class TestFourBlockPromptStructure:
     def test_markdown_format_emits_canonical_headers(self) -> None:
         """format_blocks_markdown emits ## INSTRUCTIONS etc in canonical order."""
         result = self._run_py(
-            "from prompt_generator import generate\n"
+            "from platxa_agent_generator.prompt_generator import generate\n"
             "r = generate('analyzer','security','audit',['Read'],[],'JSON')\n"
             "# legacy default — should not have block headers\n"
             "print('NOHEADER' if '## INSTRUCTIONS' not in r.full_prompt else 'HEADER')\n"
-            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_full_prompt\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read'],[],'JSON','markdown')\n"
             "p = generate_full_prompt(cfg).full_prompt\n"
             "i = p.find('## INSTRUCTIONS')\n"
@@ -9809,7 +9798,7 @@ class TestFourBlockPromptStructure:
     def test_xml_format_emits_canonical_tags(self) -> None:
         """format_blocks_xml emits <instructions>..<output_format> in canonical order."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_full_prompt\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read'],[],'JSON','xml')\n"
             "p = generate_full_prompt(cfg).full_prompt\n"
             "i = p.find('<instructions>')\n"
@@ -9827,7 +9816,7 @@ class TestFourBlockPromptStructure:
     def test_invalid_structure_format_raises(self) -> None:
         """Unknown structure_format raises ValueError — no silent fallback."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_full_prompt\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read'],[],'JSON','bogus')\n"
             "try:\n"
             "    generate_full_prompt(cfg)\n"
@@ -9841,7 +9830,7 @@ class TestFourBlockPromptStructure:
     def test_legacy_format_unchanged(self) -> None:
         """Legacy format still produces the historical section list (no block headers)."""
         result = self._run_py(
-            "from prompt_generator import generate\n"
+            "from platxa_agent_generator.prompt_generator import generate\n"
             "r = generate('analyzer','security','audit',['Read','Grep'],[],'JSON')\n"
             "p = r.full_prompt\n"
             "# legacy uses **Capabilities:** and **Workflow:** bold markers,\n"
@@ -9855,7 +9844,7 @@ class TestFourBlockPromptStructure:
     def test_evaluate_prompt_structure_markdown(self) -> None:
         """evaluate_prompt_structure detects markdown-style 4-block content."""
         result = self._run_py(
-            "from quality_scorer import evaluate_prompt_structure\n"
+            "from platxa_agent_generator.quality_scorer import evaluate_prompt_structure\n"
             "md = '## INSTRUCTIONS\\nfoo\\n## CONTEXT\\nbar\\n## TASK\\nbaz\\n## OUTPUT FORMAT\\nqux'\n"
             "r = evaluate_prompt_structure(md)\n"
             "print(r.format, len(r.found_blocks), r.complete)"
@@ -9866,7 +9855,7 @@ class TestFourBlockPromptStructure:
     def test_evaluate_prompt_structure_xml(self) -> None:
         """evaluate_prompt_structure detects XML-tagged 4-block content."""
         result = self._run_py(
-            "from quality_scorer import evaluate_prompt_structure\n"
+            "from platxa_agent_generator.quality_scorer import evaluate_prompt_structure\n"
             "xml = '<instructions>a</instructions>\\n<context>b</context>\\n<task>c</task>\\n<output_format>d</output_format>'\n"
             "r = evaluate_prompt_structure(xml)\n"
             "print(r.format, len(r.found_blocks), r.complete)"
@@ -9877,7 +9866,7 @@ class TestFourBlockPromptStructure:
     def test_evaluate_prompt_structure_partial(self) -> None:
         """Partial markdown structure is reported incomplete, format still 'markdown'."""
         result = self._run_py(
-            "from quality_scorer import evaluate_prompt_structure\n"
+            "from platxa_agent_generator.quality_scorer import evaluate_prompt_structure\n"
             "md = '## INSTRUCTIONS\\nfoo\\n## CONTEXT\\nbar'\n"
             "r = evaluate_prompt_structure(md)\n"
             "print(r.format, len(r.found_blocks), len(r.missing_blocks), r.complete)"
@@ -9888,7 +9877,7 @@ class TestFourBlockPromptStructure:
     def test_evaluate_prompt_structure_none(self) -> None:
         """Legacy format (no block markers) reports format='none'."""
         result = self._run_py(
-            "from quality_scorer import evaluate_prompt_structure\n"
+            "from platxa_agent_generator.quality_scorer import evaluate_prompt_structure\n"
             "legacy = '# Some Agent\\n\\n**Capabilities:**\\n- x\\n\\n**Workflow:**\\n1. y'\n"
             "r = evaluate_prompt_structure(legacy)\n"
             "print(r.format, len(r.found_blocks))"
@@ -9899,7 +9888,7 @@ class TestFourBlockPromptStructure:
     def test_score_prompt_structure_legacy_neutral(self) -> None:
         """Legacy content scores a neutral 7.0 with no penalty."""
         result = self._run_py(
-            "from quality_scorer import score_prompt_structure\n"
+            "from platxa_agent_generator.quality_scorer import score_prompt_structure\n"
             "legacy = '# Agent\\n\\n## Overview\\nfoo'\n"
             "s = score_prompt_structure(legacy)\n"
             "print(round(s.score,1), s.weight, 'adopting' in ' '.join(s.suggestions).lower())"
@@ -9910,7 +9899,7 @@ class TestFourBlockPromptStructure:
     def test_score_prompt_structure_complete_wins(self) -> None:
         """Complete 4-block structure scores 10.0 (all four blocks)."""
         result = self._run_py(
-            "from quality_scorer import score_prompt_structure\n"
+            "from platxa_agent_generator.quality_scorer import score_prompt_structure\n"
             "md = '## INSTRUCTIONS\\na\\n## CONTEXT\\nb\\n## TASK\\nc\\n## OUTPUT FORMAT\\nd'\n"
             "s = score_prompt_structure(md)\n"
             "print(round(s.score,1))"
@@ -9921,7 +9910,7 @@ class TestFourBlockPromptStructure:
     def test_score_prompt_structure_partial_scales_linearly(self) -> None:
         """2 of 4 blocks scores 5.0; complete is strictly higher than partial."""
         result = self._run_py(
-            "from quality_scorer import score_prompt_structure\n"
+            "from platxa_agent_generator.quality_scorer import score_prompt_structure\n"
             "two = '## INSTRUCTIONS\\na\\n## CONTEXT\\nb'\n"
             "three = '## INSTRUCTIONS\\na\\n## CONTEXT\\nb\\n## TASK\\nc'\n"
             "print(round(score_prompt_structure(two).score,1),"
@@ -9933,8 +9922,8 @@ class TestFourBlockPromptStructure:
     def test_round_trip_markdown_scores_complete(self) -> None:
         """Agent generated with structure_format='markdown' scores complete via scorer."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_full_prompt\n"
-            "from quality_scorer import evaluate_prompt_structure\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_full_prompt\n"
+            "from platxa_agent_generator.quality_scorer import evaluate_prompt_structure\n"
             "cfg = PromptConfig('builder','documentation','write docs',"
             "['Read','Write'],[],'Markdown docs','markdown')\n"
             "p = generate_full_prompt(cfg).full_prompt\n"
@@ -9968,7 +9957,7 @@ class TestXmlNestedTagStructure:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -9981,7 +9970,7 @@ class TestXmlNestedTagStructure:
     def test_xml_mode_wraps_constraints_in_nested_tag(self) -> None:
         """xml mode emits <constraints>...</constraints> instead of bold heading."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_full_prompt\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read'],"
             "['must scan all files','no destructive ops'],'JSON','xml')\n"
             "p = generate_full_prompt(cfg).full_prompt\n"
@@ -9995,7 +9984,7 @@ class TestXmlNestedTagStructure:
     def test_markdown_mode_uses_bold_heading_for_constraints(self) -> None:
         """markdown mode keeps **Constraints:** bold heading, no XML tags."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_full_prompt\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read'],"
             "['must scan all'],'JSON','markdown')\n"
             "p = generate_full_prompt(cfg).full_prompt\n"
@@ -10008,7 +9997,7 @@ class TestXmlNestedTagStructure:
     def test_xml_mode_wraps_examples_in_nested_tags(self) -> None:
         """xml mode emits <examples><example>...</example></examples>."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_full_prompt\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read'],[],"
             "'JSON','xml')\n"
             "cfg.examples = ['Input: foo / Output: bar', 'Input: baz / Output: qux']\n"
@@ -10033,7 +10022,7 @@ class TestXmlNestedTagStructure:
     def test_markdown_mode_uses_bullet_list_for_examples(self) -> None:
         """markdown mode emits **Examples:** bullet list, no XML tags."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_full_prompt\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read'],[],"
             "'JSON','markdown')\n"
             "cfg.examples = ['Input: foo / Output: bar']\n"
@@ -10048,7 +10037,7 @@ class TestXmlNestedTagStructure:
     def test_empty_examples_list_suppresses_section_in_xml(self) -> None:
         """Empty examples list does not emit an empty <examples></examples>."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_full_prompt\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read'],[],"
             "'JSON','xml')\n"
             "p = generate_full_prompt(cfg).full_prompt\n"
@@ -10060,7 +10049,7 @@ class TestXmlNestedTagStructure:
     def test_nested_constraints_tag_inside_instructions_block(self) -> None:
         """<constraints> opening tag falls between <instructions> open and close."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_full_prompt\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read'],"
             "['no destructive ops'],'JSON','xml')\n"
             "p = generate_full_prompt(cfg).full_prompt\n"
@@ -10077,7 +10066,7 @@ class TestXmlNestedTagStructure:
     def test_nested_examples_tag_inside_context_block(self) -> None:
         """<examples> opening tag falls between <context> open and close."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_full_prompt\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read'],[],"
             "'JSON','xml')\n"
             "cfg.examples = ['demo']\n"
@@ -10095,7 +10084,7 @@ class TestXmlNestedTagStructure:
     def test_legacy_mode_uses_bold_heading_for_constraints(self) -> None:
         """legacy structure_format keeps the historic **Constraints:** heading."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_full_prompt\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_full_prompt\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read'],"
             "['hard rule'],'JSON','legacy')\n"
             "p = generate_full_prompt(cfg).full_prompt\n"
@@ -10108,7 +10097,7 @@ class TestXmlNestedTagStructure:
     def test_evaluate_prompt_structure_detects_nested_constraints(self) -> None:
         """evaluate_prompt_structure populates nested_tags_found with 'constraints'."""
         result = self._run_py(
-            "from quality_scorer import evaluate_prompt_structure\n"
+            "from platxa_agent_generator.quality_scorer import evaluate_prompt_structure\n"
             "x = '<instructions>foo\\n<constraints>- a</constraints>"
             "\\n</instructions>\\n<context>b</context>\\n<task>c</task>"
             "\\n<output_format>d</output_format>'\n"
@@ -10122,7 +10111,7 @@ class TestXmlNestedTagStructure:
     def test_evaluate_prompt_structure_detects_nested_examples(self) -> None:
         """evaluate_prompt_structure populates nested_tags_found with 'examples'."""
         result = self._run_py(
-            "from quality_scorer import evaluate_prompt_structure\n"
+            "from platxa_agent_generator.quality_scorer import evaluate_prompt_structure\n"
             "x = '<instructions>a</instructions>\\n<context>b\\n"
             "<examples><example>e1</example></examples></context>\\n"
             "<task>c</task>\\n<output_format>d</output_format>'\n"
@@ -10136,7 +10125,7 @@ class TestXmlNestedTagStructure:
     def test_evaluate_prompt_structure_no_nested_tags_when_absent(self) -> None:
         """nested_tags_found is empty list when neither sub-tag is present."""
         result = self._run_py(
-            "from quality_scorer import evaluate_prompt_structure\n"
+            "from platxa_agent_generator.quality_scorer import evaluate_prompt_structure\n"
             "x = '<instructions>a</instructions>\\n<context>b</context>"
             "\\n<task>c</task>\\n<output_format>d</output_format>'\n"
             "r = evaluate_prompt_structure(x)\n"
@@ -10148,7 +10137,7 @@ class TestXmlNestedTagStructure:
     def test_promptconfig_examples_defaults_to_empty_list(self) -> None:
         """Backwards compat: PromptConfig.examples defaults to empty list."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig\n"
             "cfg = PromptConfig('a','cat','desc',['Read'],[],'JSON')\n"
             "print(cfg.examples == [], type(cfg.examples).__name__)"
         )
@@ -10177,7 +10166,7 @@ class TestAgentDiffComparison:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -10190,7 +10179,7 @@ class TestAgentDiffComparison:
     def test_diff_detects_frontmatter_changes(self) -> None:
         """Frontmatter add/remove/change populate the right buckets."""
         result = self._run_py(
-            "from agent_versioning import diff_agents\n"
+            "from platxa_agent_generator.agent_versioning import diff_agents\n"
             "old = '---\\nname: a\\nmodel: sonnet\\nold_field: x\\n---\\n'\n"
             "new = '---\\nname: b\\nmodel: sonnet\\nnew_field: y\\n---\\n'\n"
             "d = diff_agents(old, new)\n"
@@ -10203,7 +10192,7 @@ class TestAgentDiffComparison:
     def test_diff_detects_tool_changes(self) -> None:
         """Tool additions and removals are sorted lists, set semantics."""
         result = self._run_py(
-            "from agent_versioning import diff_agents\n"
+            "from platxa_agent_generator.agent_versioning import diff_agents\n"
             "old = '---\\nname: x\\ntools: Read, Grep, WebFetch\\n---\\n'\n"
             "new = '---\\nname: x\\ntools: Read, Bash, Edit\\n---\\n'\n"
             "d = diff_agents(old, new)\n"
@@ -10215,7 +10204,7 @@ class TestAgentDiffComparison:
     def test_diff_excludes_tools_from_frontmatter_diff(self) -> None:
         """Changing tools must not appear in frontmatter_changed."""
         result = self._run_py(
-            "from agent_versioning import diff_agents\n"
+            "from platxa_agent_generator.agent_versioning import diff_agents\n"
             "old = '---\\nname: x\\ntools: Read\\n---\\n'\n"
             "new = '---\\nname: x\\ntools: Bash\\n---\\n'\n"
             "d = diff_agents(old, new)\n"
@@ -10228,7 +10217,7 @@ class TestAgentDiffComparison:
     def test_diff_detects_section_add_remove_change(self) -> None:
         """Sections added, removed, and modified land in correct buckets."""
         result = self._run_py(
-            "from agent_versioning import diff_agents\n"
+            "from platxa_agent_generator.agent_versioning import diff_agents\n"
             "old = '---\\nname: x\\n---\\n## Overview\\nold body\\n## Removed Sec\\nbye'\n"
             "new = '---\\nname: x\\n---\\n## Overview\\nNEW body\\n## Added Sec\\nhi'\n"
             "d = diff_agents(old, new)\n"
@@ -10240,7 +10229,7 @@ class TestAgentDiffComparison:
     def test_diff_ignores_whitespace_only_section_changes(self) -> None:
         """Bodies differing only in trailing space / blank lines are equal."""
         result = self._run_py(
-            "from agent_versioning import diff_agents\n"
+            "from platxa_agent_generator.agent_versioning import diff_agents\n"
             "old = '---\\nname: x\\n---\\n## Sec\\nbody line\\n'\n"
             "new = '---\\nname: x\\n---\\n## Sec\\nbody line   \\n\\n\\n'\n"
             "d = diff_agents(old, new)\n"
@@ -10252,7 +10241,7 @@ class TestAgentDiffComparison:
     def test_diff_is_empty_for_identical_content(self) -> None:
         """Identical content yields an empty diff."""
         result = self._run_py(
-            "from agent_versioning import diff_agents\n"
+            "from platxa_agent_generator.agent_versioning import diff_agents\n"
             "c = '---\\nname: x\\ntools: Read\\n---\\n## A\\nbody'\n"
             "d = diff_agents(c, c)\n"
             "print(d.is_empty())"
@@ -10263,7 +10252,7 @@ class TestAgentDiffComparison:
     def test_diff_is_empty_returns_false_when_any_change(self) -> None:
         """Adding a single tool flips is_empty to False."""
         result = self._run_py(
-            "from agent_versioning import diff_agents\n"
+            "from platxa_agent_generator.agent_versioning import diff_agents\n"
             "old = '---\\nname: x\\ntools: Read\\n---\\n'\n"
             "new = '---\\nname: x\\ntools: Read, Bash\\n---\\n'\n"
             "d = diff_agents(old, new)\n"
@@ -10275,7 +10264,7 @@ class TestAgentDiffComparison:
     def test_format_renders_human_readable_with_symbols(self) -> None:
         """Output uses +/-/~ markers and segregates frontmatter/tools/sections."""
         result = self._run_py(
-            "from agent_versioning import diff_agents, format_agent_diff\n"
+            "from platxa_agent_generator.agent_versioning import diff_agents, format_agent_diff\n"
             "old = '---\\nname: a\\ntools: Read, WebFetch\\n---\\n## A\\nold'\n"
             "new = '---\\nname: b\\ntools: Read, Bash\\n---\\n## A\\nnew\\n## B\\nhi'\n"
             "out = format_agent_diff(diff_agents(old, new))\n"
@@ -10298,7 +10287,7 @@ class TestAgentDiffComparison:
     def test_format_returns_no_changes_for_empty_diff(self) -> None:
         """Empty diff renders as a stable single-line marker."""
         result = self._run_py(
-            "from agent_versioning import AgentDiff, format_agent_diff\n"
+            "from platxa_agent_generator.agent_versioning import AgentDiff, format_agent_diff\n"
             "print(repr(format_agent_diff(AgentDiff())))"
         )
         assert result.returncode == 0, result.stderr
@@ -10307,7 +10296,7 @@ class TestAgentDiffComparison:
     def test_format_omits_empty_subsections(self) -> None:
         """Diff with only tool changes omits Frontmatter and Sections headings."""
         result = self._run_py(
-            "from agent_versioning import diff_agents, format_agent_diff\n"
+            "from platxa_agent_generator.agent_versioning import diff_agents, format_agent_diff\n"
             "old = '---\\nname: x\\ntools: Read\\n---\\n'\n"
             "new = '---\\nname: x\\ntools: Read, Bash\\n---\\n'\n"
             "out = format_agent_diff(diff_agents(old, new))\n"
@@ -10329,7 +10318,7 @@ class TestAgentDiffComparison:
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(Path(__file__).parent.parent / "scripts" / "agent_versioning.py"),
+                    str(Path(__file__).parent.parent / "src" / "platxa_agent_generator" / "agent_versioning.py"),
                     "diff",
                     str(old_path),
                     str(new_path),
@@ -10349,7 +10338,7 @@ class TestAgentDiffComparison:
         result = subprocess.run(
             [
                 sys.executable,
-                str(Path(__file__).parent.parent / "scripts" / "agent_versioning.py"),
+                str(Path(__file__).parent.parent / "src" / "platxa_agent_generator" / "agent_versioning.py"),
                 "diff",
                 "/nonexistent/old.md",
                 "/nonexistent/new.md",
@@ -10387,7 +10376,7 @@ class TestAgentVersioning:
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         return subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -10423,7 +10412,7 @@ class TestAgentVersioning:
         result = self._run_py(
             "import json, tempfile\n"
             "from pathlib import Path\n"
-            "from agent_versioning import (\n"
+            "from platxa_agent_generator.agent_versioning import (\n"
             "    VersionBump, bump_version, load_version_history,\n"
             "    extract_version_from_frontmatter,\n"
             ")\n" + "md = '''" + self._agent_md("1.0.0") + "'''\n"
@@ -10469,7 +10458,7 @@ class TestAgentVersioning:
         result = self._run_py(
             "import json, tempfile\n"
             "from pathlib import Path\n"
-            "from agent_versioning import (\n"
+            "from platxa_agent_generator.agent_versioning import (\n"
             "    VersionBump, bump_version, load_version_history,\n"
             "    save_version_history, VersionEntry, VersionHistory,\n"
             "    extract_version_from_frontmatter,\n"
@@ -10541,7 +10530,7 @@ class TestAgentVersioning:
         result = self._run_py(
             "import hashlib, json, tempfile\n"
             "from pathlib import Path\n"
-            "from agent_versioning import apply_update\n"
+            "from platxa_agent_generator.agent_versioning import apply_update\n"
             + "installed = '''"
             + self._agent_md("2.0.0")
             + "'''\n"
@@ -10597,7 +10586,7 @@ class TestPluginExport:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -10612,7 +10601,7 @@ class TestPluginExport:
         result = self._run_py(
             "import json, tempfile\n"
             "from pathlib import Path\n"
-            "from agent_export import export_as_plugin\n"
+            "from platxa_agent_generator.agent_export import export_as_plugin\n"
             "with tempfile.TemporaryDirectory() as tmp:\n"
             "    tmp = Path(tmp)\n"
             "    agent = tmp / 'agents' / 'demo.md'\n"
@@ -10642,7 +10631,7 @@ class TestPluginExport:
         result = self._run_py(
             "import json, tempfile\n"
             "from pathlib import Path\n"
-            "from agent_export import export_as_plugin\n"
+            "from platxa_agent_generator.agent_export import export_as_plugin\n"
             "with tempfile.TemporaryDirectory() as tmp:\n"
             "    tmp = Path(tmp)\n"
             "    agent = tmp / 'agents' / 'demo.md'\n"
@@ -10660,7 +10649,7 @@ class TestPluginExport:
         result = self._run_py(
             "import json, tempfile\n"
             "from pathlib import Path\n"
-            "from agent_export import export_as_plugin\n"
+            "from platxa_agent_generator.agent_export import export_as_plugin\n"
             "with tempfile.TemporaryDirectory() as tmp:\n"
             "    tmp = Path(tmp)\n"
             "    agents = tmp / 'agents'\n"
@@ -10683,7 +10672,7 @@ class TestPluginExport:
     def test_build_plugin_manifest_omits_empty_optional_fields(self) -> None:
         """Optional fields not set on PackageManifest stay out of plugin.json."""
         result = self._run_py(
-            "from agent_export import PackageManifest, build_plugin_manifest\n"
+            "from platxa_agent_generator.agent_export import PackageManifest, build_plugin_manifest\n"
             "m = PackageManifest(name='x', version='1.0.0', description='d')\n"
             "pj = build_plugin_manifest(m)\n"
             "print(sorted(pj.keys()))"
@@ -10701,7 +10690,7 @@ class TestPluginExport:
         """Source agent that doesn't exist → success=False with message."""
         result = self._run_py(
             "from pathlib import Path\n"
-            "from agent_export import export_as_plugin\n"
+            "from platxa_agent_generator.agent_export import export_as_plugin\n"
             "r = export_as_plugin(Path('/nonexistent/agent.md'), Path('/tmp/out'))\n"
             "print(r.success, 'not found' in r.errors[0].lower())"
         )
@@ -10713,7 +10702,7 @@ class TestPluginExport:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_export import export_as_plugin\n"
+            "from platxa_agent_generator.agent_export import export_as_plugin\n"
             "with tempfile.TemporaryDirectory() as tmp:\n"
             "    tmp = Path(tmp)\n"
             "    agent = tmp / 'a.md'\n"
@@ -10733,7 +10722,7 @@ class TestPluginExport:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_export import export_as_plugin\n"
+            "from platxa_agent_generator.agent_export import export_as_plugin\n"
             "with tempfile.TemporaryDirectory() as tmp:\n"
             "    tmp = Path(tmp)\n"
             "    agent = tmp / 'a.md'\n"
@@ -10758,7 +10747,7 @@ class TestPluginExport:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_export import export_as_plugin\n"
+            "from platxa_agent_generator.agent_export import export_as_plugin\n"
             "with tempfile.TemporaryDirectory() as tmp:\n"
             "    tmp = Path(tmp)\n"
             "    agent = tmp / 'a.md'\n"
@@ -10785,7 +10774,7 @@ class TestPluginExport:
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(Path(__file__).parent.parent / "scripts" / "agent_export.py"),
+                    str(Path(__file__).parent.parent / "src" / "platxa_agent_generator" / "agent_export.py"),
                     "export-plugin",
                     str(agent),
                     "-o",
@@ -10809,7 +10798,7 @@ class TestPluginExport:
             result = subprocess.run(
                 [
                     sys.executable,
-                    str(Path(__file__).parent.parent / "scripts" / "agent_export.py"),
+                    str(Path(__file__).parent.parent / "src" / "platxa_agent_generator" / "agent_export.py"),
                     "export-plugin",
                     "/nonexistent/agent.md",
                     "-o",
@@ -10843,7 +10832,7 @@ class TestProgressTrackerTodoWrite:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -10858,7 +10847,7 @@ class TestProgressTrackerTodoWrite:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from progress_tracker import ProgressTracker\n"
+            "from platxa_agent_generator.progress_tracker import ProgressTracker\n"
             "with tempfile.TemporaryDirectory() as tmp:\n"
             "    t = ProgressTracker(state_file=Path(tmp) / 's.json')\n"
             "    t.start('demo')\n"
@@ -10883,7 +10872,7 @@ class TestProgressTrackerTodoWrite:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from progress_tracker import ProgressTracker\n"
+            "from platxa_agent_generator.progress_tracker import ProgressTracker\n"
             "with tempfile.TemporaryDirectory() as tmp:\n"
             "    t = ProgressTracker(state_file=Path(tmp) / 's.json')\n"
             "    print(t.to_todowrite_items())"
@@ -10896,7 +10885,7 @@ class TestProgressTrackerTodoWrite:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from progress_tracker import ProgressTracker\n"
+            "from platxa_agent_generator.progress_tracker import ProgressTracker\n"
             "with tempfile.TemporaryDirectory() as tmp:\n"
             "    t = ProgressTracker(state_file=Path(tmp) / 's.json')\n"
             "    t.start('demo')\n"
@@ -10913,7 +10902,7 @@ class TestProgressTrackerTodoWrite:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from progress_tracker import ProgressTracker\n"
+            "from platxa_agent_generator.progress_tracker import ProgressTracker\n"
             "with tempfile.TemporaryDirectory() as tmp:\n"
             "    t = ProgressTracker(state_file=Path(tmp) / 's.json')\n"
             "    t.start('demo')\n"
@@ -10931,7 +10920,7 @@ class TestProgressTrackerTodoWrite:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from progress_tracker import ProgressTracker\n"
+            "from platxa_agent_generator.progress_tracker import ProgressTracker\n"
             "with tempfile.TemporaryDirectory() as tmp:\n"
             "    t = ProgressTracker(state_file=Path(tmp) / 's.json')\n"
             "    t.start('demo')\n"
@@ -10944,7 +10933,7 @@ class TestProgressTrackerTodoWrite:
     def test_phase_to_todowrite_item_skipped_maps_to_completed(self) -> None:
         """skipped phase status renders as completed (TodoWrite has no skipped)."""
         result = self._run_py(
-            "from progress_tracker import PhaseProgress, ProgressPhase, _phase_to_todowrite_item\n"
+            "from platxa_agent_generator.progress_tracker import PhaseProgress, ProgressPhase, _phase_to_todowrite_item\n"
             "p = PhaseProgress(phase='discovery', started_at='', "
             "status='skipped', progress_percent=100)\n"
             "item = _phase_to_todowrite_item(ProgressPhase.DISCOVERY, p)\n"
@@ -10956,7 +10945,7 @@ class TestProgressTrackerTodoWrite:
     def test_phase_to_todowrite_item_failed_maps_to_in_progress(self) -> None:
         """failed phase stays in_progress so the user sees it as the active row."""
         result = self._run_py(
-            "from progress_tracker import PhaseProgress, ProgressPhase, _phase_to_todowrite_item\n"
+            "from platxa_agent_generator.progress_tracker import PhaseProgress, ProgressPhase, _phase_to_todowrite_item\n"
             "p = PhaseProgress(phase='generation', started_at='', "
             "status='failed', progress_percent=42)\n"
             "item = _phase_to_todowrite_item(ProgressPhase.GENERATION, p)\n"
@@ -10968,7 +10957,7 @@ class TestProgressTrackerTodoWrite:
     def test_percentage_is_appended_to_both_labels(self) -> None:
         """[NN%] suffix appears on both content and activeForm."""
         result = self._run_py(
-            "from progress_tracker import PhaseProgress, ProgressPhase, _phase_to_todowrite_item\n"
+            "from platxa_agent_generator.progress_tracker import PhaseProgress, ProgressPhase, _phase_to_todowrite_item\n"
             "p = PhaseProgress(phase='generation', started_at='', "
             "status='running', progress_percent=37)\n"
             "item = _phase_to_todowrite_item(ProgressPhase.GENERATION, p)\n"
@@ -10986,7 +10975,7 @@ class TestProgressTrackerTodoWrite:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from progress_tracker import ProgressTracker\n"
+            "from platxa_agent_generator.progress_tracker import ProgressTracker\n"
             "with tempfile.TemporaryDirectory() as tmp:\n"
             "    t = ProgressTracker(state_file=Path(tmp) / 's.json')\n"
             "    t.start('demo')\n"
@@ -11005,7 +10994,7 @@ class TestProgressTrackerTodoWrite:
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
-            scripts_dir = Path(__file__).parent.parent / "scripts"
+            scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
             # Start a tracker first using the CLI itself.
             subprocess.run(
                 [sys.executable, str(scripts_dir / "progress_tracker.py"), "start", "demo"],
@@ -11032,7 +11021,7 @@ class TestProgressTrackerTodoWrite:
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
-            scripts_dir = Path(__file__).parent.parent / "scripts"
+            scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
             result = subprocess.run(
                 [sys.executable, str(scripts_dir / "progress_tracker.py"), "todowrite"],
                 capture_output=True,
@@ -11065,7 +11054,7 @@ class TestDomainKnowledgeImports:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -11078,7 +11067,7 @@ class TestDomainKnowledgeImports:
     def test_estimate_tokens_basic_cases(self) -> None:
         """Empty → 0, tiny → 1, ~4 chars per token approximation."""
         result = self._run_py(
-            "from prompt_generator import estimate_tokens\n"
+            "from platxa_agent_generator.prompt_generator import estimate_tokens\n"
             "print(estimate_tokens(''))\n"
             "print(estimate_tokens('x'))\n"
             "# 400 chars → ~100 tokens (4 chars/token heuristic)\n"
@@ -11090,7 +11079,7 @@ class TestDomainKnowledgeImports:
     def test_total_tokens_sums_across_entries(self) -> None:
         """total_domain_knowledge_tokens aggregates the per-entry estimate."""
         result = self._run_py(
-            "from prompt_generator import DomainKnowledge, total_domain_knowledge_tokens\n"
+            "from platxa_agent_generator.prompt_generator import DomainKnowledge, total_domain_knowledge_tokens\n"
             "items = [DomainKnowledge(import_path='a', content='a' * 400),\n"
             "         DomainKnowledge(import_path='b', content='b' * 800)]\n"
             "print(total_domain_knowledge_tokens(items))"
@@ -11101,7 +11090,7 @@ class TestDomainKnowledgeImports:
     def test_should_use_imports_threshold_behavior(self) -> None:
         """Empty/under/at/over the threshold all map to expected booleans."""
         result = self._run_py(
-            "from prompt_generator import DomainKnowledge, should_use_domain_knowledge_imports\n"
+            "from platxa_agent_generator.prompt_generator import DomainKnowledge, should_use_domain_knowledge_imports\n"
             "empty = []\n"
             "# 100 chars → 25 tokens, well under threshold of 50\n"
             "small = [DomainKnowledge(import_path='a', content='a' * 100)]\n"
@@ -11120,7 +11109,7 @@ class TestDomainKnowledgeImports:
     def test_format_block_empty_returns_empty_string(self) -> None:
         """Empty list → empty string so the caller can suppress the section."""
         result = self._run_py(
-            "from prompt_generator import format_domain_knowledge_block\n"
+            "from platxa_agent_generator.prompt_generator import format_domain_knowledge_block\n"
             "print(repr(format_domain_knowledge_block([])))"
         )
         assert result.returncode == 0, result.stderr
@@ -11129,7 +11118,7 @@ class TestDomainKnowledgeImports:
     def test_format_block_inline_mode_below_threshold(self) -> None:
         """Small corpus inlines content under the section heading."""
         result = self._run_py(
-            "from prompt_generator import (\n"
+            "from platxa_agent_generator.prompt_generator import (\n"
             "    DOMAIN_KNOWLEDGE_HEADING, DomainKnowledge, format_domain_knowledge_block\n"
             ")\n"
             "items = [DomainKnowledge(import_path='ctx.md', "
@@ -11146,7 +11135,7 @@ class TestDomainKnowledgeImports:
     def test_format_block_import_mode_above_threshold(self) -> None:
         """Large corpus emits @import refs and OMITS the inline content."""
         result = self._run_py(
-            "from prompt_generator import (\n"
+            "from platxa_agent_generator.prompt_generator import (\n"
             "    DOMAIN_KNOWLEDGE_HEADING, DomainKnowledge, format_domain_knowledge_block\n"
             ")\n"
             "# 12000 chars → ~3000 tokens, well over default 2000 threshold\n"
@@ -11166,7 +11155,7 @@ class TestDomainKnowledgeImports:
     def test_format_block_handles_missing_title(self) -> None:
         """Entries without a title still render in both modes."""
         result = self._run_py(
-            "from prompt_generator import DomainKnowledge, format_domain_knowledge_block\n"
+            "from platxa_agent_generator.prompt_generator import DomainKnowledge, format_domain_knowledge_block\n"
             "# Inline path: no title means no '### ' heading\n"
             "small = [DomainKnowledge(import_path='a.md', content='body', title='')]\n"
             "inline = format_domain_knowledge_block(small, threshold_tokens=2000)\n"
@@ -11182,7 +11171,7 @@ class TestDomainKnowledgeImports:
     def test_generate_full_prompt_inlines_small_domain_knowledge(self) -> None:
         """Small corpus appears verbatim inside the generated agent prompt."""
         result = self._run_py(
-            "from prompt_generator import (\n"
+            "from platxa_agent_generator.prompt_generator import (\n"
             "    DomainKnowledge, PromptConfig, generate_full_prompt\n"
             ")\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read'],[],"
@@ -11202,7 +11191,7 @@ class TestDomainKnowledgeImports:
     def test_generate_full_prompt_uses_imports_for_large_domain_knowledge(self) -> None:
         """Above threshold: prompt cites @paths and omits the source content."""
         result = self._run_py(
-            "from prompt_generator import (\n"
+            "from platxa_agent_generator.prompt_generator import (\n"
             "    DomainKnowledge, PromptConfig, generate_full_prompt\n"
             ")\n"
             "cfg = PromptConfig('analyzer','security','audit',['Read'],[],"
@@ -11225,7 +11214,7 @@ class TestDomainKnowledgeImports:
     def test_promptconfig_domain_knowledge_defaults_to_empty(self) -> None:
         """Backwards compat: domain_knowledge defaults to []."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig\n"
             "cfg = PromptConfig('a','cat','desc',['Read'],[],'JSON')\n"
             "print(cfg.domain_knowledge == [], type(cfg.domain_knowledge).__name__)"
         )
@@ -11254,7 +11243,7 @@ class TestAgentDependencyDocumentation:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -11267,7 +11256,7 @@ class TestAgentDependencyDocumentation:
     def test_build_graph_edges_include_isolated_agents(self) -> None:
         """Agents with no dependencies still appear in the edges map."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, build_dependency_graph\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, build_dependency_graph\n"
             "agents = [\n"
             "    AgentSpec(name='loner', description='', dependencies=[]),\n"
             "    AgentSpec(name='a', description='', dependencies=['b']),\n"
@@ -11283,7 +11272,7 @@ class TestAgentDependencyDocumentation:
     def test_build_graph_identifies_roots(self) -> None:
         """Roots are agents nobody depends on."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, build_dependency_graph\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, build_dependency_graph\n"
             "agents = [\n"
             "    AgentSpec(name='top', description='', dependencies=['mid']),\n"
             "    AgentSpec(name='mid', description='', dependencies=['leaf']),\n"
@@ -11298,7 +11287,7 @@ class TestAgentDependencyDocumentation:
     def test_build_graph_detects_missing_dependencies(self) -> None:
         """Names referenced but not defined go into missing_dependencies."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, build_dependency_graph\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, build_dependency_graph\n"
             "agents = [AgentSpec(name='a', description='', "
             "dependencies=['nonexistent', 'also_missing'])]\n"
             "g = build_dependency_graph(agents)\n"
@@ -11310,7 +11299,7 @@ class TestAgentDependencyDocumentation:
     def test_build_graph_detects_simple_cycle(self) -> None:
         """A → B → A cycle is reported with closing element."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, build_dependency_graph\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, build_dependency_graph\n"
             "agents = [\n"
             "    AgentSpec(name='a', description='', dependencies=['b']),\n"
             "    AgentSpec(name='b', description='', dependencies=['a']),\n"
@@ -11327,7 +11316,7 @@ class TestAgentDependencyDocumentation:
     def test_build_graph_detects_three_node_cycle(self) -> None:
         """A → B → C → A forms one cycle, not three."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, build_dependency_graph\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, build_dependency_graph\n"
             "agents = [\n"
             "    AgentSpec(name='a', description='', dependencies=['b']),\n"
             "    AgentSpec(name='b', description='', dependencies=['c']),\n"
@@ -11344,7 +11333,7 @@ class TestAgentDependencyDocumentation:
     def test_render_diagram_emits_mermaid_block(self) -> None:
         """Mermaid output starts with ```mermaid + graph TD and lists all nodes."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, build_dependency_graph,"
+            "from platxa_agent_generator.agent_composer import AgentSpec, build_dependency_graph,"
             " render_dependency_diagram\n"
             "agents = [\n"
             "    AgentSpec(name='top', description='', dependencies=['leaf']),\n"
@@ -11367,7 +11356,7 @@ class TestAgentDependencyDocumentation:
     def test_render_diagram_marks_cycle_edges_with_dotted_arrow(self) -> None:
         """Edges participating in a cycle render as -.-> instead of -->."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, build_dependency_graph,"
+            "from platxa_agent_generator.agent_composer import AgentSpec, build_dependency_graph,"
             " render_dependency_diagram\n"
             "agents = [\n"
             "    AgentSpec(name='a', description='', dependencies=['b']),\n"
@@ -11384,7 +11373,7 @@ class TestAgentDependencyDocumentation:
     def test_render_diagram_marks_missing_dependencies(self) -> None:
         """Missing-dep targets render with the MISSING: label prefix."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, build_dependency_graph,"
+            "from platxa_agent_generator.agent_composer import AgentSpec, build_dependency_graph,"
             " render_dependency_diagram\n"
             "agents = [AgentSpec(name='a', description='', dependencies=['ghost'])]\n"
             "out = render_dependency_diagram(build_dependency_graph(agents))\n"
@@ -11396,7 +11385,7 @@ class TestAgentDependencyDocumentation:
     def test_render_readme_section_includes_diagram_and_roots(self) -> None:
         """Full README section has heading, Mermaid block, and entry points."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, build_dependency_graph,"
+            "from platxa_agent_generator.agent_composer import AgentSpec, build_dependency_graph,"
             " render_dependency_readme_section\n"
             "agents = [\n"
             "    AgentSpec(name='top', description='', dependencies=['leaf']),\n"
@@ -11413,7 +11402,7 @@ class TestAgentDependencyDocumentation:
     def test_render_readme_section_warns_on_cycles(self) -> None:
         """README section calls out circular dependencies in a warning block."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, build_dependency_graph,"
+            "from platxa_agent_generator.agent_composer import AgentSpec, build_dependency_graph,"
             " render_dependency_readme_section\n"
             "agents = [\n"
             "    AgentSpec(name='a', description='', dependencies=['b']),\n"
@@ -11442,7 +11431,7 @@ class TestAgentDependencyDocumentation:
             (agents_dir / "b.md").write_text(
                 "---\nname: b\ndescription: Agent b\ndependencies: [a]\n---\nbody"
             )
-            scripts_dir = Path(__file__).parent.parent / "scripts"
+            scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
             result = subprocess.run(
                 [
                     sys.executable,
@@ -11479,7 +11468,7 @@ class TestGenerationAttributionFooter:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -11492,7 +11481,7 @@ class TestGenerationAttributionFooter:
     def test_version_constant_is_set(self) -> None:
         """PLATXA_GENERATOR_VERSION exists and is non-empty."""
         result = self._run_py(
-            "from agent_generator import PLATXA_GENERATOR_VERSION\n"
+            "from platxa_agent_generator.agent_generator import PLATXA_GENERATOR_VERSION\n"
             "print(bool(PLATXA_GENERATOR_VERSION), '.' in PLATXA_GENERATOR_VERSION)"
         )
         assert result.returncode == 0, result.stderr
@@ -11501,7 +11490,7 @@ class TestGenerationAttributionFooter:
     def test_footer_marker_is_locatable(self) -> None:
         """GENERATION_FOOTER_MARKER opens the footer block."""
         result = self._run_py(
-            "from agent_generator import (\n"
+            "from platxa_agent_generator.agent_generator import (\n"
             "    AgentDefinition, GENERATION_FOOTER_MARKER,\n"
             "    generate_attribution_footer,\n"
             ")\n"
@@ -11515,7 +11504,7 @@ class TestGenerationAttributionFooter:
     def test_footer_is_html_comment(self) -> None:
         """Footer wraps in <!-- ... --> so it's invisible in rendered markdown."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition, generate_attribution_footer\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition, generate_attribution_footer\n"
             "d = AgentDefinition(name='x', description='d', tools=[])\n"
             "footer = generate_attribution_footer(d, timestamp='2026-04-15T10:00:00Z')\n"
             "print(footer.startswith('<!--'), footer.endswith('-->'))"
@@ -11526,7 +11515,7 @@ class TestGenerationAttributionFooter:
     def test_footer_includes_required_metadata(self) -> None:
         """Footer contains version, timestamp, score, name, pattern, model, tools."""
         result = self._run_py(
-            "from agent_generator import (\n"
+            "from platxa_agent_generator.agent_generator import (\n"
             "    AgentDefinition, PLATXA_GENERATOR_VERSION,\n"
             "    generate_attribution_footer,\n"
             ")\n"
@@ -11548,7 +11537,7 @@ class TestGenerationAttributionFooter:
     def test_pinned_timestamp_produces_deterministic_output(self) -> None:
         """Same definition + same pinned timestamp → identical footer."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition, generate_attribution_footer\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition, generate_attribution_footer\n"
             "d = AgentDefinition(name='x', description='d', tools=['Read'])\n"
             "ts = '2026-04-15T12:00:00Z'\n"
             "f1 = generate_attribution_footer(d, timestamp=ts)\n"
@@ -11561,7 +11550,7 @@ class TestGenerationAttributionFooter:
     def test_quality_score_omitted_renders_not_measured(self) -> None:
         """Score=None reports 'not measured' instead of fabricating a 0."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition, generate_attribution_footer\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition, generate_attribution_footer\n"
             "d = AgentDefinition(name='x', description='d', tools=[])\n"
             "f = generate_attribution_footer(d, quality_score=None,"
             " timestamp='2026-04-15T10:00:00Z')\n"
@@ -11573,7 +11562,7 @@ class TestGenerationAttributionFooter:
     def test_empty_tools_renders_as_none(self) -> None:
         """An agent with no tools shows '(none)' rather than an empty string."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition, generate_attribution_footer\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition, generate_attribution_footer\n"
             "d = AgentDefinition(name='x', description='d', tools=[])\n"
             "f = generate_attribution_footer(d, timestamp='2026-04-15T10:00:00Z')\n"
             "print('(none)' in f)"
@@ -11584,7 +11573,7 @@ class TestGenerationAttributionFooter:
     def test_generated_file_ends_with_footer(self) -> None:
         """generate_agent_file appends the footer as the last block."""
         result = self._run_py(
-            "from agent_generator import (\n"
+            "from platxa_agent_generator.agent_generator import (\n"
             "    AgentDefinition, GENERATION_FOOTER_MARKER, generate_agent_file,\n"
             ")\n"
             "d = AgentDefinition(name='demo', description='d', tools=['Read'])\n"
@@ -11604,7 +11593,7 @@ class TestGenerationAttributionFooter:
         """Default (no timestamp arg) emits ISO-8601 UTC with trailing Z."""
         result = self._run_py(
             "import re\n"
-            "from agent_generator import AgentDefinition, generate_attribution_footer\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition, generate_attribution_footer\n"
             "d = AgentDefinition(name='x', description='d', tools=[])\n"
             "f = generate_attribution_footer(d)\n"
             "# Footer should contain a Z-suffixed ISO-8601 timestamp\n"
@@ -11617,7 +11606,7 @@ class TestGenerationAttributionFooter:
     def test_existing_sections_preserved(self) -> None:
         """Adding the footer didn't break any of the 14 pre-existing sections."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition, generate_agent_file\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition, generate_agent_file\n"
             "d = AgentDefinition(name='demo', description='d', tools=['Read'])\n"
             "out = generate_agent_file(d, timestamp='2026-04-15T11:00:00Z')\n"
             "# Spot-check that the canonical headings still appear\n"
@@ -11645,7 +11634,7 @@ class TestAgentRegenerationWorkflow:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -11660,7 +11649,7 @@ class TestAgentRegenerationWorkflow:
     def test_detect_no_breaking_when_only_body_changed(self) -> None:
         """Pure body edits produce zero signals."""
         result = self._run_py(
-            "from agent_versioning import detect_breaking_changes\n"
+            "from platxa_agent_generator.agent_versioning import detect_breaking_changes\n"
             "old = '---\\nname: a\\ntools: Read\\n---\\nOld body'\n"
             "new = '---\\nname: a\\ntools: Read\\n---\\nNew body'\n"
             "print(len(detect_breaking_changes(old, new)))"
@@ -11671,7 +11660,7 @@ class TestAgentRegenerationWorkflow:
     def test_detect_tool_removal_is_breaking(self) -> None:
         """Removing a declared tool produces a 'tools' signal."""
         result = self._run_py(
-            "from agent_versioning import detect_breaking_changes\n"
+            "from platxa_agent_generator.agent_versioning import detect_breaking_changes\n"
             "old = '---\\nname: a\\ntools: Read, Write, Bash\\n---\\nBody'\n"
             "new = '---\\nname: a\\ntools: Read, Bash\\n---\\nBody'\n"
             "sigs = detect_breaking_changes(old, new)\n"
@@ -11683,7 +11672,7 @@ class TestAgentRegenerationWorkflow:
     def test_detect_tool_addition_is_not_breaking(self) -> None:
         """Adding tools is additive — no signal."""
         result = self._run_py(
-            "from agent_versioning import detect_breaking_changes\n"
+            "from platxa_agent_generator.agent_versioning import detect_breaking_changes\n"
             "old = '---\\nname: a\\ntools: Read\\n---\\nBody'\n"
             "new = '---\\nname: a\\ntools: Read, Write, Bash\\n---\\nBody'\n"
             "print(len(detect_breaking_changes(old, new)))"
@@ -11694,7 +11683,7 @@ class TestAgentRegenerationWorkflow:
     def test_detect_name_change_is_breaking(self) -> None:
         """Agent rename is breaking (identity change)."""
         result = self._run_py(
-            "from agent_versioning import detect_breaking_changes\n"
+            "from platxa_agent_generator.agent_versioning import detect_breaking_changes\n"
             "old = '---\\nname: old-name\\ntools: Read\\n---\\nBody'\n"
             "new = '---\\nname: new-name\\ntools: Read\\n---\\nBody'\n"
             "sigs = detect_breaking_changes(old, new)\n"
@@ -11706,7 +11695,7 @@ class TestAgentRegenerationWorkflow:
     def test_detect_model_change_is_breaking(self) -> None:
         """Model change alters runtime behavior — breaking."""
         result = self._run_py(
-            "from agent_versioning import detect_breaking_changes\n"
+            "from platxa_agent_generator.agent_versioning import detect_breaking_changes\n"
             "old = '---\\nname: a\\nmodel: sonnet\\n---\\nBody'\n"
             "new = '---\\nname: a\\nmodel: opus\\n---\\nBody'\n"
             "sigs = detect_breaking_changes(old, new)\n"
@@ -11722,7 +11711,7 @@ class TestAgentRegenerationWorkflow:
         result = self._run_py(
             "import tempfile, os\n"
             "from pathlib import Path\n"
-            "from agent_versioning import regenerate_agent\n"
+            "from platxa_agent_generator.agent_versioning import regenerate_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    content = '---\\nname: a\\ntools: Read\\n---\\nInitial'\n"
@@ -11738,7 +11727,7 @@ class TestAgentRegenerationWorkflow:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_versioning import regenerate_agent, VersionBump\n"
+            "from platxa_agent_generator.agent_versioning import regenerate_agent, VersionBump\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    first = '---\\nname: a\\ntools: Read\\n---\\nBody v1'\n"
@@ -11756,7 +11745,7 @@ class TestAgentRegenerationWorkflow:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_versioning import regenerate_agent, VersionBump\n"
+            "from platxa_agent_generator.agent_versioning import regenerate_agent, VersionBump\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    first = '---\\nname: a\\ntools: Read, Write, Bash\\n---\\nBody'\n"
@@ -11774,7 +11763,7 @@ class TestAgentRegenerationWorkflow:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_versioning import regenerate_agent\n"
+            "from platxa_agent_generator.agent_versioning import regenerate_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    regenerate_agent(p, '---\\nname: a\\ntools: Read\\n---\\nv1', ['init'])\n"
@@ -11791,7 +11780,7 @@ class TestAgentRegenerationWorkflow:
         result = self._run_py(
             "import tempfile, json\n"
             "from pathlib import Path\n"
-            "from agent_versioning import regenerate_agent\n"
+            "from platxa_agent_generator.agent_versioning import regenerate_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    regenerate_agent(p, '---\\nname: a\\ntools: Read\\n---\\nv1', ['initial'])\n"
@@ -11808,7 +11797,7 @@ class TestAgentRegenerationWorkflow:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_versioning import regenerate_agent, VersionBump\n"
+            "from platxa_agent_generator.agent_versioning import regenerate_agent, VersionBump\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    regenerate_agent(p, '---\\nname: a\\ntools: Read\\n---\\nv1', ['init'])\n"
@@ -11836,7 +11825,7 @@ class TestAgentExportBundle:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -11850,7 +11839,7 @@ class TestAgentExportBundle:
         """For <proj>/.claude/agents/a.md → project root is <proj>."""
         result = self._run_py(
             "from pathlib import Path\n"
-            "from agent_export import detect_project_root\n"
+            "from platxa_agent_generator.agent_export import detect_project_root\n"
             "p = Path('/tmp/proj/.claude/agents/a.md')\n"
             "print(detect_project_root(p))"
         )
@@ -11862,7 +11851,7 @@ class TestAgentExportBundle:
         result = self._run_py(
             "import tempfile, json\n"
             "from pathlib import Path\n"
-            "from agent_export import collect_project_root_configs\n"
+            "from platxa_agent_generator.agent_export import collect_project_root_configs\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    root = Path(td)\n"
             "    agents = root / '.claude' / 'agents'\n"
@@ -11885,7 +11874,7 @@ class TestAgentExportBundle:
         result = self._run_py(
             "import tempfile, json, zipfile\n"
             "from pathlib import Path\n"
-            "from agent_export import export_agent, ExportFormat\n"
+            "from platxa_agent_generator.agent_export import export_agent, ExportFormat\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    root = Path(td)\n"
             "    agents = root / '.claude' / 'agents'\n"
@@ -11908,7 +11897,7 @@ class TestAgentExportBundle:
         result = self._run_py(
             "import tempfile, json, zipfile\n"
             "from pathlib import Path\n"
-            "from agent_export import export_agent, ExportFormat\n"
+            "from platxa_agent_generator.agent_export import export_agent, ExportFormat\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    root = Path(td)\n"
             "    agents = root / '.claude' / 'agents'\n"
@@ -11931,7 +11920,7 @@ class TestAgentExportBundle:
         result = self._run_py(
             "import tempfile, json\n"
             "from pathlib import Path\n"
-            "from agent_export import export_agent, import_agent, ExportFormat\n"
+            "from platxa_agent_generator.agent_export import export_agent, import_agent, ExportFormat\n"
             "with tempfile.TemporaryDirectory() as ta, tempfile.TemporaryDirectory() as tb:\n"
             "    root_a = Path(ta)\n"
             "    (root_a / '.claude' / 'agents').mkdir(parents=True)\n"
@@ -11956,7 +11945,7 @@ class TestAgentExportBundle:
         result = self._run_py(
             "import tempfile, json\n"
             "from pathlib import Path\n"
-            "from agent_export import export_agent, import_agent, ExportFormat\n"
+            "from platxa_agent_generator.agent_export import export_agent, import_agent, ExportFormat\n"
             "with tempfile.TemporaryDirectory() as ta, tempfile.TemporaryDirectory() as tb:\n"
             "    root_a = Path(ta)\n"
             "    (root_a / '.claude' / 'agents').mkdir(parents=True)\n"
@@ -11982,7 +11971,7 @@ class TestAgentExportBundle:
         result = self._run_py(
             "import tempfile, zipfile\n"
             "from pathlib import Path\n"
-            "from agent_export import import_agent\n"
+            "from platxa_agent_generator.agent_export import import_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    root = Path(td)\n"
             "    bad = root / 'bad.zip'\n"
@@ -12011,7 +12000,7 @@ class TestInteractiveFrontmatterWizard:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -12024,7 +12013,7 @@ class TestInteractiveFrontmatterWizard:
     def test_frontmatter_phase_registered(self) -> None:
         """FRONTMATTER_QUESTIONS is accessible via get_phase_questions."""
         result = self._run_py(
-            "from interactive_prompts import get_phase_questions, ALL_PHASES\n"
+            "from platxa_agent_generator.interactive_prompts import get_phase_questions, ALL_PHASES\n"
             "p = get_phase_questions('frontmatter')\n"
             "print(p is not None, 'frontmatter' in ALL_PHASES,"
             " len(p.questions) if p else -1)"
@@ -12035,7 +12024,7 @@ class TestInteractiveFrontmatterWizard:
     def test_frontmatter_keys_are_user_facing(self) -> None:
         """Questions ask about posture/complexity/duration, not the raw fields."""
         result = self._run_py(
-            "from interactive_prompts import FRONTMATTER_QUESTIONS\n"
+            "from platxa_agent_generator.interactive_prompts import FRONTMATTER_QUESTIONS\n"
             "keys = sorted(q.key for q in FRONTMATTER_QUESTIONS.questions)\n"
             "print(keys)"
         )
@@ -12045,7 +12034,7 @@ class TestInteractiveFrontmatterWizard:
     def test_resolve_with_canonical_values(self) -> None:
         """Canonical answer values map to frontmatter field values."""
         result = self._run_py(
-            "from interactive_prompts import resolve_frontmatter_fields\n"
+            "from platxa_agent_generator.interactive_prompts import resolve_frontmatter_fields\n"
             "r = resolve_frontmatter_fields({\n"
             "    'security_posture': 'restrictive',\n"
             "    'model_complexity': 'high',\n"
@@ -12059,7 +12048,7 @@ class TestInteractiveFrontmatterWizard:
     def test_resolve_balanced_omits_permission_mode(self) -> None:
         """security_posture=balanced doesn't write permissionMode at all."""
         result = self._run_py(
-            "from interactive_prompts import resolve_frontmatter_fields\n"
+            "from platxa_agent_generator.interactive_prompts import resolve_frontmatter_fields\n"
             "r = resolve_frontmatter_fields({\n"
             "    'security_posture': 'balanced',\n"
             "    'model_complexity': 'standard',\n"
@@ -12073,7 +12062,7 @@ class TestInteractiveFrontmatterWizard:
     def test_resolve_accepts_labels_from_ask_user_question(self) -> None:
         """Raw labels (what AskUserQuestion returns) resolve via the helper."""
         result = self._run_py(
-            "from interactive_prompts import resolve_frontmatter_fields\n"
+            "from platxa_agent_generator.interactive_prompts import resolve_frontmatter_fields\n"
             "r = resolve_frontmatter_fields({\n"
             "    'security_posture': 'Trusted (Auto-accept edits)',\n"
             "    'model_complexity': 'Low (Fast)',\n"
@@ -12087,7 +12076,7 @@ class TestInteractiveFrontmatterWizard:
     def test_resolve_unknown_value_raises(self) -> None:
         """Unrecognized values fail loud — no silent fallback."""
         result = self._run_py(
-            "from interactive_prompts import resolve_frontmatter_fields\n"
+            "from platxa_agent_generator.interactive_prompts import resolve_frontmatter_fields\n"
             "try:\n"
             "    resolve_frontmatter_fields({'model_complexity': 'bogus_tier'})\n"
             "    print('NO_RAISE')\n"
@@ -12100,7 +12089,7 @@ class TestInteractiveFrontmatterWizard:
     def test_resolve_ignores_unrelated_keys(self) -> None:
         """Passing a merged answer dict with unrelated keys works cleanly."""
         result = self._run_py(
-            "from interactive_prompts import resolve_frontmatter_fields\n"
+            "from platxa_agent_generator.interactive_prompts import resolve_frontmatter_fields\n"
             "r = resolve_frontmatter_fields({\n"
             "    'agent_type': 'analyzer',\n"
             "    'security_posture': 'restrictive',\n"
@@ -12114,7 +12103,7 @@ class TestInteractiveFrontmatterWizard:
     def test_resolve_empty_answers_returns_empty(self) -> None:
         """Empty input produces an empty dict, not None or error."""
         result = self._run_py(
-            "from interactive_prompts import resolve_frontmatter_fields\n"
+            "from platxa_agent_generator.interactive_prompts import resolve_frontmatter_fields\n"
             "print(resolve_frontmatter_fields({}) == {})"
         )
         assert result.returncode == 0, result.stderr
@@ -12140,7 +12129,7 @@ class TestAgentAnalyzer:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -12155,7 +12144,7 @@ class TestAgentAnalyzer:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_analyzer import analyze_agent\n"
+            "from platxa_agent_generator.agent_analyzer import analyze_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('---\\nname: a\\ndescription: Analyzes code for issues\\ntools: Read, Grep\\n---\\n# Agent\\n## Overview\\nDoes things.\\n## Workflow\\n1. step\\n## Examples\\n- ex1')\n"
@@ -12173,7 +12162,7 @@ class TestAgentAnalyzer:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_analyzer import analyze_agent\n"
+            "from platxa_agent_generator.agent_analyzer import analyze_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A\\n## Overview\\nx')\n"
@@ -12193,7 +12182,7 @@ class TestAgentAnalyzer:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_analyzer import analyze_agent\n"
+            "from platxa_agent_generator.agent_analyzer import analyze_agent\n"
             "long_desc = 'x' * 1500\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
@@ -12210,7 +12199,7 @@ class TestAgentAnalyzer:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_analyzer import analyze_agent\n"
+            "from platxa_agent_generator.agent_analyzer import analyze_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('---\\nname: a\\ntools: Read\\n---\\n# A')\n"
@@ -12226,7 +12215,7 @@ class TestAgentAnalyzer:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_analyzer import analyze_agent\n"
+            "from platxa_agent_generator.agent_analyzer import analyze_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A\\n## Overview\\nbody')\n"
@@ -12242,7 +12231,7 @@ class TestAgentAnalyzer:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_analyzer import analyze_agent, IMPROVEMENT_CATEGORIES\n"
+            "from platxa_agent_generator.agent_analyzer import analyze_agent, IMPROVEMENT_CATEGORIES\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A')\n"
@@ -12259,7 +12248,7 @@ class TestAgentAnalyzer:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_analyzer import analyze_agent, IMPROVEMENT_SEVERITY_ORDER\n"
+            "from platxa_agent_generator.agent_analyzer import analyze_agent, IMPROVEMENT_SEVERITY_ORDER\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('---\\nname: a\\ntools: Read\\n---\\n# A')\n"
@@ -12274,7 +12263,7 @@ class TestAgentAnalyzer:
     def test_file_not_found_raises(self) -> None:
         """analyze_agent raises FileNotFoundError on missing file."""
         result = self._run_py(
-            "from agent_analyzer import analyze_agent\n"
+            "from platxa_agent_generator.agent_analyzer import analyze_agent\n"
             "try:\n"
             "    analyze_agent('/tmp/__definitely_not_a_real_agent__.md')\n"
             "    print('NO_RAISE')\n"
@@ -12289,7 +12278,7 @@ class TestAgentAnalyzer:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_analyzer import analyze_agent, format_analysis_report\n"
+            "from platxa_agent_generator.agent_analyzer import analyze_agent, format_analysis_report\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('---\\nname: a\\ntools: Read\\n---\\n# A')\n"
@@ -12307,7 +12296,7 @@ class TestAgentAnalyzer:
         result = self._run_py(
             "import tempfile, sys\n"
             "from pathlib import Path\n"
-            "from cli import CLI\n"
+            "from platxa_agent_generator.cli import CLI\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A\\n## Examples\\n- e')\n"
@@ -12322,7 +12311,7 @@ class TestAgentAnalyzer:
     def test_cli_analyze_agent_missing_returns_1(self) -> None:
         """Missing file → return code 1, error printed."""
         result = self._run_py(
-            "from cli import CLI\n"
+            "from platxa_agent_generator.cli import CLI\n"
             "rc = CLI().run(['analyze-agent', '/tmp/__nope__.md'])\n"
             "print('RC=', rc)"
         )
@@ -12350,7 +12339,7 @@ class TestAgentUpgrader:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -12365,7 +12354,7 @@ class TestAgentUpgrader:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_upgrader import upgrade_agent\n"
+            "from platxa_agent_generator.agent_upgrader import upgrade_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Task, Read\\n---\\n# A')\n"
@@ -12381,7 +12370,7 @@ class TestAgentUpgrader:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_upgrader import upgrade_agent\n"
+            "from platxa_agent_generator.agent_upgrader import upgrade_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Read, Grep\\n---\\n# A')\n"
@@ -12397,7 +12386,7 @@ class TestAgentUpgrader:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_upgrader import upgrade_agent\n"
+            "from platxa_agent_generator.agent_upgrader import upgrade_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Read\\nmodel: opus\\n---\\n# A')\n"
@@ -12413,7 +12402,7 @@ class TestAgentUpgrader:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_upgrader import upgrade_agent\n"
+            "from platxa_agent_generator.agent_upgrader import upgrade_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A\\n## Overview\\nbody')\n"
@@ -12429,7 +12418,7 @@ class TestAgentUpgrader:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_upgrader import upgrade_agent\n"
+            "from platxa_agent_generator.agent_upgrader import upgrade_agent\n"
             "custom = '---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A\\n## Examples\\n- my custom example'\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
@@ -12449,7 +12438,7 @@ class TestAgentUpgrader:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_upgrader import upgrade_agent\n"
+            "from platxa_agent_generator.agent_upgrader import upgrade_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    original = '---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A'\n"
@@ -12465,7 +12454,7 @@ class TestAgentUpgrader:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_upgrader import upgrade_agent\n"
+            "from platxa_agent_generator.agent_upgrader import upgrade_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    original = '---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A'\n"
@@ -12483,7 +12472,7 @@ class TestAgentUpgrader:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_upgrader import upgrade_agent\n"
+            "from platxa_agent_generator.agent_upgrader import upgrade_agent\n"
             "complete = (\n"
             "    '---\\nname: a\\ndescription: d\\ntools: Read\\n'\n"
             "    'model: sonnet\\nmaxTurns: 15\\nversion: 1.0.0\\n---\\n'\n"
@@ -12503,7 +12492,7 @@ class TestAgentUpgrader:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_upgrader import upgrade_agent\n"
+            "from platxa_agent_generator.agent_upgrader import upgrade_agent\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A')\n"
@@ -12517,7 +12506,7 @@ class TestAgentUpgrader:
     def test_file_not_found_raises(self) -> None:
         """Missing file → FileNotFoundError."""
         result = self._run_py(
-            "from agent_upgrader import upgrade_agent\n"
+            "from platxa_agent_generator.agent_upgrader import upgrade_agent\n"
             "try:\n"
             "    upgrade_agent('/tmp/__definitely_not_an_agent__.md')\n"
             "    print('NO_RAISE')\n"
@@ -12532,7 +12521,7 @@ class TestAgentUpgrader:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from cli import CLI\n"
+            "from platxa_agent_generator.cli import CLI\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    original = '---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A'\n"
@@ -12549,7 +12538,7 @@ class TestAgentUpgrader:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from cli import CLI\n"
+            "from platxa_agent_generator.cli import CLI\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    original = '---\\nname: a\\ndescription: d\\ntools: Read\\n---\\n# A'\n"
@@ -12564,7 +12553,7 @@ class TestAgentUpgrader:
     def test_cli_upgrade_missing_returns_1(self) -> None:
         """Missing file → exit 1."""
         result = self._run_py(
-            "from cli import CLI\nrc = CLI().run(['upgrade', '/tmp/__nope__.md'])\nprint('RC=', rc)"
+            "from platxa_agent_generator.cli import CLI\nrc = CLI().run(['upgrade', '/tmp/__nope__.md'])\nprint('RC=', rc)"
         )
         assert result.returncode == 0, result.stderr
         assert "RC= 1" in result.stdout
@@ -12590,7 +12579,7 @@ class TestComposeRouter:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -12601,7 +12590,7 @@ class TestComposeRouter:
         return result
 
     _BUILD_HANDLERS = (
-        "from agent_composer import AgentSpec, RoutingRule, compose_router\n"
+        "from platxa_agent_generator.agent_composer import AgentSpec, RoutingRule, compose_router\n"
         "refactor = AgentSpec(name='refactor-agent',"
         " description='Refactors code',"
         " tools=['Read', 'Edit'])\n"
@@ -12638,7 +12627,7 @@ class TestComposeRouter:
         """ROUTER_TABLE_HEADER and ROUTER_FALLBACK_HEADER appear in content."""
         result = self._run_py(
             self._BUILD_HANDLERS
-            + "from agent_composer import ROUTER_TABLE_HEADER, ROUTER_FALLBACK_HEADER\n"
+            + "from platxa_agent_generator.agent_composer import ROUTER_TABLE_HEADER, ROUTER_FALLBACK_HEADER\n"
             "r = compose_router([refactor, bugfix], rules)\n"
             "print(ROUTER_TABLE_HEADER in r.agent_content,"
             " ROUTER_FALLBACK_HEADER in r.agent_content)"
@@ -12679,7 +12668,7 @@ class TestComposeRouter:
     def test_classification_hints_suppressed_without_keywords(self) -> None:
         """No keywords on any rule → no Classification Hints section."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, RoutingRule, compose_router\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, RoutingRule, compose_router\n"
             "a = AgentSpec(name='a', description='A', tools=['Read'])\n"
             "b = AgentSpec(name='b', description='B', tools=['Read'])\n"
             "rules = [\n"
@@ -12695,7 +12684,7 @@ class TestComposeRouter:
     def test_pattern_is_conditional_on_success(self) -> None:
         """Successful compose_router produces pattern == CONDITIONAL."""
         result = self._run_py(
-            self._BUILD_HANDLERS + "from agent_composer import CompositionPattern\n"
+            self._BUILD_HANDLERS + "from platxa_agent_generator.agent_composer import CompositionPattern\n"
             "r = compose_router([refactor, bugfix], rules)\n"
             "print(r.success, r.pattern is CompositionPattern.CONDITIONAL)"
         )
@@ -12715,7 +12704,7 @@ class TestComposeRouter:
     def test_empty_handlers_fails(self) -> None:
         """No handlers → success=False with explicit error."""
         result = self._run_py(
-            "from agent_composer import RoutingRule, compose_router\n"
+            "from platxa_agent_generator.agent_composer import RoutingRule, compose_router\n"
             "rules = [RoutingRule(category='c', description='d', handler_name='x')]\n"
             "r = compose_router([], rules)\n"
             "print(r.success, any('at least one handler' in e for e in r.errors))"
@@ -12726,7 +12715,7 @@ class TestComposeRouter:
     def test_empty_rules_fails(self) -> None:
         """No routing rules → success=False with explicit error."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, compose_router\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, compose_router\n"
             "a = AgentSpec(name='a', description='A', tools=['Read'])\n"
             "r = compose_router([a], [])\n"
             "print(r.success, any('routing rule' in e for e in r.errors))"
@@ -12737,7 +12726,7 @@ class TestComposeRouter:
     def test_rule_references_unknown_handler_fails(self) -> None:
         """Rule.handler_name not in handlers → success=False with named error."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, RoutingRule, compose_router\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, RoutingRule, compose_router\n"
             "a = AgentSpec(name='a', description='A', tools=['Read'])\n"
             "b = AgentSpec(name='b', description='B', tools=['Read'])\n"
             "rules = [\n"
@@ -12753,7 +12742,7 @@ class TestComposeRouter:
     def test_fallback_not_in_handlers_fails(self) -> None:
         """fallback_handler must be in the handlers list."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, RoutingRule, compose_router\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, RoutingRule, compose_router\n"
             "a = AgentSpec(name='a', description='A', tools=['Read'])\n"
             "b = AgentSpec(name='b', description='B', tools=['Read'])\n"
             "external = AgentSpec(name='outside', description='X', tools=['Read'])\n"
@@ -12803,7 +12792,7 @@ class TestCompositionDepthLimit:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -12816,7 +12805,7 @@ class TestCompositionDepthLimit:
     def test_constants_exposed(self) -> None:
         """MAX_COMPOSITION_DEPTH=3 and WARN_COMPOSITION_DEPTH=2 are public."""
         result = self._run_py(
-            "from agent_composer import MAX_COMPOSITION_DEPTH, WARN_COMPOSITION_DEPTH\n"
+            "from platxa_agent_generator.agent_composer import MAX_COMPOSITION_DEPTH, WARN_COMPOSITION_DEPTH\n"
             "print(MAX_COMPOSITION_DEPTH, WARN_COMPOSITION_DEPTH)"
         )
         assert result.returncode == 0, result.stderr
@@ -12825,7 +12814,7 @@ class TestCompositionDepthLimit:
     def test_validate_depth_valid_top_level(self) -> None:
         """depth=1 → no errors, no warnings."""
         result = self._run_py(
-            "from agent_composer import validate_composition_depth\n"
+            "from platxa_agent_generator.agent_composer import validate_composition_depth\n"
             "errs, warns = validate_composition_depth(1)\n"
             "print(len(errs), len(warns))"
         )
@@ -12835,7 +12824,7 @@ class TestCompositionDepthLimit:
     def test_validate_depth_warns_at_threshold(self) -> None:
         """depth=2 → no errors, one warning (at WARN_COMPOSITION_DEPTH)."""
         result = self._run_py(
-            "from agent_composer import validate_composition_depth\n"
+            "from platxa_agent_generator.agent_composer import validate_composition_depth\n"
             "errs, warns = validate_composition_depth(2)\n"
             "print(len(errs), len(warns), 'WARN_COMPOSITION_DEPTH' in warns[0])"
         )
@@ -12845,7 +12834,7 @@ class TestCompositionDepthLimit:
     def test_validate_depth_warns_at_max(self) -> None:
         """depth=3 (MAX) → no errors, one warning (still allowed)."""
         result = self._run_py(
-            "from agent_composer import validate_composition_depth\n"
+            "from platxa_agent_generator.agent_composer import validate_composition_depth\n"
             "errs, warns = validate_composition_depth(3)\n"
             "print(len(errs), len(warns))"
         )
@@ -12855,7 +12844,7 @@ class TestCompositionDepthLimit:
     def test_validate_depth_errors_above_max(self) -> None:
         """depth=4 → one error (exceeds MAX_COMPOSITION_DEPTH), no warnings."""
         result = self._run_py(
-            "from agent_composer import validate_composition_depth\n"
+            "from platxa_agent_generator.agent_composer import validate_composition_depth\n"
             "errs, warns = validate_composition_depth(4)\n"
             "print(len(errs), len(warns), 'exceeds' in errs[0])"
         )
@@ -12865,7 +12854,7 @@ class TestCompositionDepthLimit:
     def test_validate_depth_errors_below_one(self) -> None:
         """depth=0 → one error (depth must be >= 1)."""
         result = self._run_py(
-            "from agent_composer import validate_composition_depth\n"
+            "from platxa_agent_generator.agent_composer import validate_composition_depth\n"
             "errs, warns = validate_composition_depth(0)\n"
             "print(len(errs), len(warns), '>= 1' in errs[0])"
         )
@@ -12875,7 +12864,7 @@ class TestCompositionDepthLimit:
     def test_orchestrator_default_depth_is_top_level(self) -> None:
         """Calling create_orchestrator with no depth kwarg → success, no warning."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, create_orchestrator\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, create_orchestrator\n"
             "w = AgentSpec(name='w', description='Worker', tools=['Read'])\n"
             "r = create_orchestrator('orch', [w])\n"
             "print(r.success, len(r.warnings))"
@@ -12886,7 +12875,7 @@ class TestCompositionDepthLimit:
     def test_orchestrator_warning_at_depth_2(self) -> None:
         """create_orchestrator(depth=2) succeeds with a warning attached."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, create_orchestrator\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, create_orchestrator\n"
             "w = AgentSpec(name='w', description='Worker', tools=['Read'])\n"
             "r = create_orchestrator('orch', [w], depth=2)\n"
             "print(r.success, len(r.warnings) >= 1)"
@@ -12897,7 +12886,7 @@ class TestCompositionDepthLimit:
     def test_orchestrator_warning_at_depth_3_max(self) -> None:
         """create_orchestrator(depth=3) succeeds (at MAX) with warning."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, create_orchestrator\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, create_orchestrator\n"
             "w = AgentSpec(name='w', description='Worker', tools=['Read'])\n"
             "r = create_orchestrator('orch', [w], depth=3)\n"
             "print(r.success, len(r.warnings) >= 1)"
@@ -12908,7 +12897,7 @@ class TestCompositionDepthLimit:
     def test_orchestrator_fails_above_max(self) -> None:
         """create_orchestrator(depth=4) fails with explicit error."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, create_orchestrator\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, create_orchestrator\n"
             "w = AgentSpec(name='w', description='Worker', tools=['Read'])\n"
             "r = create_orchestrator('orch', [w], depth=4)\n"
             "print(r.success, any('exceeds' in e for e in r.errors))"
@@ -12919,7 +12908,7 @@ class TestCompositionDepthLimit:
     def test_orchestrator_fails_below_one(self) -> None:
         """create_orchestrator(depth=0) fails with depth-must-be-positive error."""
         result = self._run_py(
-            "from agent_composer import AgentSpec, create_orchestrator\n"
+            "from platxa_agent_generator.agent_composer import AgentSpec, create_orchestrator\n"
             "w = AgentSpec(name='w', description='Worker', tools=['Read'])\n"
             "r = create_orchestrator('orch', [w], depth=0)\n"
             "print(r.success, any('>= 1' in e for e in r.errors))"
@@ -12930,7 +12919,7 @@ class TestCompositionDepthLimit:
     def test_orchestrator_depth_error_skips_worker_check(self) -> None:
         """Depth error short-circuits before the worker-count validation."""
         result = self._run_py(
-            "from agent_composer import create_orchestrator\n"
+            "from platxa_agent_generator.agent_composer import create_orchestrator\n"
             "r = create_orchestrator('orch', [], depth=4)\n"
             "print(r.success, len(r.errors), 'exceeds' in r.errors[0])"
         )
@@ -12960,7 +12949,7 @@ class TestSkillsFrontmatter:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -12973,7 +12962,7 @@ class TestSkillsFrontmatter:
     def test_constants_exposed(self) -> None:
         """Module-level constants for skill discovery are public."""
         result = self._run_py(
-            "from agent_generator import (\n"
+            "from platxa_agent_generator.agent_generator import (\n"
             "    DEFAULT_SKILLS_DIR,\n"
             "    SKILL_MANIFEST_FILENAME,\n"
             "    DEFAULT_SKILL_RECOMMENDATION_LIMIT,\n"
@@ -12987,7 +12976,7 @@ class TestSkillsFrontmatter:
     def test_frontmatter_emits_skills_when_set(self) -> None:
         """`skills:` line appears in frontmatter when AgentDefinition.skills is non-empty."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition, generate_frontmatter\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition, generate_frontmatter\n"
             "d = AgentDefinition(name='a', description='Agent',"
             " tools=['Read'], skills=['skill-one', 'skill-two'])\n"
             "fm = generate_frontmatter(d)\n"
@@ -12999,7 +12988,7 @@ class TestSkillsFrontmatter:
     def test_frontmatter_omits_skills_when_empty(self) -> None:
         """No `skills:` line when AgentDefinition.skills is the default empty list."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition, generate_frontmatter\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition, generate_frontmatter\n"
             "d = AgentDefinition(name='a', description='Agent', tools=['Read'])\n"
             "fm = generate_frontmatter(d)\n"
             "print('skills:' in fm)"
@@ -13012,7 +13001,7 @@ class TestSkillsFrontmatter:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_generator import discover_available_skills\n"
+            "from platxa_agent_generator.agent_generator import discover_available_skills\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    base = Path(td)\n"
             "    one = base / 'skill-one'\n"
@@ -13038,7 +13027,7 @@ class TestSkillsFrontmatter:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_generator import discover_available_skills\n"
+            "from platxa_agent_generator.agent_generator import discover_available_skills\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    base = Path(td)\n"
             "    (base / 'no-manifest').mkdir()\n"
@@ -13053,7 +13042,7 @@ class TestSkillsFrontmatter:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_generator import discover_available_skills\n"
+            "from platxa_agent_generator.agent_generator import discover_available_skills\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    base = Path(td)\n"
             "    bad = base / 'bad'\n"
@@ -13073,7 +13062,7 @@ class TestSkillsFrontmatter:
     def test_discover_missing_dir_returns_empty(self) -> None:
         """Non-existent skills_dir → empty dict (no error)."""
         result = self._run_py(
-            "from agent_generator import discover_available_skills\n"
+            "from platxa_agent_generator.agent_generator import discover_available_skills\n"
             "found = discover_available_skills('/tmp/__definitely_no_such_dir__')\n"
             "print(found)"
         )
@@ -13083,7 +13072,7 @@ class TestSkillsFrontmatter:
     def test_recommend_ranks_by_overlap(self) -> None:
         """Higher token overlap with description → higher rank."""
         result = self._run_py(
-            "from agent_generator import recommend_skills_for_agent\n"
+            "from platxa_agent_generator.agent_generator import recommend_skills_for_agent\n"
             "available = {\n"
             "    'security-audit': 'Security audit and vulnerability scanning',\n"
             "    'pdf-tool': 'Generate PDF reports',\n"
@@ -13100,7 +13089,7 @@ class TestSkillsFrontmatter:
     def test_recommend_drops_stop_words(self) -> None:
         """Stop-words alone in description should not match anything."""
         result = self._run_py(
-            "from agent_generator import recommend_skills_for_agent\n"
+            "from platxa_agent_generator.agent_generator import recommend_skills_for_agent\n"
             "available = {'foo': 'foo bar baz'}\n"
             "ranked = recommend_skills_for_agent('the and for with', available)\n"
             "print(ranked)"
@@ -13111,7 +13100,7 @@ class TestSkillsFrontmatter:
     def test_recommend_zero_limit_raises(self) -> None:
         """limit <= 0 raises ValueError (callers asking for 'no skills' should not call)."""
         result = self._run_py(
-            "from agent_generator import recommend_skills_for_agent\n"
+            "from platxa_agent_generator.agent_generator import recommend_skills_for_agent\n"
             "try:\n"
             "    recommend_skills_for_agent('x', {'a': 'a'}, limit=0)\n"
             "    print('NO_RAISE')\n"
@@ -13124,7 +13113,7 @@ class TestSkillsFrontmatter:
     def test_recommend_empty_inputs_return_empty(self) -> None:
         """Empty description or empty catalog → empty list, no error."""
         result = self._run_py(
-            "from agent_generator import recommend_skills_for_agent\n"
+            "from platxa_agent_generator.agent_generator import recommend_skills_for_agent\n"
             "print(recommend_skills_for_agent('', {'a': 'b'}))\n"
             "print(recommend_skills_for_agent('abc', {}))"
         )
@@ -13134,7 +13123,7 @@ class TestSkillsFrontmatter:
     def test_recommend_respects_limit(self) -> None:
         """When more skills overlap than limit allows, the top N are returned."""
         result = self._run_py(
-            "from agent_generator import recommend_skills_for_agent\n"
+            "from platxa_agent_generator.agent_generator import recommend_skills_for_agent\n"
             "available = {f'skill-{i}': 'security audit review' for i in range(10)}\n"
             "ranked = recommend_skills_for_agent('security audit review', available, limit=3)\n"
             "print(len(ranked))"
@@ -13147,7 +13136,7 @@ class TestSkillsFrontmatter:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_generator import validate_skills_exist\n"
+            "from platxa_agent_generator.agent_generator import validate_skills_exist\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    base = Path(td)\n"
             "    s = base / 'present-skill'\n"
@@ -13166,7 +13155,7 @@ class TestSkillsFrontmatter:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_generator import validate_skills_exist\n"
+            "from platxa_agent_generator.agent_generator import validate_skills_exist\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    base = Path(td)\n"
             "    s = base / 'present-skill'\n"
@@ -13187,7 +13176,7 @@ class TestSkillsFrontmatter:
     def test_validate_empty_skills_returns_empty(self) -> None:
         """No skills to check → no errors, no disk access."""
         result = self._run_py(
-            "from agent_generator import validate_skills_exist\n"
+            "from platxa_agent_generator.agent_generator import validate_skills_exist\n"
             "print(validate_skills_exist([], '/tmp/__no_such_dir__'))"
         )
         assert result.returncode == 0, result.stderr
@@ -13212,7 +13201,7 @@ class TestCompanionSkillGeneration:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -13225,7 +13214,7 @@ class TestCompanionSkillGeneration:
     def test_constants_exposed(self) -> None:
         """COMPANION_SKILL_MIN_SECTIONS and COMPANION_SKILL_FILENAME are public."""
         result = self._run_py(
-            "from agent_generator import"
+            "from platxa_agent_generator.agent_generator import"
             " COMPANION_SKILL_MIN_SECTIONS, COMPANION_SKILL_FILENAME\n"
             "print(COMPANION_SKILL_MIN_SECTIONS, COMPANION_SKILL_FILENAME)"
         )
@@ -13235,7 +13224,7 @@ class TestCompanionSkillGeneration:
     def test_should_generate_for_multi_section_agent(self) -> None:
         """≥3 sections triggers companion skill generation."""
         result = self._run_py(
-            "from agent_generator import (\n"
+            "from platxa_agent_generator.agent_generator import (\n"
             "    AgentDefinition, AgentSection, should_generate_companion_skill\n"
             ")\n"
             "secs = [AgentSection(title='A', content='x'),\n"
@@ -13251,7 +13240,7 @@ class TestCompanionSkillGeneration:
     def test_should_not_generate_for_simple_agent(self) -> None:
         """Trivial agent (0-2 sections, no workers/chain) → no companion skill."""
         result = self._run_py(
-            "from agent_generator import"
+            "from platxa_agent_generator.agent_generator import"
             " AgentDefinition, should_generate_companion_skill\n"
             "d = AgentDefinition(name='a', description='Agent', tools=['Read'])\n"
             "print(should_generate_companion_skill(d))"
@@ -13262,7 +13251,7 @@ class TestCompanionSkillGeneration:
     def test_should_generate_for_orchestrator(self) -> None:
         """Agent with workers (orchestrator pattern) triggers generation."""
         result = self._run_py(
-            "from agent_generator import (\n"
+            "from platxa_agent_generator.agent_generator import (\n"
             "    AgentDefinition, WorkerDefinition, should_generate_companion_skill\n"
             ")\n"
             "w = WorkerDefinition(name='worker-a', role='does work',"
@@ -13277,7 +13266,7 @@ class TestCompanionSkillGeneration:
     def test_skill_content_includes_frontmatter(self) -> None:
         """SKILL.md content has name + description + allowed-tools frontmatter."""
         result = self._run_py(
-            "from agent_generator import"
+            "from platxa_agent_generator.agent_generator import"
             " AgentDefinition, generate_companion_skill_content\n"
             "d = AgentDefinition(name='my-agent', description='Does X',"
             " tools=['Read', 'Write'])\n"
@@ -13296,7 +13285,7 @@ class TestCompanionSkillGeneration:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_generator import (\n"
+            "from platxa_agent_generator.agent_generator import (\n"
             "    AgentDefinition, AgentSection, write_companion_skill\n"
             ")\n"
             "secs = [AgentSection(title=f's{i}', content='x') for i in range(3)]\n"
@@ -13315,7 +13304,7 @@ class TestCompanionSkillGeneration:
         """After write_companion_skill, definition.skills contains the agent name."""
         result = self._run_py(
             "import tempfile\n"
-            "from agent_generator import (\n"
+            "from platxa_agent_generator.agent_generator import (\n"
             "    AgentDefinition, AgentSection, write_companion_skill\n"
             ")\n"
             "secs = [AgentSection(title=f's{i}', content='x') for i in range(3)]\n"
@@ -13332,7 +13321,7 @@ class TestCompanionSkillGeneration:
         """Calling write twice does not duplicate the skill name in the list."""
         result = self._run_py(
             "import tempfile\n"
-            "from agent_generator import (\n"
+            "from platxa_agent_generator.agent_generator import (\n"
             "    AgentDefinition, AgentSection, write_companion_skill\n"
             ")\n"
             "secs = [AgentSection(title=f's{i}', content='x') for i in range(3)]\n"
@@ -13351,7 +13340,7 @@ class TestCompanionSkillGeneration:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_generator import AgentDefinition, write_companion_skill\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition, write_companion_skill\n"
             "d = AgentDefinition(name='simple', description='S', tools=['Read'])\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    result = write_companion_skill(d, td)\n"
@@ -13366,7 +13355,7 @@ class TestCompanionSkillGeneration:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_generator import AgentDefinition, write_companion_skill\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition, write_companion_skill\n"
             "d = AgentDefinition(name='forced', description='F', tools=['Read'])\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    path = write_companion_skill(d, td, force=True)\n"
@@ -13379,7 +13368,7 @@ class TestCompanionSkillGeneration:
         """A written companion skill is found by discover_available_skills."""
         result = self._run_py(
             "import tempfile\n"
-            "from agent_generator import (\n"
+            "from platxa_agent_generator.agent_generator import (\n"
             "    AgentDefinition, AgentSection,\n"
             "    write_companion_skill, discover_available_skills,\n"
             ")\n"
@@ -13413,7 +13402,7 @@ class TestCompanionCommandGeneration:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -13426,7 +13415,7 @@ class TestCompanionCommandGeneration:
     def test_constants_exposed(self) -> None:
         """DEFAULT_COMMANDS_DIR and REQUIRED_ARGUMENTS_TOKEN are public."""
         result = self._run_py(
-            "from command_generator import"
+            "from platxa_agent_generator.command_generator import"
             " DEFAULT_COMMANDS_DIR, REQUIRED_ARGUMENTS_TOKEN\n"
             "print(DEFAULT_COMMANDS_DIR, REQUIRED_ARGUMENTS_TOKEN)"
         )
@@ -13436,7 +13425,7 @@ class TestCompanionCommandGeneration:
     def test_user_invocable_default_false(self) -> None:
         """AgentDefinition.user_invocable defaults to False."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition\n"
             "d = AgentDefinition(name='a', description='A', tools=['Read'])\n"
             "print(d.user_invocable)"
         )
@@ -13446,8 +13435,8 @@ class TestCompanionCommandGeneration:
     def test_should_generate_requires_opt_in(self) -> None:
         """should_generate_companion_command returns True only for user_invocable=True."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition\n"
-            "from command_generator import should_generate_companion_command\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition\n"
+            "from platxa_agent_generator.command_generator import should_generate_companion_command\n"
             "d_off = AgentDefinition(name='a', description='A', tools=['Read'])\n"
             "d_on = AgentDefinition(name='b', description='B',"
             " tools=['Read'], user_invocable=True)\n"
@@ -13460,8 +13449,8 @@ class TestCompanionCommandGeneration:
     def test_command_definition_from_agent_wires_fields(self) -> None:
         """command_definition_from_agent copies name, description, tools."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition\n"
-            "from command_generator import command_definition_from_agent\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition\n"
+            "from platxa_agent_generator.command_generator import command_definition_from_agent\n"
             "d = AgentDefinition(name='my-agent', description='Does X',"
             " tools=['Read', 'Write'])\n"
             "cd = command_definition_from_agent(d)\n"
@@ -13474,8 +13463,8 @@ class TestCompanionCommandGeneration:
     def test_command_definition_falls_back_to_default_tools(self) -> None:
         """Empty agent tools → command uses DEFAULT_AGENT_TOOLS."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition\n"
-            "from command_generator import (\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition\n"
+            "from platxa_agent_generator.command_generator import (\n"
             "    command_definition_from_agent, DEFAULT_AGENT_TOOLS\n"
             ")\n"
             "d = AgentDefinition(name='a', description='A', tools=[])\n"
@@ -13490,8 +13479,8 @@ class TestCompanionCommandGeneration:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_generator import AgentDefinition\n"
-            "from command_generator import write_companion_command\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition\n"
+            "from platxa_agent_generator.command_generator import write_companion_command\n"
             "d = AgentDefinition(name='alpha', description='A',"
             " tools=['Read'], user_invocable=True)\n"
             "with tempfile.TemporaryDirectory() as td:\n"
@@ -13509,8 +13498,8 @@ class TestCompanionCommandGeneration:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_generator import AgentDefinition\n"
-            "from command_generator import write_companion_command\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition\n"
+            "from platxa_agent_generator.command_generator import write_companion_command\n"
             "d = AgentDefinition(name='beta', description='B', tools=['Read'])\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    result = write_companion_command(d, td)\n"
@@ -13525,8 +13514,8 @@ class TestCompanionCommandGeneration:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_generator import AgentDefinition\n"
-            "from command_generator import write_companion_command\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition\n"
+            "from platxa_agent_generator.command_generator import write_companion_command\n"
             "d = AgentDefinition(name='forced', description='F', tools=['Read'])\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = write_companion_command(d, td, force=True)\n"
@@ -13539,8 +13528,8 @@ class TestCompanionCommandGeneration:
         """Files produced by write_companion_command pass validate_command_file."""
         result = self._run_py(
             "import tempfile\n"
-            "from agent_generator import AgentDefinition\n"
-            "from command_generator import write_companion_command, validate_command_file\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition\n"
+            "from platxa_agent_generator.command_generator import write_companion_command, validate_command_file\n"
             "d = AgentDefinition(name='valid', description='V',"
             " tools=['Read'], user_invocable=True)\n"
             "with tempfile.TemporaryDirectory() as td:\n"
@@ -13554,7 +13543,7 @@ class TestCompanionCommandGeneration:
     def test_validate_missing_file(self) -> None:
         """Missing file → single 'does not exist' error."""
         result = self._run_py(
-            "from command_generator import validate_command_file\n"
+            "from platxa_agent_generator.command_generator import validate_command_file\n"
             "errors = validate_command_file('/tmp/__no_such_cmd_file__.md')\n"
             "print(len(errors), 'does not exist' in errors[0])"
         )
@@ -13566,7 +13555,7 @@ class TestCompanionCommandGeneration:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from command_generator import validate_command_file\n"
+            "from platxa_agent_generator.command_generator import validate_command_file\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'bad.md'\n"
             "    p.write_text('no frontmatter here\\nbody with $ARGUMENTS and Task tool')\n"
@@ -13581,7 +13570,7 @@ class TestCompanionCommandGeneration:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from command_generator import validate_command_file\n"
+            "from platxa_agent_generator.command_generator import validate_command_file\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'bad.md'\n"
             "    p.write_text('---\\ndescription: x\\n---\\n"
@@ -13597,7 +13586,7 @@ class TestCompanionCommandGeneration:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from command_generator import validate_command_file\n"
+            "from platxa_agent_generator.command_generator import validate_command_file\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'bad.md'\n"
             "    p.write_text('---\\ndescription: x\\n---\\n"
@@ -13629,7 +13618,7 @@ class TestClaudemdSubagentDelegation:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -13642,7 +13631,7 @@ class TestClaudemdSubagentDelegation:
     def test_constants_exposed(self) -> None:
         """SUBAGENT_DELEGATION_HEADING and DEFAULT_AGENTS_DIR are public."""
         result = self._run_py(
-            "from claudemd_generator import"
+            "from platxa_agent_generator.claudemd_generator import"
             " SUBAGENT_DELEGATION_HEADING, DEFAULT_AGENTS_DIR\n"
             "print(SUBAGENT_DELEGATION_HEADING, '|', DEFAULT_AGENTS_DIR)"
         )
@@ -13652,7 +13641,7 @@ class TestClaudemdSubagentDelegation:
     def test_available_agent_dataclass(self) -> None:
         """AvailableAgent has name, description, default-empty when_to_use."""
         result = self._run_py(
-            "from claudemd_generator import AvailableAgent\n"
+            "from platxa_agent_generator.claudemd_generator import AvailableAgent\n"
             "a = AvailableAgent(name='x', description='d')\n"
             "print(a.name, a.description, repr(a.when_to_use))"
         )
@@ -13662,7 +13651,7 @@ class TestClaudemdSubagentDelegation:
     def test_context_available_agents_defaults_empty(self) -> None:
         """AgentContext.available_agents defaults to an empty list."""
         result = self._run_py(
-            "from claudemd_generator import AgentContext\n"
+            "from platxa_agent_generator.claudemd_generator import AgentContext\n"
             "c = AgentContext(name='a', description='d', tools=['Read'])\n"
             "print(c.available_agents)"
         )
@@ -13672,7 +13661,7 @@ class TestClaudemdSubagentDelegation:
     def test_delegation_section_empty_when_no_agents(self) -> None:
         """Empty agents list → empty string."""
         result = self._run_py(
-            "from claudemd_generator import generate_subagent_delegation_section\n"
+            "from platxa_agent_generator.claudemd_generator import generate_subagent_delegation_section\n"
             "print(repr(generate_subagent_delegation_section([])))"
         )
         assert result.returncode == 0, result.stderr
@@ -13681,7 +13670,7 @@ class TestClaudemdSubagentDelegation:
     def test_delegation_section_renders_agents(self) -> None:
         """Each agent appears in the main list with name+description."""
         result = self._run_py(
-            "from claudemd_generator import"
+            "from platxa_agent_generator.claudemd_generator import"
             " AvailableAgent, generate_subagent_delegation_section\n"
             "agents = [\n"
             "    AvailableAgent(name='reviewer', description='Reviews code',\n"
@@ -13700,7 +13689,7 @@ class TestClaudemdSubagentDelegation:
     def test_delegation_when_to_use_subsection(self) -> None:
         """Agents with when_to_use appear in the subsection; others are not."""
         result = self._run_py(
-            "from claudemd_generator import"
+            "from platxa_agent_generator.claudemd_generator import"
             " AvailableAgent, generate_subagent_delegation_section\n"
             "agents = [\n"
             "    AvailableAgent(name='with-hint', description='d', when_to_use='Use me'),\n"
@@ -13718,7 +13707,7 @@ class TestClaudemdSubagentDelegation:
     def test_when_to_use_subsection_suppressed_without_hints(self) -> None:
         """All agents missing when_to_use → no 'When to use' subsection."""
         result = self._run_py(
-            "from claudemd_generator import"
+            "from platxa_agent_generator.claudemd_generator import"
             " AvailableAgent, generate_subagent_delegation_section\n"
             "agents = [AvailableAgent(name='a', description='b')]\n"
             "section = generate_subagent_delegation_section(agents)\n"
@@ -13730,7 +13719,7 @@ class TestClaudemdSubagentDelegation:
     def test_generate_claudemd_includes_delegation(self) -> None:
         """When AgentContext has agents, generate_claudemd emits the section."""
         result = self._run_py(
-            "from claudemd_generator import"
+            "from platxa_agent_generator.claudemd_generator import"
             " AgentContext, AvailableAgent, generate_claudemd\n"
             "ctx = AgentContext(\n"
             "    name='orch', description='Orchestrator', tools=['Task'],\n"
@@ -13746,7 +13735,7 @@ class TestClaudemdSubagentDelegation:
     def test_generate_claudemd_omits_delegation_when_empty(self) -> None:
         """AgentContext with no available_agents → no delegation section."""
         result = self._run_py(
-            "from claudemd_generator import AgentContext, generate_claudemd\n"
+            "from platxa_agent_generator.claudemd_generator import AgentContext, generate_claudemd\n"
             "ctx = AgentContext(name='solo', description='Solo', tools=['Read'])\n"
             "md = generate_claudemd(ctx)\n"
             "print('Subagent Delegation' in md)"
@@ -13759,7 +13748,7 @@ class TestClaudemdSubagentDelegation:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from claudemd_generator import discover_available_agents\n"
+            "from platxa_agent_generator.claudemd_generator import discover_available_agents\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    base = Path(td)\n"
             "    (base / 'reviewer.md').write_text(\n"
@@ -13783,7 +13772,7 @@ class TestClaudemdSubagentDelegation:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from claudemd_generator import discover_available_agents\n"
+            "from platxa_agent_generator.claudemd_generator import discover_available_agents\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    base = Path(td)\n"
             "    (base / 'not-agent.txt').write_text('text file')\n"
@@ -13801,7 +13790,7 @@ class TestClaudemdSubagentDelegation:
     def test_discover_missing_dir(self) -> None:
         """Non-existent directory → empty list (no error)."""
         result = self._run_py(
-            "from claudemd_generator import discover_available_agents\n"
+            "from platxa_agent_generator.claudemd_generator import discover_available_agents\n"
             "print(discover_available_agents('/tmp/__definitely_no_agents_dir__'))"
         )
         assert result.returncode == 0, result.stderr
@@ -13826,7 +13815,7 @@ class TestStateCheckpointRecovery:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -13839,7 +13828,7 @@ class TestStateCheckpointRecovery:
     def test_checkpoint_phases_constant(self) -> None:
         """CHECKPOINT_PHASES is a 5-tuple in execution order."""
         result = self._run_py(
-            "from state_persistence import CHECKPOINT_PHASES\nprint(CHECKPOINT_PHASES)"
+            "from platxa_agent_generator.state_persistence import CHECKPOINT_PHASES\nprint(CHECKPOINT_PHASES)"
         )
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == (
@@ -13849,7 +13838,7 @@ class TestStateCheckpointRecovery:
     def test_checkpoint_dataclass(self) -> None:
         """Checkpoint exposes phase, auto-set completed_at, default-empty phase_data."""
         result = self._run_py(
-            "from state_persistence import Checkpoint\n"
+            "from platxa_agent_generator.state_persistence import Checkpoint\n"
             "c = Checkpoint(phase='discovery')\n"
             "print(c.phase, type(c.completed_at).__name__, c.phase_data)"
         )
@@ -13859,7 +13848,7 @@ class TestStateCheckpointRecovery:
     def test_session_state_checkpoints_defaults_empty(self) -> None:
         """SessionState.checkpoints defaults to []."""
         result = self._run_py(
-            "from state_persistence import SessionState, StateMetadata\n"
+            "from platxa_agent_generator.state_persistence import SessionState, StateMetadata\n"
             "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
             "print(s.checkpoints)"
         )
@@ -13869,7 +13858,7 @@ class TestStateCheckpointRecovery:
     def test_save_checkpoint_appends(self) -> None:
         """save_checkpoint appends a Checkpoint with phase + phase_data."""
         result = self._run_py(
-            "from state_persistence import (\n"
+            "from platxa_agent_generator.state_persistence import (\n"
             "    SessionState, StateMetadata, save_checkpoint\n"
             ")\n"
             "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
@@ -13882,7 +13871,7 @@ class TestStateCheckpointRecovery:
     def test_save_checkpoint_rejects_unknown_phase(self) -> None:
         """Unknown phase → ValueError naming the bad phase."""
         result = self._run_py(
-            "from state_persistence import (\n"
+            "from platxa_agent_generator.state_persistence import (\n"
             "    SessionState, StateMetadata, save_checkpoint\n"
             ")\n"
             "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
@@ -13898,7 +13887,7 @@ class TestStateCheckpointRecovery:
     def test_save_checkpoint_isolates_phase_data(self) -> None:
         """Caller mutating phase_data after the call must not affect the checkpoint."""
         result = self._run_py(
-            "from state_persistence import (\n"
+            "from platxa_agent_generator.state_persistence import (\n"
             "    SessionState, StateMetadata, save_checkpoint\n"
             ")\n"
             "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
@@ -13913,7 +13902,7 @@ class TestStateCheckpointRecovery:
     def test_latest_checkpoint(self) -> None:
         """latest_checkpoint returns the last appended; None when empty."""
         result = self._run_py(
-            "from state_persistence import (\n"
+            "from platxa_agent_generator.state_persistence import (\n"
             "    SessionState, StateMetadata, save_checkpoint, latest_checkpoint\n"
             ")\n"
             "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
@@ -13928,7 +13917,7 @@ class TestStateCheckpointRecovery:
     def test_resume_phase_returns_next(self) -> None:
         """After 'discovery' checkpoint, resume_phase returns 'architecture'."""
         result = self._run_py(
-            "from state_persistence import (\n"
+            "from platxa_agent_generator.state_persistence import (\n"
             "    SessionState, StateMetadata, save_checkpoint, resume_phase\n"
             ")\n"
             "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
@@ -13941,7 +13930,7 @@ class TestStateCheckpointRecovery:
     def test_resume_phase_none_when_no_checkpoints(self) -> None:
         """No checkpoints → resume_phase returns None (start fresh)."""
         result = self._run_py(
-            "from state_persistence import SessionState, StateMetadata, resume_phase\n"
+            "from platxa_agent_generator.state_persistence import SessionState, StateMetadata, resume_phase\n"
             "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
             "print(resume_phase(s))"
         )
@@ -13951,7 +13940,7 @@ class TestStateCheckpointRecovery:
     def test_resume_phase_none_when_complete(self) -> None:
         """Last phase reached → resume_phase returns None (workflow done)."""
         result = self._run_py(
-            "from state_persistence import (\n"
+            "from platxa_agent_generator.state_persistence import (\n"
             "    SessionState, StateMetadata, save_checkpoint, resume_phase\n"
             ")\n"
             "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
@@ -13964,7 +13953,7 @@ class TestStateCheckpointRecovery:
     def test_clear_checkpoints(self) -> None:
         """clear_checkpoints empties the list (restart path)."""
         result = self._run_py(
-            "from state_persistence import (\n"
+            "from platxa_agent_generator.state_persistence import (\n"
             "    SessionState, StateMetadata, save_checkpoint, clear_checkpoints\n"
             ")\n"
             "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
@@ -13981,7 +13970,7 @@ class TestStateCheckpointRecovery:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from state_persistence import (\n"
+            "from platxa_agent_generator.state_persistence import (\n"
             "    SessionState, StateMetadata, StatePersistence, save_checkpoint\n"
             ")\n"
             "with tempfile.TemporaryDirectory() as td:\n"
@@ -14020,7 +14009,7 @@ class TestStatePersistenceErrorHandling:
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         return subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -14039,7 +14028,7 @@ class TestStatePersistenceErrorHandling:
             "import tempfile\n"
             "from pathlib import Path\n"
             "from unittest.mock import patch\n"
-            "from state_persistence import StatePersistence\n"
+            "from platxa_agent_generator.state_persistence import StatePersistence\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = StatePersistence(base_dir=Path(td))\n"
             "    # Success path\n"
@@ -14072,7 +14061,7 @@ class TestStatePersistenceErrorHandling:
             "import tempfile\n"
             "from pathlib import Path\n"
             "from unittest.mock import patch\n"
-            "from state_persistence import StatePersistence\n"
+            "from platxa_agent_generator.state_persistence import StatePersistence\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = StatePersistence(base_dir=Path(td))\n"
             "    with patch.object(\n"
@@ -14094,7 +14083,7 @@ class TestStatePersistenceErrorHandling:
             "import tempfile\n"
             "from pathlib import Path\n"
             "from unittest.mock import patch\n"
-            "from state_persistence import (\n"
+            "from platxa_agent_generator.state_persistence import (\n"
             "    StatePersistence, GenerationRecord\n"
             ")\n"
             "with tempfile.TemporaryDirectory() as td:\n"
@@ -14126,7 +14115,7 @@ class TestStatePersistenceErrorHandling:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from state_persistence import StatePersistence\n"
+            "from platxa_agent_generator.state_persistence import StatePersistence\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = StatePersistence(base_dir=Path(td))\n"
             "    r = p.reset()\n"
@@ -14154,7 +14143,7 @@ class TestStatePersistenceConfig:
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         return subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -14168,7 +14157,7 @@ class TestStatePersistenceConfig:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from state_persistence import StatePersistence\n"
+            "from platxa_agent_generator.state_persistence import StatePersistence\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = StatePersistence(base_dir=Path(td))\n"
             "    # config_file is under base_dir and does not exist yet\n"
@@ -14190,7 +14179,7 @@ class TestStatePersistenceConfig:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from state_persistence import StatePersistence, ConfigCorruptError\n"
+            "from platxa_agent_generator.state_persistence import StatePersistence, ConfigCorruptError\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = StatePersistence(base_dir=Path(td))\n"
             "    # Case A: malformed JSON\n"
@@ -14228,7 +14217,7 @@ class TestStatePersistenceConfig:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from state_persistence import StatePersistence, ConfigCorruptError\n"
+            "from platxa_agent_generator.state_persistence import StatePersistence, ConfigCorruptError\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = StatePersistence(base_dir=Path(td))\n"
             "    original = '{not valid json'\n"
@@ -14271,7 +14260,7 @@ class TestStatePersistenceWriteSurfacing:
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         return subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -14295,7 +14284,7 @@ class TestStatePersistenceWriteSurfacing:
             "import tempfile\n"
             "from pathlib import Path\n"
             "from unittest.mock import patch\n"
-            "from state_persistence import StatePersistence, GenerationRecord\n"
+            "from platxa_agent_generator.state_persistence import StatePersistence, GenerationRecord\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = StatePersistence(base_dir=Path(td))\n"
             "    rec = GenerationRecord(\n"
@@ -14333,7 +14322,7 @@ class TestStatePersistenceWriteSurfacing:
             "import fcntl\n"
             "from pathlib import Path\n"
             "from unittest.mock import patch\n"
-            "from state_persistence import FileLock\n"
+            "from platxa_agent_generator.state_persistence import FileLock\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    lock_path = Path(td) / 'test.lock'\n"
             "    lock = FileLock(lock_path)\n"
@@ -14366,7 +14355,7 @@ class TestStatePersistenceWriteSurfacing:
         """
         import tempfile
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         script = scripts_dir / "state_persistence.py"
         with tempfile.TemporaryDirectory() as td:
             # `set_config` writes to .claude/config/generator.json; the
@@ -14419,7 +14408,7 @@ class TestExtendedThinkingLoadHistory:
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         return subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -14441,7 +14430,7 @@ class TestExtendedThinkingLoadHistory:
         result = self._run_py(
             "import json, tempfile\n"
             "from pathlib import Path\n"
-            "from extended_thinking import ThinkingIntegration\n"
+            "from platxa_agent_generator.extended_thinking import ThinkingIntegration\n"
             "good_1 = {\n"
             "    'task_id': 'task-1', 'task_description': 'first',\n"
             "    'intensity_used': 'think', 'complexity_score': 0.3,\n"
@@ -14488,7 +14477,7 @@ class TestExtendedThinkingLoadHistory:
         result = self._run_py(
             "import json, tempfile\n"
             "from pathlib import Path\n"
-            "from extended_thinking import ThinkingIntegration\n"
+            "from platxa_agent_generator.extended_thinking import ThinkingIntegration\n"
             "records = [\n"
             "    {'task_id': f'task-{i}', 'task_description': f'desc-{i}',\n"
             "     'intensity_used': 'think', 'complexity_score': 0.1 * i,\n"
@@ -14537,7 +14526,7 @@ class TestSilentWriteSurfacing:
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         return subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -14560,7 +14549,7 @@ class TestSilentWriteSurfacing:
             "import tempfile\n"
             "from pathlib import Path\n"
             "from unittest.mock import patch\n"
-            "from extended_thinking import ThinkingIntegration\n"
+            "from platxa_agent_generator.extended_thinking import ThinkingIntegration\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    log_path = Path(td) / 'thinking_usage.json'\n"
             "    integ = ThinkingIntegration(usage_log_path=log_path)\n"
@@ -14592,7 +14581,7 @@ class TestSilentWriteSurfacing:
             "import tempfile\n"
             "from pathlib import Path\n"
             "from unittest.mock import patch\n"
-            "from progress_tracker import ProgressTracker\n"
+            "from platxa_agent_generator.progress_tracker import ProgressTracker\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    state_path = Path(td) / 'progress.json'\n"
             "    tracker = ProgressTracker(state_file=state_path)\n"
@@ -14641,7 +14630,7 @@ class TestAgentComposerScan:
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         return subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -14660,7 +14649,7 @@ class TestAgentComposerScan:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_composer import load_agent_spec\n"
+            "from platxa_agent_generator.agent_composer import load_agent_spec\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    root = Path(td)\n"
             "    good_a = root / 'good_a.md'\n"
@@ -14726,7 +14715,7 @@ class TestAgentComposerScan:
             "        raise ImportError('No module named yaml')\n"
             "    return _real_import(name, *a, **k)\n"
             "builtins.__import__ = _fake_import\n"
-            "from agent_composer import load_agent_spec\n"
+            "from platxa_agent_generator.agent_composer import load_agent_spec\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    agent_path = Path(td) / 'agent.md'\n"
             "    agent_path.write_text('---\\nname: demo\\n"
@@ -14761,7 +14750,7 @@ class TestBatchGeneration:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -14774,7 +14763,7 @@ class TestBatchGeneration:
     def test_constants_exposed(self) -> None:
         """DEFAULT_BATCH_OUTPUT_DIR and BATCH_AGENT_FILE_EXTENSION are public."""
         result = self._run_py(
-            "from batch_generator import"
+            "from platxa_agent_generator.batch_generator import"
             " DEFAULT_BATCH_OUTPUT_DIR, BATCH_AGENT_FILE_EXTENSION\n"
             "print(DEFAULT_BATCH_OUTPUT_DIR, '|', BATCH_AGENT_FILE_EXTENSION)"
         )
@@ -14786,7 +14775,7 @@ class TestBatchGeneration:
         result = self._run_py(
             "import json, tempfile\n"
             "from pathlib import Path\n"
-            "from batch_generator import load_batch_spec\n"
+            "from platxa_agent_generator.batch_generator import load_batch_spec\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'spec.json'\n"
             "    p.write_text(json.dumps({\n"
@@ -14813,7 +14802,7 @@ class TestBatchGeneration:
     def test_load_batch_spec_missing_file(self) -> None:
         """Missing file → FileNotFoundError."""
         result = self._run_py(
-            "from batch_generator import load_batch_spec\n"
+            "from platxa_agent_generator.batch_generator import load_batch_spec\n"
             "try:\n"
             "    load_batch_spec('/tmp/__definitely_no_batch_spec__.json')\n"
             "    print('NO_RAISE')\n"
@@ -14828,7 +14817,7 @@ class TestBatchGeneration:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from batch_generator import load_batch_spec\n"
+            "from platxa_agent_generator.batch_generator import load_batch_spec\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'bad.json'\n"
             "    p.write_text('not valid json {')\n"
@@ -14846,7 +14835,7 @@ class TestBatchGeneration:
         result = self._run_py(
             "import json, tempfile\n"
             "from pathlib import Path\n"
-            "from batch_generator import load_batch_spec\n"
+            "from platxa_agent_generator.batch_generator import load_batch_spec\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'incomplete.json'\n"
             "    p.write_text(json.dumps({'name': 'x'}))\n"
@@ -14862,7 +14851,7 @@ class TestBatchGeneration:
     def test_validate_rejects_empty_agents(self) -> None:
         """Empty agents list → validation error."""
         result = self._run_py(
-            "from batch_generator import BatchSpec, validate_batch_spec\n"
+            "from platxa_agent_generator.batch_generator import BatchSpec, validate_batch_spec\n"
             "errors = validate_batch_spec(BatchSpec(name='eco', description='d'))\n"
             "print(len(errors), 'no agents' in errors[0])"
         )
@@ -14872,7 +14861,7 @@ class TestBatchGeneration:
     def test_validate_rejects_duplicate_names(self) -> None:
         """Duplicate agent names → validation error naming the duplicate."""
         result = self._run_py(
-            "from batch_generator import (\n"
+            "from platxa_agent_generator.batch_generator import (\n"
             "    BatchSpec, BatchAgentDef, validate_batch_spec\n"
             ")\n"
             "spec = BatchSpec(\n"
@@ -14891,7 +14880,7 @@ class TestBatchGeneration:
     def test_validate_ok_for_valid_spec(self) -> None:
         """Well-formed spec → no errors."""
         result = self._run_py(
-            "from batch_generator import (\n"
+            "from platxa_agent_generator.batch_generator import (\n"
             "    BatchSpec, BatchAgentDef, validate_batch_spec\n"
             ")\n"
             "spec = BatchSpec(\n"
@@ -14908,7 +14897,7 @@ class TestBatchGeneration:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from batch_generator import (\n"
+            "from platxa_agent_generator.batch_generator import (\n"
             "    BatchSpec, BatchAgentDef, generate_batch\n"
             ")\n"
             "spec = BatchSpec(\n"
@@ -14935,7 +14924,7 @@ class TestBatchGeneration:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from batch_generator import (\n"
+            "from platxa_agent_generator.batch_generator import (\n"
             "    BatchSpec, BatchAgentDef, generate_batch\n"
             ")\n"
             "spec = BatchSpec(\n"
@@ -14959,7 +14948,7 @@ class TestBatchGeneration:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from batch_generator import (\n"
+            "from platxa_agent_generator.batch_generator import (\n"
             "    BatchSpec, BatchAgentDef, generate_batch\n"
             ")\n"
             "spec = BatchSpec(\n"
@@ -14993,7 +14982,7 @@ class TestBatchPolicy:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -15006,7 +14995,7 @@ class TestBatchPolicy:
     def test_policy_constants_exposed(self) -> None:
         """DEFAULT_OUTPUT_SCOPE and OFFLINE_DISABLED_TOOLS are public."""
         result = self._run_py(
-            "from batch_generator import DEFAULT_OUTPUT_SCOPE, OFFLINE_DISABLED_TOOLS\n"
+            "from platxa_agent_generator.batch_generator import DEFAULT_OUTPUT_SCOPE, OFFLINE_DISABLED_TOOLS\n"
             "print(DEFAULT_OUTPUT_SCOPE, '|',"
             " 'WebSearch' in OFFLINE_DISABLED_TOOLS,"
             " 'WebFetch' in OFFLINE_DISABLED_TOOLS)"
@@ -15019,7 +15008,7 @@ class TestBatchPolicy:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from batch_generator import (\n"
+            "from platxa_agent_generator.batch_generator import (\n"
             "    BatchSpec, BatchAgentDef, BatchPolicy, generate_batch\n"
             ")\n"
             "spec = BatchSpec(\n"
@@ -15046,7 +15035,7 @@ class TestBatchPolicy:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from batch_generator import (\n"
+            "from platxa_agent_generator.batch_generator import (\n"
             "    BatchSpec, BatchAgentDef, BatchPolicy, generate_batch\n"
             ")\n"
             "spec = BatchSpec(\n"
@@ -15070,7 +15059,7 @@ class TestBatchPolicy:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from batch_generator import (\n"
+            "from platxa_agent_generator.batch_generator import (\n"
             "    BatchSpec, BatchAgentDef, BatchPolicy, generate_batch\n"
             ")\n"
             "spec = BatchSpec(\n"
@@ -15099,7 +15088,7 @@ class TestBatchPolicy:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from batch_generator import (\n"
+            "from platxa_agent_generator.batch_generator import (\n"
             "    BatchSpec, BatchAgentDef, BatchPolicy, generate_batch\n"
             ")\n"
             "spec = BatchSpec(\n"
@@ -15124,7 +15113,7 @@ class TestBatchPolicy:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from batch_generator import (\n"
+            "from platxa_agent_generator.batch_generator import (\n"
             "    BatchSpec, BatchAgentDef, BatchPolicy, generate_batch\n"
             ")\n"
             "spec = BatchSpec(\n"
@@ -15149,7 +15138,7 @@ class TestBatchPolicy:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from batch_generator import (\n"
+            "from platxa_agent_generator.batch_generator import (\n"
             "    BatchSpec, BatchAgentDef, BatchPolicy, generate_batch\n"
             ")\n"
             "spec = BatchSpec(\n"
@@ -15169,7 +15158,7 @@ class TestBatchPolicy:
         """enforce_batch_policy is a public helper with no side effects."""
         result = self._run_py(
             "import tempfile\n"
-            "from batch_generator import (\n"
+            "from platxa_agent_generator.batch_generator import (\n"
             "    BatchSpec, BatchAgentDef, BatchPolicy, enforce_batch_policy\n"
             ")\n"
             "spec = BatchSpec(\n"
@@ -15193,7 +15182,7 @@ class TestBatchPolicy:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from batch_generator import (\n"
+            "from platxa_agent_generator.batch_generator import (\n"
             "    BatchSpec, BatchAgentDef, generate_batch\n"
             ")\n"
             "spec = BatchSpec(\n"
@@ -15228,7 +15217,7 @@ class TestInstallScopeRecommender:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -15241,7 +15230,7 @@ class TestInstallScopeRecommender:
     def test_constants_and_dataclass_exposed(self) -> None:
         """PROJECT_SCOPE_SIGNALS + ScopeRecommendation are public."""
         result = self._run_py(
-            "from install_agent import (\n"
+            "from platxa_agent_generator.install_agent import (\n"
             "    PROJECT_SCOPE_SIGNALS, ScopeRecommendation, recommend_scope,\n"
             ")\n"
             "print('language' in PROJECT_SCOPE_SIGNALS,\n"
@@ -15259,7 +15248,7 @@ class TestInstallScopeRecommender:
     def test_universal_agent_recommends_user(self) -> None:
         """Agent with no project-specific tokens → user scope + reasoning."""
         result = self._run_py(
-            "from install_agent import recommend_scope\n"
+            "from platxa_agent_generator.install_agent import recommend_scope\n"
             "rec = recommend_scope(content=\n"
             "    '---\\nname: explorer\\n"
             "description: Generic code explorer using search\\n"
@@ -15276,7 +15265,7 @@ class TestInstallScopeRecommender:
     def test_language_specific_agent_recommends_project(self) -> None:
         """Agent mentioning Python + pytest + ruff → project scope."""
         result = self._run_py(
-            "from install_agent import recommend_scope\n"
+            "from platxa_agent_generator.install_agent import recommend_scope\n"
             "rec = recommend_scope(content=\n"
             "    '---\\nname: py-reviewer\\n"
             "description: Reviews Python code and runs pytest + ruff\\n"
@@ -15294,7 +15283,7 @@ class TestInstallScopeRecommender:
     def test_framework_mention_recommends_project(self) -> None:
         """Framework name (e.g. 'React') alone triggers project scope."""
         result = self._run_py(
-            "from install_agent import recommend_scope\n"
+            "from platxa_agent_generator.install_agent import recommend_scope\n"
             "rec = recommend_scope(content=\n"
             "    '---\\nname: x\\ndescription: React component helper\\n---\\n'\n"
             ")\n"
@@ -15307,7 +15296,7 @@ class TestInstallScopeRecommender:
     def test_missing_file_falls_back_to_user(self) -> None:
         """Unreadable source → user recommendation with explanation, no crash."""
         result = self._run_py(
-            "from install_agent import recommend_scope\n"
+            "from platxa_agent_generator.install_agent import recommend_scope\n"
             "rec = recommend_scope('/tmp/__definitely_no_agent_here__.md')\n"
             "print(rec.scope, 'unable to read' in rec.reasons[0].lower()\n"
             "      or 'no source' in rec.reasons[0].lower(),\n"
@@ -15321,7 +15310,7 @@ class TestInstallScopeRecommender:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from install_agent import recommend_scope\n"
+            "from platxa_agent_generator.install_agent import recommend_scope\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'a.md'\n"
             "    p.write_text('no-tokens-here')\n"
@@ -15336,7 +15325,7 @@ class TestInstallScopeRecommender:
     def test_reasons_always_non_empty(self) -> None:
         """Both user and project recommendations always explain themselves."""
         result = self._run_py(
-            "from install_agent import recommend_scope\n"
+            "from platxa_agent_generator.install_agent import recommend_scope\n"
             "u = recommend_scope(content='generic')\n"
             "p = recommend_scope(content='uses pnpm')\n"
             "print(bool(u.reasons), bool(p.reasons),\n"
@@ -15348,7 +15337,7 @@ class TestInstallScopeRecommender:
     def test_matched_signals_ordering_stable(self) -> None:
         """Signal ordering follows PROJECT_SCOPE_SIGNALS category order."""
         result = self._run_py(
-            "from install_agent import recommend_scope\n"
+            "from platxa_agent_generator.install_agent import recommend_scope\n"
             "# Mentions linter (ruff) + language (python) + test_runner (pytest)\n"
             "# in a random order; result should follow dict declaration order\n"
             "rec = recommend_scope(content='ruff python pytest')\n"
@@ -15376,7 +15365,7 @@ class TestAgentReadmeGenerator:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -15389,7 +15378,7 @@ class TestAgentReadmeGenerator:
     def test_constants_exposed(self) -> None:
         """DEFAULT_AGENTS_DIR, DEFAULT_README_FILENAME, EXAMPLE_SECTION_HEADINGS public."""
         result = self._run_py(
-            "from agent_readme_generator import (\n"
+            "from platxa_agent_generator.agent_readme_generator import (\n"
             "    DEFAULT_AGENTS_DIR, DEFAULT_README_FILENAME,\n"
             "    EXAMPLE_SECTION_HEADINGS,\n"
             ")\n"
@@ -15404,7 +15393,7 @@ class TestAgentReadmeGenerator:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_readme_generator import scan_agents\n"
+            "from platxa_agent_generator.agent_readme_generator import scan_agents\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    print(scan_agents(td), scan_agents(Path(td) / 'missing'))"
         )
@@ -15416,7 +15405,7 @@ class TestAgentReadmeGenerator:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_readme_generator import scan_agents\n"
+            "from platxa_agent_generator.agent_readme_generator import scan_agents\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    (Path(td) / 'reviewer.md').write_text(\n"
             "        '---\\n'\n"
@@ -15441,7 +15430,7 @@ class TestAgentReadmeGenerator:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_readme_generator import scan_agents\n"
+            "from platxa_agent_generator.agent_readme_generator import scan_agents\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    (Path(td) / 'broken.md').write_text('no frontmatter here')\n"
             "    (Path(td) / 'valid.md').write_text(\n"
@@ -15458,7 +15447,7 @@ class TestAgentReadmeGenerator:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_readme_generator import scan_agents\n"
+            "from platxa_agent_generator.agent_readme_generator import scan_agents\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    for nm in ('zebra', 'alpha', 'mango'):\n"
             "        (Path(td) / f'{nm}.md').write_text(\n"
@@ -15474,7 +15463,7 @@ class TestAgentReadmeGenerator:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_readme_generator import scan_agents\n"
+            "from platxa_agent_generator.agent_readme_generator import scan_agents\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    (Path(td) / 'README.md').write_text(\n"
             "        '---\\nname: README\\ndescription: d\\n---\\n'\n"
@@ -15492,7 +15481,7 @@ class TestAgentReadmeGenerator:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_readme_generator import scan_agents\n"
+            "from platxa_agent_generator.agent_readme_generator import scan_agents\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    (Path(td) / 'a.md').write_text(\n"
             "        '---\\nname: a\\ndescription: d\\n---\\n'\n"
@@ -15511,7 +15500,7 @@ class TestAgentReadmeGenerator:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_readme_generator import scan_agents\n"
+            "from platxa_agent_generator.agent_readme_generator import scan_agents\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    (Path(td) / 'a.md').write_text(\n"
             "        '---\\nname: solo\\ndescription: d\\n---\\n'\n"
@@ -15527,7 +15516,7 @@ class TestAgentReadmeGenerator:
     def test_format_readme_table(self) -> None:
         """Markdown output has a catalogue table with Name/Description/Tools header."""
         result = self._run_py(
-            "from agent_readme_generator import AgentSummary, format_readme\n"
+            "from platxa_agent_generator.agent_readme_generator import AgentSummary, format_readme\n"
             "summaries = [\n"
             "    AgentSummary(name='a', description='First',\n"
             "                 tools=['Read'], usage_example='use a'),\n"
@@ -15547,7 +15536,7 @@ class TestAgentReadmeGenerator:
     def test_format_readme_escapes_pipe_in_description(self) -> None:
         """Pipes in descriptions are escaped so they don't break the table."""
         result = self._run_py(
-            "from agent_readme_generator import AgentSummary, format_readme\n"
+            "from platxa_agent_generator.agent_readme_generator import AgentSummary, format_readme\n"
             "summaries = [\n"
             "    AgentSummary(name='weird',\n"
             "                 description='uses a | pipe char',\n"
@@ -15568,7 +15557,7 @@ class TestAgentReadmeGenerator:
     def test_format_readme_empty(self) -> None:
         """Empty summaries produce a valid 'No agents found.' README."""
         result = self._run_py(
-            "from agent_readme_generator import format_readme\n"
+            "from platxa_agent_generator.agent_readme_generator import format_readme\n"
             "md = format_readme([])\n"
             "print('# Agents' in md, 'No agents found.' in md)"
         )
@@ -15580,7 +15569,7 @@ class TestAgentReadmeGenerator:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_readme_generator import generate_agent_readme\n"
+            "from platxa_agent_generator.agent_readme_generator import generate_agent_readme\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    (Path(td) / 'x.md').write_text(\n"
             "        '---\\nname: x\\ndescription: Does x\\ntools: Read\\n---\\n'\n"
@@ -15598,7 +15587,7 @@ class TestAgentReadmeGenerator:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_readme_generator import generate_agent_readme\n"
+            "from platxa_agent_generator.agent_readme_generator import generate_agent_readme\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    agents = Path(td) / 'agents'\n"
             "    agents.mkdir()\n"
@@ -15636,7 +15625,7 @@ class TestCatalogSkippedAgents:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -15656,7 +15645,7 @@ class TestCatalogSkippedAgents:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from claudemd_generator import (\n"
+            "from platxa_agent_generator.claudemd_generator import (\n"
             "    AgentContext, discover_available_agents, generate_claudemd,\n"
             ")\n"
             "with tempfile.TemporaryDirectory() as td:\n"
@@ -15692,7 +15681,7 @@ class TestCatalogSkippedAgents:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_readme_generator import generate_agent_readme\n"
+            "from platxa_agent_generator.agent_readme_generator import generate_agent_readme\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    agents = Path(td) / 'agents'\n"
             "    agents.mkdir()\n"
@@ -15728,7 +15717,7 @@ class TestCatalogSkippedAgents:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from claudemd_generator import discover_available_agents\n"
+            "from platxa_agent_generator.claudemd_generator import discover_available_agents\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    base = Path(td)\n"
             "    (base / 'solo.md').write_text(\n"
@@ -15746,7 +15735,7 @@ class TestCatalogSkippedAgents:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from agent_readme_generator import scan_agents\n"
+            "from platxa_agent_generator.agent_readme_generator import scan_agents\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    (Path(td) / 'solo.md').write_text(\n"
             "        '---\\nname: solo\\ndescription: d\\n---\\n'\n"
@@ -15789,7 +15778,7 @@ class TestMcpConfigGenerator:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -15806,7 +15795,7 @@ class TestMcpConfigGenerator:
     def test_validate_server_name_empty_rejected(self) -> None:
         """Empty name is rejected with an explicit message."""
         result = self._run_py(
-            "from mcp_config_generator import validate_server_name\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_server_name\n"
             "ok, msg = validate_server_name('')\n"
             "print(ok, 'empty' in msg.lower())"
         )
@@ -15816,7 +15805,7 @@ class TestMcpConfigGenerator:
     def test_validate_server_name_valid_alphanumeric_with_hyphen(self) -> None:
         """Lowercase alphanumeric + interior hyphen is accepted."""
         result = self._run_py(
-            "from mcp_config_generator import validate_server_name\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_server_name\n"
             "print(validate_server_name('brave-search-v2'))"
         )
         assert result.returncode == 0, result.stderr
@@ -15825,7 +15814,7 @@ class TestMcpConfigGenerator:
     def test_validate_server_name_uppercase_rejected(self) -> None:
         """Uppercase letters are rejected — spec allows only lowercase."""
         result = self._run_py(
-            "from mcp_config_generator import validate_server_name\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_server_name\n"
             "ok, msg = validate_server_name('GitHub')\n"
             "print(ok, 'lowercase' in msg.lower())"
         )
@@ -15835,7 +15824,7 @@ class TestMcpConfigGenerator:
     def test_validate_server_name_edge_hyphens_rejected(self) -> None:
         """Leading or trailing hyphen is rejected."""
         result = self._run_py(
-            "from mcp_config_generator import validate_server_name\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_server_name\n"
             "print(validate_server_name('-leading')[0],\n"
             "      validate_server_name('trailing-')[0])"
         )
@@ -15849,7 +15838,7 @@ class TestMcpConfigGenerator:
     def test_validate_url_empty_rejected(self) -> None:
         """Empty URL is rejected."""
         result = self._run_py(
-            "from mcp_config_generator import validate_url\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_url\n"
             "ok, msg = validate_url('')\n"
             "print(ok, 'empty' in msg.lower())"
         )
@@ -15859,7 +15848,7 @@ class TestMcpConfigGenerator:
     def test_validate_url_https_accepted(self) -> None:
         """https:// URLs are accepted."""
         result = self._run_py(
-            "from mcp_config_generator import validate_url\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_url\n"
             "print(validate_url('https://api.example.com/mcp'))"
         )
         assert result.returncode == 0, result.stderr
@@ -15868,7 +15857,7 @@ class TestMcpConfigGenerator:
     def test_validate_url_http_accepted(self) -> None:
         """http:// URLs are accepted (common for local dev)."""
         result = self._run_py(
-            "from mcp_config_generator import validate_url\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_url\n"
             "print(validate_url('http://localhost:8080/mcp'))"
         )
         assert result.returncode == 0, result.stderr
@@ -15877,7 +15866,7 @@ class TestMcpConfigGenerator:
     def test_validate_url_ftp_rejected(self) -> None:
         """ftp:// is rejected — not in the http(s) scheme whitelist."""
         result = self._run_py(
-            "from mcp_config_generator import validate_url\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_url\n"
             "ok, msg = validate_url('ftp://files.example.com/x')\n"
             "print(ok, 'http' in msg)"
         )
@@ -15887,7 +15876,7 @@ class TestMcpConfigGenerator:
     def test_validate_url_javascript_scheme_rejected(self) -> None:
         """javascript: URI is rejected — protects against scheme injection."""
         result = self._run_py(
-            "from mcp_config_generator import validate_url\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_url\n"
             "print(validate_url('javascript:alert(1)')[0])"
         )
         assert result.returncode == 0, result.stderr
@@ -15896,7 +15885,7 @@ class TestMcpConfigGenerator:
     def test_validate_url_env_placeholder_accepted(self) -> None:
         """${VAR}-form placeholder is accepted (late binding via env)."""
         result = self._run_py(
-            "from mcp_config_generator import validate_url\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_url\n"
             "print(validate_url('${MCP_REMOTE_URL}'))"
         )
         assert result.returncode == 0, result.stderr
@@ -15909,7 +15898,7 @@ class TestMcpConfigGenerator:
     def test_validate_command_empty_rejected(self) -> None:
         """stdio servers require a non-empty command."""
         result = self._run_py(
-            "from mcp_config_generator import validate_command\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_command\n"
             "ok, msg = validate_command('')\n"
             "print(ok, 'empty' in msg.lower())"
         )
@@ -15919,7 +15908,7 @@ class TestMcpConfigGenerator:
     def test_validate_command_safelisted_node_accepted(self) -> None:
         """'node' (bare safelist entry) is accepted."""
         result = self._run_py(
-            "from mcp_config_generator import validate_command\nprint(validate_command('node'))"
+            "from platxa_agent_generator.mcp_config_generator import validate_command\nprint(validate_command('node'))"
         )
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == "(True, '')"
@@ -15927,7 +15916,7 @@ class TestMcpConfigGenerator:
     def test_validate_command_unsafe_bare_rejected(self) -> None:
         """'rm' is rejected — not on the safe-command whitelist."""
         result = self._run_py(
-            "from mcp_config_generator import validate_command\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_command\n"
             "ok, msg = validate_command('rm')\n"
             "print(ok, 'allowed' in msg)"
         )
@@ -15942,7 +15931,7 @@ class TestMcpConfigGenerator:
         safelist, so both fallback branches fail.
         """
         result = self._run_py(
-            "from mcp_config_generator import validate_command\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_command\n"
             "print(validate_command('../../bin/sh')[0])"
         )
         assert result.returncode == 0, result.stderr
@@ -15951,7 +15940,7 @@ class TestMcpConfigGenerator:
     def test_validate_command_metachar_embedded_rejected(self) -> None:
         """``node;rm -rf /`` is rejected — metachar-laced string is not the token 'node'."""
         result = self._run_py(
-            "from mcp_config_generator import validate_command\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_command\n"
             "print(validate_command('node;rm -rf /')[0])"
         )
         assert result.returncode == 0, result.stderr
@@ -15967,7 +15956,7 @@ class TestMcpConfigGenerator:
         behavior change.
         """
         result = self._run_py(
-            "from mcp_config_generator import validate_command\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_command\n"
             "print(validate_command('/usr/local/bin/node'))"
         )
         assert result.returncode == 0, result.stderr
@@ -15980,7 +15969,7 @@ class TestMcpConfigGenerator:
     def test_validate_path_safe_cwd_relative_accepted(self) -> None:
         """A plain relative path resolves under cwd and is accepted."""
         result = self._run_py(
-            "from mcp_config_generator import validate_path_safe\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_path_safe\n"
             "print(validate_path_safe('./output.json'))"
         )
         assert result.returncode == 0, result.stderr
@@ -15989,7 +15978,7 @@ class TestMcpConfigGenerator:
     def test_validate_path_safe_outside_roots_rejected(self) -> None:
         """A path that resolves outside cwd/home/tmp is rejected."""
         result = self._run_py(
-            "from mcp_config_generator import validate_path_safe\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_path_safe\n"
             "ok, msg = validate_path_safe('/etc/passwd')\n"
             "print(ok, 'within' in msg)"
         )
@@ -15999,7 +15988,7 @@ class TestMcpConfigGenerator:
     def test_validate_path_safe_dollar_rejected(self) -> None:
         """``$`` is treated as a suspicious shell metacharacter."""
         result = self._run_py(
-            "from mcp_config_generator import validate_path_safe\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_path_safe\n"
             "ok, msg = validate_path_safe('./$PWD/out.json')\n"
             "print(ok, 'Suspicious' in msg and '$' in msg)"
         )
@@ -16009,7 +15998,7 @@ class TestMcpConfigGenerator:
     def test_validate_path_safe_semicolon_rejected(self) -> None:
         """``;`` (command separator) is rejected."""
         result = self._run_py(
-            "from mcp_config_generator import validate_path_safe\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_path_safe\n"
             "ok, msg = validate_path_safe('./out.json;rm -rf .')\n"
             "print(ok, 'Suspicious' in msg)"
         )
@@ -16019,7 +16008,7 @@ class TestMcpConfigGenerator:
     def test_validate_path_safe_backtick_rejected(self) -> None:
         """Backtick (command substitution) is rejected."""
         result = self._run_py(
-            "from mcp_config_generator import validate_path_safe\n"
+            "from platxa_agent_generator.mcp_config_generator import validate_path_safe\n"
             "ok, _ = validate_path_safe('./out`whoami`.json')\n"
             "print(ok)"
         )
@@ -16035,7 +16024,7 @@ class TestMcpConfigGenerator:
         result = self._run_py(
             "import json, tempfile\n"
             "from pathlib import Path\n"
-            "from mcp_config_generator import generate_mcp_json\n"
+            "from platxa_agent_generator.mcp_config_generator import generate_mcp_json\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    ok, _msg, path = generate_mcp_json(['playwright'], td)\n"
             "    data = json.loads(Path(path).read_text())\n"
@@ -16052,7 +16041,7 @@ class TestMcpConfigGenerator:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from mcp_config_generator import generate_mcp_json\n"
+            "from platxa_agent_generator.mcp_config_generator import generate_mcp_json\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    ok, msg, path = generate_mcp_json(['definitely-not-a-server'], td)\n"
             "    print(ok, 'Unknown' in msg, path, (Path(td) / '.mcp.json').exists())"
@@ -16065,7 +16054,7 @@ class TestMcpConfigGenerator:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from mcp_config_generator import generate_mcp_json\n"
+            "from platxa_agent_generator.mcp_config_generator import generate_mcp_json\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    ok, msg, path = generate_mcp_json([], td)\n"
             "    print(ok, 'No servers' in msg, (Path(td) / '.mcp.json').exists())"
@@ -16081,7 +16070,7 @@ class TestMcpConfigGenerator:
         before any file is written.
         """
         result = self._run_py(
-            "from mcp_config_generator import generate, SERVER_TEMPLATES\n"
+            "from platxa_agent_generator.mcp_config_generator import generate, SERVER_TEMPLATES\n"
             "ok, msg, path = generate(\n"
             "    servers=[SERVER_TEMPLATES['playwright']],\n"
             "    output_path='./foo;rm -rf .',\n"
@@ -16098,7 +16087,7 @@ class TestMcpConfigGenerator:
     def test_stdio_server_roundtrip_lossless(self) -> None:
         """A stdio MCPServer survives server_to_dict → create_server_from_dict."""
         result = self._run_py(
-            "from mcp_config_generator import (\n"
+            "from platxa_agent_generator.mcp_config_generator import (\n"
             "    MCPServer, create_server_from_dict, server_to_dict,\n"
             ")\n"
             "orig = MCPServer(name='db', server_type='stdio', command='node',\n"
@@ -16114,7 +16103,7 @@ class TestMcpConfigGenerator:
     def test_http_server_roundtrip_lossless(self) -> None:
         """An http MCPServer survives server_to_dict → create_server_from_dict."""
         result = self._run_py(
-            "from mcp_config_generator import (\n"
+            "from platxa_agent_generator.mcp_config_generator import (\n"
             "    MCPServer, create_server_from_dict, server_to_dict,\n"
             ")\n"
             "orig = MCPServer(name='api', server_type='http',\n"
@@ -16143,7 +16132,7 @@ class TestMcpConfigGenerator:
         first (highest match count).
         """
         result = self._run_py(
-            "from mcp_config_generator import recommend_mcp_servers\n"
+            "from platxa_agent_generator.mcp_config_generator import recommend_mcp_servers\n"
             "rec = recommend_mcp_servers(description='web search agent')\n"
             "print(rec.count('fetch'), rec[0])"
         )
@@ -16160,7 +16149,7 @@ class TestMcpConfigGenerator:
         shows up as a test update rather than a silent behavior flip.
         """
         result = self._run_py(
-            "from mcp_config_generator import MCPServer, MCPConfig, generate_config\n"
+            "from platxa_agent_generator.mcp_config_generator import MCPServer, MCPConfig, generate_config\n"
             "a = MCPServer(name='dup', server_type='stdio', command='node',\n"
             "              args=['first.js'])\n"
             "b = MCPServer(name='dup', server_type='stdio', command='node',\n"
@@ -16192,7 +16181,7 @@ class TestGenerationReport:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -16205,7 +16194,7 @@ class TestGenerationReport:
     def test_section_constants_exposed(self) -> None:
         """All section heading constants are public and pinned."""
         result = self._run_py(
-            "from generation_report import (\n"
+            "from platxa_agent_generator.generation_report import (\n"
             "    REPORT_HEADING, SECTION_OVERVIEW, SECTION_QUALITY,\n"
             "    SECTION_TOKENS, SECTION_TOOLS, SECTION_SECURITY, SECTION_INSTALL,\n"
             ")\n"
@@ -16221,7 +16210,7 @@ class TestGenerationReport:
     def test_build_report_rejects_bad_score(self) -> None:
         """overall_score outside [0, 10] → ValueError."""
         result = self._run_py(
-            "from generation_report import build_generation_report\n"
+            "from platxa_agent_generator.generation_report import build_generation_report\n"
             "try:\n"
             "    build_generation_report('a', 'd', ['Read'], overall_score=11.0)\n"
             "    print('NO_RAISE')\n"
@@ -16234,7 +16223,7 @@ class TestGenerationReport:
     def test_build_report_rejects_negative_tokens(self) -> None:
         """Negative token_estimate → ValueError."""
         result = self._run_py(
-            "from generation_report import build_generation_report\n"
+            "from platxa_agent_generator.generation_report import build_generation_report\n"
             "try:\n"
             "    build_generation_report('a', 'd', ['Read'],\n"
             "        overall_score=8.0, token_estimate=-1)\n"
@@ -16248,7 +16237,7 @@ class TestGenerationReport:
     def test_markdown_includes_all_sections(self) -> None:
         """All six section headings appear in the markdown output."""
         result = self._run_py(
-            "from generation_report import (\n"
+            "from platxa_agent_generator.generation_report import (\n"
             "    build_generation_report, format_report_markdown,\n"
             ")\n"
             "report = build_generation_report(\n"
@@ -16269,7 +16258,7 @@ class TestGenerationReport:
     def test_markdown_lists_tools_and_install(self) -> None:
         """Tool list and install-location path appear in the markdown."""
         result = self._run_py(
-            "from generation_report import (\n"
+            "from platxa_agent_generator.generation_report import (\n"
             "    build_generation_report, format_report_markdown,\n"
             ")\n"
             "report = build_generation_report(\n"
@@ -16287,7 +16276,7 @@ class TestGenerationReport:
     def test_markdown_no_security_findings_placeholder(self) -> None:
         """Empty findings list → friendly placeholder message."""
         result = self._run_py(
-            "from generation_report import (\n"
+            "from platxa_agent_generator.generation_report import (\n"
             "    build_generation_report, format_report_markdown,\n"
             ")\n"
             "report = build_generation_report(\n"
@@ -16302,7 +16291,7 @@ class TestGenerationReport:
     def test_markdown_dry_run_install_placeholder(self) -> None:
         """Empty install_location → dry-run placeholder."""
         result = self._run_py(
-            "from generation_report import (\n"
+            "from platxa_agent_generator.generation_report import (\n"
             "    build_generation_report, format_report_markdown,\n"
             ")\n"
             "report = build_generation_report(\n"
@@ -16317,7 +16306,7 @@ class TestGenerationReport:
     def test_findings_sorted_by_severity(self) -> None:
         """Critical findings appear before low/info in the markdown output."""
         result = self._run_py(
-            "from generation_report import (\n"
+            "from platxa_agent_generator.generation_report import (\n"
             "    SecurityFindingSummary,\n"
             "    build_generation_report, format_report_markdown,\n"
             ")\n"
@@ -16342,7 +16331,7 @@ class TestGenerationReport:
     def test_json_shape_complete(self) -> None:
         """format_report_json returns dict with every field of the report."""
         result = self._run_py(
-            "from generation_report import (\n"
+            "from platxa_agent_generator.generation_report import (\n"
             "    SecurityFindingSummary,\n"
             "    build_generation_report, format_report_json,\n"
             ")\n"
@@ -16374,7 +16363,7 @@ class TestGenerationReport:
         """report_to_json_string produces parseable JSON with same data."""
         result = self._run_py(
             "import json\n"
-            "from generation_report import (\n"
+            "from platxa_agent_generator.generation_report import (\n"
             "    build_generation_report, report_to_json_string,\n"
             ")\n"
             "report = build_generation_report(\n"
@@ -16408,7 +16397,7 @@ class TestAgentLint:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -16442,7 +16431,7 @@ class TestAgentLint:
     def test_exit_code_constants(self) -> None:
         """LINT_EXIT_* constants pin the pre-commit-friendly exit contract."""
         result = self._run_py(
-            "from agent_linter import LINT_EXIT_OK, LINT_EXIT_ERRORS, LINT_EXIT_IO_FAILURE\n"
+            "from platxa_agent_generator.agent_linter import LINT_EXIT_OK, LINT_EXIT_ERRORS, LINT_EXIT_IO_FAILURE\n"
             "print(LINT_EXIT_OK, LINT_EXIT_ERRORS, LINT_EXIT_IO_FAILURE)"
         )
         assert result.returncode == 0, result.stderr
@@ -16453,7 +16442,7 @@ class TestAgentLint:
         agent = self._write_valid_agent(tmp_path)
         result = self._run_py(
             "import sys\n"
-            "from agent_linter import lint_agent_file\n"
+            "from platxa_agent_generator.agent_linter import lint_agent_file\n"
             f"r = lint_agent_file({str(agent)!r})\n"
             "print(r.passed, len(r.findings))"
         )
@@ -16464,7 +16453,7 @@ class TestAgentLint:
         """An agent with empty description fails with at least one finding."""
         agent = self._write_invalid_agent(tmp_path)
         result = self._run_py(
-            "from agent_linter import lint_agent_file\n"
+            "from platxa_agent_generator.agent_linter import lint_agent_file\n"
             f"r = lint_agent_file({str(agent)!r})\n"
             "print(r.passed, len(r.findings) >= 1)"
         )
@@ -16475,7 +16464,7 @@ class TestAgentLint:
         """Passing report renders as a single PASS line."""
         agent = self._write_valid_agent(tmp_path)
         result = self._run_py(
-            "from agent_linter import lint_agent_file, format_lint_report\n"
+            "from platxa_agent_generator.agent_linter import lint_agent_file, format_lint_report\n"
             f"r = lint_agent_file({str(agent)!r})\n"
             "print(format_lint_report(r))"
         )
@@ -16486,7 +16475,7 @@ class TestAgentLint:
         """Failing report renders header plus L<line> [<code>] message lines."""
         agent = self._write_invalid_agent(tmp_path)
         result = self._run_py(
-            "from agent_linter import lint_agent_file, format_lint_report\n"
+            "from platxa_agent_generator.agent_linter import lint_agent_file, format_lint_report\n"
             f"r = lint_agent_file({str(agent)!r})\n"
             "out = format_lint_report(r)\n"
             "print('FAIL' in out, ' L' in out, '[' in out)"
@@ -16500,7 +16489,7 @@ class TestAgentLint:
         b_path = tmp_path / "b.md"
         b_path.write_text(a.read_text())
         result = self._run_py(
-            "from agent_linter import lint_paths\n"
+            "from platxa_agent_generator.agent_linter import lint_paths\n"
             f"reports = lint_paths([{str(a)!r}, {str(b_path)!r}])\n"
             "print(len(reports), reports[0].path.endswith('valid.md'),\n"
             "      reports[1].path.endswith('b.md'))"
@@ -16512,7 +16501,7 @@ class TestAgentLint:
         """An unreadable file yields an E000 finding instead of raising."""
         # Use a directory path — opening it as a file triggers OSError.
         result = self._run_py(
-            "from agent_linter import lint_paths\n"
+            "from platxa_agent_generator.agent_linter import lint_paths\n"
             f"reports = lint_paths([{str(tmp_path)!r}])\n"
             "r = reports[0]\n"
             "print(r.passed, len(r.findings) >= 1, r.findings[0].code)"
@@ -16529,8 +16518,8 @@ class TestAgentLint:
         """Warning-severity validator findings must not flip passed to False."""
         agent = self._write_valid_agent(tmp_path)
         result = self._run_py(
-            "from syntax_validator import validate_file\n"
-            "from agent_linter import lint_agent_file\n"
+            "from platxa_agent_generator.syntax_validator import validate_file\n"
+            "from platxa_agent_generator.agent_linter import lint_agent_file\n"
             f"vr = validate_file({str(agent)!r})\n"
             f"r = lint_agent_file({str(agent)!r})\n"
             "warn_count = sum(1 for e in vr.errors if e.severity == 'warning')\n"
@@ -16546,7 +16535,7 @@ class TestAgentLint:
         agent = self._write_valid_agent(tmp_path)
         scripts_pkg_dir = Path(__file__).parent.parent
         result = subprocess.run(
-            [sys.executable, "-m", "scripts.cli", "lint", str(agent)],
+            [sys.executable, "-m", "platxa_agent_generator.cli", "lint", str(agent)],
             capture_output=True,
             text=True,
             cwd=str(scripts_pkg_dir),
@@ -16561,7 +16550,7 @@ class TestAgentLint:
         agent = self._write_invalid_agent(tmp_path)
         scripts_pkg_dir = Path(__file__).parent.parent
         result = subprocess.run(
-            [sys.executable, "-m", "scripts.cli", "lint", str(agent)],
+            [sys.executable, "-m", "platxa_agent_generator.cli", "lint", str(agent)],
             capture_output=True,
             text=True,
             cwd=str(scripts_pkg_dir),
@@ -16589,7 +16578,7 @@ class TestPostInstallVerification:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -16620,7 +16609,7 @@ class TestPostInstallVerification:
     def test_verification_check_order_constant(self) -> None:
         """VERIFICATION_CHECK_ORDER pins the canonical check sequence."""
         result = self._run_py(
-            "from install_agent import (\n"
+            "from platxa_agent_generator.install_agent import (\n"
             "    VERIFICATION_CHECK_ORDER, CHECK_SYNTAX, CHECK_SKILLS, CHECK_MCP,\n"
             ")\n"
             "print(VERIFICATION_CHECK_ORDER)\n"
@@ -16635,7 +16624,7 @@ class TestPostInstallVerification:
         """A well-formed agent with no skill/MCP refs passes verification."""
         agent = self._write_minimal_agent(tmp_path)
         result = self._run_py(
-            "from install_agent import verify_installation\n"
+            "from platxa_agent_generator.install_agent import verify_installation\n"
             f"v = verify_installation({str(agent)!r}, install_root={str(tmp_path)!r})\n"
             "print(v.valid, v.findings, v.checks)"
         )
@@ -16650,7 +16639,7 @@ class TestPostInstallVerification:
         (tmp_path / "skills").mkdir()
         result = self._run_py(
             "from pathlib import Path\n"
-            "from install_agent import verify_installation\n"
+            "from platxa_agent_generator.install_agent import verify_installation\n"
             f"v = verify_installation({str(agent)!r}, install_root=Path({str(tmp_path)!r}))\n"
             "print(v.valid)\n"
             "print(any('nonexistent-skill' in f for f in v.findings))"
@@ -16668,7 +16657,7 @@ class TestPostInstallVerification:
         agent = self._write_minimal_agent(tmp_path, extra_frontmatter="skills:\n  - my-skill")
         result = self._run_py(
             "from pathlib import Path\n"
-            "from install_agent import verify_installation\n"
+            "from platxa_agent_generator.install_agent import verify_installation\n"
             f"v = verify_installation({str(agent)!r}, install_root=Path({str(tmp_path)!r}))\n"
             "print(v.valid, v.findings)"
         )
@@ -16683,7 +16672,7 @@ class TestPostInstallVerification:
         )
         result = self._run_py(
             "from pathlib import Path\n"
-            "from install_agent import verify_installation\n"
+            "from platxa_agent_generator.install_agent import verify_installation\n"
             f"v = verify_installation({str(agent)!r}, install_root=Path({str(tmp_path)!r}))\n"
             "print(v.valid)\n"
             "print(any('mcpServers.broken' in f and 'command' in f for f in v.findings))"
@@ -16749,7 +16738,7 @@ class TestContextManagementSection:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -16762,7 +16751,7 @@ class TestContextManagementSection:
     def test_constants_exposed(self) -> None:
         """Public constants are stable for downstream parsers."""
         result = self._run_py(
-            "from prompt_generator import (\n"
+            "from platxa_agent_generator.prompt_generator import (\n"
             "    CONTEXT_MANAGEMENT_HEADING, CONTEXT_MANAGEMENT_RULES,\n"
             ")\n"
             "print(CONTEXT_MANAGEMENT_HEADING)\n"
@@ -16778,7 +16767,7 @@ class TestContextManagementSection:
     def test_section_empty_when_short_lived(self) -> None:
         """Short-lived agents (default) get no Context Management section."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_context_management_section\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_context_management_section\n"
             "cfg = PromptConfig('analyzer','security','x',['Read'],[],'json')\n"
             "print(repr(generate_context_management_section(cfg)))"
         )
@@ -16788,7 +16777,7 @@ class TestContextManagementSection:
     def test_section_renders_when_long_running(self) -> None:
         """Long-running agents get heading + every canonical rule."""
         result = self._run_py(
-            "from prompt_generator import (\n"
+            "from platxa_agent_generator.prompt_generator import (\n"
             "    PromptConfig, generate_context_management_section,\n"
             "    CONTEXT_MANAGEMENT_RULES,\n"
             ")\n"
@@ -16804,7 +16793,7 @@ class TestContextManagementSection:
     def test_first_rule_targets_pressure_detection(self) -> None:
         """First rule must address context-pressure detection (ordering matters)."""
         result = self._run_py(
-            "from prompt_generator import CONTEXT_MANAGEMENT_RULES\n"
+            "from platxa_agent_generator.prompt_generator import CONTEXT_MANAGEMENT_RULES\n"
             "first = CONTEXT_MANAGEMENT_RULES[0].lower()\n"
             "print('context' in first and ('window' in first or 'history' in first))"
         )
@@ -16814,7 +16803,7 @@ class TestContextManagementSection:
     def test_rules_cover_subagent_and_clear(self) -> None:
         """Verification criteria require subagent delegation + /clear guidance."""
         result = self._run_py(
-            "from prompt_generator import CONTEXT_MANAGEMENT_RULES\n"
+            "from platxa_agent_generator.prompt_generator import CONTEXT_MANAGEMENT_RULES\n"
             "joined = ' '.join(CONTEXT_MANAGEMENT_RULES).lower()\n"
             "print('subagent' in joined and 'task tool' in joined)\n"
             "print('/clear' in joined)"
@@ -16825,7 +16814,7 @@ class TestContextManagementSection:
     def test_blocks_omit_section_for_short_lived(self) -> None:
         """generate_prompt_blocks does not leak the section by default."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_prompt_blocks\n"
             "cfg = PromptConfig('analyzer','security','x',['Read'],[],'json')\n"
             "blocks = generate_prompt_blocks(cfg)\n"
             "print('Context Management' in blocks.context)"
@@ -16836,7 +16825,7 @@ class TestContextManagementSection:
     def test_blocks_include_section_for_long_running(self) -> None:
         """generate_prompt_blocks injects the section into CONTEXT when opted in."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_prompt_blocks\n"
             "cfg = PromptConfig('analyzer','security','x',['Read'],[],'json',\n"
             "                   long_running=True)\n"
             "blocks = generate_prompt_blocks(cfg)\n"
@@ -16869,7 +16858,7 @@ class TestSubagentDelegationSection:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -16882,7 +16871,7 @@ class TestSubagentDelegationSection:
     def test_constants_exposed_with_thresholds(self) -> None:
         """Constants pin the heading, threshold, and token band per spec."""
         result = self._run_py(
-            "from prompt_generator import (\n"
+            "from platxa_agent_generator.prompt_generator import (\n"
             "    SUBAGENT_DELEGATION_HEADING,\n"
             "    SUBAGENT_DELEGATION_TRIGGER_TOOLS,\n"
             "    SUBAGENT_DELEGATION_FILE_THRESHOLD,\n"
@@ -16909,7 +16898,7 @@ class TestSubagentDelegationSection:
     def test_section_empty_when_no_trigger_tool(self) -> None:
         """Agents without Read/Grep/Glob get no Subagent Delegation section."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_subagent_delegation_section\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_subagent_delegation_section\n"
             "cfg = PromptConfig('analyzer','security','x',['Bash','Write'],[],'json')\n"
             "print(repr(generate_subagent_delegation_section(cfg)))"
         )
@@ -16919,7 +16908,7 @@ class TestSubagentDelegationSection:
     def test_section_emitted_when_read_tool_present(self) -> None:
         """A single trigger tool (Read) is enough to surface the section."""
         result = self._run_py(
-            "from prompt_generator import (\n"
+            "from platxa_agent_generator.prompt_generator import (\n"
             "    PromptConfig, generate_subagent_delegation_section,\n"
             "    SUBAGENT_DELEGATION_RULES,\n"
             ")\n"
@@ -16934,7 +16923,7 @@ class TestSubagentDelegationSection:
     def test_rules_mention_task_tool_and_thresholds(self) -> None:
         """Verification criteria require Task tool, >5 files, 1-2K tokens."""
         result = self._run_py(
-            "from prompt_generator import SUBAGENT_DELEGATION_RULES\n"
+            "from platxa_agent_generator.prompt_generator import SUBAGENT_DELEGATION_RULES\n"
             "joined = ' '.join(SUBAGENT_DELEGATION_RULES).lower()\n"
             "print('task tool' in joined)\n"
             "print('5 files' in joined)\n"
@@ -16946,7 +16935,7 @@ class TestSubagentDelegationSection:
     def test_blocks_omit_section_when_no_trigger_tool(self) -> None:
         """generate_prompt_blocks does not leak the section without Read/Grep/Glob."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_prompt_blocks\n"
             "cfg = PromptConfig('analyzer','security','x',['Bash','Write'],[],'json')\n"
             "blocks = generate_prompt_blocks(cfg)\n"
             "print('Subagent Delegation' in blocks.context)"
@@ -16957,7 +16946,7 @@ class TestSubagentDelegationSection:
     def test_blocks_include_section_for_grep_agent(self) -> None:
         """generate_prompt_blocks injects the section into CONTEXT for Grep agents."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_prompt_blocks\n"
             "cfg = PromptConfig('analyzer','security','x',['Read','Grep'],[],'json')\n"
             "blocks = generate_prompt_blocks(cfg)\n"
             "print('**Subagent Delegation:**' in blocks.context)\n"
@@ -16970,7 +16959,7 @@ class TestSubagentDelegationSection:
     def test_subagent_section_precedes_context_management(self) -> None:
         """When both sections render, subagent block comes before context-management."""
         result = self._run_py(
-            "from prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_prompt_blocks\n"
             "cfg = PromptConfig('analyzer','security','x',['Read','Grep'],[],'json',\n"
             "                   long_running=True)\n"
             "blocks = generate_prompt_blocks(cfg)\n"
@@ -16998,7 +16987,7 @@ class TestBackgroundFrontmatter:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -17011,7 +17000,7 @@ class TestBackgroundFrontmatter:
     def test_keywords_constant_exposed(self) -> None:
         """BACKGROUND_KEYWORDS includes the spec-named vocabulary."""
         result = self._run_py(
-            "from type_classifier import BACKGROUND_KEYWORDS\n"
+            "from platxa_agent_generator.type_classifier import BACKGROUND_KEYWORDS\n"
             "joined = '|'.join(BACKGROUND_KEYWORDS).lower()\n"
             "print('monitor' in joined)\n"
             "print('tail' in joined)\n"
@@ -17024,7 +17013,7 @@ class TestBackgroundFrontmatter:
     def test_detects_monitoring_agent(self) -> None:
         """Monitor / monitoring descriptions are flagged background-suitable."""
         result = self._run_py(
-            "from type_classifier import is_background_suitable\n"
+            "from platxa_agent_generator.type_classifier import is_background_suitable\n"
             "print(is_background_suitable('Monitor disk usage every minute'))\n"
             "print(is_background_suitable('Continuously observe build status'))"
         )
@@ -17034,7 +17023,7 @@ class TestBackgroundFrontmatter:
     def test_detects_log_tailer_and_ci_watcher(self) -> None:
         """Log tailing and CI-watcher phrasing both trigger detection."""
         result = self._run_py(
-            "from type_classifier import is_background_suitable\n"
+            "from platxa_agent_generator.type_classifier import is_background_suitable\n"
             "print(is_background_suitable('Tail application logs in production'))\n"
             "print(is_background_suitable('CI watcher that polls for failures'))"
         )
@@ -17044,7 +17033,7 @@ class TestBackgroundFrontmatter:
     def test_returns_false_for_foreground_work(self) -> None:
         """Unrelated descriptions return False (foreground is the safe default)."""
         result = self._run_py(
-            "from type_classifier import is_background_suitable\n"
+            "from platxa_agent_generator.type_classifier import is_background_suitable\n"
             "print(is_background_suitable('Refactor the user authentication module'))\n"
             "print(is_background_suitable('Generate documentation for the public API'))"
         )
@@ -17054,7 +17043,7 @@ class TestBackgroundFrontmatter:
     def test_empty_description_returns_false(self) -> None:
         """Empty / whitespace input must not raise — quiet False is the contract."""
         result = self._run_py(
-            "from type_classifier import is_background_suitable\n"
+            "from platxa_agent_generator.type_classifier import is_background_suitable\n"
             "print(is_background_suitable(''))\n"
             "print(is_background_suitable('   '))\n"
             "print(is_background_suitable('\\n\\t'))"
@@ -17065,7 +17054,7 @@ class TestBackgroundFrontmatter:
     def test_word_boundary_prevents_false_positives(self) -> None:
         """Partial-word substrings must not trigger detection (e.g. 'tailored')."""
         result = self._run_py(
-            "from type_classifier import is_background_suitable\n"
+            "from platxa_agent_generator.type_classifier import is_background_suitable\n"
             "print(is_background_suitable('Build a tailored onboarding wizard'))\n"
             "print(is_background_suitable('Sort by polling rate descending'))"
         )
@@ -17080,7 +17069,7 @@ class TestBackgroundFrontmatter:
     def test_frontmatter_emits_background_when_true(self) -> None:
         """AgentDefinition(background=True) emits 'background: true' in YAML."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition, generate_frontmatter\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition, generate_frontmatter\n"
             "d = AgentDefinition(name='watcher', description='Tail logs',\n"
             "                    tools=['Bash'], background=True)\n"
             "fm = generate_frontmatter(d)\n"
@@ -17092,7 +17081,7 @@ class TestBackgroundFrontmatter:
     def test_frontmatter_omits_background_when_unset(self) -> None:
         """background=None / False must not emit the field — default-omit contract."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition, generate_frontmatter\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition, generate_frontmatter\n"
             "d_none = AgentDefinition(name='x', description='y', tools=['Read'])\n"
             "d_false = AgentDefinition(name='x', description='y', tools=['Read'],\n"
             "                          background=False)\n"
@@ -17118,7 +17107,7 @@ class TestColorFrontmatter:
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
         import subprocess
 
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         result = subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -17131,7 +17120,7 @@ class TestColorFrontmatter:
     def test_color_map_constant_exposed(self) -> None:
         """CATEGORY_COLOR_MAP exposes the spec-mandated (color, keywords) pairs."""
         result = self._run_py(
-            "from type_classifier import CATEGORY_COLOR_MAP\n"
+            "from platxa_agent_generator.type_classifier import CATEGORY_COLOR_MAP\n"
             "by_color = {color: keywords for color, keywords in CATEGORY_COLOR_MAP}\n"
             "print('security' in by_color['red'])\n"
             "print('test' in by_color['green'])\n"
@@ -17143,7 +17132,7 @@ class TestColorFrontmatter:
     def test_recommend_color_security_red(self) -> None:
         """Security descriptions → red per spec."""
         result = self._run_py(
-            "from type_classifier import recommend_color\n"
+            "from platxa_agent_generator.type_classifier import recommend_color\n"
             "print(recommend_color('Audit code for security vulnerabilities'))"
         )
         assert result.returncode == 0, result.stderr
@@ -17152,7 +17141,7 @@ class TestColorFrontmatter:
     def test_recommend_color_testing_green(self) -> None:
         """Testing descriptions → green per spec."""
         result = self._run_py(
-            "from type_classifier import recommend_color\n"
+            "from platxa_agent_generator.type_classifier import recommend_color\n"
             "print(recommend_color('Generate unit tests for the auth module'))"
         )
         assert result.returncode == 0, result.stderr
@@ -17163,7 +17152,7 @@ class TestColorFrontmatter:
     def test_recommend_color_pure_testing_green(self) -> None:
         """Description with only testing keywords → green."""
         result = self._run_py(
-            "from type_classifier import recommend_color\n"
+            "from platxa_agent_generator.type_classifier import recommend_color\n"
             "print(recommend_color('Run TDD coverage on existing modules'))"
         )
         assert result.returncode == 0, result.stderr
@@ -17172,7 +17161,7 @@ class TestColorFrontmatter:
     def test_recommend_color_docs_blue(self) -> None:
         """Documentation descriptions → blue per spec."""
         result = self._run_py(
-            "from type_classifier import recommend_color\n"
+            "from platxa_agent_generator.type_classifier import recommend_color\n"
             "print(recommend_color('Generate API documentation pages'))"
         )
         assert result.returncode == 0, result.stderr
@@ -17184,7 +17173,7 @@ class TestColorFrontmatter:
     def test_unmatched_description_returns_none(self) -> None:
         """Descriptions with no category keyword return None (omit-by-default)."""
         result = self._run_py(
-            "from type_classifier import recommend_color\n"
+            "from platxa_agent_generator.type_classifier import recommend_color\n"
             "print(recommend_color('Build a generic helper utility'))\n"
             "print(recommend_color(''))\n"
             "print(recommend_color('   '))"
@@ -17195,7 +17184,7 @@ class TestColorFrontmatter:
     def test_word_boundary_prevents_false_positives(self) -> None:
         """Substrings of keywords must not trigger (e.g. 'documentary' ≠ 'documentation')."""
         result = self._run_py(
-            "from type_classifier import recommend_color\n"
+            "from platxa_agent_generator.type_classifier import recommend_color\n"
             "print(recommend_color('Build a securities trading dashboard'))\n"
             "print(recommend_color('Create a manual review workflow'))"
         )
@@ -17210,7 +17199,7 @@ class TestColorFrontmatter:
     def test_frontmatter_emits_color(self) -> None:
         """AgentDefinition(color=...) emits 'color: <value>' in YAML."""
         result = self._run_py(
-            "from agent_generator import AgentDefinition, generate_frontmatter\n"
+            "from platxa_agent_generator.agent_generator import AgentDefinition, generate_frontmatter\n"
             "d = AgentDefinition(name='r', description='security review',\n"
             "                    tools=['Read'], color='red')\n"
             "print('color: red' in generate_frontmatter(d))"
@@ -17229,7 +17218,7 @@ class TestSubagentAuditHooks:
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -17238,7 +17227,7 @@ class TestSubagentAuditHooks:
 
     def _gen_script(self, agent: str, log_file: str = ".claude/audit.jsonl") -> str:
         result = self._run_py(
-            "from hooks_generator import generate_subagent_audit_script; "
+            "from platxa_agent_generator.hooks_generator import generate_subagent_audit_script; "
             f"print(generate_subagent_audit_script({agent!r}, {log_file!r}))"
         )
         assert result.returncode == 0, f"script gen failed: {result.stderr}"
@@ -17259,7 +17248,7 @@ class TestSubagentAuditHooks:
     def test_subagent_start_event_registered(self) -> None:
         """HOOK_EVENTS must include SubagentStart so validate_event accepts it."""
         result = self._run_py(
-            "from hooks_generator import HOOK_EVENTS, validate_event; "
+            "from platxa_agent_generator.hooks_generator import HOOK_EVENTS, validate_event; "
             "import json; "
             "ok, err = validate_event('SubagentStart'); "
             "print(json.dumps({'in_events': 'SubagentStart' in HOOK_EVENTS, 'valid': ok}))"
@@ -17289,7 +17278,7 @@ class TestSubagentAuditHooks:
     def test_empty_agent_name_raises(self) -> None:
         """generate_subagent_audit_script must reject empty agent_name."""
         result = self._run_py(
-            "from hooks_generator import generate_subagent_audit_script\n"
+            "from platxa_agent_generator.hooks_generator import generate_subagent_audit_script\n"
             "try:\n"
             "    generate_subagent_audit_script('')\n"
             "    print('no-error')\n"
@@ -17541,7 +17530,7 @@ class TestSubagentAuditHooks:
     def test_hook_config_registers_both_events(self) -> None:
         """generate_subagent_audit_hook_config must register SubagentStart + Stop."""
         result = self._run_py(
-            "import json; from hooks_generator import generate_subagent_audit_hook_config; "
+            "import json; from platxa_agent_generator.hooks_generator import generate_subagent_audit_hook_config; "
             "cfg = generate_subagent_audit_hook_config('a', '/tmp/a-audit.sh'); "
             "print(json.dumps(sorted(cfg.keys())))"
         )
@@ -17551,7 +17540,7 @@ class TestSubagentAuditHooks:
     def test_hook_config_validates_inputs(self) -> None:
         """Empty agent_name or script_path must raise ValueError."""
         result = self._run_py(
-            "from hooks_generator import generate_subagent_audit_hook_config\n"
+            "from platxa_agent_generator.hooks_generator import generate_subagent_audit_hook_config\n"
             "try:\n"
             "    generate_subagent_audit_hook_config('', '/tmp/x.sh')\n"
             "except ValueError:\n"
@@ -17569,7 +17558,7 @@ class TestSubagentAuditHooks:
         """generate_subagent_audit_hooks writes a chmod-755 script + returns config."""
         result = self._run_py(
             "import json, os; "
-            "from hooks_generator import generate_subagent_audit_hooks; "
+            "from platxa_agent_generator.hooks_generator import generate_subagent_audit_hooks; "
             f"paths, cfg = generate_subagent_audit_hooks('demo', {str(tmp_path)!r}); "
             "out = {'paths': [str(p) for p in paths], "
             "'cfg_keys': sorted(cfg.keys()), "
@@ -17589,7 +17578,7 @@ class TestSubagentAuditHooks:
         """generate_hooks(['subagent-audit']) must produce both event configs."""
         result = self._run_py(
             "import json; "
-            "from hooks_generator import generate_hooks, definition_to_settings_format; "
+            "from platxa_agent_generator.hooks_generator import generate_hooks, definition_to_settings_format; "
             "defn = generate_hooks('a', ['subagent-audit']); "
             "settings = definition_to_settings_format(defn); "
             "print(json.dumps(sorted(settings.keys())))"
@@ -17601,7 +17590,7 @@ class TestSubagentAuditHooks:
         """generate_hooks must respect custom audit_script_path from config."""
         result = self._run_py(
             "import json; "
-            "from hooks_generator import generate_hooks, definition_to_settings_format; "
+            "from platxa_agent_generator.hooks_generator import generate_hooks, definition_to_settings_format; "
             "defn = generate_hooks('a', ['subagent-audit'], "
             "    custom_config={'audit_script_path': '/custom/path.sh'}); "
             "settings = definition_to_settings_format(defn); "
@@ -17629,7 +17618,7 @@ class TestHooksGeneratorAuditHook:
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -17638,7 +17627,7 @@ class TestHooksGeneratorAuditHook:
 
     def _gen_script(self, agent: str, log_file: str) -> str:
         result = self._run_py(
-            "from hooks_generator import generate_subagent_audit_script; "
+            "from platxa_agent_generator.hooks_generator import generate_subagent_audit_script; "
             f"print(generate_subagent_audit_script({agent!r}, {log_file!r}))"
         )
         assert result.returncode == 0, f"script gen failed: {result.stderr}"
@@ -17734,7 +17723,7 @@ class TestCompetingHypothesisTemplate:
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -17745,7 +17734,7 @@ class TestCompetingHypothesisTemplate:
 
     def test_template_is_registered(self) -> None:
         result = self._run_py(
-            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "from platxa_agent_generator.multiagent_generator import SYSTEM_TEMPLATES; "
             "print('competing-hypothesis' in SYSTEM_TEMPLATES)"
         )
         assert result.returncode == 0, result.stderr
@@ -17753,7 +17742,7 @@ class TestCompetingHypothesisTemplate:
 
     def test_template_declares_competing_hypothesis_pattern(self) -> None:
         result = self._run_py(
-            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "from platxa_agent_generator.multiagent_generator import SYSTEM_TEMPLATES; "
             "print(SYSTEM_TEMPLATES['competing-hypothesis']['pattern'])"
         )
         assert result.stdout.strip() == "competing-hypothesis"
@@ -17763,7 +17752,7 @@ class TestCompetingHypothesisTemplate:
         and convergence criteria — downstream tooling inspects this field."""
         result = self._run_py(
             "import json; "
-            "from multiagent_generator import SYSTEM_TEMPLATES; "
+            "from platxa_agent_generator.multiagent_generator import SYSTEM_TEMPLATES; "
             "print(json.dumps(SYSTEM_TEMPLATES['competing-hypothesis']['adversarial_config']))"
         )
         assert result.returncode == 0, result.stderr
@@ -17782,7 +17771,7 @@ class TestCompetingHypothesisTemplate:
         distinct hypothesis_focus values."""
         result = self._run_py(
             "import json; "
-            "from multiagent_generator import create_system_from_template; "
+            "from platxa_agent_generator.multiagent_generator import create_system_from_template; "
             "sys_ = create_system_from_template('competing-hypothesis'); "
             "invs = [w for w in sys_.workers if w.role == 'investigator']; "
             "print(json.dumps([(w.name, w.hypothesis_focus) for w in invs]))"
@@ -17799,7 +17788,7 @@ class TestCompetingHypothesisTemplate:
         evidence-gathering doesn't collide with each other."""
         result = self._run_py(
             "import json; "
-            "from multiagent_generator import create_system_from_template; "
+            "from platxa_agent_generator.multiagent_generator import create_system_from_template; "
             "sys_ = create_system_from_template('competing-hypothesis'); "
             "invs = [w for w in sys_.workers if w.role == 'investigator']; "
             "print(json.dumps([w.isolation for w in invs]))"
@@ -17818,7 +17807,7 @@ class TestCompetingHypothesisTemplate:
         for n in (3, 4, 5):
             result = self._run_py(
                 "import json; "
-                "from multiagent_generator import create_competing_hypothesis_system; "
+                "from platxa_agent_generator.multiagent_generator import create_competing_hypothesis_system; "
                 f"sys_ = create_competing_hypothesis_system(investigator_count={n}); "
                 "invs = [w for w in sys_.workers if w.role == 'investigator']; "
                 "print(json.dumps([w.hypothesis_focus for w in invs]))"
@@ -17831,7 +17820,7 @@ class TestCompetingHypothesisTemplate:
     def test_factory_rejects_count_below_three(self) -> None:
         """count < 3 has no adversarial pressure — must raise ValueError."""
         result = self._run_py(
-            "from multiagent_generator import create_competing_hypothesis_system\n"
+            "from platxa_agent_generator.multiagent_generator import create_competing_hypothesis_system\n"
             "try:\n"
             "    create_competing_hypothesis_system(investigator_count=2)\n"
             "    print('no-error')\n"
@@ -17845,7 +17834,7 @@ class TestCompetingHypothesisTemplate:
     def test_factory_rejects_count_above_five(self) -> None:
         """count > 5 exceeds coordination budget — must raise ValueError."""
         result = self._run_py(
-            "from multiagent_generator import create_competing_hypothesis_system\n"
+            "from platxa_agent_generator.multiagent_generator import create_competing_hypothesis_system\n"
             "try:\n"
             "    create_competing_hypothesis_system(investigator_count=6)\n"
             "    print('no-error')\n"
@@ -17858,7 +17847,7 @@ class TestCompetingHypothesisTemplate:
     def test_factory_rejects_duplicate_focuses(self) -> None:
         """Hypothesis focuses must be distinct — duplicates defeat the pattern."""
         result = self._run_py(
-            "from multiagent_generator import create_competing_hypothesis_system\n"
+            "from platxa_agent_generator.multiagent_generator import create_competing_hypothesis_system\n"
             "dup = [{'focus': 'x', 'description': 'd', "
             "        'responsibilities': ['r'], 'inputs': ['i']}] * 3\n"
             "try:\n"
@@ -17876,7 +17865,7 @@ class TestCompetingHypothesisTemplate:
         actionable message — not the opaque KeyError the caller would otherwise
         see surfacing from inside agent construction."""
         result = self._run_py(
-            "from multiagent_generator import create_competing_hypothesis_system\n"
+            "from platxa_agent_generator.multiagent_generator import create_competing_hypothesis_system\n"
             "bad = [\n"
             "  {'focus': 'a', 'description': 'd', 'responsibilities': ['r']},\n"
             "  {'focus': 'b', 'responsibilities': ['r']},\n"
@@ -17905,7 +17894,7 @@ class TestCompetingHypothesisTemplate:
     def test_factory_rejects_non_dict_hypothesis(self) -> None:
         """Non-dict entries in hypotheses must raise ValueError with type info."""
         result = self._run_py(
-            "from multiagent_generator import create_competing_hypothesis_system\n"
+            "from platxa_agent_generator.multiagent_generator import create_competing_hypothesis_system\n"
             "bad = [\n"
             "  {'focus': 'a', 'description': 'd', 'responsibilities': ['r']},\n"
             "  'not-a-dict',\n"
@@ -17926,7 +17915,7 @@ class TestCompetingHypothesisTemplate:
         system with zero investigators must fail loud — silently emitting
         'Dispatch all 0 investigators' would ship a broken orchestrator."""
         result = self._run_py(
-            "from multiagent_generator import (\n"
+            "from platxa_agent_generator.multiagent_generator import (\n"
             "    AgentDefinition, MultiAgentSystem,\n"
             ")\n"
             "orch = AgentDefinition(name='c', description='d',\n"
@@ -17978,7 +17967,7 @@ class TestCompetingHypothesisTemplate:
     def test_factory_rejects_too_few_hypotheses(self) -> None:
         """Supplying fewer hypotheses than investigators must raise ValueError."""
         result = self._run_py(
-            "from multiagent_generator import create_competing_hypothesis_system\n"
+            "from platxa_agent_generator.multiagent_generator import create_competing_hypothesis_system\n"
             "short = [{'focus': 'a', 'description': 'd', 'responsibilities': ['r'], "
             "          'inputs': ['i']}]\n"
             "try:\n"
@@ -17994,7 +17983,7 @@ class TestCompetingHypothesisTemplate:
         """Caller-supplied hypotheses must propagate to investigator metadata."""
         result = self._run_py(
             "import json; "
-            "from multiagent_generator import create_competing_hypothesis_system; "
+            "from platxa_agent_generator.multiagent_generator import create_competing_hypothesis_system; "
             "custom = ["
             "  {'focus': 'cache-corruption', 'description': 'cache-focused', "
             "   'responsibilities': ['check caches'], 'inputs': ['bug']},"
@@ -18020,7 +18009,7 @@ class TestCompetingHypothesisTemplate:
         out_dir = tmp_path / "ch"
         result = self._run_py(
             "from pathlib import Path; "
-            "from multiagent_generator import create_system_from_template, save_system; "
+            "from platxa_agent_generator.multiagent_generator import create_system_from_template, save_system; "
             "sys_ = create_system_from_template('competing-hypothesis'); "
             f"save_system(sys_, Path('{out_dir}'))"
         )
@@ -18044,7 +18033,7 @@ class TestCompetingHypothesisTemplate:
         out_dir = tmp_path / "ch2"
         result = self._run_py(
             "from pathlib import Path; "
-            "from multiagent_generator import create_competing_hypothesis_system, save_system; "
+            "from platxa_agent_generator.multiagent_generator import create_competing_hypothesis_system, save_system; "
             "sys_ = create_competing_hypothesis_system(investigator_count=5); "
             f"save_system(sys_, Path('{out_dir}'))"
         )
@@ -18067,7 +18056,7 @@ class TestCompetingHypothesisTemplate:
         out_dir = tmp_path / "ch3"
         result = self._run_py(
             "from pathlib import Path; "
-            "from multiagent_generator import create_system_from_template, save_system; "
+            "from platxa_agent_generator.multiagent_generator import create_system_from_template, save_system; "
             "sys_ = create_system_from_template('competing-hypothesis'); "
             f"save_system(sys_, Path('{out_dir}'))"
         )
@@ -18092,7 +18081,7 @@ class TestCatalogTemplateInheritance:
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -18104,7 +18093,7 @@ class TestCatalogTemplateInheritance:
     def test_no_base_returns_template_unchanged(self) -> None:
         """Template without base_template must pass through resolve_template untouched."""
         result = self._run_py(
-            "from agent_catalog import AgentTemplate, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, resolve_template\n"
             "t = AgentTemplate(name='solo', description='d', category='c', tools=['Read'])\n"
             "r = resolve_template(t)\n"
             "print(r.name, r.tools[0], r.base_template is None)"
@@ -18116,7 +18105,7 @@ class TestCatalogTemplateInheritance:
         """Child fields left unset must be inherited from the resolved base."""
         result = self._run_py(
             "import json\n"
-            "from agent_catalog import AgentTemplate, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, resolve_template\n"
             "child = AgentTemplate(\n"
             "    name='strict-reviewer',\n"
             "    description='Strict variant',\n"
@@ -18151,7 +18140,7 @@ class TestCatalogTemplateInheritance:
         """Without `extends`, a non-empty child list REPLACES the base's value."""
         result = self._run_py(
             "import json\n"
-            "from agent_catalog import AgentTemplate, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, resolve_template\n"
             "child = AgentTemplate(\n"
             "    name='minimal',\n"
             "    description='',\n"
@@ -18169,7 +18158,7 @@ class TestCatalogTemplateInheritance:
         """Naming a list field in `extends` must merge base + child uniquely."""
         result = self._run_py(
             "import json\n"
-            "from agent_catalog import AgentTemplate, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, resolve_template\n"
             "child = AgentTemplate(\n"
             "    name='augmented',\n"
             "    description='',\n"
@@ -18196,7 +18185,7 @@ class TestCatalogTemplateInheritance:
         would produce an incoherent agent. Child workflow REPLACES base when set."""
         result = self._run_py(
             "import json\n"
-            "from agent_catalog import AgentTemplate, WorkflowStep, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, WorkflowStep, resolve_template\n"
             "child = AgentTemplate(\n"
             "    name='custom-flow',\n"
             "    description='',\n"
@@ -18217,7 +18206,7 @@ class TestCatalogTemplateInheritance:
         """A → B → C: C's overlay applies on top of B's overlay applied on A."""
         result = self._run_py(
             "import json\n"
-            "from agent_catalog import AgentTemplate, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, resolve_template\n"
             "catalog = {\n"
             "    'grandparent': AgentTemplate(\n"
             "        name='grandparent', description='gp-desc',\n"
@@ -18252,7 +18241,7 @@ class TestCatalogTemplateInheritance:
     def test_missing_base_raises_value_error(self) -> None:
         """Referencing a non-existent base must FAIL LOUD, not silently fall back."""
         result = self._run_py(
-            "from agent_catalog import AgentTemplate, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, resolve_template\n"
             "t = AgentTemplate(name='orphan', description='d', category='c',\n"
             "                  base_template='does-not-exist')\n"
             "try:\n"
@@ -18273,7 +18262,7 @@ class TestCatalogTemplateInheritance:
         the sentinel-None unset marker, the child's choice would be silently
         swapped for the base's value."""
         result = self._run_py(
-            "from agent_catalog import AgentTemplate, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, resolve_template\n"
             "catalog = {\n"
             "    'b': AgentTemplate(name='b', description='d', category='c',\n"
             "                       pattern='routing', version='2.0.0', author='Other'),\n"
@@ -18294,7 +18283,7 @@ class TestCatalogTemplateInheritance:
     def test_self_cycle_raises_value_error(self) -> None:
         """A → A self-loop must be detected and raise ValueError."""
         result = self._run_py(
-            "from agent_catalog import AgentTemplate, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, resolve_template\n"
             "loop = AgentTemplate(name='loop', description='', category='',\n"
             "                     base_template='loop')\n"
             "try:\n"
@@ -18315,7 +18304,7 @@ class TestCatalogTemplateInheritance:
         alphabetized scramble) so the caller can follow the chain to the
         offending edge."""
         result = self._run_py(
-            "from agent_catalog import AgentTemplate, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, resolve_template\n"
             "catalog = {\n"
             "    'alpha': AgentTemplate(name='alpha', description='', category='',\n"
             "                           base_template='beta'),\n"
@@ -18340,7 +18329,7 @@ class TestCatalogTemplateInheritance:
         while base keys not present in the child are inherited."""
         result = self._run_py(
             "import json\n"
-            "from agent_catalog import AgentTemplate, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, resolve_template\n"
             "catalog = {\n"
             "    'b': AgentTemplate(name='b', description='', category='',\n"
             "                       output_schema={'status': 'enum', 'count': 'int'}),\n"
@@ -18360,7 +18349,7 @@ class TestCatalogTemplateInheritance:
     def test_inheritance_cycle_raises_value_error(self) -> None:
         """A → B → A must raise ValueError, not infinite-loop or stack-overflow."""
         result = self._run_py(
-            "from agent_catalog import AgentTemplate, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, resolve_template\n"
             "catalog = {\n"
             "    'a': AgentTemplate(name='a', description='', category='', base_template='b'),\n"
             "    'b': AgentTemplate(name='b', description='', category='', base_template='a'),\n"
@@ -18380,7 +18369,7 @@ class TestCatalogTemplateInheritance:
         skipping would let the caller think their override took effect when
         it really did nothing."""
         result = self._run_py(
-            "from agent_catalog import AgentTemplate, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, resolve_template\n"
             "t = AgentTemplate(name='bad', description='', category='',\n"
             "                  extends=['workflow_steps'],\n"
             "                  base_template='code-reviewer')\n"
@@ -18400,7 +18389,7 @@ class TestCatalogTemplateInheritance:
         """An `extends` value with no `base_template` is still a misconfiguration
         — fail loud rather than silently ignoring it."""
         result = self._run_py(
-            "from agent_catalog import AgentTemplate, resolve_template\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, resolve_template\n"
             "t = AgentTemplate(name='solo', description='', category='',\n"
             "                  extends=['not-a-real-field'])\n"
             "try:\n"
@@ -18419,7 +18408,7 @@ class TestCatalogTemplateInheritance:
         """generate_agent_content must resolve inheritance before rendering so
         callers don't need to know about the resolver."""
         result = self._run_py(
-            "from agent_catalog import AgentTemplate, generate_agent_content\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, generate_agent_content\n"
             "child = AgentTemplate(\n"
             "    name='strict-reviewer-2',\n"
             "    description='Strict reviewer with security focus',\n"
@@ -18439,7 +18428,7 @@ class TestCatalogTemplateInheritance:
         the unresolved overlay shape (e.g. for diffing or reserialization)."""
         result = self._run_py(
             "import json\n"
-            "from agent_catalog import AgentTemplate, template_to_dict\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, template_to_dict\n"
             "child = AgentTemplate(\n"
             "    name='extended',\n"
             "    description='d',\n"
@@ -18463,7 +18452,7 @@ class TestCatalogTemplateInheritance:
         """Templates without inheritance must not emit empty base_template/extends
         keys — keeps existing manifest output backwards-compatible."""
         result = self._run_py(
-            "from agent_catalog import AgentTemplate, template_to_dict\n"
+            "from platxa_agent_generator.agent_catalog import AgentTemplate, template_to_dict\n"
             "t = AgentTemplate(name='solo', description='d', category='c')\n"
             "d = template_to_dict(t)\n"
             "print('base_template' in d, 'extends' in d)"
@@ -18481,7 +18470,7 @@ class TestHooksGeneratorInjection:
     """
 
     def _run_py(self, code: str) -> subprocess.CompletedProcess:
-        prologue = "import sys; sys.path.insert(0, '" + str(SCRIPTS_DIR) + "'); "
+        prologue = ""
         return subprocess.run(
             [sys.executable, "-c", prologue + code],
             capture_output=True,
@@ -18510,7 +18499,7 @@ class TestHooksGeneratorInjection:
     def test_rejects_metachar_agent_name(self, bad_name: str) -> None:
         """_validate_agent_name must reject every shell-metachar and path-traversal variant."""
         result = self._run_py(
-            "from hooks_generator import _validate_agent_name\n"
+            "from platxa_agent_generator.hooks_generator import _validate_agent_name\n"
             f"try:\n"
             f"    _validate_agent_name({bad_name!r})\n"
             f"    print('ACCEPTED')\n"
@@ -18529,7 +18518,7 @@ class TestHooksGeneratorInjection:
     def test_accepts_valid_agent_name(self, good_name: str) -> None:
         """Valid names matching ^[a-zA-Z0-9_-]+$ pass validation."""
         result = self._run_py(
-            "from hooks_generator import _validate_agent_name\n"
+            "from platxa_agent_generator.hooks_generator import _validate_agent_name\n"
             f"print(_validate_agent_name({good_name!r}))\n"
         )
         assert result.returncode == 0, result.stderr
@@ -18551,7 +18540,7 @@ class TestHooksGeneratorInjection:
     def test_public_hook_creators_reject_injection(self, fn: str) -> None:
         """Each public create_*_hook function must validate agent_name at entry."""
         result = self._run_py(
-            f"from hooks_generator import {fn}\n"
+            f"from platxa_agent_generator.hooks_generator import {fn}\n"
             f"try:\n"
             f"    {fn}('\"; rm -rf / #', 'PreToolUse')\n"
             f"    print('ACCEPTED')\n"
@@ -18564,7 +18553,7 @@ class TestHooksGeneratorInjection:
     def test_notification_hook_rejects_injection(self) -> None:
         """create_notification_hook takes a different signature; validate separately."""
         result = self._run_py(
-            "from hooks_generator import create_notification_hook\n"
+            "from platxa_agent_generator.hooks_generator import create_notification_hook\n"
             "try:\n"
             "    create_notification_hook('\"; rm -rf / #')\n"
             "    print('ACCEPTED')\n"
@@ -18577,7 +18566,7 @@ class TestHooksGeneratorInjection:
     def test_generate_hooks_rejects_injection(self) -> None:
         """The orchestrator generate_hooks must also validate at its API boundary."""
         result = self._run_py(
-            "from hooks_generator import generate_hooks\n"
+            "from platxa_agent_generator.hooks_generator import generate_hooks\n"
             "try:\n"
             "    generate_hooks('\"; rm -rf / #', ['audit'])\n"
             "    print('ACCEPTED')\n"
@@ -18592,7 +18581,7 @@ class TestHooksGeneratorInjection:
     def test_audit_hook_uses_shlex_quote(self) -> None:
         """Generated audit hook command must not contain raw {agent_name}; must use shlex.quote output."""
         result = self._run_py(
-            "from hooks_generator import create_audit_hook\n"
+            "from platxa_agent_generator.hooks_generator import create_audit_hook\n"
             "h = create_audit_hook('valid-agent', 'SessionStart', '/tmp/x.log')\n"
             "print(h.hooks[0].command)\n"
         )
@@ -18766,8 +18755,8 @@ class TestDryRunImportBroken:
         """
         result = self._run_py(
             "import sys\n"
-            f"sys.path.insert(0, {str(SCRIPTS_DIR)!r})\n"
-            "import dry_run\n"
+            ""
+            "from platxa_agent_generator import dry_run\n"
             # Redirect the script dir to an empty tmp path so the disk
             # lookup finds nothing.
             f"dry_run.__file__ = {str(tmp_path / 'dry_run.py')!r}\n"
@@ -18797,8 +18786,8 @@ class TestDryRunImportBroken:
 
         result = self._run_py(
             "import sys\n"
-            f"sys.path.insert(0, {str(SCRIPTS_DIR)!r})\n"
-            "import dry_run\n"
+            ""
+            "from platxa_agent_generator import dry_run\n"
             f"dry_run.__file__ = {str(fake_script)!r}\n"
             # Purge any prior registration so exec_module is actually
             # invoked against our broken file.
@@ -18854,7 +18843,7 @@ class TestExtendedThinking:
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
-        scripts_dir = Path(__file__).parent.parent / "scripts"
+        scripts_dir = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
         return subprocess.run(
             [sys.executable, "-c", code],
             capture_output=True,
@@ -18875,7 +18864,7 @@ class TestExtendedThinking:
         intensity decision shifts with it.
         """
         result = self._run_py(
-            "from extended_thinking import ComplexityAnalyzer\n"
+            "from platxa_agent_generator.extended_thinking import ComplexityAnalyzer\n"
             "scores = ComplexityAnalyzer().analyze('hello world')\n"
             "print(all(round(s.score, 2) == 0.1 for s in scores))\n"
             "print(all(round(s.confidence, 2) == 0.3 for s in scores))\n"
@@ -18891,7 +18880,7 @@ class TestExtendedThinking:
         (0.65) when combined with confidence weighting.
         """
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ComplexityAnalyzer, ComplexityDimension,\n"
             ")\n"
             "scores = ComplexityAnalyzer().analyze('please architect this')\n"
@@ -18909,7 +18898,7 @@ class TestExtendedThinking:
         the tier that reliably crosses MAXIMUM intensity (0.85).
         """
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ComplexityAnalyzer, ComplexityDimension,\n"
             ")\n"
             # Both 'architect' and 'design.*system' match architectural-high.
@@ -18925,7 +18914,7 @@ class TestExtendedThinking:
     def test_analyzer_single_medium_pattern_scores_0_3(self) -> None:
         """One medium-pattern-only match yields base score 0.3."""
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ComplexityAnalyzer, ComplexityDimension,\n"
             ")\n"
             # 'debug' matches DEBUGGING medium.
@@ -18945,7 +18934,7 @@ class TestExtendedThinking:
         (0.45) range.
         """
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ComplexityAnalyzer, ComplexityDimension,\n"
             ")\n"
             # 'debug' + 'fix bug' both match DEBUGGING medium patterns.
@@ -18969,7 +18958,7 @@ class TestExtendedThinking:
         to 0.3 (clamped to 1.0 ceiling). Pins the upper-tier branch.
         """
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ComplexityAnalyzer, ComplexityDimension,\n"
             ")\n"
             "scores = ComplexityAnalyzer().analyze(\n"
@@ -18988,7 +18977,7 @@ class TestExtendedThinking:
         with an auth context yields 0.1 (baseline) + 0.2 = 0.3.
         """
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ComplexityAnalyzer, ComplexityDimension,\n"
             ")\n"
             "scores = ComplexityAnalyzer().analyze(\n"
@@ -19003,7 +18992,7 @@ class TestExtendedThinking:
     def test_analyzer_handles_auth_and_pii_stacks_security_boost(self) -> None:
         """``handles_auth`` and ``handles_pii`` both trigger +0.2 each."""
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ComplexityAnalyzer, ComplexityDimension,\n"
             ")\n"
             "scores = ComplexityAnalyzer().analyze('plain text',\n"
@@ -19026,7 +19015,7 @@ class TestExtendedThinking:
         Pins the ``if total_weight == 0: return 0.0`` early-exit.
         """
         result = self._run_py(
-            "from extended_thinking import ComplexityAnalyzer\n"
+            "from platxa_agent_generator.extended_thinking import ComplexityAnalyzer\n"
             "print(ComplexityAnalyzer().calculate_overall_complexity([]))\n"
         )
         assert result.returncode == 0, result.stderr
@@ -19042,7 +19031,7 @@ class TestExtendedThinking:
         task is definitely serious'.
         """
         result = self._run_py(
-            "from extended_thinking import ComplexityAnalyzer\n"
+            "from platxa_agent_generator.extended_thinking import ComplexityAnalyzer\n"
             # Two high architectural patterns -> 0.9 score, 0.7 confidence.
             "scores = ComplexityAnalyzer().analyze(\n"
             "    'architect and design this system')\n"
@@ -19067,7 +19056,7 @@ class TestExtendedThinking:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from extended_thinking import ThinkingIntegration\n"
+            "from platxa_agent_generator.extended_thinking import ThinkingIntegration\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    integ = ThinkingIntegration(\n"
             "        usage_log_path=Path(td)/'usage.json')\n"
@@ -19090,7 +19079,7 @@ class TestExtendedThinking:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from extended_thinking import ThinkingIntegration\n"
+            "from platxa_agent_generator.extended_thinking import ThinkingIntegration\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    integ = ThinkingIntegration(\n"
             "        usage_log_path=Path(td)/'usage.json')\n"
@@ -19115,7 +19104,7 @@ class TestExtendedThinking:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from extended_thinking import ThinkingIntegration\n"
+            "from platxa_agent_generator.extended_thinking import ThinkingIntegration\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    integ = ThinkingIntegration(\n"
             "        usage_log_path=Path(td)/'usage.json')\n"
@@ -19143,7 +19132,7 @@ class TestExtendedThinking:
         description should not trip extended thinking.
         """
         result = self._run_py(
-            "from extended_thinking import analyze_for_agent_generation\n"
+            "from platxa_agent_generator.extended_thinking import analyze_for_agent_generation\n"
             "rec = analyze_for_agent_generation(\n"
             "    'echo the input', agent_type='simple', tool_count=1)\n"
             "print(rec.should_use_extended_thinking)\n"
@@ -19164,7 +19153,7 @@ class TestExtendedThinking:
         multi-agent boost.
         """
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    analyze_for_agent_generation, ComplexityDimension,\n"
             ")\n"
             "rec = analyze_for_agent_generation(\n"
@@ -19189,7 +19178,7 @@ class TestExtendedThinking:
         will find this test keeping them honest.
         """
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    analyze_for_agent_generation, ComplexityDimension,\n"
             ")\n"
             "rec = analyze_for_agent_generation(\n"
@@ -19214,7 +19203,7 @@ class TestExtendedThinking:
         automatically.
         """
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    analyze_for_agent_generation, ComplexityDimension,\n"
             ")\n"
             "rec_with = analyze_for_agent_generation(\n"
@@ -19246,7 +19235,7 @@ class TestExtendedThinking:
     def test_intensity_to_effort_standard_is_low(self) -> None:
         """STANDARD (``think``) maps to effort='low'."""
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ThinkingIntensity, intensity_to_effort,\n"
             ")\n"
             "print(intensity_to_effort(ThinkingIntensity.STANDARD))\n"
@@ -19257,7 +19246,7 @@ class TestExtendedThinking:
     def test_intensity_to_effort_increased_is_medium(self) -> None:
         """INCREASED (``think hard``) maps to effort='medium'."""
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ThinkingIntensity, intensity_to_effort,\n"
             ")\n"
             "print(intensity_to_effort(ThinkingIntensity.INCREASED))\n"
@@ -19268,7 +19257,7 @@ class TestExtendedThinking:
     def test_intensity_to_effort_high_is_high(self) -> None:
         """HIGH (``think harder``) maps to effort='high'."""
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ThinkingIntensity, intensity_to_effort,\n"
             ")\n"
             "print(intensity_to_effort(ThinkingIntensity.HIGH))\n"
@@ -19286,7 +19275,7 @@ class TestExtendedThinking:
         update this test first.
         """
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ThinkingIntensity, intensity_to_effort,\n"
             ")\n"
             "print(intensity_to_effort(ThinkingIntensity.MAXIMUM))\n"
@@ -19302,7 +19291,7 @@ class TestExtendedThinking:
         before any generated agent ships with a missing effort level.
         """
         result = self._run_py(
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ThinkingIntensity, INTENSITY_TO_EFFORT,\n"
             ")\n"
             "enum_phrases = {i.trigger_phrase for i in ThinkingIntensity}\n"
@@ -19322,7 +19311,7 @@ class TestExtendedThinking:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from extended_thinking import ThinkingIntegration\n"
+            "from platxa_agent_generator.extended_thinking import ThinkingIntegration\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    integ = ThinkingIntegration(\n"
             "        usage_log_path=Path(td)/'usage.json')\n"
@@ -19347,7 +19336,7 @@ class TestExtendedThinking:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ThinkingIntegration, ThinkingIntensity,\n"
             ")\n"
             "with tempfile.TemporaryDirectory() as td:\n"
@@ -19390,7 +19379,7 @@ class TestExtendedThinking:
         result = self._run_py(
             "import json, tempfile\n"
             "from pathlib import Path\n"
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ThinkingIntegration, ThinkingIntensity,\n"
             ")\n"
             "with tempfile.TemporaryDirectory() as td:\n"
@@ -19425,7 +19414,7 @@ class TestExtendedThinking:
         result = self._run_py(
             "import json, tempfile\n"
             "from pathlib import Path\n"
-            "from extended_thinking import (\n"
+            "from platxa_agent_generator.extended_thinking import (\n"
             "    ThinkingIntegration, ThinkingIntensity,\n"
             ")\n"
             "with tempfile.TemporaryDirectory() as td:\n"
@@ -19460,7 +19449,7 @@ class TestExtendedThinking:
         result = self._run_py(
             "import json, tempfile\n"
             "from pathlib import Path\n"
-            "from extended_thinking import ThinkingIntegration\n"
+            "from platxa_agent_generator.extended_thinking import ThinkingIntegration\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    log = Path(td) / 'usage.json'\n"
             "    good1 = {'task_id': 'g1', 'task_description': 'a',\n"
@@ -19496,7 +19485,7 @@ class TestExtendedThinking:
         result = self._run_py(
             "import tempfile\n"
             "from pathlib import Path\n"
-            "from extended_thinking import ThinkingIntegration\n"
+            "from platxa_agent_generator.extended_thinking import ThinkingIntegration\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    integ = ThinkingIntegration(\n"
             "        usage_log_path=Path(td)/'usage.json')\n"
@@ -19553,14 +19542,13 @@ class TestVersionBump:
 
     @staticmethod
     def _project_root() -> Path:
-        """Resolve the repo root (two dirs above ``tests/``).
+        """Resolve the repo root.
 
-        ``SCRIPTS_DIR`` is ``scripts/`` and its parent is the skill root
-        (``platxa-agent-generator``). We walk up to ``platxa-agent-generator``
-        (the git repo) by going two levels above ``tests/``. Computed
-        lazily so the helper stays usable even if the module moves.
+        ``SCRIPTS_DIR`` is ``src/platxa_agent_generator/``; its grandparent
+        is the repo root (``platxa-agent-generator``). Computed lazily so
+        the helper stays usable even if the module moves.
         """
-        return SCRIPTS_DIR.parent.parent.parent.parent
+        return SCRIPTS_DIR.parent.parent
 
     def test_pyproject_version(self) -> None:
         """pyproject.toml ``[project].version`` equals the expected patch."""
@@ -19595,7 +19583,7 @@ class TestVersionBump:
                 sys.executable,
                 "-c",
                 (
-                    "from scripts.agent_generator import "
+                    "from platxa_agent_generator.agent_generator import "
                     "PLATXA_GENERATOR_VERSION; print(PLATXA_GENERATOR_VERSION)"
                 ),
             ],
