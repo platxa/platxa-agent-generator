@@ -6,13 +6,19 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
-      - 'templates/**'
+      - 'skills/platxa-agent-generator/templates/**'
+      - 'pyproject.toml'
+      - 'requirements.txt'
+      - '.github/workflows/agent-generator.yml'
   pull_request:
     branches: [main]
     paths:
       - 'src/**'
       - 'tests/**'
-      - 'templates/**'
+      - 'skills/platxa-agent-generator/templates/**'
+      - 'pyproject.toml'
+      - 'requirements.txt'
+      - '.github/workflows/agent-generator.yml'
 
 jobs:
   test-generator:
