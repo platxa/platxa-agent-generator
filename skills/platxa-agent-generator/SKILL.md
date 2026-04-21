@@ -1,27 +1,7 @@
 ---
 name: platxa-agent-generator
 description: Transform natural language descriptions into production-ready AI agents for Claude Code CLI. Uses orchestrator-workers pattern with specialized subagents for discovery, architecture, generation, and validation phases. Generates .claude/agents/*.md files that leverage Claude Code's native capabilities.
-allowed-tools:
-  - Read
-  - Write
-  - Edit
-  - Bash
-  - Glob
-  - Grep
-  - WebFetch
-  - WebSearch
-  - Task
-  - AskUserQuestion
-  - TodoWrite
-metadata:
-  version: "1.0.0"
-  author: "DJ Patel — Founder & CEO, Platxa | https://platxa.com"
-  tags:
-    - agent-generation
-    - nlp-to-agent
-    - automation
-    - claude-code
-    - orchestrator
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, Task, AskUserQuestion, TodoWrite
 ---
 
 # Platxa Agent Generator
