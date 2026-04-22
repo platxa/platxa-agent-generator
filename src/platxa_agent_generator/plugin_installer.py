@@ -554,7 +554,13 @@ def install_plugin(
        scope unless ``force=True`` (in which case the plugin is
        uninstalled first, then reinstalled, to mimic
        ``claude plugin update`` semantics without depending on the
-       update subcommand's still-stabilizing behavior).
+       update subcommand's still-stabilizing behavior). The force-
+       uninstall step runs against ``status.installed_scope`` — the
+       scope the plugin currently lives in — not the caller-requested
+       ``scope``. This is load-bearing when the caller uses ``force=True``
+       to *change* scope (e.g., project → user): uninstalling at the new
+       scope would silently uninstall nothing and leave duplicate
+       registry entries in both scopes.
 
     The function is idempotent: invoking it twice on a healthy install
     is a no-op that returns ``success=True`` with both "already
@@ -632,9 +638,20 @@ def install_plugin(
             )
 
     # Step 2: uninstall-first when forcing, so the new install lands fresh.
+    #
+    # Scope gotcha: the uninstall MUST run against the scope where the
+    # plugin currently lives (``status.installed_scope``), NOT the scope
+    # the caller requested for the reinstall. If the caller flips scope
+    # with ``force=True`` (e.g., moving an install from ``project`` to
+    # ``user``), passing the new scope to uninstall would silently uninstall
+    # nothing from the old scope, then install into the new scope — leaving
+    # duplicate registry entries in both scopes. We fall back to the caller-
+    # requested scope only when the registry has no installed_scope (defensive
+    # — ``status.plugin_installed`` is True here, so this branch is rare).
     if status.plugin_installed and force:
+        uninstall_scope = status.installed_scope or scope
         uninstall_step = _run_claude(
-            ["plugin", "uninstall", PLUGIN_NAME, "--scope", scope],
+            ["plugin", "uninstall", PLUGIN_NAME, "--scope", uninstall_scope],
             claude_bin=claude_bin,
             timeout=timeout,
         )

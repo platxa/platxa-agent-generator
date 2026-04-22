@@ -459,6 +459,60 @@ class TestInstallPlugin:
         assert set(SUPPORTED_SCOPES) == {"user", "project", "local"}
 
 
+class TestForceReinstallScope:
+    """End-to-end coverage of the Feature #3 force-reinstall scope fix:
+    the force-uninstall CLIStep MUST use ``status.installed_scope``, not
+    the caller-requested ``scope``. Duplicate registry entries from the
+    prior buggy behaviour are a silent data hazard — caught here.
+
+    Feature #11 (TESTING) depends on #3 and extends this class with
+    additional scenarios. The canonical Success Criterion #7 test lives
+    here because #3's verification is gated on it passing."""
+
+    def test_uninstall_uses_installed_scope(
+        self,
+        isolated_home: Path,
+        tmp_path: Path,
+    ) -> None:
+        """Success Criterion #7: ``force=True`` with a caller-requested
+        scope that differs from ``status.installed_scope`` must issue
+        ``plugin uninstall --scope <installed_scope>``, not
+        ``--scope <caller-scope>``.
+
+        Setup: registry shows plugin installed at scope=project with a
+        non-existent cache path (we don't care about the install step's
+        verification result — we're asserting on the argv of the
+        uninstall CLIStep). Caller requests ``install_plugin(scope="user",
+        force=True)``. Before the fix, the uninstall argv contained
+        ``--scope user`` (wrong); after the fix it contains ``--scope
+        project``."""
+        _write_installed_registry(
+            isolated_home,
+            scope="project",
+            install_path=tmp_path / "old-cache",  # deliberately absent
+            version=_source_plugin_version(),
+        )
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        stub = _make_stub_claude(bin_dir)
+        result = install_plugin(scope="user", force=True, claude_bin=str(stub))
+
+        # Locate the force-uninstall step by its fixed name.
+        uninstall_steps = [s for s in result.steps if s.name == "plugin uninstall (force)"]
+        assert len(uninstall_steps) == 1, (
+            f"expected exactly one 'plugin uninstall (force)' step, "
+            f"got {[s.name for s in result.steps]!r}"
+        )
+        cmd = uninstall_steps[0].command
+        # argv shape: (claude_bin, 'plugin', 'uninstall', PLUGIN_NAME, '--scope', <scope>)
+        assert "--scope" in cmd, f"missing --scope in uninstall argv: {cmd!r}"
+        scope_idx = cmd.index("--scope")
+        assert cmd[scope_idx + 1] == "project", (
+            f"force-uninstall used wrong scope: expected 'project' "
+            f"(status.installed_scope), got {cmd[scope_idx + 1]!r}"
+        )
+
+
 class TestUninstallPlugin:
     """Behavior of :func:`uninstall_plugin` against a stub CLI."""
 
