@@ -598,6 +598,65 @@ class TestCLIStep:
         assert step.passed is False
 
 
+class TestCLISubprocessOutput:
+    """Structured-result contract for :func:`plugin_installer._run_claude`
+    under OS-level failures (Feature #4, spec issue #3).
+
+    Before this feature, ``_run_claude`` only caught ``TimeoutExpired``;
+    an ``OSError`` (including ``PermissionError`` and ``BrokenPipeError``)
+    propagated and broke the "every failure returns a CLIStep" contract.
+    The test uses a real non-executable file on disk — not a monkeypatch
+    on :func:`subprocess.run` — per Boundaries rule #12 ("use a stub
+    claude binary ... to exercise the actual error branches").
+
+    Feature #12 (TESTING) extends this class with subprocess-level
+    ``--json`` output-shape and exit-code assertions for the three
+    plugin CLI subcommands. Keeping the OSError test here (rather than
+    in a one-off class) lets the class accumulate the full subprocess
+    coverage surface in one place."""
+
+    def test_oserror_returns_structured_result(self, tmp_path: Path) -> None:
+        """Success Criterion #8: when the OS cannot spawn the child
+        process, ``_run_claude`` returns ``CLIStep(returncode=-2,
+        stderr="subprocess spawn failed: ...")`` instead of letting the
+        ``OSError`` propagate.
+
+        Setup: create an executable file whose shebang points to a
+        nonexistent interpreter. ``shutil.which`` accepts the file
+        (exists + executable) so ``_resolve_claude_bin`` passes, but the
+        kernel's ``execve`` fails when it tries to load the missing
+        interpreter — ``subprocess.run`` raises ``FileNotFoundError``
+        (an ``OSError`` subclass) before any child process starts. This
+        exercises the real error branch — not a patched one — per
+        Boundaries rule #12 ("use a stub claude binary ... to exercise
+        the actual error branches")."""
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        stub = bin_dir / "claude"
+        # Nonexistent interpreter — kernel-level exec failure, not a
+        # post-exec exit code. This path triggers the OSError branch in
+        # _run_claude; a normal shebang (#!/usr/bin/env bash) would
+        # succeed and hit the success path instead.
+        stub.write_text("#!/nonexistent/interpreter-xyz\n")
+        stub.chmod(stub.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+
+        step = plugin_installer._run_claude(
+            ["plugin", "status"],
+            claude_bin=str(stub),
+        )
+
+        assert step.returncode == -2, (
+            f"expected returncode=-2 (spawn failure), got {step.returncode}"
+        )
+        assert step.stderr.startswith("subprocess spawn failed:"), (
+            f"expected stderr to start with 'subprocess spawn failed:', got {step.stderr!r}"
+        )
+        assert step.stdout == "", f"expected empty stdout on spawn failure, got {step.stdout!r}"
+        # Name derivation still runs on the failure path so callers can
+        # identify the step in PluginInstallResult.steps by fixed name.
+        assert step.name == "plugin status"
+
+
 class TestPluginInstallResult:
     """Smoke tests on the aggregate result dataclass defaults."""
 

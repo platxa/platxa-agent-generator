@@ -518,6 +518,22 @@ def _run_claude(
             stdout=decoded,
             stderr=f"timed out after {timeout}s: {exc}",
         )
+    except OSError as exc:
+        # Preserve the "every failure returns a CLIStep" contract when the
+        # OS rejects the spawn itself (PermissionError on a non-executable
+        # binary, BrokenPipeError, ENOMEM, etc.) — these are OSError
+        # subclasses that ``subprocess.run`` raises before any child
+        # process starts. Without this branch the exception propagates and
+        # breaks every caller's assumption that _run_claude returns
+        # structured output. Returncode -2 distinguishes spawn failures
+        # from the timeout branch (-1) and from real CLI exit codes (>=0).
+        return CLIStep(
+            name=" ".join(args[:2]) if len(args) >= 2 else " ".join(args),
+            command=cmd,
+            returncode=-2,
+            stdout="",
+            stderr=f"subprocess spawn failed: {exc}",
+        )
     return CLIStep(
         name=" ".join(args[:2]) if len(args) >= 2 else " ".join(args),
         command=cmd,
