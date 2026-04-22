@@ -383,16 +383,103 @@ class TestInstallAgentSubprocess:
 
         monkeypatch.setattr(install_agent.subprocess, "run", lambda *a, **k: _CrashedProc())
 
-        passed, score = install_agent.run_security_scan(source)
+        # Feature #8 (issue #13): the 3-tuple signature adds crash_reason so
+        # callers can distinguish scanner-broke from agent-failed-scan
+        # without grepping stderr.
+        passed, score, crash_reason = install_agent.run_security_scan(source)
         assert passed is False
         assert score == 0.0
+        assert crash_reason is not None
+        assert "scanner crashed" in crash_reason
+        assert "exit 2" in crash_reason
 
-        # The crash MUST surface to stderr — a silent (False, 0.0) would be
-        # indistinguishable from a clean scan that found critical issues.
+        # The crash MUST also surface to stderr — a silent (False, 0.0, "...")
+        # on the return channel would hide the failure from operators who
+        # only watch logs. The stderr line is in addition to the structured
+        # crash_reason, not a replacement.
         err = capsys.readouterr().err
         assert "scanner crashed" in err
         assert "exit 2" in err
         assert "scanner exploded" in err
+
+
+class TestSecurityScanCrashReason:
+    """Feature #8 (issue #13): ``run_security_scan`` returns a 3-tuple
+    whose third element ``crash_reason`` is threaded through
+    :func:`install_agent` into :class:`InstallResult.message`. Before the
+    change, a crashed scanner looked identical on the return channel to a
+    clean scan that flagged the agent (both yielded ``(False, 0.0)``) so
+    user-facing messages always said "Security scan failed (score: 0.0/10)"
+    regardless of whether the infrastructure was broken. This class
+    verifies the structured crash reason actually reaches the caller and
+    surfaces in the message."""
+
+    def test_crash_reason_in_result(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Success Criterion #13: when ``run_security_scan`` returns a
+        non-``None`` ``crash_reason``, :attr:`InstallResult.message`
+        includes that string — so an operator reading "Security scan
+        failed" also sees *why* the scan failed (scanner crash vs. low
+        agent score)."""
+        from platxa_agent_generator import install_agent as ia
+
+        source = tmp_path / "agent.md"
+        source.write_text("---\nname: crash-test-agent\ndescription: x\n---\n\n# X\n")
+
+        crash_reason = "scanner crashed (exit 2): scanner exploded"
+        monkeypatch.setattr(
+            ia,
+            "run_security_scan",
+            lambda src: (False, 0.0, crash_reason),
+        )
+        # Syntax validation must pass so the install reaches the security
+        # gate — we're testing propagation of crash_reason, not the upstream
+        # gate. Returns (is_valid, errors) — matches the current shape.
+        monkeypatch.setattr(ia, "run_syntax_validation", lambda src: (True, []))
+
+        result = ia.install_agent(str(source), scope="user", force=True)
+
+        assert result.success is False
+        assert "Security scan failed" in result.message
+        # The crash_reason must be present verbatim — not paraphrased,
+        # not logged somewhere else, not dropped. Operators who read only
+        # ``result.message`` should still see the real cause.
+        assert crash_reason in result.message
+
+    def test_no_crash_reason_on_clean_low_score(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Symmetry check: a clean scan with a low score (agent failed
+        the verdict, scanner worked fine) must NOT get a crash suffix —
+        that would misreport a legitimate verdict as an infrastructure
+        failure."""
+        from platxa_agent_generator import install_agent as ia
+
+        source = tmp_path / "agent.md"
+        source.write_text("---\nname: low-score-agent\ndescription: x\n---\n\n# X\n")
+
+        monkeypatch.setattr(
+            ia,
+            "run_security_scan",
+            lambda src: (False, 2.0, None),
+        )
+        monkeypatch.setattr(ia, "run_syntax_validation", lambda src: (True, []))
+
+        result = ia.install_agent(str(source), scope="user", force=True)
+
+        assert result.success is False
+        assert "Security scan failed" in result.message
+        assert "score: 2.0" in result.message
+        # No crash suffix — the message ends at the closing paren of the
+        # score/minimum line; a crash_reason would have appended ": <reason>".
+        assert result.message.endswith(")")
+        assert ": scanner" not in result.message
+        assert ": failed" not in result.message
 
 
 class TestInstallScopeRecommender:
@@ -693,7 +780,7 @@ class TestPostInstallVerification:
             f"ia.get_user_agents_dir = lambda: Path({str(target_dir)!r})\n"
             f"ia._install_root_for_scope = lambda scope: Path({str(tmp_path)!r})\n"
             "ia.run_syntax_validation = lambda src: (True, [])\n"
-            "ia.run_security_scan = lambda src: (True, 10.0)\n"
+            "ia.run_security_scan = lambda src: (True, 10.0, None)\n"
             f"r = ia.install_agent({str(source)!r}, scope='user')\n"
             "print(r.success)\n"
             "print(r.verification is not None and not r.verification.valid)\n"

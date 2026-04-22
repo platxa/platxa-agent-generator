@@ -451,18 +451,37 @@ def run_syntax_validation(source: Path) -> tuple[bool, list[str]]:
         return False, [f"Failed to run validation: {e}"]
 
 
-def run_security_scan(source: Path) -> tuple[bool, float]:
+def run_security_scan(source: Path) -> tuple[bool, float, str | None]:
     """
     Run security scan on agent file via subprocess.
 
     Returns:
-        Tuple of (passed, score)
+        Tuple of ``(passed, score, crash_reason)``. ``crash_reason`` is
+        ``None`` on a clean scan (whether the agent passed or merely
+        scored low — those are scanner verdicts, not infrastructure
+        failures). When the scanner crashes, times out, fails to parse,
+        or cannot be spawned, ``crash_reason`` is a short human-readable
+        string explaining what went wrong; ``passed`` is ``False`` and
+        ``score`` is ``0.0`` in every error path. Callers (notably
+        :func:`install_agent`) propagate this string into user-facing
+        messages so a "Security scan failed" report always distinguishes
+        scanner-broke (infrastructure) from agent-failed-scan (verdict).
+
+        Crash reasons are still mirrored to stderr for operator
+        visibility — the structured return value is in addition to, not a
+        replacement for, the existing log line.
     """
     script_dir = Path(__file__).parent
     scanner_script = script_dir / "security_scanner.py"
 
     if not scanner_script.exists():
-        return False, 0.0
+        # Missing scanner script is an installation/packaging defect, not
+        # an agent-content problem. Surface it as a crash_reason so the
+        # operator sees "scanner not found at <path>" rather than a
+        # generic "scan failed (score: 0.0)" that points the wrong way.
+        reason = f"security scanner script not found at {scanner_script}"
+        print(f"run_security_scan: {reason}", file=sys.stderr)
+        return False, 0.0, reason
 
     try:
         result = subprocess.run(
@@ -475,36 +494,34 @@ def run_security_scan(source: Path) -> tuple[bool, float]:
         # A crashed scanner (non-zero returncode) cannot have produced a
         # trustworthy JSON verdict; treat it as a hard fail rather than
         # attempting to parse a potentially empty or truncated stdout.
-        # The return signature is (bool, float) with no error channel, so
-        # we surface the crash reason to stderr — silently returning
-        # (False, 0.0) would be indistinguishable from a clean scan that
-        # flagged critical findings.
+        # The structured ``crash_reason`` lets callers thread the failure
+        # mode into user-facing messages (issue #13); the stderr print is
+        # retained so operators still get the crash detail in logs even
+        # when the caller drops the third tuple element.
         if result.returncode != 0:
             stderr = (result.stderr or "").strip()[:500]
-            print(
-                f"run_security_scan: scanner crashed (exit {result.returncode}): {stderr}",
-                file=sys.stderr,
-            )
-            return False, 0.0
+            reason = f"scanner crashed (exit {result.returncode}): {stderr}"
+            print(f"run_security_scan: {reason}", file=sys.stderr)
+            return False, 0.0, reason
 
         output = json.loads(result.stdout)
         passed = output.get("passed", False)
         score = output.get("score", 0.0)
-        return passed, score
+        return passed, score, None
 
     except subprocess.TimeoutExpired:
-        print("run_security_scan: scanner timed out after 30s", file=sys.stderr)
-        return False, 0.0
+        reason = "scanner timed out after 30s"
+        print(f"run_security_scan: {reason}", file=sys.stderr)
+        return False, 0.0, reason
     except json.JSONDecodeError as exc:
         stderr = (result.stderr or "").strip()[:500]
-        print(
-            f"run_security_scan: failed to parse scanner output ({exc}); stderr: {stderr}",
-            file=sys.stderr,
-        )
-        return False, 0.0
+        reason = f"failed to parse scanner output ({exc}); stderr: {stderr}"
+        print(f"run_security_scan: {reason}", file=sys.stderr)
+        return False, 0.0, reason
     except OSError as exc:
-        print(f"run_security_scan: failed to run scanner: {exc}", file=sys.stderr)
-        return False, 0.0
+        reason = f"failed to run scanner: {exc}"
+        print(f"run_security_scan: {reason}", file=sys.stderr)
+        return False, 0.0, reason
 
 
 def _install_root_for_scope(scope: str) -> Path | None:
@@ -703,11 +720,20 @@ def install_agent(
 
     # Security scan
     if not skip_validation:
-        passed, score = run_security_scan(source)
+        passed, score, crash_reason = run_security_scan(source)
         if not passed:
+            # Issue #13: when the scanner itself crashed (crash_reason is
+            # set) the score is a meaningless 0.0 — it reflects "scanner
+            # never produced a verdict", not "agent got zero". Threading
+            # the crash reason into the message lets operators
+            # distinguish scanner-broke (infrastructure) from
+            # agent-failed-scan (verdict) without grepping stderr.
+            base_msg = f"Security scan failed (score: {score}/10, minimum: {min_security_score})"
+            if crash_reason:
+                base_msg = f"{base_msg}: {crash_reason}"
             return InstallResult(
                 success=False,
-                message=f"Security scan failed (score: {score}/10, minimum: {min_security_score})",
+                message=base_msg,
                 agent_name=agent_name,
             )
         if score < min_security_score:
