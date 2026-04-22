@@ -44,11 +44,18 @@ higher-level orchestrators) never have to scrape CLI stdout.
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
+
+logger = logging.getLogger(__name__)
+"""Module-level logger. Used to surface non-fatal conditions (corrupted
+registry files, unknown schema versions) that callers cannot act on
+directly but operators need visibility into. The library layer owns the
+logger; the CLI layer configures handlers."""
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -186,7 +193,15 @@ class PluginStatus:
     Populated by :func:`plugin_status` from ``installed_plugins.json`` and
     ``known_marketplaces.json``. Absent fields (``None``) mean "not
     registered"; present-but-empty strings are an installer bug, not a
-    legitimate state."""
+    legitimate state.
+
+    ``registry_corrupted`` is set to ``True`` when either registry file
+    exists on disk but cannot be parsed as JSON. In that state every
+    other field is at its default ("nothing registered") — callers can
+    distinguish "fresh install, no registry yet" (``registry_corrupted``
+    is ``False`` and files simply don't exist) from "installer cannot
+    safely proceed, registry is malformed" (``registry_corrupted`` is
+    ``True``) without a second disk read."""
 
     plugin_installed: bool
     marketplace_registered: bool
@@ -194,6 +209,7 @@ class PluginStatus:
     installed_version: str | None = None
     install_path: str | None = None
     marketplace_path: str | None = None
+    registry_corrupted: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -359,14 +375,38 @@ def plugin_status() -> PluginStatus:
     status`` subcommand; driving ``claude plugin list`` and scraping its
     output would be strictly worse (locale-dependent, unstable format).
     The registry files are Claude-owned, but reading them is idiomatic
-    and done by several third-party plugin managers."""
-    installed = _read_json_if_present(_installed_plugins_path())
+    and done by several third-party plugin managers.
+
+    Returns ``PluginStatus(registry_corrupted=True)`` (other fields at
+    their defaults) when either registry exists on disk but cannot be
+    parsed as JSON. Without this translation, ``json.JSONDecodeError``
+    would propagate out of every caller (``install_plugin``,
+    ``uninstall_plugin``, CLI subcommands) and break the "always returns
+    a structured result" contract those callers rely on. The corruption
+    is logged at WARNING so operators can see which file is the problem.
+    """
+    try:
+        installed = _read_json_if_present(_installed_plugins_path())
+        markets = _read_json_if_present(_known_marketplaces_path()) or {}
+    except json.JSONDecodeError as exc:
+        # Preserve the "caller always sees structured output" contract
+        # when either registry file is malformed. We do not try to
+        # recover partial state — a corrupted registry is a signal that
+        # the installer cannot reason safely about what is or isn't
+        # installed, so callers receive the explicit ``registry_corrupted``
+        # flag and can fail-closed if they choose.
+        logger.warning("Claude Code plugin registry is corrupted (unparseable JSON): %s", exc)
+        return PluginStatus(
+            plugin_installed=False,
+            marketplace_registered=False,
+            registry_corrupted=True,
+        )
+
     plugins = (installed or {}).get("plugins", {}) if isinstance(installed, dict) else {}
     key = f"{PLUGIN_NAME}@{MARKETPLACE_NAME}"
     entries = plugins.get(key, []) if isinstance(plugins, dict) else []
     entry = entries[0] if isinstance(entries, list) and entries else None
 
-    markets = _read_json_if_present(_known_marketplaces_path()) or {}
     market_entry = markets.get(MARKETPLACE_NAME) if isinstance(markets, dict) else None
 
     return PluginStatus(

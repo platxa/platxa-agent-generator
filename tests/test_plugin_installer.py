@@ -513,6 +513,73 @@ class TestForceReinstallScope:
         )
 
 
+class TestCorruptedRegistry:
+    """End-to-end coverage of the Feature #5 silent-failure fix:
+    :func:`plugin_status` must translate a malformed registry JSON file
+    into ``PluginStatus(registry_corrupted=True)`` instead of letting
+    ``json.JSONDecodeError`` propagate out to callers.
+
+    Before this feature, ``install_plugin`` called ``plugin_status()``
+    on line 621 as its first non-trivial step — an unparseable
+    ``installed_plugins.json`` raised ``JSONDecodeError`` from there,
+    breaking the "always returns a ``PluginInstallResult``" contract
+    every caller relies on.
+
+    Feature #11 (TESTING) depends on this feature and extends the class
+    with additional scenarios (corrupted ``known_marketplaces.json``,
+    partial JSON, etc.). The canonical Success Criterion #9 test lives
+    here because #5's verification is gated on it passing."""
+
+    def test_invalid_json(
+        self,
+        isolated_home: Path,
+        tmp_path: Path,
+    ) -> None:
+        """Success Criterion #9: when ``installed_plugins.json`` contains
+        bytes that don't parse as JSON, :func:`plugin_status` returns
+        ``PluginStatus(registry_corrupted=True)`` and :func:`install_plugin`
+        returns a ``PluginInstallResult`` — neither raises
+        ``JSONDecodeError``.
+
+        Setup: write raw non-JSON bytes (``"not json {"``) to
+        ``~/.claude/plugins/installed_plugins.json`` under the isolated
+        HOME. The file exists on disk (so ``_read_json_if_present``
+        can't short-circuit it with the "missing file" path) but is
+        unparseable. Then assert both the direct ``plugin_status()``
+        call and the indirect call inside ``install_plugin`` survive
+        the malformed bytes."""
+        plugins_dir = isolated_home / ".claude" / "plugins"
+        plugins_dir.mkdir(parents=True)
+        (plugins_dir / "installed_plugins.json").write_text("not json {")
+
+        status = plugin_status()
+        assert status.registry_corrupted is True, (
+            f"expected registry_corrupted=True on malformed JSON, got {status!r}"
+        )
+        # Other fields must remain at their "nothing registered" defaults
+        # — callers that check registry_corrupted before plugin_installed
+        # must not see a stale True from a previous parse.
+        assert status.plugin_installed is False
+        assert status.marketplace_registered is False
+        assert status.installed_scope is None
+        assert status.installed_version is None
+        assert status.install_path is None
+        assert status.marketplace_path is None
+
+        # install_plugin calls plugin_status() as its first non-trivial
+        # step (see plugin_installer.py:621). Without the fix, the
+        # JSONDecodeError would propagate here and break the
+        # isinstance() assertion.
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        stub = _make_stub_claude(bin_dir)
+        result = install_plugin(scope="user", claude_bin=str(stub))
+        assert isinstance(result, PluginInstallResult), (
+            f"install_plugin must return PluginInstallResult on corrupted "
+            f"registry; got {type(result).__name__}"
+        )
+
+
 class TestUninstallPlugin:
     """Behavior of :func:`uninstall_plugin` against a stub CLI."""
 
