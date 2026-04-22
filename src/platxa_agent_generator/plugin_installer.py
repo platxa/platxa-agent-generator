@@ -49,7 +49,7 @@ import shutil
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Literal, get_args
 
 logger = logging.getLogger(__name__)
 """Module-level logger. Used to surface non-fatal conditions (corrupted
@@ -82,12 +82,19 @@ DEFAULT_TIMEOUT_SECONDS: int = 120
 ``marketplace add`` which may clone a git repo; 120s covers slow network
 conditions without masking a genuinely hung process."""
 
-SUPPORTED_SCOPES: tuple[str, ...] = ("user", "project", "local")
-"""Install scopes accepted by ``claude plugin install``. Kept aligned
-with the CLI's ``--scope`` choices so a tighter validation error fires
-here before a subprocess is spawned."""
-
 InstallScope = Literal["user", "project", "local"]
+"""Type alias for accepted install scopes. The single source of truth —
+:data:`SUPPORTED_SCOPES` is derived from this literal at module load time
+via :func:`typing.get_args`, so adding or removing a scope is a one-line
+edit here that propagates to runtime validation, CLI ``--scope`` choices,
+and downstream callers without manual sync."""
+
+SUPPORTED_SCOPES: tuple[str, ...] = get_args(InstallScope)
+"""Install scopes accepted by ``claude plugin install``. Derived from
+:data:`InstallScope` so the runtime tuple cannot drift from the static
+type — a previous duplicate-literal definition let the two diverge
+silently. Kept aligned with the CLI's ``--scope`` choices so a tighter
+validation error fires here before a subprocess is spawned."""
 
 KNOWN_REGISTRY_SCHEMA_VERSION: int = 2
 """Registry schema version this module knows how to parse. When
@@ -142,6 +149,23 @@ class CLIStep:
     stdout: str = ""
     stderr: str = ""
     skipped: bool = False
+
+    def __post_init__(self) -> None:
+        """Reject construction of a logically impossible CLIStep.
+
+        ``skipped=True`` means the installer chose not to invoke the CLI
+        — no child process ever ran, so the only meaningful ``returncode``
+        is ``0``. A non-zero returncode on a skipped step would silently
+        masquerade as a failure in :attr:`passed`'s short-circuit
+        (``skipped or returncode == 0``), which previously masked real
+        construction bugs. Raising here makes the invalid state
+        unrepresentable so the bug surfaces at the call site instead of
+        as a confusing downstream symptom."""
+        if self.skipped and self.returncode != 0:
+            raise ValueError(
+                f"CLIStep(skipped=True) requires returncode==0 (got {self.returncode}); "
+                "a skipped step did not invoke the CLI, so no non-zero exit code is possible."
+            )
 
     @property
     def passed(self) -> bool:
@@ -957,6 +981,7 @@ __all__ = [
     "DEFAULT_CLAUDE_BIN",
     "DEFAULT_TIMEOUT_SECONDS",
     "SUPPORTED_SCOPES",
+    "InstallScope",
     "CLIStep",
     "PluginInstallResult",
     "PluginStatus",

@@ -37,6 +37,7 @@ from platxa_agent_generator.plugin_installer import (
     PLUGIN_VERIFICATION_CHECK_ORDER,
     SUPPORTED_SCOPES,
     CLIStep,
+    InstallScope,
     PluginInstallResult,
     PluginStatus,
     PostInstallPluginVerification,
@@ -735,12 +736,60 @@ class TestCLIStep:
         assert step.passed is True
 
     def test_passed_on_skip(self) -> None:
-        step = CLIStep(name="x", command=("claude",), returncode=99, skipped=True)
+        # Feature #7 invariant: skipped steps must carry returncode==0
+        # (the legacy ``returncode=99, skipped=True`` shape is now a
+        # construction error — see TestCLIStepInvariant below).
+        step = CLIStep(name="x", command=("claude",), returncode=0, skipped=True)
         assert step.passed is True
 
     def test_failed_on_nonzero_exit(self) -> None:
         step = CLIStep(name="x", command=("claude",), returncode=1)
         assert step.passed is False
+
+
+class TestCLIStepInvariant:
+    """Feature #7 (issue #6 sub-fix A): CLIStep enforces the invariant
+    that ``skipped=True`` implies ``returncode == 0``. Before the
+    invariant, a caller could construct a logically impossible step
+    (skipped but with a non-zero exit code) which :attr:`CLIStep.passed`
+    would short-circuit to ``True`` via its ``skipped or returncode == 0``
+    rule — silently masking real construction bugs. The invariant makes
+    the invalid state unrepresentable."""
+
+    def test_skipped_nonzero_raises(self) -> None:
+        """Success Criterion #10: ``CLIStep(skipped=True, returncode=1)``
+        must raise ``ValueError`` at construction time."""
+        with pytest.raises(ValueError, match="skipped=True.*requires returncode==0"):
+            CLIStep(name="x", command=("claude",), returncode=1, skipped=True)
+
+    def test_skipped_zero_constructs(self) -> None:
+        """The valid skipped shape (returncode==0) still constructs cleanly."""
+        step = CLIStep(name="x", command=("claude",), returncode=0, skipped=True)
+        assert step.skipped is True
+        assert step.returncode == 0
+        assert step.passed is True
+
+    def test_unskipped_nonzero_constructs(self) -> None:
+        """A non-skipped failed step is unaffected by the invariant —
+        the invariant only fires on the (skipped, non-zero) combination."""
+        step = CLIStep(name="x", command=("claude",), returncode=99, skipped=False)
+        assert step.passed is False
+
+
+class TestSupportedScopes:
+    """Feature #7 (issue #6 sub-fix B): :data:`SUPPORTED_SCOPES` is
+    derived from :data:`InstallScope` via :func:`typing.get_args`. This
+    eliminates the silent-drift hazard the previous duplicate-literal
+    definition created — the static type and the runtime tuple now share
+    a single source of truth."""
+
+    def test_derived_from_literal(self) -> None:
+        """Success Criterion #11: ``set(SUPPORTED_SCOPES)`` equals
+        ``set(typing.get_args(InstallScope))`` — derivation is structural,
+        not a copy that could drift."""
+        import typing
+
+        assert set(SUPPORTED_SCOPES) == set(typing.get_args(InstallScope))
 
 
 class TestCLISubprocessOutput:
