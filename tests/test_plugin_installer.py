@@ -78,6 +78,144 @@ def _make_stub_claude(
     return stub
 
 
+def _write_installed_registry(
+    home: Path,
+    *,
+    scope: str,
+    install_path: Path,
+    version: str,
+    marketplace_location: str = "/repo/platxa-agent-generator",
+) -> None:
+    """Populate a realistic ``~/.claude/plugins/*.json`` pair.
+
+    Mirrors the shape Claude Code itself writes after a successful
+    ``claude plugin install`` so post-install verification
+    (:func:`plugin_installer._verify_plugin_installation`) passes on a
+    correctly-prepared test fixture. Separated from the stub claude
+    because tests exercise both the "stub drives install" path and the
+    "pre-existing install" path, and both need the same registry layout.
+    """
+    plugins_dir = home / ".claude" / "plugins"
+    plugins_dir.mkdir(parents=True, exist_ok=True)
+    (plugins_dir / "installed_plugins.json").write_text(
+        json.dumps(
+            {
+                "version": 2,
+                "plugins": {
+                    f"{PLUGIN_NAME}@{MARKETPLACE_NAME}": [
+                        {
+                            "scope": scope,
+                            "installPath": str(install_path),
+                            "version": version,
+                        }
+                    ]
+                },
+            }
+        )
+    )
+    (plugins_dir / "known_marketplaces.json").write_text(
+        json.dumps({MARKETPLACE_NAME: {"installLocation": marketplace_location}})
+    )
+
+
+def _make_valid_plugin_cache(cache_root: Path, *, version: str) -> Path:
+    """Create a minimal on-disk plugin cache that passes verification.
+
+    The cache only needs a ``.claude-plugin/plugin.json`` with a matching
+    ``version``; verification does not introspect any other files. Returns
+    ``cache_root`` so tests can pass it into :func:`_write_installed_registry`.
+    """
+    manifest_dir = cache_root / ".claude-plugin"
+    manifest_dir.mkdir(parents=True, exist_ok=True)
+    (manifest_dir / "plugin.json").write_text(json.dumps({"name": PLUGIN_NAME, "version": version}))
+    return cache_root
+
+
+def _source_plugin_version() -> str:
+    """Return the version in the repo's own ``.claude-plugin/plugin.json``.
+
+    Read once per test so fixtures stay aligned with the source that
+    :func:`_verify_plugin_installation` compares against."""
+    return json.loads((get_plugin_repo_root() / ".claude-plugin" / "plugin.json").read_text())[
+        "version"
+    ]
+
+
+def _make_install_simulating_stub(
+    bin_dir: Path,
+    *,
+    home: Path,
+    install_path: Path,
+    version: str,
+    marketplace_location: str | None = None,
+) -> Path:
+    """Create a ``claude`` stub that simulates the registry side-effects of
+    a real install.
+
+    Unlike :func:`_make_stub_claude`, this stub detects its subcommand
+    (``plugin install`` vs ``plugin marketplace add``) and writes the
+    corresponding ``~/.claude/plugins/*.json`` file to make
+    :func:`plugin_installer.plugin_status` report a healthy post-install
+    state. This is required for end-to-end tests of
+    :func:`install_plugin` now that the return path runs
+    :func:`plugin_installer._verify_plugin_installation`.
+
+    We keep :func:`_make_stub_claude` separate (plain echo + exit) so
+    failure-path tests can still use it without the registry-writing
+    side effect interfering with their assertions."""
+    stub = bin_dir / "claude"
+    plugins_dir = home / ".claude" / "plugins"
+    # The stub's shell body writes fully-formed JSON via heredocs. We
+    # avoid ``jq`` or similar tools so the test suite has no extra
+    # runtime dependencies.
+    loc = marketplace_location if marketplace_location is not None else str(get_plugin_repo_root())
+    installed_json = json.dumps(
+        {
+            "version": 2,
+            "plugins": {
+                f"{PLUGIN_NAME}@{MARKETPLACE_NAME}": [
+                    {
+                        "scope": "user",
+                        "installPath": str(install_path),
+                        "version": version,
+                    }
+                ]
+            },
+        }
+    )
+    marketplaces_json = json.dumps({MARKETPLACE_NAME: {"installLocation": loc}})
+    stub.write_text(
+        "#!/usr/bin/env bash\n"
+        f'PLUGINS_DIR="{plugins_dir}"\n'
+        'mkdir -p "$PLUGINS_DIR"\n'
+        'echo "ok"\n'
+        # Detect subcommand pattern by scanning argv. The real CLI's
+        # argv shape for these two cases is deterministic; we match on
+        # the meaningful positional tokens.
+        'args="$*"\n'
+        'case "$args" in\n'
+        '  *"plugin install"*)\n'
+        f"    cat > \"$PLUGINS_DIR/installed_plugins.json\" <<'INSTALLED_JSON_EOF'\n"
+        f"{installed_json}\n"
+        "INSTALLED_JSON_EOF\n"
+        "    ;;\n"
+        '  *"plugin marketplace add"*)\n'
+        f"    cat > \"$PLUGINS_DIR/known_marketplaces.json\" <<'MARKET_JSON_EOF'\n"
+        f"{marketplaces_json}\n"
+        "MARKET_JSON_EOF\n"
+        "    ;;\n"
+        '  *"plugin uninstall"*)\n'
+        # Uninstall simulates removal by clearing the plugin entry; the
+        # marketplace entry survives (matches real CLI behavior).
+        '    rm -f "$PLUGINS_DIR/installed_plugins.json"\n'
+        "    ;;\n"
+        "esac\n"
+        "exit 0\n"
+    )
+    stub.chmod(stub.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return stub
+
+
 @pytest.fixture
 def isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Path]:
     """Redirect ``~/.claude`` to a tmp dir so tests don't touch real state.
@@ -229,14 +367,32 @@ class TestInstallPlugin:
         isolated_home: Path,
         tmp_path: Path,
     ) -> None:
-        """Fresh state → both marketplace add and plugin install execute."""
+        """Fresh state → both marketplace add and plugin install execute.
+
+        Feature #2 gates ``success`` on ``verification.valid``, so this
+        test uses an install-simulating stub that writes a realistic
+        registry entry + cache (mirroring what real ``claude plugin
+        install`` does). Verification then sees a healthy post-install
+        state and the end-to-end ``success=True`` contract holds."""
+        version = _source_plugin_version()
+        cache_root = _make_valid_plugin_cache(tmp_path / "cache", version=version)
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
-        stub = _make_stub_claude(bin_dir, stdout="ok")
+        stub = _make_install_simulating_stub(
+            bin_dir,
+            home=isolated_home,
+            install_path=cache_root,
+            version=version,
+        )
+
         result = install_plugin(scope="user", claude_bin=str(stub))
+
         assert result.success is True, result.message
         assert [s.name for s in result.steps] == ["marketplace add", "plugin install"]
         assert all(not s.skipped for s in result.steps)
+        # Verification must have run and must have passed end-to-end.
+        assert result.verification is not None
+        assert result.verification.valid is True, result.verification.findings
 
     def test_marketplace_add_failure_aborts_install(
         self,
@@ -259,31 +415,31 @@ class TestInstallPlugin:
         isolated_home: Path,
         tmp_path: Path,
     ) -> None:
-        """Re-running install on a healthy state skips both CLI steps."""
-        plugins_dir = isolated_home / ".claude" / "plugins"
-        plugins_dir.mkdir(parents=True)
-        (plugins_dir / "installed_plugins.json").write_text(
-            json.dumps(
-                {
-                    "plugins": {
-                        f"{PLUGIN_NAME}@{MARKETPLACE_NAME}": [
-                            {"scope": "user", "version": "1.0.1", "installPath": "/x"}
-                        ]
-                    }
-                }
-            )
-        )
-        (plugins_dir / "known_marketplaces.json").write_text(
-            json.dumps({MARKETPLACE_NAME: {"installLocation": "/repo"}})
+        """Re-running install on a healthy state skips both CLI steps.
+
+        Feature #2 now runs verification even on the skip path, so this
+        test must provide a realistic cache (manifest + matching version)
+        or the end-to-end ``success=True`` assertion will correctly fail
+        against an unverified-install state."""
+        version = _source_plugin_version()
+        cache_root = _make_valid_plugin_cache(tmp_path / "cache", version=version)
+        _write_installed_registry(
+            isolated_home,
+            scope="user",
+            install_path=cache_root,
+            version=version,
         )
         bin_dir = tmp_path / "bin"
         bin_dir.mkdir()
         stub = _make_stub_claude(bin_dir, stdout="should not run")
         result = install_plugin(scope="user", claude_bin=str(stub))
-        assert result.success is True
+        assert result.success is True, result.message
         assert all(step.skipped for step in result.steps)
         assert result.plugin_already_installed is True
         assert result.marketplace_already_present is True
+        # Verification must have run on the skip path too.
+        assert result.verification is not None
+        assert result.verification.valid is True
 
     def test_missing_claude_bin_surfaces_helpful_error(self) -> None:
         """A missing ``claude`` binary produces a FileNotFoundError-shaped message."""
@@ -398,6 +554,96 @@ class TestPluginInstallResult:
         assert result.marketplace_added is False
         assert result.marketplace_already_present is False
         assert result.plugin_already_installed is False
+
+
+class TestPostInstallVerification:
+    """End-to-end coverage of the Feature #2 verification gate: ``install_plugin``
+    must map ``verification.valid=False`` to ``result.success=False``.
+
+    Complements :class:`TestPostInstallPluginVerification` which unit-tests
+    the verification function in isolation — this class tests that the
+    result is actually wired into the return path of ``install_plugin``,
+    which is Success Criterion #6."""
+
+    def test_missing_install_path(
+        self,
+        isolated_home: Path,
+        tmp_path: Path,
+    ) -> None:
+        """install_plugin returns success=False + verification.valid=False
+        when the registry points at an install_path that doesn't exist
+        on disk (Success Criterion #6).
+
+        Setup: register the plugin as already-installed at the requested
+        scope, but with an install_path pointing to a path that was
+        never created. The CLI is short-circuited (skipped=True for both
+        steps), so verification is the ONLY thing that can distinguish
+        healthy from corrupt — exactly the silent-success hazard the
+        feature targets."""
+        ghost = tmp_path / "does-not-exist"
+        _write_installed_registry(
+            isolated_home,
+            scope="user",
+            install_path=ghost,
+            version=_source_plugin_version(),
+        )
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        stub = _make_stub_claude(bin_dir)
+        result = install_plugin(scope="user", claude_bin=str(stub))
+        assert result.success is False, result.message
+        assert result.verification is not None
+        assert result.verification.valid is False
+        # The specific failing check must be install_path, not something else.
+        assert any(
+            f.startswith(f"{CHECK_PLUGIN_INSTALL_PATH}:") for f in result.verification.findings
+        ), f"expected install_path finding, got {result.verification.findings!r}"
+
+    def test_valid_install_sets_verification_valid_true(
+        self,
+        isolated_home: Path,
+        tmp_path: Path,
+    ) -> None:
+        """Counterpart to the failure case: when the cache is healthy the
+        gate lets ``success=True`` through and ``verification.valid`` is
+        True. Covers the happy path of the same gate so we know the
+        `False` above isn't a vacuous always-fail."""
+        version = _source_plugin_version()
+        cache_root = _make_valid_plugin_cache(tmp_path / "cache", version=version)
+        _write_installed_registry(
+            isolated_home,
+            scope="user",
+            install_path=cache_root,
+            version=version,
+        )
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        stub = _make_stub_claude(bin_dir)
+        result = install_plugin(scope="user", claude_bin=str(stub))
+        assert result.success is True, result.message
+        assert result.verification is not None
+        assert result.verification.valid is True
+        assert result.verification.findings == []
+
+
+class TestPluginInstallResultVerificationField:
+    """The new ``verification`` field on :class:`PluginInstallResult` must
+    default to ``None`` for early-exit return paths (bad scope, missing
+    CLI, etc.) so callers can distinguish "verification ran and failed"
+    from "verification never got a chance to run"."""
+
+    def test_default_is_none(self) -> None:
+        result = PluginInstallResult(success=True, message="ok")
+        assert result.verification is None
+
+    def test_early_exit_leaves_verification_none(self) -> None:
+        """Unsupported scope short-circuits before verification runs."""
+        result = install_plugin(scope="nope")  # type: ignore[arg-type]
+        assert result.success is False
+        assert result.verification is None, (
+            "verification must stay None when the install exits before "
+            "reaching the post-install check"
+        )
 
 
 class TestPostInstallPluginVerification:

@@ -160,7 +160,14 @@ class PluginInstallResult:
     tooling inspect per-step outcomes without re-parsing CLI output, and
     ``plugin_install_path`` (populated after a successful install) gives
     the on-disk cache location where Claude Code expanded the plugin —
-    useful for follow-up verification checks."""
+    useful for follow-up verification checks.
+
+    ``verification`` carries the post-install ``_verify_plugin_installation``
+    result when :func:`install_plugin` reached the verification step. It
+    is ``None`` on early-exit failures (bad scope, missing manifest,
+    CLI not found, subprocess error) where the verification never ran;
+    callers inspect ``verification.findings`` for the specific reason
+    a verified install was marked unsuccessful."""
 
     success: bool
     message: str
@@ -169,6 +176,7 @@ class PluginInstallResult:
     marketplace_added: bool = False
     marketplace_already_present: bool = False
     plugin_already_installed: bool = False
+    verification: PostInstallPluginVerification | None = None
 
 
 @dataclass
@@ -693,19 +701,37 @@ def install_plugin(
     # install path, not the pre-install snapshot.
     final_status = plugin_status()
 
+    # Gate success on post-install verification. The CLI reporting exit
+    # code 0 is necessary but not sufficient — the silent hazard we
+    # guard against is a "succeeded" install whose on-disk cache is
+    # missing, manifest-less, or version-mismatched against the source.
+    # See ``_verify_plugin_installation`` for the three checks. Callers
+    # must inspect ``result.verification.valid`` (not just
+    # ``result.success``) when they need the specific failure reason.
+    verification = _verify_plugin_installation(final_status, repo_root=root)
+    installed = (
+        f"Plugin '{PLUGIN_NAME}' installed at scope '{scope}' "
+        f"(version {final_status.installed_version or 'unknown'})."
+        if not plugin_already_installed or force
+        else f"Plugin '{PLUGIN_NAME}' already installed at scope '{scope}'."
+    )
+    if verification.valid:
+        message = installed
+    else:
+        message = (
+            f"{installed} Post-install verification failed "
+            f"(verification.valid={verification.valid}): " + "; ".join(verification.findings)
+        )
+
     return PluginInstallResult(
-        success=True,
-        message=(
-            f"Plugin '{PLUGIN_NAME}' installed at scope '{scope}' "
-            f"(version {final_status.installed_version or 'unknown'})."
-            if not plugin_already_installed or force
-            else f"Plugin '{PLUGIN_NAME}' already installed at scope '{scope}'."
-        ),
+        success=verification.valid,
+        message=message,
         steps=steps,
         plugin_install_path=final_status.install_path,
         marketplace_added=not marketplace_already_present,
         marketplace_already_present=marketplace_already_present,
         plugin_already_installed=plugin_already_installed,
+        verification=verification,
     )
 
 
