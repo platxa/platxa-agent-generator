@@ -89,6 +89,15 @@ here before a subprocess is spawned."""
 
 InstallScope = Literal["user", "project", "local"]
 
+KNOWN_REGISTRY_SCHEMA_VERSION: int = 2
+"""Registry schema version this module knows how to parse. When
+``installed_plugins.json`` reports a different integer under its
+``version`` key, :func:`plugin_status` emits a WARNING and continues
+best-effort — the layout may have shifted, so downstream callers should
+treat field presence as speculative. Bump this constant (and add
+version-specific parsing) whenever Claude Code ships a new schema we've
+explicitly validated against."""
+
 
 # Verification check identifiers — surfaced via
 # PostInstallPluginVerification.checks so tooling can reason about which
@@ -201,7 +210,14 @@ class PluginStatus:
     distinguish "fresh install, no registry yet" (``registry_corrupted``
     is ``False`` and files simply don't exist) from "installer cannot
     safely proceed, registry is malformed" (``registry_corrupted`` is
-    ``True``) without a second disk read."""
+    ``True``) without a second disk read.
+
+    ``schema_version`` surfaces the ``version`` key read from
+    ``installed_plugins.json`` — ``None`` when the file is absent or the
+    key is missing/non-integer. When it is present and does not match
+    :data:`KNOWN_REGISTRY_SCHEMA_VERSION`, :func:`plugin_status` emits a
+    WARNING log and continues best-effort; callers that want to
+    fail-closed on an unknown schema can inspect this field."""
 
     plugin_installed: bool
     marketplace_registered: bool
@@ -210,6 +226,7 @@ class PluginStatus:
     install_path: str | None = None
     marketplace_path: str | None = None
     registry_corrupted: bool = False
+    schema_version: int | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -409,6 +426,24 @@ def plugin_status() -> PluginStatus:
 
     market_entry = markets.get(MARKETPLACE_NAME) if isinstance(markets, dict) else None
 
+    # Record the registry schema version so callers can fail-closed on a
+    # layout we have not validated. ``None`` covers both "file absent" and
+    # "key missing or non-integer" — the warning fires only when a real
+    # integer value is present and diverges from the known schema so we
+    # do not spam operators on a clean fresh install.
+    schema_version: int | None = None
+    if isinstance(installed, dict):
+        version_raw = installed.get("version")
+        if isinstance(version_raw, int) and not isinstance(version_raw, bool):
+            schema_version = version_raw
+            if version_raw != KNOWN_REGISTRY_SCHEMA_VERSION:
+                logger.warning(
+                    "installed_plugins.json schema_version %d differs from known "
+                    "version %d; continuing best-effort parse",
+                    version_raw,
+                    KNOWN_REGISTRY_SCHEMA_VERSION,
+                )
+
     return PluginStatus(
         plugin_installed=entry is not None,
         marketplace_registered=market_entry is not None,
@@ -416,6 +451,7 @@ def plugin_status() -> PluginStatus:
         installed_version=(entry or {}).get("version"),
         install_path=(entry or {}).get("installPath"),
         marketplace_path=(market_entry or {}).get("installLocation"),
+        schema_version=schema_version,
     )
 
 

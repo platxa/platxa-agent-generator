@@ -31,6 +31,7 @@ from platxa_agent_generator.plugin_installer import (
     CHECK_PLUGIN_INSTALL_PATH,
     CHECK_PLUGIN_MANIFEST,
     CHECK_PLUGIN_VERSION,
+    KNOWN_REGISTRY_SCHEMA_VERSION,
     MARKETPLACE_NAME,
     PLUGIN_NAME,
     PLUGIN_VERIFICATION_CHECK_ORDER,
@@ -577,6 +578,83 @@ class TestCorruptedRegistry:
         assert isinstance(result, PluginInstallResult), (
             f"install_plugin must return PluginInstallResult on corrupted "
             f"registry; got {type(result).__name__}"
+        )
+
+
+class TestSchemaVersionWarning:
+    """Coverage of the Feature #6 unknown-schema-version observability fix:
+    :func:`plugin_status` must surface the registry's ``version`` integer
+    on :attr:`PluginStatus.schema_version` and log a WARNING whenever
+    that integer diverges from :data:`KNOWN_REGISTRY_SCHEMA_VERSION`.
+
+    Before this feature, an unknown schema would silently parse
+    best-effort with no operator signal — a shifted layout could strip
+    fields from :class:`PluginStatus` without any trace. Logging and
+    exposing the version lets operators correlate surprising status
+    output with a registry upgrade."""
+
+    def test_unknown_version_logs_warning(
+        self,
+        isolated_home: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """Success Criterion #15: registry JSON with an unknown
+        ``version`` integer (here ``99``) surfaces on
+        ``PluginStatus.schema_version`` and emits a WARNING log whose
+        message includes ``schema_version``.
+
+        Setup: write a minimal registry with ``"version": 99`` under the
+        isolated HOME. Capture logs at WARNING or above via caplog at
+        the module logger's name; assert the field carries 99 and at
+        least one captured record matches the expected shape."""
+        plugins_dir = isolated_home / ".claude" / "plugins"
+        plugins_dir.mkdir(parents=True)
+        (plugins_dir / "installed_plugins.json").write_text(
+            json.dumps({"version": 99, "plugins": {}})
+        )
+
+        with caplog.at_level("WARNING", logger="platxa_agent_generator.plugin_installer"):
+            status = plugin_status()
+
+        assert status.schema_version == 99, (
+            f"expected schema_version=99 from registry, got {status.schema_version!r}"
+        )
+        # Emit at least one WARNING-level record whose message mentions
+        # schema_version so operators can grep the phrase directly in
+        # their log aggregator (criterion asserts "'schema_version'" in
+        # the message, not in the logger name).
+        warning_records = [
+            r
+            for r in caplog.records
+            if r.levelname == "WARNING" and "schema_version" in r.getMessage()
+        ]
+        assert warning_records, (
+            f"expected at least one WARNING record mentioning 'schema_version'; "
+            f"got {[(r.levelname, r.getMessage()) for r in caplog.records]!r}"
+        )
+
+    def test_known_version_does_not_warn(
+        self,
+        isolated_home: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """A registry file at the canonical :data:`KNOWN_REGISTRY_SCHEMA_VERSION`
+        must NOT emit any schema_version warning — otherwise operators
+        would see a false-positive every time status is queried on a
+        healthy install."""
+        plugins_dir = isolated_home / ".claude" / "plugins"
+        plugins_dir.mkdir(parents=True)
+        (plugins_dir / "installed_plugins.json").write_text(
+            json.dumps({"version": KNOWN_REGISTRY_SCHEMA_VERSION, "plugins": {}})
+        )
+
+        with caplog.at_level("WARNING", logger="platxa_agent_generator.plugin_installer"):
+            status = plugin_status()
+
+        assert status.schema_version == KNOWN_REGISTRY_SCHEMA_VERSION
+        warning_records = [r for r in caplog.records if "schema_version" in r.getMessage()]
+        assert not warning_records, (
+            f"known schema_version must not warn; got {[r.getMessage() for r in warning_records]!r}"
         )
 
 
