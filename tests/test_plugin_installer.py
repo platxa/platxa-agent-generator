@@ -1581,12 +1581,35 @@ class TestPostInstallPluginVerification:
 
 # Guard: ensure the isolated_home fixture can never touch the real
 # home directory — a mis-wired fixture would be a silent data-loss hazard.
-def test_isolated_home_is_not_real_home(
-    isolated_home: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_isolated_home_is_not_real_home(isolated_home: Path) -> None:
+    # HOME was actually redirected to the fixture's tmp_path.
     assert str(isolated_home) == os.environ["HOME"]
+    # And that tmp_path is genuinely not a real user home. Compare
+    # canonical paths so symlink-resolved equivalents (macOS /private/...)
+    # do not produce false negatives.
     assert Path(os.environ["HOME"]).resolve() != Path("/home").resolve()
-    # Sanity: an imported module using Path.home() now resolves inside tmp.
+    # Sanity: ``Path.home()`` consults HOME, so it now resolves inside
+    # tmp. Anything downstream that calls ``Path.home()`` during the
+    # test therefore stays inside the sandbox.
     assert str(Path.home()).startswith(str(isolated_home))
-    # Defensive: the module under test should have no cached HOME reference.
-    assert plugin_installer.PLUGIN_NAME == PLUGIN_NAME
+    # Module-import health under the redirected HOME: plugin_installer
+    # must still expose its public surface (import did not blow up on
+    # any implicit HOME-touching computation). Use a public callable
+    # rather than a string constant so a successful assertion proves
+    # the module *functionally* survives, not just that a top-level
+    # literal was bound.
+    assert callable(plugin_installer.install_plugin)
+    assert callable(plugin_installer.plugin_status)
+    # Repo-root discovery is HOME-independent and must still resolve
+    # to the source checkout — the directory containing the canonical
+    # ``.claude-plugin/plugin.json`` manifest. If someone accidentally
+    # rewires repo-root lookup to depend on HOME, this assertion fails
+    # inside the isolated fixture even though the manifest-targeted
+    # ``test_get_plugin_repo_root_finds_manifest`` would still pass
+    # outside the fixture. That is the bug class this guard is for.
+    repo_root = get_plugin_repo_root()
+    assert (repo_root / ".claude-plugin" / "plugin.json").is_file(), (
+        f"get_plugin_repo_root() resolved to {repo_root!r} which does not "
+        f"contain .claude-plugin/plugin.json under isolated HOME "
+        f"{isolated_home!r}"
+    )
