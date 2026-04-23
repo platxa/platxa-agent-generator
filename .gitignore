@@ -114,12 +114,20 @@ CLAUDE.md
 .claude/plans/
 .claude/checkpoints/
 .claude/state/
+**/.claude/state/
 .claude/config/
 .claude/intent_state/
 .claude/backups/
 .claude/findings/
 .claude/history/
 .claude/*.backup*
+# Sprint/milestone backup snapshots use a `-backup-<timestamp>` infix
+# (e.g. ``spec.md.sprint-plugin-restructure-backup-20260422_034714``)
+# which the dot-anchored ``*.backup*`` above does NOT match.
+.claude/*-backup-*
+.claude/**/*-backup-*
+# Scheduler lockfile — volatile runtime state, never tracked
+.claude/scheduled_tasks.lock
 .claude/**/.ruff_cache/
 .claude/**/__pycache__/
 .claude/**/.pytest_cache/
