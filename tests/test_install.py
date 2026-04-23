@@ -482,6 +482,87 @@ class TestSecurityScanCrashReason:
         assert ": failed" not in result.message
 
 
+class TestBackupFailureRefusal:
+    """Feature #9 (issue #12): fail-closed when backup cannot be created.
+
+    Prior behavior silently fell through to ``shutil.copy2`` when
+    :func:`create_backup` returned ``None`` (permission error on the
+    backup dir, full disk, etc.), clobbering the existing target with no
+    recovery path. The fix: when ``target.exists()`` and ``backup=True``
+    and ``create_backup`` returns ``None``, refuse the overwrite and
+    surface ``backup_failed=True`` on the :class:`InstallResult` so
+    callers can tell this failure apart from other refusals.
+    """
+
+    def test_refused_when_backup_none(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Success Criterion #12: install refuses to overwrite when the
+        backup step returns ``None``.
+
+        Pins:
+        - ``success is False`` — the install did not proceed.
+        - ``backup_failed is True`` — the new structured discriminator is
+          set, so callers don't have to parse the message to detect this
+          specific failure class.
+        - ``message`` carries the ``"Refusing to overwrite: backup failed"``
+          sentinel so logs and CLI consumers also see the reason.
+        - Target file bytes are unchanged — the refusal did not clobber
+          the pre-existing content (the whole point of the fix).
+        """
+        from platxa_agent_generator import install_agent as ia
+
+        # Prepare a valid source agent file.
+        source = tmp_path / "agent.md"
+        source.write_text(
+            "---\n"
+            "name: backup-refusal-agent\n"
+            "description: test agent for backup-failure refusal\n"
+            "tools: Read\n"
+            "---\n"
+            "\n"
+            "# Backup Refusal Agent\n"
+            "\n"
+            "## Workflow\n"
+            "1. Test step\n",
+            encoding="utf-8",
+        )
+
+        # Point the user-scope agents dir at tmp_path and seed an existing
+        # installed file so install_agent reaches the create_backup branch.
+        agents_dir = tmp_path / "agents"
+        agents_dir.mkdir()
+        target_path = agents_dir / "backup-refusal-agent.md"
+        original_bytes = b"EXISTING_CONTENT_DO_NOT_CLOBBER\n"
+        target_path.write_bytes(original_bytes)
+
+        monkeypatch.setattr(ia, "get_agents_dir", lambda scope: agents_dir)
+        # Simulate create_backup failing (returns None on permission error,
+        # full disk, etc.). This is the failure mode under test.
+        monkeypatch.setattr(ia, "create_backup", lambda p, backup_dir=None: None)
+
+        result = ia.install_agent(
+            str(source),
+            scope="user",
+            force=True,
+            backup=True,
+            skip_validation=True,
+        )
+
+        # Refusal must be structured — success False, backup_failed True,
+        # and the sentinel message so log consumers can grep for it.
+        assert result.success is False, result
+        assert result.backup_failed is True, result
+        assert result.message == "Refusing to overwrite: backup failed", result.message
+        assert result.agent_name == "backup-refusal-agent"
+
+        # Critical invariant: the target bytes are unchanged. A silent
+        # clobber is exactly what issue #12 forbids.
+        assert target_path.read_bytes() == original_bytes
+
+
 class TestInstallScopeRecommender:
     """Tests for install_agent.recommend_scope (feature #87).
 

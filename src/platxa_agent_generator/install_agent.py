@@ -77,7 +77,24 @@ class PostInstallVerification:
 
 @dataclass
 class InstallResult:
-    """Result of installation operation."""
+    """Result of installation operation.
+
+    Fields:
+        success: True iff the install/uninstall completed cleanly.
+        message: Human-readable outcome message. On failure, leads with the
+            failure class (e.g., ``"Refusing to overwrite: backup failed"``).
+        installed_path: Absolute path to the installed file, when success.
+        backup_path: Absolute path to the backup file, when backup was made.
+        agent_name: Parsed agent name, when extractable.
+        verification: Post-install verification result, when run.
+        backup_failed: True iff the install was refused because
+            :func:`create_backup` returned ``None`` for an existing target
+            while ``backup=True`` (issue #12). Defaults to ``False`` so the
+            field addition is non-breaking for existing consumers. An
+            operator seeing ``backup_failed=True`` knows the target bytes
+            were preserved and a retry with ``--no-backup`` (or after
+            fixing the backup-dir permissions) is the remediation.
+    """
 
     success: bool
     message: str
@@ -85,6 +102,7 @@ class InstallResult:
     backup_path: str | None = None
     agent_name: str | None = None
     verification: PostInstallVerification | None = None
+    backup_failed: bool = False
 
 
 # Tokens that, when present in an agent's description or body, indicate the
@@ -773,6 +791,22 @@ def install_agent(
 
         if backup:
             backup_path = create_backup(target_path)
+            # Issue #12: fail closed when the backup could not be created.
+            # Without this, a None return from create_backup (permission
+            # denied on the backup dir, full disk, etc.) would silently
+            # fall through to shutil.copy2 below and clobber the existing
+            # target with no recovery path. The contract is "backup before
+            # overwrite" — if the backup step fails, the overwrite must
+            # not proceed. Target bytes remain untouched; the operator can
+            # retry with --no-backup (accepting data loss) or fix the
+            # underlying backup-dir issue.
+            if backup_path is None:
+                return InstallResult(
+                    success=False,
+                    message="Refusing to overwrite: backup failed",
+                    agent_name=agent_name,
+                    backup_failed=True,
+                )
 
     # Copy file to target
     try:
