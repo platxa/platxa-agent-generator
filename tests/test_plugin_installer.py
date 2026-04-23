@@ -514,6 +514,44 @@ class TestForceReinstallScope:
             f"(status.installed_scope), got {cmd[scope_idx + 1]!r}"
         )
 
+    def test_no_uninstall_step_when_not_installed(
+        self,
+        isolated_home: Path,
+        tmp_path: Path,
+    ) -> None:
+        """Feature #11 extension: ``force=True`` on a fresh HOME must NOT
+        emit a ``plugin uninstall (force)`` step.
+
+        Pins the short-circuit at ``plugin_installer.py:767``:
+        ``if status.plugin_installed and force:``. When the registry has no
+        entry for PLUGIN_NAME, there is nothing to uninstall — emitting a
+        force-uninstall against a non-existent install would surface as a
+        confusing failure to operators and risk tearing down unrelated
+        state on a concurrent install. The gate MUST trip on
+        ``plugin_installed=False`` regardless of the ``force`` flag.
+
+        Without this assertion, a future refactor that hoisted the
+        uninstall step above the ``plugin_installed`` check would pass
+        the canonical scope-correctness test (it uses installed_scope)
+        but still regress by invoking uninstall on a missing install."""
+        # No _write_installed_registry call — the isolated HOME starts
+        # without installed_plugins.json, so status.plugin_installed is
+        # False.
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        stub = _make_stub_claude(bin_dir)
+
+        result = install_plugin(scope="user", force=True, claude_bin=str(stub))
+
+        # The force-uninstall step's canonical name — same sentinel used
+        # by the scope-correctness test above, so a future rename has to
+        # update both places (and this comment) in one edit.
+        uninstall_steps = [s for s in result.steps if s.name == "plugin uninstall (force)"]
+        assert uninstall_steps == [], (
+            f"force-uninstall must not run when plugin is not installed, "
+            f"found {[s.name for s in result.steps]!r}"
+        )
+
 
 class TestCorruptedRegistry:
     """End-to-end coverage of the Feature #5 silent-failure fix:
@@ -580,6 +618,47 @@ class TestCorruptedRegistry:
             f"install_plugin must return PluginInstallResult on corrupted "
             f"registry; got {type(result).__name__}"
         )
+
+    def test_corrupted_known_marketplaces(
+        self,
+        isolated_home: Path,
+    ) -> None:
+        """Feature #11 extension: a malformed ``known_marketplaces.json``
+        must also yield ``registry_corrupted=True``, not propagate the
+        ``JSONDecodeError``.
+
+        The fix at ``plugin_installer.py:429-444`` wraps *both* registry
+        reads in the same try/except — installed_plugins AND known
+        marketplaces. The canonical ``test_invalid_json`` only exercises
+        the first file; this scenario exercises the second, closing the
+        symmetric failure path.
+
+        Setup: ``installed_plugins.json`` is absent (``_read_json_if_present``
+        returns None, no parse attempted), but ``known_marketplaces.json``
+        contains unparseable bytes. The try/except catches the
+        JSONDecodeError from the marketplaces read and the function
+        returns the same structured failure as the installed-plugins
+        path."""
+        plugins_dir = isolated_home / ".claude" / "plugins"
+        plugins_dir.mkdir(parents=True)
+        # installed_plugins.json deliberately absent — exercises the
+        # path where _read_json_if_present returns None before markets
+        # is read. If a future refactor re-orders the reads (markets
+        # first, installed second), this test still catches corruption
+        # of either.
+        (plugins_dir / "known_marketplaces.json").write_text("}{ garbage")
+
+        status = plugin_status()
+
+        # Same contract as the canonical invalid-JSON test: corruption
+        # on either registry file collapses to registry_corrupted=True
+        # with all other fields at their "nothing registered" defaults.
+        assert status.registry_corrupted is True, (
+            f"expected registry_corrupted=True on malformed marketplaces JSON, got {status!r}"
+        )
+        assert status.plugin_installed is False
+        assert status.marketplace_registered is False
+        assert status.installed_scope is None
 
 
 class TestSchemaVersionWarning:
