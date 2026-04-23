@@ -313,6 +313,89 @@ class TestValidation:
         assert any("does not list plugin" in e for e in errors)
 
 
+class TestValidatePluginSourceMalformedJSON:
+    """JSONDecodeError-branch coverage for :func:`validate_plugin_source`
+    (Feature #13, spec issue #11 of the 19).
+
+    Before this class, only the structural failure paths of
+    :func:`validate_plugin_source` were tested (missing manifest, wrong
+    name, missing entry). The two ``json.loads`` calls — one for
+    ``plugin.json`` (plugin_installer.py:348) and one for
+    ``marketplace.json`` (plugin_installer.py:370) — each wrapped in a
+    ``try/except json.JSONDecodeError`` that appends to the error list,
+    had NO test coverage. That meant a regression removing either
+    ``except`` (letting the exception propagate) would pass CI silently
+    and break :func:`install_plugin`'s "structured result, never raise"
+    contract at the first call site (install_plugin.py:711 reads
+    ``validate_plugin_source`` as if it always returns cleanly).
+
+    Each test isolates ONE malformed manifest while keeping the other
+    well-formed, so the assertion can target exactly one branch at a
+    time — otherwise a passing assertion would not prove *which*
+    ``except`` caught the error."""
+
+    def test_malformed_plugin_json(self, tmp_path: Path) -> None:
+        """Success Criterion: an unparseable ``plugin.json`` produces an
+        error list entry whose prefix pins the faulty file, and
+        :func:`validate_plugin_source` does NOT let the
+        :class:`json.JSONDecodeError` propagate.
+
+        Setup: write bytes that are unambiguously non-JSON (``"{not
+        json"``) — a missing closing brace is a parser-recognized
+        failure on every platform's ``json`` module, not a locale- or
+        version-dependent edge case. Marketplace manifest is kept
+        well-formed so a failure of its branch cannot falsely satisfy
+        the assertion."""
+        (tmp_path / ".claude-plugin").mkdir()
+        (tmp_path / ".claude-plugin" / "plugin.json").write_text("{not json")
+        (tmp_path / ".claude-plugin" / "marketplace.json").write_text(
+            json.dumps(
+                {
+                    "name": MARKETPLACE_NAME,
+                    "owner": {"name": "t"},
+                    "plugins": [{"name": PLUGIN_NAME, "source": "./"}],
+                }
+            )
+        )
+
+        # Must not raise — a propagated JSONDecodeError would break
+        # install_plugin's "structured result" contract.
+        errors = validate_plugin_source(tmp_path)
+
+        assert any("plugin manifest is not valid JSON" in e for e in errors), (
+            f"expected 'plugin manifest is not valid JSON' in errors, got {errors}"
+        )
+        # Sanity: marketplace branch did NOT also flag (kept it clean).
+        assert not any("marketplace manifest is not valid JSON" in e for e in errors), (
+            f"marketplace branch should not fire when marketplace.json is clean; errors={errors}"
+        )
+
+    def test_malformed_marketplace_json(self, tmp_path: Path) -> None:
+        """Success Criterion: an unparseable ``marketplace.json`` produces
+        an error list entry whose prefix pins the faulty file, and
+        :func:`validate_plugin_source` does NOT let the
+        :class:`json.JSONDecodeError` propagate.
+
+        Plugin manifest is kept well-formed to isolate the marketplace
+        branch — same reasoning as :meth:`test_malformed_plugin_json`
+        but for the companion ``except`` at plugin_installer.py:371."""
+        (tmp_path / ".claude-plugin").mkdir()
+        (tmp_path / ".claude-plugin" / "plugin.json").write_text(
+            json.dumps({"name": PLUGIN_NAME, "version": "0.0.1", "description": "s"})
+        )
+        (tmp_path / ".claude-plugin" / "marketplace.json").write_text("][")
+
+        errors = validate_plugin_source(tmp_path)
+
+        assert any("marketplace manifest is not valid JSON" in e for e in errors), (
+            f"expected 'marketplace manifest is not valid JSON' in errors, got {errors}"
+        )
+        # Sanity: plugin.json branch did NOT also flag.
+        assert not any("plugin manifest is not valid JSON" in e for e in errors), (
+            f"plugin branch should not fire when plugin.json is clean; errors={errors}"
+        )
+
+
 # ---------------------------------------------------------------------------
 # Status reads
 # ---------------------------------------------------------------------------
