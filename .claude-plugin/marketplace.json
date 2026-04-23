@@ -1,0 +1,31 @@
+{
+  "name": "platxa-agent-generator",
+  "owner": {
+    "name": "Platxa",
+    "email": "dev@platxa.com"
+  },
+  "metadata": {
+    "description": "Self-hosted single-plugin marketplace for platxa-agent-generator. Registering this directory as a marketplace (`claude plugin marketplace add <path>`) lets the plugin be installed at user scope without an external marketplace.",
+    "version": "1.0.1",
+    "homepage": "https://github.com/platxa/platxa-agent-generator"
+  },
+  "plugins": [
+    {
+      "name": "platxa-agent-generator",
+      "source": "./",
+      "description": "Transform natural language descriptions into production-ready AI agents for Claude Code CLI",
+      "version": "1.0.1",
+      "category": "Code Generation",
+      "homepage": "https://github.com/platxa/platxa-agent-generator",
+      "keywords": [
+        "ai",
+        "agents",
+        "claude",
+        "anthropic",
+        "code-generation",
+        "orchestrator",
+        "nlp-to-agent"
+      ]
+    }
+  ]
+}
