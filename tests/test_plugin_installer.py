@@ -23,6 +23,7 @@ import os
 import stat
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -214,6 +215,23 @@ def _make_install_simulating_stub(
         "esac\n"
         "exit 0\n"
     )
+    stub.chmod(stub.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return stub
+
+
+def _make_sleeping_stub(bin_dir: Path, *, sleep_seconds: int = 3) -> Path:
+    """Create a ``claude`` stub that sleeps before exiting.
+
+    Used by :class:`TestTimeoutPath` to drive the real
+    :class:`subprocess.TimeoutExpired` branch of
+    :func:`plugin_installer._run_claude`. Distinct from
+    :func:`_make_stub_claude` so timeout tests don't accidentally reuse
+    an ``exit_code``-driven stub (which would never trigger the timeout)
+    and so the failure-path stubs stay free of ``sleep`` — a lurking
+    sleep in a stub that's supposed to fail fast would silently slow the
+    whole test suite."""
+    stub = bin_dir / "claude"
+    stub.write_text(f"#!/usr/bin/env bash\nsleep {sleep_seconds}\nexit 0\n")
     stub.chmod(stub.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
     return stub
 
@@ -927,6 +945,301 @@ class TestCLISubprocessOutput:
         assert step.stdout == "", f"expected empty stdout on spawn failure, got {step.stdout!r}"
         # Name derivation still runs on the failure path so callers can
         # identify the step in PluginInstallResult.steps by fixed name.
+        assert step.name == "plugin status"
+
+    # ---- Feature #12: --json output-shape + exit-code assertions ----
+    #
+    # These tests drive the CLI end-to-end (``CLI().run([...])``) with a
+    # stub ``claude`` on PATH so the subprocess layer executes for real
+    # but against a known binary. We do NOT monkey-patch
+    # :func:`subprocess.run` or :func:`shutil.which` — the whole point of
+    # :func:`plugin_installer._resolve_claude_bin` is to route through
+    # ``shutil.which``, and a patch there would mask any regression in
+    # that path. Prepending the stub's directory to ``$PATH`` gives real
+    # coverage of the resolution + spawn pipeline (Boundaries rule #12).
+
+    _INSTALL_RESULT_KEYS: frozenset[str] = frozenset(
+        {
+            "success",
+            "message",
+            "plugin_install_path",
+            "marketplace_added",
+            "marketplace_already_present",
+            "plugin_already_installed",
+            "steps",
+        }
+    )
+    _STEP_KEYS: frozenset[str] = frozenset(
+        {"name", "command", "returncode", "stdout", "stderr", "skipped", "passed"}
+    )
+    _STATUS_KEYS: frozenset[str] = frozenset(
+        {
+            "plugin_installed",
+            "marketplace_registered",
+            "installed_scope",
+            "installed_version",
+            "install_path",
+            "marketplace_path",
+        }
+    )
+
+    def _run_cli(
+        self,
+        argv: list[str],
+        *,
+        capsys: pytest.CaptureFixture[str],
+    ) -> tuple[int, dict[str, Any]]:
+        """Invoke ``CLI().run(argv)`` and return ``(exit_code, parsed_json)``.
+
+        Kept as a helper (not a fixture) so each test's setup — stub on
+        PATH, registry state — is visible inline. The helper only handles
+        the two pieces every JSON-output test needs: dispatching the CLI
+        and parsing captured stdout. Imports happen at the callsite level
+        because :class:`CLI` is a heavy module and the rest of this test
+        file does not need it."""
+        from platxa_agent_generator.cli import CLI
+
+        rc = CLI().run(argv)
+        captured = capsys.readouterr()
+        assert captured.out, (
+            f"CLI {argv!r} produced no stdout — --json mode must always emit JSON. "
+            f"stderr={captured.err!r}"
+        )
+        payload = json.loads(captured.out)
+        return rc, payload
+
+    def test_install_plugin_json_shape_on_success(
+        self,
+        isolated_home: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """``install-plugin --json`` success path emits the full
+        :func:`cli._plugin_result_to_dict` schema and returns exit 0.
+
+        Uses :func:`_make_install_simulating_stub` so post-install
+        verification sees a healthy registry and the end-to-end
+        ``success=True`` contract holds (same pattern as
+        :meth:`TestInstallPlugin.test_successful_install_runs_both_steps`).
+        Asserts every top-level key defined in
+        :data:`_INSTALL_RESULT_KEYS` and every step key in
+        :data:`_STEP_KEYS` is present — drift in either schema would be
+        a breaking change for machine-readable consumers."""
+        version = _source_plugin_version()
+        cache_root = _make_valid_plugin_cache(tmp_path / "cache", version=version)
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        _make_install_simulating_stub(
+            bin_dir,
+            home=isolated_home,
+            install_path=cache_root,
+            version=version,
+        )
+        monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+
+        rc, payload = self._run_cli(
+            ["--json", "install-plugin", "--scope", "user"],
+            capsys=capsys,
+        )
+
+        assert rc == 0, f"expected exit 0 on success, got {rc}; payload={payload}"
+        assert set(payload.keys()) == self._INSTALL_RESULT_KEYS, (
+            f"top-level schema drift; diff={set(payload.keys()) ^ self._INSTALL_RESULT_KEYS}"
+        )
+        assert payload["success"] is True, payload["message"]
+        assert isinstance(payload["steps"], list) and payload["steps"], (
+            "success path must record at least one CLIStep"
+        )
+        for step in payload["steps"]:
+            assert set(step.keys()) == self._STEP_KEYS, (
+                f"step schema drift; diff={set(step.keys()) ^ self._STEP_KEYS}"
+            )
+
+    def test_install_plugin_exit_code_maps_failure_to_one(
+        self,
+        isolated_home: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """``install-plugin --json`` with a failing stub returns rc=1 and
+        ``payload["success"] is False`` — the CLI contract is ``0 if
+        result.success else 1``.
+
+        Stub exits with code 1 on the marketplace-add step, which aborts
+        the install. The important assertion is the exit-code → success
+        mapping: a rc=0 here would silently mask failures for CI
+        consumers."""
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        _make_stub_claude(bin_dir, exit_code=1, stderr="marketplace exists")
+        monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+
+        rc, payload = self._run_cli(
+            ["--json", "install-plugin", "--scope", "user"],
+            capsys=capsys,
+        )
+
+        assert rc == 1, f"expected exit 1 on failure, got {rc}; payload={payload}"
+        assert payload["success"] is False
+        # Schema must hold on the failure path too — callers parse it
+        # either way.
+        assert set(payload.keys()) == self._INSTALL_RESULT_KEYS
+
+    def test_uninstall_plugin_json_shape_on_success(
+        self,
+        isolated_home: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """``uninstall-plugin --json`` success path emits the full
+        :func:`cli._plugin_result_to_dict` schema and returns exit 0.
+
+        Pre-populates the registry so the uninstall step actually runs
+        (the no-op path skips the step and wouldn't exercise the full
+        schema for a real subprocess call)."""
+        plugins_dir = isolated_home / ".claude" / "plugins"
+        plugins_dir.mkdir(parents=True)
+        (plugins_dir / "installed_plugins.json").write_text(
+            json.dumps(
+                {
+                    "plugins": {
+                        f"{PLUGIN_NAME}@{MARKETPLACE_NAME}": [{"scope": "user", "version": "1.0.1"}]
+                    }
+                }
+            )
+        )
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        _make_stub_claude(bin_dir)
+        monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+
+        rc, payload = self._run_cli(
+            ["--json", "uninstall-plugin", "--scope", "user"],
+            capsys=capsys,
+        )
+
+        assert rc == 0, f"expected exit 0 on success, got {rc}; payload={payload}"
+        assert set(payload.keys()) == self._INSTALL_RESULT_KEYS
+        assert payload["success"] is True
+        assert any(
+            step["name"] == "plugin uninstall" and not step["skipped"] for step in payload["steps"]
+        ), "uninstall path must have run the plugin uninstall CLIStep"
+        for step in payload["steps"]:
+            assert set(step.keys()) == self._STEP_KEYS
+
+    def test_uninstall_plugin_exit_code_maps_failure_to_one(
+        self,
+        isolated_home: Path,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """``uninstall-plugin --json`` with a failing stub returns rc=1."""
+        plugins_dir = isolated_home / ".claude" / "plugins"
+        plugins_dir.mkdir(parents=True)
+        (plugins_dir / "installed_plugins.json").write_text(
+            json.dumps(
+                {
+                    "plugins": {
+                        f"{PLUGIN_NAME}@{MARKETPLACE_NAME}": [{"scope": "user", "version": "1.0.1"}]
+                    }
+                }
+            )
+        )
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        _make_stub_claude(bin_dir, exit_code=1, stderr="uninstall failed")
+        monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+
+        rc, payload = self._run_cli(
+            ["--json", "uninstall-plugin", "--scope", "user"],
+            capsys=capsys,
+        )
+
+        assert rc == 1, f"expected exit 1 on failure, got {rc}; payload={payload}"
+        assert payload["success"] is False
+
+    def test_plugin_status_json_shape(
+        self,
+        isolated_home: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """``plugin-status --json`` emits the :class:`PluginStatus`-shaped
+        dict and always returns exit 0.
+
+        Pre-populates the registry so every optional field is non-null
+        (scope, version, install_path, marketplace_path) and the full
+        schema surface is asserted — a ``plugin-status`` on a clean
+        system would leave several fields as ``None`` and weaker-cover
+        the shape. No stub claude is needed: :func:`plugin_status` is
+        pure-read against the JSON registries and never spawns a
+        subprocess."""
+        install_path = isolated_home / "cache"
+        install_path.mkdir()
+        _write_installed_registry(
+            isolated_home,
+            scope="user",
+            install_path=install_path,
+            version="1.0.1",
+        )
+
+        rc, payload = self._run_cli(["--json", "plugin-status"], capsys=capsys)
+
+        assert rc == 0, f"plugin-status always returns 0; got {rc}"
+        assert set(payload.keys()) == self._STATUS_KEYS, (
+            f"status schema drift; diff={set(payload.keys()) ^ self._STATUS_KEYS}"
+        )
+        assert payload["plugin_installed"] is True
+        assert payload["marketplace_registered"] is True
+        assert payload["installed_scope"] == "user"
+        assert payload["installed_version"] == "1.0.1"
+
+
+class TestTimeoutPath:
+    """Structured-result contract for :func:`plugin_installer._run_claude`
+    under a :class:`subprocess.TimeoutExpired` exception (Feature #12,
+    spec issue #9 of the 19).
+
+    Complements :class:`TestCLISubprocessOutput` — which covers the
+    ``OSError`` (returncode=-2) and normal-exit branches — by exercising
+    the third and final branch of the ``try/except/except/return`` shape
+    in :func:`_run_claude`. Without this test the timeout branch has no
+    coverage, so a regression that, say, forgets to prefix ``stderr``
+    with "timed out" or that sets ``returncode=None`` would go
+    unnoticed. Kept in its own class (rather than added to
+    :class:`TestCLISubprocessOutput`) because the setup is
+    sleep-dependent and this isolation keeps the non-timeout tests fast.
+    """
+
+    def test_timeout_returns_step(self, tmp_path: Path) -> None:
+        """Success Criterion #16: :func:`_run_claude` catches
+        :class:`subprocess.TimeoutExpired` and returns
+        ``CLIStep(returncode=-1, stderr="timed out after Ns: ...")``
+        instead of letting the exception propagate.
+
+        Drives the branch with a real stub that sleeps 3s while the
+        caller sets timeout=1s. A shorter gap (e.g., sleep=1, timeout=1)
+        is racy on loaded CI runners; 3x headroom is enough to be
+        deterministic without slowing the suite noticeably."""
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        stub = _make_sleeping_stub(bin_dir, sleep_seconds=3)
+
+        step = plugin_installer._run_claude(
+            ["plugin", "status"],
+            claude_bin=str(stub),
+            timeout=1,
+        )
+
+        assert step.returncode == -1, (
+            f"expected returncode=-1 (timeout), got {step.returncode}; stderr={step.stderr!r}"
+        )
+        assert "timed out" in step.stderr, f"expected 'timed out' in stderr, got {step.stderr!r}"
+        # Name derivation must also hold on the timeout branch so
+        # callers can identify the step in PluginInstallResult.steps.
         assert step.name == "plugin status"
 
 
