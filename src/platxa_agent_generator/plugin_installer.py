@@ -79,8 +79,11 @@ where the binary isn't on ``$PATH``."""
 
 DEFAULT_TIMEOUT_SECONDS: int = 120
 """Per-CLI-call timeout. The longest legitimate operation is the initial
-``marketplace add`` which may clone a git repo; 120s covers slow network
-conditions without masking a genuinely hung process."""
+``marketplace add`` when the source is a git URL — Claude Code shells out
+to ``git clone`` in that case and the operation is network-bound; 120s
+covers slow network conditions without masking a genuinely hung process.
+Local filesystem marketplaces complete in well under a second and are not
+the constraint."""
 
 InstallScope = Literal["user", "project", "local"]
 """Type alias for accepted install scopes. The single source of truth —
@@ -592,6 +595,14 @@ def _run_claude(
     error message varies by platform."""
     resolved = _resolve_claude_bin(claude_bin)
     cmd = (resolved, *args)
+    # Fallback label derived from the first two argv tokens (e.g.
+    # ``"plugin marketplace"``, ``"plugin install"``). Every in-tree
+    # caller overwrites ``step.name`` with a human-readable label right
+    # after _run_claude returns; this fallback exists so that CLIStep's
+    # required ``name`` field is still populated in the rare path where
+    # a caller forgets, and so ad-hoc / test callers get a non-empty
+    # identifier for logs without extra boilerplate.
+    fallback_name = " ".join(args[:2]) if len(args) >= 2 else " ".join(args)
     try:
         completed = subprocess.run(
             cmd,
@@ -612,7 +623,7 @@ def _run_claude(
         else:
             decoded = raw_stdout or ""
         return CLIStep(
-            name=" ".join(args[:2]) if len(args) >= 2 else " ".join(args),
+            name=fallback_name,
             command=cmd,
             returncode=-1,
             stdout=decoded,
@@ -628,14 +639,14 @@ def _run_claude(
         # structured output. Returncode -2 distinguishes spawn failures
         # from the timeout branch (-1) and from real CLI exit codes (>=0).
         return CLIStep(
-            name=" ".join(args[:2]) if len(args) >= 2 else " ".join(args),
+            name=fallback_name,
             command=cmd,
             returncode=-2,
             stdout="",
             stderr=f"subprocess spawn failed: {exc}",
         )
     return CLIStep(
-        name=" ".join(args[:2]) if len(args) >= 2 else " ".join(args),
+        name=fallback_name,
         command=cmd,
         returncode=completed.returncode,
         stdout=completed.stdout,
@@ -667,16 +678,18 @@ def install_plugin(
        — skipped when already registered unless ``force=True``.
     4. **Install plugin** (``claude plugin install <name>@<marketplace>
        --scope <scope>``) — skipped when already installed at the same
-       scope unless ``force=True`` (in which case the plugin is
-       uninstalled first, then reinstalled, to mimic
-       ``claude plugin update`` semantics without depending on the
-       update subcommand's still-stabilizing behavior). The force-
-       uninstall step runs against ``status.installed_scope`` — the
-       scope the plugin currently lives in — not the caller-requested
-       ``scope``. This is load-bearing when the caller uses ``force=True``
-       to *change* scope (e.g., project → user): uninstalling at the new
-       scope would silently uninstall nothing and leave duplicate
-       registry entries in both scopes.
+       scope unless ``force=True``. When ``force=True``, uninstall-first
+       runs only when currently installed (``status.plugin_installed``
+       is True); if the plugin is absent, ``force`` just installs fresh
+       and no uninstall step is emitted. The uninstall-then-reinstall
+       pair mimics ``claude plugin update`` semantics without depending
+       on the update subcommand's still-stabilizing behavior. The
+       force-uninstall step runs against ``status.installed_scope`` —
+       the scope the plugin currently lives in — not the caller-
+       requested ``scope``. This is load-bearing when the caller uses
+       ``force=True`` to *change* scope (e.g., project → user):
+       uninstalling at the new scope would silently uninstall nothing
+       and leave duplicate registry entries in both scopes.
 
     The function is idempotent: invoking it twice on a healthy install
     is a no-op that returns ``success=True`` with both "already

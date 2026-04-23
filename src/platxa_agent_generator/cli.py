@@ -1,24 +1,29 @@
 #!/usr/bin/env python3
-"""
-Platxa Agent Generator CLI
+"""Platxa Agent Generator CLI.
 
 Production-grade command-line interface for standalone agent generation.
 
-Commands:
-    generate    Generate an agent from natural language description
-    validate    Validate an existing agent definition
-    catalog     Browse and use pre-built agent templates
-    install     Install an agent to user or project scope
-    analyze     Analyze complexity and get thinking recommendations
-    preview     Preview agent generation without writing files
-    status      Show current generation progress
+Run ``platxa-agent --help`` (or ``python -m platxa_agent_generator --help``)
+for the authoritative, always-current subcommand list. The 14 subcommands
+fall into two groups:
 
-Usage:
-    python -m scripts.cli generate "Create a code review agent that..."
-    python -m scripts.cli validate path/to/agent.md
-    python -m scripts.cli catalog list
-    python -m scripts.cli install agent.md --scope user
-    python -m scripts.cli analyze "Design a distributed system..."
+    Agent generation (11):
+        generate, validate, catalog, install, analyze, analyze-agent,
+        upgrade, lint, preview, status, batch
+    Plugin lifecycle (3):
+        install-plugin, uninstall-plugin, plugin-status
+
+Keeping the inventory here (instead of per-command one-liners that drift
+out of sync with argparse) means the parser remains the single source of
+truth. Update the two groups above only when a subcommand is added or
+removed; per-command help text lives on each ``add_parser`` call.
+
+Usage examples:
+    platxa-agent generate "Create a code review agent that..."
+    platxa-agent validate path/to/agent.md
+    platxa-agent catalog list
+    platxa-agent install agent.md --scope user
+    platxa-agent install-plugin --scope user
 """
 
 from __future__ import annotations
