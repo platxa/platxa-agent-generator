@@ -563,6 +563,46 @@ class TestBackupFailureRefusal:
         assert target_path.read_bytes() == original_bytes
 
 
+class TestUnicodeDecodeErrorInExtractName:
+    """Feature #10 (issue #14): ``extract_agent_name`` must swallow
+    ``UnicodeDecodeError`` and return ``None`` rather than crashing.
+
+    Prior behavior caught only ``OSError``, so a file whose bytes are not
+    valid UTF-8 (binary data mis-saved as ``.md``, a latin-1 file, etc.)
+    would raise ``UnicodeDecodeError`` out of ``read_text(encoding="utf-8")``
+    — a hostile contract for a function whose return type is ``str | None``.
+    The fix extends the ``except`` clause to ``(OSError, UnicodeDecodeError)``
+    so every unreadable-source failure mode collapses to the same
+    ``None`` return.
+    """
+
+    def test_non_utf8_returns_none(self, tmp_path: Path) -> None:
+        """Success Criterion #14: a file with invalid UTF-8 bytes yields
+        ``None`` without raising.
+
+        Pins:
+        - ``extract_agent_name`` returns ``None`` for non-UTF-8 content.
+        - No exception escapes — callers depending on the ``str | None``
+          contract are not forced into surprise ``try/except`` blocks.
+
+        The byte sequence ``b"\\xff\\xfe\\x00bad"`` is a classic invalid
+        UTF-8 prefix (the 0xFF byte is not a valid UTF-8 lead byte), and
+        it does NOT happen to form a valid UTF-16 BOM-decoded document
+        either — picking a sequence that is unambiguously invalid at the
+        UTF-8 layer so the assertion is portable across platforms.
+        """
+        from platxa_agent_generator import install_agent as ia
+
+        source = tmp_path / "not-utf8.md"
+        source.write_bytes(b"\xff\xfe\x00bad")
+
+        # Must not raise. Return value is None because the file cannot be
+        # decoded, not because the frontmatter was missing — both signal
+        # the same operator-level outcome (unparseable source).
+        result = ia.extract_agent_name(source)
+        assert result is None
+
+
 class TestInstallScopeRecommender:
     """Tests for install_agent.recommend_scope (feature #87).
 

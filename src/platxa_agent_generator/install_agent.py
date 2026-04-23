@@ -367,7 +367,15 @@ def ensure_agents_dir(agents_dir: Path) -> bool:
 
 
 def extract_agent_name(file_path: Path) -> str | None:
-    """Extract agent name from frontmatter."""
+    """Extract agent name from frontmatter.
+
+    Returns ``None`` for any unreadable source — missing file, permission
+    error (OSError), or non-UTF-8 bytes (UnicodeDecodeError, issue #14).
+    A file that is not valid UTF-8 cannot possibly contain a YAML
+    frontmatter ``name:`` field we can parse, so surfacing the decode
+    error as a crash would be a hostile contract — the caller always
+    needs ``str | None`` to decide whether to continue.
+    """
     try:
         content = file_path.read_text(encoding="utf-8")
         lines = content.split("\n")
@@ -388,7 +396,7 @@ def extract_agent_name(file_path: Path) -> str | None:
                 return name
 
         return None
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return None
 
 
