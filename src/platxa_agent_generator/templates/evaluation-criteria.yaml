@@ -1,0 +1,96 @@
+# Evaluation rubric — designated single source of truth for agent quality
+# scoring. The values below match the documented project spec in CLAUDE.md
+# and agents/validation-subagent.md.
+#
+# CURRENT consumer:
+#   - src/platxa_agent_generator/evaluation_criteria.py
+#       loads this file via EvaluationRubric.load_default().
+#
+# PLANNED consumers (NOT yet wired up — drift hazard, see below):
+#   - src/platxa_agent_generator/quality_scorer.py
+#       still hard-codes CRITERIA_WEIGHTS at lines 58-65 with values that
+#       disagree with this YAML on every axis (see "Drift hazard" below).
+#       A follow-up feature will replace that hard-coded dict with a
+#       call to EvaluationRubric.load_default().weights().
+#   - agents/validation-subagent.md
+#       advisory-threshold reference; codegen will regenerate the prompt's
+#       criteria block from this file rather than from hand-edited markdown.
+#
+# Drift hazard (intentional, scoped to feature #2):
+#   YAML weights:           clarity 0.20 completeness 0.20 tool_design 0.20
+#                           examples 0.15 security 0.15 documentation 0.10
+#   quality_scorer.py:      clarity 0.15 completeness 0.15 tool_design 0.15
+#                           examples 0.20 security 0.15 documentation 0.20
+#   The YAML reflects the documented spec; the runtime scorer drifted in a
+#   prior commit that promoted Examples/Documentation weights "based on
+#   research." Closing the gap is out of scope for feature #2 (which only
+#   creates the YAML + loader); a downstream feature must update
+#   quality_scorer.CRITERIA_WEIGHTS to call the loader.
+#
+# Invariants enforced by EvaluationRubric.__post_init__:
+#   - exactly 6 axes
+#   - axis names unique within the file
+#   - sum(axis.weight for axis in axes) == 1.0 (within 1e-9)
+#   - severity_on_unmet ∈ {CRITICAL, HIGH, MEDIUM, LOW}
+#
+# Severity rationale (one-line each):
+#   security      → CRITICAL: unsafe tool grants or credential leaks compromise the host environment.
+#   completeness  → HIGH: missing required components produce a non-functional agent artifact.
+#   tool_design   → HIGH: wrong or absent tool grants make the agent unable to perform its task.
+#   clarity       → MEDIUM: unclear prompts degrade reliability but the agent still runs.
+#   examples      → MEDIUM: missing examples reduce in-context grounding without breaking execution.
+#   documentation → LOW: thin documentation is advisory; downstream readers can still operate the agent.
+
+axes:
+  - name: clarity
+    weight: 0.20
+    severity_on_unmet: MEDIUM
+    criteria: >-
+      Prompt language is concrete, well-organized, and unambiguous. Section
+      headings, role description, and workflow are easy for both humans
+      and the LLM to parse. No vague directives ("be helpful", "do well")
+      without operational definition.
+
+  - name: completeness
+    weight: 0.20
+    severity_on_unmet: HIGH
+    criteria: >-
+      All required agent components are present and filled: name,
+      description (≤1024 chars), tools list, role/overview, workflow
+      steps, at least one worked example, and an output-format section.
+      No TODO placeholders or partial sections.
+
+  - name: tool_design
+    weight: 0.20
+    severity_on_unmet: HIGH
+    criteria: >-
+      Tool grants are minimal-necessary and named exactly per Claude
+      Code's tool catalog. High-risk tools (Bash, Write, Edit, WebFetch)
+      are justified in the prompt or omitted. No tools requested that
+      the agent never uses.
+
+  - name: examples
+    weight: 0.15
+    severity_on_unmet: MEDIUM
+    criteria: >-
+      At least one realistic input/output example covering the agent's
+      primary use case. Examples show concrete prompts, expected agent
+      behavior, and the structure of the final response. Edge cases or
+      failure paths covered when material to correctness.
+
+  - name: security
+    weight: 0.15
+    severity_on_unmet: CRITICAL
+    criteria: >-
+      No instructions encouraging credential exposure, arbitrary code
+      execution against the user's environment, or destructive irreversible
+      actions without confirmation. Prompt-injection resistance language
+      present when the agent reads untrusted content.
+
+  - name: documentation
+    weight: 0.10
+    severity_on_unmet: LOW
+    criteria: >-
+      Inline comments and references explain non-obvious decisions
+      (model choice, tool restrictions, workflow ordering). Cross-links
+      to project conventions or upstream patterns where relevant.
