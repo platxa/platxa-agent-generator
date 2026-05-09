@@ -27,7 +27,15 @@ except ImportError:
         parse_frontmatter_safe,
     )
 
-__all__ = ["ValidationError"]  # re-export for syntax_validator consumers
+__all__ = [
+    "INSTINCT_FIELD_CONSTRAINTS",
+    "INSTINCT_REQUIRED_FIELDS",
+    "INSTINCT_TYPES",
+    "InstinctSchemaError",
+    "ValidationError",
+    "assert_valid_instinct_frontmatter",
+    "validate_instinct_frontmatter",
+]
 
 
 @dataclass
@@ -720,6 +728,304 @@ def validate_mcp_servers(raw_frontmatter: dict, start_line: int = 1) -> list[Val
                 )
 
     return errors
+
+
+# ---------------------------------------------------------------------------
+# Instinct frontmatter schema (feature #8)
+#
+# The instinct.md.j2 template (feature #4) renders these fields and the
+# InstinctStore (feature #6) writes the rendered file as opaque bytes,
+# deferring schema validation here. The validator surface is sibling to
+# ``validate_frontmatter_fields`` (agents) and ``validate_mcp_servers``
+# (MCP block) — same dataclass-collector pattern, distinct error-code
+# range so failures from the two shapes never collide.
+#
+# Verification (per spec): "Invalid frontmatter (oversized name, bad
+# confidence, unknown type) raises ValidationError with specific field
+# name." The collector returns ValidationError dataclass entries whose
+# ``message`` always starts with ``Field 'X'`` so the field name is
+# structurally visible. ``assert_valid_instinct_frontmatter`` is the
+# raise-on-error wrapper that satisfies the literal "raises" wording —
+# its ``InstinctSchemaError`` (a ``ValueError`` subclass) carries every
+# offending field name in its message.
+# ---------------------------------------------------------------------------
+
+# The 8-value vocabulary is owned by feature #8. Downstream features
+# (observer #10, instinct-promoter #14, dedup #20, distill_principle
+# #23, cluster_instincts #24) depend on this set being stable, so any
+# future expansion goes through a separate spec feature.
+INSTINCT_TYPES: frozenset[str] = frozenset(
+    {
+        "pattern",
+        "preference",
+        "pitfall",
+        "workflow",
+        "convention",
+        "tool_use",
+        "heuristic",
+        "anti_pattern",
+    }
+)
+
+# Required at write time. ``occurrences`` is intentionally absent —
+# the template defaults it to 1 when omitted, so an instinct file on
+# disk may legitimately render without an explicit value.
+INSTINCT_REQUIRED_FIELDS: tuple[str, ...] = (
+    "name",
+    "description",
+    "type",
+    "confidence",
+)
+
+# Reuses the agent name pattern (lowercase, hyphen-case, must start
+# with a letter). The same regex underpins
+# ``InstinctStore._validate_component`` so paths and frontmatter agree.
+INSTINCT_FIELD_CONSTRAINTS: dict[str, dict[str, object]] = {
+    "name": {"max_length": 64, "pattern": r"^[a-z][a-z0-9-]*$"},
+    "description": {"max_length": 512},
+}
+
+
+class InstinctSchemaError(ValueError):
+    """Raised when instinct frontmatter violates the feature #8 schema.
+
+    The exception message concatenates every offending field's error so a
+    single ``raise`` surfaces all violations to the caller. ``ValueError``
+    base class keeps it consistent with the rest of the package's
+    exception hierarchy (``InstinctValidationError`` in
+    ``instinct_store.py`` is also a ``ValueError`` subclass).
+    """
+
+
+def validate_instinct_frontmatter(
+    frontmatter: dict,
+    raw_frontmatter: dict | None = None,
+    start_line: int = 1,
+) -> list[ValidationError]:
+    """Validate an instinct file's frontmatter against the feature #8 schema.
+
+    Required fields (``name``, ``description``, ``type``, ``confidence``)
+    must be present and non-empty. ``occurrences`` is optional but, if
+    provided, must be a non-negative integer. ``type`` must be a member
+    of :data:`INSTINCT_TYPES`. ``name`` enforces the same hyphen-case +
+    64-char ceiling used elsewhere in the package; ``description`` is
+    capped at 512.
+
+    The collector pattern (returns a list rather than raising) matches
+    ``validate_frontmatter_fields`` and ``validate_mcp_servers`` so the
+    three validators compose uniformly inside ``validate_content``.
+
+    Args:
+        frontmatter: Normalized string-keyed dict (e.g., from
+            ``parse_frontmatter``). Used as a fallback when
+            ``raw_frontmatter`` is None.
+        raw_frontmatter: Original typed dict (with int/float values
+            preserved). Preferred when available so numeric fields can
+            be checked without lossy stringification.
+        start_line: 1-based line number used for ``ValidationError.line``.
+
+    Returns:
+        Zero-or-more ``ValidationError`` entries. Each entry's
+        ``message`` names its offending field (``Field 'X' …``) so
+        downstream tooling can attribute errors structurally.
+    """
+    errors: list[ValidationError] = []
+
+    # Prefer typed values when available — confidence/occurrences need
+    # to compare as numbers, not strings.
+    source: dict = raw_frontmatter if raw_frontmatter is not None else frontmatter
+
+    # ---- Required-field presence ----------------------------------------
+    for field_name in INSTINCT_REQUIRED_FIELDS:
+        if field_name not in source:
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E026",
+                    message=f"Field {field_name!r}: missing required instinct field",
+                )
+            )
+            continue
+        value = source[field_name]
+        # An explicit None or whitespace-only string is treated as
+        # missing; numeric 0 is fine for confidence (handled below).
+        if value is None or (isinstance(value, str) and not value.strip()):
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E026",
+                    message=f"Field {field_name!r}: empty required instinct field",
+                )
+            )
+
+    # ---- name: max 64, hyphen-case --------------------------------------
+    if "name" in source and source["name"] not in (None, ""):
+        name = str(source["name"])
+        constraints = INSTINCT_FIELD_CONSTRAINTS["name"]
+        max_length = int(constraints["max_length"])  # type: ignore[arg-type]
+        pattern = str(constraints["pattern"])
+        if len(name) > max_length:
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E027",
+                    message=(f"Field 'name': exceeds {max_length} characters (got {len(name)})"),
+                )
+            )
+        if not re.match(pattern, name):
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E027",
+                    message=(
+                        f"Field 'name': must be hyphen-case (lowercase, "
+                        f"hyphens, start with letter), got {name!r}"
+                    ),
+                )
+            )
+
+    # ---- description: max 512 -------------------------------------------
+    if "description" in source and source["description"] not in (None, ""):
+        desc = str(source["description"])
+        max_len = int(INSTINCT_FIELD_CONSTRAINTS["description"]["max_length"])  # type: ignore[arg-type]
+        if len(desc) > max_len:
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E028",
+                    message=(
+                        f"Field 'description': exceeds {max_len} characters (got {len(desc)})"
+                    ),
+                )
+            )
+
+    # ---- confidence: float in [0, 1] ------------------------------------
+    if "confidence" in source and source["confidence"] not in (None, ""):
+        raw = source["confidence"]
+        # Reject bool explicitly — bool is a subclass of int in Python,
+        # but ``True``/``False`` are not valid confidence inputs.
+        if isinstance(raw, bool):
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E029",
+                    message=(f"Field 'confidence': must be a number, got bool {raw!r}"),
+                )
+            )
+        else:
+            try:
+                confidence = float(raw)
+            except (TypeError, ValueError):
+                errors.append(
+                    ValidationError(
+                        line=start_line,
+                        column=1,
+                        severity="error",
+                        code="E029",
+                        message=f"Field 'confidence': must be a number, got {raw!r}",
+                    )
+                )
+            else:
+                if not (0.0 <= confidence <= 1.0):
+                    errors.append(
+                        ValidationError(
+                            line=start_line,
+                            column=1,
+                            severity="error",
+                            code="E029",
+                            message=(f"Field 'confidence': must be in [0.0, 1.0], got {raw!r}"),
+                        )
+                    )
+
+    # ---- occurrences: optional int ≥ 0 ----------------------------------
+    if "occurrences" in source and source["occurrences"] not in (None, ""):
+        raw = source["occurrences"]
+        # ``int`` accepts floats via ``int(1.5) == 1`` — guard against
+        # silent truncation by rejecting non-integer numerics outright.
+        if isinstance(raw, bool):
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E030",
+                    message=f"Field 'occurrences': must be an integer, got bool {raw!r}",
+                )
+            )
+        elif isinstance(raw, int):
+            if raw < 0:
+                errors.append(
+                    ValidationError(
+                        line=start_line,
+                        column=1,
+                        severity="error",
+                        code="E030",
+                        message=f"Field 'occurrences': must be >= 0, got {raw}",
+                    )
+                )
+        else:
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E030",
+                    message=(f"Field 'occurrences': must be an integer, got {raw!r}"),
+                )
+            )
+
+    # ---- type: must be in INSTINCT_TYPES --------------------------------
+    if "type" in source and source["type"] not in (None, ""):
+        type_value = str(source["type"])
+        if type_value not in INSTINCT_TYPES:
+            errors.append(
+                ValidationError(
+                    line=start_line,
+                    column=1,
+                    severity="error",
+                    code="E031",
+                    message=(
+                        f"Field 'type': must be one of {sorted(INSTINCT_TYPES)}, got {type_value!r}"
+                    ),
+                )
+            )
+
+    return errors
+
+
+def assert_valid_instinct_frontmatter(
+    frontmatter: dict,
+    raw_frontmatter: dict | None = None,
+) -> None:
+    """Raise :class:`InstinctSchemaError` if frontmatter fails the schema.
+
+    Thin wrapper around :func:`validate_instinct_frontmatter`. Every
+    error message in the raised exception names the offending field, so
+    callers ``except InstinctSchemaError as e: ...`` can surface a
+    specific field-attributable error to the user.
+
+    Returns ``None`` when the frontmatter is valid, mirroring the
+    ``assert_X`` naming convention used elsewhere in the codebase.
+    """
+    errors = validate_instinct_frontmatter(frontmatter, raw_frontmatter)
+    if errors:
+        # Concatenate all violations into one exception message — the
+        # collector deliberately gathers every problem so the user sees
+        # them all in a single failure rather than one-at-a-time.
+        message = "; ".join(e.message for e in errors)
+        raise InstinctSchemaError(message)
 
 
 def validate_markdown_structure(
