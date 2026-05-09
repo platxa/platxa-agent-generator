@@ -6,6 +6,14 @@ Verification criteria for feature #6:
 * SHA-256 checksum stable + verify() catches mismatches
 * file lock prevents interleaved appends across 10 concurrent writers
   (threads in this process AND processes via a multiprocessing variant)
+
+Verification criteria for feature #7:
+
+* ``resolve_instinct_scope`` returns distinct paths for the same instinct
+  ``name`` under two different ``project_id`` values
+* the global scope (``project_id=None``) is shared — calling with
+  ``project_id=None`` from any caller yields the same path
+* ``project_id="global"`` is rejected to protect the reserved scope token
 """
 
 from __future__ import annotations
@@ -18,6 +26,7 @@ from pathlib import Path
 import pytest
 
 from platxa_agent_generator.instinct_store import (
+    GLOBAL_SCOPE,
     INDEX_FILENAME,
     INDEX_LOCK_FILENAME,
     INDEX_SCHEMA_VERSION,
@@ -25,6 +34,7 @@ from platxa_agent_generator.instinct_store import (
     InstinctEntry,
     InstinctStore,
     InstinctValidationError,
+    resolve_instinct_scope,
 )
 
 
@@ -442,6 +452,115 @@ class TestInstinctStoreProcessConcurrency:
         # Every entry's on-disk file matches its checksum
         for entry in store.list_entries():
             assert store.verify(entry.name)
+
+
+# --- resolve_instinct_scope (feature #7) -------------------------------
+
+
+class TestResolveInstinctScope:
+    """Verification of feature #7: project-scoped vs global path resolution."""
+
+    def test_global_scope_when_project_id_is_none(self, tmp_path: Path) -> None:
+        path = resolve_instinct_scope(
+            name="alpha", type_="behavior", project_id=None, root=tmp_path
+        )
+        assert path == tmp_path / GLOBAL_SCOPE / "behavior" / "alpha.md"
+
+    def test_project_scope_uses_project_id_segment(self, tmp_path: Path) -> None:
+        path = resolve_instinct_scope(
+            name="alpha", type_="behavior", project_id="proj-1", root=tmp_path
+        )
+        assert path == tmp_path / "proj-1" / "behavior" / "alpha.md"
+
+    def test_same_name_two_project_ids_produces_distinct_paths(self, tmp_path: Path) -> None:
+        # Verification criterion: same instinct name under two project_ids
+        # MUST resolve to distinct on-disk paths.
+        a = resolve_instinct_scope(
+            name="shared-name",
+            type_="behavior",
+            project_id="proj-a",
+            root=tmp_path,
+        )
+        b = resolve_instinct_scope(
+            name="shared-name",
+            type_="behavior",
+            project_id="proj-b",
+            root=tmp_path,
+        )
+        assert a != b
+        assert a.parent != b.parent
+        assert a.name == b.name == "shared-name.md"
+
+    def test_global_scope_is_shared_across_callers(self, tmp_path: Path) -> None:
+        # Verification criterion: the global scope is shared across
+        # projects — two None-project resolutions for the same name MUST
+        # collide on disk, AND must differ from any project-scoped path.
+        from_project_a = resolve_instinct_scope(
+            name="shared-name",
+            type_="behavior",
+            project_id=None,
+            root=tmp_path,
+        )
+        from_project_b = resolve_instinct_scope(
+            name="shared-name",
+            type_="behavior",
+            project_id=None,
+            root=tmp_path,
+        )
+        scoped = resolve_instinct_scope(
+            name="shared-name",
+            type_="behavior",
+            project_id="proj-a",
+            root=tmp_path,
+        )
+        assert from_project_a == from_project_b
+        assert from_project_a != scoped
+
+    def test_default_root_is_user_instincts_dir(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake_home = Path("/tmp/_resolve_test_home_does_not_need_to_exist")
+        monkeypatch.setattr(
+            "platxa_agent_generator.instinct_store.get_user_agents_dir",
+            lambda: fake_home / ".claude" / "agents",
+        )
+        path = resolve_instinct_scope(name="alpha", type_="behavior")
+        assert path == fake_home / ".claude" / "instincts" / GLOBAL_SCOPE / "behavior" / "alpha.md"
+
+    def test_returns_pathlib_path(self, tmp_path: Path) -> None:
+        path = resolve_instinct_scope(
+            name="alpha", type_="behavior", project_id="proj", root=tmp_path
+        )
+        assert isinstance(path, Path)
+
+    @pytest.mark.parametrize("bad_name", ["", "  ", "../escape", "with/slash", ".hidden"])
+    def test_invalid_name_rejected(self, tmp_path: Path, bad_name: str) -> None:
+        with pytest.raises(InstinctValidationError):
+            resolve_instinct_scope(
+                name=bad_name, type_="behavior", project_id="proj", root=tmp_path
+            )
+
+    @pytest.mark.parametrize("bad_type", ["", "../t", "a/b", ".dot"])
+    def test_invalid_type_rejected(self, tmp_path: Path, bad_type: str) -> None:
+        with pytest.raises(InstinctValidationError):
+            resolve_instinct_scope(name="alpha", type_=bad_type, project_id="proj", root=tmp_path)
+
+    @pytest.mark.parametrize("bad_pid", ["", "../escape", "with/slash", ".hidden"])
+    def test_invalid_project_id_rejected(self, tmp_path: Path, bad_pid: str) -> None:
+        with pytest.raises(InstinctValidationError):
+            resolve_instinct_scope(
+                name="alpha", type_="behavior", project_id=bad_pid, root=tmp_path
+            )
+
+    def test_project_id_global_token_is_reserved(self, tmp_path: Path) -> None:
+        # Reserving "global" prevents a malicious or accidental
+        # project_id="global" from colliding with the shared global scope.
+        with pytest.raises(InstinctValidationError) as exc_info:
+            resolve_instinct_scope(
+                name="alpha",
+                type_="behavior",
+                project_id=GLOBAL_SCOPE,
+                root=tmp_path,
+            )
+        assert "reserved" in str(exc_info.value).lower()
 
 
 # --- Module-level imports stable ---------------------------------------

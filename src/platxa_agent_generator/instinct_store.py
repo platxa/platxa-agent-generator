@@ -33,9 +33,12 @@ extension (feature #8). The store only enforces:
 * ``content`` is a ``str``
 * on-disk SHA-256 matches the index entry's recorded checksum
 
-The public ``resolve_instinct_scope()`` helper is intentionally absent —
-feature #7 will add it. Until then, the store derives paths internally
-via :meth:`InstinctStore._relative_path`.
+The module-level :func:`resolve_instinct_scope` helper returns the
+absolute filesystem path for an instinct given its ``name``, ``type_``,
+and optional ``project_id`` (``None`` ⇒ shared global scope). The
+:class:`InstinctStore` class still derives its own paths internally via
+:meth:`InstinctStore._relative_path`; the helper is for callers that
+need to address an instinct file without instantiating a store.
 """
 
 from __future__ import annotations
@@ -92,6 +95,52 @@ def _get_thread_lock(root: Path) -> threading.Lock:
 def _default_instincts_root() -> Path:
     """Resolve ``~/.claude/instincts/`` from the user agents dir parent."""
     return get_user_agents_dir().parent / "instincts"
+
+
+GLOBAL_SCOPE: str = "global"
+
+
+def resolve_instinct_scope(
+    *,
+    name: str,
+    type_: str,
+    project_id: str | None = None,
+    root: Path | None = None,
+) -> Path:
+    """Return the absolute filesystem path for an instinct.
+
+    Layout:
+
+    * ``project_id is None`` ⇒ ``{root}/global/{type_}/{name}.md``
+      (shared across projects)
+    * ``project_id`` is a string ⇒ ``{root}/{project_id}/{type_}/{name}.md``
+      (one tree per project; same ``name`` under two distinct
+      ``project_id`` values resolves to distinct paths)
+
+    ``root`` defaults to ``~/.claude/instincts/`` (resolved via
+    :func:`_default_instincts_root`) so ``Path``-only callers can address
+    an instinct file without instantiating an :class:`InstinctStore`.
+
+    All components are validated with the same component regex used by
+    the store, and ``project_id`` may not be the literal string
+    ``"global"`` — that token is reserved for the shared scope so that
+    a malicious or accidental ``project_id="global"`` cannot collide
+    with global instincts on disk.
+    """
+    _validate_component(name, label="name")
+    _validate_component(type_, label="type")
+    if project_id is None:
+        scope = GLOBAL_SCOPE
+    else:
+        _validate_component(project_id, label="project_id")
+        if project_id == GLOBAL_SCOPE:
+            raise InstinctValidationError(
+                f"project_id may not be the reserved scope name "
+                f"{GLOBAL_SCOPE!r}; use project_id=None for the global scope"
+            )
+        scope = project_id
+    base = root if root is not None else _default_instincts_root()
+    return base / scope / type_ / f"{name}.md"
 
 
 @contextlib.contextmanager
@@ -442,6 +491,7 @@ class InstinctStore:
 
 
 __all__ = [
+    "GLOBAL_SCOPE",
     "INDEX_FILENAME",
     "INDEX_LOCK_FILENAME",
     "INDEX_SCHEMA_VERSION",
@@ -449,4 +499,5 @@ __all__ = [
     "InstinctEntry",
     "InstinctStore",
     "InstinctValidationError",
+    "resolve_instinct_scope",
 ]
