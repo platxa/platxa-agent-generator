@@ -1,0 +1,58 @@
+{#-
+    Renders an instinct markdown file.
+
+    Consumed by:
+      - InstinctStore (feature #6) — writes rendered output to
+        ~/.claude/instincts/{project_id}/{type}/{name}.md (or .../global/...).
+      - syntax_validator instinct extension (feature #8) — schema-checks the
+        rendered frontmatter (name ≤64, description ≤512, confidence in [0,1],
+        occurrences ≥0, valid type enum).
+
+    Required inputs:
+      name          : str (≤64 chars, hyphen-case)
+      description   : str (≤512 chars, single-line)
+      type          : str (instinct type — validated by feature #8 enum)
+      confidence    : float in [0, 1]
+      created       : ISO 8601 datetime, e.g. "2026-05-09T12:00:00Z"
+      last_seen     : ISO 8601 datetime
+      action        : str (markdown body — what the instinct tells you to do)
+      evidence      : str (markdown body — observations supporting it)
+      examples      : str (markdown body — concrete cases or counter-cases)
+
+    Optional inputs (defaults shown):
+      occurrences   : int >= 0  (default 1)
+      success_count : int >= 0  (default 0)
+      usage_count   : int >= 0  (default 0)
+      ttl_days      : int > 0   (default 30)
+      project_scope : str       (default "global"; otherwise project_id)
+
+    String fields go through the `tojson` filter so embedded quotes, colons, or
+    other YAML-significant characters round-trip cleanly through yaml.safe_load.
+-#}
+---
+name: {{ name | tojson }}
+description: {{ description | tojson }}
+type: {{ type | tojson }}
+confidence: {{ confidence }}
+created: {{ created | tojson }}
+last_seen: {{ last_seen | tojson }}
+occurrences: {{ occurrences | default(1) }}
+success_count: {{ success_count | default(0) }}
+usage_count: {{ usage_count | default(0) }}
+ttl_days: {{ ttl_days | default(30) }}
+project_scope: {{ project_scope | default('global') | tojson }}
+---
+
+# {{ name }}
+
+## Action
+
+{{ action }}
+
+## Evidence
+
+{{ evidence }}
+
+## Examples
+
+{{ examples }}
