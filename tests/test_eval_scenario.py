@@ -24,6 +24,19 @@ from platxa_agent_generator.eval_scenario import (
     SCENARIO_TYPES,
     EvalScenario,
     EvalScenarioValidationError,
+    validate_binary_criterion,
+)
+
+# Five (vague, concrete) example pairs exercised by the
+# validate_binary_criterion tests below. The vague form must raise; the
+# concrete rephrasing must pass — covering verification criterion #2 of
+# feature #9 ("5 example pairs in test fixtures").
+_VAGUE_VS_CONCRETE_PAIRS: tuple[tuple[str, str], ...] = (
+    ("output should be good", "output contains <promise>COMPLETE</promise>"),
+    ("result looks reasonable", "result matches /^PASS$/"),
+    ("the code is well-written", "exit code equals 0"),
+    ("output seems okay", "function returns 5"),
+    ("high quality output", "outputs 'DONE' to stdout"),
 )
 
 
@@ -246,3 +259,158 @@ def test_eval_scenario_is_frozen() -> None:
     scenario = EvalScenario.from_mapping(_good_payload())
     with pytest.raises(Exception):  # FrozenInstanceError is a dataclass.FrozenInstanceError
         scenario.prompt = "mutated"  # type: ignore[misc]
+
+
+# --------------------------------------------------------------------------
+# Feature #9 — validate_binary_criterion()
+#
+# Verification criteria from the feature spec:
+#   1. Vague criterion rejected with reason
+#      ("output should be good")
+#   2. Concrete criterion accepted
+#      ("output contains <promise>COMPLETE</promise>")
+#   3. 5 example pairs in test fixtures
+#      (see _VAGUE_VS_CONCRETE_PAIRS at top of file)
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(("vague", "concrete"), _VAGUE_VS_CONCRETE_PAIRS)
+def test_validate_binary_criterion_rejects_vague_accepts_concrete(
+    vague: str, concrete: str
+) -> None:
+    """Each fixture pair: vague form raises, concrete form passes silently."""
+    with pytest.raises(EvalScenarioValidationError, match="not falsifiable"):
+        validate_binary_criterion(vague)
+    # Concrete rephrasing must NOT raise.
+    validate_binary_criterion(concrete)
+
+
+def test_validate_binary_criterion_error_names_the_offending_phrase() -> None:
+    """The rejection reason must quote the matched vague predicate so authors
+    know what to rewrite."""
+    with pytest.raises(EvalScenarioValidationError) as excinfo:
+        validate_binary_criterion("the output should be good and useful")
+    msg = str(excinfo.value)
+    assert "not falsifiable" in msg
+    assert "should be good" in msg
+    # Error must steer the author toward concrete anchors.
+    assert "binary-criterion" in msg or "binary check" in msg or "regex" in msg
+
+
+def test_validate_binary_criterion_rejects_empty_string() -> None:
+    with pytest.raises(EvalScenarioValidationError, match="non-empty"):
+        validate_binary_criterion("")
+
+
+def test_validate_binary_criterion_rejects_whitespace_only() -> None:
+    with pytest.raises(EvalScenarioValidationError, match="non-empty"):
+        validate_binary_criterion("   \t\n")
+
+
+def test_validate_binary_criterion_rejects_non_string() -> None:
+    with pytest.raises(EvalScenarioValidationError, match="non-empty string"):
+        validate_binary_criterion(42)  # type: ignore[arg-type]
+
+
+def test_validate_binary_criterion_accepts_existing_good_criteria() -> None:
+    """Criteria from the existing test fixtures (used by feature #5) and the
+    eval-scenario-authoring skill's G1-G3 examples must continue to pass —
+    this check is the regression guard against false positives that would
+    block already-shipping scenarios."""
+    accepted = (
+        "module exposes add()",
+        "add(2, 3) returns 5",
+        "REQUEST_CHANGES|REJECT|cannot.approve",
+        "test|pytest|verification|evidence",
+        "Candidate B",
+        "exit code is 0",
+        "output contains 'PASS'",
+        "matches /^DONE$/",
+    )
+    for criterion in accepted:
+        validate_binary_criterion(criterion)  # must not raise
+
+
+@pytest.mark.parametrize(
+    "vague",
+    [
+        "output is good",
+        "result is reasonable",
+        "should be appropriate",
+        "looks fine",
+        "seems acceptable",
+        "appears correct",
+        "well-written code",
+        "well structured output",
+        "high-quality result",
+        "low quality output",
+        "works correctly",
+        "works as expected",
+        "looks correct",
+        "looks right",
+    ],
+)
+def test_validate_binary_criterion_rejects_canonical_vague_shapes(vague: str) -> None:
+    with pytest.raises(EvalScenarioValidationError, match="not falsifiable"):
+        validate_binary_criterion(vague)
+
+
+def test_eval_scenario_post_init_rejects_vague_criterion() -> None:
+    """The validator is wired into EvalScenario.__post_init__ so vague
+    criteria sneak in via neither direct construction nor from_mapping."""
+    with pytest.raises(EvalScenarioValidationError, match="not falsifiable"):
+        EvalScenario(
+            prompt="Implement add(a, b).",
+            success_criteria=("add(2, 3) returns 5", "code looks reasonable"),
+            axis="correctness",
+            type="capability",
+        )
+
+
+def test_eval_scenario_from_mapping_rejects_vague_criterion() -> None:
+    with pytest.raises(EvalScenarioValidationError, match="not falsifiable"):
+        EvalScenario.from_mapping(
+            _good_payload(success_criteria=["add() exists", "output should be good"])
+        )
+
+
+# --------------------------------------------------------------------------
+# Quoted/regex-literal anchor exception (review fix)
+#
+# A criterion whose vague phrase appears INSIDE a single-quote, double-quote,
+# or /…/ regex span is asserting that the agent emitted (or did not emit)
+# that exact literal — a perfectly binary check that the grader can decide
+# with `re.search`. Such criteria must NOT be rejected. This regression
+# guard came from the code-reviewer's "important" finding on feature #9.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "output contains 'looks correct'",
+        'output contains "is good"',
+        "matches /works correctly/",
+        "function returns the string 'works correctly'",
+        "agent emits 'high quality'",
+        "includes substring 'well-written'",
+        "stdout matches /works correctly/",
+        "response includes 'is correct' verbatim",
+        "output does NOT contain 'looks good'",
+    ],
+)
+def test_validate_binary_criterion_accepts_vague_phrase_inside_literal(criterion: str) -> None:
+    """Negative-recitation and quoted-literal anchor scenarios must pass —
+    the vague phrase is the grader's target, not the criterion's predicate."""
+    validate_binary_criterion(criterion)  # must not raise
+
+
+def test_validate_binary_criterion_rejects_vague_outside_literal_even_when_literal_present() -> (
+    None
+):
+    """If the criterion contains BOTH a quoted literal AND an unquoted vague
+    predicate, the unquoted predicate must still trigger rejection."""
+    with pytest.raises(EvalScenarioValidationError, match="not falsifiable"):
+        # Quoted "looks correct" is the literal target; the unquoted "is
+        # good" is the actual vague predicate of the criterion.
+        validate_binary_criterion("output contains 'looks correct' and result is good")
