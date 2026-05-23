@@ -165,3 +165,6 @@ checkpoints/
 .claude/feature_list.json.build-complete-90of90-backup-20260420
 .claude/generated_features.json.pre-hardening-backup-20260420
 .claude/spec.md
+CLAUDE.local.md
+.claude/agent-memory-local/
+.claude/agent-memory/*/audit_*.md
