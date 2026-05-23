@@ -130,6 +130,30 @@ class TestObservationRecordSchema:
         assert record.examples == []
         assert record.outcome == ""
         assert record.confidence == 1.0
+        assert record.promoted_to is None
+
+    @pytest.mark.parametrize("bad_value", ["", "   "])
+    def test_promoted_to_empty_string_raises(self, bad_value: str) -> None:
+        with pytest.raises(ObservationValidationError, match="promoted_to"):
+            ObservationRecord(
+                timestamp="t",
+                tool="t",
+                input_summary="t",
+                project_id="t",
+                project_name="t",
+                promoted_to=bad_value,
+            )
+
+    def test_promoted_to_accepts_valid_instinct_id(self) -> None:
+        record = ObservationRecord(
+            timestamp="t",
+            tool="t",
+            input_summary="t",
+            project_id="t",
+            project_name="t",
+            promoted_to="instinct-abc123",
+        )
+        assert record.promoted_to == "instinct-abc123"
 
 
 # --- Backward compatibility (existing 5-field rows must still parse) ----
@@ -151,6 +175,7 @@ class TestObservationRecordBackwardCompat:
         assert record.session_id == ""
         assert record.type == "tool_use"
         assert record.confidence == 1.0
+        assert record.promoted_to is None
 
     def test_unknown_keys_are_ignored(self) -> None:
         future_shape = {
@@ -386,3 +411,101 @@ class TestObservationStoreConcurrency:
             data = json.loads(raw)
             assert "timestamp" in data
             assert "tool" in data
+
+
+# --- mark_promoted (feature #25) -----------------------------------------
+
+
+class TestMarkPromoted:
+    """Verification: promoting observation O writes promoted_to=instinct_id back."""
+
+    def _make_store(self, tmp_path: Path) -> ObservationStore:
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        store.append(ObservationRecord(
+            timestamp="t1", tool="Bash", input_summary="s1",
+            project_id="p", project_name="pn", session_id="sess-a",
+        ))
+        store.append(ObservationRecord(
+            timestamp="t2", tool="Read", input_summary="s2",
+            project_id="p", project_name="pn", session_id="sess-a",
+        ))
+        store.append(ObservationRecord(
+            timestamp="t3", tool="Bash", input_summary="s3",
+            project_id="p", project_name="pn", session_id="sess-b",
+        ))
+        return store
+
+    def test_marks_matching_record(self, tmp_path: Path) -> None:
+        store = self._make_store(tmp_path)
+        updated = store.mark_promoted(
+            "instinct-xyz",
+            match=lambda r: r.timestamp == "t2",
+        )
+        assert updated == 1
+        records = store.read_all()
+        assert records[0].promoted_to is None
+        assert records[1].promoted_to == "instinct-xyz"
+        assert records[2].promoted_to is None
+
+    def test_marks_multiple_matching_records(self, tmp_path: Path) -> None:
+        store = self._make_store(tmp_path)
+        updated = store.mark_promoted(
+            "instinct-bulk",
+            match=lambda r: r.tool == "Bash",
+        )
+        assert updated == 2
+        records = store.read_all()
+        assert records[0].promoted_to == "instinct-bulk"
+        assert records[1].promoted_to is None
+        assert records[2].promoted_to == "instinct-bulk"
+
+    def test_skips_already_promoted_records(self, tmp_path: Path) -> None:
+        store = self._make_store(tmp_path)
+        store.mark_promoted("first", match=lambda r: r.timestamp == "t1")
+        updated = store.mark_promoted("second", match=lambda r: r.timestamp == "t1")
+        assert updated == 0
+        records = store.read_all()
+        assert records[0].promoted_to == "first"
+
+    def test_returns_zero_on_no_match(self, tmp_path: Path) -> None:
+        store = self._make_store(tmp_path)
+        updated = store.mark_promoted("x", match=lambda r: r.timestamp == "nonexistent")
+        assert updated == 0
+
+    def test_returns_zero_on_missing_file(self, tmp_path: Path) -> None:
+        store = ObservationStore(path=tmp_path / "missing.jsonl")
+        updated = store.mark_promoted("x", match=lambda _: True)
+        assert updated == 0
+
+    def test_preserves_malformed_lines(self, tmp_path: Path) -> None:
+        path = tmp_path / "obs.jsonl"
+        good_line = json.dumps({
+            "timestamp": "t1", "tool": "t", "input_summary": "s",
+            "project_id": "p", "project_name": "pn",
+        })
+        path.write_text(good_line + "\nnot-json\n" + good_line.replace("t1", "t2") + "\n")
+        store = ObservationStore(path=path)
+        store.mark_promoted("inst", match=lambda r: r.timestamp == "t1")
+        raw_lines = path.read_text().splitlines()
+        assert len(raw_lines) == 3
+        assert raw_lines[1] == "not-json"
+        data = json.loads(raw_lines[0])
+        assert data["promoted_to"] == "inst"
+
+    def test_empty_instinct_id_raises(self, tmp_path: Path) -> None:
+        store = self._make_store(tmp_path)
+        with pytest.raises(ObservationValidationError, match="instinct_id"):
+            store.mark_promoted("", match=lambda _: True)
+
+    def test_promoted_to_roundtrips_through_jsonl(self, tmp_path: Path) -> None:
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        record = ObservationRecord(
+            timestamp="t", tool="t", input_summary="s",
+            project_id="p", project_name="pn",
+            promoted_to="instinct-roundtrip",
+        )
+        store.append(record)
+        read_back = store.read_all()
+        assert len(read_back) == 1
+        assert read_back[0].promoted_to == "instinct-roundtrip"
+        assert read_back[0] == record

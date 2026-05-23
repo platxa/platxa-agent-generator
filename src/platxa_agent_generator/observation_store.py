@@ -85,6 +85,7 @@ class ObservationRecord:
     examples: list[str] = field(default_factory=list)
     outcome: str = ""
     confidence: float = 1.0
+    promoted_to: str | None = None
 
     def __post_init__(self) -> None:
         for name in REQUIRED_FIELDS:
@@ -105,6 +106,12 @@ class ObservationRecord:
             isinstance(e, str) for e in self.examples
         ):
             raise ObservationValidationError("examples must be a list of strings")
+        if self.promoted_to is not None and (
+            not isinstance(self.promoted_to, str) or not self.promoted_to.strip()
+        ):
+            raise ObservationValidationError(
+                "promoted_to must be None or a non-empty string"
+            )
 
     def to_jsonl(self) -> str:
         """Serialize as one JSON line (terminating newline included)."""
@@ -132,6 +139,7 @@ class ObservationRecord:
             "examples",
             "outcome",
             "confidence",
+            "promoted_to",
         }
         kwargs = {k: v for k, v in data.items() if k in known}
         return cls(**kwargs)
@@ -209,6 +217,64 @@ class ObservationStore:
     def count(self) -> int:
         """Count parseable records on disk (cheap; iterates lazily)."""
         return sum(1 for _ in self.iter_records())
+
+    def mark_promoted(
+        self,
+        instinct_id: str,
+        *,
+        match: typing.Callable[[ObservationRecord], bool],
+    ) -> int:
+        """Set ``promoted_to`` on every record matched by *match*.
+
+        Rewrites the entire JSONL file under an exclusive lock. Lines that
+        fail to parse are preserved verbatim so the rewrite is non-lossy.
+        Returns the number of records updated.
+        """
+        if not instinct_id or not instinct_id.strip():
+            raise ObservationValidationError(
+                "instinct_id must be a non-empty string"
+            )
+        if not self.path.exists():
+            return 0
+
+        updated = 0
+        rewritten: list[str] = []
+
+        with FileLock(self.lock_path):
+            raw_lines = self.path.read_text(encoding="utf-8").splitlines(keepends=True)
+            for raw in raw_lines:
+                line = raw.strip()
+                if not line:
+                    rewritten.append(raw)
+                    continue
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    rewritten.append(raw)
+                    continue
+                if not isinstance(data, dict):
+                    rewritten.append(raw)
+                    continue
+                try:
+                    record = ObservationRecord.from_dict(data)
+                except (ObservationValidationError, TypeError, ValueError):
+                    rewritten.append(raw)
+                    continue
+
+                if match(record) and record.promoted_to is None:
+                    data["promoted_to"] = instinct_id
+                    rewritten.append(
+                        json.dumps(data, ensure_ascii=True, sort_keys=True) + "\n"
+                    )
+                    updated += 1
+                else:
+                    rewritten.append(raw)
+
+            tmp = self.path.with_suffix(".tmp")
+            tmp.write_text("".join(rewritten), encoding="utf-8")
+            tmp.replace(self.path)
+
+        return updated
 
     def checksum(self) -> str:
         """SHA-256 hex digest of the file's bytes (empty if file absent)."""
