@@ -44,6 +44,7 @@ need to address an instinct file without instantiating a store.
 from __future__ import annotations
 
 import contextlib
+import difflib
 import fcntl
 import hashlib
 import json
@@ -53,8 +54,9 @@ import tempfile
 import threading
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Generator, Iterator
+from typing import Callable, Generator, Iterator, Literal
 
+from .shared.frontmatter import parse_frontmatter_safe
 from .shared.paths import get_user_agents_dir
 
 INDEX_FILENAME: str = "index.json"
@@ -490,7 +492,138 @@ class InstinctStore:
         return _sha256_hex(data)
 
 
+# --- Dedup thresholds ----------------------------------------------------
+
+DEDUP_FAST_ACCEPT: float = 0.95
+DEDUP_FAST_MAYBE: float = 0.6
+
+
+@dataclass
+class DedupResult:
+    """Outcome of comparing a candidate instinct against the store."""
+
+    is_duplicate: bool
+    matched_name: str | None
+    similarity_score: float
+    method: Literal["exact", "fast", "llm", "none"]
+
+
+LlmJudge = Callable[[str, str], bool]
+"""Signature for the optional LLM equivalence callback.
+
+Receives ``(candidate_description, existing_description)`` and returns
+``True`` when the two instincts are semantically equivalent.
+"""
+
+
+def _extract_description(content: str) -> str:
+    """Extract the ``description`` field from instinct markdown frontmatter."""
+    fm, errors = parse_frontmatter_safe(content)
+    if fm is None or errors:
+        return ""
+    return str(fm.get("description", "")).strip()
+
+
+def _similarity(a: str, b: str) -> float:
+    """SequenceMatcher ratio between two strings, case-insensitive."""
+    return difflib.SequenceMatcher(None, a.lower(), b.lower()).ratio()
+
+
+def dedup_instinct(
+    *,
+    name: str,
+    description: str,
+    store: InstinctStore,
+    llm_judge: LlmJudge | None = None,
+) -> DedupResult:
+    """Two-stage deduplication check for a candidate instinct.
+
+    Stage 0 (exact): An existing instinct with the same ``name`` is an
+    immediate duplicate — no similarity computation needed.
+
+    Stage 1 (fast): ``SequenceMatcher`` on the ``description`` field.
+    A score ≥ 0.95 is an immediate duplicate; < 0.6 is immediately
+    distinct.
+
+    Stage 2 (semantic): For scores in [0.6, 0.95), ``llm_judge`` is
+    called when provided. If ``llm_judge`` is ``None`` the candidate is
+    treated as distinct (conservative — avoids false-positive dedup
+    without LLM confirmation).
+    """
+    _validate_component(name, label="name")
+
+    entries = store.list_entries()
+    if not entries:
+        return DedupResult(
+            is_duplicate=False,
+            matched_name=None,
+            similarity_score=0.0,
+            method="none",
+        )
+
+    best_score = 0.0
+    best_name: str | None = None
+    best_existing_desc = ""
+
+    for entry in entries:
+        if entry.name == name:
+            return DedupResult(
+                is_duplicate=True,
+                matched_name=entry.name,
+                similarity_score=1.0,
+                method="exact",
+            )
+
+        existing_content = store.get(entry.name)
+        existing_desc = _extract_description(existing_content) if existing_content else ""
+        if not existing_desc:
+            continue
+
+        desc_sim = _similarity(description, existing_desc)
+
+        if desc_sim > best_score:
+            best_score = desc_sim
+            best_name = entry.name
+            best_existing_desc = existing_desc
+
+    if best_score >= DEDUP_FAST_ACCEPT:
+        return DedupResult(
+            is_duplicate=True,
+            matched_name=best_name,
+            similarity_score=best_score,
+            method="fast",
+        )
+
+    if best_score < DEDUP_FAST_MAYBE:
+        return DedupResult(
+            is_duplicate=False,
+            matched_name=None,
+            similarity_score=best_score,
+            method="fast",
+        )
+
+    # Ambiguous zone — defer to LLM judge when available.
+    if llm_judge is not None and best_existing_desc:
+        is_dup = llm_judge(description, best_existing_desc)
+        return DedupResult(
+            is_duplicate=is_dup,
+            matched_name=best_name if is_dup else None,
+            similarity_score=best_score,
+            method="llm",
+        )
+
+    return DedupResult(
+        is_duplicate=False,
+        matched_name=None,
+        similarity_score=best_score,
+        method="none",
+    )
+
+
 __all__ = [
+    "DEDUP_FAST_ACCEPT",
+    "DEDUP_FAST_MAYBE",
+    "DedupResult",
     "GLOBAL_SCOPE",
     "INDEX_FILENAME",
     "INDEX_LOCK_FILENAME",
@@ -499,5 +632,7 @@ __all__ = [
     "InstinctEntry",
     "InstinctStore",
     "InstinctValidationError",
+    "LlmJudge",
+    "dedup_instinct",
     "resolve_instinct_scope",
 ]

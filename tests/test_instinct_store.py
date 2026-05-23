@@ -26,6 +26,8 @@ from pathlib import Path
 import pytest
 
 from platxa_agent_generator.instinct_store import (
+    DEDUP_FAST_ACCEPT,
+    DEDUP_FAST_MAYBE,
     GLOBAL_SCOPE,
     INDEX_FILENAME,
     INDEX_LOCK_FILENAME,
@@ -34,6 +36,7 @@ from platxa_agent_generator.instinct_store import (
     InstinctEntry,
     InstinctStore,
     InstinctValidationError,
+    dedup_instinct,
     resolve_instinct_scope,
 )
 
@@ -561,6 +564,233 @@ class TestResolveInstinctScope:
                 root=tmp_path,
             )
         assert "reserved" in str(exc_info.value).lower()
+
+
+# --- dedup_instinct (feature #20) ----------------------------------------
+
+
+def _instinct_md_with_desc(name: str, description: str, action: str = "Do the thing.") -> str:
+    """Return instinct markdown with a specific description for dedup testing."""
+    return (
+        "---\n"
+        f'name: "{name}"\n'
+        f'description: "{description}"\n'
+        'type: "pattern"\n'
+        "confidence: 0.8\n"
+        'created: "2026-05-24T12:00:00Z"\n'
+        'last_seen: "2026-05-24T12:00:00Z"\n'
+        "occurrences: 1\n"
+        "success_count: 0\n"
+        "usage_count: 0\n"
+        "ttl_days: 30\n"
+        'project_scope: "global"\n'
+        "---\n\n"
+        f"# {name}\n\n## Action\n\n{action}\n\n## Evidence\n\nnone\n\n## Examples\n\nnone\n"
+    )
+
+
+class TestDedupInstinctExactMatch:
+    """Identical instincts deduped without Task call."""
+
+    def test_exact_name_match_is_duplicate(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="use-grep-first",
+            scope="global",
+            type_="pattern",
+            content=_instinct_md_with_desc(
+                "use-grep-first", "Always grep before reading whole files"
+            ),
+        )
+        result = dedup_instinct(
+            name="use-grep-first",
+            description="Always grep before reading whole files",
+            store=store,
+        )
+        assert result.is_duplicate is True
+        assert result.matched_name == "use-grep-first"
+        assert result.similarity_score == 1.0
+        assert result.method == "exact"
+
+    def test_identical_description_high_score_is_duplicate(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="grep-before-read",
+            scope="global",
+            type_="pattern",
+            content=_instinct_md_with_desc(
+                "grep-before-read",
+                "Always use grep to locate symbols before reading entire files",
+            ),
+        )
+        result = dedup_instinct(
+            name="grep-first-pattern",
+            description="Always use grep to locate symbols before reading entire files",
+            store=store,
+        )
+        assert result.is_duplicate is True
+        assert result.similarity_score >= DEDUP_FAST_ACCEPT
+        assert result.method == "fast"
+
+
+class TestDedupInstinctLlmFallback:
+    """Semantically-equivalent instincts deduped via LLM judge callback."""
+
+    def test_similar_description_triggers_llm_and_dedupes(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        existing_desc = "Use grep to search for identifiers before loading full file contents"
+        store.put(
+            name="grep-before-read",
+            scope="global",
+            type_="pattern",
+            content=_instinct_md_with_desc("grep-before-read", existing_desc),
+        )
+        judge_calls: list[tuple[str, str]] = []
+        candidate_desc = "Use grep to find symbols before reading full file contents"
+
+        def mock_judge(candidate: str, existing: str) -> bool:
+            judge_calls.append((candidate, existing))
+            return True
+
+        result = dedup_instinct(
+            name="search-then-read",
+            description=candidate_desc,
+            store=store,
+            llm_judge=mock_judge,
+        )
+        assert result.is_duplicate is True
+        assert result.method == "llm"
+        assert len(judge_calls) == 1
+        assert result.matched_name == "grep-before-read"
+
+    def test_llm_judge_says_distinct_preserves(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        existing_desc = "Use grep to search for identifiers before loading full file contents"
+        store.put(
+            name="grep-before-read",
+            scope="global",
+            type_="pattern",
+            content=_instinct_md_with_desc("grep-before-read", existing_desc),
+        )
+        candidate_desc = "Use grep to find symbols before reading full file contents"
+
+        def mock_judge(_candidate: str, _existing: str) -> bool:
+            return False
+
+        result = dedup_instinct(
+            name="search-then-read",
+            description=candidate_desc,
+            store=store,
+            llm_judge=mock_judge,
+        )
+        assert result.is_duplicate is False
+        assert result.method == "llm"
+        assert result.matched_name is None
+
+    def test_no_llm_judge_in_ambiguous_zone_is_conservative(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        existing_desc = "Use grep to search for identifiers before loading full file contents"
+        store.put(
+            name="grep-before-read",
+            scope="global",
+            type_="pattern",
+            content=_instinct_md_with_desc("grep-before-read", existing_desc),
+        )
+        candidate_desc = "Use grep to find symbols before reading full file contents"
+        result = dedup_instinct(
+            name="search-then-read",
+            description=candidate_desc,
+            store=store,
+            llm_judge=None,
+        )
+        assert result.is_duplicate is False
+        assert result.method == "none"
+
+
+class TestDedupInstinctDistinct:
+    """Truly distinct instincts preserved."""
+
+    def test_completely_different_instincts_are_not_duplicates(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="grep-before-read",
+            scope="global",
+            type_="pattern",
+            content=_instinct_md_with_desc(
+                "grep-before-read",
+                "Use grep to search for identifiers before loading full file contents",
+            ),
+        )
+        result = dedup_instinct(
+            name="run-tests-first",
+            description="Always run the test suite before committing code changes",
+            store=store,
+        )
+        assert result.is_duplicate is False
+        assert result.similarity_score < DEDUP_FAST_MAYBE
+        assert result.method == "fast"
+
+    def test_empty_store_returns_not_duplicate(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        result = dedup_instinct(
+            name="new-instinct",
+            description="A brand new instinct",
+            store=store,
+        )
+        assert result.is_duplicate is False
+        assert result.matched_name is None
+        assert result.similarity_score == 0.0
+        assert result.method == "none"
+
+    def test_multiple_instincts_picks_best_match(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="use-typescript",
+            scope="global",
+            type_="convention",
+            content=_instinct_md_with_desc(
+                "use-typescript", "Always write frontend code in TypeScript"
+            ),
+        )
+        store.put(
+            name="prefer-python",
+            scope="global",
+            type_="convention",
+            content=_instinct_md_with_desc("prefer-python", "Always write backend code in Python"),
+        )
+        result = dedup_instinct(
+            name="write-backend-python",
+            description="Backend services should be written in Python",
+            store=store,
+        )
+        assert result.matched_name == "prefer-python" or result.similarity_score < DEDUP_FAST_MAYBE
+
+
+class TestDedupInstinctEdgeCases:
+    def test_instinct_with_corrupt_frontmatter_skipped(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="corrupt-one",
+            scope="global",
+            type_="pattern",
+            content="not valid frontmatter at all",
+        )
+        store.put(
+            name="valid-one",
+            scope="global",
+            type_="pattern",
+            content=_instinct_md_with_desc("valid-one", "A valid instinct description"),
+        )
+        result = dedup_instinct(
+            name="valid-one",
+            description="A valid instinct description",
+            store=store,
+        )
+        assert result.is_duplicate is True
+        assert result.matched_name == "valid-one"
+
+    def test_dedup_thresholds_are_sane(self) -> None:
+        assert 0.0 < DEDUP_FAST_MAYBE < DEDUP_FAST_ACCEPT <= 1.0
 
 
 # --- Module-level imports stable ---------------------------------------
