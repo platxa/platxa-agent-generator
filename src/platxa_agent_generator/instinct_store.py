@@ -361,6 +361,39 @@ class InstinctStore:
 
     # --- Public write API -------------------------------------------------
 
+    def _put_locked(
+        self,
+        *,
+        name: str,
+        scope: str,
+        type_: str,
+        content: str,
+        created: str = "",
+        last_seen: str = "",
+    ) -> InstinctEntry:
+        """Write an instinct file and update the index — caller holds locks."""
+        relative = self._relative_path(scope=scope, type_=type_, name=name)
+        target = self._absolute_path(relative)
+
+        encoded = content.encode("utf-8")
+        checksum = _sha256_hex(encoded)
+
+        size = self._write_file_atomic(target, content)
+        index = self._read_index()
+        result = InstinctEntry(
+            name=name,
+            scope=scope,
+            type=type_,
+            path=relative,
+            checksum=checksum,
+            size=size,
+            created=created,
+            last_seen=last_seen,
+        )
+        index.instincts[name] = result
+        self._write_index_atomic(index)
+        return result
+
     def put(
         self,
         *,
@@ -377,31 +410,17 @@ class InstinctStore:
         with the same ``name`` are overwritten (the index is the unique
         key — collisions across scopes are caller-disallowed).
         """
-        relative = self._relative_path(scope=scope, type_=type_, name=name)
-        target = self._absolute_path(relative)
-
-        encoded = content.encode("utf-8")
-        checksum = _sha256_hex(encoded)
-
         thread_lock = _get_thread_lock(self.root)
-        result: InstinctEntry
         with thread_lock:
             with _index_flock(self.lock_path):
-                size = self._write_file_atomic(target, content)
-                index = self._read_index()
-                result = InstinctEntry(
+                return self._put_locked(
                     name=name,
                     scope=scope,
-                    type=type_,
-                    path=relative,
-                    checksum=checksum,
-                    size=size,
+                    type_=type_,
+                    content=content,
                     created=created,
                     last_seen=last_seen,
                 )
-                index.instincts[name] = result
-                self._write_index_atomic(index)
-        return result
 
     def delete(self, name: str) -> bool:
         """Remove the instinct file and its index entry.
@@ -725,6 +744,140 @@ def gc_expired_instincts(
     return GcResult(pruned=pruned, retained=retained, errors=errors)
 
 
+# --- Instinct usage tracking -----------------------------------------------
+
+
+@dataclass
+class IncrementResult:
+    """Outcome of a single instinct usage-count increment."""
+
+    name: str
+    usage_count: int
+    success_count: int
+    last_seen: str
+
+
+def _patch_frontmatter_fields(content: str, updates: dict[str, object]) -> str:
+    """Patch specific YAML fields in frontmatter without full round-trip.
+
+    Replaces matching ``key: value`` lines inside the ``---`` delimiters.
+    Fields not already present are appended before the closing ``---``.
+    Body text after the closing delimiter is preserved verbatim.
+    """
+    lines = content.split("\n")
+    if not lines or lines[0].strip() != "---":
+        raise InstinctValidationError("content has no opening frontmatter delimiter")
+
+    end_idx = -1
+    for i, line in enumerate(lines[1:], start=1):
+        if line.strip() == "---":
+            end_idx = i
+            break
+    if end_idx == -1:
+        raise InstinctValidationError("content has no closing frontmatter delimiter")
+
+    remaining = dict(updates)
+    patched: list[str] = [lines[0]]
+    for line in lines[1:end_idx]:
+        matched = False
+        for key in list(remaining):
+            if line.startswith(f"{key}:"):
+                patched.append(f"{key}: {remaining.pop(key)}")
+                matched = True
+                break
+        if not matched:
+            patched.append(line)
+
+    for key, value in remaining.items():
+        patched.append(f"{key}: {value}")
+
+    patched.append(lines[end_idx])
+    body = "\n".join(lines[end_idx + 1 :])
+    return "\n".join(patched) + "\n" + body
+
+
+def _parse_int_field(fm: dict[str, object], key: str) -> int:
+    """Extract an integer field from frontmatter, defaulting to 0."""
+    raw = fm.get(key, 0)
+    if isinstance(raw, int):
+        return raw
+    try:
+        return int(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0
+
+
+def increment_instinct_usage(
+    store: InstinctStore,
+    *,
+    name: str,
+    success: bool,
+    now: datetime.datetime | None = None,
+) -> IncrementResult:
+    """Atomically increment ``usage_count`` (and ``success_count`` when ``success`` is True).
+
+    Holds both the threading lock and the fcntl file lock for the entire
+    read-modify-write cycle so concurrent callers cannot interleave.
+
+    Raises :class:`InstinctValidationError` when the instinct does not
+    exist or its frontmatter is unparseable.
+    """
+    if now is None:
+        now = datetime.datetime.now(datetime.timezone.utc)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=datetime.timezone.utc)
+
+    _validate_component(name, label="name")
+    thread_lock = _get_thread_lock(store.root)
+    with thread_lock:
+        with _index_flock(store.lock_path):
+            entry = store.get_entry(name)
+            if entry is None:
+                raise InstinctValidationError(f"instinct {name!r} not found in store")
+
+            content = store.get(name)
+            if content is None:
+                raise InstinctValidationError(
+                    f"instinct {name!r} exists in index but file is unreadable"
+                )
+
+            fm, errors = parse_frontmatter_safe(content)
+            if fm is None or errors:
+                raise InstinctValidationError(
+                    f"instinct {name!r} has unparseable frontmatter: "
+                    f"{errors[0].message if errors else 'unknown'}"
+                )
+
+            new_usage = _parse_int_field(fm, "usage_count") + 1
+            new_success = _parse_int_field(fm, "success_count") + (1 if success else 0)
+            last_seen_iso = now.isoformat()
+
+            updated_content = _patch_frontmatter_fields(
+                content,
+                {
+                    "usage_count": new_usage,
+                    "success_count": new_success,
+                    "last_seen": last_seen_iso,
+                },
+            )
+
+            store._put_locked(
+                name=name,
+                scope=entry.scope,
+                type_=entry.type,
+                content=updated_content,
+                created=entry.created,
+                last_seen=last_seen_iso,
+            )
+
+    return IncrementResult(
+        name=name,
+        usage_count=new_usage,
+        success_count=new_success,
+        last_seen=last_seen_iso,
+    )
+
+
 __all__ = [
     "DEDUP_FAST_ACCEPT",
     "DEDUP_FAST_MAYBE",
@@ -735,6 +888,7 @@ __all__ = [
     "INDEX_FILENAME",
     "INDEX_LOCK_FILENAME",
     "INDEX_SCHEMA_VERSION",
+    "IncrementResult",
     "InstinctChecksumMismatch",
     "InstinctEntry",
     "InstinctStore",
@@ -742,5 +896,6 @@ __all__ = [
     "LlmJudge",
     "dedup_instinct",
     "gc_expired_instincts",
+    "increment_instinct_usage",
     "resolve_instinct_scope",
 ]

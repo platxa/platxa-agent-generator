@@ -35,14 +35,17 @@ from platxa_agent_generator.instinct_store import (
     INDEX_LOCK_FILENAME,
     INDEX_SCHEMA_VERSION,
     GcResult,
+    IncrementResult,
     InstinctChecksumMismatch,
     InstinctEntry,
     InstinctStore,
     InstinctValidationError,
     dedup_instinct,
     gc_expired_instincts,
+    increment_instinct_usage,
     resolve_instinct_scope,
 )
+from platxa_agent_generator.shared.frontmatter import parse_frontmatter_safe
 
 
 def _instinct_md(name: str, n: int = 0) -> str:
@@ -1009,6 +1012,231 @@ class TestGcExpiredInstinctsEdgeCases:
         naive_now = datetime.datetime(2026, 5, 10, 12, 0, 0)
         result = gc_expired_instincts(store, ttl_days=30, now=naive_now)
         assert result.pruned == ["old"]
+
+
+# --- Instinct usage tracking (feature #26) ----------------------------
+
+
+def _instinct_md_usage(
+    name: str,
+    *,
+    usage_count: int = 0,
+    success_count: int = 0,
+    last_seen: str = "2026-05-09T12:00:00Z",
+) -> str:
+    return (
+        "---\n"
+        f'name: "{name}"\n'
+        f'description: "instinct {name}"\n'
+        'type: "behavior"\n'
+        "confidence: 0.8\n"
+        f'created: "2026-05-01T12:00:00Z"\n'
+        f'last_seen: "{last_seen}"\n'
+        "occurrences: 3\n"
+        f"success_count: {success_count}\n"
+        f"usage_count: {usage_count}\n"
+        "ttl_days: 30\n"
+        'project_scope: "global"\n'
+        "---\n\n"
+        f"# {name}\n\nbody text\n"
+    )
+
+
+class TestIncrementInstinctUsage:
+    """Tests for :func:`increment_instinct_usage`."""
+
+    def test_increments_usage_count(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="alpha",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_usage("alpha", usage_count=0),
+            last_seen="2026-05-09T12:00:00Z",
+        )
+        result = increment_instinct_usage(store, name="alpha", success=False)
+        assert result.usage_count == 1
+        assert result.success_count == 0
+
+    def test_increments_success_count_when_true(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="beta",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_usage("beta", usage_count=2, success_count=1),
+            last_seen="2026-05-09T12:00:00Z",
+        )
+        result = increment_instinct_usage(store, name="beta", success=True)
+        assert result.usage_count == 3
+        assert result.success_count == 2
+
+    def test_does_not_increment_success_count_when_false(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="gamma",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_usage("gamma", usage_count=5, success_count=3),
+            last_seen="2026-05-09T12:00:00Z",
+        )
+        result = increment_instinct_usage(store, name="gamma", success=False)
+        assert result.usage_count == 6
+        assert result.success_count == 3
+
+    def test_updates_last_seen(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="delta",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_usage("delta"),
+            last_seen="2026-05-09T12:00:00Z",
+        )
+        fixed_now = datetime.datetime(2026, 5, 24, 18, 0, 0, tzinfo=datetime.timezone.utc)
+        result = increment_instinct_usage(store, name="delta", success=False, now=fixed_now)
+        assert result.last_seen == fixed_now.isoformat()
+        entry = store.get_entry("delta")
+        assert entry is not None
+        assert entry.last_seen == fixed_now.isoformat()
+
+    def test_preserves_body_content(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="epsilon",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_usage("epsilon"),
+            last_seen="2026-05-09T12:00:00Z",
+        )
+        increment_instinct_usage(store, name="epsilon", success=True)
+        content = store.get("epsilon")
+        assert content is not None
+        assert "body text" in content
+
+    def test_raises_on_missing_instinct(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        with pytest.raises(InstinctValidationError, match="not found"):
+            increment_instinct_usage(store, name="nonexistent", success=False)
+
+    def test_raises_on_corrupt_frontmatter(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="corrupt",
+            scope="global",
+            type_="behavior",
+            content="not valid frontmatter at all",
+            last_seen="2026-05-09T12:00:00Z",
+        )
+        with pytest.raises(InstinctValidationError, match="unparseable"):
+            increment_instinct_usage(store, name="corrupt", success=False)
+
+    def test_naive_now_gets_utc(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="zeta",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_usage("zeta"),
+            last_seen="2026-05-09T12:00:00Z",
+        )
+        naive_now = datetime.datetime(2026, 5, 24, 12, 0, 0)
+        result = increment_instinct_usage(store, name="zeta", success=False, now=naive_now)
+        assert "+00:00" in result.last_seen
+
+    def test_multiple_increments_accumulate(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="eta",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_usage("eta"),
+            last_seen="2026-05-09T12:00:00Z",
+        )
+        increment_instinct_usage(store, name="eta", success=True)
+        increment_instinct_usage(store, name="eta", success=False)
+        result = increment_instinct_usage(store, name="eta", success=True)
+        assert result.usage_count == 3
+        assert result.success_count == 2
+
+    def test_result_dataclass_fields(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="theta",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_usage("theta"),
+            last_seen="2026-05-09T12:00:00Z",
+        )
+        result = increment_instinct_usage(store, name="theta", success=True)
+        assert isinstance(result, IncrementResult)
+        assert result.name == "theta"
+        assert isinstance(result.usage_count, int)
+        assert isinstance(result.success_count, int)
+        assert isinstance(result.last_seen, str)
+
+    def test_concurrent_increments_no_lost_updates(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="concurrent",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_usage("concurrent", usage_count=0, success_count=0),
+            last_seen="2026-05-09T12:00:00Z",
+        )
+        n_threads = 10
+        errors: list[Exception] = []
+
+        def _worker() -> None:
+            try:
+                increment_instinct_usage(store, name="concurrent", success=True)
+            except Exception as exc:
+                errors.append(exc)
+
+        threads = [threading.Thread(target=_worker) for _ in range(n_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert not errors, f"Thread errors: {errors}"
+        content = store.get("concurrent")
+        assert content is not None
+        fm, _ = parse_frontmatter_safe(content)
+        assert fm is not None
+        assert fm["usage_count"] == n_threads
+        assert fm["success_count"] == n_threads
+
+    def test_preserves_unquoted_timestamps(self, tmp_path: Path) -> None:
+        """Line-level patching must not mangle unquoted ISO timestamps."""
+        content_with_unquoted = (
+            "---\n"
+            "name: ts-test\n"
+            "description: test timestamps\n"
+            "type: behavior\n"
+            "confidence: 0.8\n"
+            "created: 2026-05-01T12:00:00Z\n"
+            "last_seen: 2026-05-09T12:00:00Z\n"
+            "occurrences: 1\n"
+            "success_count: 0\n"
+            "usage_count: 0\n"
+            "ttl_days: 30\n"
+            "project_scope: global\n"
+            "---\n\n"
+            "# body\n"
+        )
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="ts-test",
+            scope="global",
+            type_="behavior",
+            content=content_with_unquoted,
+            last_seen="2026-05-09T12:00:00Z",
+        )
+        increment_instinct_usage(store, name="ts-test", success=False)
+        result_content = store.get("ts-test")
+        assert result_content is not None
+        assert "created: 2026-05-01T12:00:00Z" in result_content
 
 
 # --- Module-level imports stable ---------------------------------------
