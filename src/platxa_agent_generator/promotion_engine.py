@@ -11,9 +11,16 @@ when set (JSON object), falling back to conservative defaults:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass
+from typing import Literal
+
+from .observation_store import ObservationRecord
+
+DistillOutcome = Literal["success", "failure"]
 
 _ENV_KEY: str = "PLATXA_PROMOTION_THRESHOLDS"
 
@@ -139,12 +146,133 @@ def promote(
     )
 
 
+_NAME_MAX_LEN: int = 64
+_DESC_MAX_LEN: int = 512
+_DEFAULT_TTL_DAYS: int = 30
+
+
+def _slugify(text: str, max_len: int = 48) -> str:
+    """Convert arbitrary text to a hyphen-case slug safe for instinct names."""
+    lowered = text.lower().strip()
+    slug = re.sub(r"[^a-z0-9]+", "-", lowered).strip("-")
+    return slug[:max_len]
+
+
+def _short_hash(text: str) -> str:
+    """Return an 8-char hex digest for uniqueness in instinct names."""
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()[:8]
+
+
+@dataclass(frozen=True)
+class DistilledPrinciple:
+    """A distilled principle ready for instinct template rendering.
+
+    Fields align with the ``instinct.md.j2`` template inputs so callers
+    can pass ``dataclasses.asdict(principle)`` directly to Jinja2.
+    """
+
+    name: str
+    description: str
+    type: str
+    confidence: float
+    created: str
+    last_seen: str
+    action: str
+    evidence: str
+    examples: str
+    occurrences: int
+    success_count: int
+    usage_count: int
+    ttl_days: int
+    project_scope: str
+    outcome: DistillOutcome
+
+
+_GUIDING_ACTION = (
+    "Prefer this approach when {context}: {summary}. "
+    "This pattern produced a successful outcome{outcome_detail}."
+)
+
+_CAUTIONARY_ACTION = (
+    "Avoid this approach when {context}: {summary}. "
+    "This pattern led to a negative outcome{outcome_detail}. "
+    "Consider alternative strategies before proceeding."
+)
+
+_GUIDING_DESC = "Guiding: {summary}"
+_CAUTIONARY_DESC = "Cautionary: {summary}"
+
+
+def distill_principle(
+    observation: ObservationRecord,
+    outcome: DistillOutcome,
+) -> DistilledPrinciple:
+    """Transform an observation into a distilled principle with success/failure asymmetry.
+
+    Guiding principles (``outcome="success"``) are forward-looking and
+    prescriptive — they encourage repeating the observed pattern.
+    Cautionary principles (``outcome="failure"``) are warning-focused and
+    include a redirect toward alternatives.
+
+    The two templates are structurally distinct per EvolveR research:
+    unified distillation underperforms separate success/failure templates.
+    """
+    context = f"using {observation.tool} for {observation.type}"
+    summary = observation.input_summary
+    outcome_detail = f" — {observation.outcome}" if observation.outcome else ""
+
+    if outcome == "success":
+        action = _GUIDING_ACTION.format(
+            context=context,
+            summary=summary,
+            outcome_detail=outcome_detail,
+        )
+        raw_desc = _GUIDING_DESC.format(summary=summary)
+    else:
+        action = _CAUTIONARY_ACTION.format(
+            context=context,
+            summary=summary,
+            outcome_detail=outcome_detail,
+        )
+        raw_desc = _CAUTIONARY_DESC.format(summary=summary)
+
+    tool_slug = _slugify(observation.tool, max_len=16)
+    type_slug = _slugify(observation.type, max_len=12)
+    content_hash = _short_hash(observation.input_summary + observation.timestamp + outcome)
+    name = f"{type_slug}-{tool_slug}-{content_hash}"[:_NAME_MAX_LEN]
+
+    examples_text = (
+        "\n".join(f"- {ex}" for ex in observation.examples) if observation.examples else ""
+    )
+
+    return DistilledPrinciple(
+        name=name,
+        description=raw_desc[:_DESC_MAX_LEN],
+        type=observation.type,
+        confidence=observation.confidence,
+        created=observation.timestamp,
+        last_seen=observation.timestamp,
+        action=action,
+        evidence=observation.evidence,
+        examples=examples_text,
+        occurrences=1,
+        success_count=1 if outcome == "success" else 0,
+        usage_count=0,
+        ttl_days=_DEFAULT_TTL_DAYS,
+        project_scope=observation.project_id,
+        outcome=outcome,
+    )
+
+
 __all__ = [
     "DEFAULT_CONFIDENCE",
     "DEFAULT_OCCURRENCES",
     "DEFAULT_SUCCESS_COUNT",
+    "DistillOutcome",
+    "DistilledPrinciple",
     "PromotionConfigError",
     "PromotionResult",
     "PromotionThresholds",
+    "distill_principle",
     "promote",
 ]

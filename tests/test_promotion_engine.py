@@ -6,20 +6,29 @@ Verification criteria for feature #22:
 * Returns True at 3 occurrences with confidence=0.7 and success_count=1
 * Env overrides via PLATXA_PROMOTION_THRESHOLDS are respected
 * Edge cases: boundary values, zero thresholds, invalid config
+
+Verification criteria for feature #23:
+
+* Failed-trajectory observation produces cautionary template
+* Successful-trajectory observation produces guiding template
+* Templates are structurally distinct
 """
 
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 
 import pytest
 
+from platxa_agent_generator.observation_store import ObservationRecord
 from platxa_agent_generator.promotion_engine import (
     DEFAULT_CONFIDENCE,
     DEFAULT_OCCURRENCES,
     DEFAULT_SUCCESS_COUNT,
     PromotionConfigError,
     PromotionThresholds,
+    distill_principle,
     promote,
 )
 
@@ -296,3 +305,199 @@ class TestPromotionResultShape:
         assert isinstance(result.success_count, int)
         assert isinstance(result.thresholds, PromotionThresholds)
         assert isinstance(result.failing_gates, tuple)
+
+
+# -- helpers for distill_principle tests ------------------------------------
+
+
+def _obs(
+    *,
+    tool: str = "Read",
+    type_: str = "tool_use",
+    input_summary: str = "read config file",
+    outcome: str = "",
+    confidence: float = 0.8,
+    evidence: str = "observed three times",
+    examples: list[str] | None = None,
+    project_id: str = "proj-abc",
+) -> ObservationRecord:
+    return ObservationRecord(
+        timestamp="2026-05-24T10:00:00Z",
+        tool=tool,
+        input_summary=input_summary,
+        project_id=project_id,
+        project_name="test-project",
+        session_id="sess-1",
+        agent_name="test-agent",
+        type=type_,  # type: ignore[arg-type]
+        evidence=evidence,
+        examples=examples if examples is not None else ["example-1"],
+        outcome=outcome,
+        confidence=confidence,
+    )
+
+
+class TestDistillPrincipleGuiding:
+    """Success-trajectory observations produce guiding principles."""
+
+    def test_success_outcome_sets_guiding_action(self) -> None:
+        result = distill_principle(_obs(), "success")
+        assert "Prefer this approach" in result.action
+        assert "successful outcome" in result.action
+
+    def test_success_sets_success_count_one(self) -> None:
+        result = distill_principle(_obs(), "success")
+        assert result.success_count == 1
+
+    def test_success_description_starts_with_guiding(self) -> None:
+        result = distill_principle(_obs(), "success")
+        assert result.description.startswith("Guiding:")
+
+    def test_success_outcome_field(self) -> None:
+        result = distill_principle(_obs(), "success")
+        assert result.outcome == "success"
+
+
+class TestDistillPrincipleCautionary:
+    """Failed-trajectory observations produce cautionary principles."""
+
+    def test_failure_outcome_sets_cautionary_action(self) -> None:
+        result = distill_principle(_obs(), "failure")
+        assert "Avoid this approach" in result.action
+        assert "negative outcome" in result.action
+
+    def test_failure_includes_redirect(self) -> None:
+        result = distill_principle(_obs(), "failure")
+        assert "Consider alternative" in result.action
+
+    def test_failure_sets_success_count_zero(self) -> None:
+        result = distill_principle(_obs(), "failure")
+        assert result.success_count == 0
+
+    def test_failure_description_starts_with_cautionary(self) -> None:
+        result = distill_principle(_obs(), "failure")
+        assert result.description.startswith("Cautionary:")
+
+    def test_failure_outcome_field(self) -> None:
+        result = distill_principle(_obs(), "failure")
+        assert result.outcome == "failure"
+
+
+class TestDistillPrincipleAsymmetry:
+    """Guiding and cautionary templates are structurally distinct."""
+
+    def test_templates_produce_different_actions(self) -> None:
+        obs = _obs()
+        guiding = distill_principle(obs, "success")
+        cautionary = distill_principle(obs, "failure")
+        assert guiding.action != cautionary.action
+
+    def test_templates_produce_different_descriptions(self) -> None:
+        obs = _obs()
+        guiding = distill_principle(obs, "success")
+        cautionary = distill_principle(obs, "failure")
+        assert guiding.description != cautionary.description
+
+    def test_success_count_differs(self) -> None:
+        obs = _obs()
+        guiding = distill_principle(obs, "success")
+        cautionary = distill_principle(obs, "failure")
+        assert guiding.success_count == 1
+        assert cautionary.success_count == 0
+
+    def test_cautionary_action_is_longer(self) -> None:
+        obs = _obs()
+        guiding = distill_principle(obs, "success")
+        cautionary = distill_principle(obs, "failure")
+        assert len(cautionary.action) > len(guiding.action)
+
+
+class TestDistillPrincipleFields:
+    """Verify field mapping from ObservationRecord to DistilledPrinciple."""
+
+    def test_name_within_length_limit(self) -> None:
+        result = distill_principle(_obs(), "success")
+        assert len(result.name) <= 64
+
+    def test_name_is_hyphen_case(self) -> None:
+        result = distill_principle(_obs(), "success")
+        assert result.name == result.name.lower()
+        assert " " not in result.name
+
+    def test_description_within_length_limit(self) -> None:
+        long_summary = "x" * 600
+        result = distill_principle(_obs(input_summary=long_summary), "success")
+        assert len(result.description) <= 512
+
+    def test_type_inherited_from_observation(self) -> None:
+        result = distill_principle(_obs(type_="decision"), "success")
+        assert result.type == "decision"
+
+    def test_confidence_inherited_from_observation(self) -> None:
+        result = distill_principle(_obs(confidence=0.42), "failure")
+        assert result.confidence == 0.42
+
+    def test_timestamps_from_observation(self) -> None:
+        result = distill_principle(_obs(), "success")
+        assert result.created == "2026-05-24T10:00:00Z"
+        assert result.last_seen == "2026-05-24T10:00:00Z"
+
+    def test_project_scope_from_project_id(self) -> None:
+        result = distill_principle(_obs(project_id="my-proj"), "success")
+        assert result.project_scope == "my-proj"
+
+    def test_occurrences_starts_at_one(self) -> None:
+        result = distill_principle(_obs(), "success")
+        assert result.occurrences == 1
+
+    def test_usage_count_starts_at_zero(self) -> None:
+        result = distill_principle(_obs(), "success")
+        assert result.usage_count == 0
+
+    def test_ttl_days_default(self) -> None:
+        result = distill_principle(_obs(), "success")
+        assert result.ttl_days == 30
+
+    def test_evidence_from_observation(self) -> None:
+        result = distill_principle(_obs(evidence="saw it twice"), "success")
+        assert result.evidence == "saw it twice"
+
+    def test_examples_formatted_as_markdown_list(self) -> None:
+        result = distill_principle(_obs(examples=["a", "b"]), "success")
+        assert "- a" in result.examples
+        assert "- b" in result.examples
+
+    def test_empty_examples_yields_empty_string(self) -> None:
+        result = distill_principle(_obs(examples=[]), "success")
+        assert result.examples == ""
+
+    def test_outcome_detail_included_when_present(self) -> None:
+        result = distill_principle(_obs(outcome="cache hit rate improved"), "success")
+        assert "cache hit rate improved" in result.action
+
+    def test_outcome_detail_absent_when_empty(self) -> None:
+        result = distill_principle(_obs(outcome=""), "success")
+        assert " — " not in result.action
+
+    def test_context_includes_tool_and_type(self) -> None:
+        result = distill_principle(_obs(tool="Grep", type_="discovery"), "success")
+        assert "Grep" in result.action
+        assert "discovery" in result.action
+
+    def test_frozen_dataclass(self) -> None:
+        result = distill_principle(_obs(), "success")
+        with pytest.raises(AttributeError):
+            result.action = "changed"  # type: ignore[misc]
+
+    def test_asdict_roundtrip(self) -> None:
+        result = distill_principle(_obs(), "success")
+        d = asdict(result)
+        assert d["name"] == result.name
+        assert d["action"] == result.action
+        assert d["outcome"] == "success"
+
+    def test_same_observation_different_outcomes_different_names(self) -> None:
+        obs = _obs()
+        g = distill_principle(obs, "success")
+        c = distill_principle(obs, "failure")
+        assert g.name != c.name
