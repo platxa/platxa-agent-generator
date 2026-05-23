@@ -18,6 +18,7 @@ Verification criteria for feature #7:
 
 from __future__ import annotations
 
+import datetime
 import json
 import multiprocessing
 import threading
@@ -28,15 +29,18 @@ import pytest
 from platxa_agent_generator.instinct_store import (
     DEDUP_FAST_ACCEPT,
     DEDUP_FAST_MAYBE,
+    DEFAULT_TTL_DAYS,
     GLOBAL_SCOPE,
     INDEX_FILENAME,
     INDEX_LOCK_FILENAME,
     INDEX_SCHEMA_VERSION,
+    GcResult,
     InstinctChecksumMismatch,
     InstinctEntry,
     InstinctStore,
     InstinctValidationError,
     dedup_instinct,
+    gc_expired_instincts,
     resolve_instinct_scope,
 )
 
@@ -791,6 +795,220 @@ class TestDedupInstinctEdgeCases:
 
     def test_dedup_thresholds_are_sane(self) -> None:
         assert 0.0 < DEDUP_FAST_MAYBE < DEDUP_FAST_ACCEPT <= 1.0
+
+
+# --- gc_expired_instincts (feature #21) ----------------------------------
+
+
+def _instinct_md_gc(
+    name: str,
+    *,
+    last_seen: str = "2026-04-01T12:00:00Z",
+    usage_count: int = 0,
+) -> str:
+    """Return instinct markdown with controllable last_seen and usage_count."""
+    return (
+        "---\n"
+        f'name: "{name}"\n'
+        f'description: "instinct {name}"\n'
+        'type: "behavior"\n'
+        "confidence: 0.5\n"
+        f'created: "2026-01-01T12:00:00Z"\n'
+        f'last_seen: "{last_seen}"\n'
+        "occurrences: 1\n"
+        "success_count: 0\n"
+        f"usage_count: {usage_count}\n"
+        "ttl_days: 30\n"
+        'project_scope: "global"\n'
+        "---\n\n"
+        f"# {name}\n\nbody\n"
+    )
+
+
+_GC_NOW = "2026-05-10T12:00:00Z"
+
+
+def _gc_now() -> datetime.datetime:
+    return datetime.datetime.fromisoformat(_GC_NOW).replace(tzinfo=datetime.timezone.utc)
+
+
+class TestGcExpiredInstinctsBasic:
+    """Verification: expired + unused instincts are pruned."""
+
+    def test_expired_unused_instinct_is_pruned(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="old-unused",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_gc("old-unused", last_seen="2026-03-01T12:00:00Z", usage_count=0),
+            last_seen="2026-03-01T12:00:00Z",
+        )
+        result = gc_expired_instincts(store, ttl_days=30, now=_gc_now())
+        assert result.pruned == ["old-unused"]
+        assert result.retained == []
+        assert store.get_entry("old-unused") is None
+
+    def test_dry_run_identifies_without_deleting(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="old-unused",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_gc("old-unused", last_seen="2026-03-01T12:00:00Z", usage_count=0),
+            last_seen="2026-03-01T12:00:00Z",
+        )
+        result = gc_expired_instincts(store, ttl_days=30, dry_run=True, now=_gc_now())
+        assert result.pruned == ["old-unused"]
+        assert store.get_entry("old-unused") is not None
+
+    def test_default_ttl_is_30_days(self) -> None:
+        assert DEFAULT_TTL_DAYS == 30
+
+
+class TestGcExpiredInstinctsRetention:
+    """Verification: recently-used and recently-seen instincts are retained."""
+
+    def test_recently_seen_instinct_retained(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="fresh",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_gc("fresh", last_seen="2026-05-09T12:00:00Z", usage_count=0),
+            last_seen="2026-05-09T12:00:00Z",
+        )
+        result = gc_expired_instincts(store, ttl_days=30, now=_gc_now())
+        assert result.pruned == []
+        assert result.retained == ["fresh"]
+        assert store.get_entry("fresh") is not None
+
+    def test_used_instinct_retained_even_if_old(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="old-used",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_gc("old-used", last_seen="2026-01-01T12:00:00Z", usage_count=5),
+            last_seen="2026-01-01T12:00:00Z",
+        )
+        result = gc_expired_instincts(store, ttl_days=30, now=_gc_now())
+        assert result.pruned == []
+        assert result.retained == ["old-used"]
+        assert store.get_entry("old-used") is not None
+
+    def test_instinct_at_exact_cutoff_boundary_retained(self, tmp_path: Path) -> None:
+        now = datetime.datetime(2026, 5, 10, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        exactly_30_days = (now - datetime.timedelta(days=30)).isoformat()
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="boundary",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_gc("boundary", last_seen=exactly_30_days, usage_count=0),
+            last_seen=exactly_30_days,
+        )
+        result = gc_expired_instincts(store, ttl_days=30, now=now)
+        assert result.retained == ["boundary"]
+
+    def test_empty_last_seen_retained(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="no-timestamp",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_gc("no-timestamp", last_seen="", usage_count=0),
+            last_seen="",
+        )
+        result = gc_expired_instincts(store, ttl_days=30, now=_gc_now())
+        assert result.retained == ["no-timestamp"]
+
+
+class TestGcExpiredInstinctsMixed:
+    """Mixed store: some pruned, some retained."""
+
+    def test_mixed_store_prunes_only_eligible(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="expired-unused",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_gc(
+                "expired-unused", last_seen="2026-03-01T12:00:00Z", usage_count=0
+            ),
+            last_seen="2026-03-01T12:00:00Z",
+        )
+        store.put(
+            name="expired-used",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_gc(
+                "expired-used", last_seen="2026-03-01T12:00:00Z", usage_count=3
+            ),
+            last_seen="2026-03-01T12:00:00Z",
+        )
+        store.put(
+            name="fresh-unused",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_gc(
+                "fresh-unused", last_seen="2026-05-09T12:00:00Z", usage_count=0
+            ),
+            last_seen="2026-05-09T12:00:00Z",
+        )
+        result = gc_expired_instincts(store, ttl_days=30, now=_gc_now())
+        assert result.pruned == ["expired-unused"]
+        assert sorted(result.retained) == ["expired-used", "fresh-unused"]
+        assert store.count() == 2
+
+    def test_empty_store_returns_empty_result(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        result = gc_expired_instincts(store, ttl_days=30, now=_gc_now())
+        assert result == GcResult(pruned=[], retained=[], errors=[])
+
+
+class TestGcExpiredInstinctsEdgeCases:
+    def test_negative_ttl_raises(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        with pytest.raises(InstinctValidationError, match="ttl_days"):
+            gc_expired_instincts(store, ttl_days=-1)
+
+    def test_zero_ttl_prunes_all_old_unused(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="any-age",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_gc("any-age", last_seen="2026-05-10T11:59:59Z", usage_count=0),
+            last_seen="2026-05-10T11:59:59Z",
+        )
+        result = gc_expired_instincts(store, ttl_days=0, now=_gc_now())
+        assert result.pruned == ["any-age"]
+
+    def test_corrupt_frontmatter_defaults_usage_count_to_zero(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="corrupt",
+            scope="global",
+            type_="behavior",
+            content="not valid frontmatter",
+            last_seen="2026-01-01T12:00:00Z",
+        )
+        result = gc_expired_instincts(store, ttl_days=30, now=_gc_now())
+        assert result.pruned == ["corrupt"]
+
+    def test_naive_now_gets_utc(self, tmp_path: Path) -> None:
+        store = InstinctStore(root=tmp_path)
+        store.put(
+            name="old",
+            scope="global",
+            type_="behavior",
+            content=_instinct_md_gc("old", last_seen="2026-03-01T12:00:00Z", usage_count=0),
+            last_seen="2026-03-01T12:00:00Z",
+        )
+        naive_now = datetime.datetime(2026, 5, 10, 12, 0, 0)
+        result = gc_expired_instincts(store, ttl_days=30, now=naive_now)
+        assert result.pruned == ["old"]
 
 
 # --- Module-level imports stable ---------------------------------------

@@ -44,6 +44,7 @@ need to address an instinct file without instantiating a store.
 from __future__ import annotations
 
 import contextlib
+import datetime
 import difflib
 import fcntl
 import hashlib
@@ -620,11 +621,117 @@ def dedup_instinct(
     )
 
 
+# --- GC expired instincts ------------------------------------------------
+
+DEFAULT_TTL_DAYS: int = 30
+
+
+@dataclass
+class GcResult:
+    """Outcome of a garbage-collection pass over the instinct store."""
+
+    pruned: list[str]
+    retained: list[str]
+    errors: list[str]
+
+
+def _parse_usage_count(content: str) -> int:
+    """Extract ``usage_count`` from instinct frontmatter, defaulting to 0."""
+    fm, errors = parse_frontmatter_safe(content)
+    if fm is None or errors:
+        return 0
+    raw = fm.get("usage_count", 0)
+    if isinstance(raw, int):
+        return raw
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _parse_iso_datetime(value: str) -> datetime.datetime | None:
+    """Parse an ISO-8601 timestamp, returning ``None`` on failure."""
+    if not value:
+        return None
+    try:
+        dt = datetime.datetime.fromisoformat(value)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=datetime.timezone.utc)
+        return dt
+    except (ValueError, TypeError):
+        return None
+
+
+def gc_expired_instincts(
+    store: InstinctStore,
+    *,
+    ttl_days: int = DEFAULT_TTL_DAYS,
+    dry_run: bool = False,
+    now: datetime.datetime | None = None,
+) -> GcResult:
+    """Prune instincts where ``(now - last_seen) > ttl_days AND usage_count == 0``.
+
+    Instincts that have been used (``usage_count > 0``) or seen recently
+    (within the TTL window) are retained regardless of age.  When
+    ``dry_run`` is ``True`` the eligible instincts are identified but not
+    deleted.
+
+    An explicit ``now`` can be injected for deterministic testing;
+    defaults to ``datetime.datetime.now(datetime.timezone.utc)``.
+    """
+    if ttl_days < 0:
+        raise InstinctValidationError("ttl_days must be non-negative")
+
+    if now is None:
+        now = datetime.datetime.now(datetime.timezone.utc)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=datetime.timezone.utc)
+
+    cutoff = now - datetime.timedelta(days=ttl_days)
+    entries = store.list_entries()
+
+    pruned: list[str] = []
+    retained: list[str] = []
+    errors: list[str] = []
+
+    for entry in entries:
+        last_seen_dt = _parse_iso_datetime(entry.last_seen)
+        if last_seen_dt is None:
+            retained.append(entry.name)
+            continue
+
+        if last_seen_dt >= cutoff:
+            retained.append(entry.name)
+            continue
+
+        content = store.get(entry.name)
+        if content is None:
+            errors.append(entry.name)
+            continue
+
+        usage_count = _parse_usage_count(content)
+        if usage_count > 0:
+            retained.append(entry.name)
+            continue
+
+        if dry_run:
+            pruned.append(entry.name)
+        else:
+            if store.delete(entry.name):
+                pruned.append(entry.name)
+            else:
+                errors.append(entry.name)
+
+    return GcResult(pruned=pruned, retained=retained, errors=errors)
+
+
 __all__ = [
     "DEDUP_FAST_ACCEPT",
     "DEDUP_FAST_MAYBE",
+    "DEFAULT_TTL_DAYS",
     "DedupResult",
     "GLOBAL_SCOPE",
+    "GcResult",
     "INDEX_FILENAME",
     "INDEX_LOCK_FILENAME",
     "INDEX_SCHEMA_VERSION",
@@ -634,5 +741,6 @@ __all__ = [
     "InstinctValidationError",
     "LlmJudge",
     "dedup_instinct",
+    "gc_expired_instincts",
     "resolve_instinct_scope",
 ]
