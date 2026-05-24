@@ -4,14 +4,16 @@
 Production-grade command-line interface for standalone agent generation.
 
 Run ``platxa-agent --help`` (or ``python -m platxa_agent_generator --help``)
-for the authoritative, always-current subcommand list. The 16 subcommands
-fall into three groups:
+for the authoritative, always-current subcommand list. The 17 subcommands
+fall into four groups:
 
     Agent generation (11):
         generate, validate, catalog, install, analyze, analyze-agent,
         upgrade, lint, preview, status, batch
     Observation + instinct pipelines (2):
         observations, instincts
+    Promotion (1):
+        evolve
     Plugin lifecycle (3):
         install-plugin, uninstall-plugin, plugin-status
 
@@ -52,6 +54,7 @@ try:
         observation_store,
         plugin_installer,
         progress_tracker,
+        promotion_engine,
         quality_scorer,
         security_scanner,
         syntax_validator,
@@ -74,6 +77,7 @@ except ImportError:
     import observation_store  # type: ignore[import-not-found,no-redef]
     import plugin_installer  # type: ignore[import-not-found,no-redef]
     import progress_tracker  # type: ignore[import-not-found,no-redef]
+    import promotion_engine  # type: ignore[import-not-found,no-redef]
     import quality_scorer  # type: ignore[import-not-found,no-redef]
     import security_scanner  # type: ignore[import-not-found,no-redef]
     import syntax_validator  # type: ignore[import-not-found,no-redef]
@@ -156,6 +160,7 @@ Examples:
         self._add_batch_command(subparsers)
         self._add_observations_command(subparsers)
         self._add_instincts_command(subparsers)
+        self._add_evolve_command(subparsers)
         self._add_install_plugin_command(subparsers)
         self._add_uninstall_plugin_command(subparsers)
         self._add_plugin_status_command(subparsers)
@@ -376,6 +381,7 @@ Examples:
             "batch": self._handle_batch,
             "observations": self._handle_observations,
             "instincts": self._handle_instincts,
+            "evolve": self._handle_evolve,
             "install-plugin": self._handle_install_plugin,
             "uninstall-plugin": self._handle_uninstall_plugin,
             "plugin-status": self._handle_plugin_status,
@@ -1595,6 +1601,206 @@ Examples:
 
         return 0
 
+    # --- evolve subcommand ---------------------------------------------------
+
+    def _add_evolve_command(self, subparsers: Any) -> None:
+        """Add the evolve subcommand for promotion-gate evaluation."""
+        evolve = subparsers.add_parser(
+            "evolve",
+            help="Evaluate instincts for promotion eligibility",
+        )
+        evolve.add_argument(
+            "--dry-run",
+            action="store_true",
+            help="List eligible candidates without writing artifacts",
+        )
+        evolve.add_argument(
+            "--threshold",
+            type=float,
+            default=None,
+            help=(
+                "Override the confidence threshold "
+                f"(default: {promotion_engine.DEFAULT_CONFIDENCE})"
+            ),
+        )
+        evolve.add_argument(
+            "--min-occurrences",
+            type=int,
+            default=None,
+            help=(
+                "Override the minimum occurrences threshold "
+                f"(default: {promotion_engine.DEFAULT_OCCURRENCES})"
+            ),
+        )
+        evolve.add_argument(
+            "--min-success-count",
+            type=int,
+            default=None,
+            help=(
+                "Override the minimum success count threshold "
+                f"(default: {promotion_engine.DEFAULT_SUCCESS_COUNT})"
+            ),
+        )
+        evolve.add_argument(
+            "--target",
+            choices=["skill", "command", "agent", "template", "all"],
+            default="all",
+            help="Filter by promotion target type (default: all)",
+        )
+        evolve.add_argument(
+            "--root",
+            type=Path,
+            dest="evolve_root",
+            help="Path to instinct store root (default: ~/.claude/instincts)",
+        )
+
+    def _handle_evolve(self, args: argparse.Namespace) -> int:
+        """Evaluate instincts against promotion gates and report candidates."""
+        from .shared.frontmatter import parse_frontmatter_safe
+
+        json_mode = bool(getattr(args, "json", False))
+        dry_run_flag: bool = getattr(args, "dry_run", False)
+        target_filter: str = getattr(args, "target", "all")
+        evolve_root: Path | None = getattr(args, "evolve_root", None)
+
+        store = instinct_store.InstinctStore(root=evolve_root)
+
+        thresholds_kwargs: dict[str, int | float | str] = {}
+        if args.threshold is not None:
+            thresholds_kwargs["confidence"] = float(args.threshold)
+        if args.min_occurrences is not None:
+            thresholds_kwargs["occurrences"] = int(args.min_occurrences)
+        if args.min_success_count is not None:
+            thresholds_kwargs["success_count"] = int(args.min_success_count)
+
+        if thresholds_kwargs:
+            thresholds = promotion_engine.PromotionThresholds.from_dict(thresholds_kwargs)
+        else:
+            thresholds = promotion_engine.PromotionThresholds.from_env()
+
+        entries = store.list_entries()
+        if not entries:
+            if json_mode:
+                print(json.dumps({"candidates": [], "total_evaluated": 0, "eligible": 0}))
+            else:
+                print("No instincts found.")
+            return 0
+
+        candidates: list[dict[str, Any]] = []
+
+        for entry in entries:
+            content = store.get(entry.name)
+            if not content:
+                continue
+
+            fm, errors = parse_frontmatter_safe(content)
+            if fm is None or errors:
+                continue
+
+            confidence = _parse_float_field(fm, "confidence")
+            usage_count = _parse_int_field_cli(fm, "usage_count")
+            success_count = _parse_int_field_cli(fm, "success_count")
+
+            result = promotion_engine.promote(
+                occurrences=usage_count,
+                confidence=confidence,
+                success_count=success_count,
+                thresholds=thresholds,
+            )
+
+            if result.eligible:
+                candidates.append({
+                    "name": entry.name,
+                    "scope": entry.scope,
+                    "type": entry.type,
+                    "confidence": confidence,
+                    "occurrences": usage_count,
+                    "success_count": success_count,
+                })
+
+        if target_filter != "all":
+            candidates = self._filter_by_target(candidates, target_filter, store)
+
+        if json_mode:
+            payload: dict[str, Any] = {
+                "candidates": candidates,
+                "total_evaluated": len(entries),
+                "eligible": len(candidates),
+                "dry_run": dry_run_flag,
+                "thresholds": {
+                    "confidence": thresholds.confidence,
+                    "occurrences": thresholds.occurrences,
+                    "success_count": thresholds.success_count,
+                },
+            }
+            if target_filter != "all":
+                payload["target_filter"] = target_filter
+            print(json.dumps(payload, indent=2))
+        else:
+            verb = "Would promote" if dry_run_flag else "Eligible for promotion"
+            print(f"{verb}: {len(candidates)} instinct(s)")
+            print(f"Evaluated: {len(entries)} | Thresholds: "
+                  f"confidence>={thresholds.confidence}, "
+                  f"occurrences>={thresholds.occurrences}, "
+                  f"success_count>={thresholds.success_count}")
+            if target_filter != "all":
+                print(f"Target filter: {target_filter}")
+            print("-" * 60)
+            for c in candidates:
+                print(
+                    f"  {c['name']:<30} conf={c['confidence']:.2f} "
+                    f"occ={c['occurrences']} succ={c['success_count']}"
+                )
+            if not candidates:
+                print("  (none)")
+
+        return 0
+
+    def _filter_by_target(
+        self,
+        candidates: list[dict[str, Any]],
+        target: str,
+        store: "instinct_store.InstinctStore",
+    ) -> list[dict[str, Any]]:
+        """Filter candidates by promotion target classification."""
+        from .shared.frontmatter import parse_frontmatter_safe
+
+        principles: list[promotion_engine.DistilledPrinciple] = []
+        candidate_map: dict[str, dict[str, Any]] = {}
+
+        for c in candidates:
+            content = store.get(c["name"])
+            if not content:
+                continue
+            fm, _ = parse_frontmatter_safe(content)
+            if fm is None:
+                continue
+
+            principle = promotion_engine.DistilledPrinciple(
+                name=c["name"],
+                description=str(fm.get("description", c["name"])),
+                type=c.get("type", "tool_use"),
+                confidence=c["confidence"],
+                created=str(fm.get("created", "")),
+                last_seen=str(fm.get("last_seen", "")),
+                action=str(fm.get("action", "")),
+                evidence=str(fm.get("evidence", "")),
+                examples="",
+                occurrences=c["occurrences"],
+                success_count=c["success_count"],
+                usage_count=c["occurrences"],
+                ttl_days=30,
+                project_scope=c.get("scope", ""),
+                outcome="success",
+            )
+            principles.append(principle)
+            candidate_map[c["name"]] = c
+
+        cluster = promotion_engine.cluster_instincts(principles)
+        target_principles = getattr(cluster, target, ())
+
+        return [candidate_map[p.name] for p in target_principles if p.name in candidate_map]
+
     def _add_install_plugin_command(self, subparsers: Any) -> None:
         """Add the install-plugin subcommand.
 
@@ -1737,6 +1943,31 @@ Examples:
             if status.marketplace_registered:
                 print(f"    Location:         {status.marketplace_path}")
         return 0
+
+
+def _parse_float_field(fm: dict[str, object], key: str) -> float:
+    """Extract a float field from frontmatter, defaulting to 0.0."""
+    raw = fm.get(key, 0.0)
+    if isinstance(raw, float):
+        return raw
+    if isinstance(raw, int):
+        return float(raw)
+    try:
+        return float(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _parse_int_field_cli(fm: dict[str, object], key: str) -> int:
+    """Extract an integer field from frontmatter, defaulting to 0."""
+    raw = fm.get(key, 0)
+    if isinstance(raw, int):
+        return raw
+    try:
+        return int(raw)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return 0
+
 
 
 def _plugin_result_to_dict(result: "plugin_installer.PluginInstallResult") -> dict[str, Any]:
