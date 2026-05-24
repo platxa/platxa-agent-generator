@@ -4,18 +4,20 @@
 Production-grade command-line interface for standalone agent generation.
 
 Run ``platxa-agent --help`` (or ``python -m platxa_agent_generator --help``)
-for the authoritative, always-current subcommand list. The 14 subcommands
-fall into two groups:
+for the authoritative, always-current subcommand list. The 15 subcommands
+fall into three groups:
 
     Agent generation (11):
         generate, validate, catalog, install, analyze, analyze-agent,
         upgrade, lint, preview, status, batch
+    Observation pipeline (1):
+        observations
     Plugin lifecycle (3):
         install-plugin, uninstall-plugin, plugin-status
 
 Keeping the inventory here (instead of per-command one-liners that drift
 out of sync with argparse) means the parser remains the single source of
-truth. Update the two groups above only when a subcommand is added or
+truth. Update the three groups above only when a subcommand is added or
 removed; per-command help text lives on each ``add_parser`` call.
 
 Usage examples:
@@ -46,6 +48,7 @@ try:
         extended_thinking,
         install_agent,
         nlp_parser,
+        observation_store,
         plugin_installer,
         progress_tracker,
         quality_scorer,
@@ -66,6 +69,7 @@ except ImportError:
     import extended_thinking  # type: ignore[import-not-found,no-redef]
     import install_agent  # type: ignore[import-not-found,no-redef]
     import nlp_parser  # type: ignore[import-not-found,no-redef]
+    import observation_store  # type: ignore[import-not-found,no-redef]
     import plugin_installer  # type: ignore[import-not-found,no-redef]
     import progress_tracker  # type: ignore[import-not-found,no-redef]
     import quality_scorer  # type: ignore[import-not-found,no-redef]
@@ -148,6 +152,7 @@ Examples:
         self._add_preview_command(subparsers)
         self._add_status_command(subparsers)
         self._add_batch_command(subparsers)
+        self._add_observations_command(subparsers)
         self._add_install_plugin_command(subparsers)
         self._add_uninstall_plugin_command(subparsers)
         self._add_plugin_status_command(subparsers)
@@ -366,6 +371,7 @@ Examples:
             "preview": self._handle_preview,
             "status": self._handle_status,
             "batch": self._handle_batch,
+            "observations": self._handle_observations,
             "install-plugin": self._handle_install_plugin,
             "uninstall-plugin": self._handle_uninstall_plugin,
             "plugin-status": self._handle_plugin_status,
@@ -1030,6 +1036,246 @@ Examples:
                 for err in agent.errors:
                     print(f"      error: {err}")
         return 0 if result.success else 1
+
+    def _add_observations_command(self, subparsers: Any) -> None:
+        """Add the observations subcommand with list|show|stats|migrate actions."""
+        obs = subparsers.add_parser(
+            "observations",
+            help="Inspect and migrate the observation store",
+        )
+        obs_sub = obs.add_subparsers(dest="obs_action", metavar="ACTION")
+
+        list_cmd = obs_sub.add_parser("list", help="List observation records")
+        list_cmd.add_argument(
+            "-n",
+            "--limit",
+            type=int,
+            default=20,
+            help="Maximum records to display (default: 20)",
+        )
+        list_cmd.add_argument("--type", dest="obs_type", help="Filter by observation type")
+        list_cmd.add_argument("--tool", help="Filter by tool name")
+        list_cmd.add_argument("--agent", help="Filter by agent name")
+        list_cmd.add_argument(
+            "-f",
+            "--file",
+            type=Path,
+            dest="obs_file",
+            help="Path to observations JSONL file (default: .claude/observations.jsonl)",
+        )
+
+        show_cmd = obs_sub.add_parser("show", help="Show a single observation by index")
+        show_cmd.add_argument("index", type=int, help="Zero-based record index")
+        show_cmd.add_argument(
+            "-f",
+            "--file",
+            type=Path,
+            dest="obs_file",
+            help="Path to observations JSONL file",
+        )
+
+        stats_cmd = obs_sub.add_parser("stats", help="Show aggregate statistics")
+        stats_cmd.add_argument(
+            "-f",
+            "--file",
+            type=Path,
+            dest="obs_file",
+            help="Path to observations JSONL file",
+        )
+
+        migrate_cmd = obs_sub.add_parser(
+            "migrate",
+            help="Upgrade old 5-field rows to the full schema (idempotent)",
+        )
+        migrate_cmd.add_argument(
+            "-f",
+            "--file",
+            type=Path,
+            dest="obs_file",
+            help="Path to observations JSONL file",
+        )
+
+    def _handle_observations(self, args: argparse.Namespace) -> int:
+        """Handle the observations subcommand."""
+        json_mode = bool(getattr(args, "json", False))
+        obs_file: Path | None = getattr(args, "obs_file", None)
+        store = observation_store.ObservationStore(path=obs_file)
+
+        if args.obs_action == "list":
+            return self._handle_observations_list(args, store, json_mode)
+        if args.obs_action == "show":
+            return self._handle_observations_show(args, store, json_mode)
+        if args.obs_action == "stats":
+            return self._handle_observations_stats(store, json_mode)
+        if args.obs_action == "migrate":
+            return self._handle_observations_migrate(store, json_mode)
+
+        if json_mode:
+            print(
+                json.dumps({"error": "Usage: platxa-agent observations {list|show|stats|migrate}"})
+            )
+        else:
+            print("Usage: platxa-agent observations {list|show|stats|migrate}")
+        return 1
+
+    def _handle_observations_list(
+        self,
+        args: argparse.Namespace,
+        store: "observation_store.ObservationStore",
+        json_mode: bool,
+    ) -> int:
+        """List observation records with optional filters."""
+        from dataclasses import asdict
+
+        records = store.read_all()
+
+        obs_type: str | None = getattr(args, "obs_type", None)
+        tool_filter: str | None = getattr(args, "tool", None)
+        agent_filter: str | None = getattr(args, "agent", None)
+
+        if obs_type:
+            records = [r for r in records if r.type == obs_type]
+        if tool_filter:
+            records = [r for r in records if r.tool == tool_filter]
+        if agent_filter:
+            records = [r for r in records if r.agent_name == agent_filter]
+
+        total = len(records)
+        limit: int = getattr(args, "limit", 20)
+        records = records[:limit]
+
+        if json_mode:
+            print(
+                json.dumps(
+                    {
+                        "total": total,
+                        "returned": len(records),
+                        "records": [asdict(r) for r in records],
+                    },
+                    indent=2,
+                )
+            )
+        else:
+            print(f"Observations: {total} total, showing {len(records)}")
+            print("-" * 60)
+            for i, r in enumerate(records):
+                agent = r.agent_name or "(unknown)"
+                print(f"  [{i}] {r.timestamp}  {r.type:<12} {r.tool:<12} {agent}")
+            if total > limit:
+                print(f"  ... {total - limit} more (use --limit to see more)")
+
+        return 0
+
+    def _handle_observations_show(
+        self,
+        args: argparse.Namespace,
+        store: "observation_store.ObservationStore",
+        json_mode: bool,
+    ) -> int:
+        """Show a single observation record by index."""
+        from dataclasses import asdict
+
+        records = store.read_all()
+        idx: int = args.index
+
+        if not records:
+            msg = "No observations found"
+            if json_mode:
+                print(json.dumps({"error": msg}, indent=2))
+            else:
+                print(f"Error: {msg}")
+            return 1
+
+        if idx < 0 or idx >= len(records):
+            msg = f"Index {idx} out of range (0..{len(records) - 1})"
+            if json_mode:
+                print(json.dumps({"error": msg}, indent=2))
+            else:
+                print(f"Error: {msg}")
+            return 1
+
+        record = records[idx]
+
+        if json_mode:
+            print(json.dumps(asdict(record), indent=2))
+        else:
+            print(f"Observation #{idx}")
+            print("=" * 40)
+            print(f"  Timestamp:    {record.timestamp}")
+            print(f"  Type:         {record.type}")
+            print(f"  Tool:         {record.tool}")
+            print(f"  Agent:        {record.agent_name or '(unknown)'}")
+            print(f"  Session:      {record.session_id or '(none)'}")
+            print(f"  Project:      {record.project_name} ({record.project_id})")
+            print(f"  Summary:      {record.input_summary}")
+            if record.evidence:
+                print(f"  Evidence:     {record.evidence}")
+            if record.outcome:
+                print(f"  Outcome:      {record.outcome}")
+            print(f"  Confidence:   {record.confidence}")
+            if record.examples:
+                print(f"  Examples:     {', '.join(record.examples)}")
+            if record.promoted_to:
+                print(f"  Promoted to:  {record.promoted_to}")
+
+        return 0
+
+    def _handle_observations_stats(
+        self,
+        store: "observation_store.ObservationStore",
+        json_mode: bool,
+    ) -> int:
+        """Show aggregate statistics."""
+        result = store.stats()
+
+        if json_mode:
+            print(json.dumps(result, indent=2))
+        else:
+            total = result["total"]["count"]
+            promoted = result["promoted"]["count"]
+            print(f"Observation Statistics ({total} records)")
+            print("=" * 40)
+            print(f"  Promoted: {promoted}")
+            print()
+            print("  By type:")
+            for k, v in result["by_type"].items():
+                print(f"    {k:<16} {v}")
+            print()
+            print("  By tool:")
+            for k, v in result["by_tool"].items():
+                print(f"    {k:<16} {v}")
+            print()
+            print("  By agent:")
+            for k, v in result["by_agent"].items():
+                print(f"    {k:<16} {v}")
+
+        return 0
+
+    def _handle_observations_migrate(
+        self,
+        store: "observation_store.ObservationStore",
+        json_mode: bool,
+    ) -> int:
+        """Migrate old rows to the full schema with backup."""
+        result = store.migrate()
+
+        if json_mode:
+            print(json.dumps(result, indent=2))
+        else:
+            migrated = result["migrated"]
+            total = result["total"]
+            if migrated:
+                print(f"Migrated {migrated}/{total} observation(s) to the current schema.")
+                print(f"  Backup: {result['backup_path']}")
+                print(f"  Output: {result['output_path']}")
+            elif total:
+                print(f"All {total} observations already up to date.")
+                print(f"  Backup: {result['backup_path']}")
+                print(f"  Output: {result['output_path']}")
+            else:
+                print("No observations file found.")
+
+        return 0
 
     def _add_install_plugin_command(self, subparsers: Any) -> None:
         """Add the install-plugin subcommand.

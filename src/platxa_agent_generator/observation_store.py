@@ -85,6 +85,7 @@ class ObservationRecord:
     examples: list[str] = field(default_factory=list)
     outcome: str = ""
     confidence: float = 1.0
+    pattern_label: str | None = None
     promoted_to: str | None = None
 
     def __post_init__(self) -> None:
@@ -106,12 +107,14 @@ class ObservationRecord:
             isinstance(e, str) for e in self.examples
         ):
             raise ObservationValidationError("examples must be a list of strings")
+        if self.pattern_label is not None and (
+            not isinstance(self.pattern_label, str) or not self.pattern_label.strip()
+        ):
+            raise ObservationValidationError("pattern_label must be None or a non-empty string")
         if self.promoted_to is not None and (
             not isinstance(self.promoted_to, str) or not self.promoted_to.strip()
         ):
-            raise ObservationValidationError(
-                "promoted_to must be None or a non-empty string"
-            )
+            raise ObservationValidationError("promoted_to must be None or a non-empty string")
 
     def to_jsonl(self) -> str:
         """Serialize as one JSON line (terminating newline included)."""
@@ -139,6 +142,7 @@ class ObservationRecord:
             "examples",
             "outcome",
             "confidence",
+            "pattern_label",
             "promoted_to",
         }
         kwargs = {k: v for k, v in data.items() if k in known}
@@ -231,9 +235,7 @@ class ObservationStore:
         Returns the number of records updated.
         """
         if not instinct_id or not instinct_id.strip():
-            raise ObservationValidationError(
-                "instinct_id must be a non-empty string"
-            )
+            raise ObservationValidationError("instinct_id must be a non-empty string")
         if not self.path.exists():
             return 0
 
@@ -263,9 +265,7 @@ class ObservationStore:
 
                 if match(record) and record.promoted_to is None:
                     data["promoted_to"] = instinct_id
-                    rewritten.append(
-                        json.dumps(data, ensure_ascii=True, sort_keys=True) + "\n"
-                    )
+                    rewritten.append(json.dumps(data, ensure_ascii=True, sort_keys=True) + "\n")
                     updated += 1
                 else:
                     rewritten.append(raw)
@@ -275,6 +275,97 @@ class ObservationStore:
             tmp.replace(self.path)
 
         return updated
+
+    def migrate(self) -> dict[str, int | str]:
+        """Non-destructive schema migration with backup.
+
+        Backs up the original file to ``{path}.v1.bak``, then writes
+        every row (upgraded to the full schema) to ``{path}.v2``. The
+        original file is left untouched. Already-complete rows are
+        serialized identically so a second run produces a byte-identical
+        ``.v2``. Malformed lines are preserved verbatim.
+
+        Returns a dict with keys ``migrated`` (count of upgraded rows),
+        ``total`` (total parseable rows), ``backup_path``, and
+        ``output_path``.
+        """
+        if not self.path.exists():
+            return {"migrated": 0, "total": 0, "backup_path": "", "output_path": ""}
+
+        backup_path = Path(str(self.path) + ".v1.bak")
+        output_path = Path(str(self.path) + ".v2")
+
+        migrated = 0
+        total = 0
+        rewritten: list[str] = []
+
+        with FileLock(self.lock_path):
+            raw_bytes = self.path.read_bytes()
+            backup_path.write_bytes(raw_bytes)
+
+            raw_lines = raw_bytes.decode("utf-8").splitlines(keepends=True)
+            for raw in raw_lines:
+                line = raw.strip()
+                if not line:
+                    rewritten.append(raw)
+                    continue
+                try:
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    rewritten.append(raw)
+                    continue
+                if not isinstance(data, dict):
+                    rewritten.append(raw)
+                    continue
+                try:
+                    record = ObservationRecord.from_dict(data)
+                except (ObservationValidationError, TypeError, ValueError):
+                    rewritten.append(raw)
+                    continue
+
+                total += 1
+                canonical = record.to_jsonl()
+                if canonical.strip() != line:
+                    migrated += 1
+                rewritten.append(canonical)
+
+            output_path.write_text("".join(rewritten), encoding="utf-8")
+
+        return {
+            "migrated": migrated,
+            "total": total,
+            "backup_path": str(backup_path),
+            "output_path": str(output_path),
+        }
+
+    def stats(self) -> dict[str, dict[str, int]]:
+        """Compute aggregate statistics over parseable records.
+
+        Returns a dict with keys ``by_type``, ``by_tool``, ``by_agent``,
+        ``promoted``, and ``total``.
+        """
+        by_type: dict[str, int] = {}
+        by_tool: dict[str, int] = {}
+        by_agent: dict[str, int] = {}
+        promoted_count = 0
+        total = 0
+
+        for record in self.iter_records():
+            total += 1
+            by_type[record.type] = by_type.get(record.type, 0) + 1
+            by_tool[record.tool] = by_tool.get(record.tool, 0) + 1
+            agent_key = record.agent_name or "(unknown)"
+            by_agent[agent_key] = by_agent.get(agent_key, 0) + 1
+            if record.promoted_to is not None:
+                promoted_count += 1
+
+        return {
+            "total": {"count": total},
+            "promoted": {"count": promoted_count},
+            "by_type": dict(sorted(by_type.items())),
+            "by_tool": dict(sorted(by_tool.items())),
+            "by_agent": dict(sorted(by_agent.items())),
+        }
 
     def checksum(self) -> str:
         """SHA-256 hex digest of the file's bytes (empty if file absent)."""
