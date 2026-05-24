@@ -53,6 +53,7 @@ try:
         syntax_validator,
         tool_selector,
         type_classifier,
+        workflow_state,
     )
 except ImportError:
     # Standalone execution - type: ignore comments for pyright
@@ -72,6 +73,7 @@ except ImportError:
     import syntax_validator  # type: ignore[import-not-found,no-redef]
     import tool_selector  # type: ignore[import-not-found,no-redef]
     import type_classifier  # type: ignore[import-not-found,no-redef]
+    import workflow_state  # type: ignore[import-not-found,no-redef]
 
 
 __version__ = "0.1.0"
@@ -167,6 +169,12 @@ Examples:
         generate.add_argument("--no-validate", action="store_true", help="Skip validation")
         generate.add_argument(
             "--min-quality", type=float, default=7.0, help="Minimum quality score"
+        )
+        generate.add_argument(
+            "--max-iterations",
+            type=int,
+            default=5,
+            help="Max generate-validate-reprompt cycles before ESCALATE (default: 5)",
         )
 
     def _add_validate_command(self, subparsers: Any) -> None:
@@ -420,11 +428,16 @@ Examples:
             return 130
 
     def _generate_from_description(self, args: argparse.Namespace) -> int:
-        """Generate agent from description."""
+        """Generate agent from description with iteration-aware retry loop."""
         description: str = args.description
 
         if not description:
             print("Error: Description is required")
+            return 1
+
+        max_iterations: int = getattr(args, "max_iterations", 5)
+        if max_iterations < 1:
+            print("Error: --max-iterations must be >= 1")
             return 1
 
         tracker = progress_tracker.ProgressTracker()
@@ -454,27 +467,49 @@ Examples:
                 tool_list = tool_selection.tools
             tracker.update_phase("architecture", 100)
 
-            # Phase 3: Generation
-            tracker.update_phase("generation", 0, "Creating agent definition")
+            # Phase 3: Generation with iteration-aware retry loop
             agent_name = args.name or parsed.name
-
-            # agent_generator.generate returns (success, content, error)
-            success, agent_content, error_msg = agent_generator.generate(
-                name=agent_name,
-                description=parsed.description,
-                tools=tool_list,
+            state = workflow_state.WorkflowState(
+                workflow_id=f"cli-generate-{agent_name}",
+                agent_name=agent_name,
+                agent_description=parsed.description,
+                max_iterations=max_iterations,
             )
 
-            if not success:
-                tracker.fail(f"Generation failed: {error_msg}")
-                print(f"Error: {error_msg}")
-                return 1
+            agent_content = ""
+            reprompt_context = ""
 
-            tracker.update_phase("generation", 100)
+            for iteration in range(max_iterations):
+                tracker.update_phase(
+                    "generation",
+                    0,
+                    f"Creating agent definition (iteration {iteration + 1}/{max_iterations})",
+                )
 
-            # Phase 4: Validation
-            if not args.no_validate:
-                tracker.update_phase("validation", 0, "Validating syntax")
+                success, agent_content, error_msg = agent_generator.generate(
+                    name=agent_name,
+                    description=parsed.description,
+                    tools=tool_list,
+                    context_hint=reprompt_context,
+                )
+
+                if not success:
+                    tracker.fail(f"Generation failed: {error_msg}")
+                    print(f"Error: {error_msg}")
+                    return 1
+
+                tracker.update_phase("generation", 100)
+
+                # Skip validation if requested
+                if args.no_validate:
+                    break
+
+                # Validate
+                tracker.update_phase(
+                    "validation",
+                    0,
+                    f"Validating (iteration {iteration + 1}/{max_iterations})",
+                )
                 syntax_validator.validate_content(agent_content)
                 tracker.update_phase("validation", 33, "Scanning security")
 
@@ -485,11 +520,31 @@ Examples:
                 quality_score = quality_result.total_score
                 tracker.update_phase("validation", 100)
 
-                if quality_score < args.min_quality:
-                    tracker.fail(
-                        f"Quality score {quality_score:.1f} below minimum {args.min_quality}"
+                if quality_score >= args.min_quality:
+                    break
+
+                # Quality below threshold — build reprompt context for next iteration
+                state.retry_count = iteration + 1
+                reprompt_context = agent_generator.build_validation_failure_context(
+                    quality_result, min_score=args.min_quality
+                )
+
+                if iteration + 1 >= max_iterations:
+                    # Exhausted all iterations — ESCALATE
+                    return self._escalate_verdict(
+                        args,
+                        tracker,
+                        state,
+                        quality_score,
+                        agent_name,
+                        agent_type_str,
                     )
-                    return 1
+
+                tracker.update_phase(
+                    "generation",
+                    0,
+                    f"Score {quality_score:.1f} < {args.min_quality} — retrying with targeted reprompt",
+                )
 
             # Phase 5: Write output
             output_dir = args.output or Path.cwd() / ".claude" / "agents"
@@ -503,12 +558,14 @@ Examples:
             tracker.complete()
 
             if hasattr(args, "json") and args.json:
-                result = {
+                result: dict[str, Any] = {
                     "success": True,
                     "output_path": str(output_path),
                     "agent_name": agent_name,
                     "agent_type": agent_type_str,
                     "tools": tool_list,
+                    "iterations_used": state.retry_count + 1,
+                    "max_iterations": max_iterations,
                 }
                 if not args.no_validate:
                     result["quality_score"] = quality_score
@@ -517,6 +574,8 @@ Examples:
                 print(tracker.render())
                 print("\nAgent generated successfully!")
                 print(f"Output: {output_path}")
+                if state.retry_count > 0:
+                    print(f"Iterations used: {state.retry_count + 1}/{max_iterations}")
 
             return 0
 
@@ -524,6 +583,47 @@ Examples:
             tracker.fail(str(e))
             print(f"Error: {e}")
             return 1
+
+    def _escalate_verdict(
+        self,
+        args: argparse.Namespace,
+        tracker: progress_tracker.ProgressTracker,
+        state: workflow_state.WorkflowState,
+        quality_score: float,
+        agent_name: str,
+        agent_type_str: str,
+    ) -> int:
+        """Emit ESCALATE verdict when max iterations exhausted."""
+        tracker.fail(
+            f"ESCALATE: {state.max_iterations} iterations exhausted; "
+            f"best score {quality_score:.1f} < {args.min_quality}"
+        )
+
+        if hasattr(args, "json") and args.json:
+            result = {
+                "success": False,
+                "verdict": "ESCALATE",
+                "agent_name": agent_name,
+                "agent_type": agent_type_str,
+                "iterations_used": state.max_iterations,
+                "max_iterations": state.max_iterations,
+                "best_quality_score": quality_score,
+                "min_quality_required": args.min_quality,
+                "message": (
+                    f"Quality score {quality_score:.1f} remained below "
+                    f"{args.min_quality} after {state.max_iterations} iterations"
+                ),
+            }
+            print(json.dumps(result, indent=2))
+        else:
+            print(tracker.render())
+            print(
+                f"\nESCALATE: Quality score {quality_score:.1f} < {args.min_quality} "
+                f"after {state.max_iterations} iterations."
+            )
+            print("Manual intervention required.")
+
+        return 1
 
     def _handle_validate(self, args: argparse.Namespace) -> int:
         """Handle the validate command."""

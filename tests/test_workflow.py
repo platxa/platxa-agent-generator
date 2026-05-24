@@ -578,3 +578,124 @@ class TestInteractiveFrontmatterWizard:
         )
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == "True"
+
+
+class TestIterationAwareRetryLoop:
+    """Tests for Feature #45: --max-iterations CLI override with iteration-aware loop."""
+
+    CLI_SCRIPT = str(SCRIPTS_DIR / "cli.py")
+
+    def _run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, self.CLI_SCRIPT, *args],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            cwd=str(SCRIPTS_DIR),
+        )
+
+    def test_max_iterations_cli_arg_default(self) -> None:
+        """--max-iterations defaults to 5."""
+        result = self._run_cli("generate", "--help")
+        assert result.returncode == 0
+        assert "--max-iterations" in result.stdout
+        assert "default: 5" in result.stdout
+
+    def test_max_iterations_respected_escalate(self, tmp_path: Path) -> None:
+        """5 failed iterations (min-quality impossible) → ESCALATE verdict."""
+        result = self._run_cli(
+            "--json",
+            "generate",
+            "A test agent for iteration checks",
+            "--max-iterations",
+            "5",
+            "--min-quality",
+            "11.0",
+            "-o",
+            str(tmp_path),
+        )
+        assert result.returncode == 1
+        data = json.loads(result.stdout)
+        assert data["verdict"] == "ESCALATE"
+        assert data["iterations_used"] == 5
+        assert data["max_iterations"] == 5
+
+    def test_max_iterations_override_to_10(self, tmp_path: Path) -> None:
+        """--max-iterations=10 is respected in ESCALATE output."""
+        result = self._run_cli(
+            "--json",
+            "generate",
+            "A test agent",
+            "--max-iterations",
+            "10",
+            "--min-quality",
+            "11.0",
+            "-o",
+            str(tmp_path),
+        )
+        assert result.returncode == 1
+        data = json.loads(result.stdout)
+        assert data["verdict"] == "ESCALATE"
+        assert data["iterations_used"] == 10
+        assert data["max_iterations"] == 10
+
+    def test_iteration_count_visible_in_success_output(self, tmp_path: Path) -> None:
+        """Successful generation reports iterations_used and max_iterations."""
+        result = self._run_cli(
+            "--json",
+            "generate",
+            "A code review agent",
+            "--max-iterations",
+            "3",
+            "-o",
+            str(tmp_path),
+        )
+        assert result.returncode == 0
+        data = json.loads(result.stdout)
+        assert data["success"] is True
+        assert data["iterations_used"] == 1
+        assert data["max_iterations"] == 3
+
+    def test_context_hint_accepted_by_generate(self) -> None:
+        """agent_generator.generate() accepts context_hint and produces valid output."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from platxa_agent_generator.agent_generator import generate\n"
+                "ok, content, _ = generate(\n"
+                "    name='retry-test',\n"
+                "    description='A test agent',\n"
+                "    tools=['Read'],\n"
+                "    context_hint='Improve examples section with 3 concrete examples',\n"
+                ")\n"
+                "assert ok, content\n"
+                "assert 'retry-test' in content\n"
+                "print('OK')\n",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "OK"
+
+    def test_workflow_state_tracks_iterations(self) -> None:
+        """WorkflowState exposes retry_count and max_iterations in serialization."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "from platxa_agent_generator.workflow_state import WorkflowState\n"
+                "import json\n"
+                "s = WorkflowState(workflow_id='t', max_iterations=7)\n"
+                "s.retry_count = 4\n"
+                "d = s.to_dict()\n"
+                "print(d['retry_count'], d['max_iterations'])\n",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "4 7"

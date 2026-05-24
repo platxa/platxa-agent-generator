@@ -63,7 +63,7 @@ class TemplateVariables:
     """
 
     # Retry configuration
-    max_retry_attempts: int = 3
+    max_retry_attempts: int = 5
     initial_delay_ms: int = 1000
     max_delay_ms: int = 30000
     backoff_multiplier: float = 2.0
@@ -3387,10 +3387,15 @@ def generate(
     tools: list[str],
     pattern: str = "prompt-chaining",
     output_path: str | None = None,
+    context_hint: str = "",
     **kwargs: Any,
 ) -> tuple[bool, str, str]:
-    """
-    Generate an agent file.
+    """Generate an agent file.
+
+    Args:
+        context_hint: Optional targeted-reprompt context from a prior iteration.
+            Prepended to the description to steer regeneration toward fixing
+            specific quality deficiencies.
 
     Returns:
         (success, content_or_error, output_path)
@@ -3408,6 +3413,11 @@ def generate(
     if not valid:
         return False, f"Invalid tools: {error}", ""
 
+    # Enrich description with reprompt context when retrying
+    effective_description = description
+    if context_hint:
+        effective_description = f"{description}\n\n[Regeneration guidance]\n{context_hint}"
+
     # Create definition
     template_vars = kwargs.get("template_vars", TemplateVariables())
     if isinstance(template_vars, dict):
@@ -3415,7 +3425,7 @@ def generate(
 
     definition = AgentDefinition(
         name=name,
-        description=description,
+        description=effective_description,
         tools=normalized_tools,
         sections=kwargs.get("sections", []),
         workers=kwargs.get("workers", []),
