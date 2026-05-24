@@ -363,6 +363,24 @@ class ObservationStore:
             "output_path": str(output_path),
         }
 
+    def tail_sample(self, cap: int | None = None) -> list[ObservationRecord]:
+        """Return a tail-sampled subset of on-disk observations.
+
+        When the total record count exceeds *cap*, retains the first
+        ``cap // 2`` records (session-boot signals) and the last
+        ``cap - cap // 2`` records (completion signals), dropping the
+        middle entirely.  When *cap* is ``None`` the store's configured
+        session cap is used; when *cap* is 0 or negative, all records
+        are returned unsampled.
+        """
+        all_records = self.read_all()
+        effective_cap = cap if cap is not None else self._cap
+        if effective_cap <= 0 or len(all_records) <= effective_cap:
+            return all_records
+        head_size = effective_cap // 2
+        tail_size = effective_cap - head_size
+        return all_records[:head_size] + all_records[-tail_size:]
+
     def stats(self) -> dict[str, dict[str, int]]:
         """Compute aggregate statistics over parseable records.
 

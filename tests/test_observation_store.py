@@ -646,3 +646,109 @@ class TestObservationThrottling:
         for i in range(210):
             store.append(self._make_minimal(i))
         assert store.count() == DEFAULT_OBSERVATION_CAP
+
+
+# --- Tail-sampling (feature #63) ------------------------------------------
+
+
+class TestTailSampling:
+    """Verification: 300 obs with cap=100 → first 50 + last 50 retained."""
+
+    def _make_minimal(self, idx: int) -> ObservationRecord:
+        return ObservationRecord(
+            timestamp=f"t{idx}",
+            tool="Bash",
+            input_summary=f"obs {idx}",
+            project_id="p",
+            project_name="pn",
+        )
+
+    def _write_records(self, store: ObservationStore, n: int) -> list[ObservationRecord]:
+        """Write n records directly to disk, bypassing session cap."""
+        records = [self._make_minimal(i) for i in range(n)]
+        store.path.parent.mkdir(parents=True, exist_ok=True)
+        with store.path.open("w", encoding="utf-8") as fh:
+            for r in records:
+                fh.write(r.to_jsonl())
+        return records
+
+    def test_300_observations_cap_100(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        records = self._write_records(store, 300)
+        result = store.tail_sample(cap=100)
+        assert len(result) == 100
+        assert result[:50] == records[:50]
+        assert result[50:] == records[-50:]
+
+    def test_under_cap_returns_all(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        records = self._write_records(store, 80)
+        result = store.tail_sample(cap=100)
+        assert result == records
+
+    def test_exactly_at_cap_returns_all(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        records = self._write_records(store, 100)
+        result = store.tail_sample(cap=100)
+        assert result == records
+
+    def test_odd_cap_gives_extra_to_tail(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        records = self._write_records(store, 50)
+        result = store.tail_sample(cap=7)
+        assert len(result) == 7
+        assert result[:3] == records[:3]
+        assert result[3:] == records[-4:]
+
+    def test_cap_zero_returns_all(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        records = self._write_records(store, 200)
+        result = store.tail_sample(cap=0)
+        assert result == records
+
+    def test_cap_none_uses_store_cap(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "20")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        records = self._write_records(store, 50)
+        result = store.tail_sample()
+        assert len(result) == 20
+        assert result[:10] == records[:10]
+        assert result[10:] == records[-10:]
+
+    def test_empty_store(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        assert store.tail_sample(cap=100) == []
+
+    def test_cap_1_keeps_last(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        records = self._write_records(store, 10)
+        result = store.tail_sample(cap=1)
+        assert len(result) == 1
+        assert result[0] == records[-1]
+
+    def test_cap_2_keeps_first_and_last(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        records = self._write_records(store, 10)
+        result = store.tail_sample(cap=2)
+        assert len(result) == 2
+        assert result[0] == records[0]
+        assert result[1] == records[-1]
+
+    def test_middle_is_dropped_not_head_or_tail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        self._write_records(store, 20)
+        result = store.tail_sample(cap=10)
+        expected_timestamps = [f"t{i}" for i in range(5)] + [f"t{i}" for i in range(15, 20)]
+        actual_timestamps = [r.timestamp for r in result]
+        assert actual_timestamps == expected_timestamps
