@@ -10,13 +10,19 @@ Usage:
     python agent_generator.py --blueprint blueprint.json --output .claude/agents/
 """
 
+from __future__ import annotations
+
 import json
 import re
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from platxa_agent_generator.evaluation_criteria import EvaluationRubric
+    from platxa_agent_generator.quality_scorer import QualityReport
 
 try:
     from .shared.paths import DEFAULT_AGENTS_DIR
@@ -396,6 +402,78 @@ def validate_tools(tools: list[str]) -> tuple[bool, str, list[str]]:
         return False, f"Invalid tools: {', '.join(invalid)}", normalized
 
     return True, "", normalized
+
+
+def build_validation_failure_context(
+    report: QualityReport,
+    *,
+    min_score: float = 7.0,
+    rubric: EvaluationRubric | None = None,
+) -> str:
+    """Convert a failed QualityReport into a targeted regeneration prompt.
+
+    Bridges the per-criterion findings from ``quality_scorer`` into the
+    format expected by ``targeted_reprompt.build_regeneration_prompt()``,
+    using ``verdict_aggregator`` to classify axes as blocking or warning.
+
+    Returns an empty string when the report passes (no regeneration needed).
+    """
+    if report.passed:
+        return ""
+
+    from platxa_agent_generator.evaluation_criteria import EvaluationRubric as _Rubric
+    from platxa_agent_generator.targeted_reprompt import build_regeneration_prompt
+    from platxa_agent_generator.verdict_aggregator import aggregate_from_rubric
+
+    if rubric is None:
+        rubric = _Rubric.load_default()
+
+    unmet_axes: list[str] = []
+    findings_dicts: list[dict[str, str]] = []
+    known_axes = _axis_names_from_rubric(rubric)
+
+    for criterion in report.criteria:
+        axis_name = criterion.name
+        if axis_name not in known_axes:
+            continue
+        if criterion.score < min_score:
+            unmet_axes.append(axis_name)
+            severity = rubric.axis(axis_name).severity_on_unmet
+            for finding_text in criterion.findings:
+                findings_dicts.append(
+                    {
+                        "axis": axis_name,
+                        "severity": severity,
+                        "summary": finding_text,
+                        "location": "",
+                    }
+                )
+            for suggestion_text in criterion.suggestions:
+                findings_dicts.append(
+                    {
+                        "axis": axis_name,
+                        "severity": severity,
+                        "summary": f"[suggestion] {suggestion_text}",
+                        "location": "",
+                    }
+                )
+
+    if not unmet_axes:
+        return ""
+
+    verdict = aggregate_from_rubric(unmet_axes, rubric)
+
+    return build_regeneration_prompt(
+        findings=findings_dicts,
+        blocking_axes=list(verdict.blocking_axes),
+        warning_axes=list(verdict.warning_axes),
+        rubric=rubric,
+    )
+
+
+def _axis_names_from_rubric(rubric: EvaluationRubric) -> frozenset[str]:
+    """Extract the set of axis names from a rubric instance."""
+    return frozenset(a.name for a in rubric.axes)
 
 
 def generate_frontmatter(definition: AgentDefinition) -> str:
