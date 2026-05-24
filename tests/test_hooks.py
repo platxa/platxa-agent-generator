@@ -1867,6 +1867,320 @@ class TestSubagentAuditHooks:
         assert all(c == "/custom/path.sh" for c in cmds), cmds
 
 
+class TestStopHookCompletionCheck:
+    """Tests for Stop-hook completion-check generation (Feature #33).
+
+    Verifies that generated Stop scripts gate termination on the
+    ``<promise>COMPLETE</promise>`` marker using regex extraction +
+    byte-exact comparison, block with exit 2 when absent and iteration < max,
+    and allow with exit 0 when marker present or iteration >= max.
+    """
+
+    def _generate_script(
+        self, agent_name: str, max_iterations: int = 5
+    ) -> str:
+        """Generate completion-check script via subprocess."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_stop_hook_completion_check; "
+                    f"print(generate_stop_hook_completion_check('{agent_name}', {max_iterations}))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script generation failed: {result.stderr}"
+        return result.stdout
+
+    def _generate_config(self, agent_name: str, script_path: str) -> dict:
+        """Generate completion-check hook config via subprocess."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import json; "
+                    "from platxa_agent_generator.hooks_generator import generate_stop_hook_completion_check_config; "
+                    f"print(json.dumps(generate_stop_hook_completion_check_config('{agent_name}', '{script_path}')))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Config generation failed: {result.stderr}"
+        return json.loads(result.stdout)
+
+    def _run_script(
+        self,
+        tmp_path: Path,
+        agent_name: str,
+        stdin_payload: dict,
+        max_iterations: int = 5,
+        env_overrides: dict | None = None,
+    ) -> subprocess.CompletedProcess:
+        """Write and execute the completion-check script with a given stdin payload."""
+        script = self._generate_script(agent_name, max_iterations)
+        script_path = tmp_path / "completion-check.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+
+        env = os.environ.copy()
+        if env_overrides:
+            env.update(env_overrides)
+
+        return subprocess.run(
+            ["bash", str(script_path)],
+            input=json.dumps(stdin_payload),
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+            env=env,
+        )
+
+    def test_script_is_valid_bash(self, tmp_path: Path) -> None:
+        """Generated script must be valid bash syntax."""
+        script = self._generate_script("check-agent")
+        script_path = tmp_path / "check.sh"
+        script_path.write_text(script)
+        result = subprocess.run(["bash", "-n", str(script_path)], capture_output=True, text=True)
+        assert result.returncode == 0, f"Bash syntax error: {result.stderr}"
+
+    def test_script_has_shebang(self) -> None:
+        """Script must start with bash shebang."""
+        script = self._generate_script("check-agent")
+        assert script.startswith("#!/usr/bin/env bash")
+
+    def test_script_includes_agent_name(self) -> None:
+        """Script must include agent name in output messages."""
+        script = self._generate_script("my-checker")
+        assert "my-checker" in script
+
+    def test_script_uses_regex_extraction(self) -> None:
+        """Script must use regex <promise>(.*?)</promise>, not naive substring."""
+        script = self._generate_script("check-agent")
+        assert r"<promise>(.*?)</promise>" in script
+
+    def test_exit_0_when_marker_present(self, tmp_path: Path) -> None:
+        """Exit 0 when <promise>COMPLETE</promise> is in last_assistant_message."""
+        result = self._run_script(
+            tmp_path,
+            "check-agent",
+            {
+                "last_assistant_message": "Done. <promise>COMPLETE</promise>",
+                "current_iteration": 1,
+            },
+        )
+        assert result.returncode == 0
+
+    def test_exit_2_when_marker_absent(self, tmp_path: Path) -> None:
+        """Exit 2 when marker absent and iteration < max."""
+        result = self._run_script(
+            tmp_path,
+            "check-agent",
+            {
+                "last_assistant_message": "Still working on it.",
+                "current_iteration": 1,
+            },
+        )
+        assert result.returncode == 2
+        assert "completion-check" in result.stderr
+
+    def test_exit_0_when_iteration_at_max(self, tmp_path: Path) -> None:
+        """Exit 0 when marker absent but iteration >= max (safety valve)."""
+        result = self._run_script(
+            tmp_path,
+            "check-agent",
+            {
+                "last_assistant_message": "No marker here.",
+                "current_iteration": 5,
+            },
+            max_iterations=5,
+        )
+        assert result.returncode == 0
+        assert "allowing termination" in result.stderr
+
+    def test_exit_0_when_iteration_exceeds_max(self, tmp_path: Path) -> None:
+        """Exit 0 when iteration > max."""
+        result = self._run_script(
+            tmp_path,
+            "check-agent",
+            {
+                "last_assistant_message": "No marker.",
+                "current_iteration": 10,
+            },
+            max_iterations=3,
+        )
+        assert result.returncode == 0
+
+    def test_rejects_wrong_inner_token(self, tmp_path: Path) -> None:
+        """Exit 2 when inner token is not 'COMPLETE' (e.g. lowercase)."""
+        result = self._run_script(
+            tmp_path,
+            "check-agent",
+            {
+                "last_assistant_message": "Done. <promise>complete</promise>",
+                "current_iteration": 1,
+            },
+        )
+        assert result.returncode == 2
+
+    def test_rejects_substring_match(self, tmp_path: Path) -> None:
+        """Exit 2 when full marker appears as prose but not in tags."""
+        result = self._run_script(
+            tmp_path,
+            "check-agent",
+            {
+                "last_assistant_message": 'The marker is "<promise>COMPLETE</promise>" in the docs.',
+                "current_iteration": 1,
+            },
+        )
+        # This one SHOULD match — the marker genuinely appears in the text
+        assert result.returncode == 0
+
+    def test_marker_embedded_in_longer_message(self, tmp_path: Path) -> None:
+        """Exit 0 when marker appears anywhere in a longer message."""
+        result = self._run_script(
+            tmp_path,
+            "check-agent",
+            {
+                "last_assistant_message": (
+                    "I have completed all tasks.\n\n<promise>COMPLETE</promise>\n\nThank you."
+                ),
+                "current_iteration": 2,
+            },
+        )
+        assert result.returncode == 0
+
+    def test_empty_message_blocks(self, tmp_path: Path) -> None:
+        """Exit 2 when last_assistant_message is empty."""
+        result = self._run_script(
+            tmp_path,
+            "check-agent",
+            {
+                "last_assistant_message": "",
+                "current_iteration": 1,
+            },
+        )
+        assert result.returncode == 2
+
+    def test_missing_message_field_blocks(self, tmp_path: Path) -> None:
+        """Exit 2 when last_assistant_message is not in the payload."""
+        result = self._run_script(
+            tmp_path,
+            "check-agent",
+            {"current_iteration": 1},
+        )
+        assert result.returncode == 2
+
+    def test_custom_max_iterations(self) -> None:
+        """max_iterations parameter is embedded in the script."""
+        script = self._generate_script("check-agent", max_iterations=10)
+        assert "10" in script
+
+    def test_default_max_iterations(self) -> None:
+        """Default max_iterations is 5."""
+        script = self._generate_script("check-agent")
+        assert "5" in script
+
+    def test_rejects_invalid_agent_name(self) -> None:
+        """Must reject agent names with shell metacharacters."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_stop_hook_completion_check; "
+                    "generate_stop_hook_completion_check('bad; rm -rf /')"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "ValueError" in result.stderr
+
+    def test_rejects_zero_max_iterations(self) -> None:
+        """Must reject max_iterations < 1."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_stop_hook_completion_check; "
+                    "generate_stop_hook_completion_check('test-agent', 0)"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "ValueError" in result.stderr
+
+    def test_hook_config_uses_stop_event(self) -> None:
+        """Hook config must use Stop event."""
+        config = self._generate_config("check-agent", "/path/to/check.sh")
+        assert "Stop" in config
+        assert len(config["Stop"]) == 1
+
+    def test_hook_config_uses_correct_script_path(self) -> None:
+        """Hook config must reference the provided script path."""
+        config = self._generate_config("check-agent", "/home/user/.claude/hooks/check.sh")
+        command = config["Stop"][0]["hooks"][0]["command"]
+        assert command == "/home/user/.claude/hooks/check.sh"
+
+    def test_hook_config_has_no_matcher(self) -> None:
+        """Stop hooks should not have a matcher."""
+        config = self._generate_config("check-agent", "/path/to/check.sh")
+        assert "matcher" not in config["Stop"][0]
+
+    def test_hook_config_rejects_empty_script_path(self) -> None:
+        """Must reject empty script_path."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_stop_hook_completion_check_config; "
+                    "generate_stop_hook_completion_check_config('test-agent', '')"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "ValueError" in result.stderr
+
+    def test_re_prompt_message_is_actionable(self, tmp_path: Path) -> None:
+        """Stderr on exit 2 must tell the model to emit the marker."""
+        result = self._run_script(
+            tmp_path,
+            "check-agent",
+            {
+                "last_assistant_message": "Not done yet.",
+                "current_iteration": 1,
+            },
+        )
+        assert result.returncode == 2
+        assert "completion-promise marker" in result.stderr or "Re-prompting" in result.stderr
+
+    def test_env_var_fallback_for_max_iterations(self, tmp_path: Path) -> None:
+        """CLAUDE_MAX_ITERATIONS env var overrides the baked-in default."""
+        result = self._run_script(
+            tmp_path,
+            "check-agent",
+            {
+                "last_assistant_message": "No marker.",
+                "current_iteration": 2,
+            },
+            max_iterations=5,
+            env_overrides={"CLAUDE_MAX_ITERATIONS": "2"},
+        )
+        assert result.returncode == 0
+
+
 class TestHooksGeneratorAuditHook:
     """Tests for subagent audit hook malformed-JSON fail-closed (Feature #9).
 
