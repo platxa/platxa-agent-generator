@@ -2,15 +2,17 @@
 """
 test_quality_scoring — sharded from test_generator.py.
 
-Shards: 3 TestXxx classes.
+Shards: 4 TestXxx classes.
 Run with: pytest tests/test_quality_scoring.py -v
 """
 
 from __future__ import annotations
 
+import ast
 import json
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
@@ -305,3 +307,98 @@ class TestContextBudgetEstimation:
         content = "a" * 800  # 200 tokens
         result = self._estimate(content)
         assert "200" in result["message"]
+
+
+class TestCriteriaWeightsFromYAML:
+    """Tests for YAML-loaded CRITERIA_WEIGHTS (Feature #39)."""
+
+    def test_weights_loaded_from_yaml(self) -> None:
+        """CRITERIA_WEIGHTS must match the canonical evaluation-criteria.yaml."""
+        from platxa_agent_generator.evaluation_criteria import EvaluationRubric
+        from platxa_agent_generator.quality_scorer import CRITERIA_WEIGHTS
+
+        yaml_weights = EvaluationRubric.load_default().weights()
+        assert CRITERIA_WEIGHTS == yaml_weights
+
+    def test_weights_sum_to_one(self) -> None:
+        """Loaded weights must sum to 1.0."""
+        from platxa_agent_generator.quality_scorer import CRITERIA_WEIGHTS
+
+        total = sum(CRITERIA_WEIGHTS.values())
+        assert abs(total - 1.0) < 1e-9, f"Weights sum to {total}, expected 1.0"
+
+    def test_weights_have_all_six_axes(self) -> None:
+        """CRITERIA_WEIGHTS must contain exactly the 6 canonical axes."""
+        from platxa_agent_generator.quality_scorer import CRITERIA_WEIGHTS
+
+        expected = {"clarity", "completeness", "tool_design", "examples", "security", "documentation"}
+        assert set(CRITERIA_WEIGHTS.keys()) == expected
+
+    def test_no_hardcoded_weights_in_source(self) -> None:
+        """Source code must not contain a hard-coded dict literal for CRITERIA_WEIGHTS."""
+        source_path = SCRIPTS_DIR / "quality_scorer.py"
+        tree = ast.parse(source_path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.Assign)
+                and any(
+                    isinstance(t, ast.Name) and t.id == "CRITERIA_WEIGHTS"
+                    for t in node.targets
+                )
+                and isinstance(node.value, ast.Dict)
+            ):
+                raise AssertionError(
+                    "CRITERIA_WEIGHTS is assigned a dict literal in source. "
+                    "Weights must be loaded from templates/evaluation-criteria.yaml "
+                    "via EvaluationRubric.load_default().weights(). "
+                    "See feature #39."
+                )
+
+    def test_deprecation_warning_on_weight_override(self) -> None:
+        """check_criteria_weights_integrity() must warn when weights are overridden."""
+        import platxa_agent_generator.quality_scorer as qs
+
+        original = qs.CRITERIA_WEIGHTS.copy()
+        try:
+            qs.CRITERIA_WEIGHTS = {"clarity": 0.99, "completeness": 0.01,
+                                   "tool_design": 0.0, "examples": 0.0,
+                                   "security": 0.0, "documentation": 0.0}
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter("always")
+                qs.check_criteria_weights_integrity()
+                assert len(w) == 1
+                assert issubclass(w[0].category, DeprecationWarning)
+                assert "hard-coded weights are deprecated" in str(w[0].message).lower()
+        finally:
+            qs.CRITERIA_WEIGHTS = original
+
+    def test_no_warning_when_weights_match_yaml(self) -> None:
+        """check_criteria_weights_integrity() must not warn when weights match YAML."""
+        from platxa_agent_generator.quality_scorer import check_criteria_weights_integrity
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            check_criteria_weights_integrity()
+            deprecation_warnings = [x for x in w if issubclass(x.category, DeprecationWarning)]
+            assert len(deprecation_warnings) == 0
+
+    def test_score_quality_uses_yaml_weights(self) -> None:
+        """score_quality() must produce weighted scores consistent with YAML weights."""
+        from platxa_agent_generator.evaluation_criteria import EvaluationRubric
+        from platxa_agent_generator.quality_scorer import score_quality
+
+        yaml_weights = EvaluationRubric.load_default().weights()
+        content = (
+            "---\nname: test-agent\ndescription: Analyzes code\ntools: Read, Grep\n---\n\n"
+            "# Test Agent\n\n## Overview\nAnalyzes code.\n\n## Workflow\n"
+            "1. Read files with Read\n2. Search with Grep\n\n## Examples\n"
+            "### Example 1: Basic Usage\nUser: Analyze code\nAgent: Reads and greps\n"
+        )
+        report = score_quality(content)
+        for criterion in report.criteria:
+            name_key = criterion.name.lower().replace(" ", "_")
+            if name_key in yaml_weights:
+                assert criterion.weight == yaml_weights[name_key], (
+                    f"{criterion.name} weight {criterion.weight} != "
+                    f"YAML weight {yaml_weights[name_key]}"
+                )

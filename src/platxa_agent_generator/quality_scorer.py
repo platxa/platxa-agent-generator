@@ -5,13 +5,8 @@ Quality Scorer for Generated Agents
 Evaluates agent definition files against quality criteria and produces
 an objective score from 0-10.
 
-Quality Criteria (from project spec):
-- Clarity: 20% - Clear language, well-organized, easy to understand
-- Completeness: 20% - All required components present and filled
-- Tool Design: 20% - Appropriate tool selection, proper usage patterns
-- Examples: 15% - Quality and coverage of usage examples
-- Security: 15% - Security considerations, safe patterns
-- Documentation: 10% - Inline documentation, comments, references
+Quality criteria weights are loaded from templates/evaluation-criteria.yaml
+at module init via EvaluationRubric.load_default().weights().
 
 Usage:
     python quality_scorer.py agent.md
@@ -24,9 +19,12 @@ from __future__ import annotations
 import json
 import re
 import sys
+import warnings
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from platxa_agent_generator.evaluation_criteria import EvaluationRubric
 
 
 @dataclass
@@ -53,16 +51,30 @@ class QualityReport:
     summary: str = ""
 
 
-# Quality criteria weights (must sum to 1.0)
-# Updated based on research: Examples and Documentation increased for production-grade agents
-CRITERIA_WEIGHTS = {
-    "clarity": 0.15,
-    "completeness": 0.15,
-    "tool_design": 0.15,
-    "examples": 0.20,  # Increased from 0.15 - examples critical for LLM understanding
-    "security": 0.15,
-    "documentation": 0.20,  # Increased from 0.10 - production requires comprehensive docs
-}
+def _load_criteria_weights() -> dict[str, float]:
+    """Load criteria weights from the canonical evaluation-criteria.yaml."""
+    return EvaluationRubric.load_default().weights()
+
+
+CRITERIA_WEIGHTS: dict[str, float] = _load_criteria_weights()
+
+
+def check_criteria_weights_integrity() -> None:
+    """Emit DeprecationWarning if CRITERIA_WEIGHTS diverges from the YAML source.
+
+    Call from tests or health checks to detect hard-coded weight
+    re-introduction. The YAML file is the single source of truth.
+    """
+    yaml_weights = _load_criteria_weights()
+    if CRITERIA_WEIGHTS != yaml_weights:
+        warnings.warn(
+            "CRITERIA_WEIGHTS has been overridden with values that differ from "
+            "templates/evaluation-criteria.yaml. Hard-coded weights are deprecated; "
+            "update the YAML file instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+
 
 # Valid Claude Code tools
 VALID_TOOLS = {

@@ -2,30 +2,18 @@
 # scoring. The values below match the documented project spec in CLAUDE.md
 # and agents/validation-subagent.md.
 #
-# CURRENT consumer:
+# Active consumers:
 #   - src/platxa_agent_generator/evaluation_criteria.py
 #       loads this file via EvaluationRubric.load_default().
-#
-# PLANNED consumers (NOT yet wired up — drift hazard, see below):
 #   - src/platxa_agent_generator/quality_scorer.py
-#       still hard-codes CRITERIA_WEIGHTS at lines 58-65 with values that
-#       disagree with this YAML on every axis (see "Drift hazard" below).
-#       A follow-up feature will replace that hard-coded dict with a
-#       call to EvaluationRubric.load_default().weights().
+#       loads CRITERIA_WEIGHTS via EvaluationRubric.load_default().weights()
+#       at module init (feature #39). check_criteria_weights_integrity()
+#       emits DeprecationWarning if weights are overridden at runtime.
+#
+# PLANNED consumers (NOT yet wired up):
 #   - agents/validation-subagent.md
 #       advisory-threshold reference; codegen will regenerate the prompt's
 #       criteria block from this file rather than from hand-edited markdown.
-#
-# Drift hazard (intentional, scoped to feature #2):
-#   YAML weights:           clarity 0.20 completeness 0.20 tool_design 0.20
-#                           examples 0.15 security 0.15 documentation 0.10
-#   quality_scorer.py:      clarity 0.15 completeness 0.15 tool_design 0.15
-#                           examples 0.20 security 0.15 documentation 0.20
-#   The YAML reflects the documented spec; the runtime scorer drifted in a
-#   prior commit that promoted Examples/Documentation weights "based on
-#   research." Closing the gap is out of scope for feature #2 (which only
-#   creates the YAML + loader); a downstream feature must update
-#   quality_scorer.CRITERIA_WEIGHTS to call the loader.
 #
 # Invariants enforced by EvaluationRubric.__post_init__:
 #   - exactly 6 axes
