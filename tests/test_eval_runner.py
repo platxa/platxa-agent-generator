@@ -11,6 +11,7 @@ criteria evaluation, error handling.
 
 from __future__ import annotations
 
+import io
 import json
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,7 @@ from platxa_agent_generator.eval_runner import (
     DEFAULT_HISTORY_DIR,
     EvalRunnerError,
     ScenarioResult,
+    evaluate_exit,
     pass_at_k,
     run_scenario,
     write_run_history,
@@ -425,3 +427,73 @@ class TestWriteRunHistory:
 
         assert p1 != p2
         assert len(list(tmp_path.glob("run-*.json"))) == 2
+
+
+# --------------------------------------------------------------------------
+# evaluate_exit — Feature #29 (regression vs capability split)
+# --------------------------------------------------------------------------
+
+
+class TestEvaluateExit:
+    """Verify regression failures exit 1; capability failures exit 0 + warning."""
+
+    def test_regression_failure_returns_exit_1(self) -> None:
+        results = [
+            _make_result(verdict="failed", scenario_type="regression", error="hash mismatch"),
+        ]
+        assert evaluate_exit(results, stderr=io.StringIO()) == 1
+
+    def test_capability_failure_returns_exit_0(self) -> None:
+        results = [
+            _make_result(verdict="failed", scenario_type="capability", error="criterion not met"),
+        ]
+        assert evaluate_exit(results, stderr=io.StringIO()) == 0
+
+    def test_capability_failure_emits_warning_to_stderr(self) -> None:
+        buf = io.StringIO()
+        results = [
+            _make_result(
+                verdict="failed",
+                scenario_type="capability",
+                prompt="implement add()",
+                error="criterion not met: 'returns 5'",
+            ),
+        ]
+        evaluate_exit(results, stderr=buf)
+        warning = buf.getvalue()
+        assert "capability scenario warning" in warning
+        assert "implement add()" in warning
+        assert "criterion not met" in warning
+
+    def test_all_passed_returns_exit_0(self) -> None:
+        results = [
+            _make_result(verdict="passed", scenario_type="regression"),
+            _make_result(verdict="passed", scenario_type="capability"),
+        ]
+        assert evaluate_exit(results, stderr=io.StringIO()) == 0
+
+    def test_mixed_regression_failure_dominates(self) -> None:
+        results = [
+            _make_result(verdict="passed", scenario_type="regression"),
+            _make_result(verdict="failed", scenario_type="regression", error="broke"),
+            _make_result(verdict="failed", scenario_type="capability", error="weak"),
+        ]
+        assert evaluate_exit(results, stderr=io.StringIO()) == 1
+
+    def test_capability_warning_without_error_field(self) -> None:
+        buf = io.StringIO()
+        results = [
+            _make_result(verdict="failed", scenario_type="capability", error=None),
+        ]
+        evaluate_exit(results, stderr=buf)
+        warning = buf.getvalue()
+        assert "capability scenario warning" in warning
+        assert " — " not in warning
+
+    def test_empty_results_raises(self) -> None:
+        with pytest.raises(ValueError, match="non-empty"):
+            evaluate_exit([], stderr=io.StringIO())
+
+    def test_defaults_stderr_to_sys_stderr(self) -> None:
+        results = [_make_result(verdict="passed", scenario_type="capability")]
+        assert evaluate_exit(results) == 0

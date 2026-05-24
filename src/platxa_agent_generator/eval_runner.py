@@ -20,13 +20,14 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import time
 import typing
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import IO, Literal
 
 from .eval_scenario import EvalScenario
 
@@ -41,6 +42,7 @@ __all__ = [
     "ScenarioResult",
     "VERDICTS",
     "VerdictType",
+    "evaluate_exit",
     "pass_at_k",
     "run_scenario",
     "write_run_history",
@@ -235,3 +237,53 @@ def pass_at_k(
 
     passed_count = sum(1 for _ in range(k) if generator_fn(scenario).verdict == "passed")
     return passed_count / k
+
+
+def evaluate_exit(
+    results: Sequence[ScenarioResult],
+    *,
+    stderr: IO[str] | None = None,
+) -> int:
+    """Determine process exit code from a batch of scenario results.
+
+    Regression failures are hard gates — any regression failure returns
+    exit code 1.  Capability failures are advisory — they emit a warning
+    to *stderr* but return exit code 0.
+
+    Returns 0 when all scenarios passed or only capability scenarios
+    failed.  Returns 1 when any regression scenario failed.
+
+    Args:
+        results: Sequence of :class:`ScenarioResult` from one or more
+            scenario runs.
+        stderr: Writable text stream for capability-failure warnings.
+            Defaults to ``sys.stderr``.
+
+    Raises:
+        ValueError: If *results* is empty.
+    """
+    if not results:
+        raise ValueError("results must be a non-empty sequence")
+
+    if stderr is None:
+        stderr = sys.stderr
+
+    regression_failures: list[ScenarioResult] = []
+    capability_failures: list[ScenarioResult] = []
+
+    for r in results:
+        if r.verdict == "failed":
+            if r.scenario_type == "regression":
+                regression_failures.append(r)
+            else:
+                capability_failures.append(r)
+
+    for r in capability_failures:
+        msg = f"capability scenario warning: {r.prompt!r}"
+        if r.error:
+            msg += f" — {r.error}"
+        print(msg, file=stderr)
+
+    if regression_failures:
+        return 1
+    return 0
