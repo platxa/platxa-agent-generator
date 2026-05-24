@@ -480,6 +480,25 @@ Task tool with:
         """Generate feedback loop controller markdown for evaluator-optimizer pattern."""
         worker_table = "\n".join(f"| {w.name} | {w.role} | {w.description} |" for w in self.workers)
 
+        def _first_by_role(role: str) -> AgentDefinition | None:
+            return next((w for w in self.workers if w.role == role), None)
+
+        generator = _first_by_role("generator")
+        evaluator = _first_by_role("evaluator")
+        optimizer = _first_by_role("optimizer")
+        missing = [r for r, w in [("generator", generator), ("evaluator", evaluator), ("optimizer", optimizer)] if w is None]
+        if missing:
+            raise ValueError(
+                f"evaluator-optimizer system requires workers with roles "
+                f"'generator', 'evaluator', 'optimizer'; missing: {missing}"
+            )
+        assert generator is not None
+        assert evaluator is not None
+        assert optimizer is not None
+        generator_name = generator.name
+        evaluator_name = evaluator.name
+        optimizer_name = optimizer.name
+
         content = f"""---
 name: {self.orchestrator.name}
 description: {self.orchestrator.description}
@@ -518,19 +537,19 @@ Evaluator-Optimizer (Generate → Evaluate → Optimize → Loop/Finalize)
 3. Initialize quality tracking
 
 ### Step 2: Generate
-Spawn content-generator:
+Spawn {generator_name}:
 ```
 Task tool with:
-  subagent_type: content-generator
+  subagent_type: {generator_name}
   prompt: <requirements or improvement instructions>
   description: "Generate/improve content"
 ```
 
 ### Step 3: Evaluate
-Spawn quality-evaluator:
+Spawn {evaluator_name}:
 ```
 Task tool with:
-  subagent_type: quality-evaluator
+  subagent_type: {evaluator_name}
   prompt: <generated content + criteria>
   description: "Evaluate content quality"
 ```
@@ -541,10 +560,10 @@ Task tool with:
 - Otherwise → Proceed to Optimize
 
 ### Step 4: Optimize
-Spawn improvement-optimizer:
+Spawn {optimizer_name}:
 ```
 Task tool with:
-  subagent_type: improvement-optimizer
+  subagent_type: {optimizer_name}
   prompt: <evaluation feedback>
   description: "Generate improvement plan"
 ```
