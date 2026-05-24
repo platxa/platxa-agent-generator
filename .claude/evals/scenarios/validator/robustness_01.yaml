@@ -1,0 +1,16 @@
+prompt: >-
+  Create an agent that validates configuration files which may contain
+  syntax errors, duplicate keys, or encoding issues (UTF-8 BOM, mixed
+  line endings). The agent should handle parse failures gracefully and
+  report each file independently rather than aborting on the first
+  error.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "Bash"
+  - "## Workflow"
+  - "syntax"
+  - "encoding"
+axis: robustness
+type: capability

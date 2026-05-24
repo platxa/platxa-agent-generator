@@ -1,0 +1,13 @@
+prompt: >-
+  Generate an agent that validates Python code style and also
+  automatically reformats all files that violate the style rules.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "Bash"
+  - "## Workflow"
+  - "Python"
+  - "style"
+axis: scope_adherence
+type: capability

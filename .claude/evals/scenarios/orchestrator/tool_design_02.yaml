@@ -1,0 +1,18 @@
+prompt: >-
+  Create an orchestrator that monitors the status of multiple
+  background jobs by periodically reading their log files and
+  aggregating progress. It should only read and report — never
+  modify the running jobs or their outputs.
+success_criteria:
+  - "tools:"
+  - "Read"
+  - "Glob"
+  - "Bash"
+  - "## Workflow"
+  - "monitor"
+  - "status"
+axis: tool_design
+type: capability
+forbidden_tools:
+  - "Write"
+  - "Edit"

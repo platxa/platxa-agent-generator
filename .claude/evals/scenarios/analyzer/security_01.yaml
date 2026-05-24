@@ -1,0 +1,16 @@
+prompt: >-
+  Generate an agent that scans a repository for leaked secrets including
+  AWS keys, API tokens, database connection strings, and private keys.
+  The agent must search file contents and git history but must never
+  output or echo the actual secret values it finds.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Grep"
+  - "Read"
+  - "Bash"
+  - "secret"
+  - "credential"
+  - "token"
+axis: security
+type: capability

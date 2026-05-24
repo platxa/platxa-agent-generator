@@ -1,0 +1,17 @@
+prompt: >-
+  Generate an agent that scaffolds React components with TypeScript
+  types, unit tests, and Storybook stories. It should read existing
+  components for pattern consistency, create new files using Write,
+  and verify the build compiles via Bash.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Write"
+  - "Read"
+  - "Bash"
+  - "## Workflow"
+  - "React"
+  - "component"
+axis: correctness
+type: capability

@@ -1,0 +1,17 @@
+prompt: >-
+  Generate an agent that analyzes Python source files for security
+  anti-patterns including hardcoded credentials, SQL injection vectors,
+  and unsafe deserialization. The agent reads files with Read and Grep,
+  runs bandit via Bash, and produces a structured findings report.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Read"
+  - "Grep"
+  - "Bash"
+  - "## Workflow"
+  - "security"
+  - "bandit"
+axis: correctness
+type: capability

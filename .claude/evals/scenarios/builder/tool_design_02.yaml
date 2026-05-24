@@ -1,0 +1,15 @@
+prompt: >-
+  Create an agent that generates README.md documentation by reading
+  source code files and extracting module descriptions, function
+  signatures, and usage examples. The agent should only read code
+  and write markdown — no shell execution needed.
+success_criteria:
+  - "tools:"
+  - "Read"
+  - "Write"
+  - "Glob"
+  - "## Workflow"
+  - "README"
+  - "documentation"
+axis: tool_design
+type: capability

@@ -1,0 +1,13 @@
+prompt: >-
+  Generate an orchestrator agent that coordinates subagents and also
+  directly writes implementation code for the features those subagents
+  designed.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Task"
+  - "## Workflow"
+  - "delegate"
+  - "subagent"
+axis: scope_adherence
+type: capability

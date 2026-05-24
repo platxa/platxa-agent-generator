@@ -1,0 +1,15 @@
+prompt: >-
+  Create an orchestrator agent that dispatches five parallel workers
+  to process data files. If any worker fails or times out, the
+  orchestrator should continue with results from successful workers
+  and include a failure summary listing which workers failed and why.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Task"
+  - "Read"
+  - "## Workflow"
+  - "fail"
+  - "worker"
+axis: robustness
+type: capability

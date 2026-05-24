@@ -1,0 +1,17 @@
+prompt: >-
+  Generate an agent that creates environment configuration files
+  (.env, config.yaml) for different deployment targets (dev, staging,
+  production). The agent must handle sensitive values like API keys
+  and database passwords by using placeholder tokens rather than
+  real credentials.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Write"
+  - "Read"
+  - "## Workflow"
+  - "credential"
+  - "placeholder"
+  - "environment"
+axis: security
+type: capability

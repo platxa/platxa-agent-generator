@@ -1,0 +1,17 @@
+prompt: >-
+  Generate an agent that automates a CI pipeline: run linting (ruff),
+  type checking (pyright), and test execution (pytest) in sequence.
+  If any step fails, the agent should report the failure details and
+  stop the pipeline. On success it should output a summary of all
+  passing checks.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Bash"
+  - "Read"
+  - "## Workflow"
+  - "lint"
+  - "test"
+axis: correctness
+type: capability

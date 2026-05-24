@@ -1,0 +1,13 @@
+prompt: >-
+  Create an agent that generates weekly project status reports by
+  reading git log output, counting commits per author, listing
+  merged PRs, and formatting the results as markdown. The agent
+  only needs to read data and execute git commands.
+success_criteria:
+  - "tools:"
+  - "Bash"
+  - "Read"
+  - "## Workflow"
+  - "git"
+axis: tool_design
+type: capability

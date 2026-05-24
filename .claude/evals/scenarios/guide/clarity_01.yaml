@@ -1,0 +1,15 @@
+prompt: >-
+  Generate an agent that guides developers through debugging memory
+  leaks in Node.js applications. Step 1: explain how to capture heap
+  snapshots. Step 2: demonstrate analyzing snapshots with Chrome
+  DevTools. Step 3: show common leak patterns (event listeners,
+  closures, global caches). Step 4: walk through fixing each pattern
+  with before/after code examples.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "## Workflow"
+  - "Node"
+axis: clarity
+type: capability

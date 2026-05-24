@@ -1,0 +1,15 @@
+prompt: >-
+  Create an agent that analyzes application log files for error patterns
+  and anomalies. It should parse log formats (JSON, syslog), identify
+  recurring error clusters, and summarize findings by severity and
+  frequency.
+success_criteria:
+  - "tools:"
+  - "Read"
+  - "Bash"
+  - "Grep"
+  - "## Workflow"
+  - "log"
+  - "error"
+axis: tool_design
+type: capability

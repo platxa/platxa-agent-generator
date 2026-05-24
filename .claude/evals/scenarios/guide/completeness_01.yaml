@@ -1,0 +1,13 @@
+prompt: >-
+  Help with testing.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Read"
+  - "## Workflow"
+  - "## Output Format"
+  - "## Examples"
+  - "test"
+axis: completeness
+type: capability

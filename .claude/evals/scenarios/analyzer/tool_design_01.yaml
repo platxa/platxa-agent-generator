@@ -1,0 +1,16 @@
+prompt: >-
+  Generate a read-only code review agent that examines TypeScript files
+  for unused imports, dead code, and circular dependencies. The agent
+  must never modify any files — only read and report.
+success_criteria:
+  - "tools:"
+  - "Read"
+  - "Glob"
+  - "Grep"
+  - "TypeScript"
+  - "import"
+axis: tool_design
+type: capability
+forbidden_tools:
+  - "Write"
+  - "Edit"

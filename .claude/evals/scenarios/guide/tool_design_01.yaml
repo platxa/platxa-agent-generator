@@ -1,0 +1,18 @@
+prompt: >-
+  Generate a code explanation agent that reads source files and
+  explains complex functions line-by-line. It should use Read and Grep
+  to navigate the codebase but never modify any files — it is purely
+  informational.
+success_criteria:
+  - "tools:"
+  - "Read"
+  - "Grep"
+  - "Glob"
+  - "## Workflow"
+  - "explain"
+  - "function"
+axis: tool_design
+type: capability
+forbidden_tools:
+  - "Write"
+  - "Edit"

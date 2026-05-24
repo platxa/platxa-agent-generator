@@ -1,0 +1,11 @@
+prompt: >-
+  Automate everything in my repo.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Bash"
+  - "## Workflow"
+  - "## Examples"
+axis: robustness
+type: capability

@@ -1,0 +1,16 @@
+prompt: >-
+  Generate an agent that processes image files in batch: reads a
+  directory of PNG files, runs ImageMagick via Bash to resize each
+  to a thumbnail, and writes a manifest JSON listing all processed
+  files with their original and output dimensions.
+success_criteria:
+  - "tools:"
+  - "Bash"
+  - "Read"
+  - "Write"
+  - "Glob"
+  - "## Workflow"
+  - "image"
+  - "thumbnail"
+axis: tool_design
+type: capability

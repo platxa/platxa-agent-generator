@@ -1,0 +1,14 @@
+prompt: >-
+  Create an agent that generates Elixir GenServer modules from a state
+  machine specification. It should produce handle_call, handle_cast,
+  and handle_info callbacks with proper supervision tree integration.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Write"
+  - "Read"
+  - "## Workflow"
+  - "Elixir"
+  - "GenServer"
+axis: robustness
+type: capability

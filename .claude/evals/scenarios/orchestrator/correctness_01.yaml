@@ -1,0 +1,17 @@
+prompt: >-
+  Generate an orchestrator agent that coordinates a multi-agent code
+  review pipeline. It dispatches a security reviewer, a style checker,
+  and a test coverage analyzer as parallel subagents via the Task tool,
+  collects their findings, deduplicates overlapping issues, and
+  produces a unified review report.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Task"
+  - "Read"
+  - "## Workflow"
+  - "review"
+  - "parallel"
+axis: correctness
+type: capability

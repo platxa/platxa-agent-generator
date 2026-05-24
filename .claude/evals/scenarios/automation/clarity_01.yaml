@@ -1,0 +1,15 @@
+prompt: >-
+  Generate an agent that automates a three-stage ETL pipeline. Stage 1:
+  extract data from JSON API responses cached locally. Stage 2:
+  transform by normalizing dates, deduplicating records, and computing
+  aggregate metrics. Stage 3: load by writing cleaned data to output
+  CSV files and generating a summary report.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Bash"
+  - "Read"
+  - "Write"
+  - "## Workflow"
+axis: clarity
+type: capability

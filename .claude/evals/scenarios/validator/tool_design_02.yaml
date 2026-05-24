@@ -1,0 +1,18 @@
+prompt: >-
+  Create a read-only validation agent that checks Markdown
+  documentation files for broken internal links, missing headers
+  referenced in table of contents, and orphaned anchor targets. The
+  agent must never modify the files it validates.
+success_criteria:
+  - "tools:"
+  - "Read"
+  - "Grep"
+  - "Glob"
+  - "## Workflow"
+  - "link"
+  - "Markdown"
+axis: tool_design
+type: capability
+forbidden_tools:
+  - "Write"
+  - "Edit"

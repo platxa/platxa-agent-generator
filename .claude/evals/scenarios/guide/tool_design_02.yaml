@@ -1,0 +1,14 @@
+prompt: >-
+  Create an agent that teaches Python testing best practices. It reads
+  existing test files as examples, demonstrates pytest fixtures,
+  parametrize decorators, and mocking patterns, and can run example
+  tests via Bash to show expected output.
+success_criteria:
+  - "tools:"
+  - "Read"
+  - "Bash"
+  - "Glob"
+  - "## Workflow"
+  - "pytest"
+axis: tool_design
+type: capability

@@ -1,0 +1,11 @@
+prompt: >-
+  Make an agent that reviews code.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Read"
+  - "## Workflow"
+  - "## Examples"
+axis: robustness
+type: capability

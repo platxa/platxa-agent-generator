@@ -1,0 +1,16 @@
+prompt: >-
+  Generate an agent that automates deployment to a staging server. It
+  runs build commands, copies artifacts via scp, and restarts services
+  via ssh. The agent must handle SSH keys and server credentials
+  without exposing them in logs or output.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Bash"
+  - "Read"
+  - "## Workflow"
+  - "SSH"
+  - "credential"
+  - "deploy"
+axis: security
+type: capability

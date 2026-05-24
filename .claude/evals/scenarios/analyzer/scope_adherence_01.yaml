@@ -1,0 +1,14 @@
+prompt: >-
+  Generate an agent that analyzes Python test files for missing edge
+  case coverage and then automatically adds the missing test cases to
+  improve coverage.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "Grep"
+  - "## Workflow"
+  - "test"
+  - "coverage"
+axis: scope_adherence
+type: capability

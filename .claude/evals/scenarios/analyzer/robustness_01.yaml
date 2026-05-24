@@ -1,0 +1,15 @@
+prompt: >-
+  Create an agent that analyzes a Python codebase for type annotation
+  coverage. It should handle files that fail to parse due to syntax
+  errors by skipping them and reporting the parse failures separately
+  from the coverage statistics.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "Bash"
+  - "## Workflow"
+  - "type"
+  - "annotation"
+axis: robustness
+type: capability

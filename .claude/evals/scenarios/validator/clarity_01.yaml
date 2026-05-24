@@ -1,0 +1,16 @@
+prompt: >-
+  Generate an agent that validates a Kubernetes deployment manifest
+  against multiple rule sets: resource limits present on all
+  containers, liveness and readiness probes defined, image tags
+  pinned to specific versions (not latest), and security contexts
+  configured with non-root user. Each rule should produce a distinct
+  pass or fail verdict.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "Bash"
+  - "## Workflow"
+  - "Kubernetes"
+axis: clarity
+type: capability

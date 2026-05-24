@@ -1,0 +1,15 @@
+prompt: >-
+  Generate an agent that builds a complete CRUD API module. Step 1:
+  read the existing data model. Step 2: generate route handlers for
+  create, read, update, and delete operations. Step 3: generate
+  corresponding unit tests. Step 4: verify the module compiles and
+  tests pass.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "Write"
+  - "Bash"
+  - "## Workflow"
+axis: clarity
+type: capability

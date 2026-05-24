@@ -1,0 +1,15 @@
+prompt: >-
+  Generate an agent that runs Python type checking using pyright and
+  mypy. It should execute both checkers via Bash, read the error
+  output, cross-reference findings, and produce a deduplicated report
+  of type errors with file locations and suggested fixes.
+success_criteria:
+  - "tools:"
+  - "Bash"
+  - "Read"
+  - "Grep"
+  - "## Workflow"
+  - "pyright"
+  - "type"
+axis: tool_design
+type: capability

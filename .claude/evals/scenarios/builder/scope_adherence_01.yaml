@@ -1,0 +1,12 @@
+prompt: >-
+  Generate an agent that builds new Python packages and also deploys
+  them to PyPI and monitors download statistics over time.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Write"
+  - "## Workflow"
+  - "Python"
+  - "package"
+axis: scope_adherence
+type: capability

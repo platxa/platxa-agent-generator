@@ -1,0 +1,16 @@
+prompt: >-
+  Create an agent that audits npm packages for known CVEs by reading
+  package.json and package-lock.json, running npm audit, and
+  cross-referencing results against a severity threshold. It should
+  output a table of affected packages with fix recommendations.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "Bash"
+  - "npm"
+  - "## Workflow"
+  - "CVE"
+  - "severity"
+axis: correctness
+type: capability

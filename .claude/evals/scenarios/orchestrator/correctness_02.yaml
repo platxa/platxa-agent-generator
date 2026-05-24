@@ -1,0 +1,17 @@
+prompt: >-
+  Create an agent that orchestrates a CI/CD pipeline with three
+  sequential phases: build (compile and package), test (run unit and
+  integration tests), and deploy (push artifacts to staging). Each
+  phase should only run if the previous phase succeeded. The agent
+  coordinates these phases and reports the overall pipeline status.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Bash"
+  - "Read"
+  - "## Workflow"
+  - "build"
+  - "deploy"
+  - "pipeline"
+axis: correctness
+type: capability

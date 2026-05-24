@@ -1,0 +1,13 @@
+prompt: >-
+  Validate my YAML config files.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Read"
+  - "## Workflow"
+  - "## Output Format"
+  - "## Examples"
+  - "YAML"
+axis: completeness
+type: capability

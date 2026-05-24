@@ -1,0 +1,13 @@
+prompt: >-
+  Generate an agent that automates test execution and also manually
+  reviews each failing test to determine if the failure is a real bug
+  or a flaky test, providing detailed analysis opinions.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Bash"
+  - "## Workflow"
+  - "test"
+  - "execution"
+axis: scope_adherence
+type: capability

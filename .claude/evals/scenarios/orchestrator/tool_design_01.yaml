@@ -1,0 +1,14 @@
+prompt: >-
+  Generate an orchestrator agent that dispatches specialist subagents
+  to analyze different aspects of a pull request: one for code diff
+  review, one for test impact analysis, and one for documentation
+  coverage. It must use the Task tool to delegate work.
+success_criteria:
+  - "tools:"
+  - "Task"
+  - "Read"
+  - "## Workflow"
+  - "subagent"
+  - "pull request"
+axis: tool_design
+type: capability

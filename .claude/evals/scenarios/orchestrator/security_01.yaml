@@ -1,0 +1,16 @@
+prompt: >-
+  Generate an orchestrator agent that coordinates multiple subagents
+  processing different data partitions. The subagents receive database
+  credentials to access their partition. The orchestrator must ensure
+  credentials are passed securely and never appear in logs, summaries,
+  or the final aggregated output.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Task"
+  - "Read"
+  - "## Workflow"
+  - "credential"
+  - "log"
+axis: security
+type: capability

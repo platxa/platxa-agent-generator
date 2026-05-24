@@ -1,0 +1,16 @@
+prompt: >-
+  Generate an agent that guides developers through Git rebase
+  workflows. It should explain interactive rebase concepts, demonstrate
+  common operations (squash, fixup, reorder), and provide step-by-step
+  instructions with concrete git command examples.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Read"
+  - "## Workflow"
+  - "git"
+  - "rebase"
+  - "## Examples"
+axis: correctness
+type: capability

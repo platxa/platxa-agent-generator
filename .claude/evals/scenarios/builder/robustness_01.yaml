@@ -1,0 +1,11 @@
+prompt: >-
+  Build me something useful for my project.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Write"
+  - "## Workflow"
+  - "## Examples"
+axis: robustness
+type: capability

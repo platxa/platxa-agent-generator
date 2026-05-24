@@ -1,0 +1,16 @@
+prompt: >-
+  Generate an agent that validates HTML form inputs for XSS
+  vulnerabilities. It reads HTML templates, identifies input fields
+  and form actions, checks for proper output encoding and CSP headers,
+  and flags any unescaped user-controlled values rendered in the DOM.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "Grep"
+  - "## Workflow"
+  - "XSS"
+  - "injection"
+  - "HTML"
+axis: security
+type: capability

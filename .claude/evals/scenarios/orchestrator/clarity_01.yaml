@@ -1,0 +1,15 @@
+prompt: >-
+  Generate an orchestrator agent that manages a two-phase workflow.
+  Phase 1: dispatch three analysis subagents in parallel (security
+  audit, performance profiling, dependency check) via the Task tool
+  and collect results. Phase 2: sequentially dispatch a report
+  generator that reads all three analysis outputs and produces a
+  consolidated findings document.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Task"
+  - "Read"
+  - "## Workflow"
+axis: clarity
+type: capability

@@ -1,0 +1,16 @@
+prompt: >-
+  Generate an agent that performs static analysis across Python,
+  TypeScript, and Go codebases. For each language it should use the
+  appropriate linter (ruff for Python, eslint for TypeScript, go vet
+  for Go) and merge results into a unified report format with file
+  path, line number, severity, and message.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Bash"
+  - "Read"
+  - "## Workflow"
+  - "Python"
+  - "TypeScript"
+axis: clarity
+type: capability

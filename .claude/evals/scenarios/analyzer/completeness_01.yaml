@@ -1,0 +1,12 @@
+prompt: >-
+  Build a code complexity analyzer agent.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "## Workflow"
+  - "## Output Format"
+  - "## Examples"
+  - "complexity"
+axis: completeness
+type: capability

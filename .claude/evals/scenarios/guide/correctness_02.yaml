@@ -1,0 +1,15 @@
+prompt: >-
+  Create an agent that onboards new developers to a codebase. It reads
+  the project structure, identifies key files (README, CONTRIBUTING,
+  architecture docs), and walks the developer through the directory
+  layout, build process, and testing workflow with concrete examples.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "Glob"
+  - "## Workflow"
+  - "onboard"
+  - "project"
+axis: correctness
+type: capability

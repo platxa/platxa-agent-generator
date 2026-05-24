@@ -1,0 +1,13 @@
+prompt: >-
+  Coordinate my agents.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Task"
+  - "## Workflow"
+  - "## Output Format"
+  - "## Examples"
+  - "agent"
+axis: completeness
+type: capability

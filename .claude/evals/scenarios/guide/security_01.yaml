@@ -1,0 +1,16 @@
+prompt: >-
+  Generate an agent that guides developers through implementing secure
+  authentication. It should explain JWT token flows, password hashing
+  with bcrypt, session management, and CSRF protection. The agent must
+  warn against common pitfalls like storing tokens in localStorage or
+  using MD5 for hashing.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "## Workflow"
+  - "JWT"
+  - "authentication"
+  - "hash"
+axis: security
+type: capability

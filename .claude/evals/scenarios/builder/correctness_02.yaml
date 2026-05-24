@@ -1,0 +1,17 @@
+prompt: >-
+  Create an agent that generates database migration scripts for
+  PostgreSQL. It reads the current schema via Bash (pg_dump), compares
+  against a target schema definition, and produces idempotent SQL
+  migration files with up and down scripts.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Bash"
+  - "Write"
+  - "Read"
+  - "SQL"
+  - "## Workflow"
+  - "migration"
+  - "schema"
+axis: correctness
+type: capability

@@ -1,0 +1,14 @@
+prompt: >-
+  Generate an agent that creates REST API client libraries from OpenAPI
+  specifications. The agent reads the spec file, generates typed client
+  code with proper error handling, and writes the output files.
+success_criteria:
+  - "tools:"
+  - "Read"
+  - "Write"
+  - "Glob"
+  - "## Workflow"
+  - "API"
+  - "OpenAPI"
+axis: tool_design
+type: capability

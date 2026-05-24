@@ -1,0 +1,13 @@
+prompt: >-
+  Create an agent that teaches developers how to use the Zig build
+  system and comptime features for metaprogramming in embedded systems
+  contexts.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "## Workflow"
+  - "Zig"
+  - "comptime"
+axis: robustness
+type: capability

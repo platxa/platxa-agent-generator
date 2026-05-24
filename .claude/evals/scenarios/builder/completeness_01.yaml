@@ -1,0 +1,13 @@
+prompt: >-
+  Make a Dockerfile generator agent.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Write"
+  - "## Workflow"
+  - "## Output Format"
+  - "## Examples"
+  - "Dockerfile"
+axis: completeness
+type: capability

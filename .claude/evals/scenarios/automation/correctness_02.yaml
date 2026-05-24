@@ -1,0 +1,18 @@
+prompt: >-
+  Create an agent that automates data format migration from CSV files
+  to JSON. It reads all CSV files in a directory, transforms each row
+  into a JSON object using column headers as keys, validates the output
+  against a provided JSON schema, and writes the results to a parallel
+  output directory.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Bash"
+  - "Read"
+  - "Write"
+  - "Glob"
+  - "## Workflow"
+  - "CSV"
+  - "JSON"
+axis: correctness
+type: capability

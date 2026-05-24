@@ -1,0 +1,15 @@
+prompt: >-
+  Create an agent that validates OpenAPI 3.0 specifications for
+  completeness and correctness. It should check that all endpoints have
+  request/response schemas, that referenced components exist, that
+  examples match their schemas, and that security schemes are properly
+  declared.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "Bash"
+  - "## Workflow"
+  - "OpenAPI"
+axis: correctness
+type: capability

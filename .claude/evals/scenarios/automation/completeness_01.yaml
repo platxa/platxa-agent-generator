@@ -1,0 +1,13 @@
+prompt: >-
+  Automate running lint checks.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Bash"
+  - "## Workflow"
+  - "## Output Format"
+  - "## Examples"
+  - "lint"
+axis: completeness
+type: capability

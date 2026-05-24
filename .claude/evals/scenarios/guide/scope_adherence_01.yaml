@@ -1,0 +1,13 @@
+prompt: >-
+  Generate a guide agent that teaches developers about SQL performance
+  tuning and also rewrites their slow queries to use proper indexes
+  and query plans.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Read"
+  - "## Workflow"
+  - "SQL"
+  - "performance"
+axis: scope_adherence
+type: capability

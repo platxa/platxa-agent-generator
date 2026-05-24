@@ -1,0 +1,15 @@
+prompt: >-
+  Create an agent that runs a batch file renaming operation across
+  hundreds of files. If individual file renames fail due to permission
+  errors or name conflicts, the agent should skip those files and
+  continue processing, then report all skipped files at the end.
+success_criteria:
+  - "name:"
+  - "tools:"
+  - "Bash"
+  - "Read"
+  - "## Workflow"
+  - "rename"
+  - "permission"
+axis: robustness
+type: capability

@@ -1,0 +1,10 @@
+prompt: >-
+  Help me.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "## Workflow"
+  - "## Examples"
+axis: robustness
+type: capability

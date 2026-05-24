@@ -1,0 +1,17 @@
+prompt: >-
+  Generate an agent that validates JSON files against JSON Schema
+  definitions. It reads the schema file, reads each target JSON file,
+  runs validation via a CLI tool or Python script, and reports which
+  files pass and which fail with specific error paths and messages.
+success_criteria:
+  - "name:"
+  - "description:"
+  - "tools:"
+  - "Read"
+  - "Bash"
+  - "Glob"
+  - "## Workflow"
+  - "JSON"
+  - "schema"
+axis: correctness
+type: capability
