@@ -1029,6 +1029,15 @@ def generate_stop_verification_script(agent_name: str) -> str:
 
 set -uo pipefail
 
+# Read stdin payload once (Claude Code passes JSON via stdin to Stop hooks)
+TOOL_INPUT=$(cat 2>/dev/null || echo "{{}}")
+
+# Recursion guard: if stop_hook_active is set in the payload, another Stop
+# hook is already running. Short-circuit to prevent infinite re-prompt loops.
+if echo "$TOOL_INPUT" | grep -qE '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
+    exit 0
+fi
+
 REASON=""
 EXIT_CODE=0
 
@@ -1179,6 +1188,15 @@ def generate_stop_observation_script(
 #   }}
 
 set -uo pipefail
+
+# Read stdin payload once (Claude Code passes JSON via stdin to Stop hooks)
+TOOL_INPUT=$(cat 2>/dev/null || echo "{{}}")
+
+# Recursion guard: if stop_hook_active is set in the payload, another Stop
+# hook is already running. Short-circuit to prevent infinite re-prompt loops.
+if echo "$TOOL_INPUT" | grep -qE '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
+    exit 0
+fi
 
 OBS_FILE={quoted_obs_file}
 
@@ -2199,9 +2217,15 @@ def generate_stop_hook_completion_check(
 
 set -uo pipefail
 
-MAX_ITERATIONS="${{CLAUDE_MAX_ITERATIONS:-{max_iterations}}}"
-
 TOOL_INPUT=$(cat 2>/dev/null || echo "{{}}")
+
+# Recursion guard: if stop_hook_active is set in the payload, another Stop
+# hook is already running. Short-circuit to prevent infinite re-prompt loops.
+if echo "$TOOL_INPUT" | grep -qE '"stop_hook_active"[[:space:]]*:[[:space:]]*true'; then
+    exit 0
+fi
+
+MAX_ITERATIONS="${{CLAUDE_MAX_ITERATIONS:-{max_iterations}}}"
 
 if ! command -v python3 &>/dev/null; then
     echo "[{agent_name}] completion-check: python3 required but not found; allowing termination." >&2

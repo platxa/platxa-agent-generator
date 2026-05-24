@@ -591,6 +591,33 @@ class TestStopVerificationScript:
             f"Script should allow completion when no framework detected. stderr: {result.stderr}"
         )
 
+    def test_script_contains_stop_hook_active_guard(self) -> None:
+        """Generated script must check stop_hook_active to prevent recursion."""
+        script = self._generate_script("test-agent")
+        assert "stop_hook_active" in script
+
+    def test_short_circuits_when_stop_hook_active(self, tmp_path: Path) -> None:
+        """When stop_hook_active=true in payload, exit 0 without running tests."""
+        script = self._generate_script("test-agent")
+        script_path = tmp_path / "verify.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        (project_dir / "pyproject.toml").write_text("[tool.pytest.ini_options]\n")
+
+        result = subprocess.run(
+            ["bash", str(script_path)],
+            input='{"stop_hook_active": true}',
+            capture_output=True,
+            text=True,
+            cwd=str(project_dir),
+        )
+        assert result.returncode == 0, (
+            f"Script must short-circuit on stop_hook_active=true. stderr: {result.stderr}"
+        )
+
 
 class TestStopObservationScript:
     """Tests for Stop observation hook generation (Feature #31).
@@ -809,6 +836,31 @@ class TestStopObservationScript:
         result = subprocess.run(["bash", "-n", str(script_path)], capture_output=True, text=True)
         assert result.returncode == 0, f"Bash syntax error with special path: {result.stderr}"
         assert "PWNED" not in script or "shlex" in script or "'" in script
+
+    def test_script_contains_stop_hook_active_guard(self) -> None:
+        """Generated script must check stop_hook_active to prevent recursion."""
+        script = self._generate_script("obs-agent")
+        assert "stop_hook_active" in script
+
+    def test_short_circuits_when_stop_hook_active(self, tmp_path: Path) -> None:
+        """When stop_hook_active=true in payload, exit 0 without writing observation."""
+        obs_file = tmp_path / "obs.jsonl"
+        script = self._generate_script("obs-agent", str(obs_file))
+        script_path = tmp_path / "observe.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+
+        result = subprocess.run(
+            ["bash", str(script_path)],
+            input='{"stop_hook_active": true}',
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+        )
+        assert result.returncode == 0, (
+            f"Script must short-circuit on stop_hook_active=true. stderr: {result.stderr}"
+        )
+        assert not obs_file.exists(), "Observation file should not be written when guard triggers"
 
 
 class TestHooksGeneratorTaskCompleted:
@@ -2165,6 +2217,26 @@ class TestStopHookCompletionCheck:
         )
         assert result.returncode == 2
         assert "completion-promise marker" in result.stderr or "Re-prompting" in result.stderr
+
+    def test_script_contains_stop_hook_active_guard(self) -> None:
+        """Generated script must check stop_hook_active to prevent recursion."""
+        script = self._generate_script("check-agent")
+        assert "stop_hook_active" in script
+
+    def test_short_circuits_when_stop_hook_active(self, tmp_path: Path) -> None:
+        """When stop_hook_active=true in payload, exit 0 regardless of marker."""
+        result = self._run_script(
+            tmp_path,
+            "check-agent",
+            {
+                "stop_hook_active": True,
+                "last_assistant_message": "No marker here.",
+                "current_iteration": 1,
+            },
+        )
+        assert result.returncode == 0, (
+            f"Script must short-circuit on stop_hook_active=true. stderr: {result.stderr}"
+        )
 
     def test_env_var_fallback_for_max_iterations(self, tmp_path: Path) -> None:
         """CLAUDE_MAX_ITERATIONS env var overrides the baked-in default."""
