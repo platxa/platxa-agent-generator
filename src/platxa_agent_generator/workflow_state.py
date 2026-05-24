@@ -3,7 +3,7 @@
 Workflow State Machine
 
 Manages state transitions through agent generation phases:
-    IDLE → DISCOVERY → ARCHITECTURE → GENERATION → VALIDATION → INSTALLATION → COMPLETE
+    IDLE → DISCOVERY → ARCHITECTURE → GENERATION → VALIDATION → INSTALLATION → LEARNING → COMPLETE
 
 Features:
     - Type-safe state enum
@@ -38,6 +38,7 @@ class WorkflowPhase(Enum):
     GENERATION = "generation"
     VALIDATION = "validation"
     INSTALLATION = "installation"
+    LEARNING = "learning"
     COMPLETE = "complete"
     ERROR = "error"
 
@@ -53,7 +54,8 @@ VALID_TRANSITIONS: dict[WorkflowPhase, list[WorkflowPhase]] = {
         WorkflowPhase.GENERATION,  # Retry on validation failure
         WorkflowPhase.ERROR,
     ],
-    WorkflowPhase.INSTALLATION: [WorkflowPhase.COMPLETE, WorkflowPhase.ERROR],
+    WorkflowPhase.INSTALLATION: [WorkflowPhase.LEARNING, WorkflowPhase.ERROR],
+    WorkflowPhase.LEARNING: [WorkflowPhase.COMPLETE, WorkflowPhase.ERROR],
     WorkflowPhase.COMPLETE: [WorkflowPhase.IDLE],  # Can restart
     WorkflowPhase.ERROR: [WorkflowPhase.IDLE],  # Can restart after error
 }
@@ -206,6 +208,7 @@ class WorkflowState:
             WorkflowPhase.GENERATION,
             WorkflowPhase.VALIDATION,
             WorkflowPhase.INSTALLATION,
+            WorkflowPhase.LEARNING,
         ]
         completed = sum(1 for p in phases if p.value in self.phase_results)
         return completed, len(phases)

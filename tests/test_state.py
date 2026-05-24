@@ -44,13 +44,13 @@ class TestStateCheckpointRecovery:
         return result
 
     def test_checkpoint_phases_constant(self) -> None:
-        """CHECKPOINT_PHASES is a 5-tuple in execution order."""
+        """CHECKPOINT_PHASES is a 6-tuple in execution order."""
         result = self._run_py(
             "from platxa_agent_generator.state_persistence import CHECKPOINT_PHASES\nprint(CHECKPOINT_PHASES)"
         )
         assert result.returncode == 0, result.stderr
         assert result.stdout.strip() == (
-            "('discovery', 'architecture', 'generation', 'validation', 'installation')"
+            "('discovery', 'architecture', 'generation', 'validation', 'installation', 'learning')"
         )
 
     def test_checkpoint_dataclass(self) -> None:
@@ -162,7 +162,7 @@ class TestStateCheckpointRecovery:
             "    SessionState, StateMetadata, save_checkpoint, resume_phase\n"
             ")\n"
             "s = SessionState(metadata=StateMetadata(session_id='x'))\n"
-            "save_checkpoint(s, 'installation', {})\n"
+            "save_checkpoint(s, 'learning', {})\n"
             "print(resume_phase(s))"
         )
         assert result.returncode == 0, result.stderr
@@ -699,3 +699,96 @@ class TestSilentWriteSurfacing:
         assert "progress.json" in result.stderr
         assert "OSError" in result.stderr
         assert "disk full" in result.stderr
+
+
+class TestWorkflowTransitions:
+    """Tests for WorkflowPhase enum and VALID_TRANSITIONS including LEARNING phase."""
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR),
+            check=False,
+        )
+        return result
+
+    def test_learning_phase_exists(self) -> None:
+        """WorkflowPhase.LEARNING has value 'learning'."""
+        result = self._run_py(
+            "from platxa_agent_generator.workflow_state import WorkflowPhase\n"
+            "print(WorkflowPhase.LEARNING.value)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "learning"
+
+    def test_learning_phase_order(self) -> None:
+        """LEARNING appears between INSTALLATION and COMPLETE in enum members."""
+        result = self._run_py(
+            "import json\n"
+            "from platxa_agent_generator.workflow_state import WorkflowPhase\n"
+            "members = [m.value for m in WorkflowPhase]\n"
+            "print(json.dumps(members))"
+        )
+        assert result.returncode == 0, result.stderr
+        import json
+        members = json.loads(result.stdout.strip())
+        install_idx = members.index("installation")
+        learning_idx = members.index("learning")
+        complete_idx = members.index("complete")
+        assert install_idx < learning_idx < complete_idx
+
+    def test_installation_transitions_to_learning(self) -> None:
+        """INSTALLATION can transition to LEARNING (not directly to COMPLETE)."""
+        result = self._run_py(
+            "import json\n"
+            "from platxa_agent_generator.workflow_state import WorkflowPhase, VALID_TRANSITIONS\n"
+            "targets = [t.value for t in VALID_TRANSITIONS[WorkflowPhase.INSTALLATION]]\n"
+            "print(json.dumps(targets))"
+        )
+        assert result.returncode == 0, result.stderr
+        import json
+        targets = json.loads(result.stdout.strip())
+        assert "learning" in targets
+        assert "complete" not in targets
+
+    def test_learning_transitions_to_complete(self) -> None:
+        """LEARNING can transition to COMPLETE or ERROR."""
+        result = self._run_py(
+            "import json\n"
+            "from platxa_agent_generator.workflow_state import WorkflowPhase, VALID_TRANSITIONS\n"
+            "targets = [t.value for t in VALID_TRANSITIONS[WorkflowPhase.LEARNING]]\n"
+            "print(json.dumps(targets))"
+        )
+        assert result.returncode == 0, result.stderr
+        import json
+        targets = json.loads(result.stdout.strip())
+        assert "complete" in targets
+        assert "error" in targets
+
+    def test_all_phases_have_transitions(self) -> None:
+        """Every WorkflowPhase member has an entry in VALID_TRANSITIONS."""
+        result = self._run_py(
+            "import json\n"
+            "from platxa_agent_generator.workflow_state import WorkflowPhase, VALID_TRANSITIONS\n"
+            "missing = [p.value for p in WorkflowPhase if p not in VALID_TRANSITIONS]\n"
+            "print(json.dumps(missing))"
+        )
+        assert result.returncode == 0, result.stderr
+        import json
+        assert json.loads(result.stdout.strip()) == []
+
+    def test_checkpoint_phases_includes_learning(self) -> None:
+        """CHECKPOINT_PHASES includes 'learning' after 'installation'."""
+        result = self._run_py(
+            "import json\n"
+            "from platxa_agent_generator.state_persistence import CHECKPOINT_PHASES\n"
+            "print(json.dumps(list(CHECKPOINT_PHASES)))"
+        )
+        assert result.returncode == 0, result.stderr
+        import json
+        phases = json.loads(result.stdout.strip())
+        install_idx = phases.index("installation")
+        learning_idx = phases.index("learning")
+        assert learning_idx == install_idx + 1

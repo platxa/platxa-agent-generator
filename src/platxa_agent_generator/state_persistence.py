@@ -151,6 +151,7 @@ CHECKPOINT_PHASES: tuple[str, ...] = (
     "generation",
     "validation",
     "installation",
+    "learning",
 )
 
 
