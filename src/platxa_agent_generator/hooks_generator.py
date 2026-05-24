@@ -205,7 +205,23 @@ def create_audit_hook(
     elif event == "PreToolUse":
         command = f'echo "[{quoted_name}] $({timestamp_cmd}) PRE_TOOL tool=$CLAUDE_TOOL_NAME" >> {log_file}'
     elif event == "PostToolUse":
-        command = f'echo "[{quoted_name}] $({timestamp_cmd}) POST_TOOL tool=$CLAUDE_TOOL_NAME" >> {log_file}'
+        fmt = (
+            '{"timestamp":"%s","tool":"%s",'
+            '"input_summary":"PostToolUse",'
+            '"project_id":"%s","project_name":"%s",'
+            f'"agent_name":"{quoted_name}",'
+            '"session_id":"%s","type":"tool_use",'
+            '"evidence":"","examples":[],'
+            '"outcome":"","confidence":1.0,'
+            '"promoted_to":null}\\n'
+        )
+        args = (
+            f'"$({timestamp_cmd})" "$CLAUDE_TOOL_NAME"'
+            ' "${CLAUDE_PROJECT_DIR:-unknown}"'
+            ' "$(basename "${CLAUDE_PROJECT_DIR:-unknown}")"'
+            ' "${CLAUDE_SESSION_ID:-}"'
+        )
+        command = f"printf '{fmt}' {args} >> {log_file}"
     elif event == "SubagentStart":
         command = (
             f'echo "[{quoted_name}] $({timestamp_cmd}) SUBAGENT_START '
@@ -1215,9 +1231,7 @@ exit 0
     return script
 
 
-def generate_stop_observation_hook_config(
-    agent_name: str, script_path: str
-) -> dict[str, Any]:
+def generate_stop_observation_hook_config(agent_name: str, script_path: str) -> dict[str, Any]:
     """Generate Claude Code settings.json hook config for Stop observation.
 
     Args:

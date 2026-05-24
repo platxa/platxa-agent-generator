@@ -600,7 +600,9 @@ class TestStopObservationScript:
     produce correct hook configs.
     """
 
-    def _generate_script(self, agent_name: str, obs_file: str = ".claude/observations.jsonl") -> str:
+    def _generate_script(
+        self, agent_name: str, obs_file: str = ".claude/observations.jsonl"
+    ) -> str:
         """Generate Stop observation script via subprocess."""
         result = subprocess.run(
             [
@@ -1973,6 +1975,46 @@ class TestHooksGeneratorAuditHook:
             f"audit log must not be mutated on malformed JSON; "
             f"expected {prior!r}, got {log_file.read_text()!r}"
         )
+
+    def test_post_tool_use_emits_observation_record_json(self, tmp_path: Path) -> None:
+        """PostToolUse audit hook must emit structured JSON parseable into ObservationRecord."""
+        log_file = tmp_path / "audit.jsonl"
+        result = self._run_py(
+            "from platxa_agent_generator.hooks_generator import create_audit_hook\n"
+            f"h = create_audit_hook('test-agent', 'PostToolUse', {str(log_file)!r})\n"
+            "print(h.hooks[0].command)\n"
+        )
+        assert result.returncode == 0, result.stderr
+        command = result.stdout.strip()
+
+        env = {
+            **os.environ,
+            "CLAUDE_TOOL_NAME": "Read",
+            "CLAUDE_PROJECT_DIR": "/home/user/myproject",
+            "CLAUDE_SESSION_ID": "sess-001",
+        }
+        shell_result = subprocess.run(
+            ["bash", "-c", command],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert shell_result.returncode == 0, f"printf command failed: {shell_result.stderr}"
+        assert log_file.exists(), "audit log must be created"
+
+        from platxa_agent_generator.observation_store import ObservationRecord
+
+        line = log_file.read_text().strip()
+        data = json.loads(line)
+        record = ObservationRecord.from_dict(data)
+        assert record.tool == "Read"
+        assert record.agent_name == "test-agent"
+        assert record.type == "tool_use"
+        assert record.project_id == "/home/user/myproject"
+        assert record.project_name == "myproject"
+        assert record.session_id == "sess-001"
+        assert record.input_summary == "PostToolUse"
+        assert record.timestamp  # non-empty
 
 
 class TestHooksGeneratorInjection:

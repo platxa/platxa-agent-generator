@@ -935,7 +935,23 @@ def recommend_hooks_for_agent(
             if event == "PreToolUse":
                 cmd = f'echo "[{name}] $(date -Iseconds) PRE_TOOL tool=$CLAUDE_TOOL_NAME" >> {log_file}'
             elif event == "PostToolUse":
-                cmd = f'echo "[{name}] $(date -Iseconds) POST_TOOL tool=$CLAUDE_TOOL_NAME" >> {log_file}'
+                fmt = (
+                    '{"timestamp":"%s","tool":"%s",'
+                    '"input_summary":"PostToolUse",'
+                    '"project_id":"%s","project_name":"%s",'
+                    f'"agent_name":"{name}",'
+                    '"session_id":"%s","type":"tool_use",'
+                    '"evidence":"","examples":[],'
+                    '"outcome":"","confidence":1.0,'
+                    '"promoted_to":null}\\n'
+                )
+                args = (
+                    '"$(date -Iseconds)" "$CLAUDE_TOOL_NAME"'
+                    ' "${CLAUDE_PROJECT_DIR:-unknown}"'
+                    ' "$(basename "${CLAUDE_PROJECT_DIR:-unknown}")"'
+                    ' "${CLAUDE_SESSION_ID:-}"'
+                )
+                cmd = f"printf '{fmt}' {args} >> {log_file}"
             elif event == "SessionStart":
                 cmd = f'echo "[{name}] $(date -Iseconds) SESSION_START user=$USER" >> {log_file}'
             elif event == "Stop":
