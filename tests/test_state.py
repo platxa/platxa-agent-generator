@@ -733,6 +733,7 @@ class TestWorkflowTransitions:
         )
         assert result.returncode == 0, result.stderr
         import json
+
         members = json.loads(result.stdout.strip())
         install_idx = members.index("installation")
         learning_idx = members.index("learning")
@@ -749,6 +750,7 @@ class TestWorkflowTransitions:
         )
         assert result.returncode == 0, result.stderr
         import json
+
         targets = json.loads(result.stdout.strip())
         assert "learning" in targets
         assert "complete" not in targets
@@ -763,6 +765,7 @@ class TestWorkflowTransitions:
         )
         assert result.returncode == 0, result.stderr
         import json
+
         targets = json.loads(result.stdout.strip())
         assert "complete" in targets
         assert "error" in targets
@@ -777,6 +780,7 @@ class TestWorkflowTransitions:
         )
         assert result.returncode == 0, result.stderr
         import json
+
         assert json.loads(result.stdout.strip()) == []
 
     def test_checkpoint_phases_includes_learning(self) -> None:
@@ -788,7 +792,170 @@ class TestWorkflowTransitions:
         )
         assert result.returncode == 0, result.stderr
         import json
+
         phases = json.loads(result.stdout.strip())
         install_idx = phases.index("installation")
         learning_idx = phases.index("learning")
         assert learning_idx == install_idx + 1
+
+
+class TestWorkflowStateExtendedFields:
+    """Tests for WorkflowState retry_count, learning_artifacts, max_iterations (Feature #38).
+
+    Covers:
+    - New fields have correct defaults
+    - to_dict serializes new fields
+    - from_dict deserializes new fields
+    - from_dict handles missing fields (backward compat with old JSON)
+    - retry_count auto-increments on VALIDATION → GENERATION re-entry
+    - retry_count does NOT increment on other transitions
+    - Round-trip through save/load preserves new fields
+    """
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR),
+            check=False,
+        )
+        return result
+
+    def test_default_values(self) -> None:
+        """New fields have correct defaults: retry_count=0, learning_artifacts={}, max_iterations=5."""
+        result = self._run_py(
+            "from platxa_agent_generator.workflow_state import WorkflowState\n"
+            "s = WorkflowState(workflow_id='test')\n"
+            "print(s.retry_count, s.learning_artifacts, s.max_iterations)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "0 {} 5"
+
+    def test_to_dict_includes_new_fields(self) -> None:
+        """to_dict serializes retry_count, learning_artifacts, max_iterations."""
+        result = self._run_py(
+            "import json\n"
+            "from platxa_agent_generator.workflow_state import WorkflowState\n"
+            "s = WorkflowState(workflow_id='test', retry_count=3,\n"
+            "    learning_artifacts={'key': 'val'}, max_iterations=10)\n"
+            "d = s.to_dict()\n"
+            "print(d['retry_count'], json.dumps(d['learning_artifacts']), d['max_iterations'])"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == '3 {"key": "val"} 10'
+
+    def test_from_dict_restores_new_fields(self) -> None:
+        """from_dict deserializes all three new fields."""
+        result = self._run_py(
+            "from platxa_agent_generator.workflow_state import WorkflowState\n"
+            "d = {'workflow_id': 'test', 'current_phase': 'idle',\n"
+            "     'retry_count': 2, 'learning_artifacts': {'a': 1},\n"
+            "     'max_iterations': 8}\n"
+            "s = WorkflowState.from_dict(d)\n"
+            "print(s.retry_count, s.learning_artifacts, s.max_iterations)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "2 {'a': 1} 8"
+
+    def test_from_dict_backward_compat(self) -> None:
+        """from_dict handles old JSON without the new fields (defaults applied)."""
+        result = self._run_py(
+            "from platxa_agent_generator.workflow_state import WorkflowState\n"
+            "d = {'workflow_id': 'old', 'current_phase': 'idle'}\n"
+            "s = WorkflowState.from_dict(d)\n"
+            "print(s.retry_count, s.learning_artifacts, s.max_iterations)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "0 {} 5"
+
+    def test_retry_count_increments_on_validation_reentry(self) -> None:
+        """retry_count auto-increments when transitioning VALIDATION → GENERATION."""
+        result = self._run_py(
+            "from platxa_agent_generator.workflow_state import WorkflowState, WorkflowPhase\n"
+            "s = WorkflowState(workflow_id='test')\n"
+            "s.transition_to(WorkflowPhase.DISCOVERY)\n"
+            "s.transition_to(WorkflowPhase.ARCHITECTURE)\n"
+            "s.transition_to(WorkflowPhase.GENERATION)\n"
+            "s.transition_to(WorkflowPhase.VALIDATION)\n"
+            "print('before:', s.retry_count)\n"
+            "s.transition_to(WorkflowPhase.GENERATION)\n"
+            "print('after_1:', s.retry_count)\n"
+            "s.transition_to(WorkflowPhase.VALIDATION)\n"
+            "s.transition_to(WorkflowPhase.GENERATION)\n"
+            "print('after_2:', s.retry_count)"
+        )
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().splitlines()
+        assert lines == ["before: 0", "after_1: 1", "after_2: 2"]
+
+    def test_retry_count_stable_on_other_transitions(self) -> None:
+        """retry_count does NOT increment on non-retry transitions."""
+        result = self._run_py(
+            "from platxa_agent_generator.workflow_state import WorkflowState, WorkflowPhase\n"
+            "s = WorkflowState(workflow_id='test')\n"
+            "s.transition_to(WorkflowPhase.DISCOVERY)\n"
+            "s.transition_to(WorkflowPhase.ARCHITECTURE)\n"
+            "s.transition_to(WorkflowPhase.GENERATION)\n"
+            "s.transition_to(WorkflowPhase.VALIDATION)\n"
+            "s.transition_to(WorkflowPhase.INSTALLATION)\n"
+            "print(s.retry_count)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "0"
+
+    def test_reset_clears_retry_count_and_learning_artifacts(self) -> None:
+        """reset() zeroes retry_count and learning_artifacts but preserves max_iterations."""
+        result = self._run_py(
+            "from platxa_agent_generator.workflow_state import WorkflowState, WorkflowPhase\n"
+            "s = WorkflowState(workflow_id='test', max_iterations=10)\n"
+            "s.transition_to(WorkflowPhase.DISCOVERY)\n"
+            "s.transition_to(WorkflowPhase.ARCHITECTURE)\n"
+            "s.transition_to(WorkflowPhase.GENERATION)\n"
+            "s.transition_to(WorkflowPhase.VALIDATION)\n"
+            "s.transition_to(WorkflowPhase.GENERATION)\n"
+            "s.learning_artifacts = {'key': 'val'}\n"
+            "print('before:', s.retry_count, s.learning_artifacts)\n"
+            "s.reset()\n"
+            "print('after:', s.retry_count, s.learning_artifacts, s.max_iterations)"
+        )
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().splitlines()
+        assert lines[0] == "before: 1 {'key': 'val'}"
+        assert lines[1] == "after: 0 {} 10"
+
+    def test_max_iterations_blocks_retry(self) -> None:
+        """Transition VALIDATION → GENERATION is rejected when retry_count >= max_iterations."""
+        result = self._run_py(
+            "from platxa_agent_generator.workflow_state import WorkflowState, WorkflowPhase\n"
+            "s = WorkflowState(workflow_id='test', max_iterations=2)\n"
+            "s.transition_to(WorkflowPhase.DISCOVERY)\n"
+            "s.transition_to(WorkflowPhase.ARCHITECTURE)\n"
+            "s.transition_to(WorkflowPhase.GENERATION)\n"
+            "s.transition_to(WorkflowPhase.VALIDATION)\n"
+            "s.transition_to(WorkflowPhase.GENERATION)  # retry_count=1\n"
+            "s.transition_to(WorkflowPhase.VALIDATION)\n"
+            "s.transition_to(WorkflowPhase.GENERATION)  # retry_count=2\n"
+            "s.transition_to(WorkflowPhase.VALIDATION)\n"
+            "ok, msg = s.transition_to(WorkflowPhase.GENERATION)  # should be blocked\n"
+            "print(ok, 'Max iterations' in msg, s.retry_count, s.current_phase.value)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False True 2 validation"
+
+    def test_round_trip_save_load(self) -> None:
+        """save → load preserves retry_count, learning_artifacts, max_iterations."""
+        result = self._run_py(
+            "import tempfile\n"
+            "from pathlib import Path\n"
+            "from platxa_agent_generator.workflow_state import WorkflowState\n"
+            "s = WorkflowState(workflow_id='rt', retry_count=3,\n"
+            "    learning_artifacts={'model': 'v2'}, max_iterations=7)\n"
+            "with tempfile.TemporaryDirectory() as td:\n"
+            "    p = Path(td) / 'state.json'\n"
+            "    s.save(p)\n"
+            "    loaded = WorkflowState.load(p)\n"
+            "    print(loaded.retry_count, loaded.learning_artifacts, loaded.max_iterations)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "3 {'model': 'v2'} 7"

@@ -90,6 +90,9 @@ class WorkflowState:
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
     phase_results: dict[str, PhaseResult] = field(default_factory=dict)
     error_message: str | None = None
+    retry_count: int = 0
+    learning_artifacts: dict[str, Any] = field(default_factory=dict)
+    max_iterations: int = 5
 
     def can_transition_to(self, target: WorkflowPhase) -> bool:
         """Check if transition to target phase is valid."""
@@ -124,6 +127,14 @@ class WorkflowState:
                 f"Invalid transition: {self.current_phase.value} → {target.value}. Valid: {valid}",
             )
 
+        # Guard max_iterations before any state mutation
+        if self.current_phase == WorkflowPhase.VALIDATION and target == WorkflowPhase.GENERATION:
+            if self.retry_count >= self.max_iterations:
+                return (
+                    False,
+                    f"Max iterations ({self.max_iterations}) reached; cannot retry generation",
+                )
+
         # Record result for current phase before transitioning
         if self.current_phase != WorkflowPhase.IDLE:
             self.phase_results[self.current_phase.value] = PhaseResult(
@@ -133,6 +144,10 @@ class WorkflowState:
                 artifacts=artifacts or {},
                 error=error,
             )
+
+        # Auto-increment retry_count on validation re-entry
+        if self.current_phase == WorkflowPhase.VALIDATION and target == WorkflowPhase.GENERATION:
+            self.retry_count += 1
 
         # Perform transition
         previous = self.current_phase
@@ -184,6 +199,8 @@ class WorkflowState:
         self.current_phase = WorkflowPhase.IDLE
         self.phase_results = {}
         self.error_message = None
+        self.retry_count = 0
+        self.learning_artifacts = {}
         self.updated_at = datetime.now().isoformat()
         return True, "Workflow reset to IDLE"
 
@@ -234,6 +251,9 @@ class WorkflowState:
                 for k, v in self.phase_results.items()
             },
             "error_message": self.error_message,
+            "retry_count": self.retry_count,
+            "learning_artifacts": self.learning_artifacts,
+            "max_iterations": self.max_iterations,
         }
 
     @classmethod
@@ -247,6 +267,9 @@ class WorkflowState:
             created_at=data.get("created_at", datetime.now().isoformat()),
             updated_at=data.get("updated_at", datetime.now().isoformat()),
             error_message=data.get("error_message"),
+            retry_count=data.get("retry_count", 0),
+            learning_artifacts=data.get("learning_artifacts", {}),
+            max_iterations=data.get("max_iterations", 5),
         )
 
         # Restore phase results
