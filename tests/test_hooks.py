@@ -2909,3 +2909,482 @@ class TestSessionStartContextScript:
             text=True,
         )
         assert result.returncode != 0
+
+
+class TestSessionStartResumeDetection:
+    """Tests for SessionStart resume detection and workflow state restoration (Feature #36).
+
+    Verifies that:
+    - The generated script reads stdin JSON and detects source=resume
+    - On resume, workflow state is loaded via StatePersistence and emitted
+      as a [workflow-state] section in additionalContext
+    - On non-resume sources, no workflow-state section appears
+    - Instincts are still re-injected on resume (existing behavior preserved)
+    - state_dir parameter is validated and embedded in the script
+    """
+
+    def _generate_script(
+        self,
+        agent_name: str,
+        instincts_dir: str = ".claude/instincts",
+        progress_file: str = ".claude/claude-progress.txt",
+        max_chars: int = 10000,
+        state_dir: str = ".",
+    ) -> str:
+        """Generate SessionStart context script via subprocess."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_session_start_context_script; "
+                    f"print(generate_session_start_context_script('{agent_name}', "
+                    f"'{instincts_dir}', '{progress_file}', {max_chars}, '{state_dir}'))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script generation failed: {result.stderr}"
+        return result.stdout
+
+    def _run_script_with_stdin(
+        self,
+        script_text: str,
+        stdin_json: dict,
+        tmp_path: Path,
+        env_overrides: dict | None = None,
+    ) -> subprocess.CompletedProcess:
+        """Write script to disk and execute with JSON on stdin."""
+        script_path = tmp_path / "session-context.sh"
+        script_path.write_text(script_text)
+        script_path.chmod(0o755)
+        env = os.environ.copy()
+        if env_overrides:
+            env.update(env_overrides)
+        return subprocess.run(
+            ["bash", str(script_path)],
+            input=json.dumps(stdin_json),
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=30,
+        )
+
+    def test_script_contains_stdin_capture(self) -> None:
+        """Generated script must capture stdin into STDIN_JSON variable."""
+        script = self._generate_script("resume-agent")
+        assert "STDIN_JSON=$(cat)" in script
+
+    def test_script_passes_stdin_to_python(self) -> None:
+        """Generated script must pass STDIN_JSON to Python via env var."""
+        script = self._generate_script("resume-agent")
+        assert "STDIN_JSON_ENV" in script
+
+    def test_script_checks_source_field(self) -> None:
+        """Embedded Python must check the source field from hook input."""
+        script = self._generate_script("resume-agent")
+        assert 'source' in script
+        assert 'resume' in script
+
+    def test_script_imports_state_persistence(self) -> None:
+        """Embedded Python must import StatePersistence on resume."""
+        script = self._generate_script("resume-agent")
+        assert "StatePersistence" in script
+        assert "resume_phase" in script
+
+    def test_script_contains_state_dir(self) -> None:
+        """Generated script must embed the state_dir parameter."""
+        script = self._generate_script("resume-agent", state_dir="/tmp/myproject")
+        assert "/tmp/myproject" in script
+
+    def test_script_contains_state_dir_env_var(self) -> None:
+        """Generated script must set STATE_DIR_ENV for the Python subprocess."""
+        script = self._generate_script("resume-agent")
+        assert "STATE_DIR_ENV" in script
+
+    def test_script_is_valid_bash(self, tmp_path: Path) -> None:
+        """Generated script with state_dir must be valid bash syntax."""
+        script = self._generate_script("resume-agent", state_dir="/tmp/proj")
+        script_path = tmp_path / "session-context.sh"
+        script_path.write_text(script)
+        result = subprocess.run(["bash", "-n", str(script_path)], capture_output=True, text=True)
+        assert result.returncode == 0, f"Bash syntax error: {result.stderr}"
+
+    def test_rejects_empty_state_dir(self) -> None:
+        """Script generation must reject empty state_dir."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_session_start_context_script; "
+                    "generate_session_start_context_script('ctx-agent', state_dir='')"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+
+    def test_rejects_whitespace_state_dir(self) -> None:
+        """Script generation must reject whitespace-only state_dir."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_session_start_context_script; "
+                    "generate_session_start_context_script('ctx-agent', state_dir='   ')"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+
+    def test_resume_loads_workflow_state(self, tmp_path: Path) -> None:
+        """On source=resume with persisted state, script emits [workflow-state] section."""
+        state_dir = tmp_path / "project"
+        state_dir.mkdir()
+        claude_state = state_dir / ".claude" / "state"
+        claude_state.mkdir(parents=True)
+        state_data = {
+            "schema_version": "1.0.0",
+            "metadata": {
+                "schema_version": "1.0.0",
+                "created_at": "2026-01-01T00:00:00",
+                "updated_at": "2026-01-01T00:00:00",
+                "checksum": "",
+                "mode": "normal",
+                "session_id": "test-session",
+                "agent_name": "test-gen-agent",
+            },
+            "workflow_phase": "generation",
+            "workflow_data": {"agent_type": "code-reviewer"},
+            "generation_records": [],
+            "configuration": {},
+            "error_log": [],
+            "checkpoints": [
+                {
+                    "phase": "discovery",
+                    "completed_at": "2026-01-01T00:01:00",
+                    "phase_data": {"agents_found": 3},
+                },
+                {
+                    "phase": "architecture",
+                    "completed_at": "2026-01-01T00:02:00",
+                    "phase_data": {"pattern": "orchestrator-workers"},
+                },
+            ],
+        }
+        (claude_state / "current.json").write_text(json.dumps(state_data))
+        instincts_dir = tmp_path / "instincts"
+        instincts_dir.mkdir()
+        progress_file = tmp_path / "progress.txt"
+        progress_file.write_text("PROGRESS Phase 1 done")
+        script = self._generate_script(
+            "resume-agent",
+            instincts_dir=str(instincts_dir),
+            progress_file=str(progress_file),
+            state_dir=str(state_dir),
+        )
+        result = self._run_script_with_stdin(
+            script, {"source": "resume", "session_id": "abc"}, tmp_path,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        stdout = result.stdout
+        assert "[workflow-state]" in stdout
+        assert "generation" in stdout
+        assert "discovery" in stdout
+        assert "architecture" in stdout
+
+    def test_resume_shows_next_phase(self, tmp_path: Path) -> None:
+        """On resume, script shows the next phase to run after the latest checkpoint."""
+        state_dir = tmp_path / "project"
+        state_dir.mkdir()
+        claude_state = state_dir / ".claude" / "state"
+        claude_state.mkdir(parents=True)
+        state_data = {
+            "schema_version": "1.0.0",
+            "metadata": {
+                "schema_version": "1.0.0",
+                "created_at": "2026-01-01T00:00:00",
+                "updated_at": "2026-01-01T00:00:00",
+            },
+            "workflow_phase": "architecture",
+            "workflow_data": {},
+            "generation_records": [],
+            "configuration": {},
+            "error_log": [],
+            "checkpoints": [
+                {
+                    "phase": "discovery",
+                    "completed_at": "2026-01-01T00:01:00",
+                    "phase_data": {},
+                },
+            ],
+        }
+        (claude_state / "current.json").write_text(json.dumps(state_data))
+        script = self._generate_script(
+            "resume-agent", state_dir=str(state_dir),
+        )
+        result = self._run_script_with_stdin(
+            script, {"source": "resume"}, tmp_path,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        assert "architecture" in result.stdout
+
+    def test_startup_no_workflow_state(self, tmp_path: Path) -> None:
+        """On source=startup, script must NOT emit [workflow-state] section."""
+        state_dir = tmp_path / "project"
+        state_dir.mkdir()
+        claude_state = state_dir / ".claude" / "state"
+        claude_state.mkdir(parents=True)
+        state_data = {
+            "schema_version": "1.0.0",
+            "metadata": {
+                "schema_version": "1.0.0",
+                "created_at": "2026-01-01T00:00:00",
+                "updated_at": "2026-01-01T00:00:00",
+            },
+            "workflow_phase": "generation",
+            "workflow_data": {},
+            "generation_records": [],
+            "configuration": {},
+            "error_log": [],
+            "checkpoints": [
+                {"phase": "discovery", "completed_at": "2026-01-01T00:01:00", "phase_data": {}},
+            ],
+        }
+        (claude_state / "current.json").write_text(json.dumps(state_data))
+        instincts_dir = tmp_path / "instincts"
+        instincts_dir.mkdir()
+        (instincts_dir / "test.md").write_text("test instinct content")
+        script = self._generate_script(
+            "resume-agent",
+            instincts_dir=str(instincts_dir),
+            state_dir=str(state_dir),
+        )
+        result = self._run_script_with_stdin(
+            script, {"source": "startup"}, tmp_path,
+        )
+        assert result.returncode == 0
+        assert "[workflow-state]" not in result.stdout
+
+    def test_compact_no_workflow_state(self, tmp_path: Path) -> None:
+        """On source=compact, script must NOT emit [workflow-state] section."""
+        instincts_dir = tmp_path / "instincts"
+        instincts_dir.mkdir()
+        (instincts_dir / "test.md").write_text("test instinct content")
+        script = self._generate_script(
+            "resume-agent", instincts_dir=str(instincts_dir),
+        )
+        result = self._run_script_with_stdin(
+            script, {"source": "compact"}, tmp_path,
+        )
+        assert result.returncode == 0
+        assert "[workflow-state]" not in result.stdout
+
+    def test_resume_preserves_instinct_injection(self, tmp_path: Path) -> None:
+        """On resume, instincts must still be re-injected alongside workflow state."""
+        state_dir = tmp_path / "project"
+        state_dir.mkdir()
+        claude_state = state_dir / ".claude" / "state"
+        claude_state.mkdir(parents=True)
+        state_data = {
+            "schema_version": "1.0.0",
+            "metadata": {
+                "schema_version": "1.0.0",
+                "created_at": "2026-01-01T00:00:00",
+                "updated_at": "2026-01-01T00:00:00",
+            },
+            "workflow_phase": "generation",
+            "workflow_data": {},
+            "generation_records": [],
+            "configuration": {},
+            "error_log": [],
+            "checkpoints": [
+                {"phase": "discovery", "completed_at": "2026-01-01T00:01:00", "phase_data": {}},
+            ],
+        }
+        (claude_state / "current.json").write_text(json.dumps(state_data))
+        instincts_dir = tmp_path / "instincts"
+        instincts_dir.mkdir()
+        (instincts_dir / "learned-pattern.md").write_text("Always validate inputs before processing")
+        script = self._generate_script(
+            "resume-agent",
+            instincts_dir=str(instincts_dir),
+            state_dir=str(state_dir),
+        )
+        result = self._run_script_with_stdin(
+            script, {"source": "resume"}, tmp_path,
+        )
+        assert result.returncode == 0
+        stdout = result.stdout
+        assert "[workflow-state]" in stdout
+        assert "[instincts]" in stdout
+        assert "Always validate inputs" in stdout
+
+    def test_resume_no_state_file_graceful(self, tmp_path: Path) -> None:
+        """On resume with no persisted state, script exits 0 without [workflow-state]."""
+        instincts_dir = tmp_path / "instincts"
+        instincts_dir.mkdir()
+        (instincts_dir / "test.md").write_text("some instinct")
+        script = self._generate_script(
+            "resume-agent",
+            instincts_dir=str(instincts_dir),
+            state_dir=str(tmp_path),
+        )
+        result = self._run_script_with_stdin(
+            script, {"source": "resume"}, tmp_path,
+        )
+        assert result.returncode == 0
+        assert "[workflow-state]" not in result.stdout
+        assert "[instincts]" in result.stdout
+
+    def test_resume_malformed_stdin_graceful(self, tmp_path: Path) -> None:
+        """Script must handle malformed stdin JSON gracefully."""
+        instincts_dir = tmp_path / "instincts"
+        instincts_dir.mkdir()
+        (instincts_dir / "test.md").write_text("instinct content")
+        script = self._generate_script(
+            "resume-agent", instincts_dir=str(instincts_dir),
+        )
+        script_path = tmp_path / "session-context.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+        result = subprocess.run(
+            ["bash", str(script_path)],
+            input="not valid json {{{",
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        assert "[instincts]" in result.stdout
+
+    def test_resume_empty_stdin_graceful(self, tmp_path: Path) -> None:
+        """Script must handle empty stdin gracefully."""
+        instincts_dir = tmp_path / "instincts"
+        instincts_dir.mkdir()
+        (instincts_dir / "test.md").write_text("instinct content")
+        script = self._generate_script(
+            "resume-agent", instincts_dir=str(instincts_dir),
+        )
+        script_path = tmp_path / "session-context.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+        result = subprocess.run(
+            ["bash", str(script_path)],
+            input="",
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        assert result.returncode == 0
+        assert "[instincts]" in result.stdout
+
+    def test_resume_shows_agent_name_from_state(self, tmp_path: Path) -> None:
+        """On resume, agent name from persisted state is included in workflow-state."""
+        state_dir = tmp_path / "project"
+        state_dir.mkdir()
+        claude_state = state_dir / ".claude" / "state"
+        claude_state.mkdir(parents=True)
+        state_data = {
+            "schema_version": "1.0.0",
+            "metadata": {
+                "schema_version": "1.0.0",
+                "created_at": "2026-01-01T00:00:00",
+                "updated_at": "2026-01-01T00:00:00",
+                "agent_name": "my-custom-agent",
+            },
+            "workflow_phase": "validation",
+            "workflow_data": {},
+            "generation_records": [],
+            "configuration": {},
+            "error_log": [],
+            "checkpoints": [
+                {"phase": "discovery", "completed_at": "2026-01-01T00:01:00", "phase_data": {}},
+                {"phase": "architecture", "completed_at": "2026-01-01T00:02:00", "phase_data": {}},
+                {"phase": "generation", "completed_at": "2026-01-01T00:03:00", "phase_data": {}},
+            ],
+        }
+        (claude_state / "current.json").write_text(json.dumps(state_data))
+        script = self._generate_script(
+            "resume-agent", state_dir=str(state_dir),
+        )
+        result = self._run_script_with_stdin(
+            script, {"source": "resume"}, tmp_path,
+        )
+        assert result.returncode == 0
+        assert "my-custom-agent" in result.stdout
+
+    def test_resume_shows_checkpoint_data(self, tmp_path: Path) -> None:
+        """On resume, last checkpoint's phase_data is included in output."""
+        state_dir = tmp_path / "project"
+        state_dir.mkdir()
+        claude_state = state_dir / ".claude" / "state"
+        claude_state.mkdir(parents=True)
+        state_data = {
+            "schema_version": "1.0.0",
+            "metadata": {
+                "schema_version": "1.0.0",
+                "created_at": "2026-01-01T00:00:00",
+                "updated_at": "2026-01-01T00:00:00",
+            },
+            "workflow_phase": "generation",
+            "workflow_data": {},
+            "generation_records": [],
+            "configuration": {},
+            "error_log": [],
+            "checkpoints": [
+                {
+                    "phase": "discovery",
+                    "completed_at": "2026-01-01T00:01:00",
+                    "phase_data": {"domain": "security-analysis"},
+                },
+                {
+                    "phase": "architecture",
+                    "completed_at": "2026-01-01T00:02:00",
+                    "phase_data": {"pattern": "evaluator-optimizer", "tools_count": 5},
+                },
+            ],
+        }
+        (claude_state / "current.json").write_text(json.dumps(state_data))
+        script = self._generate_script(
+            "resume-agent", state_dir=str(state_dir),
+        )
+        result = self._run_script_with_stdin(
+            script, {"source": "resume"}, tmp_path,
+        )
+        assert result.returncode == 0
+        assert "evaluator-optimizer" in result.stdout
+
+    def test_default_state_dir_is_current_dir(self) -> None:
+        """Default state_dir must be '.' (current directory)."""
+        script = self._generate_script("resume-agent")
+        assert "STATE_DIR=." in script
+
+    def test_backward_compatible_without_state_dir(self) -> None:
+        """Calling without state_dir must still work (default applied)."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_session_start_context_script; "
+                    "s = generate_session_start_context_script('compat-agent'); "
+                    "print('OK' if 'STATE_DIR' in s else 'MISSING')"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0
+        assert "OK" in result.stdout
+
+    def test_script_comment_mentions_resume(self) -> None:
+        """Script header comment must document the resume capability."""
+        script = self._generate_script("resume-agent")
+        assert "resume" in script.lower()
