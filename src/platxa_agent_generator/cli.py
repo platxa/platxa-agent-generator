@@ -4,8 +4,8 @@
 Production-grade command-line interface for standalone agent generation.
 
 Run ``platxa-agent --help`` (or ``python -m platxa_agent_generator --help``)
-for the authoritative, always-current subcommand list. The 18 subcommands
-fall into five groups:
+for the authoritative, always-current subcommand list. The 19 subcommands
+fall into six groups:
 
     Agent generation (11):
         generate, validate, catalog, install, analyze, analyze-agent,
@@ -16,6 +16,8 @@ fall into five groups:
         eval-run
     Promotion (1):
         evolve
+    Health (1):
+        health
     Plugin lifecycle (3):
         install-plugin, uninstall-plugin, plugin-status
 
@@ -37,6 +39,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, NoReturn
 
@@ -64,6 +67,7 @@ try:
         syntax_validator,
         tool_selector,
         type_classifier,
+        weight_drift_check,
         workflow_state,
     )
 except ImportError:
@@ -89,10 +93,48 @@ except ImportError:
     import syntax_validator  # type: ignore[import-not-found,no-redef]
     import tool_selector  # type: ignore[import-not-found,no-redef]
     import type_classifier  # type: ignore[import-not-found,no-redef]
+    import weight_drift_check  # type: ignore[import-not-found,no-redef]
     import workflow_state  # type: ignore[import-not-found,no-redef]
 
 
 __version__ = "0.1.0"
+
+
+@dataclass(frozen=True)
+class _EvalPassRates:
+    """Eval history pass/fail counts and rate."""
+
+    total: int
+    passed: int
+    failed: int
+    pass_rate: float
+
+
+@dataclass(frozen=True)
+class _HealthMetrics:
+    """Typed container for all five health dashboard metrics."""
+
+    eval_pass_rates: _EvalPassRates
+    instinct_count: int
+    observation_count: int
+    observation_promoted: int
+    last_evolve_timestamp: str | None
+    weight_drift_detected: bool
+    weight_drift_divergences: int
+
+    def to_dict(self) -> dict[str, object]:
+        """Serialize to a JSON-safe dict."""
+        return {
+            "eval_pass_rates": asdict(self.eval_pass_rates),
+            "instinct_count": self.instinct_count,
+            "observation_count": self.observation_count,
+            "observation_promoted": self.observation_promoted,
+            "last_evolve_timestamp": self.last_evolve_timestamp,
+            "weight_drift": {
+                "has_drift": self.weight_drift_detected,
+                "divergences": self.weight_drift_divergences,
+            },
+        }
 
 
 class CLI:
@@ -168,6 +210,7 @@ Examples:
         self._add_instincts_command(subparsers)
         self._add_eval_run_command(subparsers)
         self._add_evolve_command(subparsers)
+        self._add_health_command(subparsers)
         self._add_install_plugin_command(subparsers)
         self._add_uninstall_plugin_command(subparsers)
         self._add_plugin_status_command(subparsers)
@@ -390,6 +433,7 @@ Examples:
             "instincts": self._handle_instincts,
             "eval-run": self._handle_eval_run,
             "evolve": self._handle_evolve,
+            "health": self._handle_health,
             "install-plugin": self._handle_install_plugin,
             "uninstall-plugin": self._handle_uninstall_plugin,
             "plugin-status": self._handle_plugin_status,
@@ -1700,9 +1744,7 @@ Examples:
         scenarios_dir: Path = getattr(args, "scenarios_dir", Path(".claude/evals/scenarios"))
         history_dir: Path = getattr(args, "history_dir", Path(eval_runner.DEFAULT_HISTORY_DIR))
 
-        scenario_files = self._collect_scenario_files(
-            scenario_path, scenarios_dir, json_mode
-        )
+        scenario_files = self._collect_scenario_files(scenario_path, scenarios_dir, json_mode)
         if scenario_files is None:
             return 1
 
@@ -1773,9 +1815,7 @@ Examples:
                 print(f"Error: {msg}")
             return None
 
-        files = sorted(
-            list(scenarios_dir.rglob("*.yaml")) + list(scenarios_dir.rglob("*.yml"))
-        )
+        files = sorted(list(scenarios_dir.rglob("*.yaml")) + list(scenarios_dir.rglob("*.yml")))
         if not files:
             msg = f"No YAML files found in {scenarios_dir}"
             if json_mode:
@@ -1947,14 +1987,16 @@ Examples:
             )
 
             if result.eligible:
-                candidates.append({
-                    "name": entry.name,
-                    "scope": entry.scope,
-                    "type": entry.type,
-                    "confidence": confidence,
-                    "occurrences": usage_count,
-                    "success_count": success_count,
-                })
+                candidates.append(
+                    {
+                        "name": entry.name,
+                        "scope": entry.scope,
+                        "type": entry.type,
+                        "confidence": confidence,
+                        "occurrences": usage_count,
+                        "success_count": success_count,
+                    }
+                )
 
         if target_filter != "all":
             candidates = self._filter_by_target(candidates, target_filter, store)
@@ -1977,10 +2019,12 @@ Examples:
         else:
             verb = "Would promote" if dry_run_flag else "Eligible for promotion"
             print(f"{verb}: {len(candidates)} instinct(s)")
-            print(f"Evaluated: {len(entries)} | Thresholds: "
-                  f"confidence>={thresholds.confidence}, "
-                  f"occurrences>={thresholds.occurrences}, "
-                  f"success_count>={thresholds.success_count}")
+            print(
+                f"Evaluated: {len(entries)} | Thresholds: "
+                f"confidence>={thresholds.confidence}, "
+                f"occurrences>={thresholds.occurrences}, "
+                f"success_count>={thresholds.success_count}"
+            )
             if target_filter != "all":
                 print(f"Target filter: {target_filter}")
             print("-" * 60)
@@ -2038,6 +2082,132 @@ Examples:
         target_principles = getattr(cluster, target, ())
 
         return [candidate_map[p.name] for p in target_principles if p.name in candidate_map]
+
+    # --- health subcommand ---------------------------------------------------
+
+    def _add_health_command(self, subparsers: Any) -> None:
+        """Add the health subcommand for learning-loop health dashboard."""
+        health = subparsers.add_parser(
+            "health",
+            help="Show learning-loop health dashboard (eval, instincts, observations, drift)",
+        )
+        health.add_argument(
+            "--history-dir",
+            type=Path,
+            default=Path(eval_runner.DEFAULT_HISTORY_DIR),
+            dest="history_dir",
+            help=f"Eval history directory (default: {eval_runner.DEFAULT_HISTORY_DIR})",
+        )
+        health.add_argument(
+            "--instinct-root",
+            type=Path,
+            default=None,
+            dest="instinct_root",
+            help="Path to instinct store root (default: ~/.claude/instincts)",
+        )
+        health.add_argument(
+            "--obs-file",
+            type=Path,
+            default=None,
+            dest="obs_file",
+            help="Path to observations JSONL file (default: .claude/observations.jsonl)",
+        )
+
+    def _handle_health(self, args: argparse.Namespace) -> int:
+        """Render the learning-loop health dashboard."""
+        json_mode = bool(getattr(args, "json", False))
+
+        metrics = self._collect_health_metrics(args)
+
+        if json_mode:
+            print(json.dumps(metrics.to_dict(), indent=2))
+        else:
+            self._print_health_text(metrics)
+
+        return 0
+
+    def _collect_health_metrics(self, args: argparse.Namespace) -> _HealthMetrics:
+        """Gather all five health metrics into a single typed structure."""
+        history_dir: Path = getattr(args, "history_dir", Path(eval_runner.DEFAULT_HISTORY_DIR))
+        instinct_root: Path | None = getattr(args, "instinct_root", None)
+        obs_file: Path | None = getattr(args, "obs_file", None)
+
+        eval_rates = self._eval_pass_rates(history_dir)
+        inst_store = instinct_store.InstinctStore(root=instinct_root)
+        obs_store = observation_store.ObservationStore(path=obs_file)
+        obs_stats = obs_store.stats()
+        drift_report = weight_drift_check.check_drift()
+
+        return _HealthMetrics(
+            eval_pass_rates=eval_rates,
+            instinct_count=inst_store.count(),
+            observation_count=obs_stats["total"]["count"],
+            observation_promoted=obs_stats["promoted"]["count"],
+            last_evolve_timestamp=self._last_evolve_timestamp(inst_store),
+            weight_drift_detected=drift_report.has_drift,
+            weight_drift_divergences=len(drift_report.divergences),
+        )
+
+    @staticmethod
+    def _eval_pass_rates(history_dir: Path) -> _EvalPassRates:
+        """Compute pass rates from eval history JSON files."""
+        if not history_dir.is_dir():
+            return _EvalPassRates(total=0, passed=0, failed=0, pass_rate=0.0)
+
+        files = sorted(history_dir.glob("run-*.json"))
+        total = 0
+        passed = 0
+
+        for path in files:
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                if isinstance(data, dict) and "verdict" in data:
+                    total += 1
+                    if data["verdict"] == "passed":
+                        passed += 1
+            except (json.JSONDecodeError, OSError):
+                continue
+
+        failed = total - passed
+        rate = passed / total if total else 0.0
+        return _EvalPassRates(total=total, passed=passed, failed=failed, pass_rate=rate)
+
+    @staticmethod
+    def _last_evolve_timestamp(
+        store: instinct_store.InstinctStore,
+    ) -> str | None:
+        """Find the most recent last_seen across all instinct entries."""
+        entries = store.list_entries()
+        if not entries:
+            return None
+
+        latest: str | None = None
+        for entry in entries:
+            if entry.last_seen and (latest is None or entry.last_seen > latest):
+                latest = entry.last_seen
+        return latest
+
+    @staticmethod
+    def _print_health_text(metrics: _HealthMetrics) -> None:
+        """Render the health dashboard as human-readable text."""
+        print("\n" + "=" * 50)
+        print("  Learning Loop Health Dashboard")
+        print("=" * 50)
+
+        er = metrics.eval_pass_rates
+        print(f"\n  Eval pass rate:      {er.passed}/{er.total} ({er.pass_rate:.0%})")
+        print(f"  Instinct count:      {metrics.instinct_count}")
+        print(
+            f"  Observations:        {metrics.observation_count} ({metrics.observation_promoted} promoted)"
+        )
+        print(f"  Last evolve:         {metrics.last_evolve_timestamp or '(never)'}")
+
+        if metrics.weight_drift_detected:
+            status = f"DRIFT DETECTED ({metrics.weight_drift_divergences} divergence(s))"
+        else:
+            status = "OK"
+        print(f"  Weight drift:        {status}")
+        print()
 
     def _add_install_plugin_command(self, subparsers: Any) -> None:
         """Add the install-plugin subcommand.
@@ -2205,7 +2375,6 @@ def _parse_int_field_cli(fm: dict[str, object], key: str) -> int:
         return int(raw)  # type: ignore[arg-type]
     except (TypeError, ValueError):
         return 0
-
 
 
 def _plugin_result_to_dict(result: "plugin_installer.PluginInstallResult") -> dict[str, Any]:
