@@ -4,14 +4,16 @@
 Production-grade command-line interface for standalone agent generation.
 
 Run ``platxa-agent --help`` (or ``python -m platxa_agent_generator --help``)
-for the authoritative, always-current subcommand list. The 17 subcommands
-fall into four groups:
+for the authoritative, always-current subcommand list. The 18 subcommands
+fall into five groups:
 
     Agent generation (11):
         generate, validate, catalog, install, analyze, analyze-agent,
         upgrade, lint, preview, status, batch
     Observation + instinct pipelines (2):
         observations, instincts
+    Eval harness (1):
+        eval-run
     Promotion (1):
         evolve
     Plugin lifecycle (3):
@@ -19,7 +21,7 @@ fall into four groups:
 
 Keeping the inventory here (instead of per-command one-liners that drift
 out of sync with argparse) means the parser remains the single source of
-truth. Update the three groups above only when a subcommand is added or
+truth. Update the five groups above only when a subcommand is added or
 removed; per-command help text lives on each ``add_parser`` call.
 
 Usage examples:
@@ -47,6 +49,8 @@ try:
         agent_linter,
         agent_upgrader,
         dry_run,
+        eval_runner,
+        eval_scenario,
         extended_thinking,
         install_agent,
         instinct_store,
@@ -70,6 +74,8 @@ except ImportError:
     import agent_linter  # type: ignore[import-not-found,no-redef]
     import agent_upgrader  # type: ignore[import-not-found,no-redef]
     import dry_run  # type: ignore[import-not-found,no-redef]
+    import eval_runner  # type: ignore[import-not-found,no-redef]
+    import eval_scenario  # type: ignore[import-not-found,no-redef]
     import extended_thinking  # type: ignore[import-not-found,no-redef]
     import install_agent  # type: ignore[import-not-found,no-redef]
     import instinct_store  # type: ignore[import-not-found,no-redef]
@@ -160,6 +166,7 @@ Examples:
         self._add_batch_command(subparsers)
         self._add_observations_command(subparsers)
         self._add_instincts_command(subparsers)
+        self._add_eval_run_command(subparsers)
         self._add_evolve_command(subparsers)
         self._add_install_plugin_command(subparsers)
         self._add_uninstall_plugin_command(subparsers)
@@ -381,6 +388,7 @@ Examples:
             "batch": self._handle_batch,
             "observations": self._handle_observations,
             "instincts": self._handle_instincts,
+            "eval-run": self._handle_eval_run,
             "evolve": self._handle_evolve,
             "install-plugin": self._handle_install_plugin,
             "uninstall-plugin": self._handle_uninstall_plugin,
@@ -1600,6 +1608,236 @@ Examples:
                 print(f"    {k:<20} {v}")
 
         return 0
+
+    # --- eval-run subcommand --------------------------------------------------
+
+    def _add_eval_run_command(self, subparsers: Any) -> None:
+        """Add the eval-run subcommand for running behavioural-eval scenarios."""
+        eval_run = subparsers.add_parser(
+            "eval-run",
+            help="Run behavioural-eval scenarios and report pass@k metrics",
+        )
+        eval_run.add_argument(
+            "scenario",
+            nargs="?",
+            type=Path,
+            default=None,
+            help="Path to a single scenario YAML file (omit when using --all)",
+        )
+        eval_run.add_argument(
+            "--all",
+            action="store_true",
+            dest="run_all",
+            help="Run every scenario found under --scenarios-dir",
+        )
+        eval_run.add_argument(
+            "--k",
+            type=int,
+            default=1,
+            help="Number of times to execute each scenario (default: 1)",
+        )
+        eval_run.add_argument(
+            "--save-history",
+            action="store_true",
+            help="Persist each run trace as run-{timestamp}.json under --history-dir",
+        )
+        eval_run.add_argument(
+            "--type",
+            choices=["regression", "capability", "all"],
+            default="all",
+            dest="scenario_type",
+            help="Filter scenarios by type (default: all)",
+        )
+        eval_run.add_argument(
+            "--scenarios-dir",
+            type=Path,
+            default=Path(".claude/evals/scenarios"),
+            dest="scenarios_dir",
+            help="Directory to scan when --all is set (default: .claude/evals/scenarios)",
+        )
+        eval_run.add_argument(
+            "--history-dir",
+            type=Path,
+            default=Path(eval_runner.DEFAULT_HISTORY_DIR),
+            dest="history_dir",
+            help=f"Directory for run trace files (default: {eval_runner.DEFAULT_HISTORY_DIR})",
+        )
+
+    def _handle_eval_run(self, args: argparse.Namespace) -> int:
+        """Handle the eval-run subcommand."""
+        json_mode = bool(getattr(args, "json", False))
+
+        scenario_path: Path | None = getattr(args, "scenario", None)
+        run_all: bool = getattr(args, "run_all", False)
+
+        if not scenario_path and not run_all:
+            msg = "Provide a scenario YAML path or use --all"
+            if json_mode:
+                print(json.dumps({"error": msg}, indent=2))
+            else:
+                print(f"Error: {msg}")
+            return 1
+
+        if scenario_path and run_all:
+            msg = "Cannot combine a scenario path with --all"
+            if json_mode:
+                print(json.dumps({"error": msg}, indent=2))
+            else:
+                print(f"Error: {msg}")
+            return 1
+
+        k: int = getattr(args, "k", 1)
+        if k < 1:
+            msg = "--k must be >= 1"
+            if json_mode:
+                print(json.dumps({"error": msg}, indent=2))
+            else:
+                print(f"Error: {msg}")
+            return 1
+
+        save_history: bool = getattr(args, "save_history", False)
+        type_filter: str = getattr(args, "scenario_type", "all")
+        scenarios_dir: Path = getattr(args, "scenarios_dir", Path(".claude/evals/scenarios"))
+        history_dir: Path = getattr(args, "history_dir", Path(eval_runner.DEFAULT_HISTORY_DIR))
+
+        scenario_files = self._collect_scenario_files(
+            scenario_path, scenarios_dir, json_mode
+        )
+        if scenario_files is None:
+            return 1
+
+        results: list[eval_runner.ScenarioResult] = []
+        errors: list[dict[str, str]] = []
+
+        for path in scenario_files:
+            try:
+                sc = eval_scenario.EvalScenario.from_yaml(path)
+            except eval_scenario.EvalScenarioValidationError as exc:
+                errors.append({"path": str(path), "error": str(exc)})
+                continue
+
+            if type_filter != "all" and sc.type != type_filter:
+                continue
+
+            try:
+                result = eval_runner.run_scenario(
+                    sc,
+                    k=k,
+                    save_history=save_history,
+                    history_dir=history_dir,
+                    scenario_path=str(path),
+                )
+                results.append(result)
+            except eval_runner.EvalRunnerError as exc:
+                errors.append({"path": str(path), "error": str(exc)})
+
+        if not results and not errors:
+            msg = "No scenarios matched the filters"
+            if json_mode:
+                print(json.dumps({"error": msg, "type_filter": type_filter}, indent=2))
+            else:
+                print(f"Error: {msg}")
+            return 1
+
+        if json_mode:
+            self._print_eval_run_json(results, errors, k, type_filter)
+        else:
+            self._print_eval_run_text(results, errors, k, type_filter)
+
+        if not results:
+            return 1
+        return eval_runner.evaluate_exit(results)
+
+    def _collect_scenario_files(
+        self,
+        scenario_path: Path | None,
+        scenarios_dir: Path,
+        json_mode: bool,
+    ) -> list[Path] | None:
+        """Collect scenario YAML files from a single path or directory scan."""
+        if scenario_path:
+            if not scenario_path.exists():
+                msg = f"Scenario file not found: {scenario_path}"
+                if json_mode:
+                    print(json.dumps({"error": msg}, indent=2))
+                else:
+                    print(f"Error: {msg}")
+                return None
+            return [scenario_path]
+
+        if not scenarios_dir.is_dir():
+            msg = f"Scenarios directory not found: {scenarios_dir}"
+            if json_mode:
+                print(json.dumps({"error": msg}, indent=2))
+            else:
+                print(f"Error: {msg}")
+            return None
+
+        files = sorted(
+            list(scenarios_dir.rglob("*.yaml")) + list(scenarios_dir.rglob("*.yml"))
+        )
+        if not files:
+            msg = f"No YAML files found in {scenarios_dir}"
+            if json_mode:
+                print(json.dumps({"error": msg}, indent=2))
+            else:
+                print(f"Error: {msg}")
+            return None
+
+        return files
+
+    def _print_eval_run_json(
+        self,
+        results: list["eval_runner.ScenarioResult"],
+        errors: list[dict[str, str]],
+        k: int,
+        type_filter: str,
+    ) -> None:
+        """Render eval-run results as JSON."""
+        passed = sum(1 for r in results if r.verdict == "passed")
+        payload = {
+            "total": len(results),
+            "passed": passed,
+            "failed": len(results) - passed,
+            "pass_rate": passed / len(results) if results else 0.0,
+            "k": k,
+            "type_filter": type_filter,
+            "results": [r.to_dict() for r in results],
+            "errors": errors,
+        }
+        print(json.dumps(payload, indent=2))
+
+    def _print_eval_run_text(
+        self,
+        results: list["eval_runner.ScenarioResult"],
+        errors: list[dict[str, str]],
+        k: int,
+        type_filter: str,
+    ) -> None:
+        """Render eval-run results as human-readable text."""
+        passed = sum(1 for r in results if r.verdict == "passed")
+        total = len(results)
+
+        print(f"\nEval Run Results (k={k}, type={type_filter})")
+        print("=" * 60)
+
+        for r in results:
+            flag = "PASS" if r.verdict == "passed" else "FAIL"
+            path_label = r.scenario_path or "(inline)"
+            print(f"  [{flag}] {path_label}  ({r.duration_ms}ms)")
+            if r.error:
+                print(f"         {r.error}")
+
+        if errors:
+            print(f"\nLoad errors ({len(errors)}):")
+            for e in errors:
+                print(f"  ! {e['path']}: {e['error'][:120]}")
+
+        print(f"\nSummary: {passed}/{total} passed", end="")
+        if total:
+            print(f" ({passed / total:.0%})")
+        else:
+            print()
 
     # --- evolve subcommand ---------------------------------------------------
 
