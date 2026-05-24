@@ -2984,8 +2984,8 @@ class TestSessionStartResumeDetection:
     def test_script_checks_source_field(self) -> None:
         """Embedded Python must check the source field from hook input."""
         script = self._generate_script("resume-agent")
-        assert 'source' in script
-        assert 'resume' in script
+        assert "source" in script
+        assert "resume" in script
 
     def test_script_imports_state_persistence(self) -> None:
         """Embedded Python must import StatePersistence on resume."""
@@ -3090,7 +3090,9 @@ class TestSessionStartResumeDetection:
             state_dir=str(state_dir),
         )
         result = self._run_script_with_stdin(
-            script, {"source": "resume", "session_id": "abc"}, tmp_path,
+            script,
+            {"source": "resume", "session_id": "abc"},
+            tmp_path,
         )
         assert result.returncode == 0, f"Script failed: {result.stderr}"
         stdout = result.stdout
@@ -3127,10 +3129,13 @@ class TestSessionStartResumeDetection:
         }
         (claude_state / "current.json").write_text(json.dumps(state_data))
         script = self._generate_script(
-            "resume-agent", state_dir=str(state_dir),
+            "resume-agent",
+            state_dir=str(state_dir),
         )
         result = self._run_script_with_stdin(
-            script, {"source": "resume"}, tmp_path,
+            script,
+            {"source": "resume"},
+            tmp_path,
         )
         assert result.returncode == 0, f"Script failed: {result.stderr}"
         assert "architecture" in result.stdout
@@ -3167,7 +3172,9 @@ class TestSessionStartResumeDetection:
             state_dir=str(state_dir),
         )
         result = self._run_script_with_stdin(
-            script, {"source": "startup"}, tmp_path,
+            script,
+            {"source": "startup"},
+            tmp_path,
         )
         assert result.returncode == 0
         assert "[workflow-state]" not in result.stdout
@@ -3178,10 +3185,13 @@ class TestSessionStartResumeDetection:
         instincts_dir.mkdir()
         (instincts_dir / "test.md").write_text("test instinct content")
         script = self._generate_script(
-            "resume-agent", instincts_dir=str(instincts_dir),
+            "resume-agent",
+            instincts_dir=str(instincts_dir),
         )
         result = self._run_script_with_stdin(
-            script, {"source": "compact"}, tmp_path,
+            script,
+            {"source": "compact"},
+            tmp_path,
         )
         assert result.returncode == 0
         assert "[workflow-state]" not in result.stdout
@@ -3211,14 +3221,18 @@ class TestSessionStartResumeDetection:
         (claude_state / "current.json").write_text(json.dumps(state_data))
         instincts_dir = tmp_path / "instincts"
         instincts_dir.mkdir()
-        (instincts_dir / "learned-pattern.md").write_text("Always validate inputs before processing")
+        (instincts_dir / "learned-pattern.md").write_text(
+            "Always validate inputs before processing"
+        )
         script = self._generate_script(
             "resume-agent",
             instincts_dir=str(instincts_dir),
             state_dir=str(state_dir),
         )
         result = self._run_script_with_stdin(
-            script, {"source": "resume"}, tmp_path,
+            script,
+            {"source": "resume"},
+            tmp_path,
         )
         assert result.returncode == 0
         stdout = result.stdout
@@ -3237,7 +3251,9 @@ class TestSessionStartResumeDetection:
             state_dir=str(tmp_path),
         )
         result = self._run_script_with_stdin(
-            script, {"source": "resume"}, tmp_path,
+            script,
+            {"source": "resume"},
+            tmp_path,
         )
         assert result.returncode == 0
         assert "[workflow-state]" not in result.stdout
@@ -3249,7 +3265,8 @@ class TestSessionStartResumeDetection:
         instincts_dir.mkdir()
         (instincts_dir / "test.md").write_text("instinct content")
         script = self._generate_script(
-            "resume-agent", instincts_dir=str(instincts_dir),
+            "resume-agent",
+            instincts_dir=str(instincts_dir),
         )
         script_path = tmp_path / "session-context.sh"
         script_path.write_text(script)
@@ -3270,7 +3287,8 @@ class TestSessionStartResumeDetection:
         instincts_dir.mkdir()
         (instincts_dir / "test.md").write_text("instinct content")
         script = self._generate_script(
-            "resume-agent", instincts_dir=str(instincts_dir),
+            "resume-agent",
+            instincts_dir=str(instincts_dir),
         )
         script_path = tmp_path / "session-context.sh"
         script_path.write_text(script)
@@ -3312,10 +3330,13 @@ class TestSessionStartResumeDetection:
         }
         (claude_state / "current.json").write_text(json.dumps(state_data))
         script = self._generate_script(
-            "resume-agent", state_dir=str(state_dir),
+            "resume-agent",
+            state_dir=str(state_dir),
         )
         result = self._run_script_with_stdin(
-            script, {"source": "resume"}, tmp_path,
+            script,
+            {"source": "resume"},
+            tmp_path,
         )
         assert result.returncode == 0
         assert "my-custom-agent" in result.stdout
@@ -3353,10 +3374,13 @@ class TestSessionStartResumeDetection:
         }
         (claude_state / "current.json").write_text(json.dumps(state_data))
         script = self._generate_script(
-            "resume-agent", state_dir=str(state_dir),
+            "resume-agent",
+            state_dir=str(state_dir),
         )
         result = self._run_script_with_stdin(
-            script, {"source": "resume"}, tmp_path,
+            script,
+            {"source": "resume"},
+            tmp_path,
         )
         assert result.returncode == 0
         assert "evaluator-optimizer" in result.stdout
@@ -3388,3 +3412,125 @@ class TestSessionStartResumeDetection:
         """Script header comment must document the resume capability."""
         script = self._generate_script("resume-agent")
         assert "resume" in script.lower()
+
+
+class TestObserverDispatchScript:
+    """Tests for SubagentStop observer dispatch with 5-layer re-entrancy guard (Feature #61).
+
+    Verifies that the generated dispatch script integrates the observer_guard
+    module and produces correct hook configs.
+    """
+
+    def _generate_script(self, agent_name: str, lock_dir: str = ".claude/hooks") -> str:
+        """Generate observer dispatch script via subprocess."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_observer_dispatch_script; "
+                    f"print(generate_observer_dispatch_script('{agent_name}', '{lock_dir}'))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script generation failed: {result.stderr}"
+        return result.stdout
+
+    def test_script_is_valid_bash(self, tmp_path: Path) -> None:
+        """Generated script must be valid bash syntax."""
+        script = self._generate_script("obs-dispatch")
+        script_path = tmp_path / "dispatch.sh"
+        script_path.write_text(script)
+        result = subprocess.run(["bash", "-n", str(script_path)], capture_output=True, text=True)
+        assert result.returncode == 0, f"Bash syntax error: {result.stderr}"
+
+    def test_script_has_shebang(self) -> None:
+        """Script must start with bash shebang."""
+        script = self._generate_script("obs-dispatch")
+        assert script.startswith("#!/usr/bin/env bash")
+
+    def test_script_includes_agent_name(self) -> None:
+        """Script must include agent name in header."""
+        script = self._generate_script("my-observer")
+        assert "my-observer" in script
+
+    def test_script_imports_observer_guard(self) -> None:
+        """Script must use the observer_guard module."""
+        script = self._generate_script("obs-dispatch")
+        assert "platxa_agent_generator.observer_guard" in script
+
+    def test_script_checks_all_five_layers(self) -> None:
+        """Script must reference the 5-layer guard."""
+        script = self._generate_script("obs-dispatch")
+        assert "check_observer_reentrancy" in script
+        assert "PLATXA_OBSERVER_ACTIVE" in script
+
+    def test_script_records_dispatch(self) -> None:
+        """Script must call record_dispatch on success."""
+        script = self._generate_script("obs-dispatch")
+        assert "record_dispatch" in script
+
+    def test_script_exits_zero(self) -> None:
+        """Script must always exit 0 (non-blocking)."""
+        script = self._generate_script("obs-dispatch")
+        lines = script.strip().split("\n")
+        assert lines[-1].strip() == "exit 0"
+
+    def test_script_blocks_observer_self_dispatch(self, tmp_path: Path) -> None:
+        """When agent=observer-subagent in payload, script exits 0 with stderr reason."""
+        script = self._generate_script("obs-dispatch", str(tmp_path))
+        script_path = tmp_path / "dispatch.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+
+        result = subprocess.run(
+            ["bash", str(script_path)],
+            input='{"agent": "observer-subagent", "event": "SubagentStop"}',
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+        )
+        assert result.returncode == 0
+        assert "blocked" in result.stderr
+        assert "triggered by self" in result.stderr
+
+    def test_script_allows_non_observer_agent(self, tmp_path: Path) -> None:
+        """When agent is not observer-subagent, script passes guard."""
+        script = self._generate_script("obs-dispatch", str(tmp_path))
+        script_path = tmp_path / "dispatch.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+
+        result = subprocess.run(
+            ["bash", str(script_path)],
+            input='{"agent": "validation-subagent", "event": "SubagentStop"}',
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+        )
+        assert result.returncode == 0
+        assert "blocked" not in result.stderr
+        assert "dispatch observer-subagent" in result.stdout
+
+    def test_hook_config_format(self) -> None:
+        """Hook config must register on SubagentStop event."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import json; "
+                    "from platxa_agent_generator.hooks_generator import generate_observer_dispatch_hook_config; "
+                    "print(json.dumps(generate_observer_dispatch_hook_config('test-agent', '/path/to/script.sh')))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Config generation failed: {result.stderr}"
+        config = json.loads(result.stdout)
+        assert "SubagentStop" in config
+        assert config["SubagentStop"][0]["hooks"][0]["type"] == "command"
+        assert config["SubagentStop"][0]["hooks"][0]["command"] == "/path/to/script.sh"
