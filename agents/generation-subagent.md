@@ -285,6 +285,16 @@ Return confirmation JSON:
 }
 ```
 
+### Completion Marker
+
+After emitting the JSON output, your **final line** must be the canonical completion-promise marker:
+
+```
+<promise>COMPLETE</promise>
+```
+
+The orchestrator uses this marker to detect that the subagent has finished. Omitting it causes the goal-loop to re-prompt indefinitely.
+
 ## Complete Example
 
 ### Input:
