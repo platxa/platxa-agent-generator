@@ -592,6 +592,223 @@ class TestStopVerificationScript:
         )
 
 
+class TestStopObservationScript:
+    """Tests for Stop observation hook generation (Feature #31).
+
+    Verifies that generated Stop observation scripts emit valid JSONL
+    observation rows, dispatch the observer-subagent advisory, and
+    produce correct hook configs.
+    """
+
+    def _generate_script(self, agent_name: str, obs_file: str = ".claude/observations.jsonl") -> str:
+        """Generate Stop observation script via subprocess."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_stop_observation_script; "
+                    f"print(generate_stop_observation_script('{agent_name}', '{obs_file}'))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script generation failed: {result.stderr}"
+        return result.stdout
+
+    def _generate_config(self, agent_name: str, script_path: str) -> dict:
+        """Generate Stop observation hook config via subprocess."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import json; "
+                    "from platxa_agent_generator.hooks_generator import generate_stop_observation_hook_config; "
+                    f"print(json.dumps(generate_stop_observation_hook_config('{agent_name}', '{script_path}')))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Config generation failed: {result.stderr}"
+        return json.loads(result.stdout)
+
+    def test_script_is_valid_bash(self, tmp_path: Path) -> None:
+        """Generated script must be valid bash syntax."""
+        script = self._generate_script("obs-agent")
+        script_path = tmp_path / "observe.sh"
+        script_path.write_text(script)
+        result = subprocess.run(["bash", "-n", str(script_path)], capture_output=True, text=True)
+        assert result.returncode == 0, f"Bash syntax error: {result.stderr}"
+
+    def test_script_has_shebang(self) -> None:
+        """Script must start with bash shebang."""
+        script = self._generate_script("obs-agent")
+        assert script.startswith("#!/usr/bin/env bash")
+
+    def test_script_includes_agent_name(self) -> None:
+        """Script must include agent name in output messages and record."""
+        script = self._generate_script("my-observer")
+        assert "my-observer" in script
+
+    def test_script_writes_jsonl(self) -> None:
+        """Script must write to the observations JSONL file."""
+        script = self._generate_script("obs-agent")
+        assert "observations.jsonl" in script
+        assert "json.dumps" in script
+
+    def test_script_emits_observation_record_fields(self) -> None:
+        """Script must emit all required ObservationRecord fields."""
+        script = self._generate_script("obs-agent")
+        for field in ("timestamp", "tool", "input_summary", "project_id", "project_name"):
+            assert field in script, f"Missing required field: {field}"
+
+    def test_script_emits_optional_fields(self) -> None:
+        """Script must emit optional ObservationRecord fields."""
+        script = self._generate_script("obs-agent")
+        for field in ("session_id", "agent_name", "type", "evidence", "confidence"):
+            assert field in script, f"Missing optional field: {field}"
+
+    def test_script_uses_session_end_type(self) -> None:
+        """Script must use 'session_end' as observation type."""
+        script = self._generate_script("obs-agent")
+        assert "session_end" in script
+
+    def test_script_prints_observer_advisory(self) -> None:
+        """Script must print additionalContext advisory for observer dispatch."""
+        script = self._generate_script("obs-agent")
+        assert "observer-subagent" in script
+
+    def test_script_exits_zero(self) -> None:
+        """Script must always exit 0 (non-blocking)."""
+        script = self._generate_script("obs-agent")
+        lines = script.strip().split("\n")
+        assert lines[-1].strip() == "exit 0"
+
+    def test_script_custom_observations_file(self) -> None:
+        """Script must use the custom observations file path."""
+        script = self._generate_script("obs-agent", "/tmp/custom-obs.jsonl")
+        assert "/tmp/custom-obs.jsonl" in script
+
+    def test_script_creates_parent_dir(self) -> None:
+        """Script must create parent directory of observations file."""
+        script = self._generate_script("obs-agent")
+        assert "mkdir -p" in script
+
+    def test_script_produces_valid_jsonl_row(self, tmp_path: Path) -> None:
+        """Running the script must produce a valid JSON line in the obs file."""
+        script = self._generate_script("obs-agent", str(tmp_path / "obs.jsonl"))
+        script_path = tmp_path / "observe.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+
+        result = subprocess.run(
+            ["bash", str(script_path)],
+            capture_output=True,
+            text=True,
+            cwd=str(tmp_path),
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+
+        obs_file = tmp_path / "obs.jsonl"
+        assert obs_file.exists(), "Observation JSONL file not created"
+        lines = obs_file.read_text().strip().split("\n")
+        assert len(lines) == 1, f"Expected 1 JSONL row, got {len(lines)}"
+
+        row = json.loads(lines[0])
+        assert row["tool"] == "Stop"
+        assert row["agent_name"] == "obs-agent"
+        assert row["type"] == "session_end"
+        assert row["confidence"] == 1.0
+        assert row["promoted_to"] is None
+        assert isinstance(row["examples"], list)
+        assert row["timestamp"]
+        assert row["project_id"]
+        assert row["project_name"]
+        assert row["input_summary"]
+
+    def test_hook_config_uses_stop_event(self) -> None:
+        """Hook config must use Stop event."""
+        config = self._generate_config("obs-agent", "/path/to/observe.sh")
+        assert "Stop" in config
+        assert len(config["Stop"]) == 1
+
+    def test_hook_config_uses_correct_script_path(self) -> None:
+        """Hook config must reference the provided script path."""
+        config = self._generate_config("obs-agent", "/home/user/.claude/hooks/observe.sh")
+        command = config["Stop"][0]["hooks"][0]["command"]
+        assert command == "/home/user/.claude/hooks/observe.sh"
+
+    def test_hook_config_has_no_matcher(self) -> None:
+        """Stop hooks should not have a matcher."""
+        config = self._generate_config("obs-agent", "/path/to/observe.sh")
+        assert "matcher" not in config["Stop"][0]
+
+    def test_rejects_invalid_agent_name(self) -> None:
+        """Must reject agent names with shell metacharacters."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_stop_observation_script; "
+                    "generate_stop_observation_script('bad; rm -rf /')"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "ValueError" in result.stderr
+
+    def test_rejects_empty_observations_file(self) -> None:
+        """Must reject empty observations_file."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_stop_observation_script; "
+                    "generate_stop_observation_script('test-agent', '')"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "ValueError" in result.stderr
+
+    def test_config_rejects_empty_script_path(self) -> None:
+        """Must reject empty script_path in hook config."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_stop_observation_hook_config; "
+                    "generate_stop_observation_hook_config('test-agent', '')"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+        assert "ValueError" in result.stderr
+
+    def test_observations_file_shell_injection_safe(self, tmp_path: Path) -> None:
+        """Shell metacharacters in observations_file must be safely quoted."""
+        malicious = str(tmp_path / '"; echo PWNED #')
+        script = self._generate_script("obs-agent", malicious)
+        script_path = tmp_path / "observe.sh"
+        script_path.write_text(script)
+
+        result = subprocess.run(["bash", "-n", str(script_path)], capture_output=True, text=True)
+        assert result.returncode == 0, f"Bash syntax error with special path: {result.stderr}"
+        assert "PWNED" not in script or "shlex" in script or "'" in script
+
+
 class TestHooksGeneratorTaskCompleted:
     """Tests for TaskCompleted hook corrupt-manifest handling (Feature #8).
 
