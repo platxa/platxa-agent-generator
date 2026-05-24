@@ -13,6 +13,7 @@ Public surface:
     * :class:`ScenarioResult` — one execution of a scenario
     * :func:`run_scenario` — execute a scenario k times, return the last result
     * :func:`pass_at_k` — compute pass@k metric via a generator callable
+    * :func:`write_run_history` — persist a run trace to the history directory
 """
 
 from __future__ import annotations
@@ -42,6 +43,7 @@ __all__ = [
     "VerdictType",
     "pass_at_k",
     "run_scenario",
+    "write_run_history",
 ]
 
 
@@ -184,14 +186,23 @@ def run_scenario(
         )
 
         if save_history:
-            _write_run_trace(last_result, history_dir)
+            write_run_history(last_result, history_dir)
 
     assert last_result is not None  # k >= 1 guaranteed above
     return last_result
 
 
-def _write_run_trace(result: ScenarioResult, history_dir: str | Path) -> Path:
-    """Write a single run trace to the history directory."""
+def write_run_history(
+    result: ScenarioResult, history_dir: str | Path = DEFAULT_HISTORY_DIR
+) -> Path:
+    """Write a single run trace to the history directory.
+
+    Persists *result* as ``run-{timestamp}.json`` under *history_dir*,
+    creating intermediate directories as needed.  The JSON schema
+    matches the contract consumed by ``cluster_failures``.
+
+    Returns the path to the written file.
+    """
     dir_path = Path(history_dir)
     dir_path.mkdir(parents=True, exist_ok=True)
 

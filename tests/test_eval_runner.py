@@ -18,10 +18,12 @@ from typing import Any
 import pytest
 
 from platxa_agent_generator.eval_runner import (
+    DEFAULT_HISTORY_DIR,
     EvalRunnerError,
     ScenarioResult,
     pass_at_k,
     run_scenario,
+    write_run_history,
 )
 from platxa_agent_generator.eval_scenario import EvalScenario
 
@@ -336,3 +338,90 @@ class TestErrorHandling:
 
         with pytest.raises(EvalRunnerError, match="timed out"):
             run_scenario(scenario, executor=timeout_executor)
+
+
+# --------------------------------------------------------------------------
+# write_run_history — Feature #28
+# --------------------------------------------------------------------------
+
+REQUIRED_KEYS = frozenset(
+    {
+        "scenario_path",
+        "prompt",
+        "verdict",
+        "duration_ms",
+        "tool_calls",
+        "result",
+        "timestamp",
+        "error",
+        "axis",
+        "scenario_type",
+    }
+)
+
+
+class TestWriteRunHistory:
+    """Verify write_run_history persists traces with all required keys."""
+
+    def test_writes_file_with_all_required_keys(self, tmp_path: Path) -> None:
+        result = _make_result(
+            scenario_path="scenarios/test.yaml",
+            tool_calls=["Read", "Grep"],
+        )
+        trace_path = write_run_history(result, tmp_path)
+
+        assert trace_path.exists()
+        assert trace_path.name.startswith("run-")
+        assert trace_path.suffix == ".json"
+
+        data = json.loads(trace_path.read_text(encoding="utf-8"))
+        assert REQUIRED_KEYS <= set(data.keys())
+
+    def test_tool_calls_list_matches_result(self, tmp_path: Path) -> None:
+        tools = ["Read", "Grep", "Bash"]
+        result = _make_result(tool_calls=tools)
+        trace_path = write_run_history(result, tmp_path)
+
+        data = json.loads(trace_path.read_text(encoding="utf-8"))
+        assert data["tool_calls"] == tools
+
+    def test_creates_intermediate_directories(self, tmp_path: Path) -> None:
+        nested = tmp_path / "a" / "b" / "c"
+        result = _make_result()
+        trace_path = write_run_history(result, nested)
+
+        assert trace_path.exists()
+        assert nested.is_dir()
+
+    def test_uses_default_history_dir(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        result = _make_result()
+        trace_path = write_run_history(result)
+
+        assert trace_path.exists()
+        assert str(trace_path.resolve()).startswith(str((tmp_path / DEFAULT_HISTORY_DIR).resolve()))
+
+    def test_returns_path_object(self, tmp_path: Path) -> None:
+        result = _make_result()
+        trace_path = write_run_history(result, tmp_path)
+        assert isinstance(trace_path, Path)
+
+    def test_verdict_and_prompt_round_trip(self, tmp_path: Path) -> None:
+        result = _make_result(verdict="failed", prompt="do something", error="oops")
+        trace_path = write_run_history(result, tmp_path)
+
+        data = json.loads(trace_path.read_text(encoding="utf-8"))
+        assert data["verdict"] == "failed"
+        assert data["prompt"] == "do something"
+        assert data["error"] == "oops"
+
+    def test_multiple_writes_produce_distinct_files(self, tmp_path: Path) -> None:
+        r1 = _make_result(timestamp="2026-05-24T12:00:00+00:00")
+        r2 = _make_result(timestamp="2026-05-24T12:00:01+00:00")
+        p1 = write_run_history(r1, tmp_path)
+        p2 = write_run_history(r2, tmp_path)
+
+        assert p1 != p2
+        assert len(list(tmp_path.glob("run-*.json"))) == 2
