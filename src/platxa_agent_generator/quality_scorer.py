@@ -20,6 +20,7 @@ import json
 import re
 import sys
 import warnings
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -300,6 +301,34 @@ def parse_agent_file(content: str) -> tuple[dict[str, str], dict[str, str], str]
                 sections[current_section] = "\n".join(current_content).strip()
 
     return frontmatter, sections, body_content
+
+
+def judge(criterion: str, content: str) -> CriterionScore:
+    """Score a single quality criterion against agent definition content.
+
+    Public entrypoint for per-axis isolation scoring. Parses the content
+    internally and dispatches to the appropriate score_* function.
+
+    Raises ValueError if *criterion* is not one of the six canonical axes
+    defined in evaluation-criteria.yaml.
+    """
+    frontmatter, sections, _ = parse_agent_file(content)
+
+    dispatch: dict[str, Callable[[], CriterionScore]] = {
+        "clarity": lambda: score_clarity(content, sections),
+        "completeness": lambda: score_completeness(frontmatter, sections),
+        "tool_design": lambda: score_tool_design(frontmatter, content),
+        "examples": lambda: score_examples(sections),
+        "security": lambda: score_security(frontmatter, content),
+        "documentation": lambda: score_documentation(content, sections),
+    }
+
+    if criterion not in dispatch:
+        raise ValueError(
+            f"Unknown criterion {criterion!r}; valid: {sorted(dispatch)}"
+        )
+
+    return dispatch[criterion]()
 
 
 def score_clarity(content: str, sections: dict[str, str]) -> CriterionScore:

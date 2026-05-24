@@ -402,3 +402,102 @@ class TestCriteriaWeightsFromYAML:
                     f"{criterion.name} weight {criterion.weight} != "
                     f"YAML weight {yaml_weights[name_key]}"
                 )
+
+
+class TestJudgeEntrypoint:
+    """Per-axis isolation tests for the public judge() entrypoint."""
+
+    SAMPLE_AGENT = (
+        "---\nname: test-agent\ndescription: Analyzes code for quality\n"
+        "tools: Read, Grep, Bash\n---\n\n"
+        "# Test Agent\n\n## Overview\nAnalyzes code for quality issues.\n\n"
+        "## Workflow\n1. Read target files with Read\n2. Search for patterns with Grep\n"
+        "3. Run linters via Bash\n\n"
+        "## Examples\n### Example 1: Lint a file\n"
+        "User: Check main.py for issues\n"
+        "Agent: Reads main.py, runs ruff check, reports findings\n\n"
+        "## Output Format\nStructured list of findings with severity.\n"
+    )
+
+    def test_judge_clarity_returns_criterion_score(self) -> None:
+        from platxa_agent_generator.quality_scorer import CriterionScore, judge
+
+        result = judge("clarity", self.SAMPLE_AGENT)
+        assert isinstance(result, CriterionScore)
+        assert result.name.lower().replace(" ", "_") == "clarity"
+        assert 0.0 <= result.score <= 10.0
+
+    def test_judge_completeness_returns_criterion_score(self) -> None:
+        from platxa_agent_generator.quality_scorer import CriterionScore, judge
+
+        result = judge("completeness", self.SAMPLE_AGENT)
+        assert isinstance(result, CriterionScore)
+        assert result.name.lower().replace(" ", "_") == "completeness"
+        assert 0.0 <= result.score <= 10.0
+
+    def test_judge_tool_design_returns_criterion_score(self) -> None:
+        from platxa_agent_generator.quality_scorer import CriterionScore, judge
+
+        result = judge("tool_design", self.SAMPLE_AGENT)
+        assert isinstance(result, CriterionScore)
+        assert result.name.lower().replace(" ", "_") == "tool_design"
+        assert 0.0 <= result.score <= 10.0
+
+    def test_judge_examples_returns_criterion_score(self) -> None:
+        from platxa_agent_generator.quality_scorer import CriterionScore, judge
+
+        result = judge("examples", self.SAMPLE_AGENT)
+        assert isinstance(result, CriterionScore)
+        assert result.name.lower().replace(" ", "_") == "examples"
+        assert 0.0 <= result.score <= 10.0
+
+    def test_judge_security_returns_criterion_score(self) -> None:
+        from platxa_agent_generator.quality_scorer import CriterionScore, judge
+
+        result = judge("security", self.SAMPLE_AGENT)
+        assert isinstance(result, CriterionScore)
+        assert result.name.lower().replace(" ", "_") == "security"
+        assert 0.0 <= result.score <= 10.0
+
+    def test_judge_documentation_returns_criterion_score(self) -> None:
+        from platxa_agent_generator.quality_scorer import CriterionScore, judge
+
+        result = judge("documentation", self.SAMPLE_AGENT)
+        assert isinstance(result, CriterionScore)
+        assert result.name.lower().replace(" ", "_") == "documentation"
+        assert 0.0 <= result.score <= 10.0
+
+    def test_judge_invalid_criterion_raises_valueerror(self) -> None:
+        import pytest
+
+        from platxa_agent_generator.quality_scorer import judge
+
+        with pytest.raises(ValueError, match="Unknown criterion"):
+            judge("nonexistent", self.SAMPLE_AGENT)
+
+    def test_judge_populates_findings_and_suggestions(self) -> None:
+        from platxa_agent_generator.quality_scorer import judge
+
+        result = judge("clarity", self.SAMPLE_AGENT)
+        assert isinstance(result.findings, list)
+        assert isinstance(result.suggestions, list)
+
+    def test_judge_weighted_score_matches_weight_times_score(self) -> None:
+        from platxa_agent_generator.quality_scorer import CRITERIA_WEIGHTS, judge
+
+        result = judge("clarity", self.SAMPLE_AGENT)
+        expected_weighted = result.score * CRITERIA_WEIGHTS["clarity"]
+        assert abs(result.weighted_score - expected_weighted) < 0.01
+
+    def test_judge_matches_score_quality_per_axis(self) -> None:
+        """judge() must produce identical scores to score_quality() for each axis."""
+        from platxa_agent_generator.quality_scorer import judge, score_quality
+
+        report = score_quality(self.SAMPLE_AGENT)
+        for criterion in report.criteria:
+            name_key = criterion.name.lower().replace(" ", "_")
+            isolated = judge(name_key, self.SAMPLE_AGENT)
+            assert isolated.score == criterion.score, (
+                f"{name_key}: judge()={isolated.score} != "
+                f"score_quality()={criterion.score}"
+            )
