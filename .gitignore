@@ -143,11 +143,33 @@ CLAUDE.md
 .claude/observations.jsonl
 .claude/pre_compact_state.json
 .claude/review-output.md
+.claude/review-output-f*.md
 .claude/reviewer-summary.txt
 # Nested .claude/ dirs created when hooks run inside a subdirectory —
 # these are duplicates of root .claude/ state and should never be tracked
 **/.claude/observations.jsonl
 .claude/skills/**/.claude/
+
+# platxa-memory plugin session markers and runtime state
+.claude/.memory-synthesized-*
+.claude/.observer-advisory-state.json
+
+# Subagent dispatch correlation logs
+.claude/dispatches.jsonl
+.claude/dispatches_index.json
+.claude/dispatches_index.json.lock
+.claude/dispatch_index/
+
+# Agent transcripts, memory, instincts, telemetry (per-developer)
+.claude/agent_transcripts/
+.claude/agent-memory/
+.claude/instincts/
+.claude/telemetry/
+.claude/rules/
+
+# Historical backup snapshots
+.claude/generated_features.unsorted.bak.json
+.claude/generated_features.v1.bak.json
 
 # Hatch
 .hatch/
