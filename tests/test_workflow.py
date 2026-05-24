@@ -318,16 +318,14 @@ class TestInteractivePrompts:
 class TestNonInteractiveMode:
     """Tests for Feature #80: Non-interactive CLI mode for CI/CD."""
 
-    CLI_SCRIPT = str(SCRIPTS_DIR / "cli.py")
-
     def _run_cli(self, *args: str, cwd: str | None = None) -> subprocess.CompletedProcess[str]:
-        """Run CLI with given args. Always uses scripts dir as cwd."""
+        """Run CLI with given args."""
         return subprocess.run(
-            [sys.executable, self.CLI_SCRIPT, *args],
+            [sys.executable, "-m", "platxa_agent_generator", *args],
             capture_output=True,
             text=True,
             timeout=60,
-            cwd=cwd or str(SCRIPTS_DIR),
+            cwd=cwd,
         )
 
     def test_non_interactive_flag_in_help(self):
@@ -583,15 +581,12 @@ class TestInteractiveFrontmatterWizard:
 class TestIterationAwareRetryLoop:
     """Tests for Feature #45: --max-iterations CLI override with iteration-aware loop."""
 
-    CLI_SCRIPT = str(SCRIPTS_DIR / "cli.py")
-
     def _run_cli(self, *args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [sys.executable, self.CLI_SCRIPT, *args],
+            [sys.executable, "-m", "platxa_agent_generator", *args],
             capture_output=True,
             text=True,
             timeout=60,
-            cwd=str(SCRIPTS_DIR),
         )
 
     def test_max_iterations_cli_arg_default(self) -> None:
