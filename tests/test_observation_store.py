@@ -19,6 +19,7 @@ from typing import Any, cast
 import pytest
 
 from platxa_agent_generator.observation_store import (
+    DEFAULT_OBSERVATION_CAP,
     OBSERVATION_TYPES,
     REQUIRED_FIELDS,
     ObservationRecord,
@@ -421,18 +422,36 @@ class TestMarkPromoted:
 
     def _make_store(self, tmp_path: Path) -> ObservationStore:
         store = ObservationStore(path=tmp_path / "obs.jsonl")
-        store.append(ObservationRecord(
-            timestamp="t1", tool="Bash", input_summary="s1",
-            project_id="p", project_name="pn", session_id="sess-a",
-        ))
-        store.append(ObservationRecord(
-            timestamp="t2", tool="Read", input_summary="s2",
-            project_id="p", project_name="pn", session_id="sess-a",
-        ))
-        store.append(ObservationRecord(
-            timestamp="t3", tool="Bash", input_summary="s3",
-            project_id="p", project_name="pn", session_id="sess-b",
-        ))
+        store.append(
+            ObservationRecord(
+                timestamp="t1",
+                tool="Bash",
+                input_summary="s1",
+                project_id="p",
+                project_name="pn",
+                session_id="sess-a",
+            )
+        )
+        store.append(
+            ObservationRecord(
+                timestamp="t2",
+                tool="Read",
+                input_summary="s2",
+                project_id="p",
+                project_name="pn",
+                session_id="sess-a",
+            )
+        )
+        store.append(
+            ObservationRecord(
+                timestamp="t3",
+                tool="Bash",
+                input_summary="s3",
+                project_id="p",
+                project_name="pn",
+                session_id="sess-b",
+            )
+        )
         return store
 
     def test_marks_matching_record(self, tmp_path: Path) -> None:
@@ -479,10 +498,15 @@ class TestMarkPromoted:
 
     def test_preserves_malformed_lines(self, tmp_path: Path) -> None:
         path = tmp_path / "obs.jsonl"
-        good_line = json.dumps({
-            "timestamp": "t1", "tool": "t", "input_summary": "s",
-            "project_id": "p", "project_name": "pn",
-        })
+        good_line = json.dumps(
+            {
+                "timestamp": "t1",
+                "tool": "t",
+                "input_summary": "s",
+                "project_id": "p",
+                "project_name": "pn",
+            }
+        )
         path.write_text(good_line + "\nnot-json\n" + good_line.replace("t1", "t2") + "\n")
         store = ObservationStore(path=path)
         store.mark_promoted("inst", match=lambda r: r.timestamp == "t1")
@@ -500,8 +524,11 @@ class TestMarkPromoted:
     def test_promoted_to_roundtrips_through_jsonl(self, tmp_path: Path) -> None:
         store = ObservationStore(path=tmp_path / "obs.jsonl")
         record = ObservationRecord(
-            timestamp="t", tool="t", input_summary="s",
-            project_id="p", project_name="pn",
+            timestamp="t",
+            tool="t",
+            input_summary="s",
+            project_id="p",
+            project_name="pn",
             promoted_to="instinct-roundtrip",
         )
         store.append(record)
@@ -509,3 +536,113 @@ class TestMarkPromoted:
         assert len(read_back) == 1
         assert read_back[0].promoted_to == "instinct-roundtrip"
         assert read_back[0] == record
+
+
+# --- Observation throttling (feature #62) ---------------------------------
+
+
+class TestObservationThrottling:
+    """Session-scoped cap on observations to prevent memory explosion."""
+
+    def _make_minimal(self, idx: int) -> ObservationRecord:
+        return ObservationRecord(
+            timestamp=f"t{idx}",
+            tool="Bash",
+            input_summary=f"obs {idx}",
+            project_id="p",
+            project_name="pn",
+        )
+
+    def test_default_cap_is_200(self) -> None:
+        assert DEFAULT_OBSERVATION_CAP == 200
+
+    def test_cap_drops_observations_past_limit(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "10")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        for i in range(25):
+            store.append(self._make_minimal(i))
+        assert store.count() == 10
+
+    def test_250_observations_capped_at_200(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("PLATXA_OBSERVATION_CAP", raising=False)
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        for i in range(250):
+            store.append(self._make_minimal(i))
+        assert store.count() == 200
+
+    def test_env_override_respected(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "50")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        for i in range(100):
+            store.append(self._make_minimal(i))
+        assert store.count() == 50
+
+    def test_env_cap_zero_disables_throttling(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        for i in range(300):
+            store.append(self._make_minimal(i))
+        assert store.count() == 300
+
+    def test_append_many_respects_cap(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "15")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        batch = [self._make_minimal(i) for i in range(25)]
+        store.append_many(batch)
+        assert store.count() == 15
+
+    def test_append_many_after_partial_append(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "20")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        for i in range(12):
+            store.append(self._make_minimal(i))
+        batch = [self._make_minimal(100 + i) for i in range(15)]
+        store.append_many(batch)
+        assert store.count() == 20
+
+    def test_append_many_at_cap_is_noop(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "5")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        for i in range(5):
+            store.append(self._make_minimal(i))
+        store.append_many([self._make_minimal(99)])
+        assert store.count() == 5
+
+    def test_env_invalid_falls_back_to_default(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "not-a-number")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        for i in range(210):
+            store.append(self._make_minimal(i))
+        assert store.count() == DEFAULT_OBSERVATION_CAP
+
+    def test_env_empty_falls_back_to_default(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        for i in range(210):
+            store.append(self._make_minimal(i))
+        assert store.count() == DEFAULT_OBSERVATION_CAP
+
+    def test_env_negative_falls_back_to_default(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "-1")
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        for i in range(210):
+            store.append(self._make_minimal(i))
+        assert store.count() == DEFAULT_OBSERVATION_CAP

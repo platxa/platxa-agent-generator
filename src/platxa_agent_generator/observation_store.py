@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import typing
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -33,6 +34,8 @@ from typing import Iterator, Literal
 
 from .shared.paths import get_project_agents_dir
 from .state_persistence import FileLock
+
+DEFAULT_OBSERVATION_CAP: int = 200
 
 ObservationType = Literal[
     "tool_use",
@@ -167,23 +170,45 @@ class ObservationStore:
     def __init__(self, path: Path | None = None) -> None:
         self.path: Path = path if path is not None else _default_observations_path()
         self.lock_path: Path = self.path.with_suffix(self.path.suffix + ".lock")
+        self._session_count: int = 0
+        raw = os.environ.get("PLATXA_OBSERVATION_CAP", "")
+        try:
+            parsed = int(raw) if raw.strip() else -1
+        except ValueError:
+            parsed = -1
+        self._cap: int = parsed if parsed >= 0 else DEFAULT_OBSERVATION_CAP
 
     def append(self, record: ObservationRecord) -> None:
-        """Append one record to the JSONL file under an exclusive file lock."""
+        """Append one record to the JSONL file under an exclusive file lock.
+
+        Silently drops the record when the session cap has been reached.
+        """
+        if self._cap > 0 and self._session_count >= self._cap:
+            return
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with FileLock(self.lock_path):
             with self.path.open("a", encoding="utf-8") as fh:
                 fh.write(record.to_jsonl())
+        self._session_count += 1
 
     def append_many(self, records: list[ObservationRecord]) -> None:
-        """Append a batch of records under a single lock acquisition."""
+        """Append a batch of records under a single lock acquisition.
+
+        Only appends up to remaining session capacity when a cap is active.
+        """
         if not records:
             return
+        if self._cap > 0:
+            remaining = self._cap - self._session_count
+            if remaining <= 0:
+                return
+            records = records[:remaining]
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with FileLock(self.lock_path):
             with self.path.open("a", encoding="utf-8") as fh:
                 for record in records:
                     fh.write(record.to_jsonl())
+        self._session_count += len(records)
 
     def iter_records(self) -> Iterator[ObservationRecord]:
         """Yield records from disk, skipping rows that fail to parse.
@@ -379,6 +404,7 @@ class ObservationStore:
 
 
 __all__ = [
+    "DEFAULT_OBSERVATION_CAP",
     "OBSERVATION_TYPES",
     "REQUIRED_FIELDS",
     "ObservationRecord",
