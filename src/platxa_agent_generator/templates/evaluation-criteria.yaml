@@ -1,6 +1,6 @@
 # Evaluation rubric — designated single source of truth for agent quality
-# scoring. The values below match the documented project spec in CLAUDE.md
-# and agents/validation-subagent.md.
+# scoring. CLAUDE.md, agents/validation-subagent.md, and quality_scorer.py
+# all reference this file rather than hard-coding weights.
 #
 # Active consumers:
 #   - src/platxa_agent_generator/evaluation_criteria.py
@@ -10,10 +10,9 @@
 #       at module init (feature #39). check_criteria_weights_integrity()
 #       emits DeprecationWarning if weights are overridden at runtime.
 #
-# PLANNED consumers (NOT yet wired up):
 #   - agents/validation-subagent.md
-#       advisory-threshold reference; codegen will regenerate the prompt's
-#       criteria block from this file rather than from hand-edited markdown.
+#       references this file for axis names, weights, and severities
+#       (feature #40 — replaced hard-coded markdown table).
 #
 # Invariants enforced by EvaluationRubric.__post_init__:
 #   - exactly 6 axes

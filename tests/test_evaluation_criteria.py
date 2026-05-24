@@ -14,6 +14,7 @@ consuming a drifted or malformed rubric.
 from __future__ import annotations
 
 import math
+import re
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -280,3 +281,37 @@ def test_from_yaml_round_trips_default(tmp_path: Path) -> None:
     b = EvaluationRubric.load_default()
     assert a.weights() == b.weights()
     assert {x.severity_on_unmet for x in a.axes} == {x.severity_on_unmet for x in b.axes}
+
+
+# --------------------------------------------------------------------------
+# Weight-drift guard — docs that reference the rubric must not hard-code
+# weights (feature #40).
+# --------------------------------------------------------------------------
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
+_WEIGHT_GUARDED_FILES = (
+    _REPO_ROOT / "agents" / "validation-subagent.md",
+    _REPO_ROOT / "CLAUDE.md",
+)
+
+_HARDCODED_WEIGHT_RE = re.compile(
+    r"""
+    (?:                         # match either …
+      ['"]\w+['"]:\s*0\.\d+     # 'axis': 0.NN or "axis": 0.NN
+    | \|\s*\w+\s*\|\s*\d+%     # | Axis | NN%   (markdown table cell)
+    )
+    """,
+    re.VERBOSE,
+)
+
+
+@pytest.mark.parametrize("path", _WEIGHT_GUARDED_FILES, ids=lambda p: p.name)
+def test_no_hardcoded_weights(path: Path) -> None:
+    """Guard against weight drift: docs must reference the YAML."""
+    text = path.read_text(encoding="utf-8")
+    matches = _HARDCODED_WEIGHT_RE.findall(text)
+    assert not matches, (
+        f"{path.name} still contains hard-coded weights: {matches}. "
+        "Weights must only live in templates/evaluation-criteria.yaml."
+    )

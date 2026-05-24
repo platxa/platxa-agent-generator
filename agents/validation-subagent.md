@@ -185,31 +185,17 @@ Flag dangerous tool combinations:
 
 ### Scoring Criteria
 
-| Criteria | Weight | Description |
-|----------|--------|-------------|
-| Clarity | 20% | Instructions are clear and specific |
-| Completeness | 20% | All required sections present |
-| Tool Design | 20% | Appropriate tools with proper permissions |
-| Examples | 15% | Realistic usage examples included |
-| Security | 15% | No dangerous patterns or permissions |
-| Documentation | 10% | Usage instructions clear |
+> **Source of truth — do not edit weights here.**
+> Axis names, weights, severities, and criteria descriptions are defined in
+> `src/platxa_agent_generator/templates/evaluation-criteria.yaml`.
+> Read that file at validation time to obtain the current rubric.
 
 ### Score Calculation
 
-```python
-def calculate_score(checks):
-    weights = {
-        'clarity': 0.20,
-        'completeness': 0.20,
-        'tool_design': 0.20,
-        'examples': 0.15,
-        'security': 0.15,
-        'documentation': 0.10
-    }
-
-    total = sum(checks[k] * weights[k] for k in weights)
-    return round(total, 1)
-```
+Score each axis on a 0–10 scale, multiply by the weight from the YAML
+rubric, and sum. Use `EvaluationRubric.load_default()` from
+`platxa_agent_generator.evaluation_criteria` to load weights
+programmatically.
 
 ### Score Thresholds
 

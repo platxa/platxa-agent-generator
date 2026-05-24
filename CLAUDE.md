@@ -116,14 +116,11 @@ Expected structure.
 
 ## Quality Scoring Criteria
 
-| Criteria | Weight |
-|----------|--------|
-| Clarity | 20% |
-| Completeness | 20% |
-| Tool Design | 20% |
-| Examples | 15% |
-| Security | 15% |
-| Documentation | 10% |
+> **Source of truth**: `src/platxa_agent_generator/templates/evaluation-criteria.yaml`
+>
+> Axis names, weights, severities, and criteria descriptions are defined
+> there. Do not duplicate weights here — load via
+> `EvaluationRubric.load_default()` at runtime.
 
 ## Key References
 
