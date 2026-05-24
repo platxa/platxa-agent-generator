@@ -38,17 +38,9 @@ runs, because weights and severities change as the spec evolves.
 The YAML enumerates exactly six axes; each axis carries a `weight`
 (summing to 1.0), a `severity_on_unmet` ∈ {`CRITICAL`, `HIGH`,
 `MEDIUM`, `LOW`}, and a `criteria` paragraph that defines what MET
-looks like. The current axes (subject to change — always re-read the
-YAML to confirm):
-
-| Axis | Default weight | Default severity_on_unmet |
-|------|----------------|---------------------------|
-| `clarity` | 0.20 | MEDIUM |
-| `completeness` | 0.20 | HIGH |
-| `tool_design` | 0.20 | HIGH |
-| `examples` | 0.15 | MEDIUM |
-| `security` | 0.15 | CRITICAL |
-| `documentation` | 0.10 | LOW |
+looks like. Always `Read` the YAML at dispatch time to obtain the
+current axis names, weights, and severities — do not rely on values
+shown in the examples below, which are illustrative only.
 
 The runtime loader is
 `platxa_agent_generator.evaluation_criteria.EvaluationRubric.load_default()`;

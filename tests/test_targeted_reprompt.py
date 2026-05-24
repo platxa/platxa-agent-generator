@@ -69,7 +69,7 @@ RUBRIC = _make_rubric()
 SEVERITY_LEVELS = ["CRITICAL", "HIGH", "MEDIUM"]
 
 
-def _make_finding(axis: str, severity: str) -> dict[str, object]:
+def _make_finding(axis: str, severity: str) -> dict[str, str]:
     return {
         "axis": axis,
         "severity": severity,

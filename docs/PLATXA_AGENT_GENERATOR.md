@@ -819,14 +819,8 @@ def calculate_quality_score(agent):
         'documentation': assess_docs(agent.docs),  # 0-10
     }
 
-    weights = {
-        'clarity': 0.20,
-        'completeness': 0.20,
-        'tool_design': 0.20,
-        'examples': 0.15,
-        'security': 0.15,
-        'documentation': 0.10,
-    }
+    # Weights loaded from templates/evaluation-criteria.yaml (single source of truth).
+    weights = EvaluationRubric.load_default().weights()
 
     return sum(scores[k] * weights[k] for k in scores)
 ```

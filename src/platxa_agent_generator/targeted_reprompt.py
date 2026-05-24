@@ -15,8 +15,8 @@ Design constraints:
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
 from platxa_agent_generator.evaluation_criteria import (
     SEVERITIES,
@@ -50,7 +50,7 @@ class Finding:
     location: str
 
 
-def _parse_finding(raw: dict[str, object]) -> Finding:
+def _parse_finding(raw: Mapping[str, object]) -> Finding:
     """Coerce a raw dict into a ``Finding``, raising ``ValueError`` on bad data."""
     axis = raw.get("axis")
     if not isinstance(axis, str) or not axis.strip():
@@ -105,7 +105,7 @@ def _render_axis_block(
 
 
 def build_regeneration_prompt(
-    findings: Sequence[dict[str, object]],
+    findings: Sequence[Mapping[str, object]],
     blocking_axes: Sequence[str],
     warning_axes: Sequence[str],
     rubric: EvaluationRubric | None = None,

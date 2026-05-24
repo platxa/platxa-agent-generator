@@ -285,7 +285,7 @@ def test_from_yaml_round_trips_default(tmp_path: Path) -> None:
 
 # --------------------------------------------------------------------------
 # Weight-drift guard — docs that reference the rubric must not hard-code
-# weights (feature #40).
+# weights (features #40, #41).
 # --------------------------------------------------------------------------
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -293,6 +293,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 _WEIGHT_GUARDED_FILES = (
     _REPO_ROOT / "agents" / "validation-subagent.md",
     _REPO_ROOT / "CLAUDE.md",
+    _REPO_ROOT / "docs" / "PLATXA_AGENT_GENERATOR.md",
 )
 
 _HARDCODED_WEIGHT_RE = re.compile(
@@ -314,4 +315,31 @@ def test_no_hardcoded_weights(path: Path) -> None:
     assert not matches, (
         f"{path.name} still contains hard-coded weights: {matches}. "
         "Weights must only live in templates/evaluation-criteria.yaml."
+    )
+
+
+_EVALUATOR_AGENT_FILES = (
+    _REPO_ROOT / "agents" / "evaluator-subagent.md",
+    _REPO_ROOT / "agents" / "gan-evaluator.md",
+    _REPO_ROOT / "agents" / "gan-axis-judge.md",
+)
+
+
+@pytest.mark.parametrize("path", _EVALUATOR_AGENT_FILES, ids=lambda p: p.name)
+def test_evaluator_agents_reference_yaml(path: Path) -> None:
+    """Evaluator agents must reference the YAML rubric, not rely on hard-coded tables."""
+    text = path.read_text(encoding="utf-8")
+    assert "evaluation-criteria.yaml" in text, (
+        f"{path.name} does not reference evaluation-criteria.yaml. "
+        "Evaluator agents must read weights from the canonical YAML."
+    )
+    weight_table_re = re.compile(
+        r"^\|[^|]*\|\s*0\.\d+\s*\|",
+        re.MULTILINE,
+    )
+    matches = weight_table_re.findall(text)
+    assert not matches, (
+        f"{path.name} contains a hard-coded weight table: {matches}. "
+        "Reference tables must be removed; only example outputs may "
+        "contain illustrative weight values."
     )

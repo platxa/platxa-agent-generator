@@ -88,7 +88,7 @@ class PromotionThresholds:
         return cls(occurrences=occ, confidence=conf, success_count=sc)
 
     @classmethod
-    def from_dict(cls, data: dict[str, int | float]) -> PromotionThresholds:
+    def from_dict(cls, data: dict[str, int | float | str]) -> PromotionThresholds:
         """Build thresholds from a dict (e.g. orchestrator payload)."""
         try:
             occ = int(data["occurrences"]) if "occurrences" in data else DEFAULT_OCCURRENCES

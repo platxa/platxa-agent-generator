@@ -50,16 +50,10 @@ it once at dispatch time so you know which axes to fan out and what
 severity each carries — do NOT cache the axis list across runs because
 weights and severities evolve with the spec.
 
-The current rubric declares exactly six axes:
-
-| Axis | Weight | `severity_on_unmet` |
-|------|--------|---------------------|
-| `clarity` | 0.20 | MEDIUM |
-| `completeness` | 0.20 | HIGH |
-| `tool_design` | 0.20 | HIGH |
-| `examples` | 0.15 | MEDIUM |
-| `security` | 0.15 | CRITICAL |
-| `documentation` | 0.10 | LOW |
+The current rubric declares exactly six axes. Always `Read` the YAML
+at dispatch time to obtain current axis names, weights, and severities
+— do not rely on values shown in the examples below, which are
+illustrative only.
 
 The runtime loader
 `platxa_agent_generator.evaluation_criteria.EvaluationRubric.load_default()`
