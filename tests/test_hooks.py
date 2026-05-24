@@ -1928,9 +1928,7 @@ class TestStopHookCompletionCheck:
     and allow with exit 0 when marker present or iteration >= max.
     """
 
-    def _generate_script(
-        self, agent_name: str, max_iterations: int = 5
-    ) -> str:
+    def _generate_script(self, agent_name: str, max_iterations: int = 5) -> str:
         """Generate completion-check script via subprocess."""
         result = subprocess.run(
             [
@@ -2639,3 +2637,275 @@ class TestHooksGeneratorInjection:
             "Public functions taking agent_name without calling _validate_agent_name "
             f"(or constructing HooksDefinition): {offenders}"
         )
+
+
+class TestSessionStartContextScript:
+    """Tests for SessionStart context injection hook generation (Feature #35).
+
+    Verifies that generated scripts load instincts recursively, include
+    progress, truncate at the character cap, and produce valid hook configs.
+    """
+
+    def _generate_script(
+        self,
+        agent_name: str,
+        instincts_dir: str = ".claude/instincts",
+        progress_file: str = ".claude/claude-progress.txt",
+        max_chars: int = 10000,
+    ) -> str:
+        """Generate SessionStart context script via subprocess."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_session_start_context_script; "
+                    f"print(generate_session_start_context_script('{agent_name}', "
+                    f"'{instincts_dir}', '{progress_file}', {max_chars}))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Script generation failed: {result.stderr}"
+        return result.stdout
+
+    def _generate_config(self, agent_name: str, script_path: str) -> dict:
+        """Generate SessionStart context hook config via subprocess."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "import json; "
+                    "from platxa_agent_generator.hooks_generator import generate_session_start_context_hook_config; "
+                    f"print(json.dumps(generate_session_start_context_hook_config('{agent_name}', '{script_path}')))"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"Config generation failed: {result.stderr}"
+        return json.loads(result.stdout)
+
+    def test_script_is_valid_bash(self, tmp_path: Path) -> None:
+        """Generated script must be valid bash syntax."""
+        script = self._generate_script("ctx-agent")
+        script_path = tmp_path / "session-context.sh"
+        script_path.write_text(script)
+        result = subprocess.run(["bash", "-n", str(script_path)], capture_output=True, text=True)
+        assert result.returncode == 0, f"Bash syntax error: {result.stderr}"
+
+    def test_script_has_shebang(self) -> None:
+        """Script must start with bash shebang."""
+        script = self._generate_script("ctx-agent")
+        assert script.startswith("#!/usr/bin/env bash")
+
+    def test_script_includes_agent_name(self) -> None:
+        """Script must include agent name in comments and log messages."""
+        script = self._generate_script("my-context-loader")
+        assert "my-context-loader" in script
+
+    def test_script_reads_instincts_dir(self) -> None:
+        """Script must reference the instincts directory."""
+        script = self._generate_script("ctx-agent")
+        assert ".claude/instincts" in script
+
+    def test_script_reads_progress_file(self) -> None:
+        """Script must reference the progress file."""
+        script = self._generate_script("ctx-agent")
+        assert "claude-progress.txt" in script
+
+    def test_script_uses_rglob_for_recursive_search(self) -> None:
+        """Script must use rglob to find instinct .md files recursively."""
+        script = self._generate_script("ctx-agent")
+        assert "rglob" in script
+
+    def test_script_respects_max_chars(self) -> None:
+        """Script must embed the max_chars parameter."""
+        script = self._generate_script("ctx-agent", max_chars=5000)
+        assert "5000" in script
+
+    def test_script_custom_instincts_dir(self) -> None:
+        """Script must use custom instincts directory path."""
+        script = self._generate_script("ctx-agent", instincts_dir="/tmp/my-instincts")
+        assert "/tmp/my-instincts" in script
+
+    def test_script_custom_progress_file(self) -> None:
+        """Script must use custom progress file path."""
+        script = self._generate_script("ctx-agent", progress_file="/tmp/my-progress.txt")
+        assert "/tmp/my-progress.txt" in script
+
+    def test_script_exits_zero(self) -> None:
+        """Script must always exit 0 (non-blocking)."""
+        script = self._generate_script("ctx-agent")
+        lines = script.strip().split("\n")
+        assert lines[-1].strip() == "exit 0"
+
+    def test_script_has_truncation_logic(self) -> None:
+        """Script must include truncation with overflow notice."""
+        script = self._generate_script("ctx-agent")
+        assert "TRUNCATED" in script
+
+    def test_script_prioritizes_instincts(self) -> None:
+        """Script must allocate instincts budget before progress."""
+        script = self._generate_script("ctx-agent")
+        assert "instincts_budget" in script
+
+    def test_script_emits_section_markers(self) -> None:
+        """Script must emit [instincts] and [progress] section markers."""
+        script = self._generate_script("ctx-agent")
+        assert "[instincts]" in script
+        assert "[progress]" in script
+
+    def test_script_runs_with_instincts(self, tmp_path: Path) -> None:
+        """Script must load instinct files and emit them as stdout."""
+        script = self._generate_script(
+            "ctx-agent",
+            instincts_dir=str(tmp_path / "instincts"),
+            progress_file=str(tmp_path / "progress.txt"),
+        )
+
+        instincts_dir = tmp_path / "instincts" / "personal"
+        instincts_dir.mkdir(parents=True)
+        (instincts_dir / "test-instinct.md").write_text(
+            "---\nname: test\nconfidence: 0.9\n---\n\nAlways check types."
+        )
+        (tmp_path / "progress.txt").write_text("[2026-01-01] feature #1 PASSED\n")
+
+        script_path = tmp_path / "run.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+
+        result = subprocess.run(
+            ["bash", str(script_path)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0, f"Script failed: {result.stderr}"
+        assert "test-instinct.md" in result.stdout
+        assert "Always check types" in result.stdout
+        assert "feature #1 PASSED" in result.stdout
+
+    def test_script_runs_empty_dirs(self, tmp_path: Path) -> None:
+        """Script must exit 0 with no output when no instincts or progress exist."""
+        script = self._generate_script(
+            "ctx-agent",
+            instincts_dir=str(tmp_path / "no-instincts"),
+            progress_file=str(tmp_path / "no-progress.txt"),
+        )
+        script_path = tmp_path / "run.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+
+        result = subprocess.run(
+            ["bash", str(script_path)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        assert result.stdout.strip() == ""
+
+    def test_script_truncates_at_cap(self, tmp_path: Path) -> None:
+        """Script must truncate output at the max_chars cap."""
+        script = self._generate_script(
+            "ctx-agent",
+            instincts_dir=str(tmp_path / "instincts"),
+            progress_file=str(tmp_path / "progress.txt"),
+            max_chars=500,
+        )
+
+        instincts_dir = tmp_path / "instincts"
+        instincts_dir.mkdir(parents=True)
+        (instincts_dir / "big.md").write_text("x" * 2000)
+        (tmp_path / "progress.txt").write_text("y" * 2000)
+
+        script_path = tmp_path / "run.sh"
+        script_path.write_text(script)
+        script_path.chmod(0o755)
+
+        result = subprocess.run(
+            ["bash", str(script_path)],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        assert len(result.stdout) <= 520  # small buffer for newline
+
+    def test_config_has_session_start_event(self) -> None:
+        """Hook config must target SessionStart event."""
+        config = self._generate_config("ctx-agent", "/path/to/script.sh")
+        assert "SessionStart" in config
+
+    def test_config_references_script_path(self) -> None:
+        """Hook config must reference the provided script path."""
+        config = self._generate_config("ctx-agent", "/opt/hooks/session-ctx.sh")
+        hooks = config["SessionStart"][0]["hooks"]
+        assert hooks[0]["command"] == "/opt/hooks/session-ctx.sh"
+
+    def test_config_rejects_empty_agent_name(self) -> None:
+        """Config must reject empty agent name."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_session_start_context_hook_config; "
+                    "generate_session_start_context_hook_config('', '/path')"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+
+    def test_config_rejects_empty_script_path(self) -> None:
+        """Config must reject empty script path."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_session_start_context_hook_config; "
+                    "generate_session_start_context_hook_config('ctx-agent', '')"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+
+    def test_script_rejects_invalid_agent_name(self) -> None:
+        """Script generation must reject agent names with shell metacharacters."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_session_start_context_script; "
+                    "generate_session_start_context_script('bad;name')"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
+
+    def test_script_rejects_low_max_chars(self) -> None:
+        """Script generation must reject max_chars below 100."""
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                (
+                    "from platxa_agent_generator.hooks_generator import generate_session_start_context_script; "
+                    "generate_session_start_context_script('ctx-agent', max_chars=50)"
+                ),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode != 0
