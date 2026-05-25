@@ -336,7 +336,7 @@ def _find_context_improvements(
         i.summary.lower() for i in improvements if i.category == "context"
     }
     for criterion in quality_result.criteria:
-        # Only promote suggestions from criteria we haven't already fully
+        # Only surface suggestions from criteria we haven't already fully
         # covered. Use top 1 per criterion to avoid noise.
         if not criterion.suggestions:
             continue
