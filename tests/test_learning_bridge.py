@@ -19,6 +19,8 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+
 from platxa_agent_generator.hooks_generator import generate_session_start_context_script
 from platxa_agent_generator.state_persistence import (
     CHECKPOINT_PHASES,
@@ -458,8 +460,6 @@ class TestCheckpointPhaseValidation:
         assert len(state.checkpoints) == len(CHECKPOINT_PHASES)
 
     def test_invalid_phase_rejected(self) -> None:
-        import pytest
-
         state = SessionState(metadata=StateMetadata(session_id="v2"))
         with pytest.raises(ValueError, match="Unknown checkpoint phase"):
             save_checkpoint(state, "not-a-real-phase")
