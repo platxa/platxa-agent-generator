@@ -44,6 +44,7 @@ class ExistingAgent:
     tools: list[str]
     file_path: str
     scope: str  # "project" or "user"
+    line_ranges: list[tuple[int, int]] = field(default_factory=list)
 
 
 @dataclass
@@ -66,15 +67,19 @@ class ToolPatterns:
     recommended_base: list[str] = field(default_factory=list)
 
 
-def _parse_frontmatter(content: str) -> dict[str, str]:
+def _parse_frontmatter(content: str) -> tuple[dict[str, str], tuple[int, int] | None]:
     """Parse YAML frontmatter from agent markdown content.
 
-    Handles the --- delimited frontmatter block at the top of .md files.
-    Returns a dict of key-value pairs. Only parses simple key: value lines.
+    Returns a (fields, line_range) pair where *line_range* is the 1-based
+    inclusive span of the ``---`` delimited block, or ``None`` when no
+    frontmatter is found.
     """
     match = re.match(r"^---\s*\n(.*?)\n---", content, re.DOTALL)
     if not match:
-        return {}
+        return {}, None
+
+    start_line = 1
+    end_line = content[: match.end()].count("\n") + 1
 
     result: dict[str, str] = {}
     for line in match.group(1).split("\n"):
@@ -87,7 +92,7 @@ def _parse_frontmatter(content: str) -> dict[str, str]:
             value = line[colon_idx + 1 :].strip()
             result[key] = value
 
-    return result
+    return result, (start_line, end_line)
 
 
 def scan_directory(directory: str | Path, scope: str = "project") -> list[ExistingAgent]:
@@ -111,7 +116,7 @@ def scan_directory(directory: str | Path, scope: str = "project") -> list[Existi
         except OSError:
             continue
 
-        fm = _parse_frontmatter(content)
+        fm, fm_range = _parse_frontmatter(content)
         if not fm.get("name"):
             continue
 
@@ -125,6 +130,7 @@ def scan_directory(directory: str | Path, scope: str = "project") -> list[Existi
                 tools=tools,
                 file_path=str(md_file),
                 scope=scope,
+                line_ranges=[fm_range] if fm_range else [],
             )
         )
 
