@@ -404,25 +404,30 @@ class TestSharedFrontmatter:
         assert "closing delimiter" in data["msg"]
         assert data["line"] == 1
 
-    def test_yaml_safe_load_only_in_shared_frontmatter(self) -> None:
-        """Deterministic invariant: every ``yaml.safe_load`` call lives in shared/frontmatter.py.
+    def test_yaml_safe_load_only_in_allowed_modules(self) -> None:
+        """Deterministic invariant: ``yaml.safe_load`` is restricted to known modules.
 
-        This test enforces the spec's deterministic gate — if a future edit
-        reintroduces a direct ``yaml.safe_load`` call in any sibling module,
-        this test breaks instead of the invariant silently drifting.
+        Frontmatter parsing lives in shared/frontmatter.py. Three additional
+        modules legitimately parse non-frontmatter YAML (eval scenarios,
+        mutation operators, evaluation criteria). Any other module introducing
+        a direct ``yaml.safe_load`` call should use the shared parser instead.
         """
+        allowed = {
+            "shared/frontmatter.py",
+            "eval_scenario.py",
+            "mutation_registry.py",
+            "evaluation_criteria.py",
+        }
         result = subprocess.run(
             ["grep", "-rn", "yaml.safe_load", str(SCRIPTS_DIR), "--include=*.py"],
             capture_output=True,
             text=True,
         )
-        # grep returns 0 on match, 1 on no match; both are valid here.
         assert result.returncode in (0, 1), f"grep failed: {result.stderr}"
         hits = [line for line in result.stdout.splitlines() if line.strip()]
-        offenders = [h for h in hits if "shared/frontmatter.py" not in h.replace("\\", "/")]
+        offenders = [h for h in hits if not any(mod in h.replace("\\", "/") for mod in allowed)]
         assert offenders == [], (
-            "yaml.safe_load must only appear in shared/frontmatter.py, found:\n"
-            + "\n".join(offenders)
+            "yaml.safe_load must only appear in allowed modules, found:\n" + "\n".join(offenders)
         )
 
 

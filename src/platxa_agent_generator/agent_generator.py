@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -25,8 +26,10 @@ if TYPE_CHECKING:
     from platxa_agent_generator.quality_scorer import QualityReport
 
 try:
+    from .shared.constants import VALID_TOOLS
     from .shared.paths import DEFAULT_AGENTS_DIR
 except ImportError:
+    from shared.constants import VALID_TOOLS  # type: ignore[import-not-found,no-redef]
     from shared.paths import DEFAULT_AGENTS_DIR  # type: ignore[import-not-found,no-redef]
 
 # Canonical tools-string normalizer (feature #27). Consolidates the
@@ -45,7 +48,7 @@ except ImportError:
 # about — purely additive sections do not warrant a bump. Single
 # source of truth so the footer string and any version-checking code
 # stay in sync.
-PLATXA_GENERATOR_VERSION: str = "1.0.1"
+PLATXA_GENERATOR_VERSION: str = "1.1.0"
 
 # Sentinel string that opens the attribution footer. Public constant
 # so tests, regeneration tooling, and documentation pipelines can
@@ -272,24 +275,6 @@ class AgentDefinition:
     template_vars: TemplateVariables = field(default_factory=TemplateVariables)
 
 
-# Valid Claude Code tools
-VALID_TOOLS = {
-    "Read",
-    "Write",
-    "Edit",
-    "Grep",
-    "Glob",
-    "Bash",
-    "WebSearch",
-    "WebFetch",
-    "Task",
-    "AskUserQuestion",
-    "TodoWrite",
-    "NotebookEdit",
-    "LSP",
-    "Skill",
-}
-
 # Allowed directories for blueprint files. ``.claude/agents`` is sourced
 # from ``shared.paths.DEFAULT_AGENTS_DIR`` so this allowlist cannot drift
 # from the canonical agents-directory convention.
@@ -318,8 +303,8 @@ def validate_path_safe(filepath: str, allowed_extensions: list[str]) -> tuple[bo
         home = Path.home().resolve()
         temp = Path(tempfile.gettempdir()).resolve()
 
-        allowed_roots = [str(cwd), str(home), str(temp)]
-        if not any(str(resolved).startswith(root) for root in allowed_roots):
+        allowed_roots = [cwd, home, temp]
+        if not any(resolved.is_relative_to(root) for root in allowed_roots):
             return (
                 False,
                 "Path must be within current directory, home directory, or temp directory",
@@ -331,11 +316,11 @@ def validate_path_safe(filepath: str, allowed_extensions: list[str]) -> tuple[bo
     if allowed_extensions and path.suffix.lower() not in allowed_extensions:
         return False, f"Invalid extension. Allowed: {', '.join(allowed_extensions)}"
 
-    # Check for suspicious patterns
-    suspicious_patterns = ["..", "~", "$", "`", ";", "|", "&"]
+    # Check for suspicious shell metacharacters in the raw input
+    suspicious_patterns = ["~", "$", "`", ";", "|", "&"]
     filepath_str = str(filepath)
     for pattern in suspicious_patterns:
-        if pattern in filepath_str and pattern != "..":
+        if pattern in filepath_str:
             return False, f"Suspicious pattern in path: {pattern}"
 
     return True, ""
@@ -487,9 +472,9 @@ def generate_frontmatter(definition: AgentDefinition) -> str:
     lines = ["---"]
     lines.append(f"name: {definition.name}")
 
-    # Escape description if it contains special characters
-    desc = definition.description
-    if ":" in desc or "\n" in desc or desc.startswith("{") or desc.startswith("["):
+    # Collapse whitespace to prevent frontmatter injection via embedded newlines
+    desc = re.sub(r"\s+", " ", definition.description).strip()
+    if ":" in desc or desc.startswith("{") or desc.startswith("["):
         # Use quoted string for complex descriptions
         desc_escaped = desc.replace('"', '\\"')
         lines.append(f'description: "{desc_escaped}"')
@@ -982,6 +967,13 @@ def recommend_hooks_for_agent(
         {"PreToolUse": [{"matcher": "...", "hooks": [...]}], ...}
         Empty dict if no hooks recommended.
     """
+    if not re.match(r"^[a-zA-Z0-9_-]+$", name):
+        raise ValueError(
+            f"agent name must match ^[a-zA-Z0-9_-]+$ (got {name!r}); "
+            "disallowed to prevent shell injection"
+        )
+    quoted_name = shlex.quote(name)
+
     combined = f"{name} {description}".lower()
 
     # Collect all matching role hook configs
@@ -1012,13 +1004,13 @@ def recommend_hooks_for_agent(
         if "audit" in matched_types:
             log_file = "/tmp/claude-audit.log"
             if event == "PreToolUse":
-                cmd = f'echo "[{name}] $(date -Iseconds) PRE_TOOL tool=$CLAUDE_TOOL_NAME" >> {log_file}'
+                cmd = f'echo "[{quoted_name}] $(date -Iseconds) PRE_TOOL tool=$CLAUDE_TOOL_NAME" >> {log_file}'
             elif event == "PostToolUse":
                 fmt = (
                     '{"timestamp":"%s","tool":"%s",'
                     '"input_summary":"PostToolUse",'
                     '"project_id":"%s","project_name":"%s",'
-                    f'"agent_name":"{name}",'
+                    f'"agent_name":"{quoted_name}",'
                     '"session_id":"%s","type":"tool_use",'
                     '"evidence":"","examples":[],'
                     '"outcome":"","confidence":1.0,'
@@ -1032,11 +1024,11 @@ def recommend_hooks_for_agent(
                 )
                 cmd = f"printf '{fmt}' {args} >> {log_file}"
             elif event == "SessionStart":
-                cmd = f'echo "[{name}] $(date -Iseconds) SESSION_START user=$USER" >> {log_file}'
+                cmd = f'echo "[{quoted_name}] $(date -Iseconds) SESSION_START user=$USER" >> {log_file}'
             elif event == "Stop":
-                cmd = f'echo "[{name}] $(date -Iseconds) SESSION_END" >> {log_file}'
+                cmd = f'echo "[{quoted_name}] $(date -Iseconds) SESSION_END" >> {log_file}'
             else:
-                cmd = f'echo "[{name}] $(date -Iseconds) {event}" >> {log_file}'
+                cmd = f'echo "[{quoted_name}] $(date -Iseconds) {event}" >> {log_file}'
             entries.append(
                 {
                     "matcher": "",
@@ -1052,7 +1044,7 @@ def recommend_hooks_for_agent(
                         "hooks": [
                             {
                                 "type": "command",
-                                "command": f'{name}-security-gate --tool "$CLAUDE_TOOL_NAME" 2>/dev/null || true',
+                                "command": f'{quoted_name}-security-gate --tool "$CLAUDE_TOOL_NAME" 2>/dev/null || true',
                             }
                         ],
                     }
@@ -1064,17 +1056,17 @@ def recommend_hooks_for_agent(
                         "hooks": [
                             {
                                 "type": "command",
-                                "command": f'{name}-security-audit --tool "$CLAUDE_TOOL_NAME" 2>/dev/null || true',
+                                "command": f'{quoted_name}-security-audit --tool "$CLAUDE_TOOL_NAME" 2>/dev/null || true',
                             }
                         ],
                     }
                 )
 
         if "logging" in matched_types:
-            log_file = f"/tmp/{name}.log"
+            log_file = f"/tmp/{quoted_name}.log"
             cmd = (
                 f'echo \'{{"timestamp":"\'$(date -Iseconds)\'","level":"INFO",'
-                f'"agent":"{name}","event":"{event}",'
+                f'"agent":"{quoted_name}","event":"{event}",'
                 f'"tool":"\'$CLAUDE_TOOL_NAME\'"}}\' >> {log_file}'
             )
             entries.append(
@@ -1091,16 +1083,14 @@ def recommend_hooks_for_agent(
                     "hooks": [
                         {
                             "type": "command",
-                            "command": f"{name}-compliance-check --event {event} 2>/dev/null || true",
+                            "command": f"{quoted_name}-compliance-check --event {event} 2>/dev/null || true",
                         }
                     ],
                 }
             )
 
         if "metrics" in matched_types:
-            cmd = (
-                f'echo "{name},{event},$(date +%s)" >> /tmp/claude-metrics.csv 2>/dev/null || true'
-            )
+            cmd = f'echo "{quoted_name},{event},$(date +%s)" >> /tmp/claude-metrics.csv 2>/dev/null || true'
             entries.append(
                 {
                     "matcher": "",

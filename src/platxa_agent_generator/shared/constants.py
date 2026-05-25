@@ -48,4 +48,30 @@ DEFAULT_AGENTS_DIR = ".claude/agents"
 COMPLETION_PROMISE_MARKER = "<promise>COMPLETE</promise>"
 
 
-__all__ = ["DEFAULT_AGENTS_DIR", "COMPLETION_PROMISE_MARKER"]
+VALID_TOOLS: frozenset[str] = frozenset(
+    {
+        "Read",
+        "Write",
+        "Edit",
+        "Glob",
+        "Grep",
+        "Bash",
+        "WebSearch",
+        "WebFetch",
+        "Task",
+        "AskUserQuestion",
+        "TodoWrite",
+        "NotebookEdit",
+        "LSP",
+        "Skill",
+    }
+)
+
+HIGH_RISK_TOOLS: frozenset[str] = frozenset({"Bash", "Write", "Edit", "WebFetch"})
+
+__all__ = [
+    "DEFAULT_AGENTS_DIR",
+    "COMPLETION_PROMISE_MARKER",
+    "VALID_TOOLS",
+    "HIGH_RISK_TOOLS",
+]

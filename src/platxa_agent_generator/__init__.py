@@ -11,5 +11,5 @@ dependencies such as ``yaml``) when only one is needed.
 
 from __future__ import annotations
 
-__version__ = "0.1.0"
+__version__ = "1.1.0"
 __author__ = "Platxa"

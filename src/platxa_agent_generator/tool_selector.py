@@ -9,6 +9,8 @@ Usage:
     python tool_selector.py --json '{"type": "builder", "purpose": "generate docs", "capabilities": ["create files"]}'
 """
 
+from __future__ import annotations
+
 import json
 from dataclasses import dataclass, field
 
@@ -43,6 +45,8 @@ AVAILABLE_TOOLS = {
     "NotebookEdit": "Edit Jupyter notebooks",
     # Code intelligence
     "LSP": "Language server operations",
+    # Skill invocation
+    "Skill": "Invoke Claude Code skills",
 }
 
 # Tool categories for logical grouping
@@ -57,6 +61,7 @@ TOOL_CATEGORIES = {
     "interaction": ["AskUserQuestion"],
     "notebook": ["NotebookEdit"],
     "code_intelligence": ["LSP"],
+    "skill_invocation": ["Skill"],
 }
 
 # Base tools by agent type

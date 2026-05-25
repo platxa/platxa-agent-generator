@@ -285,7 +285,7 @@ class WorkflowState:
 
         return state
 
-    def save(self, path: Path | str) -> bool:
+    def save(self, path: Path | str) -> tuple[bool, str]:
         """
         Save state to JSON file.
 
@@ -293,15 +293,15 @@ class WorkflowState:
             path: Path to save state file
 
         Returns:
-            True if saved successfully
+            (True, "") on success, (False, error_message) on failure.
         """
         try:
             path = Path(path)
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
-            return True
-        except OSError:
-            return False
+            return True, ""
+        except OSError as exc:
+            return False, f"{type(exc).__name__}: {exc}"
 
     @classmethod
     def load(cls, path: Path | str) -> WorkflowState | None:
@@ -385,7 +385,9 @@ def main() -> None:
         state = create_workflow(agent_name=args.name, agent_description=args.description)
 
         if args.output:
-            state.save(args.output)
+            saved, save_err = state.save(args.output)
+            if not saved:
+                print(f"warning: failed to save workflow: {save_err}", file=sys.stderr)
 
         if args.json:
             print(json.dumps(state.to_dict(), indent=2))
@@ -435,7 +437,9 @@ def main() -> None:
             success, message = state.transition_to(target)
 
         if success:
-            state.save(args.file)
+            saved, save_err = state.save(args.file)
+            if not saved:
+                print(f"warning: failed to persist transition: {save_err}", file=sys.stderr)
 
         if args.json:
             print(
@@ -462,7 +466,9 @@ def main() -> None:
             sys.exit(1)
 
         success, message = state.reset()
-        state.save(args.file)
+        saved, save_err = state.save(args.file)
+        if not saved:
+            print(f"warning: failed to persist reset: {save_err}", file=sys.stderr)
 
         if args.json:
             print(json.dumps({"success": success, "message": message}, indent=2))

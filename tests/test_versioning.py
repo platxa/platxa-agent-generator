@@ -900,7 +900,7 @@ class TestVersionBump:
     # refactor regresses the pyproject version, ``test_pyproject_version``
     # breaks before ``test_constant_matches`` obscures the failure by
     # also reading from the same drifted source.
-    EXPECTED_VERSION: str = "1.0.1"
+    EXPECTED_VERSION: str = "1.1.0"
 
     @staticmethod
     def _project_root() -> Path:

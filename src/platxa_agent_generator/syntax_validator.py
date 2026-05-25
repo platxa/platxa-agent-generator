@@ -9,19 +9,18 @@ Usage:
     python syntax_validator.py --json agent.md
 """
 
+from __future__ import annotations
+
 import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# ValidationError is sourced from the shared canonical parser
-# (feature #26) so agent_linter and the new shared.frontmatter module
-# speak the same vocabulary. The re-export below preserves backward
-# compatibility for callers that still do ``from syntax_validator
-# import ValidationError``.
 try:
+    from .shared.constants import VALID_TOOLS
     from .shared.frontmatter import ValidationError, parse_frontmatter_safe
 except ImportError:
+    from shared.constants import VALID_TOOLS  # type: ignore[import-not-found,no-redef]
     from shared.frontmatter import (  # type: ignore[import-not-found,no-redef]
         ValidationError,
         parse_frontmatter_safe,
@@ -48,23 +47,6 @@ class ValidationResult:
     frontmatter: dict | None = None
     sections: list[str] = field(default_factory=list)
 
-
-# Valid Claude Code tools
-VALID_TOOLS = {
-    "Read",
-    "Write",
-    "Edit",
-    "Glob",
-    "Grep",
-    "Bash",
-    "WebSearch",
-    "WebFetch",
-    "Task",
-    "AskUserQuestion",
-    "TodoWrite",
-    "NotebookEdit",
-    "LSP",
-}
 
 # Required frontmatter fields
 REQUIRED_FIELDS = ["name", "description", "tools"]
@@ -780,7 +762,7 @@ INSTINCT_REQUIRED_FIELDS: tuple[str, ...] = (
 # Reuses the agent name pattern (lowercase, hyphen-case, must start
 # with a letter). The same regex underpins
 # ``InstinctStore._validate_component`` so paths and frontmatter agree.
-INSTINCT_FIELD_CONSTRAINTS: dict[str, dict[str, object]] = {
+INSTINCT_FIELD_CONSTRAINTS: dict[str, dict[str, int | str]] = {
     "name": {"max_length": 64, "pattern": r"^[a-z][a-z0-9-]*$"},
     "description": {"max_length": 512},
 }
@@ -866,7 +848,7 @@ def validate_instinct_frontmatter(
     if "name" in source and source["name"] not in (None, ""):
         name = str(source["name"])
         constraints = INSTINCT_FIELD_CONSTRAINTS["name"]
-        max_length = int(constraints["max_length"])  # type: ignore[arg-type]
+        max_length = int(constraints["max_length"])
         pattern = str(constraints["pattern"])
         if len(name) > max_length:
             errors.append(
@@ -895,7 +877,7 @@ def validate_instinct_frontmatter(
     # ---- description: max 512 -------------------------------------------
     if "description" in source and source["description"] not in (None, ""):
         desc = str(source["description"])
-        max_len = int(INSTINCT_FIELD_CONSTRAINTS["description"]["max_length"])  # type: ignore[arg-type]
+        max_len = int(INSTINCT_FIELD_CONSTRAINTS["description"]["max_length"])
         if len(desc) > max_len:
             errors.append(
                 ValidationError(

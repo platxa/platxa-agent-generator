@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -694,7 +695,7 @@ def install_agent(
     force: bool = False,
     backup: bool = True,
     skip_validation: bool = False,
-    min_security_score: float = 5.0,
+    min_security_score: float = 7.0,
 ) -> InstallResult:
     """
     Install an agent definition file to specified scope.
@@ -705,7 +706,7 @@ def install_agent(
         force: Overwrite existing without prompt
         backup: Create backup of existing file before overwrite
         skip_validation: Skip syntax and security validation
-        min_security_score: Minimum security score required (default 5.0)
+        min_security_score: Minimum security score required (default 7.0)
 
     Returns:
         InstallResult with success status and details
@@ -732,6 +733,15 @@ def install_agent(
         return InstallResult(
             success=False,
             message="Could not extract agent name from frontmatter",
+        )
+
+    # Validate agent name is a safe filename (prevents path traversal).
+    # Single-char names like "a" are valid; the regex handles both cases.
+    if not re.match(r"^[a-z]([a-z0-9-]*[a-z0-9])?$", agent_name):
+        return InstallResult(
+            success=False,
+            message=f"Agent name {agent_name!r} contains unsafe characters for filesystem use",
+            agent_name=agent_name,
         )
 
     # Validate syntax
@@ -965,8 +975,8 @@ def main() -> None:
     install_parser.add_argument(
         "--min-score",
         type=float,
-        default=5.0,
-        help="Minimum security score (default: 5.0)",
+        default=7.0,
+        help="Minimum security score (default: 7.0)",
     )
     install_parser.add_argument("--json", action="store_true", help="Output as JSON")
     install_parser.add_argument(

@@ -953,7 +953,8 @@ class TestWorkflowStateExtendedFields:
             "    learning_artifacts={'model': 'v2'}, max_iterations=7)\n"
             "with tempfile.TemporaryDirectory() as td:\n"
             "    p = Path(td) / 'state.json'\n"
-            "    s.save(p)\n"
+            "    ok, err = s.save(p)\n"
+            "    assert ok and err == '', f'save failed: {err}'\n"
             "    loaded = WorkflowState.load(p)\n"
             "    print(loaded.retry_count, loaded.learning_artifacts, loaded.max_iterations)"
         )

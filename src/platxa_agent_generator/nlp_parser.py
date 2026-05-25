@@ -13,6 +13,8 @@ Usage:
     python nlp_parser.py --json "Build a documentation generator"
 """
 
+from __future__ import annotations
+
 import json
 import re
 import sys

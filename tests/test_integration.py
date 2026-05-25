@@ -44,6 +44,7 @@ class TestIntegration:
             "generation",
             "validation",
             "installation",
+            "learning",
             "complete",
         ]
         for phase in phases:

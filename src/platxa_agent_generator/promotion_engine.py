@@ -18,7 +18,10 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from .observation_store import ObservationRecord
+try:
+    from .observation_store import ObservationRecord
+except ImportError:
+    from observation_store import ObservationRecord  # type: ignore[import-not-found,no-redef]
 
 DistillOutcome = Literal["success", "failure"]
 

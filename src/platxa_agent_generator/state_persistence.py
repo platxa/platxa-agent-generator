@@ -47,6 +47,7 @@ import os
 import shutil
 import sys
 import tempfile
+import threading
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -264,7 +265,9 @@ class FileLock:
     Provides context manager interface for safe lock acquisition/release.
     """
 
-    # Class-level tracking of locks held by current process
+    # Class-level tracking of locks held by current process.
+    # Guarded by _class_lock to prevent races between threads.
+    _class_lock: threading.Lock = threading.Lock()
     _held_locks: dict[str, int] = {}
     _lock_files: dict[str, Any] = {}
 
@@ -283,10 +286,10 @@ class FileLock:
         Returns:
             True if lock acquired, False if timeout
         """
-        # Check if we already hold this lock (reentrant)
-        if self.lock_key in FileLock._held_locks:
-            FileLock._held_locks[self.lock_key] += 1
-            return True
+        with FileLock._class_lock:
+            if self.lock_key in FileLock._held_locks:
+                FileLock._held_locks[self.lock_key] += 1
+                return True
 
         self.lock_path.parent.mkdir(parents=True, exist_ok=True)
         lock_file = open(self.lock_path, "w")
@@ -295,9 +298,9 @@ class FileLock:
         while time.time() - start_time < self.timeout:
             try:
                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                # Successfully acquired - record it
-                FileLock._held_locks[self.lock_key] = 1
-                FileLock._lock_files[self.lock_key] = lock_file
+                with FileLock._class_lock:
+                    FileLock._held_locks[self.lock_key] = 1
+                    FileLock._lock_files[self.lock_key] = lock_file
                 # Write PID and timestamp for debugging
                 lock_file.write(f"{os.getpid()}\n{datetime.now().isoformat()}")
                 lock_file.flush()
@@ -313,54 +316,43 @@ class FileLock:
         Release the file lock.
 
         For reentrant locks, decrements hold count. Only actually releases
-        when count reaches zero.
+        when count reaches zero. Does NOT unlink the lock file — unlinking
+        between acquire and release of concurrent processes lets them flock
+        different inodes and proceed in parallel (classic TOCTOU race).
         """
-        if self.lock_key not in FileLock._held_locks:
-            return
+        with FileLock._class_lock:
+            if self.lock_key not in FileLock._held_locks:
+                return
 
-        FileLock._held_locks[self.lock_key] -= 1
+            FileLock._held_locks[self.lock_key] -= 1
 
-        if FileLock._held_locks[self.lock_key] <= 0:
-            # Actually release the lock
+            if FileLock._held_locks[self.lock_key] > 0:
+                return
+
             del FileLock._held_locks[self.lock_key]
             lock_file = FileLock._lock_files.pop(self.lock_key, None)
 
-            if lock_file is not None:
-                try:
-                    fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
-                    lock_file.close()
-                except (IOError, OSError) as e:
-                    # Swallow-and-continue preserved because release() is
-                    # invoked from cleanup paths that must not raise, but
-                    # a silent unlock failure is the worst failure mode
-                    # for a lock primitive — the caller sees "released"
-                    # while the kernel state disagrees. Surface the path
-                    # and error so the desync becomes diagnosable.
-                    print(
-                        f"warning: failed to release lock "
-                        f"{self.lock_path}: {type(e).__name__}: {e}",
-                        file=sys.stderr,
-                    )
-
-                # Clean up lock file
-                try:
-                    self.lock_path.unlink(missing_ok=True)
-                except OSError as e:
-                    print(
-                        f"warning: failed to remove lock file "
-                        f"{self.lock_path}: {type(e).__name__}: {e}",
-                        file=sys.stderr,
-                    )
+        if lock_file is not None:
+            try:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+                lock_file.close()
+            except (IOError, OSError) as e:
+                print(
+                    f"warning: failed to release lock {self.lock_path}: {type(e).__name__}: {e}",
+                    file=sys.stderr,
+                )
 
     @property
     def is_held(self) -> bool:
         """Check if this lock is currently held by this process."""
-        return self.lock_key in FileLock._held_locks
+        with FileLock._class_lock:
+            return self.lock_key in FileLock._held_locks
 
     @property
     def hold_count(self) -> int:
         """Get current hold count for this lock."""
-        return FileLock._held_locks.get(self.lock_key, 0)
+        with FileLock._class_lock:
+            return FileLock._held_locks.get(self.lock_key, 0)
 
     def __enter__(self) -> FileLock:
         if not self.acquire():
@@ -434,7 +426,9 @@ class StatePersistence:
         self.config_file = self.config_dir / CONFIG_FILE
 
         # Session ID for this instance
-        self._session_id = datetime.now().strftime("%Y%m%d_%H%M%S")
+        self._session_id = (
+            f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{os.getpid()}_{os.urandom(4).hex()}"
+        )
 
     def initialize(self) -> bool:
         """

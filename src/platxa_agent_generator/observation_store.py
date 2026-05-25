@@ -32,8 +32,12 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Iterator, Literal
 
-from .shared.paths import get_project_agents_dir
-from .state_persistence import FileLock
+try:
+    from .shared.paths import get_project_agents_dir
+    from .state_persistence import FileLock
+except ImportError:
+    from shared.paths import get_project_agents_dir  # type: ignore[import-not-found,no-redef]
+    from state_persistence import FileLock  # type: ignore[import-not-found,no-redef]
 
 DEFAULT_OBSERVATION_CAP: int = 200
 

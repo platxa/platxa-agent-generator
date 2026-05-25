@@ -135,8 +135,8 @@ def _check_lockfile(lock_dir: Path) -> str | None:
             return f"observer lock held{pid_info}"
         finally:
             os.close(fd)
-    except OSError:
-        return None
+    except OSError as exc:
+        return f"lock infrastructure unavailable: {exc}"
 
 
 def _check_stop_hook_active(payload: dict) -> str | None:

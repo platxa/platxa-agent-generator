@@ -23,7 +23,7 @@ fall into six groups:
 
 Keeping the inventory here (instead of per-command one-liners that drift
 out of sync with argparse) means the parser remains the single source of
-truth. Update the five groups above only when a subcommand is added or
+truth. Update the six groups above only when a subcommand is added or
 removed; per-command help text lives on each ``add_parser`` call.
 
 Usage examples:
@@ -99,7 +99,7 @@ except ImportError:
     import workflow_state  # type: ignore[import-not-found,no-redef]
 
 
-__version__ = "0.1.0"
+__version__ = "1.1.0"
 
 
 @dataclass(frozen=True)
@@ -114,7 +114,7 @@ class _EvalPassRates:
 
 @dataclass(frozen=True)
 class _HealthMetrics:
-    """Typed container for all five health dashboard metrics."""
+    """Typed container for all seven health dashboard metrics."""
 
     eval_pass_rates: _EvalPassRates
     instinct_count: int
@@ -664,6 +664,9 @@ Examples:
             return 0
 
         except Exception as e:
+            import traceback
+
+            traceback.print_exc(file=sys.stderr)
             tracker.fail(str(e))
             print(f"Error: {e}")
             return 1
@@ -2143,7 +2146,7 @@ Examples:
         return 0
 
     def _collect_health_metrics(self, args: argparse.Namespace) -> _HealthMetrics:
-        """Gather all five health metrics into a single typed structure."""
+        """Gather all seven health metrics into a single typed structure."""
         history_dir: Path = getattr(args, "history_dir", Path(eval_runner.DEFAULT_HISTORY_DIR))
         instinct_root: Path | None = getattr(args, "instinct_root", None)
         obs_file: Path | None = getattr(args, "obs_file", None)

@@ -1071,7 +1071,7 @@ def export_agent(
                     shutil.rmtree(output_path)
                 shutil.copytree(package_dir, output_path)
 
-        except Exception as e:
+        except (OSError, zipfile.BadZipFile, tarfile.TarError, shutil.Error) as e:
             return ExportResult(
                 success=False,
                 export_path="",
@@ -1292,7 +1292,7 @@ def validate_package(package_path: Path) -> ValidationResult:
                     valid=False,
                     issues=[f"Unsupported package format: {package_path.suffix}"],
                 )
-        except Exception as e:
+        except (OSError, zipfile.BadZipFile, tarfile.TarError, ValueError) as e:
             return ValidationResult(
                 valid=False,
                 issues=[f"Failed to extract package: {e}"],
@@ -1318,7 +1318,7 @@ def validate_package(package_path: Path) -> ValidationResult:
 
             except json.JSONDecodeError as e:
                 issues.append(f"Invalid manifest.json: {e}")
-            except Exception as e:
+            except (KeyError, TypeError, ValueError) as e:
                 issues.append(f"Error reading manifest: {e}")
 
         # Check for agent files
@@ -1438,7 +1438,7 @@ def import_agent(
                     agent_name="",
                     errors=[f"Unsupported format: {package_path.suffix}"],
                 )
-        except Exception as e:
+        except (OSError, zipfile.BadZipFile, tarfile.TarError, ValueError) as e:
             return ImportResult(
                 success=False,
                 agent_name="",

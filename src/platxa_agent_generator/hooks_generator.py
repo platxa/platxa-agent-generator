@@ -196,16 +196,17 @@ def create_audit_hook(
     """Create an audit logging hook."""
     _validate_agent_name(agent_name)
     quoted_name = shlex.quote(agent_name)
+    quoted_log = shlex.quote(log_file)
     timestamp_cmd = "date -Iseconds"
 
     if event == "SessionStart":
         command = (
-            f'echo "[{quoted_name}] $({timestamp_cmd}) SESSION_START user=$USER" >> {log_file}'
+            f'echo "[{quoted_name}] $({timestamp_cmd}) SESSION_START user=$USER" >> {quoted_log}'
         )
     elif event == "Stop":
-        command = f'echo "[{quoted_name}] $({timestamp_cmd}) SESSION_END" >> {log_file}'
+        command = f'echo "[{quoted_name}] $({timestamp_cmd}) SESSION_END" >> {quoted_log}'
     elif event == "PreToolUse":
-        command = f'echo "[{quoted_name}] $({timestamp_cmd}) PRE_TOOL tool=$CLAUDE_TOOL_NAME" >> {log_file}'
+        command = f'echo "[{quoted_name}] $({timestamp_cmd}) PRE_TOOL tool=$CLAUDE_TOOL_NAME" >> {quoted_log}'
     elif event == "PostToolUse":
         fmt = (
             '{"timestamp":"%s","tool":"%s",'
@@ -223,20 +224,20 @@ def create_audit_hook(
             ' "$(basename "${CLAUDE_PROJECT_DIR:-unknown}")"'
             ' "${CLAUDE_SESSION_ID:-}"'
         )
-        command = f"printf '{fmt}' {args} >> {log_file}"
+        command = f"printf '{fmt}' {args} >> {quoted_log}"
     elif event == "SubagentStart":
         command = (
             f'echo "[{quoted_name}] $({timestamp_cmd}) SUBAGENT_START '
             f"agent_id=${{CLAUDE_AGENT_ID:-unknown}} "
-            f'agent_type=${{CLAUDE_AGENT_TYPE:-unknown}}" >> {log_file}'
+            f'agent_type=${{CLAUDE_AGENT_TYPE:-unknown}}" >> {quoted_log}'
         )
     elif event == "SubagentStop":
         command = (
             f'echo "[{quoted_name}] $({timestamp_cmd}) SUBAGENT_STOP '
-            f'agent_id=${{CLAUDE_AGENT_ID:-unknown}}" >> {log_file}'
+            f'agent_id=${{CLAUDE_AGENT_ID:-unknown}}" >> {quoted_log}'
         )
     else:
-        command = f'echo "[{quoted_name}] $({timestamp_cmd}) {event}" >> {log_file}'
+        command = f'echo "[{quoted_name}] $({timestamp_cmd}) {event}" >> {quoted_log}'
 
     return HookConfig(
         event=event,
@@ -255,7 +256,8 @@ def create_compliance_hook(
     _validate_agent_name(agent_name)
     quoted_name = shlex.quote(agent_name)
     if policy_script:
-        command = f"{policy_script} --agent {quoted_name} --event {event}"
+        quoted_script = shlex.quote(policy_script)
+        command = f"{quoted_script} --agent {quoted_name} --event {event}"
     else:
         # Default compliance check
         command = f"{quoted_name}-compliance-check --event {event} 2>/dev/null || true"
@@ -277,8 +279,9 @@ def create_metrics_hook(
     _validate_agent_name(agent_name)
     quoted_name = shlex.quote(agent_name)
     if metrics_endpoint:
+        quoted_endpoint = shlex.quote(metrics_endpoint)
         command = (
-            f"curl -s -X POST {metrics_endpoint} "
+            f"curl -s -X POST {quoted_endpoint} "
             f'-d "agent={quoted_name}&event={event}&timestamp=$(date +%s)" '
             f"2>/dev/null || true"
         )
@@ -368,12 +371,13 @@ def create_logging_hook(
     quoted_name = shlex.quote(agent_name)
     if log_file is None:
         log_file = f"/tmp/{quoted_name}.log"
+    quoted_log = shlex.quote(log_file)
 
     # Structured JSON logging
     command = (
         f'echo \'{{"timestamp":"\'$(date -Iseconds)\'","level":"{log_level}",'
         f'"agent":"{quoted_name}","event":"{event}",'
-        f'"tool":"\'$CLAUDE_TOOL_NAME\'"}}\' >> {log_file}'
+        f'"tool":"\'$CLAUDE_TOOL_NAME\'"}}\' >> {quoted_log}'
     )
 
     return HookConfig(

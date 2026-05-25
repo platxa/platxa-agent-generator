@@ -27,6 +27,14 @@ from typing import Any
 
 from platxa_agent_generator.evaluation_criteria import EvaluationRubric
 
+try:
+    from .shared.constants import HIGH_RISK_TOOLS, VALID_TOOLS
+except ImportError:
+    from shared.constants import (  # type: ignore[import-not-found,no-redef]
+        HIGH_RISK_TOOLS,
+        VALID_TOOLS,
+    )
+
 
 @dataclass
 class CriterionScore:
@@ -76,27 +84,6 @@ def check_criteria_weights_integrity() -> None:
             stacklevel=2,
         )
 
-
-# Valid Claude Code tools
-VALID_TOOLS = {
-    "Read",
-    "Write",
-    "Edit",
-    "Glob",
-    "Grep",
-    "Bash",
-    "WebSearch",
-    "WebFetch",
-    "Task",
-    "AskUserQuestion",
-    "TodoWrite",
-    "NotebookEdit",
-    "LSP",
-    "Skill",
-}
-
-# High-risk tools that need security consideration
-HIGH_RISK_TOOLS = {"Bash", "Write", "Edit", "WebFetch"}
 
 # Security-related keywords
 SECURITY_KEYWORDS = [

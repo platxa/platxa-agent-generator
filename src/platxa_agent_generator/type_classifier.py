@@ -13,6 +13,8 @@ Usage:
     python type_classifier.py --json "Build a pipeline for data processing"
 """
 
+from __future__ import annotations
+
 import json
 import re
 import sys

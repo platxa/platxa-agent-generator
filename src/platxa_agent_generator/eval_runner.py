@@ -29,7 +29,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import IO, Literal
 
-from .eval_scenario import EvalScenario
+try:
+    from .eval_scenario import EvalScenario
+except ImportError:
+    from eval_scenario import EvalScenario  # type: ignore[import-not-found,no-redef]
 
 VerdictType = Literal["passed", "failed"]
 VERDICTS: frozenset[str] = frozenset(typing.get_args(VerdictType))
@@ -164,12 +167,13 @@ def run_scenario(
 
         try:
             output = executor(prompt, scenario.forbidden_tools)
-            passed, error_msg = _check_criteria(scenario, output)
         except EvalRunnerError:
             raise
-        except Exception as exc:
+        except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as exc:
             passed = False
             error_msg = str(exc)
+        else:
+            passed, error_msg = _check_criteria(scenario, output)
 
         elapsed_ms = int((time.monotonic() - start) * 1000)
         timestamp = datetime.now(timezone.utc).isoformat()

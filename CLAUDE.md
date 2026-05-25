@@ -84,7 +84,7 @@ NLP Description → Discovery → Architecture → Generation → Validation →
 Each subagent operates in its own context window. The definitions live in the top-level `agents/` directory (14 agents):
 
 **Core pipeline:**
-- **Discovery Subagent**: WebSearch, WebFetch, Glob, Read → Domain knowledge JSON
+- **Discovery Subagent**: WebSearch, WebFetch, Glob, Grep, Read → Domain knowledge JSON
 - **Architecture Subagent**: Read, Grep → Architecture blueprint JSON
 - **Generation Subagent**: Write, Read → Agent files
 - **Validation Subagent**: Bash, Read, Grep → Validation report with score

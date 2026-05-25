@@ -623,7 +623,7 @@ def apply_update(
             rollback_available=backup_path is not None,
         )
 
-    except Exception as e:
+    except (OSError, ValueError, json.JSONDecodeError) as e:
         # Attempt rollback on failure
         if backup_path:
             restore_from_backup(agent_path, backup_path)

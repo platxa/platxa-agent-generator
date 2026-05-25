@@ -26,6 +26,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+try:
+    from .shared.constants import VALID_TOOLS
+except ImportError:
+    from shared.constants import VALID_TOOLS  # type: ignore[import-not-found,no-redef]
+
 
 @dataclass
 class CheckResult:
@@ -88,24 +93,6 @@ MIN_CONTENT_LENGTHS = {
     "overview": 50,
     "workflow_step": 10,
     "example": 30,
-}
-
-# Valid Claude Code tools
-VALID_TOOLS = {
-    "Read",
-    "Write",
-    "Edit",
-    "Glob",
-    "Grep",
-    "Bash",
-    "WebSearch",
-    "WebFetch",
-    "Task",
-    "AskUserQuestion",
-    "TodoWrite",
-    "NotebookEdit",
-    "LSP",
-    "Skill",
 }
 
 

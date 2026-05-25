@@ -51,14 +51,19 @@ import hashlib
 import json
 import os
 import re
+import sys
 import tempfile
 import threading
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable, Generator, Iterator, Literal
 
-from .shared.frontmatter import parse_frontmatter_safe
-from .shared.paths import get_user_agents_dir
+try:
+    from .shared.frontmatter import parse_frontmatter_safe
+    from .shared.paths import get_user_agents_dir
+except ImportError:
+    from shared.frontmatter import parse_frontmatter_safe  # type: ignore[import-not-found,no-redef]
+    from shared.paths import get_user_agents_dir  # type: ignore[import-not-found,no-redef]
 
 INDEX_FILENAME: str = "index.json"
 INDEX_LOCK_FILENAME: str = "index.json.lock"
@@ -301,19 +306,34 @@ class InstinctStore:
     # --- Index I/O --------------------------------------------------------
 
     def _read_index(self) -> _Index:
-        """Load the index from disk. Missing/corrupt → empty index."""
+        """Load the index from disk. Missing → empty index; corrupt → empty with warning."""
         if not self.index_path.exists():
             return _Index()
         try:
             raw = self.index_path.read_text(encoding="utf-8")
             data = json.loads(raw)
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError) as exc:
+            print(
+                f"warning: instinct index {self.index_path} is corrupt "
+                f"({type(exc).__name__}: {exc}); falling back to empty index",
+                file=sys.stderr,
+            )
             return _Index()
         if not isinstance(data, dict):
+            print(
+                f"warning: instinct index {self.index_path} has unexpected "
+                f"type {type(data).__name__}; falling back to empty index",
+                file=sys.stderr,
+            )
             return _Index()
         try:
             return _Index.from_dict(data)
-        except InstinctValidationError:
+        except InstinctValidationError as exc:
+            print(
+                f"warning: instinct index {self.index_path} failed validation "
+                f"({exc}); falling back to empty index",
+                file=sys.stderr,
+            )
             return _Index()
 
     def _write_index_atomic(self, index: _Index) -> None:
@@ -801,10 +821,12 @@ def _parse_int_field(fm: dict[str, object], key: str) -> int:
     raw = fm.get(key, 0)
     if isinstance(raw, int):
         return raw
-    try:
-        return int(raw)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return 0
+    if isinstance(raw, (str, float)):
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return 0
+    return 0
 
 
 def increment_instinct_usage(

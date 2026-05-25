@@ -10,6 +10,8 @@ Usage:
     python security_scanner.py --json agent.md
 """
 
+from __future__ import annotations
+
 import json
 import re
 from dataclasses import dataclass, field
@@ -22,8 +24,10 @@ from pathlib import Path
 # ``shared/frontmatter.py``. The try/except shape mirrors the rest of
 # the suite's dual-mode imports (package vs direct-script invocation).
 try:
+    from .shared.constants import HIGH_RISK_TOOLS
     from .shared.frontmatter import parse_frontmatter_safe
 except ImportError:
+    from shared.constants import HIGH_RISK_TOOLS  # type: ignore[import-not-found,no-redef]
     from shared.frontmatter import (  # type: ignore[import-not-found,no-redef]
         parse_frontmatter_safe,
     )
@@ -593,27 +597,6 @@ def check_tool_combinations(tools: list[str]) -> list[SecurityFinding]:
     return findings
 
 
-# All known Claude Code tools for disallowed recommendations
-ALL_TOOLS = {
-    "Read",
-    "Write",
-    "Edit",
-    "Glob",
-    "Grep",
-    "Bash",
-    "WebSearch",
-    "WebFetch",
-    "Task",
-    "AskUserQuestion",
-    "TodoWrite",
-    "NotebookEdit",
-    "LSP",
-    "Skill",
-}
-
-# High-risk tools that should be disallowed unless explicitly needed
-HIGH_RISK_TOOLS = {"Bash", "Write", "Edit", "WebFetch"}
-
 # Role-based disallowed tool recommendations.
 # Key: role keyword found in agent description/name.
 # Value: tools that should be disallowed for that role.
@@ -662,7 +645,7 @@ def recommend_disallowed_tools(
     # 2. If no role matched, apply conservative defaults:
     #    disallow high-risk tools that aren't explicitly allowed
     if not disallowed:
-        disallowed = HIGH_RISK_TOOLS - tool_set
+        disallowed = set(HIGH_RISK_TOOLS) - tool_set
 
     # 3. Never recommend disallowing a tool that's in the allowed list
     disallowed -= tool_set
