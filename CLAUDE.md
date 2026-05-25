@@ -81,11 +81,31 @@ NLP Description → Discovery → Architecture → Generation → Validation →
 
 ### Subagent Architecture
 
-Each subagent operates in its own context window. The definitions live in the top-level `agents/` directory:
+Each subagent operates in its own context window. The definitions live in the top-level `agents/` directory (14 agents):
+
+**Core pipeline:**
 - **Discovery Subagent**: WebSearch, WebFetch, Glob, Read → Domain knowledge JSON
 - **Architecture Subagent**: Read, Grep → Architecture blueprint JSON
 - **Generation Subagent**: Write, Read → Agent files
 - **Validation Subagent**: Bash, Read, Grep → Validation report with score
+
+**Orchestration:**
+- **Team Lead**: Goal-loop orchestrator — composes teams, dispatches phases, iterates until done
+- **Ralph Orchestrator**: Stop-hook completion-promise loop — re-prompts until marker or cap
+
+**Evaluation:**
+- **Evaluator Subagent**: Read, Grep → Semantic quality evaluation
+- **GAN Evaluator**: Adversarial orchestrator — fans out per-axis judges, aggregates verdicts
+- **GAN Axis Judge**: Single-axis evaluator — isolated per-criterion scoring (prevents anchoring)
+
+**Continuous learning:**
+- **Observer Subagent**: Read, Grep, Glob → Extracts ObservationRecords from transcripts (read-only)
+- **Instinct Promoter**: Read, Grep, Glob → Clusters instincts and drafts promotion targets
+- **Prompt Evolver**: Read, Write, Task → Mutates agent prompts, keeps only improvements
+- **Cluster Failures**: Read, Grep, Glob → Groups eval failures by root cause
+
+**Problem solving:**
+- **Problem-Solving Subagent**: Read, Write, Edit, Grep, Glob, Bash → Localize/Repair/Validate
 
 ## Agent Definition Format
 
