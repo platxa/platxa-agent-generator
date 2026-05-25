@@ -1,0 +1,88 @@
+# Mutation operators — single source of truth for the PromptBreeder-style
+# evolution pipeline.  Each operator transforms an agent prompt body while
+# preserving frontmatter (name, description, tools).
+#
+# Active consumers:
+#   - src/platxa_agent_generator/mutation_registry.py
+#       loads this file via MutationRegistry.load_default().
+#   - agents/prompt-evolver.md
+#       references operator names and rules when dispatching mutation Tasks.
+#
+# Invariants enforced by MutationRegistry.__post_init__:
+#   - exactly 6 operators
+#   - operator names unique and ∈ KNOWN_OPERATOR_NAMES
+#   - scope ∈ {additive, subtractive, neutral}
+#   - description and rules are non-empty strings
+
+operators:
+  - name: synonym
+    description: >-
+      Replace directive phrases with semantically equivalent alternatives
+      that may ground the LLM more effectively.
+    scope: neutral
+    rules: >-
+      Replace directive verbs and modal phrases with synonyms that carry
+      the same behavioral weight.  "You must" → "Always" / "It is
+      required that you".  "Do not" → "Never" / "Avoid" / "Refrain
+      from".  "Check" → "Verify" / "Confirm" / "Validate".  Apply
+      single-phrase replacements only; do not restructure sentences or
+      add new content.
+
+  - name: restructure
+    description: >-
+      Reorganize section ordering, list formatting, or emphasis hierarchy
+      without changing semantic content.
+    scope: neutral
+    rules: >-
+      Reorder workflow steps to front-load the most critical constraint.
+      Convert prose paragraphs to numbered steps or vice versa.  Promote
+      buried constraints to their own subsection.  Word-level content
+      must remain unchanged — only structure and ordering may differ.
+
+  - name: contextualize
+    description: >-
+      Add project-specific grounding by reading related files and weaving
+      concrete references into the prompt.
+    scope: additive
+    rules: >-
+      Read the target agent's referenced files (paths mentioned in its
+      body).  Replace abstract references ("the rubric", "the config")
+      with concrete file paths, line ranges, or constant names.  Add
+      specificity where the original is vague.  May increase prompt
+      length.
+
+  - name: simplify
+    description: >-
+      Remove redundancy, tighten phrasing, and reduce token count while
+      preserving all behavioral constraints.
+    scope: subtractive
+    rules: >-
+      Delete repeated instructions that appear in multiple sections.
+      Collapse verbose explanations into single directive sentences.
+      Remove hedging language ("you might want to", "consider").
+      Subtractive only — never add new content.
+
+  - name: expand
+    description: >-
+      Add clarifying detail, edge-case handling, or worked examples to
+      under-specified sections of the prompt.
+    scope: additive
+    rules: >-
+      Identify sections that rely on implicit knowledge or leave
+      ambiguous how to handle edge cases.  Add concrete examples,
+      explicit error-handling instructions, or boundary conditions.
+      Each addition must be grounded in the agent's stated purpose —
+      do not introduce responsibilities outside the original scope.
+
+  - name: compress
+    description: >-
+      Reduce prompt length by merging overlapping sections, eliminating
+      boilerplate, and converting verbose patterns to concise ones.
+    scope: subtractive
+    rules: >-
+      Merge sections that cover the same topic from different angles
+      into a single authoritative section.  Replace multi-sentence
+      explanations with table or list equivalents when they convey
+      the same information in fewer tokens.  Remove boilerplate
+      phrasing that adds no behavioral constraint.  Unlike simplify
+      (phrase-level), compress operates at section-level granularity.
