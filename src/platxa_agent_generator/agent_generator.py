@@ -268,6 +268,7 @@ class AgentDefinition:
     chain_steps: list[ChainStep] = field(default_factory=list)
     examples: list[dict[str, str]] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    discovery_context: dict[str, Any] = field(default_factory=dict)
     template_vars: TemplateVariables = field(default_factory=TemplateVariables)
 
 
@@ -2569,12 +2570,33 @@ def generate_related_agents_section(definition: AgentDefinition) -> str:
     """Generate Related Agents section for composition patterns."""
     lines = ["## Related Agents", ""]
 
+    discovery = definition.discovery_context
+    if discovery and discovery.get("agents_found", 0) > 0:
+        lines.append("### Existing Agents in This Project")
+        lines.append("")
+        for agent_entry in discovery["agents"][:5]:
+            agent_name = agent_entry["name"]
+            tools_str = ", ".join(agent_entry.get("tools", []))
+            desc = agent_entry.get("description", "")
+            lines.append(f"- **{agent_name}**: {desc} (tools: {tools_str})")
+        lines.append("")
+
+        conflict = discovery.get("conflict_check") or {}
+        if conflict.get("has_conflict"):
+            lines.append(
+                f"> **Warning**: An agent named `{conflict.get('proposed_name')}` already exists."
+            )
+            lines.append("")
+        elif conflict.get("similar_names"):
+            similar = ", ".join(conflict["similar_names"])
+            lines.append(f"> **Note**: Similar agents exist: {similar}")
+            lines.append("")
+
     desc_lower = definition.description.lower()
 
     lines.append("### Complementary Agents")
     lines.append("")
 
-    # Suggest related agents based on description
     if any(w in desc_lower for w in ["review", "analyze", "audit"]):
         lines.append("- **test-runner**: Execute tests after code review findings")
         lines.append("- **fix-applier**: Automatically apply suggested fixes")
@@ -3388,6 +3410,7 @@ def generate(
     pattern: str = "prompt-chaining",
     output_path: str | None = None,
     context_hint: str = "",
+    discovery_context: dict[str, Any] | None = None,
     **kwargs: Any,
 ) -> tuple[bool, str, str]:
     """Generate an agent file.
@@ -3396,6 +3419,9 @@ def generate(
         context_hint: Optional targeted-reprompt context from a prior iteration.
             Prepended to the description to steer regeneration toward fixing
             specific quality deficiencies.
+        discovery_context: Output from ``context_discovery.discovery_report()``.
+            Piped into the agent definition so downstream sections (e.g.
+            Related Agents) can reference actually-existing agents.
 
     Returns:
         (success, content_or_error, output_path)
@@ -3432,6 +3458,7 @@ def generate(
         chain_steps=kwargs.get("chain_steps", []),
         examples=kwargs.get("examples", []),
         metadata=kwargs.get("metadata", {}),
+        discovery_context=discovery_context or {},
         template_vars=template_vars,
     )
 

@@ -51,6 +51,7 @@ try:
         agent_generator,
         agent_linter,
         agent_upgrader,
+        context_discovery,
         dry_run,
         eval_runner,
         eval_scenario,
@@ -77,6 +78,7 @@ except ImportError:
     import agent_generator  # type: ignore[import-not-found,no-redef]
     import agent_linter  # type: ignore[import-not-found,no-redef]
     import agent_upgrader  # type: ignore[import-not-found,no-redef]
+    import context_discovery  # type: ignore[import-not-found,no-redef]
     import dry_run  # type: ignore[import-not-found,no-redef]
     import eval_runner  # type: ignore[import-not-found,no-redef]
     import eval_scenario  # type: ignore[import-not-found,no-redef]
@@ -521,6 +523,13 @@ Examples:
 
             classification = type_classifier.classify(description)
             agent_type_str = args.type or classification.architecture_type
+            agent_name = args.name or parsed.name
+
+            tracker.update_phase("discovery", 75, "Scanning existing agents")
+            existing_agents = context_discovery.scan_all_agents()
+            discovery_ctx = context_discovery.discovery_report(
+                existing_agents, proposed_name=agent_name
+            )
             tracker.update_phase("discovery", 100)
 
             # Phase 2: Architecture
@@ -531,12 +540,12 @@ Examples:
                 tool_selection = tool_selector.select_tools(
                     agent_type=parsed.agent_type,
                     purpose=parsed.description,
+                    recommended_base=discovery_ctx.get("patterns", {}).get("recommended_base"),
                 )
                 tool_list = tool_selection.tools
             tracker.update_phase("architecture", 100)
 
             # Phase 3: Generation with iteration-aware retry loop
-            agent_name = args.name or parsed.name
             state = workflow_state.WorkflowState(
                 workflow_id=f"cli-generate-{agent_name}",
                 agent_name=agent_name,
@@ -559,6 +568,7 @@ Examples:
                     description=parsed.description,
                     tools=tool_list,
                     context_hint=reprompt_context,
+                    discovery_context=discovery_ctx,
                 )
 
                 if not success:
@@ -637,6 +647,12 @@ Examples:
                 }
                 if not args.no_validate:
                     result["quality_score"] = quality_score
+                result["discovery"] = {
+                    "agents_found": discovery_ctx["agents_found"],
+                    "has_conflict": bool(
+                        discovery_ctx.get("conflict_check", {}).get("has_conflict")
+                    ),
+                }
                 print(json.dumps(result, indent=2))
             else:
                 print(tracker.render())

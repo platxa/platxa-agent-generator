@@ -272,6 +272,7 @@ def select_tools(
     capabilities: list[str] | None = None,
     explicit_tools: list[str] | None = None,
     least_privilege: bool = True,
+    recommended_base: list[str] | None = None,
 ) -> ToolSelection:
     """
     Select appropriate tools based on agent requirements.
@@ -288,6 +289,9 @@ def select_tools(
         capabilities: List of capability descriptions
         explicit_tools: Tools explicitly requested by user
         least_privilege: Apply least-privilege enforcement (default: True)
+        recommended_base: Tools recommended by existing agent patterns
+            (from ``context_discovery.discovery_report()``).  Merged after
+            type-based tools but still subject to least-privilege enforcement.
 
     Returns:
         ToolSelection with tools, reasoning, and warnings
@@ -299,6 +303,12 @@ def select_tools(
     base_tools = TYPE_BASE_TOOLS.get(agent_type, ["Read", "Glob", "Grep"])
     for tool in base_tools:
         selected[tool] = f"Base tool for {agent_type} agents"
+
+    # 1b. Merge recommended_base from context discovery
+    if recommended_base:
+        for tool in recommended_base:
+            if tool in AVAILABLE_TOOLS and tool not in selected:
+                selected[tool] = "Recommended by existing agent patterns"
 
     # 2. Add domain-specific tools
     if domain:
