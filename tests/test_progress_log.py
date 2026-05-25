@@ -326,3 +326,148 @@ class TestProgressLogIterEvents:
         log = ProgressLog(txt_path=tmp_path / "p.txt", jsonl_path=jsonl)
         events = log.read_events()
         assert len(events) == 2
+
+
+# --- ProgressLog.log_dispatch convenience ---
+
+
+class TestProgressLogDispatch:
+    """The log_dispatch convenience method."""
+
+    def test_log_dispatch_builds_message(self, tmp_path: Path) -> None:
+        txt = tmp_path / "p.txt"
+        jsonl = tmp_path / "p.jsonl"
+        log = ProgressLog(txt_path=txt, jsonl_path=jsonl)
+
+        event = log.log_dispatch(
+            subagent="code-reviewer",
+            session_id="s1",
+            agent="feature-skill",
+            feature_id=65,
+            detail="cold-read review",
+        )
+
+        assert event.message == "DISPATCH code-reviewer: cold-read review"
+        data = json.loads(jsonl.read_text().strip())
+        assert data["message"] == "DISPATCH code-reviewer: cold-read review"
+
+    def test_log_dispatch_no_detail(self, tmp_path: Path) -> None:
+        txt = tmp_path / "p.txt"
+        jsonl = tmp_path / "p.jsonl"
+        log = ProgressLog(txt_path=txt, jsonl_path=jsonl)
+
+        event = log.log_dispatch(
+            subagent="plan-architect",
+            session_id="s1",
+            agent="feature-skill",
+        )
+        assert event.message == "DISPATCH plan-architect"
+
+    def test_log_dispatch_returns_event(self, tmp_path: Path) -> None:
+        txt = tmp_path / "p.txt"
+        jsonl = tmp_path / "p.jsonl"
+        log = ProgressLog(txt_path=txt, jsonl_path=jsonl)
+
+        event = log.log_dispatch(
+            subagent="explorer",
+            session_id="s",
+            agent="a",
+            feature_id=42,
+        )
+        assert isinstance(event, ProgressEvent)
+        assert event.feature_id == 42
+
+    def test_log_dispatch_txt_contains_dispatch(self, tmp_path: Path) -> None:
+        txt = tmp_path / "p.txt"
+        jsonl = tmp_path / "p.jsonl"
+        log = ProgressLog(txt_path=txt, jsonl_path=jsonl)
+
+        log.log_dispatch(
+            subagent="security-gate",
+            session_id="s1",
+            agent="feature-skill",
+            feature_id=65,
+        )
+
+        content = txt.read_text()
+        assert "DISPATCH security-gate" in content
+        assert "[session=s1]" in content
+
+
+# --- Combined phase + dispatch verification ---
+
+
+class TestProgressLogCombined:
+    """Verification criterion for feature #65: after 5 transitions + 3
+    dispatches, both files have 8 entries each with consistent format."""
+
+    def test_five_transitions_three_dispatches(self, tmp_path: Path) -> None:
+        txt = tmp_path / "progress.txt"
+        jsonl = tmp_path / "progress.jsonl"
+        log = ProgressLog(txt_path=txt, jsonl_path=jsonl)
+
+        phases = [
+            "Phase 1: Classify",
+            "Phase 2: Pre-Implementation",
+            "Phase 3: Implementation",
+            "Phase 4: Post-Implementation",
+            "Phase 5: Pass Gate",
+        ]
+        dispatches = [
+            "code-explorer",
+            "code-reviewer",
+            "plan-architect",
+        ]
+
+        for phase in phases:
+            log.log_phase(
+                phase=phase,
+                session_id="sess-65",
+                agent="feature-skill",
+                feature_id=65,
+            )
+
+        for subagent in dispatches:
+            log.log_dispatch(
+                subagent=subagent,
+                session_id="sess-65",
+                agent="feature-skill",
+                feature_id=65,
+            )
+
+        # .jsonl has 8 valid JSON rows
+        jsonl_lines = [line for line in jsonl.read_text().strip().split("\n") if line.strip()]
+        assert len(jsonl_lines) == 8
+        for line in jsonl_lines:
+            data = json.loads(line)
+            assert "timestamp" in data
+            assert "message" in data
+            assert data["feature_id"] == 65
+
+        # .txt has 8 human-readable lines
+        txt_lines = [line for line in txt.read_text().strip().split("\n") if line.strip()]
+        assert len(txt_lines) == 8
+
+        # First 5 are PROGRESS, last 3 are DISPATCH
+        for line in txt_lines[:5]:
+            assert "PROGRESS" in line
+        for line in txt_lines[5:]:
+            assert "DISPATCH" in line
+
+    def test_interleaved_phase_and_dispatch(self, tmp_path: Path) -> None:
+        """Phase and dispatch events can be interleaved."""
+        txt = tmp_path / "progress.txt"
+        jsonl = tmp_path / "progress.jsonl"
+        log = ProgressLog(txt_path=txt, jsonl_path=jsonl)
+
+        log.log_phase(phase="Phase 1", session_id="s", agent="a", feature_id=1)
+        log.log_dispatch(subagent="explorer", session_id="s", agent="a", feature_id=1)
+        log.log_phase(phase="Phase 2", session_id="s", agent="a", feature_id=1)
+        log.log_dispatch(subagent="reviewer", session_id="s", agent="a", feature_id=1)
+
+        events = log.read_events()
+        assert len(events) == 4
+        assert "PROGRESS" in events[0].message
+        assert "DISPATCH" in events[1].message
+        assert "PROGRESS" in events[2].message
+        assert "DISPATCH" in events[3].message

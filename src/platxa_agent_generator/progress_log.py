@@ -147,6 +147,33 @@ class ProgressLog:
         self.log(event)
         return event
 
+    def log_dispatch(
+        self,
+        *,
+        subagent: str,
+        session_id: str = "",
+        agent: str = "",
+        feature_id: int | None = None,
+        detail: str = "",
+    ) -> ProgressEvent:
+        """Convenience: log a subagent dispatch event.
+
+        Builds a ``DISPATCH <subagent>`` message, writes it to both files,
+        and returns the event.
+        """
+        message = f"DISPATCH {subagent}"
+        if detail:
+            message = f"{message}: {detail}"
+        event = ProgressEvent(
+            timestamp=_now_iso(),
+            session_id=session_id,
+            agent=agent,
+            feature_id=feature_id,
+            message=message,
+        )
+        self.log(event)
+        return event
+
     def read_events(self) -> list[ProgressEvent]:
         """Read all events from the .jsonl file.
 
