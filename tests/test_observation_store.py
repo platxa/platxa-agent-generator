@@ -524,12 +524,22 @@ class TestMarkPromoted:
     def test_preserves_non_dict_and_validation_failing_lines(self, tmp_path: Path) -> None:
         path = tmp_path / "obs.jsonl"
         good = json.dumps(
-            {"timestamp": "t1", "tool": "t", "input_summary": "s",
-             "project_id": "p", "project_name": "pn"}
+            {
+                "timestamp": "t1",
+                "tool": "t",
+                "input_summary": "s",
+                "project_id": "p",
+                "project_name": "pn",
+            }
         )
         invalid_record = json.dumps(
-            {"timestamp": "", "tool": "x", "input_summary": "x",
-             "project_id": "x", "project_name": "x"}
+            {
+                "timestamp": "",
+                "tool": "x",
+                "input_summary": "x",
+                "project_id": "x",
+                "project_name": "x",
+            }
         )
         path.write_text(
             good + "\n[1,2,3]\n\n" + invalid_record + "\n",
@@ -697,7 +707,9 @@ class TestTailSampling:
                 fh.write(r.to_jsonl())
         return records
 
-    def test_300_observations_cap_100(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_300_observations_cap_100(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
         store = ObservationStore(path=tmp_path / "obs.jsonl")
         records = self._write_records(store, 300)
@@ -713,14 +725,18 @@ class TestTailSampling:
         result = store.tail_sample(cap=100)
         assert result == records
 
-    def test_exactly_at_cap_returns_all(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_exactly_at_cap_returns_all(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
         store = ObservationStore(path=tmp_path / "obs.jsonl")
         records = self._write_records(store, 100)
         result = store.tail_sample(cap=100)
         assert result == records
 
-    def test_odd_cap_gives_extra_to_tail(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_odd_cap_gives_extra_to_tail(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
         store = ObservationStore(path=tmp_path / "obs.jsonl")
         records = self._write_records(store, 50)
@@ -758,7 +774,9 @@ class TestTailSampling:
         assert len(result) == 1
         assert result[0] == records[-1]
 
-    def test_cap_2_keeps_first_and_last(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def test_cap_2_keeps_first_and_last(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         monkeypatch.setenv("PLATXA_OBSERVATION_CAP", "0")
         store = ObservationStore(path=tmp_path / "obs.jsonl")
         records = self._write_records(store, 10)
@@ -925,8 +943,13 @@ class TestMigration:
     def test_migrate_preserves_validation_failing_rows(self, tmp_path: Path) -> None:
         path = tmp_path / "obs.jsonl"
         invalid_row = json.dumps(
-            {"timestamp": "", "tool": "x", "input_summary": "x",
-             "project_id": "x", "project_name": "x"}
+            {
+                "timestamp": "",
+                "tool": "x",
+                "input_summary": "x",
+                "project_id": "x",
+                "project_name": "x",
+            }
         )
         good = self._make_minimal(0).to_jsonl().strip()
         path.write_text(invalid_row + "\n" + good + "\n", encoding="utf-8")
@@ -960,20 +983,32 @@ class TestStats:
         store = ObservationStore(path=tmp_path / "obs.jsonl")
         store.append(
             ObservationRecord(
-                timestamp="t1", tool="Bash", input_summary="s",
-                project_id="p", project_name="pn", type="decision",
+                timestamp="t1",
+                tool="Bash",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
+                type="decision",
             )
         )
         store.append(
             ObservationRecord(
-                timestamp="t2", tool="Read", input_summary="s",
-                project_id="p", project_name="pn", type="decision",
+                timestamp="t2",
+                tool="Read",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
+                type="decision",
             )
         )
         store.append(
             ObservationRecord(
-                timestamp="t3", tool="Bash", input_summary="s",
-                project_id="p", project_name="pn", type="tool_use",
+                timestamp="t3",
+                tool="Bash",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
+                type="tool_use",
             )
         )
         result = store.stats()
@@ -983,20 +1018,29 @@ class TestStats:
         store = ObservationStore(path=tmp_path / "obs.jsonl")
         store.append(
             ObservationRecord(
-                timestamp="t1", tool="Bash", input_summary="s",
-                project_id="p", project_name="pn",
+                timestamp="t1",
+                tool="Bash",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
             )
         )
         store.append(
             ObservationRecord(
-                timestamp="t2", tool="Bash", input_summary="s",
-                project_id="p", project_name="pn",
+                timestamp="t2",
+                tool="Bash",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
             )
         )
         store.append(
             ObservationRecord(
-                timestamp="t3", tool="Read", input_summary="s",
-                project_id="p", project_name="pn",
+                timestamp="t3",
+                tool="Read",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
             )
         )
         result = store.stats()
@@ -1006,20 +1050,32 @@ class TestStats:
         store = ObservationStore(path=tmp_path / "obs.jsonl")
         store.append(
             ObservationRecord(
-                timestamp="t1", tool="Bash", input_summary="s",
-                project_id="p", project_name="pn", agent_name="observer",
+                timestamp="t1",
+                tool="Bash",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
+                agent_name="observer",
             )
         )
         store.append(
             ObservationRecord(
-                timestamp="t2", tool="Read", input_summary="s",
-                project_id="p", project_name="pn", agent_name="observer",
+                timestamp="t2",
+                tool="Read",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
+                agent_name="observer",
             )
         )
         store.append(
             ObservationRecord(
-                timestamp="t3", tool="Bash", input_summary="s",
-                project_id="p", project_name="pn", agent_name="reviewer",
+                timestamp="t3",
+                tool="Bash",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
+                agent_name="reviewer",
             )
         )
         result = store.stats()
@@ -1029,14 +1085,21 @@ class TestStats:
         store = ObservationStore(path=tmp_path / "obs.jsonl")
         store.append(
             ObservationRecord(
-                timestamp="t1", tool="Bash", input_summary="s",
-                project_id="p", project_name="pn", agent_name="",
+                timestamp="t1",
+                tool="Bash",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
+                agent_name="",
             )
         )
         store.append(
             ObservationRecord(
-                timestamp="t2", tool="Read", input_summary="s",
-                project_id="p", project_name="pn",
+                timestamp="t2",
+                tool="Read",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
             )
         )
         result = store.stats()
@@ -1046,20 +1109,31 @@ class TestStats:
         store = ObservationStore(path=tmp_path / "obs.jsonl")
         store.append(
             ObservationRecord(
-                timestamp="t1", tool="Bash", input_summary="s",
-                project_id="p", project_name="pn", promoted_to="instinct-a",
+                timestamp="t1",
+                tool="Bash",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
+                promoted_to="instinct-a",
             )
         )
         store.append(
             ObservationRecord(
-                timestamp="t2", tool="Read", input_summary="s",
-                project_id="p", project_name="pn",
+                timestamp="t2",
+                tool="Read",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
             )
         )
         store.append(
             ObservationRecord(
-                timestamp="t3", tool="Grep", input_summary="s",
-                project_id="p", project_name="pn", promoted_to="instinct-b",
+                timestamp="t3",
+                tool="Grep",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
+                promoted_to="instinct-b",
             )
         )
         result = store.stats()
@@ -1071,8 +1145,11 @@ class TestStats:
         for i in range(5):
             store.append(
                 ObservationRecord(
-                    timestamp=f"t{i}", tool="Bash", input_summary="s",
-                    project_id="p", project_name="pn",
+                    timestamp=f"t{i}",
+                    tool="Bash",
+                    input_summary="s",
+                    project_id="p",
+                    project_name="pn",
                 )
             )
         result = store.stats()
@@ -1082,14 +1159,22 @@ class TestStats:
         store = ObservationStore(path=tmp_path / "obs.jsonl")
         store.append(
             ObservationRecord(
-                timestamp="t1", tool="Zzz", input_summary="s",
-                project_id="p", project_name="pn", type="refactor",
+                timestamp="t1",
+                tool="Zzz",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
+                type="refactor",
             )
         )
         store.append(
             ObservationRecord(
-                timestamp="t2", tool="Aaa", input_summary="s",
-                project_id="p", project_name="pn", type="bugfix",
+                timestamp="t2",
+                tool="Aaa",
+                input_summary="s",
+                project_id="p",
+                project_name="pn",
+                type="bugfix",
             )
         )
         result = store.stats()

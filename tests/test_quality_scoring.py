@@ -331,7 +331,14 @@ class TestCriteriaWeightsFromYAML:
         """CRITERIA_WEIGHTS must contain exactly the 6 canonical axes."""
         from platxa_agent_generator.quality_scorer import CRITERIA_WEIGHTS
 
-        expected = {"clarity", "completeness", "tool_design", "examples", "security", "documentation"}
+        expected = {
+            "clarity",
+            "completeness",
+            "tool_design",
+            "examples",
+            "security",
+            "documentation",
+        }
         assert set(CRITERIA_WEIGHTS.keys()) == expected
 
     def test_no_hardcoded_weights_in_source(self) -> None:
@@ -342,8 +349,7 @@ class TestCriteriaWeightsFromYAML:
             if (
                 isinstance(node, ast.Assign)
                 and any(
-                    isinstance(t, ast.Name) and t.id == "CRITERIA_WEIGHTS"
-                    for t in node.targets
+                    isinstance(t, ast.Name) and t.id == "CRITERIA_WEIGHTS" for t in node.targets
                 )
                 and isinstance(node.value, ast.Dict)
             ):
@@ -360,9 +366,14 @@ class TestCriteriaWeightsFromYAML:
 
         original = qs.CRITERIA_WEIGHTS.copy()
         try:
-            qs.CRITERIA_WEIGHTS = {"clarity": 0.99, "completeness": 0.01,
-                                   "tool_design": 0.0, "examples": 0.0,
-                                   "security": 0.0, "documentation": 0.0}
+            qs.CRITERIA_WEIGHTS = {
+                "clarity": 0.99,
+                "completeness": 0.01,
+                "tool_design": 0.0,
+                "examples": 0.0,
+                "security": 0.0,
+                "documentation": 0.0,
+            }
             with warnings.catch_warnings(record=True) as w:
                 warnings.simplefilter("always")
                 qs.check_criteria_weights_integrity()
@@ -498,6 +509,5 @@ class TestJudgeEntrypoint:
             name_key = criterion.name.lower().replace(" ", "_")
             isolated = judge(name_key, self.SAMPLE_AGENT)
             assert isolated.score == criterion.score, (
-                f"{name_key}: judge()={isolated.score} != "
-                f"score_quality()={criterion.score}"
+                f"{name_key}: judge()={isolated.score} != score_quality()={criterion.score}"
             )

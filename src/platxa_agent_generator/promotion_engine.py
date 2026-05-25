@@ -279,42 +279,98 @@ class ClusterResult:
     template: tuple[DistilledPrinciple, ...]
 
 
-_WORKFLOW_KEYWORDS: frozenset[str] = frozenset((
-    "workflow", "pipeline", "sequence", "multi-step", "orchestrat",
-    "phase", "stage", "chain", "compose", "coordinate",
-))
+_WORKFLOW_KEYWORDS: frozenset[str] = frozenset(
+    (
+        "workflow",
+        "pipeline",
+        "sequence",
+        "multi-step",
+        "orchestrat",
+        "phase",
+        "stage",
+        "chain",
+        "compose",
+        "coordinate",
+    )
+)
 
-_COMMAND_KEYWORDS: frozenset[str] = frozenset((
-    "run", "execute", "invoke", "call", "trigger", "launch",
-    "check", "list", "show", "get", "set", "create", "delete",
-    "update", "validate", "format", "lint", "build", "deploy",
-))
+_COMMAND_KEYWORDS: frozenset[str] = frozenset(
+    (
+        "run",
+        "execute",
+        "invoke",
+        "call",
+        "trigger",
+        "launch",
+        "check",
+        "list",
+        "show",
+        "get",
+        "set",
+        "create",
+        "delete",
+        "update",
+        "validate",
+        "format",
+        "lint",
+        "build",
+        "deploy",
+    )
+)
 
-_AGENT_KEYWORDS: frozenset[str] = frozenset((
-    "agent", "subagent", "reviewer", "evaluator", "analyzer",
-    "inspector", "auditor", "specialist", "role", "judge",
-))
+_AGENT_KEYWORDS: frozenset[str] = frozenset(
+    (
+        "agent",
+        "subagent",
+        "reviewer",
+        "evaluator",
+        "analyzer",
+        "inspector",
+        "auditor",
+        "specialist",
+        "role",
+        "judge",
+    )
+)
 
-_TEMPLATE_KEYWORDS: frozenset[str] = frozenset((
-    "template", "scaffold", "skeleton", "schema", "shape",
-    "frontmatter", "rubric", "config", "layout", "structure",
-))
+_TEMPLATE_KEYWORDS: frozenset[str] = frozenset(
+    (
+        "template",
+        "scaffold",
+        "skeleton",
+        "schema",
+        "shape",
+        "frontmatter",
+        "rubric",
+        "config",
+        "layout",
+        "structure",
+    )
+)
 
-_WORKFLOW_TYPES: frozenset[str] = frozenset((
-    "discovery", "feature", "refactor",
-))
+_WORKFLOW_TYPES: frozenset[str] = frozenset(
+    (
+        "discovery",
+        "feature",
+        "refactor",
+    )
+)
 
-_COMMAND_TYPES: frozenset[str] = frozenset((
-    "tool_use", "preference",
-))
+_COMMAND_TYPES: frozenset[str] = frozenset(
+    (
+        "tool_use",
+        "preference",
+    )
+)
 
-_AGENT_TYPES: frozenset[str] = frozenset((
-    "decision", "problem",
-))
+_AGENT_TYPES: frozenset[str] = frozenset(
+    (
+        "decision",
+        "problem",
+    )
+)
 
-_TEMPLATE_TYPES: frozenset[str] = frozenset((
-    "milestone",
-))
+_TEMPLATE_TYPES: frozenset[str] = frozenset(("milestone",))
 
 
 def _keyword_score(text: str, keywords: frozenset[str]) -> int:

@@ -486,7 +486,15 @@ Task tool with:
         generator = _first_by_role("generator")
         evaluator = _first_by_role("evaluator")
         optimizer = _first_by_role("optimizer")
-        missing = [r for r, w in [("generator", generator), ("evaluator", evaluator), ("optimizer", optimizer)] if w is None]
+        missing = [
+            r
+            for r, w in [
+                ("generator", generator),
+                ("evaluator", evaluator),
+                ("optimizer", optimizer),
+            ]
+            if w is None
+        ]
         if missing:
             raise ValueError(
                 f"evaluator-optimizer system requires workers with roles "

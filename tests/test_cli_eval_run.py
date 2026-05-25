@@ -119,15 +119,18 @@ class TestEvalRunSingleScenario:
 class TestEvalRunAll:
     """``platxa-agent eval-run --all`` runs every scenario in the directory."""
 
-    def test_all_runs_full_corpus(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_all_runs_full_corpus(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         scenarios_dir = _seed_scenarios_dir(tmp_path)
         cli = CLI()
-        rc = cli.run([
-            "--json", "eval-run", "--all",
-            "--scenarios-dir", str(scenarios_dir),
-        ])
+        rc = cli.run(
+            [
+                "--json",
+                "eval-run",
+                "--all",
+                "--scenarios-dir",
+                str(scenarios_dir),
+            ]
+        )
         output = json.loads(capsys.readouterr().out)
         assert output["total"] == 2
         assert len(output["results"]) == 2
@@ -137,10 +140,15 @@ class TestEvalRunAll:
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
         cli = CLI()
-        rc = cli.run([
-            "--json", "eval-run", "--all",
-            "--scenarios-dir", str(tmp_path / "nonexistent"),
-        ])
+        rc = cli.run(
+            [
+                "--json",
+                "eval-run",
+                "--all",
+                "--scenarios-dir",
+                str(tmp_path / "nonexistent"),
+            ]
+        )
         output = json.loads(capsys.readouterr().out)
         assert rc == 1
         assert "error" in output
@@ -151,10 +159,15 @@ class TestEvalRunAll:
         empty_dir = tmp_path / "empty"
         empty_dir.mkdir()
         cli = CLI()
-        rc = cli.run([
-            "--json", "eval-run", "--all",
-            "--scenarios-dir", str(empty_dir),
-        ])
+        rc = cli.run(
+            [
+                "--json",
+                "eval-run",
+                "--all",
+                "--scenarios-dir",
+                str(empty_dir),
+            ]
+        )
         output = json.loads(capsys.readouterr().out)
         assert rc == 1
         assert "error" in output
@@ -208,11 +221,16 @@ class TestEvalRunSaveHistory:
         sc_path = _write_scenario(tmp_path / "test.yaml")
         history_dir = tmp_path / "history"
         cli = CLI()
-        rc = cli.run([
-            "--json", "eval-run", str(sc_path),
-            "--save-history",
-            "--history-dir", str(history_dir),
-        ])
+        rc = cli.run(
+            [
+                "--json",
+                "eval-run",
+                str(sc_path),
+                "--save-history",
+                "--history-dir",
+                str(history_dir),
+            ]
+        )
         assert rc == 0
         traces = list(history_dir.glob("run-*.json"))
         assert len(traces) == 1
@@ -223,11 +241,18 @@ class TestEvalRunSaveHistory:
         sc_path = _write_scenario(tmp_path / "test.yaml")
         history_dir = tmp_path / "history"
         cli = CLI()
-        rc = cli.run([
-            "--json", "eval-run", str(sc_path),
-            "--save-history", "--k", "3",
-            "--history-dir", str(history_dir),
-        ])
+        rc = cli.run(
+            [
+                "--json",
+                "eval-run",
+                str(sc_path),
+                "--save-history",
+                "--k",
+                "3",
+                "--history-dir",
+                str(history_dir),
+            ]
+        )
         assert rc == 0
         traces = list(history_dir.glob("run-*.json"))
         assert len(traces) == 3
@@ -236,10 +261,15 @@ class TestEvalRunSaveHistory:
         sc_path = _write_scenario(tmp_path / "test.yaml")
         history_dir = tmp_path / "history"
         cli = CLI()
-        rc = cli.run([
-            "--json", "eval-run", str(sc_path),
-            "--history-dir", str(history_dir),
-        ])
+        rc = cli.run(
+            [
+                "--json",
+                "eval-run",
+                str(sc_path),
+                "--history-dir",
+                str(history_dir),
+            ]
+        )
         assert rc == 0
         assert not history_dir.exists()
 
@@ -255,11 +285,17 @@ class TestEvalRunTypeFilter:
     ) -> None:
         scenarios_dir = _seed_scenarios_dir(tmp_path)
         cli = CLI()
-        rc = cli.run([
-            "--json", "eval-run", "--all",
-            "--type", "capability",
-            "--scenarios-dir", str(scenarios_dir),
-        ])
+        rc = cli.run(
+            [
+                "--json",
+                "eval-run",
+                "--all",
+                "--type",
+                "capability",
+                "--scenarios-dir",
+                str(scenarios_dir),
+            ]
+        )
         output = json.loads(capsys.readouterr().out)
         assert rc == 0
         assert output["total"] == 1
@@ -271,11 +307,17 @@ class TestEvalRunTypeFilter:
     ) -> None:
         scenarios_dir = _seed_scenarios_dir(tmp_path)
         cli = CLI()
-        cli.run([
-            "--json", "eval-run", "--all",
-            "--type", "regression",
-            "--scenarios-dir", str(scenarios_dir),
-        ])
+        cli.run(
+            [
+                "--json",
+                "eval-run",
+                "--all",
+                "--type",
+                "regression",
+                "--scenarios-dir",
+                str(scenarios_dir),
+            ]
+        )
         output = json.loads(capsys.readouterr().out)
         assert output["total"] == 1
         assert all(r["scenario_type"] == "regression" for r in output["results"])
@@ -285,11 +327,17 @@ class TestEvalRunTypeFilter:
     ) -> None:
         scenarios_dir = _seed_scenarios_dir(tmp_path)
         cli = CLI()
-        cli.run([
-            "--json", "eval-run", "--all",
-            "--type", "all",
-            "--scenarios-dir", str(scenarios_dir),
-        ])
+        cli.run(
+            [
+                "--json",
+                "eval-run",
+                "--all",
+                "--type",
+                "all",
+                "--scenarios-dir",
+                str(scenarios_dir),
+            ]
+        )
         output = json.loads(capsys.readouterr().out)
         assert output["total"] == 2
 
@@ -300,11 +348,17 @@ class TestEvalRunTypeFilter:
         scenarios_dir.mkdir()
         _write_scenario(scenarios_dir / "cap.yaml")
         cli = CLI()
-        rc = cli.run([
-            "--json", "eval-run", "--all",
-            "--type", "regression",
-            "--scenarios-dir", str(scenarios_dir),
-        ])
+        rc = cli.run(
+            [
+                "--json",
+                "eval-run",
+                "--all",
+                "--type",
+                "regression",
+                "--scenarios-dir",
+                str(scenarios_dir),
+            ]
+        )
         output = json.loads(capsys.readouterr().out)
         assert rc == 1
         assert "error" in output

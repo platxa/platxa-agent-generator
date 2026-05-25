@@ -110,12 +110,15 @@ class TestGoalLoopTransitions:
             ws.advance()  # → VALIDATION
         assert ws.retry_count == 3
 
-    @pytest.mark.parametrize("phase", [
-        WorkflowPhase.DISCOVERY,
-        WorkflowPhase.ARCHITECTURE,
-        WorkflowPhase.GENERATION,
-        WorkflowPhase.VALIDATION,
-    ])
+    @pytest.mark.parametrize(
+        "phase",
+        [
+            WorkflowPhase.DISCOVERY,
+            WorkflowPhase.ARCHITECTURE,
+            WorkflowPhase.GENERATION,
+            WorkflowPhase.VALIDATION,
+        ],
+    )
     def test_error_transition_from_any_phase(self, phase: WorkflowPhase) -> None:
         ws = WorkflowState(workflow_id=f"err-{phase.value}")
         ws.current_phase = phase
@@ -331,10 +334,7 @@ class TestCompletionPromiseEdgeCases:
             tmp_path,
             {
                 "last_assistant_message": (
-                    "Here is an example:\n\n"
-                    "```\n"
-                    f"{COMPLETION_PROMISE_MARKER}\n"
-                    "```\n"
+                    f"Here is an example:\n\n```\n{COMPLETION_PROMISE_MARKER}\n```\n"
                 ),
                 "current_iteration": 1,
             },
@@ -391,9 +391,7 @@ class TestCompletionPromiseAdditional:
         assert COMPLETION_PROMISE_MARKER == "<promise>COMPLETE</promise>"
 
     def test_config_structure(self) -> None:
-        config = generate_stop_hook_completion_check_config(
-            "team-lead", "/path/to/script.sh"
-        )
+        config = generate_stop_hook_completion_check_config("team-lead", "/path/to/script.sh")
         assert "Stop" in config
         hooks = config["Stop"][0]["hooks"]
         assert len(hooks) == 1

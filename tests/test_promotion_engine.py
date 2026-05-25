@@ -664,7 +664,9 @@ class TestClusterInstinctsNoCrossTargetLeakage:
     def test_each_principle_appears_exactly_once(self) -> None:
         principles = [_principle(type_="feature", name=f"p{i}") for i in range(5)]
         result = cluster_instincts(principles)
-        all_principles = list(result.skill) + list(result.command) + list(result.agent) + list(result.template)
+        all_principles = (
+            list(result.skill) + list(result.command) + list(result.agent) + list(result.template)
+        )
         assert len(all_principles) == 5
         assert all(p in all_principles for p in principles)
 

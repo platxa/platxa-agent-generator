@@ -26,23 +26,25 @@ def _make_instinct_content(
     type_: str = "tool_use",
 ) -> str:
     """Build instinct markdown with promotion-relevant frontmatter fields."""
-    return "\n".join([
-        "---",
-        f"name: {name}",
-        f"description: {description}",
-        f"confidence: {confidence}",
-        f"usage_count: {usage_count}",
-        f"success_count: {success_count}",
-        f"type: {type_}",
-        "created: 2026-05-01T00:00:00Z",
-        "last_seen: 2026-05-25T00:00:00Z",
-        "---",
-        "",
-        f"# {name}",
-        "",
-        "Body text.",
-        "",
-    ])
+    return "\n".join(
+        [
+            "---",
+            f"name: {name}",
+            f"description: {description}",
+            f"confidence: {confidence}",
+            f"usage_count: {usage_count}",
+            f"success_count: {success_count}",
+            f"type: {type_}",
+            "created: 2026-05-01T00:00:00Z",
+            "last_seen: 2026-05-25T00:00:00Z",
+            "---",
+            "",
+            f"# {name}",
+            "",
+            "Body text.",
+            "",
+        ]
+    )
 
 
 def _seed_store(tmp_path: Path, instincts: list[dict[str, object]]) -> Path:
@@ -79,16 +81,19 @@ class TestEvolveBasic:
     def test_evolve_dry_run_json_reports_eligible(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        root = _seed_store(tmp_path, [
-            {
-                "name": "eligible-one",
-                "scope": "global",
-                "type": "tool_use",
-                "content": _make_instinct_content(
-                    "eligible-one", confidence=0.9, usage_count=5, success_count=2
-                ),
-            },
-        ])
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "eligible-one",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content(
+                        "eligible-one", confidence=0.9, usage_count=5, success_count=2
+                    ),
+                },
+            ],
+        )
         cli = CLI()
         rc = cli.run(["--json", "evolve", "--dry-run", "--root", str(root)])
         assert rc == 0
@@ -100,16 +105,19 @@ class TestEvolveBasic:
     def test_evolve_filters_ineligible(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        root = _seed_store(tmp_path, [
-            {
-                "name": "below-threshold",
-                "scope": "global",
-                "type": "tool_use",
-                "content": _make_instinct_content(
-                    "below-threshold", confidence=0.3, usage_count=1, success_count=0
-                ),
-            },
-        ])
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "below-threshold",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content(
+                        "below-threshold", confidence=0.3, usage_count=1, success_count=0
+                    ),
+                },
+            ],
+        )
         cli = CLI()
         rc = cli.run(["--json", "evolve", "--dry-run", "--root", str(root)])
         assert rc == 0
@@ -124,22 +132,31 @@ class TestEvolveThresholdOverride:
     def test_threshold_override_lowers_bar(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        root = _seed_store(tmp_path, [
-            {
-                "name": "marginal",
-                "scope": "global",
-                "type": "tool_use",
-                "content": _make_instinct_content(
-                    "marginal", confidence=0.5, usage_count=3, success_count=1
-                ),
-            },
-        ])
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "marginal",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content(
+                        "marginal", confidence=0.5, usage_count=3, success_count=1
+                    ),
+                },
+            ],
+        )
         cli = CLI()
-        rc = cli.run([
-            "--json", "evolve", "--dry-run",
-            "--threshold", "0.4",
-            "--root", str(root),
-        ])
+        rc = cli.run(
+            [
+                "--json",
+                "evolve",
+                "--dry-run",
+                "--threshold",
+                "0.4",
+                "--root",
+                str(root),
+            ]
+        )
         assert rc == 0
         output = json.loads(capsys.readouterr().out)
         assert output["eligible"] == 1
@@ -148,23 +165,32 @@ class TestEvolveThresholdOverride:
     def test_min_occurrences_override(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        root = _seed_store(tmp_path, [
-            {
-                "name": "low-occ",
-                "scope": "global",
-                "type": "tool_use",
-                "content": _make_instinct_content(
-                    "low-occ", confidence=0.9, usage_count=2, success_count=1
-                ),
-            },
-        ])
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "low-occ",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content(
+                        "low-occ", confidence=0.9, usage_count=2, success_count=1
+                    ),
+                },
+            ],
+        )
         cli = CLI()
         # Default threshold is 3, so usage_count=2 would fail
-        rc = cli.run([
-            "--json", "evolve", "--dry-run",
-            "--min-occurrences", "2",
-            "--root", str(root),
-        ])
+        rc = cli.run(
+            [
+                "--json",
+                "evolve",
+                "--dry-run",
+                "--min-occurrences",
+                "2",
+                "--root",
+                str(root),
+            ]
+        )
         assert rc == 0
         output = json.loads(capsys.readouterr().out)
         assert output["eligible"] == 1
@@ -173,23 +199,32 @@ class TestEvolveThresholdOverride:
     def test_min_success_count_override(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        root = _seed_store(tmp_path, [
-            {
-                "name": "low-succ",
-                "scope": "global",
-                "type": "tool_use",
-                "content": _make_instinct_content(
-                    "low-succ", confidence=0.9, usage_count=5, success_count=0
-                ),
-            },
-        ])
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "low-succ",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content(
+                        "low-succ", confidence=0.9, usage_count=5, success_count=0
+                    ),
+                },
+            ],
+        )
         cli = CLI()
         # Default success_count threshold is 1, so success_count=0 would fail
-        rc = cli.run([
-            "--json", "evolve", "--dry-run",
-            "--min-success-count", "0",
-            "--root", str(root),
-        ])
+        rc = cli.run(
+            [
+                "--json",
+                "evolve",
+                "--dry-run",
+                "--min-success-count",
+                "0",
+                "--root",
+                str(root),
+            ]
+        )
         assert rc == 0
         output = json.loads(capsys.readouterr().out)
         assert output["eligible"] == 1
@@ -198,22 +233,31 @@ class TestEvolveThresholdOverride:
     def test_threshold_override_raises_bar(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        root = _seed_store(tmp_path, [
-            {
-                "name": "was-eligible",
-                "scope": "global",
-                "type": "tool_use",
-                "content": _make_instinct_content(
-                    "was-eligible", confidence=0.8, usage_count=5, success_count=2
-                ),
-            },
-        ])
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "was-eligible",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content(
+                        "was-eligible", confidence=0.8, usage_count=5, success_count=2
+                    ),
+                },
+            ],
+        )
         cli = CLI()
-        rc = cli.run([
-            "--json", "evolve", "--dry-run",
-            "--threshold", "0.95",
-            "--root", str(root),
-        ])
+        rc = cli.run(
+            [
+                "--json",
+                "evolve",
+                "--dry-run",
+                "--threshold",
+                "0.95",
+                "--root",
+                str(root),
+            ]
+        )
         assert rc == 0
         output = json.loads(capsys.readouterr().out)
         assert output["eligible"] == 0
@@ -225,20 +269,23 @@ class TestEvolveTargetFilter:
     def test_target_all_returns_all_eligible(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        root = _seed_store(tmp_path, [
-            {
-                "name": "inst-a",
-                "scope": "global",
-                "type": "tool_use",
-                "content": _make_instinct_content("inst-a"),
-            },
-            {
-                "name": "inst-b",
-                "scope": "global",
-                "type": "discovery",
-                "content": _make_instinct_content("inst-b", type_="discovery"),
-            },
-        ])
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "inst-a",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content("inst-a"),
+                },
+                {
+                    "name": "inst-b",
+                    "scope": "global",
+                    "type": "discovery",
+                    "content": _make_instinct_content("inst-b", type_="discovery"),
+                },
+            ],
+        )
         cli = CLI()
         rc = cli.run(["--json", "evolve", "--dry-run", "--target", "all", "--root", str(root)])
         assert rc == 0
@@ -248,26 +295,29 @@ class TestEvolveTargetFilter:
     def test_target_skill_filters_correctly(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        root = _seed_store(tmp_path, [
-            {
-                "name": "workflow-inst",
-                "scope": "global",
-                "type": "discovery",
-                "content": _make_instinct_content(
-                    "workflow-inst", type_="discovery",
-                    description="multi-step workflow pipeline orchestration"
-                ),
-            },
-            {
-                "name": "cmd-inst",
-                "scope": "global",
-                "type": "tool_use",
-                "content": _make_instinct_content(
-                    "cmd-inst", type_="tool_use",
-                    description="run execute validate check"
-                ),
-            },
-        ])
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "workflow-inst",
+                    "scope": "global",
+                    "type": "discovery",
+                    "content": _make_instinct_content(
+                        "workflow-inst",
+                        type_="discovery",
+                        description="multi-step workflow pipeline orchestration",
+                    ),
+                },
+                {
+                    "name": "cmd-inst",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content(
+                        "cmd-inst", type_="tool_use", description="run execute validate check"
+                    ),
+                },
+            ],
+        )
         cli = CLI()
         rc = cli.run(["--json", "evolve", "--dry-run", "--target", "skill", "--root", str(root)])
         assert rc == 0
@@ -281,17 +331,18 @@ class TestEvolveTargetFilter:
 class TestEvolveHumanOutput:
     """Human-readable (non-JSON) output mode."""
 
-    def test_dry_run_human_output(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
-        root = _seed_store(tmp_path, [
-            {
-                "name": "promoted-one",
-                "scope": "global",
-                "type": "tool_use",
-                "content": _make_instinct_content("promoted-one"),
-            },
-        ])
+    def test_dry_run_human_output(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "promoted-one",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content("promoted-one"),
+                },
+            ],
+        )
         cli = CLI()
         rc = cli.run(["evolve", "--dry-run", "--root", str(root)])
         assert rc == 0
@@ -302,14 +353,17 @@ class TestEvolveHumanOutput:
     def test_non_dry_run_human_output(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
     ) -> None:
-        root = _seed_store(tmp_path, [
-            {
-                "name": "ready-inst",
-                "scope": "global",
-                "type": "tool_use",
-                "content": _make_instinct_content("ready-inst"),
-            },
-        ])
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "ready-inst",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content("ready-inst"),
+                },
+            ],
+        )
         cli = CLI()
         rc = cli.run(["evolve", "--root", str(root)])
         assert rc == 0

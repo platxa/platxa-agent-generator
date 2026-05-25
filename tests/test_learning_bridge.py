@@ -149,10 +149,14 @@ class TestInstinctInjection:
 
     def test_single_instinct_in_output(self, tmp_path: Path) -> None:
         instincts_dir = tmp_path / ".claude" / "instincts"
-        _write_instinct(instincts_dir, "grep-first", (
-            "---\nname: grep-first\ndescription: Always grep before reading\n---\n\n"
-            "# grep-first\n\nUse grep to locate symbols.\n"
-        ))
+        _write_instinct(
+            instincts_dir,
+            "grep-first",
+            (
+                "---\nname: grep-first\ndescription: Always grep before reading\n---\n\n"
+                "# grep-first\n\nUse grep to locate symbols.\n"
+            ),
+        )
         result = _run_session_start(
             tmp_path,
             instincts_dir=str(instincts_dir),
@@ -203,10 +207,13 @@ class TestProgressLogRestoration:
 
     def test_progress_in_output(self, tmp_path: Path) -> None:
         progress_path = tmp_path / ".claude" / "claude-progress.txt"
-        _write_progress(progress_path, [
-            "PROGRESS Phase 1: Discovery completed",
-            "PROGRESS Phase 2: Architecture designed",
-        ])
+        _write_progress(
+            progress_path,
+            [
+                "PROGRESS Phase 1: Discovery completed",
+                "PROGRESS Phase 2: Architecture designed",
+            ],
+        )
         result = _run_session_start(
             tmp_path,
             progress_file=str(progress_path),
@@ -357,23 +364,34 @@ class TestEndToEndSessionBridge:
 
     def test_full_lifecycle(self, tmp_path: Path) -> None:
         instincts_dir = tmp_path / ".claude" / "instincts"
-        _write_instinct(instincts_dir, "prefer-grep", (
-            "---\nname: prefer-grep\n"
-            "description: Use grep before reading full files\n---\n\n"
-            "Always grep first.\n"
-        ))
-        _write_instinct(instincts_dir, "test-first", (
-            "---\nname: test-first\n"
-            "description: Write tests before implementation\n---\n\n"
-            "Red-green-refactor.\n"
-        ))
+        _write_instinct(
+            instincts_dir,
+            "prefer-grep",
+            (
+                "---\nname: prefer-grep\n"
+                "description: Use grep before reading full files\n---\n\n"
+                "Always grep first.\n"
+            ),
+        )
+        _write_instinct(
+            instincts_dir,
+            "test-first",
+            (
+                "---\nname: test-first\n"
+                "description: Write tests before implementation\n---\n\n"
+                "Red-green-refactor.\n"
+            ),
+        )
 
         progress_path = tmp_path / ".claude" / "claude-progress.txt"
-        _write_progress(progress_path, [
-            "PROGRESS Phase 1: Discovery — identified 5 key files",
-            "PROGRESS Phase 2: Architecture — chose orchestrator pattern",
-            "PROGRESS Phase 3: Implementation — 3/5 files written",
-        ])
+        _write_progress(
+            progress_path,
+            [
+                "PROGRESS Phase 1: Discovery — identified 5 key files",
+                "PROGRESS Phase 2: Architecture — chose orchestrator pattern",
+                "PROGRESS Phase 3: Implementation — 3/5 files written",
+            ],
+        )
 
         sp = StatePersistence(base_dir=tmp_path)
         sp.initialize()

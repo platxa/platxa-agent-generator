@@ -324,9 +324,7 @@ def judge(criterion: str, content: str) -> CriterionScore:
     }
 
     if criterion not in dispatch:
-        raise ValueError(
-            f"Unknown criterion {criterion!r}; valid: {sorted(dispatch)}"
-        )
+        raise ValueError(f"Unknown criterion {criterion!r}; valid: {sorted(dispatch)}")
 
     return dispatch[criterion]()
 
