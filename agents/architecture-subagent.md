@@ -20,7 +20,7 @@ You are an architecture specialist for the Platxa Agent Generator. Your role is 
 
 ## Input Format
 
-You receive discovery output and classification results:
+You receive discovery output, classification results, and context discovery:
 
 ```json
 {
@@ -37,9 +37,37 @@ You receive discovery output and classification results:
     "best_practices": [...],
     "tools": {...},
     "suggested_workflow": [...]
+  },
+  "context_discovery": {
+    "agents_found": 3,
+    "agents": [
+      {
+        "name": "existing-agent",
+        "file_path": ".claude/agents/existing-agent.md",
+        "tools": ["Read", "Grep"],
+        "line_ranges": [[1, 5]]
+      }
+    ],
+    "patterns": {
+      "total_agents": 3,
+      "tool_frequency": {"Read": 3, "Grep": 2, "Bash": 1},
+      "recommended_base": ["Read", "Grep"]
+    },
+    "conflict_check": {
+      "has_conflict": false,
+      "similar_names": ["existing-agent"],
+      "similarity_scores": {"existing-agent": 0.72}
+    }
   }
 }
 ```
+
+The `context_discovery` block comes from `discovery_report()` in
+`context_discovery.py`. Use it to:
+- Avoid duplicating tool grants already covered by existing agents
+- Use `patterns.recommended_base` and `patterns.tool_frequency` when selecting tool permissions in Step 4
+- Detect naming collisions via `conflict_check.similarity_scores`
+- Reference `line_ranges` when citing existing agent structure
 
 ## Workflow
 
