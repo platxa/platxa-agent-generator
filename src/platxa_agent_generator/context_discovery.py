@@ -23,6 +23,7 @@ import json
 import re
 from collections import Counter
 from dataclasses import asdict, dataclass, field
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +56,7 @@ class ConflictCheck:
     exact_match: ExistingAgent | None = None
     similar_names: list[str] = field(default_factory=list)
     suggestions: list[str] = field(default_factory=list)
+    similarity_scores: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -184,9 +186,13 @@ def check_name_conflict(
     exact_match: ExistingAgent | None = None
     similar: list[str] = []
     suggestions: list[str] = []
+    all_scores: list[tuple[str, float]] = []
 
     for agent in existing_agents:
         agent_lower = agent.name.lower()
+
+        score = SequenceMatcher(None, proposed_lower, agent_lower).ratio()
+        all_scores.append((agent.name, score))
 
         # Exact match (case-insensitive)
         if agent_lower == proposed_lower:
@@ -221,11 +227,15 @@ def check_name_conflict(
             f"Similar agents exist: {', '.join(similar)}. Verify this is not a duplicate."
         )
 
+    all_scores.sort(key=lambda pair: pair[1], reverse=True)
+    similarity_scores = {name: score for name, score in all_scores[:5]}
+
     return ConflictCheck(
         has_conflict=has_conflict,
         exact_match=exact_match,
         similar_names=similar,
         suggestions=suggestions,
+        similarity_scores=similarity_scores,
     )
 
 
@@ -319,6 +329,7 @@ def discovery_report(
             "exact_match": asdict(conflict.exact_match) if conflict.exact_match else None,
             "similar_names": conflict.similar_names,
             "suggestions": conflict.suggestions,
+            "similarity_scores": conflict.similarity_scores,
         }
 
     return report
@@ -379,6 +390,7 @@ def main() -> None:
                 "exact_match": asdict(conflict.exact_match) if conflict.exact_match else None,
                 "similar_names": conflict.similar_names,
                 "suggestions": conflict.suggestions,
+                "similarity_scores": conflict.similarity_scores,
             }
             print(json.dumps(result, indent=2))
         else:
