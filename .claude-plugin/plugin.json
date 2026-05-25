@@ -1,7 +1,7 @@
 {
   "name": "platxa-agent-generator",
-  "version": "1.0.1",
-  "description": "Transform natural language descriptions into production-ready AI agents for Claude Code CLI",
+  "version": "1.1.0",
+  "description": "Transform natural language descriptions into production-ready AI agents for Claude Code CLI. Includes continuous-learning pipeline with observation capture, instinct promotion, and self-improvement.",
   "author": {
     "name": "DJ Patel",
     "email": "dev@platxa.com",
@@ -17,6 +17,8 @@
     "anthropic",
     "code-generation",
     "orchestrator",
-    "nlp-to-agent"
+    "nlp-to-agent",
+    "continuous-learning",
+    "self-improvement"
   ]
 }
