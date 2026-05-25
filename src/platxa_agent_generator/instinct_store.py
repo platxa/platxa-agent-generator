@@ -693,7 +693,9 @@ def _parse_iso_datetime(value: str) -> datetime.datetime | None:
     if not value:
         return None
     try:
-        dt = datetime.datetime.fromisoformat(value)
+        # Python 3.10 fromisoformat does not accept trailing 'Z'; normalize.
+        normalized = value.replace("Z", "+00:00") if value.endswith("Z") else value
+        dt = datetime.datetime.fromisoformat(normalized)
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=datetime.timezone.utc)
         return dt

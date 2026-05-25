@@ -832,7 +832,8 @@ _GC_NOW = "2026-05-10T12:00:00Z"
 
 
 def _gc_now() -> datetime.datetime:
-    return datetime.datetime.fromisoformat(_GC_NOW).replace(tzinfo=datetime.timezone.utc)
+    normalized = _GC_NOW.replace("Z", "+00:00") if _GC_NOW.endswith("Z") else _GC_NOW
+    return datetime.datetime.fromisoformat(normalized).replace(tzinfo=datetime.timezone.utc)
 
 
 class TestGcExpiredInstinctsBasic:
