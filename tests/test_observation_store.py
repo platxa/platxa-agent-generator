@@ -521,6 +521,31 @@ class TestMarkPromoted:
         with pytest.raises(ObservationValidationError, match="instinct_id"):
             store.mark_promoted("", match=lambda _: True)
 
+    def test_preserves_non_dict_and_validation_failing_lines(self, tmp_path: Path) -> None:
+        path = tmp_path / "obs.jsonl"
+        good = json.dumps(
+            {"timestamp": "t1", "tool": "t", "input_summary": "s",
+             "project_id": "p", "project_name": "pn"}
+        )
+        invalid_record = json.dumps(
+            {"timestamp": "", "tool": "x", "input_summary": "x",
+             "project_id": "x", "project_name": "x"}
+        )
+        path.write_text(
+            good + "\n[1,2,3]\n\n" + invalid_record + "\n",
+            encoding="utf-8",
+        )
+        store = ObservationStore(path=path)
+        store.mark_promoted("inst", match=lambda _: True)
+        raw_lines = path.read_text().splitlines()
+        assert len(raw_lines) == 4
+        assert raw_lines[1] == "[1,2,3]"
+        assert raw_lines[2] == ""
+        data = json.loads(raw_lines[0])
+        assert data["promoted_to"] == "inst"
+        invalid_data = json.loads(raw_lines[3])
+        assert invalid_data["timestamp"] == ""
+
     def test_promoted_to_roundtrips_through_jsonl(self, tmp_path: Path) -> None:
         store = ObservationStore(path=tmp_path / "obs.jsonl")
         record = ObservationRecord(
@@ -752,3 +777,362 @@ class TestTailSampling:
         expected_timestamps = [f"t{i}" for i in range(5)] + [f"t{i}" for i in range(15, 20)]
         actual_timestamps = [r.timestamp for r in result]
         assert actual_timestamps == expected_timestamps
+
+
+# --- Migration (feature #71) ------------------------------------------------
+
+
+class TestMigration:
+    """Verification: non-destructive schema migration with backup."""
+
+    def _make_minimal(self, idx: int) -> ObservationRecord:
+        return ObservationRecord(
+            timestamp=f"t{idx}",
+            tool="Bash",
+            input_summary=f"obs {idx}",
+            project_id="p",
+            project_name="pn",
+        )
+
+    def test_missing_file_returns_empty_report(self, tmp_path: Path) -> None:
+        store = ObservationStore(path=tmp_path / "missing.jsonl")
+        result = store.migrate()
+        assert result == {"migrated": 0, "total": 0, "backup_path": "", "output_path": ""}
+
+    def test_legacy_rows_are_upgraded(self, tmp_path: Path) -> None:
+        path = tmp_path / "obs.jsonl"
+        legacy_row = json.dumps(
+            {
+                "timestamp": "2026-04-13T20:37:02Z",
+                "tool": "Bash",
+                "input_summary": "cmd: test",
+                "project_id": "abc",
+                "project_name": "proj",
+            }
+        )
+        path.write_text(legacy_row + "\n", encoding="utf-8")
+        store = ObservationStore(path=path)
+        result = store.migrate()
+        assert result["migrated"] == 1
+        assert result["total"] == 1
+        output = Path(str(result["output_path"]))
+        assert output.exists()
+        upgraded = json.loads(output.read_text(encoding="utf-8").strip())
+        assert upgraded["session_id"] == ""
+        assert upgraded["type"] == "tool_use"
+        assert upgraded["confidence"] == 1.0
+
+    def test_already_complete_rows_not_counted_as_migrated(self, tmp_path: Path) -> None:
+        path = tmp_path / "obs.jsonl"
+        record = self._make_minimal(0)
+        path.write_text(record.to_jsonl(), encoding="utf-8")
+        store = ObservationStore(path=path)
+        result = store.migrate()
+        assert result["migrated"] == 0
+        assert result["total"] == 1
+
+    def test_idempotent_second_run(self, tmp_path: Path) -> None:
+        path = tmp_path / "obs.jsonl"
+        record = self._make_minimal(0)
+        path.write_text(record.to_jsonl(), encoding="utf-8")
+        store = ObservationStore(path=path)
+        first = store.migrate()
+        second = store.migrate()
+        assert first["total"] == second["total"]
+        output_first = Path(str(first["output_path"])).read_bytes()
+        output_second = Path(str(second["output_path"])).read_bytes()
+        assert output_first == output_second
+
+    def test_backup_created(self, tmp_path: Path) -> None:
+        path = tmp_path / "obs.jsonl"
+        original_content = self._make_minimal(0).to_jsonl()
+        path.write_text(original_content, encoding="utf-8")
+        store = ObservationStore(path=path)
+        result = store.migrate()
+        backup = Path(str(result["backup_path"]))
+        assert backup.exists()
+        assert backup.read_text(encoding="utf-8") == original_content
+
+    def test_original_file_untouched(self, tmp_path: Path) -> None:
+        path = tmp_path / "obs.jsonl"
+        original_content = self._make_minimal(0).to_jsonl()
+        path.write_text(original_content, encoding="utf-8")
+        store = ObservationStore(path=path)
+        store.migrate()
+        assert path.read_text(encoding="utf-8") == original_content
+
+    def test_malformed_lines_preserved_verbatim(self, tmp_path: Path) -> None:
+        path = tmp_path / "obs.jsonl"
+        good = json.dumps(
+            {
+                "timestamp": "t1",
+                "tool": "t",
+                "input_summary": "s",
+                "project_id": "p",
+                "project_name": "pn",
+            }
+        )
+        path.write_text(good + "\nnot-json-garbage\n", encoding="utf-8")
+        store = ObservationStore(path=path)
+        result = store.migrate()
+        output = Path(str(result["output_path"]))
+        lines = output.read_text(encoding="utf-8").splitlines(keepends=True)
+        assert any("not-json-garbage" in line for line in lines)
+        assert result["total"] == 1
+
+    def test_mixed_legacy_and_full_rows(self, tmp_path: Path) -> None:
+        path = tmp_path / "obs.jsonl"
+        legacy = json.dumps(
+            {
+                "timestamp": "t1",
+                "tool": "Bash",
+                "input_summary": "s",
+                "project_id": "p",
+                "project_name": "pn",
+            }
+        )
+        full = self._make_minimal(2).to_jsonl().strip()
+        path.write_text(legacy + "\n" + full + "\n", encoding="utf-8")
+        store = ObservationStore(path=path)
+        result = store.migrate()
+        assert result["total"] == 2
+        assert result["migrated"] == 1
+
+    def test_output_path_suffix(self, tmp_path: Path) -> None:
+        path = tmp_path / "obs.jsonl"
+        path.write_text(self._make_minimal(0).to_jsonl(), encoding="utf-8")
+        store = ObservationStore(path=path)
+        result = store.migrate()
+        assert str(result["output_path"]).endswith(".v2")
+        assert str(result["backup_path"]).endswith(".v1.bak")
+
+    def test_migrate_preserves_empty_lines_and_non_dict_json(self, tmp_path: Path) -> None:
+        path = tmp_path / "obs.jsonl"
+        good = self._make_minimal(0).to_jsonl().strip()
+        path.write_text(
+            good + "\n\n[1,2,3]\nnot-json\n" + good.replace("t0", "t1") + "\n",
+            encoding="utf-8",
+        )
+        store = ObservationStore(path=path)
+        result = store.migrate()
+        assert result["total"] == 2
+        output = Path(str(result["output_path"]))
+        raw = output.read_text(encoding="utf-8")
+        assert "\n\n" in raw or raw.count("\n") >= 4
+        assert "[1,2,3]" in raw
+        assert "not-json" in raw
+
+    def test_migrate_preserves_validation_failing_rows(self, tmp_path: Path) -> None:
+        path = tmp_path / "obs.jsonl"
+        invalid_row = json.dumps(
+            {"timestamp": "", "tool": "x", "input_summary": "x",
+             "project_id": "x", "project_name": "x"}
+        )
+        good = self._make_minimal(0).to_jsonl().strip()
+        path.write_text(invalid_row + "\n" + good + "\n", encoding="utf-8")
+        store = ObservationStore(path=path)
+        result = store.migrate()
+        assert result["total"] == 1
+        output = Path(str(result["output_path"]))
+        lines = output.read_text(encoding="utf-8").splitlines()
+        assert len(lines) == 2
+        assert json.loads(lines[0])["timestamp"] == ""
+
+
+# --- Stats (feature #71) ----------------------------------------------------
+
+
+class TestStats:
+    """Verification: aggregate statistics over parseable records."""
+
+    def test_empty_store(self, tmp_path: Path) -> None:
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        result = store.stats()
+        assert result == {
+            "total": {"count": 0},
+            "promoted": {"count": 0},
+            "by_type": {},
+            "by_tool": {},
+            "by_agent": {},
+        }
+
+    def test_by_type_aggregation(self, tmp_path: Path) -> None:
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        store.append(
+            ObservationRecord(
+                timestamp="t1", tool="Bash", input_summary="s",
+                project_id="p", project_name="pn", type="decision",
+            )
+        )
+        store.append(
+            ObservationRecord(
+                timestamp="t2", tool="Read", input_summary="s",
+                project_id="p", project_name="pn", type="decision",
+            )
+        )
+        store.append(
+            ObservationRecord(
+                timestamp="t3", tool="Bash", input_summary="s",
+                project_id="p", project_name="pn", type="tool_use",
+            )
+        )
+        result = store.stats()
+        assert result["by_type"] == {"decision": 2, "tool_use": 1}
+
+    def test_by_tool_aggregation(self, tmp_path: Path) -> None:
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        store.append(
+            ObservationRecord(
+                timestamp="t1", tool="Bash", input_summary="s",
+                project_id="p", project_name="pn",
+            )
+        )
+        store.append(
+            ObservationRecord(
+                timestamp="t2", tool="Bash", input_summary="s",
+                project_id="p", project_name="pn",
+            )
+        )
+        store.append(
+            ObservationRecord(
+                timestamp="t3", tool="Read", input_summary="s",
+                project_id="p", project_name="pn",
+            )
+        )
+        result = store.stats()
+        assert result["by_tool"] == {"Bash": 2, "Read": 1}
+
+    def test_by_agent_aggregation(self, tmp_path: Path) -> None:
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        store.append(
+            ObservationRecord(
+                timestamp="t1", tool="Bash", input_summary="s",
+                project_id="p", project_name="pn", agent_name="observer",
+            )
+        )
+        store.append(
+            ObservationRecord(
+                timestamp="t2", tool="Read", input_summary="s",
+                project_id="p", project_name="pn", agent_name="observer",
+            )
+        )
+        store.append(
+            ObservationRecord(
+                timestamp="t3", tool="Bash", input_summary="s",
+                project_id="p", project_name="pn", agent_name="reviewer",
+            )
+        )
+        result = store.stats()
+        assert result["by_agent"] == {"observer": 2, "reviewer": 1}
+
+    def test_unknown_agent_grouped(self, tmp_path: Path) -> None:
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        store.append(
+            ObservationRecord(
+                timestamp="t1", tool="Bash", input_summary="s",
+                project_id="p", project_name="pn", agent_name="",
+            )
+        )
+        store.append(
+            ObservationRecord(
+                timestamp="t2", tool="Read", input_summary="s",
+                project_id="p", project_name="pn",
+            )
+        )
+        result = store.stats()
+        assert result["by_agent"] == {"(unknown)": 2}
+
+    def test_promoted_count(self, tmp_path: Path) -> None:
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        store.append(
+            ObservationRecord(
+                timestamp="t1", tool="Bash", input_summary="s",
+                project_id="p", project_name="pn", promoted_to="instinct-a",
+            )
+        )
+        store.append(
+            ObservationRecord(
+                timestamp="t2", tool="Read", input_summary="s",
+                project_id="p", project_name="pn",
+            )
+        )
+        store.append(
+            ObservationRecord(
+                timestamp="t3", tool="Grep", input_summary="s",
+                project_id="p", project_name="pn", promoted_to="instinct-b",
+            )
+        )
+        result = store.stats()
+        assert result["promoted"] == {"count": 2}
+        assert result["total"] == {"count": 3}
+
+    def test_total_count(self, tmp_path: Path) -> None:
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        for i in range(5):
+            store.append(
+                ObservationRecord(
+                    timestamp=f"t{i}", tool="Bash", input_summary="s",
+                    project_id="p", project_name="pn",
+                )
+            )
+        result = store.stats()
+        assert result["total"] == {"count": 5}
+
+    def test_keys_sorted_alphabetically(self, tmp_path: Path) -> None:
+        store = ObservationStore(path=tmp_path / "obs.jsonl")
+        store.append(
+            ObservationRecord(
+                timestamp="t1", tool="Zzz", input_summary="s",
+                project_id="p", project_name="pn", type="refactor",
+            )
+        )
+        store.append(
+            ObservationRecord(
+                timestamp="t2", tool="Aaa", input_summary="s",
+                project_id="p", project_name="pn", type="bugfix",
+            )
+        )
+        result = store.stats()
+        assert list(result["by_type"].keys()) == ["bugfix", "refactor"]
+        assert list(result["by_tool"].keys()) == ["Aaa", "Zzz"]
+
+
+# --- pattern_label validation (feature #71) ----------------------------------
+
+
+class TestPatternLabelValidation:
+    """Edge cases for the pattern_label optional field."""
+
+    @pytest.mark.parametrize("bad_value", ["", "   "])
+    def test_empty_or_whitespace_raises(self, bad_value: str) -> None:
+        with pytest.raises(ObservationValidationError, match="pattern_label"):
+            ObservationRecord(
+                timestamp="t",
+                tool="t",
+                input_summary="t",
+                project_id="t",
+                project_name="t",
+                pattern_label=bad_value,
+            )
+
+    def test_none_is_accepted(self) -> None:
+        record = ObservationRecord(
+            timestamp="t",
+            tool="t",
+            input_summary="t",
+            project_id="t",
+            project_name="t",
+            pattern_label=None,
+        )
+        assert record.pattern_label is None
+
+    def test_valid_string_accepted(self) -> None:
+        record = ObservationRecord(
+            timestamp="t",
+            tool="t",
+            input_summary="t",
+            project_id="t",
+            project_name="t",
+            pattern_label="retry-on-failure",
+        )
+        assert record.pattern_label == "retry-on-failure"
