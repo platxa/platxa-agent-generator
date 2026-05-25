@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
-"""
-Test Harness for Agent Invocation Testing
+"""Static structural validation for agent definition files.
+
+Validates agent ``.md`` structure and syntax (frontmatter, tool grants,
+section headings, example blocks) without executing the agent. For
+behavioral testing that exercises agent output via ``eval_runner``, see
+:mod:`platxa_agent_generator.eval_runner`.
 
 Provides a framework for testing agent definitions by:
 1. Validating agent structure and syntax
