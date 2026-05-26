@@ -160,6 +160,9 @@ CLAUDE.md
 .claude/dispatches_index.json.lock
 .claude/dispatch_index/
 
+# Agent definitions (generated per-developer, not tracked)
+.claude/agents/
+
 # Agent transcripts, memory, instincts, telemetry (per-developer)
 .claude/agent_transcripts/
 .claude/agent-memory/
