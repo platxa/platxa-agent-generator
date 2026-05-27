@@ -42,7 +42,6 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | `tests/test_frontmatter_flags.py` | 2 | 16 |
 | `tests/test_type_classification.py` | 3 | 16 |
 | `tests/test_dryrun.py` | 2 | 14 |
-| `tests/test_readme.py` | 1 | 13 |
 | `tests/test_conftest_check.py` | 1 | 12 |
 | `tests/test_analyzer.py` | 1 | 11 |
 | `tests/test_progress_tracking.py` | 1 | 11 |
@@ -148,7 +147,6 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | 92 | `TestBatchGeneration` | 14735 | 11 | `tests/test_batch.py` |
 | 93 | `TestBatchPolicy` | 14967 | 9 | `tests/test_batch.py` |
 | 94 | `TestInstallScopeRecommender` | 15204 | 8 | `tests/test_install.py` |
-| 95 | `TestAgentReadmeGenerator` | 15352 | 13 | `tests/test_readme.py` |
 | 96 | `TestCatalogSkippedAgents` | 15606 | 4 | `tests/test_catalog.py` |
 | 97 | `TestMcpConfigGenerator` | 15751 | 29 | `tests/test_validation.py` |
 | 98 | `TestGenerationReport` | 16165 | 10 | `tests/test_completeness.py` |
