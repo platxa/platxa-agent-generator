@@ -5,8 +5,8 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 ## Summary
 
 - **Source**: `tests/test_generator.py` (19,604 lines)
-- **Classes**: 110 `TestXxx` classes
-- **Tests**: 981 (pytest `--collect-only` count)
+- **Classes**: 107 `TestXxx` classes
+- **Tests**: 941 (pytest `--collect-only` count)
 - **Target modules**: 31 shards under `tests/`
 - **Fixture scope**: All 15 fixtures in `tests/conftest.py` use pytest's default **function** scope (none are class-scoped or mixin-based). They remain in `tests/conftest.py` and are auto-discovered by every sibling test module, so no fixture needs to be relocated or duplicated when sharding. No cross-module fixture splits required.
 
@@ -17,7 +17,7 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | Target module | Classes | Tests |
 |---|---:|---:|
 | `tests/test_hooks.py` | 10 | 133 |
-| `tests/test_validation.py` | 7 | 66 |
+| `tests/test_validation.py` | 6 | 37 |
 | `tests/test_composition.py` | 5 | 58 |
 | `tests/test_prompt_structure.py` | 6 | 69 |
 | `tests/test_patterns.py` | 6 | 51 |
@@ -29,7 +29,7 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | `tests/test_domain_docs.py` | 3 | 31 |
 | `tests/test_integration.py` | 5 | 30 |
 | `tests/test_thinking.py` | 2 | 30 |
-| `tests/test_workflow.py` | 5 | 29 |
+| `tests/test_workflow.py` | 3 | 18 |
 | `tests/test_completeness.py` | 3 | 28 |
 | `tests/test_examples.py` | 3 | 27 |
 | `tests/test_install.py` | 4 | 24 |
@@ -46,7 +46,7 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | `tests/test_progress_tracking.py` | 1 | 11 |
 | `tests/test_generators.py` | 2 | 7 |
 | `tests/test_composer.py` | 1 | 2 |
-| **TOTAL** | **110** | **981** |
+| **TOTAL** | **107** | **941** |
 
 ## Class → Module Map
 
@@ -76,7 +76,6 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | 22 | `TestMAESTROAnalysis` | 2516 | 6 | `tests/test_security_analysis.py` |
 | 23 | `TestWorkflowState` | 2639 | 4 | `tests/test_workflow.py` |
 | 24 | `TestToolSelector` | 2790 | 4 | `tests/test_workflow.py` |
-| 25 | `TestInteractivePrompts` | 2871 | 3 | `tests/test_workflow.py` |
 | 26 | `TestMultiAgentGenerator` | 2938 | 4 | `tests/test_generators.py` |
 | 27 | `TestPromptGenerator` | 3033 | 3 | `tests/test_generators.py` |
 | 28 | `TestInstallAgent` | 3110 | 6 | `tests/test_install.py` |
@@ -127,7 +126,6 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | 73 | `TestGenerationAttributionFooter` | 11452 | 10 | `tests/test_domain_docs.py` |
 | 74 | `TestAgentRegenerationWorkflow` | 11622 | 11 | `tests/test_versioning.py` |
 | 75 | `TestAgentExportBundle` | 11812 | 7 | `tests/test_plugin_export.py` |
-| 76 | `TestInteractiveFrontmatterWizard` | 11987 | 8 | `tests/test_workflow.py` |
 | 77 | `TestAgentAnalyzer` | 12113 | 11 | `tests/test_analyzer.py` |
 | 78 | `TestAgentUpgrader` | 12322 | 13 | `tests/test_versioning.py` |
 | 79 | `TestComposeRouter` | 12562 | 14 | `tests/test_composition.py` |
@@ -145,7 +143,6 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | 92 | `TestBatchGeneration` | 14735 | 11 | `tests/test_batch.py` |
 | 93 | `TestBatchPolicy` | 14967 | 9 | `tests/test_batch.py` |
 | 94 | `TestInstallScopeRecommender` | 15204 | 8 | `tests/test_install.py` |
-| 97 | `TestMcpConfigGenerator` | 15751 | 29 | `tests/test_validation.py` |
 | 98 | `TestGenerationReport` | 16165 | 10 | `tests/test_completeness.py` |
 | 99 | `TestAgentLint` | 16382 | 10 | `tests/test_completeness.py` |
 | 100 | `TestPostInstallVerification` | 16562 | 7 | `tests/test_install.py` |
