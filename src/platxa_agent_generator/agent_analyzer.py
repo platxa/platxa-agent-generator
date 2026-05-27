@@ -52,8 +52,7 @@ IMPROVEMENT_CATEGORIES: tuple[str, ...] = ("missing_field", "security", "context
 
 
 # Frontmatter fields that are optional in Claude Code but significantly
-# improve agent behavior when set. The wizard (interactive_prompts.py)
-# guides users to these three; the analyzer nudges authors who skipped
+# improve agent behavior when set. The analyzer nudges authors who skipped
 # them to go back and fill them in.
 _OPTIONAL_HIGH_VALUE_FIELDS: tuple[tuple[str, str, str], ...] = (
     (
