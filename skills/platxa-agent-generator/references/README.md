@@ -2,7 +2,7 @@
 
 Comprehensive reference documentation for agent patterns based on Anthropic's "Building Effective Agents" research.
 
-## Pattern Overview
+## Pattern References
 
 | Pattern | Complexity | Use Case | Key Strength |
 |---------|------------|----------|--------------|
@@ -11,6 +11,19 @@ Comprehensive reference documentation for agent patterns based on Anthropic's "B
 | [Parallelization](parallelization.md) | Medium | Independent subtasks | Speed |
 | [Orchestrator-Workers](orchestrator-workers.md) | High | Dynamic decomposition | Flexibility |
 | [Evaluator-Optimizer](evaluator-optimizer.md) | High | Iterative refinement | Quality |
+
+## Generation References
+
+| Reference | Purpose |
+|-----------|---------|
+| [Tool Selection Tables](tool-selection-tables.md) | Base tools, domain tools, least-privilege rules |
+| [README Generation](readme-generation.md) | Agent catalogue README structure and extraction |
+| [CLAUDE.md Generation](claudemd-generation.md) | Project context file sections and domain guidance |
+| [Command Generation](command-generation.md) | Slash command file structure and frontmatter schema |
+| [Generation Report](generation-report.md) | Quality report format and severity ordering |
+| [Interactive Phases](interactive-phases.md) | Six-phase wizard and frontmatter field mappings |
+| [MCP Server Templates](mcp-server-templates.md) | Pre-defined server configs and domain recommendations |
+| [Regeneration Prompts](regeneration-prompts.md) | Per-axis feedback format for ITERATE verdicts |
 
 ## Pattern Selection Guide
 

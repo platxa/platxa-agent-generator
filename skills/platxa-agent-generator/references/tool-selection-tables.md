@@ -59,6 +59,27 @@ permissions (Step 4 of its workflow).
 3. **Remove Bash** unless the purpose explicitly requires shell execution (keywords: execute, run, command, script, install, build, test, deploy, compile, shell, terminal, process, pip, npm, git).
 4. **Preserve dependencies**: Edit requires Read.
 
+## Capability Keyword → Tool Mapping
+
+When the agent purpose contains these keywords, add the corresponding tools:
+
+| Keywords | Tools |
+|----------|-------|
+| read, examine | Read |
+| analyze | Read, Grep |
+| scan | Glob, Grep |
+| search, find, locate | Glob, Grep |
+| discover | Glob |
+| create, generate, produce, write, output | Write |
+| modify, update, change, fix, refactor, transform | Edit |
+| execute, run, command, script, install, build, test, deploy | Bash |
+| fetch, download | WebFetch |
+| web | WebSearch, WebFetch |
+| internet, online, lookup | WebSearch |
+| coordinate, orchestrate, delegate, spawn, parallel, worker | Task |
+| ask, prompt, clarify, confirm | AskUserQuestion |
+| track, progress, checklist | TodoWrite |
+
 ## Dangerous Combinations
 
 | Combination | Warning |
