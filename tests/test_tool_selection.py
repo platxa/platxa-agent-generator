@@ -2,7 +2,7 @@
 """
 test_tool_selection — sharded from test_generator.py.
 
-Shards: 7 TestXxx classes.
+Shards: 6 TestXxx classes (TestLeastPrivilegeToolSelection removed with tool_selector.py).
 Run with: pytest tests/test_tool_selection.py -v
 """
 
@@ -14,124 +14,6 @@ import sys
 from pathlib import Path
 
 SCRIPTS_DIR = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
-
-
-class TestLeastPrivilegeToolSelection:
-    """Tests for Feature #30: Least-privilege tool selection algorithm."""
-
-    def _select(self, agent_type: str, purpose: str, **kwargs: str) -> dict:
-        """Helper to run tool_selector CLI and return JSON result."""
-        cmd = [
-            sys.executable,
-            str(SCRIPTS_DIR / "tool_selector.py"),
-            "--type",
-            agent_type,
-            "--purpose",
-            purpose,
-            "--json-output",
-        ]
-        if "domain" in kwargs:
-            cmd.extend(["--domain", kwargs["domain"]])
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        assert result.returncode == 0, f"tool_selector failed: {result.stderr}"
-        return json.loads(result.stdout)
-
-    def test_analyzer_gets_read_only_tools(self) -> None:
-        """Analyzer agents should only get Read/Grep/Glob — no Write/Edit/Bash."""
-        data = self._select("analyzer", "scan code for vulnerabilities")
-        tools = data["tools"]
-        assert "Read" in tools
-        assert "Grep" in tools
-        assert "Glob" in tools
-        assert "Write" not in tools
-        assert "Edit" not in tools
-        assert "Bash" not in tools
-
-    def test_validator_gets_read_only_tools(self) -> None:
-        """Validator agents should only get Read/Grep/Glob — no mutation tools."""
-        data = self._select("validator", "check code style compliance")
-        tools = data["tools"]
-        assert "Write" not in tools
-        assert "Edit" not in tools
-        assert "Bash" not in tools
-
-    def test_builder_without_create_gets_edit_not_write(self) -> None:
-        """Builder with 'modify' purpose gets Edit, not Write."""
-        data = self._select("builder", "modify existing configuration files")
-        tools = data["tools"]
-        assert "Edit" in tools
-        assert "Write" not in tools
-
-    def test_builder_with_create_keeps_write(self) -> None:
-        """Builder with 'create' purpose retains Write tool."""
-        data = self._select("builder", "create new module files")
-        tools = data["tools"]
-        assert "Write" in tools
-
-    def test_builder_with_generate_keeps_write(self) -> None:
-        """Builder with 'generate' purpose retains Write tool."""
-        data = self._select("builder", "generate documentation files")
-        tools = data["tools"]
-        assert "Write" in tools
-
-    def test_automation_without_shell_keywords_loses_bash(self) -> None:
-        """Automation agent without shell keywords loses Bash."""
-        data = self._select("automation", "update file metadata")
-        tools = data["tools"]
-        assert "Bash" not in tools
-
-    def test_automation_with_shell_keywords_keeps_bash(self) -> None:
-        """Automation agent with 'run tests' keeps Bash."""
-        data = self._select("automation", "run tests and build artifacts")
-        tools = data["tools"]
-        assert "Bash" in tools
-
-    def test_least_privilege_notes_in_warnings(self) -> None:
-        """Least-privilege enforcement produces warning notes."""
-        data = self._select("builder", "modify existing code")
-        warnings = data["warnings"]
-        lp_notes = [w for w in warnings if "Least-privilege" in w]
-        assert len(lp_notes) > 0, "Expected least-privilege enforcement notes"
-
-    def test_analyzer_with_security_domain_stays_read_only(self) -> None:
-        """Analyzer in security domain should still be read-only."""
-        data = self._select("analyzer", "audit authentication module", domain="security")
-        tools = data["tools"]
-        assert "Write" not in tools
-        assert "Edit" not in tools
-        assert "Bash" not in tools
-
-    def test_least_privilege_disabled_keeps_all_tools(self) -> None:
-        """When least_privilege=false via JSON, Write and Bash are preserved."""
-        input_json = json.dumps(
-            {
-                "type": "builder",
-                "purpose": "modify files",
-                "least_privilege": False,
-            }
-        )
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(SCRIPTS_DIR / "tool_selector.py"),
-                "--type",
-                "builder",
-                "--purpose",
-                "modify files",
-                "--json-output",
-                "--json",
-                input_json,
-            ],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0
-        data = json.loads(result.stdout)
-        # With default behavior (no --no-least-privilege flag), still enforced
-        # This tests the default path which has least_privilege=True
-        # The Write should be downgraded since no create keywords
-        tools = data["tools"]
-        assert "Edit" in tools
 
 
 class TestAgentTeamCompatibility:

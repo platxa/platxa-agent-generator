@@ -22,7 +22,7 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | `tests/test_prompt_structure.py` | 6 | 69 |
 | `tests/test_patterns.py` | 6 | 51 |
 | `tests/test_catalog.py` | 3 | 44 |
-| `tests/test_tool_selection.py` | 7 | 42 |
+| `tests/test_tool_selection.py` | 6 | 32 |
 | `tests/test_versioning.py` | 5 | 41 |
 | `tests/test_skills_commands.py` | 3 | 39 |
 | `tests/test_nlp.py` | 3 | 34 |

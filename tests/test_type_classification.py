@@ -20,7 +20,7 @@ class TestTypeClassifier:
     """Behavioral tests for classify() covering all 4 ArchitectureType values + 2 negative cases.
 
     Each test asserts BOTH the architecture_type AND the suggested_pattern the
-    classifier derives from it, since downstream tool selection (tool_selector.py,
+    classifier derives from it, since downstream tool selection (architecture-subagent,
     catalog seeding) keys off the pattern string — not just the type.
     """
 

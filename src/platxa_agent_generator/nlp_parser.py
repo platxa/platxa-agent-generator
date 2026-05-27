@@ -427,7 +427,6 @@ DOMAIN_KEYWORDS: dict[str, list[str]] = {
     ],
 }
 
-# Domain-specific tool mappings — used by detect_tools() and tool_selector.py
 DOMAIN_TOOLS: dict[str, list[str]] = {
     "web": ["Read", "Write", "Edit", "Grep", "Glob", "Bash"],
     "mobile": ["Read", "Write", "Edit", "Grep", "Glob", "Bash"],
@@ -436,7 +435,6 @@ DOMAIN_TOOLS: dict[str, list[str]] = {
     "security": ["Read", "Grep", "Glob", "Bash"],
     "testing": ["Read", "Bash", "Grep", "Glob"],
     "documentation": ["Read", "Write", "Glob", "Grep"],
-    # Legacy domain keys kept for backward compatibility with tool_selector.py
     "refactoring": ["Read", "Edit", "Grep", "Glob"],
     "code review": ["Read", "Grep", "Glob"],
     "deployment": ["Bash", "Read", "Write"],

@@ -222,6 +222,8 @@ Determine minimal necessary tools:
 }
 ```
 
+Consult `skills/platxa-agent-generator/references/tool-selection-tables.md` for detailed base-tool-by-type tables, domain additions, least-privilege rules, and dangerous-combination warnings.
+
 Tool selection guidelines:
 - **Read**: Any agent that needs file content
 - **Write**: Only builders/generators

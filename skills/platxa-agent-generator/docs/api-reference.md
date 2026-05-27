@@ -9,7 +9,6 @@ from scripts import (
     agent_generator,      # Core agent generation
     nlp_parser,           # Natural language parsing
     type_classifier,      # Agent type classification
-    tool_selector,        # Tool permission selection
     prompt_generator,     # System prompt generation
     quality_scorer,       # Quality scoring
     syntax_validator,     # Syntax validation
@@ -181,70 +180,6 @@ class ClassificationResult:
     reasoning: str
     alternative_patterns: list[str]
 ```
-
----
-
-## tool_selector
-
-Select appropriate tools based on agent requirements.
-
-### select_tools()
-
-```python
-def select_tools(
-    description: str,
-    agent_type: str,
-    parsed: ParsedDescription | None = None
-) -> ToolSelectionResult
-```
-
-Select tools for an agent.
-
-**Parameters:**
-- `description`: Agent description
-- `agent_type`: Classified agent type
-- `parsed`: Optional parsed description
-
-**Returns:** `ToolSelectionResult` with tools and permissions
-
-**Example:**
-```python
-from scripts.tool_selector import select_tools
-
-result = select_tools(
-    description="Analyze files and search for patterns",
-    agent_type="simple"
-)
-
-print(f"Tools: {result.tools}")
-print(f"Rationale: {result.rationale}")
-```
-
-### ToolSelectionResult
-
-```python
-@dataclass
-class ToolSelectionResult:
-    tools: list[str]
-    rationale: dict[str, str]  # tool -> reason
-    warnings: list[str]
-    required: list[str]
-    optional: list[str]
-```
-
-### Available Tools
-
-| Tool | Description |
-|------|-------------|
-| `Read` | Read file contents |
-| `Write` | Create/overwrite files |
-| `Edit` | Modify existing files |
-| `Glob` | Find files by pattern |
-| `Grep` | Search file contents |
-| `Bash` | Execute shell commands |
-| `WebSearch` | Search the internet |
-| `WebFetch` | Fetch web content |
-| `Task` | Spawn subagents |
 
 ---
 

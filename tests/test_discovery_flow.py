@@ -15,7 +15,6 @@ from platxa_agent_generator.context_discovery import (
     ExistingAgent,
     discovery_report,
 )
-from platxa_agent_generator.tool_selector import select_tools
 
 
 def _make_agent(name: str, tools: list[str] | None = None) -> ExistingAgent:
@@ -51,51 +50,6 @@ class TestAgentDefinitionDiscoveryContext:
         )
         assert defn.discovery_context["agents_found"] == 2
         assert "patterns" in defn.discovery_context
-
-
-class TestDiscoveryToToolSelectionFlow:
-    """select_tools() with recommended_base from discovery context."""
-
-    def test_recommended_base_adds_tools(self) -> None:
-        result = select_tools(
-            agent_type="builder",
-            purpose="Build things",
-            recommended_base=["Glob"],
-        )
-        assert "Glob" in result.tools
-
-    def test_recommended_base_none_is_noop(self) -> None:
-        baseline = select_tools(agent_type="analyzer", purpose="Analyze code")
-        with_none = select_tools(
-            agent_type="analyzer", purpose="Analyze code", recommended_base=None
-        )
-        assert baseline.tools == with_none.tools
-
-    def test_recommended_base_skips_already_selected(self) -> None:
-        result = select_tools(
-            agent_type="analyzer",
-            purpose="Analyze code",
-            recommended_base=["Read"],
-        )
-        assert result.tools.count("Read") == 1
-
-    def test_recommended_base_invalid_tool_ignored(self) -> None:
-        result = select_tools(
-            agent_type="analyzer",
-            purpose="Analyze code",
-            recommended_base=["NotARealTool"],
-        )
-        assert "NotARealTool" not in result.tools
-
-    def test_recommended_base_subject_to_least_privilege(self) -> None:
-        result = select_tools(
-            agent_type="analyzer",
-            purpose="Read files",
-            recommended_base=["Write", "Bash"],
-            least_privilege=True,
-        )
-        assert "Write" not in result.tools
-        assert "Bash" not in result.tools
 
 
 class TestDiscoveryToGenerationFlow:
@@ -212,26 +166,29 @@ class TestRelatedAgentsSectionWithDiscovery:
 
 
 class TestDiscoveryPhaseOrdering:
-    """Verify discovery is called before architecture and generation in cli.py."""
+    """Verify discovery is called before generation in cli.py."""
 
     @patch("platxa_agent_generator.cli.context_discovery")
-    @patch("platxa_agent_generator.cli.tool_selector")
     @patch("platxa_agent_generator.cli.agent_generator")
     @patch("platxa_agent_generator.cli.nlp_parser")
     @patch("platxa_agent_generator.cli.type_classifier")
-    def test_discovery_called_before_tool_selection(
+    def test_discovery_called_before_generation(
         self,
         mock_classifier: MagicMock,
         mock_nlp: MagicMock,
         mock_gen: MagicMock,
-        mock_tool_sel: MagicMock,
         mock_cd: MagicMock,
     ) -> None:
         call_order: list[str] = []
 
         mock_nlp.parse.side_effect = lambda _d: (
             call_order.append("nlp_parse"),
-            MagicMock(name="parsed-agent", agent_type="analyzer", description=_d),
+            MagicMock(
+                name="parsed-agent",
+                agent_type="analyzer",
+                description=_d,
+                tools=["Read", "Grep"],
+            ),
         )[1]
 
         mock_classifier.classify.side_effect = lambda _d: (
@@ -246,11 +203,6 @@ class TestDiscoveryPhaseOrdering:
         mock_cd.discovery_report.side_effect = lambda _agents, proposed_name=None: (
             call_order.append("discovery_report"),
             {"agents_found": 0, "agents": [], "patterns": {"recommended_base": []}},
-        )[1]
-
-        mock_tool_sel.select_tools.side_effect = lambda **_kw: (
-            call_order.append("select_tools"),
-            MagicMock(tools=["Read", "Grep"]),
         )[1]
 
         mock_gen.generate.side_effect = lambda **_kw: (
@@ -275,28 +227,27 @@ class TestDiscoveryPhaseOrdering:
 
         scan_idx = call_order.index("scan_all_agents")
         report_idx = call_order.index("discovery_report")
-        select_idx = call_order.index("select_tools")
         gen_idx = call_order.index("generate")
 
         assert scan_idx < report_idx
-        assert report_idx < select_idx
-        assert select_idx < gen_idx
+        assert report_idx < gen_idx
 
     @patch("platxa_agent_generator.cli.context_discovery")
-    @patch("platxa_agent_generator.cli.tool_selector")
     @patch("platxa_agent_generator.cli.agent_generator")
     @patch("platxa_agent_generator.cli.nlp_parser")
     @patch("platxa_agent_generator.cli.type_classifier")
-    def test_discovery_output_piped_to_tool_selector(
+    def test_recommended_base_merged_into_tools(
         self,
         mock_classifier: MagicMock,
         mock_nlp: MagicMock,
         mock_gen: MagicMock,
-        mock_tool_sel: MagicMock,
         mock_cd: MagicMock,
     ) -> None:
         mock_nlp.parse.return_value = MagicMock(
-            name="test-agent", agent_type="builder", description="test"
+            name="test-agent",
+            agent_type="builder",
+            description="test",
+            tools=["Read"],
         )
         mock_classifier.classify.return_value = MagicMock(architecture_type="simple")
         mock_cd.scan_all_agents.return_value = []
@@ -305,7 +256,6 @@ class TestDiscoveryPhaseOrdering:
             "agents": [],
             "patterns": {"recommended_base": ["Glob", "Grep"]},
         }
-        mock_tool_sel.select_tools.return_value = MagicMock(tools=["Read"])
         mock_gen.generate.return_value = (True, "content", "")
 
         from platxa_agent_generator.cli import CLI
@@ -323,12 +273,14 @@ class TestDiscoveryPhaseOrdering:
 
         cli._generate_from_description(args)
 
-        mock_tool_sel.select_tools.assert_called_once()
-        call_kwargs = mock_tool_sel.select_tools.call_args
-        assert call_kwargs.kwargs.get("recommended_base") == ["Glob", "Grep"]
+        mock_gen.generate.assert_called_once()
+        call_kwargs = mock_gen.generate.call_args
+        tools_passed = call_kwargs.kwargs.get("tools")
+        assert "Read" in tools_passed
+        assert "Glob" in tools_passed
+        assert "Grep" in tools_passed
 
     @patch("platxa_agent_generator.cli.context_discovery")
-    @patch("platxa_agent_generator.cli.tool_selector")
     @patch("platxa_agent_generator.cli.agent_generator")
     @patch("platxa_agent_generator.cli.nlp_parser")
     @patch("platxa_agent_generator.cli.type_classifier")
@@ -337,7 +289,6 @@ class TestDiscoveryPhaseOrdering:
         mock_classifier: MagicMock,
         mock_nlp: MagicMock,
         mock_gen: MagicMock,
-        mock_tool_sel: MagicMock,
         mock_cd: MagicMock,
     ) -> None:
         expected_ctx = {
@@ -347,12 +298,14 @@ class TestDiscoveryPhaseOrdering:
         }
 
         mock_nlp.parse.return_value = MagicMock(
-            name="test-agent", agent_type="builder", description="test"
+            name="test-agent",
+            agent_type="builder",
+            description="test",
+            tools=["Read"],
         )
         mock_classifier.classify.return_value = MagicMock(architecture_type="simple")
         mock_cd.scan_all_agents.return_value = []
         mock_cd.discovery_report.return_value = expected_ctx
-        mock_tool_sel.select_tools.return_value = MagicMock(tools=["Read"])
         mock_gen.generate.return_value = (True, "content", "")
 
         from platxa_agent_generator.cli import CLI

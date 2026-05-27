@@ -66,7 +66,6 @@ try:
         quality_scorer,
         security_scanner,
         syntax_validator,
-        tool_selector,
         type_classifier,
         weight_drift_check,
         workflow_state,
@@ -93,7 +92,6 @@ except ImportError:
     import quality_scorer  # type: ignore[import-not-found,no-redef]
     import security_scanner  # type: ignore[import-not-found,no-redef]
     import syntax_validator  # type: ignore[import-not-found,no-redef]
-    import tool_selector  # type: ignore[import-not-found,no-redef]
     import type_classifier  # type: ignore[import-not-found,no-redef]
     import weight_drift_check  # type: ignore[import-not-found,no-redef]
     import workflow_state  # type: ignore[import-not-found,no-redef]
@@ -537,12 +535,11 @@ Examples:
             if args.tools:
                 tool_list = args.tools
             else:
-                tool_selection = tool_selector.select_tools(
-                    agent_type=parsed.agent_type,
-                    purpose=parsed.description,
-                    recommended_base=discovery_ctx.get("patterns", {}).get("recommended_base"),
-                )
-                tool_list = tool_selection.tools
+                tool_list = list(parsed.tools)
+                recommended = discovery_ctx.get("patterns", {}).get("recommended_base")
+                if recommended:
+                    existing = set(tool_list)
+                    tool_list.extend(t for t in recommended if t not in existing)
             tracker.update_phase("architecture", 100)
 
             # Phase 3: Generation with iteration-aware retry loop
