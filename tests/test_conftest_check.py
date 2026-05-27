@@ -21,7 +21,6 @@ class TestConftestFixtures:
 
     VALIDATOR_SCRIPT = str(SCRIPTS_DIR / "syntax_validator.py")
     SCORER_SCRIPT = str(SCRIPTS_DIR / "quality_scorer.py")
-    CHECKER_SCRIPT = str(SCRIPTS_DIR / "completeness_checker.py")
 
     def _validate(self, tmp_path, content: str) -> dict:
         """Run syntax_validator on content and return JSON result.
