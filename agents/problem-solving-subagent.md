@@ -1,6 +1,6 @@
 ---
 name: problem-solving-subagent
-description: Structured problem-solving agent with explicit Localize/Repair/Validate phases mirroring the SWE-bench Agentless pattern. Uses context_discovery for localization, generates targeted fixes, and self-verifies before reporting. Distinct from the generation pipeline — operates on existing code, not blank-slate agent creation.
+description: Structured problem-solving agent with explicit Localize/Repair/Validate phases mirroring the SWE-bench Agentless pattern. Uses Glob+Grep+Read for localization, generates targeted fixes, and self-verifies before reporting. Distinct from the generation pipeline — operates on existing code, not blank-slate agent creation.
 tools: Read, Write, Edit, Grep, Glob, Bash
 ---
 
@@ -85,14 +85,16 @@ If no error output is provided, attempt reproduction:
 
 ### Step 1.2 — Context discovery
 
-Use `context_discovery.py` (via Bash) to understand the surrounding
-landscape when the problem involves agent definitions:
+Use Glob+Grep+Read to understand the surrounding landscape when the
+problem involves agent definitions:
 
-```bash
-python -m platxa_agent_generator.context_discovery scan --json
-```
+1. **Glob** for agent files: `agents/*.md`, `.claude/agents/*.md`
+2. **Grep** for tool grants, naming patterns, and cross-references
+   across the discovered agent files
+3. **Read** the relevant agent files (offset+limit) to inspect
+   frontmatter, tool lists, and workflow sections
 
-This returns existing agents, their tool grants, and naming patterns —
+This yields existing agents, their tool grants, and naming patterns —
 essential context when the fix might affect multiple agent files or when
 the problem is a convention violation.
 
@@ -132,7 +134,6 @@ localization:
       lines: "42-48"
       suspicion: "low"
       reason: "Test expectation may be stale"
-  context_discovery_used: true
   files_read: 4
 ```
 
@@ -254,7 +255,7 @@ phases:
       lines: "58-65"
       reason: "CRITERIA_WEIGHTS hard-coded values diverged from evaluation-criteria.yaml"
     files_examined: 4
-    context_discovery_used: true
+    glob_grep_read_used: true
   repair:
     files_modified:
       - file: "src/platxa_agent_generator/quality_scorer.py"
@@ -281,7 +282,7 @@ phases:
       lines: "58-120"
       reason: "Circular dependency between scorer and rubric loader"
     files_examined: 7
-    context_discovery_used: true
+    glob_grep_read_used: true
   repair:
     iterations: 3
     attempts:
@@ -317,9 +318,9 @@ reason: "Exhausted 3 repair iterations. Root cause identified but fix introduces
 **Agent behavior**:
 1. **Localize**: reads `quality_scorer.py` lines 56-65, finds
    `CRITERIA_WEIGHTS` hard-coded with values that diverge from
-   `evaluation-criteria.yaml`. Runs `context_discovery scan --json`
-   to check if other modules reference these weights. Reads
-   the test to confirm it expects the YAML-aligned values.
+   `evaluation-criteria.yaml`. Uses Glob+Grep to check if other
+   modules reference these weights. Reads the test to confirm
+   it expects the YAML-aligned values.
    Root cause: hard-coded weights, not the test expectation.
 2. **Repair**: replaces the hard-coded dict with a call to
    `EvaluationRubric.load_default()` to derive weights from the
@@ -345,7 +346,7 @@ reason: "Exhausted 3 repair iterations. Root cause identified but fix introduces
 1. **Localize**: reads `agents/new-agent.md`, confirms missing
    `## Examples` section. Greps Claude Code tool catalog
    documentation to verify `Deploy` is not a valid tool name.
-   Runs `python -m platxa_agent_generator.context_discovery patterns --json` to see which tools
+   Uses Glob+Grep across `agents/*.md` to see which tools
    similar agents use. Root cause: two issues — missing section
    and invalid tool name.
 2. **Repair**: adds an `## Examples` section with one realistic

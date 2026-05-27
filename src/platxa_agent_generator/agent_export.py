@@ -1,14 +1,4 @@
-"""
-Agent Export System for Sharing
-
-Production-grade export system for sharing AI agents with:
-- Multiple export formats (zip, tar.gz, directory)
-- Package metadata generation
-- Dependency bundling
-- Configuration sanitization
-- Import validation and installation
-- Registry-compatible manifests
-"""
+"""Agent export/import system for sharing AI agents as packages or plugins."""
 
 from __future__ import annotations
 
@@ -140,27 +130,13 @@ class ValidationResult:
     warnings: list[str] = field(default_factory=list)
 
 
-# Project-root files that must travel with a shared agent bundle. Unlike
-# agent-local files (agents/, hooks/, scripts/) these live *above* the
-# .claude/ directory so the export/import round-trip must track them
-# separately. Currently only ``.mcp.json`` (project MCP server config) —
-# add new entries here when bundling gains more project-root artifacts.
+# Project-root files that travel with a shared agent bundle.
 PROJECT_ROOT_CONFIG_FILES: tuple[str, ...] = (".mcp.json",)
 
-# In-bundle directory that receives the project-root config files. Named
-# ``config`` rather than ``root`` so the intent is self-documenting when a
-# human inspects an extracted bundle.
+# In-bundle directory for project-root config files.
 BUNDLE_CONFIG_DIR: str = "config"
 
-
-# --- Plugin export constants ---------------------------------------------
-#
-# Claude Code plugins (the format consumed by ``/plugin install`` and the
-# plugin marketplace) follow a fixed directory layout that differs from the
-# share-bundle layout above. Constants are centralised here so the writer
-# (``export_as_plugin``), the CLI command, and the test suite all reference
-# the same names — drift between them would silently produce plugins that
-# Claude Code refuses to load.
+# Plugin export directory layout constants.
 _PLUGIN_METADATA_DIR: str = ".claude-plugin"
 _PLUGIN_MANIFEST_FILENAME: str = "plugin.json"
 _PLUGIN_AGENTS_DIR: str = "agents"
@@ -251,22 +227,7 @@ def compute_checksum(file_paths: list[Path]) -> str:
 
 
 def detect_project_root(agent_path: Path) -> Path:
-    """Infer the project root for a given agent file.
-
-    Claude Code agent files typically live at ``<project>/.claude/agents/*.md``,
-    so the project root is the parent of the ``.claude/`` directory. Two
-    fallbacks cover non-standard layouts without raising:
-
-    - If ``.claude/`` is missing, return ``agent_path.parent.parent`` so
-      callers still get a directory two levels up (matching the standard
-      layout structurally).
-    - If the path is so shallow that two parents would escape the
-      filesystem, return the highest available parent.
-
-    This helper is deliberately lenient rather than validating — it's used
-    during export to locate ``.mcp.json`` and should never fail on an
-    unusual directory layout.
-    """
+    """Infer the project root by walking up to find the ``.claude/`` parent."""
     candidate = agent_path
     for _ in range(6):  # bounded walk — prevents infinite loops on symlinks
         if candidate.parent.name == ".claude":
@@ -281,21 +242,7 @@ def detect_project_root(agent_path: Path) -> Path:
 
 
 def collect_project_root_configs(agent_path: Path) -> list[Path]:
-    """Find project-root config files that should ship with a bundle.
-
-    These are files living at the project root (above ``.claude/``) that a
-    receiving project needs to recreate the agent's runtime environment —
-    currently only ``.mcp.json``. Non-existent files are silently omitted
-    so a project without MCP servers still produces a valid bundle.
-
-    Args:
-        agent_path: Path to the agent's ``.md`` file. The project root is
-            inferred via :func:`detect_project_root`.
-
-    Returns:
-        Ordered list of existing project-root config files. Empty list
-        when no configured files exist at the root.
-    """
+    """Find project-root config files (.mcp.json etc.) to bundle with an agent."""
     project_root = detect_project_root(agent_path)
     configs: list[Path] = []
     for filename in PROJECT_ROOT_CONFIG_FILES:
@@ -309,16 +256,7 @@ def collect_agent_files(
     agent_path: Path,
     include_related: bool = True,
 ) -> list[Path]:
-    """
-    Collect all files related to an agent.
-
-    Args:
-        agent_path: Path to main agent file
-        include_related: Include related files (commands, hooks, etc.)
-
-    Returns:
-        List of file paths to include in export
-    """
+    """Collect all files related to an agent (commands, hooks, scripts, versions)."""
     files: list[Path] = [agent_path]
     agent_name = agent_path.stem
     agent_dir = agent_path.parent
@@ -364,21 +302,7 @@ def create_manifest(
     repository: str = "",
     keywords: list[str] | None = None,
 ) -> PackageManifest:
-    """
-    Create a package manifest for an agent.
-
-    Args:
-        agent_path: Path to main agent file
-        files: List of files to include
-        author: Package author
-        license_type: License type
-        homepage: Homepage URL
-        repository: Repository URL
-        keywords: Package keywords
-
-    Returns:
-        PackageManifest instance
-    """
+    """Create a package manifest for an agent from its frontmatter and files."""
     content = agent_path.read_text()
     metadata = extract_agent_metadata(content)
 
@@ -421,39 +345,13 @@ def create_manifest(
 
 
 def build_plugin_manifest(manifest: PackageManifest) -> dict[str, Any]:
-    """Translate a :class:`PackageManifest` into Claude Code plugin metadata.
-
-    The plugin marketplace consumes a single ``plugin.json`` placed under
-    ``.claude-plugin/``. The schema is a strict subset of our richer
-    package manifest — only the fields a marketplace UI surfaces are
-    written, and field names align with the plugin spec rather than our
-    internal vocabulary (e.g., ``min_claude_code_version`` →
-    ``claudeCodeMinVersion``).
-
-    Empty optional fields are omitted from the output rather than emitted
-    as empty strings, because the marketplace renderer treats absent
-    fields differently from empty strings (the latter shows as a literal
-    blank line in author/license columns).
-
-    Args:
-        manifest: The internal package manifest produced by
-            :func:`create_manifest`.
-
-    Returns:
-        Dict ready to be ``json.dump``-ed into
-        ``<plugin>/.claude-plugin/plugin.json``.
-    """
+    """Translate a PackageManifest into plugin.json metadata."""
     plugin_meta: dict[str, Any] = {
         "name": manifest.name,
         "version": manifest.version,
         "description": manifest.description,
-        # ``claudeCodeMinVersion`` is the spec's required gate field —
-        # the marketplace refuses to install a plugin that omits it.
         "claudeCodeMinVersion": manifest.min_claude_code_version,
     }
-    # Optional metadata — emit only when non-empty. The marketplace
-    # treats missing keys as "not specified"; emitting empty strings
-    # would render as blank columns in the listing.
     if manifest.author:
         plugin_meta["author"] = manifest.author
     if manifest.license:
@@ -468,48 +366,11 @@ def build_plugin_manifest(manifest: PackageManifest) -> dict[str, Any]:
 
 
 def build_plugin_hooks_config(hook_files: list[Path]) -> dict[str, Any]:
-    """Generate the ``hooks/hooks.json`` body for a plugin export.
-
-    Claude Code's hooks.json declares which lifecycle events trigger
-    which scripts. The plugin format requires this file to exist even
-    when the plugin ships no hooks (the marketplace treats a missing
-    file as a malformed plugin), so the function always returns a
-    valid dict.
-
-    Behaviour:
-
-    - Empty ``hook_files`` → ``{}`` (empty hooks config; the file
-      exists, satisfies the schema, declares no hooks).
-    - Non-empty ``hook_files`` → for each script, register a
-      ``PostToolUse`` entry pointing at ``${CLAUDE_PLUGIN_ROOT}/hooks/<file>``.
-      ``PostToolUse`` is the conservative default because it cannot
-      block tool invocation; users who need ``PreToolUse`` semantics can
-      edit the generated file. The matcher is ``"*"`` so the script
-      sees every event — agents commonly want to filter inside the
-      script anyway.
-
-    The ``${CLAUDE_PLUGIN_ROOT}`` variable is the spec-defined token
-    Claude Code substitutes with the installed plugin's directory at
-    runtime, so the generated paths remain valid regardless of where
-    the plugin is installed (user vs project scope).
-
-    Args:
-        hook_files: Hook script files that will be copied into
-            ``hooks/`` of the plugin bundle.
-
-    Returns:
-        Dict ready to be ``json.dump``-ed into
-        ``<plugin>/hooks/hooks.json``.
-    """
+    """Generate hooks/hooks.json for a plugin export. Returns {} when no hooks."""
     if not hook_files:
         return {}
     entries: list[dict[str, Any]] = []
     for hook_file in hook_files:
-        # Use the script name (relative within hooks/) so the path stays
-        # portable. ``${CLAUDE_PLUGIN_ROOT}`` is the spec's token for the
-        # installed plugin root — Claude Code resolves it at hook fire
-        # time, so the generated path works for both user and project
-        # installations.
         entries.append(
             {
                 "matcher": "*",
@@ -523,71 +384,31 @@ def build_plugin_hooks_config(hook_files: list[Path]) -> dict[str, Any]:
                 ],
             }
         )
-    # PostToolUse is the conservative default — it observes events
-    # rather than gating them, so an auto-generated hook that misbehaves
-    # cannot block the user's workflow. Authors needing PreToolUse
-    # semantics edit the generated file.
     return {"PostToolUse": entries}
 
 
 def generate_plugin_readme(manifest: PackageManifest) -> str:
-    """Generate a README tailored to the plugin export.
+    """Generate a minimal plugin README from manifest metadata.
 
-    Differs from :func:`generate_package_readme` only in the install
-    section: the plugin is installed via Claude Code's ``/plugin install``
-    command (or by adding it to a marketplace), not via the share-bundle
-    ``claude-agent import`` flow. Mixing the two would leave a contradiction
-    in the artifact's own contract — the README would tell users to run a
-    command that doesn't apply to a plugin directory.
+    Template content has been moved to skill reference files under
+    ``skills/platxa-agent-generator/references/readme-generation.md``.
+    This function retains the callable contract so ``export_as_plugin``
+    continues to work without changes.
     """
     lines = [
         f"# {manifest.name}",
         "",
         manifest.description or "A Claude Code plugin.",
         "",
-        "## Installation",
-        "",
-        "Install via Claude Code's plugin command:",
-        "",
-        "```",
-        f"/plugin install {manifest.name}",
-        "```",
-        "",
-        "Or add the plugin directory to a marketplace.",
-        "",
-        "## Details",
-        "",
         f"- **Version**: {manifest.version}",
-        f"- **Author**: {manifest.author or 'Unknown'}",
         f"- **License**: {manifest.license}",
-        f"- **Min Claude Code Version**: {manifest.min_claude_code_version}",
         "",
     ]
-    if manifest.tools:
-        lines.extend(["## Required Tools", "", ", ".join(manifest.tools), ""])
-    if manifest.keywords:
-        lines.extend(["## Keywords", "", ", ".join(manifest.keywords), ""])
-    if manifest.homepage:
-        lines.extend(["## Links", "", f"- [Homepage]({manifest.homepage})"])
-        if manifest.repository:
-            lines.append(f"- [Repository]({manifest.repository})")
-        lines.append("")
-    lines.extend(["## Files", ""])
-    for file in manifest.files:
-        lines.append(f"- `{file}`")
     return "\n".join(lines) + "\n"
 
 
 def _same_filesystem(a: Path, b: Path) -> bool:
-    """True when ``a`` and ``b`` live on the same device.
-
-    Wraps the ``os.stat().st_dev`` comparison so the same-filesystem
-    probe is mockable in tests without patching the global
-    ``os.stat``. Returns ``False`` on ``OSError`` (permission or a
-    race with a concurrent unlink) — callers that need atomicity
-    should treat a failed probe as "different filesystem" and fall
-    back to the sibling-staging path.
-    """
+    """True when ``a`` and ``b`` live on the same device."""
     try:
         return os.stat(a).st_dev == os.stat(b).st_dev
     except OSError:
@@ -595,54 +416,18 @@ def _same_filesystem(a: Path, b: Path) -> bool:
 
 
 def _create_plugin_staging_dir(output_dir: Path) -> Path:
-    """Create a private staging directory for plugin export.
-
-    Prefers the system tempdir so nothing lands in ``output_dir``'s
-    parent until the atomic ``os.replace`` at the end of the export.
-    Falls back to a sibling of ``output_dir`` only when the system
-    tempdir is on a different filesystem — ``os.replace`` is only
-    atomic within one filesystem, so a cross-device staging dir would
-    silently degrade to a copy-and-delete that loses atomicity.
-
-    The returned path always has mode ``0o700`` (owner-only).
-    ``tempfile.mkdtemp`` uses this mode on POSIX by default, but the
-    explicit ``os.chmod`` here makes the permission a testable
-    invariant rather than a platform default — guarding against
-    information disclosure (CWE-377, CWE-379) during the window
-    between ``mkdtemp`` and ``os.replace`` when the staging dir
-    contains the unsealed plugin contents.
-
-    Why not ``tempfile.TemporaryDirectory()``: the caller moves the
-    staging directory via ``os.replace`` past the normal context-
-    manager lifetime, so the manual ``mkdtemp`` + ``try/finally``
-    ``shutil.rmtree`` pattern at the call site is the right shape.
-
-    Args:
-        output_dir: Final output directory. Used to derive the
-            staging prefix and, when a cross-filesystem fallback is
-            required, the staging parent.
-
-    Returns:
-        Absolute path to a freshly created staging directory. The
-        caller owns cleanup on every failure path.
-    """
+    """Create a private 0o700 staging directory for atomic plugin export."""
     output_parent = output_dir.parent
     output_parent.mkdir(parents=True, exist_ok=True)
 
     system_tmp = Path(tempfile.gettempdir())
     if _same_filesystem(system_tmp, output_parent):
-        # Default path. Nothing appears in output_parent until the
-        # atomic os.replace below.
         staging_dir = Path(tempfile.mkdtemp(prefix=f".{output_dir.name}-staging-"))
     else:
-        # Cross-filesystem fallback. Stage inside output_parent so
-        # os.replace stays a same-device rename.
         staging_dir = Path(
             tempfile.mkdtemp(prefix=f".{output_dir.name}-staging-", dir=str(output_parent))
         )
 
-    # Enforce 0o700 explicitly. Defense-in-depth against platform
-    # default drift and to make the invariant assertion-testable.
     os.chmod(staging_dir, 0o700)
     return staging_dir
 
@@ -659,59 +444,7 @@ def export_as_plugin(
     keywords: list[str] | None = None,
     overwrite: bool = False,
 ) -> ExportResult:
-    """Export an agent in Claude Code plugin format.
-
-    Produces a directory layout consumable by ``/plugin install`` and
-    the plugin marketplace::
-
-        <output_dir>/
-        ├── .claude-plugin/
-        │   └── plugin.json     # Marketplace metadata (gate-required)
-        ├── agents/
-        │   └── <agent>.md      # Agent definition(s)
-        ├── commands/           # Slash commands (only if any exist)
-        │   └── <agent>.md
-        ├── hooks/
-        │   ├── hooks.json      # Always present (empty when no hooks)
-        │   └── <hook scripts>  # Only when the agent ships hooks
-        ├── scripts/            # Helper scripts (only if any exist)
-        │   └── <agent>*
-        └── README.md
-
-    The function reuses :func:`collect_agent_files` and
-    :func:`create_manifest` so the discovery semantics are identical to
-    the share-bundle export — same agent, same companions, just a
-    different layout. Sanitization is applied to text files when
-    ``sanitize=True``, mirroring :func:`export_agent`.
-
-    Why a directory-only output (no zip)? The plugin marketplace
-    consumes directories (typically as git submodules / repo paths).
-    Wrapping the output in an archive would be a one-line shell command
-    away (``shutil.make_archive``) and would muddle the function's
-    contract; keeping it focused on layout makes the intent
-    self-documenting.
-
-    Args:
-        agent_path: Path to the agent ``.md`` file to package.
-        output_dir: Target directory; created if missing. Must be empty
-            unless ``overwrite=True``.
-        include_related: Bundle commands, hooks, scripts, version
-            history alongside the agent.
-        sanitize: Strip API keys / secrets from text payloads.
-        author: Plugin author (surfaced in the marketplace listing).
-        license_type: License identifier (defaults to ``"MIT"``).
-        homepage: Optional homepage URL.
-        repository: Optional source-repository URL.
-        keywords: Optional keywords for marketplace search.
-        overwrite: When ``True``, an existing non-empty output_dir is
-            removed before writing. When ``False`` (default), the
-            function refuses to overwrite and returns an error result.
-
-    Returns:
-        :class:`ExportResult`. ``success`` is ``True`` only when every
-        required file (plugin.json, hooks.json, at least one agent
-        definition) was written successfully.
-    """
+    """Export an agent in Claude Code plugin directory format."""
     if not agent_path.exists():
         return ExportResult(
             success=False,
@@ -721,10 +454,6 @@ def export_as_plugin(
 
     warnings: list[str] = []
 
-    # Refuse to overwrite an existing non-empty directory unless asked.
-    # The plugin layout writes into multiple subdirectories; silently
-    # merging into an existing directory is the kind of "did it work?"
-    # ambiguity that produces broken installs in the marketplace.
     if output_dir.exists() and any(output_dir.iterdir()):
         if not overwrite:
             return ExportResult(
@@ -747,19 +476,7 @@ def export_as_plugin(
         keywords=keywords or [],
     )
 
-    # Stage every write inside a private temporary directory and only
-    # rename it into ``output_dir`` once everything succeeded. This makes
-    # the export atomic from the caller's perspective: either the final
-    # path contains a complete, valid plugin or it does not exist at all.
-    # A mid-export failure cannot leave a half-written plugin that future
-    # invocations would have to ``--overwrite`` to recover from.
     staging_dir = _create_plugin_staging_dir(output_dir)
-    # finally: clean up the staging dir if it still exists. The atomic
-    # rename below renames it OUT of existence on success, so this only
-    # runs cleanup on the failure paths (early validation return,
-    # exception during staging, exception during swap). Guarantees no
-    # orphan ``.{name}-staging-*`` directories pile up next to
-    # ``output_dir``.
     try:
         populated = _populate_plugin_staging(
             files=files,
@@ -770,11 +487,6 @@ def export_as_plugin(
         files_exported = populated.files
         hook_files = populated.hook_files
 
-        # Verify the agent file actually landed in agents/ — without
-        # this the plugin is malformed regardless of how many other
-        # files we copied. Surface a real failure rather than producing
-        # a broken plugin on disk. The ``finally`` block cleans up the
-        # staging dir.
         staged_agents = staging_dir / _PLUGIN_AGENTS_DIR
         if not staged_agents.exists() or not any(staged_agents.glob("*.md")):
             return ExportResult(
@@ -784,8 +496,7 @@ def export_as_plugin(
                 warnings=warnings,
             )
 
-        # hooks/hooks.json is always present (even empty {}); marketplace
-        # treats a missing file as schema violation.
+        # hooks/hooks.json — always present (marketplace schema requirement).
         staged_hooks_dir = staging_dir / _PLUGIN_HOOKS_DIR
         staged_hooks_dir.mkdir(parents=True, exist_ok=True)
         hooks_config = build_plugin_hooks_config(hook_files)
@@ -793,7 +504,7 @@ def export_as_plugin(
         staged_hooks_json.write_text(json.dumps(hooks_config, indent=2) + "\n")
         files_exported.append(str(staged_hooks_json.relative_to(staging_dir)))
 
-        # Marketplace metadata under .claude-plugin/.
+        # .claude-plugin/plugin.json
         staged_metadata = staging_dir / _PLUGIN_METADATA_DIR
         staged_metadata.mkdir(parents=True, exist_ok=True)
         plugin_manifest = build_plugin_manifest(manifest)
@@ -801,19 +512,10 @@ def export_as_plugin(
         staged_manifest_path.write_text(json.dumps(plugin_manifest, indent=2) + "\n")
         files_exported.append(str(staged_manifest_path.relative_to(staging_dir)))
 
-        # Plugin-specific README (mentions /plugin install, not the
-        # share-bundle ``claude-agent import`` command).
         manifest.files = files_exported
         (staging_dir / "README.md").write_text(generate_plugin_readme(manifest))
         files_exported.append("README.md")
 
-        # Atomic swap. If output_dir already exists at this point the
-        # caller passed ``overwrite=True`` (the early gate refused
-        # otherwise) so removing it is the contracted behaviour. The
-        # rmtree-then-replace window is the only point where output_dir
-        # is briefly absent, but this is the same window every "replace
-        # directory" operation has — there is no atomic equivalent of
-        # ``rename(2)`` for replacing a populated directory.
         if output_dir.exists():
             shutil.rmtree(output_dir)
         os.replace(staging_dir, output_dir)
@@ -834,12 +536,7 @@ def export_as_plugin(
 
 
 class _PluginStagingResult(NamedTuple):
-    """Return value of :func:`_populate_plugin_staging`.
-
-    Using a NamedTuple instead of a dict keeps the value types separate
-    (``list[str]`` vs ``list[Path]``) so the caller does not need
-    ``cast`` annotations on every append.
-    """
+    """Files and hook paths produced by plugin staging."""
 
     files: list[str]
     hook_files: list[Path]
@@ -851,20 +548,7 @@ def _populate_plugin_staging(
     sanitize: bool,
     warnings: list[str],
 ) -> _PluginStagingResult:
-    """Copy collected files into the plugin staging directory.
-
-    Extracted from :func:`export_as_plugin` so the staging step is
-    independently readable and the atomic-swap logic stays focused on
-    the rename. Mutates ``warnings`` in place when files are missing or
-    sanitization rewrites content.
-
-    Returns:
-        :class:`_PluginStagingResult` with:
-        - ``files``: relative paths (str) of every file written, in
-          insertion order, for the manifest.
-        - ``hook_files``: source ``Path`` of each bundled hook script,
-          used by the caller to synthesize ``hooks.json``.
-    """
+    """Copy collected files into the plugin staging directory."""
     files_exported: list[str] = []
     hook_files: list[Path] = []
 
@@ -873,11 +557,6 @@ def _populate_plugin_staging(
             warnings.append(f"File not found, skipping: {src_file}")
             continue
 
-        # Substring path classification. Mirrors the share-bundle export
-        # in :func:`export_agent`; pre-existing limitation when user
-        # workspace paths contain these keywords (caught by the
-        # agents-dir gate in the caller). Tracked as ADV in the feature
-        # #61 review.
         src_str = str(src_file)
         if "commands" in src_str:
             dest_dir = staging_dir / _PLUGIN_COMMANDS_DIR
@@ -887,8 +566,6 @@ def _populate_plugin_staging(
         elif "scripts" in src_str:
             dest_dir = staging_dir / _PLUGIN_SCRIPTS_DIR
         elif ".versions" in src_str:
-            # Version history is operational metadata, not part of the
-            # plugin contract — the marketplace does not need it.
             continue
         else:
             dest_dir = staging_dir / _PLUGIN_AGENTS_DIR
@@ -921,21 +598,7 @@ def export_agent(
     license_type: str = "MIT",
     include_mcp_config: bool = True,
 ) -> ExportResult:
-    """
-    Export an agent as a shareable package.
-
-    Args:
-        agent_path: Path to agent file
-        output_path: Output path (optional, auto-generated if not provided)
-        format: Export format
-        include_related: Include related files
-        sanitize: Sanitize sensitive information
-        author: Package author
-        license_type: License type
-
-    Returns:
-        ExportResult with details
-    """
+    """Export an agent as a shareable package (zip, tar.gz, or directory)."""
     if not agent_path.exists():
         return ExportResult(
             success=False,
@@ -946,24 +609,11 @@ def export_agent(
     warnings: list[str] = []
     errors: list[str] = []
 
-    # Collect files to export
     files = collect_agent_files(agent_path, include_related)
-
-    # Collect project-root config files (.mcp.json etc). These live *above*
-    # .claude/ so they're tracked separately and routed to config/ in the
-    # bundle — independent from hooks/scripts/.versions which come from
-    # within the agent's .claude/ directory.
     project_configs = collect_project_root_configs(agent_path) if include_mcp_config else []
 
-    # Create manifest
-    manifest = create_manifest(
-        agent_path,
-        files,
-        author=author,
-        license_type=license_type,
-    )
+    manifest = create_manifest(agent_path, files, author=author, license_type=license_type)
 
-    # Determine output path
     if output_path is None:
         ext = (
             ".zip"
@@ -974,24 +624,19 @@ def export_agent(
         )
         output_path = agent_path.parent / f"{manifest.name}-{manifest.version}{ext}"
 
-    # Create temporary directory for packaging
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
         package_dir = temp_path / manifest.name
-
-        # Create package structure
         agents_dir = package_dir / "agents"
         agents_dir.mkdir(parents=True, exist_ok=True)
 
         files_exported: list[str] = []
 
-        # Copy and optionally sanitize files
         for src_file in files:
             if not src_file.exists():
                 warnings.append(f"File not found, skipping: {src_file}")
                 continue
 
-            # Determine destination
             if "commands" in str(src_file):
                 dest_dir = package_dir / "commands"
             elif "hooks" in str(src_file):
@@ -1006,7 +651,6 @@ def export_agent(
             dest_dir.mkdir(parents=True, exist_ok=True)
             dest_file = dest_dir / src_file.name
 
-            # Read and optionally sanitize content
             if src_file.suffix in (".md", ".py", ".sh", ".yaml", ".yml", ".json"):
                 content = src_file.read_text()
                 if sanitize:
@@ -1020,9 +664,6 @@ def export_agent(
 
             files_exported.append(str(dest_file.relative_to(package_dir)))
 
-        # Copy project-root config files (.mcp.json) to ``config/`` in the
-        # bundle. Kept out of the main ``files`` loop because these live
-        # above .claude/ and have a dedicated extraction target on import.
         if project_configs:
             config_dst = package_dir / BUNDLE_CONFIG_DIR
             config_dst.mkdir(parents=True, exist_ok=True)
@@ -1096,104 +737,37 @@ def export_agent(
 
 
 def generate_package_readme(manifest: PackageManifest) -> str:
-    """Generate README content for a package."""
+    """Generate a minimal package README from manifest metadata.
+
+    Template content has been moved to skill reference files under
+    ``skills/platxa-agent-generator/references/readme-generation.md``.
+    This function retains the callable contract so ``export_agent``
+    continues to work without changes.
+    """
     lines = [
         f"# {manifest.name}",
         "",
         manifest.description or "An AI agent for Claude Code CLI.",
         "",
-        "## Installation",
-        "",
-        "```bash",
-        "# Import the agent package",
-        f"claude-agent import {manifest.name}-{manifest.version}.zip",
-        "```",
-        "",
-        "## Details",
-        "",
         f"- **Version**: {manifest.version}",
-        f"- **Author**: {manifest.author or 'Unknown'}",
         f"- **License**: {manifest.license}",
         "",
     ]
-
-    if manifest.tools:
-        lines.extend(
-            [
-                "## Required Tools",
-                "",
-                ", ".join(manifest.tools),
-                "",
-            ]
-        )
-
-    if manifest.keywords:
-        lines.extend(
-            [
-                "## Keywords",
-                "",
-                ", ".join(manifest.keywords),
-                "",
-            ]
-        )
-
-    if manifest.homepage:
-        lines.extend(
-            [
-                "## Links",
-                "",
-                f"- [Homepage]({manifest.homepage})",
-            ]
-        )
-        if manifest.repository:
-            lines.append(f"- [Repository]({manifest.repository})")
-        lines.append("")
-
-    lines.extend(
-        [
-            "## Files",
-            "",
-        ]
-    )
-
-    for file in manifest.files:
-        lines.append(f"- `{file}`")
-
     return "\n".join(lines)
 
 
 def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
-    """Safely extract a ZIP archive under ``dest``.
-
-    Validates every member before writing any file. Raises ``ValueError`` on:
-
-    * Absolute member paths (POSIX ``/etc/...`` or Windows ``C:\\...``)
-      — CWE-22.
-    * Parent-directory traversal that resolves outside ``dest`` — CWE-22.
-    * Symlink members (Unix mode ``S_IFLNK``) — CWE-59: a symlink member
-      can re-anchor subsequent writes outside ``dest`` even after path
-      validation, so we refuse archives that contain them.
-
-    Validation runs to completion before any extraction, so a malicious
-    member aborts the whole operation rather than leaving a partial tree.
-    """
+    """Safely extract a ZIP archive under ``dest``. Rejects path traversal and symlinks."""
     dest_resolved = dest.resolve()
     for member in zf.infolist():
         name = member.filename
-        # Absolute paths: reject POSIX ("/etc"), UNC/backslash ("\\srv") and
-        # Windows drives ("C:\\"). ``os.path.isabs`` alone is platform-
-        # dependent, so combine it with explicit prefix checks.
         if os.path.isabs(name) or name.startswith(("/", "\\")):
             raise ValueError(f"Unsafe zip member (absolute path): {name}")
         if len(name) >= 2 and name[1] == ":":
             raise ValueError(f"Unsafe zip member (drive path): {name}")
-        # Symlinks: Unix mode is encoded in the top 16 bits of external_attr.
-        # Reject before resolving because the symlink's *target* could point
-        # outside ``dest`` even when the member name itself looks safe.
         unix_mode = member.external_attr >> 16
         if unix_mode and stat.S_ISLNK(unix_mode):
             raise ValueError(f"Unsafe zip member (symlink): {name}")
-        # Traversal: resolve the target and require it to stay under dest.
         target = (dest_resolved / name).resolve()
         try:
             target.relative_to(dest_resolved)
@@ -1204,47 +778,20 @@ def _safe_extract_zip(zf: zipfile.ZipFile, dest: Path) -> None:
 
 
 def _safe_extract_tar(tf: tarfile.TarFile, dest: Path) -> None:
-    """Safely extract a tar archive under ``dest``.
-
-    Validates every ``TarInfo`` before any member is written. Raises
-    ``ValueError`` on:
-
-    * Absolute member paths (POSIX or Windows-style) — CWE-22.
-    * Any path component equal to ``..`` (parent-directory traversal).
-    * Resolved target path that escapes ``dest`` — CWE-22 belt-and-braces
-      against exotic encodings (e.g. ``foo/./../../etc``) that survive the
-      component scan.
-    * Symlinks (``LNKTYPE``/``SYMTYPE``) — CWE-59: the link target can
-      re-anchor later writes outside ``dest``, even when the member name
-      looks safe.
-    * Hardlinks and device/FIFO nodes (``CHRTYPE``/``BLKTYPE``/``FIFOTYPE``):
-      agent bundles only ever ship regular files and directories, so these
-      are both unnecessary and a privilege-escalation vector.
-
-    Validation runs to completion before any extraction, so a hostile
-    member aborts the whole operation instead of leaving a partial tree.
-    """
+    """Safely extract a tar archive under ``dest``. Rejects traversal, symlinks, and device nodes."""
     dest_resolved = dest.resolve()
     for member in tf.getmembers():
         name = member.name
-        # Absolute paths: reject POSIX ("/etc"), UNC/backslash ("\\srv"),
-        # and Windows drive ("C:\\") prefixes.
         if os.path.isabs(name) or name.startswith(("/", "\\")):
             raise ValueError(f"Unsafe tar member (absolute path): {name}")
         if len(name) >= 2 and name[1] == ":":
             raise ValueError(f"Unsafe tar member (drive path): {name}")
-        # Any ".." component anywhere in the path is rejected outright —
-        # the feature spec requires this over resolution-only checks.
-        parts = Path(name).parts
-        if ".." in parts:
+        if ".." in Path(name).parts:
             raise ValueError(f"Unsafe tar member (parent traversal): {name}")
-        # Reject link types and non-regular device nodes before resolving
-        # paths — resolution on a symlink member would follow the link.
         if member.issym() or member.islnk():
             raise ValueError(f"Unsafe tar member (symlink or hardlink): {name}")
         if member.ischr() or member.isblk() or member.isfifo() or member.isdev():
             raise ValueError(f"Unsafe tar member (device or fifo): {name}")
-        # Belt-and-braces: require the resolved target to stay under dest.
         target = (dest_resolved / name).resolve()
         try:
             target.relative_to(dest_resolved)
@@ -1255,15 +802,7 @@ def _safe_extract_tar(tf: tarfile.TarFile, dest: Path) -> None:
 
 
 def validate_package(package_path: Path) -> ValidationResult:
-    """
-    Validate an agent package before import.
-
-    Args:
-        package_path: Path to package file or directory
-
-    Returns:
-        ValidationResult with details
-    """
+    """Validate an agent package (manifest, agent files, checksum) before import."""
     issues: list[str] = []
     warnings: list[str] = []
     manifest: PackageManifest | None = None
@@ -1380,23 +919,10 @@ def import_agent(
     overwrite: bool = False,
     validate_first: bool = True,
 ) -> ImportResult:
-    """
-    Import an agent from a package.
-
-    Args:
-        package_path: Path to package file or directory
-        target_dir: Target installation directory (optional)
-        scope: Installation scope ('user' or 'project')
-        overwrite: Overwrite existing files
-        validate_first: Validate package before importing
-
-    Returns:
-        ImportResult with details
-    """
+    """Import an agent from a package into the target .claude directory."""
     warnings: list[str] = []
     errors: list[str] = []
 
-    # Validate package
     if validate_first:
         validation = validate_package(package_path)
         if not validation.valid:
@@ -1512,11 +1038,7 @@ def import_agent(
                     os.chmod(dst_file, 0o755)
                 files_installed.append(str(dst_file))
 
-        # Restore project-root config files (.mcp.json). target_dir is the
-        # ``.claude/`` directory, so ``target_dir.parent`` is the project
-        # root — where the receiving project expects these files to live.
-        # Refusal-to-overwrite keeps existing MCP configs intact unless the
-        # caller passes ``overwrite=True``.
+        # Restore project-root config files (.mcp.json) to project root.
         config_src = package_dir / BUNDLE_CONFIG_DIR
         if config_src.exists():
             project_root = target_dir.parent
@@ -1547,15 +1069,7 @@ def import_agent(
 def list_exportable_agents(
     search_dir: Path | None = None,
 ) -> list[dict[str, Any]]:
-    """
-    List agents that can be exported.
-
-    Args:
-        search_dir: Directory to search (defaults to current .claude)
-
-    Returns:
-        List of agent info dictionaries
-    """
+    """List agents that can be exported from the given directory."""
     if search_dir is None:
         search_dir = Path.cwd() / ".claude" / "agents"
 

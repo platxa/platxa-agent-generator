@@ -17,9 +17,7 @@ from scripts import (
     agent_composer,       # Agent composition
     agent_versioning,     # Version management
     agent_export,         # Export/import
-    dry_run,              # Preview mode
     install_agent,        # Installation
-    workflow_state,       # State management
 )
 ```
 
@@ -479,91 +477,6 @@ def import_agent(
 ```
 
 Import agent from package.
-
----
-
-## dry_run
-
-Preview agent generation.
-
-### dry_run()
-
-```python
-def dry_run(
-    name: str,
-    description: str,
-    tools: list[str] | None = None,
-    pattern: str = "prompt-chaining"
-) -> DryRunResult
-```
-
-Preview without creating files.
-
-**Example:**
-```python
-from scripts.dry_run import dry_run
-
-result = dry_run(
-    name="my-agent",
-    description="Does something useful",
-    pattern="prompt-chaining"
-)
-
-print(f"Would create {len(result.files)} files")
-print(f"Total size: {result.total_size} bytes")
-print(f"Quality score: {result.quality_score}")
-```
-
-### DryRunResult
-
-```python
-@dataclass
-class DryRunResult:
-    agent_name: str
-    files: list[FilePreview]
-    total_size: int
-    quality_score: float
-    validation_passed: bool
-    warnings: list[str]
-```
-
----
-
-## workflow_state
-
-Manage generation workflow state.
-
-### WorkflowState
-
-```python
-class WorkflowState:
-    def __init__(self, agent_name: str)
-
-    def advance_phase(self) -> bool
-    def record_output(self, phase: str, data: Any) -> None
-    def get_output(self, phase: str) -> Any
-    def save(self) -> bool
-    def load(self) -> bool
-```
-
-**Example:**
-```python
-from scripts.workflow_state import WorkflowState, WorkflowPhase
-
-state = WorkflowState("my-agent")
-state.start()
-
-# Discovery phase
-state.advance_phase()
-state.record_output("discovery", {"keywords": ["code", "review"]})
-
-# Architecture phase
-state.advance_phase()
-state.record_output("architecture", {"pattern": "prompt-chaining"})
-
-# Save state
-state.save()
-```
 
 ---
 

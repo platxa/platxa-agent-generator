@@ -38,36 +38,25 @@ You receive discovery output, classification results, and context discovery:
     "tools": {...},
     "suggested_workflow": [...]
   },
-  "context_discovery": {
-    "agents_found": 3,
-    "agents": [
-      {
-        "name": "existing-agent",
-        "file_path": ".claude/agents/existing-agent.md",
-        "tools": ["Read", "Grep"],
-        "line_ranges": [[1, 5]]
-      }
-    ],
-    "patterns": {
-      "total_agents": 3,
-      "tool_frequency": {"Read": 3, "Grep": 2, "Bash": 1},
-      "recommended_base": ["Read", "Grep"]
-    },
-    "conflict_check": {
-      "has_conflict": false,
-      "similar_names": ["existing-agent"],
-      "similarity_scores": {"existing-agent": 0.72}
+  "name_conflicts": [
+    {
+      "existing_name": "existing-agent",
+      "similarity": 0.72
     }
+  ],
+  "tool_patterns": {
+    "total_agents": 3,
+    "tool_frequency": {"Read": 3, "Grep": 2, "Bash": 1},
+    "recommended_base": ["Read", "Grep"]
   }
 }
 ```
 
-The `context_discovery` block comes from `discovery_report()` in
-`context_discovery.py`. Use it to:
+The `name_conflicts` and `tool_patterns` blocks come from the
+discovery-subagent's Glob+Grep+Read workflow. Use them to:
 - Avoid duplicating tool grants already covered by existing agents
-- Use `patterns.recommended_base` and `patterns.tool_frequency` when selecting tool permissions in Step 4
-- Detect naming collisions via `conflict_check.similarity_scores`
-- Reference `line_ranges` when citing existing agent structure
+- Use `tool_patterns.recommended_base` and `tool_patterns.tool_frequency` when selecting tool permissions in Step 4
+- Detect naming collisions via `name_conflicts[].similarity`
 
 ## Workflow
 

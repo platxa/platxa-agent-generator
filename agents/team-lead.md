@@ -167,7 +167,7 @@ Task tool (after discovery returns):
     "Agent Description: <agent_description>\n
      target_path: <target_path>\n
      Domain knowledge: <discovery JSON inlined verbatim>\n
-     Context discovery: <context_discovery JSON from discovery_report()>\n
+     Context discovery: use discovery-subagent's Glob+Grep+Read workflow output\n
      Return the architecture blueprint JSON specified by your contract."
 
 Task tool (after architecture returns):

@@ -19,51 +19,6 @@ SCRIPTS_DIR = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
 class TestIntegration:
     """Integration tests that exercise multiple modules together."""
 
-    def test_full_workflow_cycle(self, tmp_path: Path) -> None:
-        """Real integration test: complete workflow from start to finish."""
-        state_file = tmp_path / "workflow.json"
-
-        # Create workflow
-        subprocess.run(
-            [
-                sys.executable,
-                str(SCRIPTS_DIR / "workflow_state.py"),
-                "new",
-                "--name",
-                "integration-test",
-                "--output",
-                str(state_file),
-            ],
-            capture_output=True,
-        )
-
-        # Walk through all phases
-        phases = [
-            "discovery",
-            "architecture",
-            "generation",
-            "validation",
-            "installation",
-            "learning",
-            "complete",
-        ]
-        for phase in phases:
-            result = subprocess.run(
-                [
-                    sys.executable,
-                    str(SCRIPTS_DIR / "workflow_state.py"),
-                    "transition",
-                    str(state_file),
-                    phase,
-                ],
-                capture_output=True,
-            )
-            assert result.returncode == 0, f"Failed transition to {phase}"
-
-        # Verify final state
-        data = json.loads(state_file.read_text())
-        assert data["current_phase"] == "complete"
-
     def test_multiagent_to_validation_pipeline(self, tmp_path: Path) -> None:
         """Real integration test: generate multi-agent system and validate all files."""
         output_dir = tmp_path / "agents"

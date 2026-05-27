@@ -48,21 +48,43 @@ Search queries should be specific and actionable:
 - "automated security scanning techniques"
 - "test generation patterns for TypeScript"
 
-### Step 3: Analyze Existing Agents
+### Step 3: Scan Existing Agents
 
-Use Glob and Read to find similar agents:
+Use Glob to discover all installed agents across both scopes:
 
 ```
-Glob: ~/.claude/agents/*.md
 Glob: .claude/agents/*.md
+Glob: ~/.claude/agents/*.md
 ```
 
-For each relevant agent found:
-- Extract workflow patterns
-- Note tool combinations that work well
-- Identify reusable prompt structures
+For each agent file found, Read it and extract structured metadata from its YAML frontmatter:
+- **name** — the `name:` field (hyphen-case identifier)
+- **description** — the `description:` field
+- **tools** — the `tools:` field (comma-separated list)
 
-### Step 4: Identify Tool Requirements
+Build an inventory of all existing agents with these three fields.
+
+### Step 4: Check Name Conflicts
+
+Compare the proposed agent name against the inventory from Step 3:
+
+- **Exact match**: If an agent with the same name already exists, flag it as a conflict and include the existing agent's description so the user can decide whether to overwrite or rename
+- **Similar names**: Check for names that differ only by suffix (e.g., `code-reviewer` vs `code-reviewer-v2`) or share a common prefix; flag these as potential collisions
+- **Semantic overlap**: If an existing agent's description substantially overlaps with the proposed agent's purpose, note it as a candidate for consolidation
+
+Include the conflict analysis in the output under `"name_conflicts"`.
+
+### Step 5: Analyze Tool Patterns
+
+Using the inventory from Step 3, compute tool frequency across all existing agents:
+
+- Count how many agents grant each tool (Read, Write, Grep, Glob, Bash, etc.)
+- Identify **base tools** — tools used by >50% of agents — and recommend including them unless the proposed agent has a specific reason not to
+- Identify **domain-specific tools** — tools used by <20% of agents — and only recommend them when the domain research from Step 2 supports the need
+
+Include the tool frequency table and recommendations in the output under `"tool_patterns"`.
+
+### Step 6: Identify Tool Requirements
 
 Based on research, determine:
 - **Required tools**: Essential for core functionality
@@ -78,7 +100,7 @@ Common tool mappings by domain:
 | Refactoring | Read, Edit, Grep, Glob | Bash |
 | Research | WebSearch, WebFetch, Read | Write |
 
-### Step 5: Compile Domain Knowledge
+### Step 7: Compile Domain Knowledge
 
 Structure findings into JSON output format.
 
@@ -128,6 +150,16 @@ Return a JSON object with the following structure:
     "Apply security checklist",
     "Report findings with severity levels"
   ],
+  "name_conflicts": {
+    "exact_match": null,
+    "similar_names": ["code-reviewer"],
+    "semantic_overlap": []
+  },
+  "tool_patterns": {
+    "frequency": {"Read": 12, "Grep": 10, "Glob": 9, "Write": 6, "Bash": 5, "Edit": 4},
+    "base_tools": ["Read", "Grep", "Glob"],
+    "recommendation": "Include Read, Grep, Glob as base tools; add Bash only if domain research supports execution"
+  },
   "confidence": 0.85,
   "research_sources": [
     "OWASP Top 10 2021",

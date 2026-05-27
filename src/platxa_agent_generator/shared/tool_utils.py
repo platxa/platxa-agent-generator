@@ -3,7 +3,7 @@
 Before feature #27 the pattern
 ``[t.strip() for t in tools_str.split(",") if t.strip()]`` appeared in
 over a dozen call sites (``agent_composer.py``, ``agent_generator.py``,
-``syntax_validator.py``, ``quality_scorer.py``, ``context_discovery.py``,
+``syntax_validator.py``, ``quality_scorer.py``,
 etc.) — each re-implementing the split/strip/drop-empty logic with
 subtle variants. A few sites dropped the ``if t.strip()`` guard and so
 produced lists containing empty strings whenever the raw value had a

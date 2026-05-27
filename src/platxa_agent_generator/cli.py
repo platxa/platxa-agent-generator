@@ -4,12 +4,11 @@
 Production-grade command-line interface for standalone agent generation.
 
 Run ``platxa-agent --help`` (or ``python -m platxa_agent_generator --help``)
-for the authoritative, always-current subcommand list. The 19 subcommands
+for the authoritative, always-current subcommand list. The 14 subcommands
 fall into six groups:
 
-    Agent generation (11):
-        generate, validate, catalog, install, analyze, analyze-agent,
-        upgrade, lint, preview, status, batch
+    Agent generation (6):
+        generate, validate, catalog, install, analyze, lint
     Observation + instinct pipelines (2):
         observations, instincts
     Eval harness (1):
@@ -20,6 +19,13 @@ fall into six groups:
         health
     Plugin lifecycle (3):
         install-plugin, uninstall-plugin, plugin-status
+
+Removed subcommands (Phase 2 Category B replacement):
+    analyze-agent  -- replaced by validation-subagent + Bash(pytest/pyright)
+    upgrade        -- replaced by Edit tool + skill reference rules
+    preview        -- replaced by Read+Bash(diff) in team-lead
+    status         -- replaced by Read/Write JSON in team-lead
+    batch          -- replaced by Read JSON spec + Task fan-out
 
 Keeping the inventory here (instead of per-command one-liners that drift
 out of sync with argparse) means the parser remains the single source of
@@ -46,13 +52,9 @@ from typing import Any, NoReturn
 # Import all generator modules
 try:
     from . import (
-        agent_analyzer,
         agent_catalog,
         agent_generator,
         agent_linter,
-        agent_upgrader,
-        context_discovery,
-        dry_run,
         eval_runner,
         eval_scenario,
         extended_thinking,
@@ -68,17 +70,12 @@ try:
         syntax_validator,
         type_classifier,
         weight_drift_check,
-        workflow_state,
     )
 except ImportError:
     # Standalone execution - type: ignore comments for pyright
-    import agent_analyzer  # type: ignore[import-not-found,no-redef]
     import agent_catalog  # type: ignore[import-not-found,no-redef]
     import agent_generator  # type: ignore[import-not-found,no-redef]
     import agent_linter  # type: ignore[import-not-found,no-redef]
-    import agent_upgrader  # type: ignore[import-not-found,no-redef]
-    import context_discovery  # type: ignore[import-not-found,no-redef]
-    import dry_run  # type: ignore[import-not-found,no-redef]
     import eval_runner  # type: ignore[import-not-found,no-redef]
     import eval_scenario  # type: ignore[import-not-found,no-redef]
     import extended_thinking  # type: ignore[import-not-found,no-redef]
@@ -94,7 +91,6 @@ except ImportError:
     import syntax_validator  # type: ignore[import-not-found,no-redef]
     import type_classifier  # type: ignore[import-not-found,no-redef]
     import weight_drift_check  # type: ignore[import-not-found,no-redef]
-    import workflow_state  # type: ignore[import-not-found,no-redef]
 
 
 __version__ = "1.1.0"
@@ -200,12 +196,7 @@ Examples:
         self._add_catalog_command(subparsers)
         self._add_install_command(subparsers)
         self._add_analyze_command(subparsers)
-        self._add_analyze_agent_command(subparsers)
-        self._add_upgrade_command(subparsers)
         self._add_lint_command(subparsers)
-        self._add_preview_command(subparsers)
-        self._add_status_command(subparsers)
-        self._add_batch_command(subparsers)
         self._add_observations_command(subparsers)
         self._add_instincts_command(subparsers)
         self._add_eval_run_command(subparsers)
@@ -278,43 +269,6 @@ Examples:
         analyze.add_argument("task", help="Task description")
         analyze.add_argument("--context", type=str, default="{}", help="JSON context")
 
-    def _add_analyze_agent_command(self, subparsers: Any) -> None:
-        """Add the analyze-agent subcommand.
-
-        Distinct from ``analyze`` (which assesses task complexity for
-        extended-thinking purposes). ``analyze-agent`` reads an existing
-        agent file and produces missing-field, security, and context
-        improvement recommendations via :mod:`agent_analyzer`.
-        """
-        analyze_agent = subparsers.add_parser(
-            "analyze-agent",
-            help="Analyze an existing agent file and surface improvements",
-        )
-        analyze_agent.add_argument(
-            "path",
-            type=Path,
-            help="Path to the agent .md file",
-        )
-
-    def _add_upgrade_command(self, subparsers: Any) -> None:
-        """Add the upgrade subcommand.
-
-        Wraps :mod:`agent_upgrader` so users can upgrade an existing
-        agent file to the latest format. Default is a dry-run that
-        prints the planned changes; ``--apply`` writes them back
-        (after creating a timestamped backup).
-        """
-        upgrade = subparsers.add_parser(
-            "upgrade",
-            help="Upgrade an existing agent to the latest format",
-        )
-        upgrade.add_argument("path", type=Path, help="Path to the agent .md file")
-        upgrade.add_argument(
-            "--apply",
-            action="store_true",
-            help="Write changes back to the file (dry-run is the default)",
-        )
-
     def _add_lint_command(self, subparsers: Any) -> None:
         """Add the lint subcommand.
 
@@ -332,72 +286,6 @@ Examples:
             nargs="+",
             type=Path,
             help="One or more agent .md files to lint",
-        )
-
-    def _add_preview_command(self, subparsers: Any) -> None:
-        """Add the preview subcommand."""
-        preview = subparsers.add_parser("preview", help="Preview generation")
-        preview.add_argument("description", help="Agent description")
-        preview.add_argument("-t", "--type", choices=["simple", "orchestrator", "multi-agent"])
-        preview.add_argument("--full", action="store_true", help="Show full content")
-
-    def _add_status_command(self, subparsers: Any) -> None:
-        """Add the status subcommand."""
-        status = subparsers.add_parser("status", help="Show progress")
-        status.add_argument("--compact", action="store_true")
-
-    def _add_batch_command(self, subparsers: Any) -> None:
-        """Add the batch subcommand for unattended ecosystem generation.
-
-        The batch command runs in offline/unattended contexts (CI,
-        scheduled orchestrators) where the generator's capabilities
-        must be bounded ahead of time. Flags mirror BatchPolicy:
-
-        - ``--allowedTools`` restricts which tools each generated agent
-          may declare (repeatable/nargs="+").
-        - ``--offline`` strips network tools (WebSearch/WebFetch) from
-          every agent and prevents the generator itself from relying on
-          them.
-        - ``--output-scope`` enforces a filesystem prefix for all
-          writes; default ``.claude`` satisfies the verification
-          criterion "Write restricted to .claude/ paths".
-        """
-        batch = subparsers.add_parser(
-            "batch",
-            help="Generate an agent ecosystem from a JSON batch spec",
-        )
-        batch.add_argument(
-            "spec_path",
-            type=Path,
-            help="Path to a batch-spec JSON file",
-        )
-        batch.add_argument(
-            "-o",
-            "--output",
-            type=Path,
-            default=None,
-            help="Output directory (default: .claude/agents)",
-        )
-        batch.add_argument(
-            "--allowedTools",
-            dest="allowed_tools",
-            nargs="+",
-            default=None,
-            help="Allowlist of tool names each generated agent may declare. "
-            "Empty/omitted disables allowlist enforcement.",
-        )
-        batch.add_argument(
-            "--offline",
-            action="store_true",
-            help="Strip WebSearch/WebFetch from every generated agent",
-        )
-        batch.add_argument(
-            "--output-scope",
-            dest="output_scope",
-            default=None,
-            help="Filesystem prefix the output directory must resolve "
-            "inside (default: .claude). Unattended runs should leave "
-            "this at the default; tests may override.",
         )
 
     def run(self, args: list[str] | None = None) -> int:
@@ -423,12 +311,7 @@ Examples:
             "catalog": self._handle_catalog,
             "install": self._handle_install,
             "analyze": self._handle_analyze,
-            "analyze-agent": self._handle_analyze_agent,
-            "upgrade": self._handle_upgrade,
             "lint": self._handle_lint,
-            "preview": self._handle_preview,
-            "status": self._handle_status,
-            "batch": self._handle_batch,
             "observations": self._handle_observations,
             "instincts": self._handle_instincts,
             "eval-run": self._handle_eval_run,
@@ -523,11 +406,6 @@ Examples:
             agent_type_str = args.type or classification.architecture_type
             agent_name = args.name or parsed.name
 
-            tracker.update_phase("discovery", 75, "Scanning existing agents")
-            existing_agents = context_discovery.scan_all_agents()
-            discovery_ctx = context_discovery.discovery_report(
-                existing_agents, proposed_name=agent_name
-            )
             tracker.update_phase("discovery", 100)
 
             # Phase 2: Architecture
@@ -536,19 +414,10 @@ Examples:
                 tool_list = args.tools
             else:
                 tool_list = list(parsed.tools)
-                recommended = discovery_ctx.get("patterns", {}).get("recommended_base")
-                if recommended:
-                    existing = set(tool_list)
-                    tool_list.extend(t for t in recommended if t not in existing)
             tracker.update_phase("architecture", 100)
 
             # Phase 3: Generation with iteration-aware retry loop
-            state = workflow_state.WorkflowState(
-                workflow_id=f"cli-generate-{agent_name}",
-                agent_name=agent_name,
-                agent_description=parsed.description,
-                max_iterations=max_iterations,
-            )
+            retry_count = 0
 
             agent_content = ""
             reprompt_context = ""
@@ -565,7 +434,7 @@ Examples:
                     description=parsed.description,
                     tools=tool_list,
                     context_hint=reprompt_context,
-                    discovery_context=discovery_ctx,
+                    discovery_context=None,
                 )
 
                 if not success:
@@ -599,7 +468,7 @@ Examples:
                     break
 
                 # Quality below threshold — build reprompt context for next iteration
-                state.retry_count = iteration + 1
+                retry_count = iteration + 1
                 reprompt_context = agent_generator.build_validation_failure_context(
                     quality_result, min_score=args.min_quality
                 )
@@ -609,7 +478,7 @@ Examples:
                     return self._escalate_verdict(
                         args,
                         tracker,
-                        state,
+                        max_iterations,
                         quality_score,
                         agent_name,
                         agent_type_str,
@@ -639,24 +508,18 @@ Examples:
                     "agent_name": agent_name,
                     "agent_type": agent_type_str,
                     "tools": tool_list,
-                    "iterations_used": state.retry_count + 1,
+                    "iterations_used": retry_count + 1,
                     "max_iterations": max_iterations,
                 }
                 if not args.no_validate:
                     result["quality_score"] = quality_score
-                result["discovery"] = {
-                    "agents_found": discovery_ctx["agents_found"],
-                    "has_conflict": bool(
-                        discovery_ctx.get("conflict_check", {}).get("has_conflict")
-                    ),
-                }
                 print(json.dumps(result, indent=2))
             else:
                 print(tracker.render())
                 print("\nAgent generated successfully!")
                 print(f"Output: {output_path}")
-                if state.retry_count > 0:
-                    print(f"Iterations used: {state.retry_count + 1}/{max_iterations}")
+                if retry_count > 0:
+                    print(f"Iterations used: {retry_count + 1}/{max_iterations}")
 
             return 0
 
@@ -672,14 +535,14 @@ Examples:
         self,
         args: argparse.Namespace,
         tracker: progress_tracker.ProgressTracker,
-        state: workflow_state.WorkflowState,
+        max_iterations: int,
         quality_score: float,
         agent_name: str,
         agent_type_str: str,
     ) -> int:
         """Emit ESCALATE verdict when max iterations exhausted."""
         tracker.fail(
-            f"ESCALATE: {state.max_iterations} iterations exhausted; "
+            f"ESCALATE: {max_iterations} iterations exhausted; "
             f"best score {quality_score:.1f} < {args.min_quality}"
         )
 
@@ -689,13 +552,13 @@ Examples:
                 "verdict": "ESCALATE",
                 "agent_name": agent_name,
                 "agent_type": agent_type_str,
-                "iterations_used": state.max_iterations,
-                "max_iterations": state.max_iterations,
+                "iterations_used": max_iterations,
+                "max_iterations": max_iterations,
                 "best_quality_score": quality_score,
                 "min_quality_required": args.min_quality,
                 "message": (
                     f"Quality score {quality_score:.1f} remained below "
-                    f"{args.min_quality} after {state.max_iterations} iterations"
+                    f"{args.min_quality} after {max_iterations} iterations"
                 ),
             }
             print(json.dumps(result, indent=2))
@@ -703,7 +566,7 @@ Examples:
             print(tracker.render())
             print(
                 f"\nESCALATE: Quality score {quality_score:.1f} < {args.min_quality} "
-                f"after {state.max_iterations} iterations."
+                f"after {max_iterations} iterations."
             )
             print("Manual intervention required.")
 
@@ -903,31 +766,6 @@ Examples:
 
         return 0
 
-    def _handle_analyze_agent(self, args: argparse.Namespace) -> int:
-        """Handle the analyze-agent command.
-
-        Reads the agent file, runs the full validation pipeline via
-        ``agent_analyzer.analyze_agent`` and prints either a JSON
-        serialization or the human-readable report. Exits non-zero only
-        when the file is missing — a finding-laden report is still a
-        successful invocation.
-        """
-        json_mode = bool(getattr(args, "json", False))
-        try:
-            analysis = agent_analyzer.analyze_agent(args.path)
-        except FileNotFoundError as exc:
-            if json_mode:
-                print(json.dumps({"error": str(exc)}, indent=2))
-            else:
-                print(f"Error: {exc}")
-            return 1
-
-        if json_mode:
-            print(json.dumps(analysis.to_dict(), indent=2))
-        else:
-            print(agent_analyzer.format_analysis_report(analysis))
-        return 0
-
     def _handle_lint(self, args: argparse.Namespace) -> int:
         """Handle the lint command.
 
@@ -973,147 +811,6 @@ Examples:
             if all(r.passed for r in reports)
             else agent_linter.LINT_EXIT_ERRORS
         )
-
-    def _handle_upgrade(self, args: argparse.Namespace) -> int:
-        """Handle the upgrade command.
-
-        Reads the agent file, runs the additive upgrade, and prints
-        either the JSON serialization or the human-readable report.
-        Exit code is 1 only on FileNotFoundError — a no-op upgrade
-        (file already current) is still success.
-        """
-        json_mode = bool(getattr(args, "json", False))
-        try:
-            result = agent_upgrader.upgrade_agent(args.path, apply=args.apply)
-        except FileNotFoundError as exc:
-            if json_mode:
-                print(json.dumps({"error": str(exc)}, indent=2))
-            else:
-                print(f"Error: {exc}")
-            return 1
-
-        if json_mode:
-            print(json.dumps(result.to_dict(), indent=2))
-        else:
-            print(agent_upgrader.format_upgrade_report(result))
-        return 0
-
-    def _handle_preview(self, args: argparse.Namespace) -> int:
-        """Handle the preview command."""
-        # Parse description to get agent details
-        parsed = nlp_parser.parse(args.description)
-
-        # dry_run requires name, description, tools
-        result = dry_run.dry_run(
-            name=parsed.name,
-            description=parsed.description,
-            tools=parsed.tools or ["Read", "Write"],
-            pattern=args.type or "prompt-chaining",
-        )
-
-        if hasattr(args, "json") and args.json:
-            print(json.dumps(dry_run.result_to_dict(result), indent=2))
-        else:
-            print("\n" + "=" * 60)
-            print("Generation Preview")
-            print("=" * 60 + "\n")
-
-            print(f"Would create {len(result.files)} file(s):")
-            for file_preview in result.files:
-                print(f"\n  {file_preview.path}")
-                print(f"    Size: {dry_run.format_file_size(file_preview.size_bytes)}")
-                if args.full:
-                    content_preview = file_preview.content[:500]
-                    print(f"    Content preview:\n{content_preview}...")
-
-            print(f"\nTotal size: {dry_run.format_file_size(result.total_size)}")
-
-        return 0
-
-    def _handle_status(self, args: argparse.Namespace) -> int:
-        """Handle the status command."""
-        tracker = progress_tracker.ProgressTracker()
-
-        if tracker.load_state():
-            if hasattr(args, "json") and args.json:
-                print(tracker.render_json())
-            else:
-                print(tracker.render(compact=args.compact))
-        else:
-            print("No active generation in progress.")
-
-        return 0
-
-    def _handle_batch(self, args: argparse.Namespace) -> int:
-        """Handle the batch subcommand.
-
-        Loads the JSON spec, builds a BatchPolicy from the CLI flags
-        (only populating fields the user supplied — this keeps the
-        policy-free default path available for callers that don't
-        care about scoping), and returns 0 iff
-        :func:`batch_generator.generate_batch` reports full success.
-
-        Output format follows the CLI's existing convention: JSON when
-        ``--json`` / ``--non-interactive`` is set, otherwise a compact
-        human-readable summary with the per-agent warnings/errors.
-        """
-        try:
-            from . import batch_generator as bg
-        except ImportError:
-            import batch_generator as bg  # type: ignore[import-not-found,no-redef]
-
-        try:
-            spec = bg.load_batch_spec(args.spec_path)
-        except (FileNotFoundError, ValueError) as exc:
-            msg = str(exc)
-            if getattr(args, "json", False):
-                print(json.dumps({"error": msg}, indent=2))
-            else:
-                print(f"Error: {msg}")
-            return 1
-
-        policy_kwargs: dict[str, Any] = {}
-        if args.allowed_tools is not None:
-            policy_kwargs["allowed_tools"] = list(args.allowed_tools)
-        if args.offline:
-            policy_kwargs["offline"] = True
-        if args.output_scope is not None:
-            policy_kwargs["output_scope"] = args.output_scope
-        policy = bg.BatchPolicy(**policy_kwargs) if policy_kwargs else None
-
-        output_dir = args.output or Path(bg.DEFAULT_BATCH_OUTPUT_DIR)
-        result = bg.generate_batch(spec, output_dir, policy=policy)
-
-        if getattr(args, "json", False):
-            payload = {
-                "ecosystem": result.ecosystem,
-                "success": result.success,
-                "cross_validation_errors": result.cross_validation_errors,
-                "agents": [
-                    {
-                        "name": a.name,
-                        "success": a.success,
-                        "output_path": a.output_path,
-                        "errors": a.errors,
-                        "warnings": a.warnings,
-                    }
-                    for a in result.agents
-                ],
-            }
-            print(json.dumps(payload, indent=2))
-        else:
-            status = "OK" if result.success else "FAILED"
-            print(f"Batch '{result.ecosystem}': {status}")
-            for err in result.cross_validation_errors:
-                print(f"  ! {err}")
-            for agent in result.agents:
-                flag = "+" if agent.success else "-"
-                print(f"  {flag} {agent.name} → {agent.output_path or '(not written)'}")
-                for warning in agent.warnings:
-                    print(f"      warning: {warning}")
-                for err in agent.errors:
-                    print(f"      error: {err}")
-        return 0 if result.success else 1
 
     def _add_observations_command(self, subparsers: Any) -> None:
         """Add the observations subcommand with list|show|stats|migrate actions."""

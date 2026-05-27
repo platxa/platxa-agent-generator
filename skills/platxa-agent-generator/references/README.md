@@ -24,6 +24,11 @@ Comprehensive reference documentation for agent patterns based on Anthropic's "B
 | [Interactive Phases](interactive-phases.md) | Six-phase wizard and frontmatter field mappings |
 | [MCP Server Templates](mcp-server-templates.md) | Pre-defined server configs and domain recommendations |
 | [Regeneration Prompts](regeneration-prompts.md) | Per-axis feedback format for ITERATE verdicts |
+| [Hook Config Templates](hooks-config-templates.md) | Hook events, matchers, script templates, security patterns |
+| [Multi-Agent System Templates](multiagent-system-templates.md) | Predefined system patterns, orchestrator/worker structures |
+| [Prompt Templates](prompt-templates.md) | Type roles, capabilities, workflows, domain enhancements |
+| [Export Templates](export-templates.md) | Package/plugin README, manifest schema, archive formats |
+| [Composer Templates](composer-templates.md) | Sequential, parallel, routing, orchestrator composition patterns |
 
 ## Pattern Selection Guide
 

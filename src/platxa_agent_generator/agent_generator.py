@@ -3427,9 +3427,9 @@ def generate(
         context_hint: Optional targeted-reprompt context from a prior iteration.
             Prepended to the description to steer regeneration toward fixing
             specific quality deficiencies.
-        discovery_context: Output from ``context_discovery.discovery_report()``.
-            Piped into the agent definition so downstream sections (e.g.
-            Related Agents) can reference actually-existing agents.
+        discovery_context: Optional discovery report dict. Piped into the
+            agent definition so downstream sections (e.g. Related Agents)
+            can reference actually-existing agents.
 
     Returns:
         (success, content_or_error, output_path)

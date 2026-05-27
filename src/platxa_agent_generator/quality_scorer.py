@@ -615,7 +615,7 @@ class ToolValidationReport:
     """Cross-validation result between declared tools and workflow references.
 
     Used by score_tool_design to adjust the tool_design criterion score and
-    by external validators (syntax_validator, dry_run) to surface errors and
+    by external validators (syntax_validator) to surface errors and
     warnings with explicit severity.
 
     Fields:
