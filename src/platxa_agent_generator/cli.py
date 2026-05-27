@@ -4,11 +4,11 @@
 Production-grade command-line interface for standalone agent generation.
 
 Run ``platxa-agent --help`` (or ``python -m platxa_agent_generator --help``)
-for the authoritative, always-current subcommand list. The 14 subcommands
+for the authoritative, always-current subcommand list. The 13 subcommands
 fall into six groups:
 
-    Agent generation (6):
-        generate, validate, catalog, install, analyze, lint
+    Agent generation (5):
+        generate, validate, catalog, install, lint
     Observation + instinct pipelines (2):
         observations, instincts
     Eval harness (1):
@@ -20,7 +20,8 @@ fall into six groups:
     Plugin lifecycle (3):
         install-plugin, uninstall-plugin, plugin-status
 
-Removed subcommands (Phase 2 Category B replacement):
+Removed subcommands (Phase 2 Category B / Phase 3 Claude Reasoning):
+    analyze        -- replaced by Claude's native thinking intensity (Phase 3)
     analyze-agent  -- replaced by validation-subagent + Bash(pytest/pyright)
     upgrade        -- replaced by Edit tool + skill reference rules
     preview        -- replaced by Read+Bash(diff) in team-lead
@@ -57,7 +58,6 @@ try:
         agent_linter,
         eval_runner,
         eval_scenario,
-        extended_thinking,
         install_agent,
         instinct_store,
         nlp_parser,
@@ -78,7 +78,6 @@ except ImportError:
     import agent_linter  # type: ignore[import-not-found,no-redef]
     import eval_runner  # type: ignore[import-not-found,no-redef]
     import eval_scenario  # type: ignore[import-not-found,no-redef]
-    import extended_thinking  # type: ignore[import-not-found,no-redef]
     import install_agent  # type: ignore[import-not-found,no-redef]
     import instinct_store  # type: ignore[import-not-found,no-redef]
     import nlp_parser  # type: ignore[import-not-found,no-redef]
@@ -152,7 +151,6 @@ Examples:
   %(prog)s validate ./agents/code-reviewer.md
   %(prog)s catalog list --category security
   %(prog)s install ./agents/code-reviewer.md --scope project
-  %(prog)s analyze "Design a distributed microservices architecture"
             """,
         )
 
@@ -195,7 +193,6 @@ Examples:
         self._add_validate_command(subparsers)
         self._add_catalog_command(subparsers)
         self._add_install_command(subparsers)
-        self._add_analyze_command(subparsers)
         self._add_lint_command(subparsers)
         self._add_observations_command(subparsers)
         self._add_instincts_command(subparsers)
@@ -263,12 +260,6 @@ Examples:
         install.add_argument("--force", action="store_true")
         install.add_argument("--no-validate", action="store_true")
 
-    def _add_analyze_command(self, subparsers: Any) -> None:
-        """Add the analyze subcommand."""
-        analyze = subparsers.add_parser("analyze", help="Analyze task complexity")
-        analyze.add_argument("task", help="Task description")
-        analyze.add_argument("--context", type=str, default="{}", help="JSON context")
-
     def _add_lint_command(self, subparsers: Any) -> None:
         """Add the lint subcommand.
 
@@ -310,7 +301,6 @@ Examples:
             "validate": self._handle_validate,
             "catalog": self._handle_catalog,
             "install": self._handle_install,
-            "analyze": self._handle_analyze,
             "lint": self._handle_lint,
             "observations": self._handle_observations,
             "instincts": self._handle_instincts,
@@ -742,29 +732,6 @@ Examples:
         else:
             print(f"Error: {result.message or 'Installation failed'}")
             return 1
-
-    def _handle_analyze(self, args: argparse.Namespace) -> int:
-        """Handle the analyze command."""
-        context = json.loads(args.context)
-        integration = extended_thinking.ThinkingIntegration()
-        recommendation = integration.analyze_complexity(args.task, context)
-
-        if hasattr(args, "json") and args.json:
-            print(json.dumps(recommendation.to_dict(), indent=2))
-        else:
-            print("\n" + "=" * 60)
-            print("Complexity Analysis")
-            print("=" * 60 + "\n")
-
-            task_preview = args.task[:70] if len(args.task) > 70 else args.task
-            print(f"Task: {task_preview}...")
-            print(f"\nOverall Complexity: {recommendation.overall_complexity:.2f}")
-            print(f"Use Extended Thinking: {recommendation.should_use_extended_thinking}")
-            print(f"Recommended Intensity: {recommendation.intensity.trigger_phrase}")
-            print(f"\nRationale: {recommendation.rationale}")
-            print(f"\nBenefit: {recommendation.estimated_benefit}")
-
-        return 0
 
     def _handle_lint(self, args: argparse.Namespace) -> int:
         """Handle the lint command.

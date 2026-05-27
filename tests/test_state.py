@@ -605,25 +605,15 @@ class TestStatePersistenceWriteSurfacing:
 class TestSilentWriteSurfacing:
     """Tests for bundled state-write OSError surfacing (Feature #14).
 
-    Two state-persistence helpers had symmetric silent-failure sites that
-    were hiding environmental problems:
-
-    - ``extended_thinking.ThinkingIntegration._save_usage_history``
-      swallowed OSError with ``pass`` when writing the per-task usage log.
-      A full disk or a read-only ``.claude/`` meant the log silently
-      stopped growing — the operator had no way to tell a healthy
-      "no new records yet" from a broken "every write is dropping on
-      the floor".
-
-    - ``progress_tracker.ProgressTracker._save_state`` had the same
-      pattern for the cross-phase progress checkpoint. Silent drops here
-      meant a failed resume anchor looked identical to a fresh start,
-      which is the worst failure mode for a resume-on-crash primitive.
+    ``progress_tracker.ProgressTracker._save_state`` swallowed OSError
+    with ``pass`` when writing the cross-phase progress checkpoint.
+    Silent drops meant a failed resume anchor looked identical to a
+    fresh start, which is the worst failure mode for a resume-on-crash
+    primitive.
 
     The fix emits a stderr warning that names the target path and the
-    error class in both sites, without changing the swallow-and-continue
-    contract (both writes are best-effort; the caller already holds the
-    live in-memory record).
+    error class, without changing the swallow-and-continue contract
+    (the write is best-effort; the caller holds the live ProgressState).
     """
 
     def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
@@ -635,38 +625,6 @@ class TestSilentWriteSurfacing:
             cwd=str(scripts_dir),
             check=False,
         )
-
-    def test_extended_thinking_oserror(self) -> None:
-        """OSError inside ``_save_usage_history`` must emit a stderr warning
-        that names the target usage log path and the error class.
-
-        The previous ``except OSError: pass`` hid disk-full / permissions
-        failures entirely. Operators lost their thinking-usage log with
-        zero diagnostic. The fix emits a warning to stderr without
-        changing the swallow-and-continue contract (records are captured
-        in-memory by the caller before save).
-        """
-        result = self._run_py(
-            "import tempfile\n"
-            "from pathlib import Path\n"
-            "from unittest.mock import patch\n"
-            "from platxa_agent_generator.extended_thinking import ThinkingIntegration\n"
-            "with tempfile.TemporaryDirectory() as td:\n"
-            "    log_path = Path(td) / 'thinking_usage.json'\n"
-            "    integ = ThinkingIntegration(usage_log_path=log_path)\n"
-            "    with patch.object(\n"
-            "        Path, 'write_text',\n"
-            "        side_effect=OSError('no space left'),\n"
-            "    ):\n"
-            "        integ._save_usage_history()\n"
-            "    print('completed')\n"
-        )
-        assert result.returncode == 0, result.stderr
-        assert "completed" in result.stdout
-        # Warning must name the target path and the error class/message.
-        assert "thinking_usage.json" in result.stderr
-        assert "OSError" in result.stderr
-        assert "no space left" in result.stderr
 
     def test_progress_tracker_oserror(self) -> None:
         """OSError inside ``_save_state`` must emit a stderr warning that
