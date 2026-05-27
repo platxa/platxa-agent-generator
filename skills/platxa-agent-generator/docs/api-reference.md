@@ -8,7 +8,6 @@ Complete API documentation for the Platxa Agent Generator Python modules.
 from scripts import (
     agent_generator,      # Core agent generation
     nlp_parser,           # Natural language parsing
-    type_classifier,      # Agent type classification
     prompt_generator,     # System prompt generation
     quality_scorer,       # Quality scoring
     syntax_validator,     # Syntax validation
@@ -129,54 +128,6 @@ class ParsedDescription:
     output_types: list[str]
     complexity: str  # "simple", "medium", "complex"
     confidence: float
-```
-
----
-
-## type_classifier
-
-Classify agents into types based on requirements.
-
-### classify_agent()
-
-```python
-def classify_agent(
-    description: str,
-    parsed: ParsedDescription | None = None
-) -> ClassificationResult
-```
-
-Determine the appropriate agent type.
-
-**Parameters:**
-- `description`: Agent description
-- `parsed`: Optional pre-parsed description
-
-**Returns:** `ClassificationResult` with type and confidence
-
-**Example:**
-```python
-from scripts.type_classifier import classify_agent
-
-result = classify_agent(
-    "An orchestrator that coordinates multiple specialist agents"
-)
-
-print(f"Type: {result.agent_type}")
-print(f"Pattern: {result.recommended_pattern}")
-print(f"Confidence: {result.confidence}")
-```
-
-### ClassificationResult
-
-```python
-@dataclass
-class ClassificationResult:
-    agent_type: str  # "simple", "orchestrator", "multi-agent", "pipeline"
-    recommended_pattern: str
-    confidence: float
-    reasoning: str
-    alternative_patterns: list[str]
 ```
 
 ---

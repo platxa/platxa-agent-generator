@@ -68,7 +68,6 @@ try:
         quality_scorer,
         security_scanner,
         syntax_validator,
-        type_classifier,
         weight_drift_check,
     )
 except ImportError:
@@ -88,7 +87,6 @@ except ImportError:
     import quality_scorer  # type: ignore[import-not-found,no-redef]
     import security_scanner  # type: ignore[import-not-found,no-redef]
     import syntax_validator  # type: ignore[import-not-found,no-redef]
-    import type_classifier  # type: ignore[import-not-found,no-redef]
     import weight_drift_check  # type: ignore[import-not-found,no-redef]
 
 
@@ -350,9 +348,8 @@ Examples:
 
             print("\nAnalyzing description...")
             parsed = nlp_parser.parse(description)
-            classification = type_classifier.classify(description)
 
-            print(f"  Detected type: {classification.architecture_type}")
+            print(f"  Detected type: {parsed.agent_type}")
             print(f"  Extracted name: {parsed.name}")
 
             print("\nProceed with generation? [Y/n]: ", end="")
@@ -392,8 +389,7 @@ Examples:
             parsed = nlp_parser.parse(description)
             tracker.update_phase("discovery", 50, "Classifying agent type")
 
-            classification = type_classifier.classify(description)
-            agent_type_str = args.type or classification.architecture_type
+            agent_type_str = args.type or parsed.agent_type
             agent_name = args.name or parsed.name
 
             tracker.update_phase("discovery", 100)
