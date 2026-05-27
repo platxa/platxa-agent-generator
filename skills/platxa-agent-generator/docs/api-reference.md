@@ -84,50 +84,55 @@ class GenerationResult:
 
 ## nlp_parser
 
-Parse natural language descriptions into structured requirements.
+Structured output definitions and thin parse interface. Full NL understanding
+(type classification, tool selection, domain detection, constraint extraction,
+complexity estimation) is delegated to Claude's native reasoning via the
+discovery-subagent.
 
-### parse_description()
+### parse()
 
 ```python
-def parse_description(description: str) -> ParsedDescription
+def parse(description: str) -> AgentRequirements
 ```
 
-Extract agent requirements from natural language.
+Returns an `AgentRequirements` with minimal defaults (name slug, sanitized
+description, default tools). The discovery-subagent enriches these via
+Claude's reasoning.
 
 **Parameters:**
 - `description`: Natural language agent description
 
-**Returns:** `ParsedDescription` with extracted components
+**Returns:** `AgentRequirements` with defaults
 
 **Example:**
 ```python
-from scripts.nlp_parser import parse_description
+from platxa_agent_generator.nlp_parser import parse
 
-result = parse_description(
-    "Create an agent that reviews Python code for security vulnerabilities "
-    "and generates a detailed report with severity levels"
-)
+result = parse("Create an agent that reviews code for security issues")
 
-print(f"Name: {result.suggested_name}")
-print(f"Type: {result.agent_type}")
-print(f"Tools: {result.suggested_tools}")
-print(f"Keywords: {result.keywords}")
+print(f"Name: {result.name}")
+print(f"Type: {result.agent_type}")  # "analyzer" (default)
+print(f"Tools: {result.tools}")      # ["Bash", "Edit", "Glob", "Grep", "Read", "Write"]
 ```
 
-### ParsedDescription
+### AgentRequirements
 
 ```python
 @dataclass
-class ParsedDescription:
-    suggested_name: str
-    suggested_description: str
+class AgentRequirements:
+    name: str
     agent_type: str
-    suggested_tools: list[str]
-    keywords: list[str]
-    input_types: list[str]
-    output_types: list[str]
-    complexity: str  # "simple", "medium", "complex"
+    description: str
+    tools: list[str]
+    patterns: list[str]
     confidence: float
+    domains: list[str]
+    disallowed_tools: list[str]
+    file_patterns: list[str]
+    constraint_phrases: list[str]
+    complexity: str   # "simple" | "moderate" | "complex"
+    max_turns: int
+    complexity_signals: dict[str, str]
 ```
 
 ---

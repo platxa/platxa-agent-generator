@@ -2,117 +2,15 @@
 """
 test_composition — sharded from test_generator.py.
 
-Shards: 5 TestXxx classes.
+Shards: 3 TestXxx classes.
 Run with: pytest tests/test_composition.py -v
 """
 
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 from pathlib import Path
-
-SCRIPTS_DIR = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
-
-
-class TestDomainDetection:
-    """Tests for Feature #52: NLP domain detection."""
-
-    NLP_SCRIPT = str(SCRIPTS_DIR / "nlp_parser.py")
-
-    def _parse(self, description: str) -> dict:
-        """Parse description via CLI and return JSON result."""
-        result = subprocess.run(
-            [sys.executable, self.NLP_SCRIPT, "--json", description],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0, f"nlp_parser failed: {result.stderr}"
-        return json.loads(result.stdout)
-
-    def test_web_domain_detected(self):
-        """Web domain detected from frontend/React/API keywords."""
-        data = self._parse("Build a React frontend component for REST API")
-        assert "web" in data["domains"]
-
-    def test_mobile_domain_detected(self):
-        """Mobile domain detected from iOS/Android/Flutter keywords."""
-        data = self._parse("Create an iOS and Android app with Flutter")
-        assert "mobile" in data["domains"]
-
-    def test_data_domain_detected(self):
-        """Data domain detected from database/SQL/ETL keywords."""
-        data = self._parse("Analyze PostgreSQL database queries and optimize SQL")
-        assert "data" in data["domains"]
-
-    def test_devops_domain_detected(self):
-        """DevOps domain detected from Docker/Kubernetes/CI keywords."""
-        data = self._parse("Deploy to Kubernetes with Docker and GitHub Actions")
-        assert "devops" in data["domains"]
-
-    def test_security_domain_detected(self):
-        """Security domain detected from vulnerability/auth/OWASP keywords."""
-        data = self._parse("Scan for OWASP vulnerabilities and authentication issues")
-        assert "security" in data["domains"]
-
-    def test_testing_domain_detected(self):
-        """Testing domain detected from pytest/coverage/TDD keywords."""
-        data = self._parse("Write pytest unit tests with full coverage")
-        assert "testing" in data["domains"]
-
-    def test_documentation_domain_detected(self):
-        """Documentation domain detected from docstring/README/API doc keywords."""
-        data = self._parse("Generate API documentation with docstrings and README")
-        assert "documentation" in data["domains"]
-
-    def test_multi_domain_detection(self):
-        """Multiple domains detected from a cross-domain description."""
-        data = self._parse("Build a security testing tool for web APIs with JWT authentication")
-        assert "security" in data["domains"]
-        assert "testing" in data["domains"]
-        assert "web" in data["domains"]
-
-    def test_no_domain_returns_empty_list(self):
-        """Description with no domain keywords returns empty domains list."""
-        data = self._parse("Do something interesting with patterns")
-        assert data["domains"] == []
-
-    def test_domain_influences_tool_selection(self):
-        """Detected domains add domain-specific tools to the tool list."""
-        # DevOps domain should add Bash
-        data = self._parse("Deploy containers to Kubernetes cluster")
-        assert "Bash" in data["tools"]
-        # Documentation domain should add Write
-        data2 = self._parse("Generate comprehensive documentation for the module")
-        assert "Write" in data2["tools"]
-
-    def test_domains_field_in_json_output(self):
-        """The domains field is present in JSON output."""
-        data = self._parse("Analyze code for security issues")
-        assert "domains" in data
-        assert isinstance(data["domains"], list)
-
-    def test_domain_keywords_count_exceeds_10(self):
-        """DOMAIN_KEYWORDS has at least 10 keywords per domain on average."""
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-c",
-                "from platxa_agent_generator.nlp_parser import DOMAIN_KEYWORDS; "
-                "total = sum(len(v) for v in DOMAIN_KEYWORDS.values()); "
-                "print(total)",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0
-        total_keywords = int(result.stdout.strip())
-        assert total_keywords >= 70, (
-            f"Total domain keywords: {total_keywords}, need ≥70 (10+ per domain avg)"
-        )
 
 
 class TestCompositionValidation:
