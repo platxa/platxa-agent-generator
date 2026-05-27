@@ -390,6 +390,14 @@ def validate_tools(tools: list[str]) -> tuple[bool, str, list[str]]:
     return True, "", normalized
 
 
+_SEVERITY_ORDER: dict[str, int] = {
+    "CRITICAL": 0,
+    "HIGH": 1,
+    "MEDIUM": 2,
+    "LOW": 3,
+}
+
+
 def build_validation_failure_context(
     report: QualityReport,
     *,
@@ -398,8 +406,7 @@ def build_validation_failure_context(
 ) -> str:
     """Convert a failed QualityReport into a targeted regeneration prompt.
 
-    Bridges the per-criterion findings from ``quality_scorer`` into the
-    format expected by ``targeted_reprompt.build_regeneration_prompt()``,
+    Renders per-axis failure evidence as a structured markdown fragment,
     using ``verdict_aggregator`` to classify axes as blocking or warning.
 
     Returns an empty string when the report passes (no regeneration needed).
@@ -407,15 +414,25 @@ def build_validation_failure_context(
     if report.passed:
         return ""
 
-    from platxa_agent_generator.evaluation_criteria import EvaluationRubric as _Rubric
-    from platxa_agent_generator.targeted_reprompt import build_regeneration_prompt
+    from platxa_agent_generator.evaluation_criteria import (
+        SEVERITIES as _SEVERITIES,
+    )
+    from platxa_agent_generator.evaluation_criteria import (
+        EvaluationRubric as _Rubric,
+    )
     from platxa_agent_generator.verdict_aggregator import aggregate_from_rubric
+
+    assert set(_SEVERITY_ORDER.keys()) == _SEVERITIES, (
+        f"_SEVERITY_ORDER drifted from SEVERITIES: "
+        f"extra={set(_SEVERITY_ORDER.keys()) - _SEVERITIES}, "
+        f"missing={_SEVERITIES - set(_SEVERITY_ORDER.keys())}"
+    )
 
     if rubric is None:
         rubric = _Rubric.load_default()
 
     unmet_axes: list[str] = []
-    findings_dicts: list[dict[str, str]] = []
+    axis_findings: dict[str, list[str]] = {}
     known_axes = _axis_names_from_rubric(rubric)
 
     for criterion in report.criteria:
@@ -424,37 +441,38 @@ def build_validation_failure_context(
             continue
         if criterion.score < min_score:
             unmet_axes.append(axis_name)
-            severity = rubric.axis(axis_name).severity_on_unmet
+            items: list[str] = []
             for finding_text in criterion.findings:
-                findings_dicts.append(
-                    {
-                        "axis": axis_name,
-                        "severity": severity,
-                        "summary": finding_text,
-                        "location": "",
-                    }
-                )
+                items.append(f"- {finding_text}")
             for suggestion_text in criterion.suggestions:
-                findings_dicts.append(
-                    {
-                        "axis": axis_name,
-                        "severity": severity,
-                        "summary": f"[suggestion] {suggestion_text}",
-                        "location": "",
-                    }
-                )
+                items.append(f"- [suggestion] {suggestion_text}")
+            axis_findings[axis_name] = items
 
     if not unmet_axes:
         return ""
 
     verdict = aggregate_from_rubric(unmet_axes, rubric)
+    blocking_set = frozenset(verdict.blocking_axes)
+    warning_set = frozenset(verdict.warning_axes)
 
-    return build_regeneration_prompt(
-        findings=findings_dicts,
-        blocking_axes=list(verdict.blocking_axes),
-        warning_axes=list(verdict.warning_axes),
-        rubric=rubric,
+    all_axes = sorted(
+        blocking_set | warning_set,
+        key=lambda a: _SEVERITY_ORDER.get(rubric.axis(a).severity_on_unmet, 99),
     )
+
+    sections: list[str] = ["## Prior iteration findings to address", ""]
+    for axis_name in all_axes:
+        severity = rubric.axis(axis_name).severity_on_unmet
+        tier = "BLOCKING" if axis_name in blocking_set else "WARNING"
+        criteria_text = rubric.axis(axis_name).criteria.strip().rstrip(".")
+        sections.append(f"### {axis_name} — {severity} ({tier})")
+        sections.append("")
+        sections.extend(axis_findings.get(axis_name, []))
+        sections.append("")
+        sections.append(f"**Suggestion:** Ensure: {criteria_text}.")
+        sections.append("")
+
+    return "\n".join(sections).rstrip("\n") + "\n"
 
 
 def _axis_names_from_rubric(rubric: EvaluationRubric) -> frozenset[str]:

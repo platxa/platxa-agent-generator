@@ -70,12 +70,12 @@ This verifies that:
 ### Step 5: Verify evaluation pipeline
 
 ```bash
-pytest tests/test_targeted_reprompt.py -v
+pytest tests/test_validation_failure_context.py -v
 ```
 
-The targeted reprompt builder consumes axis weights to construct
-per-axis regeneration prompts. Ensure the new weights produce
-correct prompt formatting.
+The `build_validation_failure_context` function consumes axis weights
+to construct per-axis regeneration prompts. Ensure the new weights
+produce correct prompt formatting.
 
 ## What NOT to Do
 
