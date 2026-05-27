@@ -415,44 +415,21 @@ def preview_claudemd_file(
     name: str,
     description: str,
     tools: list[str],
-    pattern: str = "prompt-chaining",
     output_dir: str = ".claude",
 ) -> FilePreview:
     """Generate preview of CLAUDE.md file."""
     path = f"{output_dir}/CLAUDE.md"
     existing = Path(path)
 
-    # Try to use actual generator
-    generate = _get_generator("claudemd_generator")
-    if generate is not None:
-        success, content, _ = generate(
-            agent_name=name,
-            blueprint={
-                "name": name,
-                "description": description,
-                "tools": tools,
-                "pattern": pattern,
-            },
-            output_dir=None,
-        )
-        if success and isinstance(content, str) and content:
-            preview = FilePreview(
-                path=path,
-                content=content,
-                size_bytes=len(content.encode("utf-8")),
-                would_overwrite=existing.exists(),
-            )
-            preview.diff_lines = _compute_diff(existing, content, path)
-            return preview
-
-    # Use fallback content
     content = _generate_fallback_claudemd_content(name, description, tools)
-    return FilePreview(
+    preview = FilePreview(
         path=path,
         content=content,
         size_bytes=len(content.encode("utf-8")),
         would_overwrite=existing.exists(),
     )
+    preview.diff_lines = _compute_diff(existing, content, path)
+    return preview
 
 
 def preview_command_file(
@@ -577,7 +554,6 @@ def dry_run(
             name=name,
             description=description,
             tools=tools,
-            pattern=pattern,
             output_dir=f"{output_base}/.claude",
         )
         if claudemd_preview.content:

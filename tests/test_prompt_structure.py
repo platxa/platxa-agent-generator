@@ -920,3 +920,214 @@ class TestCompetingHypothesisTemplate:
         focuses = [w.get("hypothesis_focus") for w in workers]
         assert all(f for f in focuses), f"manifest dropped hypothesis_focus: {focuses}"
         assert len(set(focuses)) == len(focuses), "manifest focuses not distinct"
+
+
+class TestContextManagementSection:
+    """Tests for context-management guidance in long-running agent prompts (#89)."""
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR),
+            check=False,
+        )
+        return result
+
+    def test_constants_exposed(self) -> None:
+        """Public constants are stable for downstream parsers."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import (\n"
+            "    CONTEXT_MANAGEMENT_HEADING, CONTEXT_MANAGEMENT_RULES,\n"
+            ")\n"
+            "print(CONTEXT_MANAGEMENT_HEADING)\n"
+            "print(len(CONTEXT_MANAGEMENT_RULES))"
+        )
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().splitlines()
+        assert lines[0] == "**Context Management:**"
+        assert int(lines[1]) >= 3
+
+    def test_section_empty_when_short_lived(self) -> None:
+        """Short-lived agents (default) get no Context Management section."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_context_management_section\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read'],[],'json')\n"
+            "print(repr(generate_context_management_section(cfg)))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "''"
+
+    def test_section_renders_when_long_running(self) -> None:
+        """Long-running agents get heading + every canonical rule."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import (\n"
+            "    PromptConfig, generate_context_management_section,\n"
+            "    CONTEXT_MANAGEMENT_RULES,\n"
+            ")\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read'],[],'json',\n"
+            "                   long_running=True)\n"
+            "section = generate_context_management_section(cfg)\n"
+            "print('**Context Management:**' in section)\n"
+            "print(all(rule in section for rule in CONTEXT_MANAGEMENT_RULES))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True"]
+
+    def test_first_rule_targets_pressure_detection(self) -> None:
+        """First rule must address context-pressure detection."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import CONTEXT_MANAGEMENT_RULES\n"
+            "first = CONTEXT_MANAGEMENT_RULES[0].lower()\n"
+            "print('context' in first and ('window' in first or 'history' in first))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
+
+    def test_rules_cover_subagent_and_clear(self) -> None:
+        """Verification criteria require subagent delegation + /clear guidance."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import CONTEXT_MANAGEMENT_RULES\n"
+            "joined = ' '.join(CONTEXT_MANAGEMENT_RULES).lower()\n"
+            "print('subagent' in joined and 'task tool' in joined)\n"
+            "print('/clear' in joined)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True"]
+
+    def test_blocks_omit_section_for_short_lived(self) -> None:
+        """generate_prompt_blocks does not leak the section by default."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read'],[],'json')\n"
+            "blocks = generate_prompt_blocks(cfg)\n"
+            "print('Context Management' in blocks.context)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
+
+    def test_blocks_include_section_for_long_running(self) -> None:
+        """generate_prompt_blocks injects the section into CONTEXT when opted in."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read'],[],'json',\n"
+            "                   long_running=True)\n"
+            "blocks = generate_prompt_blocks(cfg)\n"
+            "print('**Context Management:**' in blocks.context)\n"
+            "print('subagent' in blocks.context.lower())\n"
+            "print('/clear' in blocks.context)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True", "True"]
+
+
+class TestSubagentDelegationSection:
+    """Tests for subagent-delegation guidance in agent prompts (#90)."""
+
+    def _run_py(self, code: str) -> "subprocess.CompletedProcess[str]":
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            cwd=str(SCRIPTS_DIR),
+            check=False,
+        )
+        return result
+
+    def test_constants_exposed_with_thresholds(self) -> None:
+        """Constants pin the heading, threshold, and token band per spec."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import (\n"
+            "    SUBAGENT_DELEGATION_HEADING,\n"
+            "    SUBAGENT_DELEGATION_TRIGGER_TOOLS,\n"
+            "    SUBAGENT_DELEGATION_FILE_THRESHOLD,\n"
+            "    SUBAGENT_SUMMARY_TOKEN_MIN,\n"
+            "    SUBAGENT_SUMMARY_TOKEN_MAX,\n"
+            ")\n"
+            "print(SUBAGENT_DELEGATION_HEADING)\n"
+            "print(SUBAGENT_DELEGATION_FILE_THRESHOLD)\n"
+            "print(SUBAGENT_SUMMARY_TOKEN_MIN, SUBAGENT_SUMMARY_TOKEN_MAX)\n"
+            "print(sorted(SUBAGENT_DELEGATION_TRIGGER_TOOLS))"
+        )
+        assert result.returncode == 0, result.stderr
+        lines = result.stdout.strip().splitlines()
+        assert lines[0] == "**Subagent Delegation:**"
+        assert lines[1] == "5"
+        assert lines[2] == "1000 2000"
+        assert lines[3] == "['Glob', 'Grep', 'Read']"
+
+    def test_section_empty_when_no_trigger_tool(self) -> None:
+        """Agents without Read/Grep/Glob get no Subagent Delegation section."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_subagent_delegation_section\n"
+            "cfg = PromptConfig('analyzer','security','x',['Bash','Write'],[],'json')\n"
+            "print(repr(generate_subagent_delegation_section(cfg)))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "''"
+
+    def test_section_emitted_when_read_tool_present(self) -> None:
+        """A single trigger tool (Read) is enough to surface the section."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import (\n"
+            "    PromptConfig, generate_subagent_delegation_section,\n"
+            "    SUBAGENT_DELEGATION_RULES,\n"
+            ")\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read'],[],'json')\n"
+            "section = generate_subagent_delegation_section(cfg)\n"
+            "print('**Subagent Delegation:**' in section)\n"
+            "print(all(rule in section for rule in SUBAGENT_DELEGATION_RULES))"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True"]
+
+    def test_rules_mention_task_tool_and_thresholds(self) -> None:
+        """Verification criteria require Task tool, >5 files, 1-2K tokens."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import SUBAGENT_DELEGATION_RULES\n"
+            "joined = ' '.join(SUBAGENT_DELEGATION_RULES).lower()\n"
+            "print('task tool' in joined)\n"
+            "print('5 files' in joined)\n"
+            "print('1000-2000 tokens' in joined or '1000 to 2000' in joined)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True", "True"]
+
+    def test_blocks_omit_section_when_no_trigger_tool(self) -> None:
+        """generate_prompt_blocks does not leak the section without Read/Grep/Glob."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "cfg = PromptConfig('analyzer','security','x',['Bash','Write'],[],'json')\n"
+            "blocks = generate_prompt_blocks(cfg)\n"
+            "print('Subagent Delegation' in blocks.context)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "False"
+
+    def test_blocks_include_section_for_grep_agent(self) -> None:
+        """generate_prompt_blocks injects the section into CONTEXT for Grep agents."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read','Grep'],[],'json')\n"
+            "blocks = generate_prompt_blocks(cfg)\n"
+            "print('**Subagent Delegation:**' in blocks.context)\n"
+            "print('Task tool' in blocks.context)\n"
+            "print('5 files' in blocks.context)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines() == ["True", "True", "True"]
+
+    def test_subagent_section_precedes_context_management(self) -> None:
+        """When both sections render, subagent block comes before context-management."""
+        result = self._run_py(
+            "from platxa_agent_generator.prompt_generator import PromptConfig, generate_prompt_blocks\n"
+            "cfg = PromptConfig('analyzer','security','x',['Read','Grep'],[],'json',\n"
+            "                   long_running=True)\n"
+            "blocks = generate_prompt_blocks(cfg)\n"
+            "sub = blocks.context.find('**Subagent Delegation:**')\n"
+            "ctx = blocks.context.find('**Context Management:**')\n"
+            "print(sub != -1 and ctx != -1 and sub < ctx)"
+        )
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip() == "True"
