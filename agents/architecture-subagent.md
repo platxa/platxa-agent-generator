@@ -38,42 +38,39 @@ You receive discovery output, classification results, and context discovery:
     "tools": {...},
     "suggested_workflow": [...]
   },
-  "context_discovery": {
-    "agents_found": 3,
-    "agents": [
-      {
-        "name": "existing-agent",
-        "file_path": ".claude/agents/existing-agent.md",
-        "tools": ["Read", "Grep"],
-        "line_ranges": [[1, 5]]
-      }
-    ],
-    "patterns": {
-      "total_agents": 3,
-      "tool_frequency": {"Read": 3, "Grep": 2, "Bash": 1},
-      "recommended_base": ["Read", "Grep"]
-    },
-    "conflict_check": {
-      "has_conflict": false,
-      "similar_names": ["existing-agent"],
-      "similarity_scores": {"existing-agent": 0.72}
+  "name_conflicts": [
+    {
+      "existing_name": "existing-agent",
+      "similarity": 0.72
     }
+  ],
+  "tool_patterns": {
+    "total_agents": 3,
+    "tool_frequency": {"Read": 3, "Grep": 2, "Bash": 1},
+    "recommended_base": ["Read", "Grep"]
   }
 }
 ```
 
-The `context_discovery` block comes from `discovery_report()` in
-`context_discovery.py`. Use it to:
+The `name_conflicts` and `tool_patterns` blocks come from the
+discovery-subagent's Glob+Grep+Read workflow. Use them to:
 - Avoid duplicating tool grants already covered by existing agents
-- Use `patterns.recommended_base` and `patterns.tool_frequency` when selecting tool permissions in Step 4
-- Detect naming collisions via `conflict_check.similarity_scores`
-- Reference `line_ranges` when citing existing agent structure
+- Use `tool_patterns.recommended_base` and `tool_patterns.tool_frequency` when selecting tool permissions in Step 4
+- Detect naming collisions via `name_conflicts[].similarity`
 
 ## Workflow
 
-### Step 1: Analyze Complexity
+### Step 1: Analyze Complexity and Classify Architecture Type
 
-Evaluate the task complexity to confirm architecture type:
+Use the qualitative tradeoff table below to confirm the architecture type the
+discovery output proposed (`architecture_type` field in the input). The table
+is the human-readable summary; the **authoritative classification rules**
+(keyword indicators, scoring formula, complexity 1-5 algorithm, pattern
+adjustments) live in
+`skills/platxa-agent-generator/references/classification-rules.md`. Consult
+that file when the input is ambiguous, when no `architecture_type` was
+provided, or when you need to (re-)derive the complexity score or the
+suggested workflow pattern.
 
 | Indicator | Simple | Orchestrator | Multi-Agent | Pipeline |
 |-----------|--------|--------------|-------------|----------|
@@ -81,6 +78,15 @@ Evaluate the task complexity to confirm architecture type:
 | Parallelization | None | Worker parallel | Agent parallel | None |
 | State sharing | N/A | Central | Distributed | Linear |
 | Best for | Quick tasks | Complex decomposition | Specialized roles | Data flow |
+
+**When to consult the reference file**:
+- The discovery output omits `architecture_type` or provides a value with
+  `< 0.5` confidence.
+- The description mentions parallel/concurrent execution, iterative
+  refinement, or routing/classification — these override the default
+  workflow pattern (see the *Pattern Adjustments* table in the reference).
+- You need to populate `estimated_complexity` (1-5) in the output
+  blueprint and the input does not provide one.
 
 ### Step 2: Select Workflow Pattern
 
@@ -221,6 +227,10 @@ Determine minimal necessary tools:
   }
 }
 ```
+
+Consult `skills/platxa-agent-generator/references/tool-selection-tables.md` for the full tool-selection workflow: base-tools-by-type tables, domain additions, capability-keyword mapping, tool dependencies, the 8-step selection algorithm, least-privilege rules, and dangerous-combination warnings.
+
+The quick-reference guidelines below summarise the most common rules; the reference file is authoritative on any edge case.
 
 Tool selection guidelines:
 - **Read**: Any agent that needs file content

@@ -18,13 +18,32 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
-          cache: 'pip'
+          python-version: "3.12"
 
-      - name: Install dependencies
+      - name: Install package
+        run: pip install -e .
+
+      - name: Check for hardcoded weight tables in agent files
         run: |
-          python -m pip install --upgrade pip
-          pip install -e .
+          set -euo pipefail
+          # Single source of truth for the drift regex is
+          # ``quality_scorer._AGENT_WEIGHT_TABLE_RE``. Invoking the Python
+          # helper here (rather than re-implementing the regex in bash)
+          # eliminates the character-class divergence that previously let
+          # axis names like ``score2`` slip past CI while still being
+          # flagged by the local pre-commit check.
+          python -c "
+          import sys
+          from platxa_agent_generator.quality_scorer import check_agent_weight_tables
 
-      - name: Check for weight drift
-        run: python -m platxa_agent_generator.weight_drift_check
+          drifted = check_agent_weight_tables()
+          if drifted:
+              print('Hardcoded weight tables found in agent files:', file=sys.stderr)
+              for path in drifted:
+                  print(f'  - {path}', file=sys.stderr)
+              print('', file=sys.stderr)
+              print('Source of truth is src/platxa_agent_generator/templates/evaluation-criteria.yaml.', file=sys.stderr)
+              print('Remove the table rows and reference the YAML via EvaluationRubric.load_default().', file=sys.stderr)
+              sys.exit(1)
+          print('OK: No weight tables in agent files.')
+          "

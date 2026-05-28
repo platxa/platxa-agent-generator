@@ -5,34 +5,33 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 ## Summary
 
 - **Source**: `tests/test_generator.py` (19,604 lines)
-- **Classes**: 112 `TestXxx` classes
-- **Tests**: 997 (pytest `--collect-only` count)
-- **Target modules**: 32 shards under `tests/`
+- **Classes**: 107 `TestXxx` classes
+- **Tests**: 941 (pytest `--collect-only` count)
+- **Target modules**: 31 shards under `tests/`
 - **Fixture scope**: All 15 fixtures in `tests/conftest.py` use pytest's default **function** scope (none are class-scoped or mixin-based). They remain in `tests/conftest.py` and are auto-discovered by every sibling test module, so no fixture needs to be relocated or duplicated when sharding. No cross-module fixture splits required.
 
-> **Spec note**: The feature-#7 criteria mentions `sum to 1114`; the authoritative pytest count is 997 for `test_generator.py` alone. The workspace total including `tests/test_security_scanner.py` (119) and the two shard-added tests from feature #8 is 1116, matching feature-#8's SC1/SC14. The 1114 figure appears to be a pre-shard estimate — this manifest uses the collected count.
+> **Spec note**: The feature-#7 criteria mentions `sum to 1114`; the pre-elimination pytest count was 997 for `test_generator.py` alone (now 981 after Category A eliminations removed `claudemd_generator.py` and its 12 dedicated tests, plus 4 tests from `test_catalog.py`; 14 prompt_generator tests were relocated to `test_prompt_structure.py`). The workspace total including `tests/test_security_scanner.py` (119) and the two shard-added tests from feature #8 was 1116, matching feature-#8's SC1/SC14.
 
 ## Per-Module Totals
 
 | Target module | Classes | Tests |
 |---|---:|---:|
 | `tests/test_hooks.py` | 10 | 133 |
-| `tests/test_validation.py` | 7 | 66 |
+| `tests/test_validation.py` | 6 | 37 |
 | `tests/test_composition.py` | 5 | 58 |
-| `tests/test_prompt_structure.py` | 4 | 55 |
+| `tests/test_prompt_structure.py` | 6 | 69 |
 | `tests/test_patterns.py` | 6 | 51 |
-| `tests/test_catalog.py` | 4 | 48 |
-| `tests/test_tool_selection.py` | 7 | 42 |
+| `tests/test_catalog.py` | 3 | 44 |
+| `tests/test_tool_selection.py` | 6 | 32 |
 | `tests/test_versioning.py` | 5 | 41 |
 | `tests/test_skills_commands.py` | 3 | 39 |
 | `tests/test_nlp.py` | 3 | 34 |
 | `tests/test_domain_docs.py` | 3 | 31 |
 | `tests/test_integration.py` | 5 | 30 |
 | `tests/test_thinking.py` | 2 | 30 |
-| `tests/test_workflow.py` | 5 | 29 |
+| `tests/test_workflow.py` | 3 | 18 |
 | `tests/test_completeness.py` | 3 | 28 |
 | `tests/test_examples.py` | 3 | 27 |
-| `tests/test_claudemd.py` | 3 | 26 |
 | `tests/test_install.py` | 4 | 24 |
 | `tests/test_state.py` | 5 | 24 |
 | `tests/test_security_analysis.py` | 4 | 22 |
@@ -42,13 +41,11 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | `tests/test_frontmatter_flags.py` | 2 | 16 |
 | `tests/test_type_classification.py` | 3 | 16 |
 | `tests/test_dryrun.py` | 2 | 14 |
-| `tests/test_readme.py` | 1 | 13 |
 | `tests/test_conftest_check.py` | 1 | 12 |
 | `tests/test_analyzer.py` | 1 | 11 |
-| `tests/test_progress_tracking.py` | 1 | 11 |
 | `tests/test_generators.py` | 2 | 7 |
 | `tests/test_composer.py` | 1 | 2 |
-| **TOTAL** | **112** | **997** |
+| **TOTAL** | **106** | **930** |
 
 ## Class → Module Map
 
@@ -78,7 +75,6 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | 22 | `TestMAESTROAnalysis` | 2516 | 6 | `tests/test_security_analysis.py` |
 | 23 | `TestWorkflowState` | 2639 | 4 | `tests/test_workflow.py` |
 | 24 | `TestToolSelector` | 2790 | 4 | `tests/test_workflow.py` |
-| 25 | `TestInteractivePrompts` | 2871 | 3 | `tests/test_workflow.py` |
 | 26 | `TestMultiAgentGenerator` | 2938 | 4 | `tests/test_generators.py` |
 | 27 | `TestPromptGenerator` | 3033 | 3 | `tests/test_generators.py` |
 | 28 | `TestInstallAgent` | 3110 | 6 | `tests/test_install.py` |
@@ -123,13 +119,11 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | 67 | `TestAgentDiffComparison` | 10148 | 12 | `tests/test_versioning.py` |
 | 68 | `TestAgentVersioning` | 10354 | 3 | `tests/test_versioning.py` |
 | 69 | `TestPluginExport` | 10568 | 10 | `tests/test_plugin_export.py` |
-| 70 | `TestProgressTrackerTodoWrite` | 10815 | 11 | `tests/test_progress_tracking.py` |
 | 71 | `TestDomainKnowledgeImports` | 11036 | 10 | `tests/test_domain_docs.py` |
 | 72 | `TestAgentDependencyDocumentation` | 11225 | 11 | `tests/test_domain_docs.py` |
 | 73 | `TestGenerationAttributionFooter` | 11452 | 10 | `tests/test_domain_docs.py` |
 | 74 | `TestAgentRegenerationWorkflow` | 11622 | 11 | `tests/test_versioning.py` |
 | 75 | `TestAgentExportBundle` | 11812 | 7 | `tests/test_plugin_export.py` |
-| 76 | `TestInteractiveFrontmatterWizard` | 11987 | 8 | `tests/test_workflow.py` |
 | 77 | `TestAgentAnalyzer` | 12113 | 11 | `tests/test_analyzer.py` |
 | 78 | `TestAgentUpgrader` | 12322 | 13 | `tests/test_versioning.py` |
 | 79 | `TestComposeRouter` | 12562 | 14 | `tests/test_composition.py` |
@@ -137,7 +131,6 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | 81 | `TestSkillsFrontmatter` | 12930 | 15 | `tests/test_skills_commands.py` |
 | 82 | `TestCompanionSkillGeneration` | 13186 | 11 | `tests/test_skills_commands.py` |
 | 83 | `TestCompanionCommandGeneration` | 13387 | 13 | `tests/test_skills_commands.py` |
-| 84 | `TestClaudemdSubagentDelegation` | 13601 | 12 | `tests/test_claudemd.py` |
 | 85 | `TestStateCheckpointRecovery` | 13800 | 12 | `tests/test_state.py` |
 | 86 | `TestStatePersistenceErrorHandling` | 13995 | 4 | `tests/test_state.py` |
 | 87 | `TestStatePersistenceConfig` | 14130 | 3 | `tests/test_state.py` |
@@ -148,19 +141,16 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | 92 | `TestBatchGeneration` | 14735 | 11 | `tests/test_batch.py` |
 | 93 | `TestBatchPolicy` | 14967 | 9 | `tests/test_batch.py` |
 | 94 | `TestInstallScopeRecommender` | 15204 | 8 | `tests/test_install.py` |
-| 95 | `TestAgentReadmeGenerator` | 15352 | 13 | `tests/test_readme.py` |
-| 96 | `TestCatalogSkippedAgents` | 15606 | 4 | `tests/test_catalog.py` |
-| 97 | `TestMcpConfigGenerator` | 15751 | 29 | `tests/test_validation.py` |
 | 98 | `TestGenerationReport` | 16165 | 10 | `tests/test_completeness.py` |
 | 99 | `TestAgentLint` | 16382 | 10 | `tests/test_completeness.py` |
 | 100 | `TestPostInstallVerification` | 16562 | 7 | `tests/test_install.py` |
-| 101 | `TestContextManagementSection` | 16725 | 7 | `tests/test_claudemd.py` |
-| 102 | `TestSubagentDelegationSection` | 16840 | 7 | `tests/test_claudemd.py` |
 | 103 | `TestBackgroundFrontmatter` | 16974 | 8 | `tests/test_frontmatter_flags.py` |
 | 104 | `TestColorFrontmatter` | 17095 | 8 | `tests/test_frontmatter_flags.py` |
 | 105 | `TestSubagentAuditHooks` | 17211 | 16 | `tests/test_hooks.py` |
 | 106 | `TestHooksGeneratorAuditHook` | 17606 | 2 | `tests/test_hooks.py` |
 | 107 | `TestCompetingHypothesisTemplate` | 17716 | 19 | `tests/test_prompt_structure.py` |
+| — | `TestContextManagementSection` | — | 7 | `tests/test_prompt_structure.py` |
+| — | `TestSubagentDelegationSection` | — | 7 | `tests/test_prompt_structure.py` |
 | 108 | `TestCatalogTemplateInheritance` | 18074 | 17 | `tests/test_catalog.py` |
 | 109 | `TestHooksGeneratorInjection` | 18464 | 28 | `tests/test_hooks.py` |
 | 110 | `TestDryRunImportBroken` | 18702 | 2 | `tests/test_dryrun.py` |

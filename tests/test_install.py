@@ -13,6 +13,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -912,3 +913,150 @@ class TestPostInstallVerification:
         lines = result.stdout.strip().splitlines()
         # Diagnostic message included in case assertion fails.
         assert lines[:3] == ["False", "True", "True"], f"unexpected lines: {lines}"
+
+
+class TestCliInstallSubcommand:
+    """Smoke tests for the unified ``platxa-agent install`` CLI subcommand.
+
+    These exercise the argparse wiring inside
+    :mod:`platxa_agent_generator.commands.catalog` rather than the
+    standalone ``install_agent.py`` script tested above. Coverage gap
+    surfaced in PR #1 review: the subcommand flag-forwarding
+    (``--scope``, ``--force``, ``--no-validate``) had no test, so an
+    edit that broke the wrapper would slip past CI.
+    """
+
+    @staticmethod
+    def _make_valid_agent(path: Path, name: str) -> Path:
+        path.write_text(
+            "---\n"
+            f"name: {name}\n"
+            "description: CLI install smoke-test agent\n"
+            "tools: Read, Write\n"
+            "---\n"
+            "\n"
+            "# Smoke Test Agent\n"
+            "\n"
+            "## Workflow\n"
+            "1. Stub.\n",
+            encoding="utf-8",
+        )
+        return path
+
+    def test_install_exits_one_when_file_missing(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Missing source path returns exit 1 via the unified CLI."""
+        from platxa_agent_generator.cli import CLI
+
+        cli = CLI()
+        rc = cli.run(["install", str(tmp_path / "does-not-exist.md"), "--scope", "project"])
+        assert rc == 1
+        out = capsys.readouterr().out
+        assert "File not found" in out
+
+    def test_install_forwards_scope_flag_to_user(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """``--scope user`` reaches ``install_agent.install_agent`` verbatim.
+
+        Monkeypatching the underlying function lets us assert the
+        argparse → handler wiring without writing to the real user
+        ``~/.claude/agents`` directory.
+        """
+        from platxa_agent_generator import install_agent as ia_module
+        from platxa_agent_generator.cli import CLI
+
+        agent = self._make_valid_agent(tmp_path / "agent.md", "cli-scope-user")
+        captured: dict[str, object] = {}
+
+        def _fake_install(path: Any, *, scope: str = "project", force: bool = False) -> Any:
+            captured["path"] = Path(path)
+            captured["scope"] = scope
+            captured["force"] = force
+            return ia_module.InstallResult(
+                success=True,
+                message="ok",
+                installed_path=str(tmp_path / f"{scope}.md"),
+            )
+
+        monkeypatch.setattr(ia_module, "install_agent", _fake_install)
+        cli = CLI()
+        rc = cli.run(["install", str(agent), "--scope", "user"])
+        assert rc == 0
+        capsys.readouterr()  # drain
+        assert captured["scope"] == "user"
+        assert captured["force"] is False
+        assert captured["path"] == agent
+
+    def test_install_forwards_force_flag(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """``--force`` is forwarded as ``force=True`` to install_agent."""
+        from platxa_agent_generator import install_agent as ia_module
+        from platxa_agent_generator.cli import CLI
+
+        agent = self._make_valid_agent(tmp_path / "agent.md", "cli-force")
+        captured: dict[str, object] = {}
+
+        def _fake_install(path: Any, *, scope: str = "project", force: bool = False) -> Any:
+            captured["force"] = force
+            return ia_module.InstallResult(
+                success=True,
+                message="ok",
+                installed_path=str(tmp_path / "installed.md"),
+            )
+
+        monkeypatch.setattr(ia_module, "install_agent", _fake_install)
+        cli = CLI()
+        rc = cli.run(["install", str(agent), "--scope", "project", "--force"])
+        assert rc == 0
+        capsys.readouterr()  # drain
+        assert captured["force"] is True
+
+    def test_install_no_validate_skips_syntax_validator(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """``--no-validate`` bypasses syntax validation."""
+        from platxa_agent_generator import install_agent as ia_module
+        from platxa_agent_generator import syntax_validator as sv_module
+        from platxa_agent_generator.cli import CLI
+
+        # Frontmatter is intentionally broken — validator would normally
+        # reject it. With --no-validate the CLI must skip the validator
+        # and reach install_agent.install_agent unchanged.
+        broken = tmp_path / "broken.md"
+        broken.write_text("not even close to valid frontmatter", encoding="utf-8")
+
+        validate_calls = 0
+
+        def _fake_validate(_content: str) -> Any:
+            nonlocal validate_calls
+            validate_calls += 1
+            raise AssertionError("syntax_validator must not be called with --no-validate")
+
+        def _fake_install(path: Any, *, scope: str = "project", force: bool = False) -> Any:
+            return ia_module.InstallResult(
+                success=True,
+                message="ok",
+                installed_path=str(tmp_path / "installed.md"),
+            )
+
+        monkeypatch.setattr(sv_module, "validate_content", _fake_validate)
+        monkeypatch.setattr(ia_module, "install_agent", _fake_install)
+        cli = CLI()
+        rc = cli.run(["install", str(broken), "--scope", "project", "--no-validate"])
+        assert rc == 0
+        capsys.readouterr()  # drain
+        assert validate_calls == 0

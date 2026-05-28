@@ -1,10 +1,9 @@
-"""Tests for the instinct-frontmatter validator (feature #8).
+"""Tests for the instinct-frontmatter validator.
 
-The instinct.md.j2 template (feature #4) renders a defined frontmatter shape and
-the InstinctStore (feature #6) writes those rendered files as opaque bytes,
-deferring schema validation to syntax_validator. Feature #8 owns that schema:
-it enforces ``name`` ≤ 64, ``description`` ≤ 512, ``confidence`` in [0, 1],
-``occurrences`` ≥ 0, and a fixed ``type`` enum.
+InstinctStore writes instinct markdown files as opaque bytes and defers
+schema validation to syntax_validator. The validator enforces ``name`` ≤ 64,
+``description`` ≤ 512, ``confidence`` in [0, 1], ``occurrences`` ≥ 0, and a
+fixed ``type`` enum.
 
 Tests exercise both the collector API (``validate_instinct_frontmatter`` returns
 ``list[ValidationError]`` consistent with the rest of the module) and the

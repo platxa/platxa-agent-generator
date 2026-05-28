@@ -21,8 +21,6 @@ class TestConftestFixtures:
 
     VALIDATOR_SCRIPT = str(SCRIPTS_DIR / "syntax_validator.py")
     SCORER_SCRIPT = str(SCRIPTS_DIR / "quality_scorer.py")
-    CHECKER_SCRIPT = str(SCRIPTS_DIR / "completeness_checker.py")
-    DISCOVERY_SCRIPT = str(SCRIPTS_DIR / "context_discovery.py")
 
     def _validate(self, tmp_path, content: str) -> dict:
         """Run syntax_validator on content and return JSON result.
@@ -96,21 +94,6 @@ class TestConftestFixtures:
         """Agent with no frontmatter at all is detected as invalid."""
         data = self._validate(tmp_path, agent_no_frontmatter)
         assert data["passed"] is False
-
-    def test_discovery_finds_agents_in_fixture_dir(self, agents_dir):
-        """Context discovery finds agents created by agents_dir fixture."""
-        result = subprocess.run(
-            [sys.executable, self.DISCOVERY_SCRIPT, "scan", "--dir", str(agents_dir), "--json"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0
-        agents = json.loads(result.stdout)
-        assert len(agents) == 2
-        names = {a["name"] for a in agents}
-        assert "full-featured-agent" in names
-        assert "minimal-agent" in names
 
     def test_full_agent_has_mcp_in_frontmatter(self, full_frontmatter_agent):
         """Full agent fixture includes mcpServers block."""

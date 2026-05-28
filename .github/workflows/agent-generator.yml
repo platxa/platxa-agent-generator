@@ -118,48 +118,6 @@ jobs:
           print('All catalog agents generate valid content!')
           "
 
-  test-dry-run:
-    name: Test Dry Run Mode
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e .
-
-      - name: Test dry run generation
-        run: |
-          python -c "
-          from platxa_agent_generator.dry_run import dry_run
-
-          # Test dry run for a simple agent
-          result = dry_run(
-              name='test-agent',
-              description='A test agent for CI',
-              tools=['Read', 'Grep'],
-              pattern='prompt-chaining',
-          )
-
-          print(f'Dry run result:')
-          print(f'  Agent: {result.agent_name}')
-          print(f'  Files: {len(result.files)}')
-          print(f'  Total size: {result.total_size} bytes')
-
-          assert result.agent_name == 'test-agent'
-          assert len(result.files) > 0
-          print()
-          print('Dry run test passed!')
-          "
-
   validate-quality:
     name: Validate Quality Scoring
     runs-on: ubuntu-latest

@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import pytest
 
-from platxa_agent_generator.agent_generator import build_validation_failure_context
+from platxa_agent_generator.agent_generator import (
+    _partition_unmet_axes,
+    build_validation_failure_context,
+)
 from platxa_agent_generator.evaluation_criteria import EvaluationAxis, EvaluationRubric
 from platxa_agent_generator.quality_scorer import CriterionScore, QualityReport
 
@@ -293,3 +296,84 @@ class TestSuggestionRendering:
         )
         result = build_validation_failure_context(report, rubric=RUBRIC)
         assert "**Suggestion:**" in result
+
+
+class TestPartitionUnmetAxes:
+    """Severity-floor partition matching ``agents/gan-evaluator.md`` Step 4.
+
+    Three policy bands:
+    - CRITICAL present → blocking = CRITICAL; warning = HIGH + MEDIUM + LOW
+    - No CRITICAL but HIGH present → blocking = HIGH; warning = MEDIUM + LOW
+    - Only MEDIUM/LOW → blocking = (); warning = MEDIUM + LOW
+    """
+
+    def test_critical_unmet_alone_is_blocking(self) -> None:
+        blocking, warning = _partition_unmet_axes(["security"], RUBRIC)
+        assert blocking == ("security",)
+        assert warning == ()
+
+    def test_critical_unmet_demotes_other_unmets_to_warning(self) -> None:
+        blocking, warning = _partition_unmet_axes(
+            ["security", "completeness", "clarity", "documentation"],
+            RUBRIC,
+        )
+        assert blocking == ("security",)
+        assert warning == ("clarity", "completeness", "documentation")
+
+    def test_high_unmet_without_critical_is_blocking(self) -> None:
+        blocking, warning = _partition_unmet_axes(
+            ["completeness", "clarity", "documentation"],
+            RUBRIC,
+        )
+        assert blocking == ("completeness",)
+        assert warning == ("clarity", "documentation")
+
+    def test_medium_low_only_yields_no_blocking(self) -> None:
+        # gan-evaluator policy: advisory-only UNMETs render as APPROVE-with-warning.
+        blocking, warning = _partition_unmet_axes(
+            ["clarity", "examples", "documentation"],
+            RUBRIC,
+        )
+        assert blocking == ()
+        assert warning == ("clarity", "documentation", "examples")
+
+    def test_unknown_axis_raises_value_error(self) -> None:
+        with pytest.raises(ValueError, match="unknown axis"):
+            _partition_unmet_axes(["nonexistent_axis"], RUBRIC)
+
+    def test_empty_unmet_returns_empty(self) -> None:
+        blocking, warning = _partition_unmet_axes([], RUBRIC)
+        assert blocking == ()
+        assert warning == ()
+
+
+class TestCallerPolicyAlignment:
+    """End-to-end check: build_validation_failure_context honors the new policy."""
+
+    def test_medium_low_only_failure_has_no_blocking_tier(self) -> None:
+        # Under the old policy, any non-CRITICAL UNMET was tagged BLOCKING.
+        # Under the new gan-evaluator policy, MEDIUM/LOW-only failures are
+        # WARNING-tier only (APPROVE-with-warning).
+        report = _make_failing_report(
+            failing_axes={
+                "clarity": (4.0, ["Vague language"], []),
+                "documentation": (5.0, ["No inline comments"], []),
+            }
+        )
+        result = build_validation_failure_context(report, rubric=RUBRIC)
+        assert "### clarity" in result
+        assert "### documentation" in result
+        assert "BLOCKING" not in result
+        assert "WARNING" in result
+
+    def test_high_without_critical_marks_only_high_as_blocking(self) -> None:
+        report = _make_failing_report(
+            failing_axes={
+                "completeness": (4.0, ["Missing overview"], []),
+                "clarity": (4.0, ["Vague language"], []),
+            }
+        )
+        result = build_validation_failure_context(report, rubric=RUBRIC)
+        # completeness is HIGH → BLOCKING; clarity is MEDIUM → WARNING
+        assert "### completeness — HIGH (BLOCKING)" in result
+        assert "### clarity — MEDIUM (WARNING)" in result

@@ -2,6 +2,11 @@
 
 Verification criteria for feature #54: all four flags parsed;
 --dry-run lists candidates without writing; non-dry actually writes.
+
+After feature #25 the CLI ``evolve`` flow dispatches the
+``instinct-promoter`` subagent instead of running ``promote()`` in
+Python; tests inject a fake executor returning canned promotions so
+the assertions exercise the new path without a real subprocess.
 """
 
 from __future__ import annotations
@@ -11,9 +16,56 @@ from pathlib import Path
 
 import pytest
 
-from platxa_agent_generator.cli import CLI
+from platxa_agent_generator.cli import CLI, PromoterExecutor
 from platxa_agent_generator.instinct_store import InstinctStore
 from platxa_agent_generator.shared.frontmatter import parse_frontmatter_safe
+
+
+def _promotion(name: str, *, target: str = "command") -> dict[str, object]:
+    """Build one promotion entry shaped per agents/instinct-promoter.md."""
+    return {
+        "target": target,
+        "name": name,
+        "description": f"description of {name}",
+        "draft_path": f"commands/{name}.md",
+        "source_instincts": [name],
+        "occurrences": 5,
+        "confidence": 0.9,
+        "success_count": 2,
+        "rationale": "test promotion",
+        "examples": ["example"],
+    }
+
+
+def _make_executor(
+    *,
+    promotions: list[dict[str, object]],
+    thresholds: dict[str, int | float] | None = None,
+) -> PromoterExecutor:
+    """Return a fake instinct-promoter executor returning canned JSON."""
+    resolved = (
+        thresholds
+        if thresholds is not None
+        else {
+            "occurrences": 3,
+            "confidence": 0.7,
+            "success_count": 1,
+        }
+    )
+
+    def _exec(_payload: str, _timeout: int) -> str:
+        return json.dumps(
+            {
+                "promotions": promotions,
+                "skipped_clusters": [],
+                "thresholds": resolved,
+                "scope": "global",
+                "skipped_reason": None,
+            }
+        )
+
+    return _exec
+
 
 COMMANDS_DIR = Path(__file__).parent.parent / "commands"
 EVOLVE_CMD = COMMANDS_DIR / "evolve.md"
@@ -126,7 +178,7 @@ class TestEvolveCommandDryRun:
         output_dir = tmp_path / "output"
         output_dir.mkdir()
 
-        cli = CLI()
+        cli = CLI(promoter_executor=_make_executor(promotions=[_promotion("eligible-inst")]))
         rc = cli.run(["--json", "evolve", "--dry-run", "--root", str(root)])
         assert rc == 0
 
@@ -152,7 +204,12 @@ class TestEvolveCommandDryRun:
                 },
             ],
         )
-        cli = CLI()
+        cli = CLI(
+            promoter_executor=_make_executor(
+                promotions=[_promotion("marginal")],
+                thresholds={"occurrences": 3, "confidence": 0.4, "success_count": 1},
+            )
+        )
         rc = cli.run(
             [
                 "--json",
@@ -185,7 +242,12 @@ class TestEvolveCommandDryRun:
                 },
             ],
         )
-        cli = CLI()
+        cli = CLI(
+            promoter_executor=_make_executor(
+                promotions=[_promotion("low-occ")],
+                thresholds={"occurrences": 1, "confidence": 0.7, "success_count": 1},
+            )
+        )
         rc = cli.run(
             [
                 "--json",
@@ -216,7 +278,9 @@ class TestEvolveCommandDryRun:
                 },
             ],
         )
-        cli = CLI()
+        cli = CLI(
+            promoter_executor=_make_executor(promotions=[_promotion("inst-a", target="command")])
+        )
         rc = cli.run(
             [
                 "--json",
@@ -252,7 +316,7 @@ class TestEvolveCommandNonDryRun:
                 },
             ],
         )
-        cli = CLI()
+        cli = CLI(promoter_executor=_make_executor(promotions=[_promotion("promote-me")]))
         rc = cli.run(["--json", "evolve", "--root", str(root)])
         assert rc == 0
         output = json.loads(capsys.readouterr().out)
@@ -276,7 +340,12 @@ class TestEvolveCommandNonDryRun:
                 },
             ],
         )
-        cli = CLI()
+        cli = CLI(
+            promoter_executor=_make_executor(
+                promotions=[_promotion("combined-test")],
+                thresholds={"occurrences": 2, "confidence": 0.5, "success_count": 1},
+            )
+        )
         rc = cli.run(
             [
                 "--json",

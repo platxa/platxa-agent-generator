@@ -63,11 +63,14 @@ The `/evolve` skill triggers promotion checks. Regular use prevents backlog.
 diverge from the source-of-truth YAML. Agents score against stale weights,
 producing inconsistent evaluations.
 
-**Detection**: `weight_drift_check.py` compares agent-embedded weight tables
-against `evaluation-criteria.yaml` and reports deltas.
+**Detection**: `quality_scorer.check_agent_weight_tables()` greps every agent
+`.md` file for table rows of the form `| <axis> | <float> |` and returns the
+list of offenders. The same check runs in CI via
+`.github/workflows/weight-drift-check.yml`.
 
-**Mitigation**: CI pipeline runs drift check on PRs touching YAML or agent
-files. See `docs/WEIGHT_SYNC.md` for the full update procedure.
+**Mitigation**: CI pipeline fails on any match; the `platxa-agent health`
+dashboard surfaces drift between releases. See `docs/WEIGHT_SYNC.md` for the
+full update procedure.
 
 ## 6. Completion-Promise False Positive
 

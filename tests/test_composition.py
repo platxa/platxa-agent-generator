@@ -2,117 +2,15 @@
 """
 test_composition — sharded from test_generator.py.
 
-Shards: 5 TestXxx classes.
+Shards: 3 TestXxx classes.
 Run with: pytest tests/test_composition.py -v
 """
 
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 from pathlib import Path
-
-SCRIPTS_DIR = Path(__file__).parent.parent / "src" / "platxa_agent_generator"
-
-
-class TestDomainDetection:
-    """Tests for Feature #52: NLP domain detection."""
-
-    NLP_SCRIPT = str(SCRIPTS_DIR / "nlp_parser.py")
-
-    def _parse(self, description: str) -> dict:
-        """Parse description via CLI and return JSON result."""
-        result = subprocess.run(
-            [sys.executable, self.NLP_SCRIPT, "--json", description],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0, f"nlp_parser failed: {result.stderr}"
-        return json.loads(result.stdout)
-
-    def test_web_domain_detected(self):
-        """Web domain detected from frontend/React/API keywords."""
-        data = self._parse("Build a React frontend component for REST API")
-        assert "web" in data["domains"]
-
-    def test_mobile_domain_detected(self):
-        """Mobile domain detected from iOS/Android/Flutter keywords."""
-        data = self._parse("Create an iOS and Android app with Flutter")
-        assert "mobile" in data["domains"]
-
-    def test_data_domain_detected(self):
-        """Data domain detected from database/SQL/ETL keywords."""
-        data = self._parse("Analyze PostgreSQL database queries and optimize SQL")
-        assert "data" in data["domains"]
-
-    def test_devops_domain_detected(self):
-        """DevOps domain detected from Docker/Kubernetes/CI keywords."""
-        data = self._parse("Deploy to Kubernetes with Docker and GitHub Actions")
-        assert "devops" in data["domains"]
-
-    def test_security_domain_detected(self):
-        """Security domain detected from vulnerability/auth/OWASP keywords."""
-        data = self._parse("Scan for OWASP vulnerabilities and authentication issues")
-        assert "security" in data["domains"]
-
-    def test_testing_domain_detected(self):
-        """Testing domain detected from pytest/coverage/TDD keywords."""
-        data = self._parse("Write pytest unit tests with full coverage")
-        assert "testing" in data["domains"]
-
-    def test_documentation_domain_detected(self):
-        """Documentation domain detected from docstring/README/API doc keywords."""
-        data = self._parse("Generate API documentation with docstrings and README")
-        assert "documentation" in data["domains"]
-
-    def test_multi_domain_detection(self):
-        """Multiple domains detected from a cross-domain description."""
-        data = self._parse("Build a security testing tool for web APIs with JWT authentication")
-        assert "security" in data["domains"]
-        assert "testing" in data["domains"]
-        assert "web" in data["domains"]
-
-    def test_no_domain_returns_empty_list(self):
-        """Description with no domain keywords returns empty domains list."""
-        data = self._parse("Do something interesting with patterns")
-        assert data["domains"] == []
-
-    def test_domain_influences_tool_selection(self):
-        """Detected domains add domain-specific tools to the tool list."""
-        # DevOps domain should add Bash
-        data = self._parse("Deploy containers to Kubernetes cluster")
-        assert "Bash" in data["tools"]
-        # Documentation domain should add Write
-        data2 = self._parse("Generate comprehensive documentation for the module")
-        assert "Write" in data2["tools"]
-
-    def test_domains_field_in_json_output(self):
-        """The domains field is present in JSON output."""
-        data = self._parse("Analyze code for security issues")
-        assert "domains" in data
-        assert isinstance(data["domains"], list)
-
-    def test_domain_keywords_count_exceeds_10(self):
-        """DOMAIN_KEYWORDS has at least 10 keywords per domain on average."""
-        result = subprocess.run(
-            [
-                sys.executable,
-                "-c",
-                "from platxa_agent_generator.nlp_parser import DOMAIN_KEYWORDS; "
-                "total = sum(len(v) for v in DOMAIN_KEYWORDS.values()); "
-                "print(total)",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0
-        total_keywords = int(result.stdout.strip())
-        assert total_keywords >= 70, (
-            f"Total domain keywords: {total_keywords}, need ≥70 (10+ per domain avg)"
-        )
 
 
 class TestCompositionValidation:
@@ -137,7 +35,7 @@ class TestCompositionValidation:
             "output_schema={'properties': {'findings': {'type': 'array'}}}); "
             "b = AgentSpec(name='reporter', description='Report', "
             "input_schema={'properties': {'findings': {'type': 'array'}}}); "
-            "issues = validate_sequential_io([a, b]); "
+            "issues, _warnings = validate_sequential_io([a, b]); "
             "print(len(issues))"
         )
         assert out == "0", f"Expected 0 issues, got: {out}"
@@ -150,7 +48,7 @@ class TestCompositionValidation:
             "b = AgentSpec(name='reporter', description='Report', "
             "input_schema={'properties': {'findings': {'type': 'array'}}, "
             "'required': ['findings']}); "
-            "issues = validate_sequential_io([a, b]); "
+            "issues, _warnings = validate_sequential_io([a, b]); "
             "print(len(issues)); print(issues[0])"
         )
         lines = out.split("\n")
@@ -163,7 +61,7 @@ class TestCompositionValidation:
         out = self._run_composer(
             "a = AgentSpec(name='a', description='A', output_schema={}); "
             "b = AgentSpec(name='b', description='B', input_schema={}); "
-            "issues = validate_sequential_io([a, b]); "
+            "issues, _warnings = validate_sequential_io([a, b]); "
             "print(len(issues))"
         )
         assert out == "0"
@@ -179,7 +77,7 @@ class TestCompositionValidation:
             "c = AgentSpec(name='load', description='Load', "
             "input_schema={'properties': {'records': {'type': 'array'}}, "
             "'required': ['records']}); "
-            "issues = validate_sequential_io([a, b, c]); "
+            "issues, _warnings = validate_sequential_io([a, b, c]); "
             "print(len(issues)); print(issues[0])"
         )
         lines = out.split("\n")
@@ -265,204 +163,6 @@ class TestCompositionValidation:
         lines = out.split("\n")
         assert lines[0] == "True"
         assert lines[1] == "0"
-
-
-class TestContextAwareDiscovery:
-    """Tests for Feature #77: Context-aware discovery to prevent duplicates."""
-
-    DISCOVERY_SCRIPT = str(SCRIPTS_DIR / "context_discovery.py")
-
-    def _create_agent_file(self, tmp_path: Path, name: str, tools: str = "Read, Grep") -> Path:
-        """Create a minimal agent .md file in a temp directory."""
-        content = (
-            "---\n"
-            f"name: {name}\n"
-            f"description: Agent {name} for testing\n"
-            f"tools: {tools}\n"
-            "---\n\n"
-            f"# {name}\n\n## Overview\nTest agent.\n"
-        )
-        agent_file = tmp_path / f"{name}.md"
-        agent_file.write_text(content, encoding="utf-8")
-        return agent_file
-
-    def test_scan_directory_finds_agents(self, tmp_path):
-        """scan_directory() discovers agent files with valid frontmatter."""
-        self._create_agent_file(tmp_path, "code-reviewer")
-        self._create_agent_file(tmp_path, "test-writer")
-        result = subprocess.run(
-            [sys.executable, self.DISCOVERY_SCRIPT, "scan", "--dir", str(tmp_path), "--json"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0
-        agents = json.loads(result.stdout)
-        assert len(agents) == 2
-        names = {a["name"] for a in agents}
-        assert names == {"code-reviewer", "test-writer"}
-
-    def test_scan_empty_directory(self, tmp_path):
-        """scan_directory() returns empty list for empty directory."""
-        result = subprocess.run(
-            [sys.executable, self.DISCOVERY_SCRIPT, "scan", "--dir", str(tmp_path), "--json"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0
-        agents = json.loads(result.stdout)
-        assert agents == []
-
-    def test_scan_skips_files_without_frontmatter(self, tmp_path):
-        """Files without valid frontmatter are skipped."""
-        (tmp_path / "no-frontmatter.md").write_text("# Just a heading\n", encoding="utf-8")
-        self._create_agent_file(tmp_path, "valid-agent")
-        result = subprocess.run(
-            [sys.executable, self.DISCOVERY_SCRIPT, "scan", "--dir", str(tmp_path), "--json"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0
-        agents = json.loads(result.stdout)
-        assert len(agents) == 1
-        assert agents[0]["name"] == "valid-agent"
-
-    def test_check_exact_duplicate_flagged(self, tmp_path):
-        """Exact name match is flagged as a conflict."""
-        self._create_agent_file(tmp_path, "code-reviewer")
-        result = subprocess.run(
-            [
-                sys.executable,
-                self.DISCOVERY_SCRIPT,
-                "check",
-                "code-reviewer",
-                "--dir",
-                str(tmp_path),
-                "--json",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0
-        data = json.loads(result.stdout)
-        assert data["has_conflict"] is True
-        assert data["exact_match"] is not None
-        assert data["exact_match"]["name"] == "code-reviewer"
-
-    def test_check_no_conflict_for_new_name(self, tmp_path):
-        """New name with no existing agents reports no conflict."""
-        self._create_agent_file(tmp_path, "code-reviewer")
-        result = subprocess.run(
-            [
-                sys.executable,
-                self.DISCOVERY_SCRIPT,
-                "check",
-                "brand-new-agent",
-                "--dir",
-                str(tmp_path),
-                "--json",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0
-        data = json.loads(result.stdout)
-        assert data["has_conflict"] is False
-
-    def test_check_similar_names_detected(self, tmp_path):
-        """Similar names (substring match) are reported."""
-        self._create_agent_file(tmp_path, "code-reviewer")
-        result = subprocess.run(
-            [
-                sys.executable,
-                self.DISCOVERY_SCRIPT,
-                "check",
-                "code-reviewer-v2",
-                "--dir",
-                str(tmp_path),
-                "--json",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0
-        data = json.loads(result.stdout)
-        assert "code-reviewer" in data["similar_names"]
-
-    def test_tool_patterns_analysis(self, tmp_path):
-        """analyze_tool_patterns returns frequency and recommended base."""
-        self._create_agent_file(tmp_path, "agent-a", tools="Read, Grep, Glob")
-        self._create_agent_file(tmp_path, "agent-b", tools="Read, Grep, Bash")
-        self._create_agent_file(tmp_path, "agent-c", tools="Read, Write, Glob")
-        result = subprocess.run(
-            [sys.executable, self.DISCOVERY_SCRIPT, "patterns", "--dir", str(tmp_path), "--json"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0
-        data = json.loads(result.stdout)
-        assert data["total_agents"] == 3
-        assert data["tool_frequency"]["Read"] == 3
-        assert "Read" in data["recommended_base"]
-
-    def test_parsed_tools_are_correct(self, tmp_path):
-        """Agent tools are correctly parsed from comma-separated frontmatter."""
-        self._create_agent_file(tmp_path, "multi-tool", tools="Read, Write, Bash, Glob")
-        result = subprocess.run(
-            [sys.executable, self.DISCOVERY_SCRIPT, "scan", "--dir", str(tmp_path), "--json"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0
-        agents = json.loads(result.stdout)
-        assert agents[0]["tools"] == ["Read", "Write", "Bash", "Glob"]
-
-    def test_case_insensitive_duplicate_detection(self, tmp_path):
-        """Name conflict detection is case-insensitive."""
-        self._create_agent_file(tmp_path, "Code-Reviewer")
-        result = subprocess.run(
-            [
-                sys.executable,
-                self.DISCOVERY_SCRIPT,
-                "check",
-                "code-reviewer",
-                "--dir",
-                str(tmp_path),
-                "--json",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0
-        data = json.loads(result.stdout)
-        assert data["has_conflict"] is True
-
-    def test_nonexistent_directory_returns_empty(self):
-        """Scanning a nonexistent directory returns empty list gracefully."""
-        result = subprocess.run(
-            [
-                sys.executable,
-                self.DISCOVERY_SCRIPT,
-                "scan",
-                "--dir",
-                "/tmp/nonexistent-agent-dir-xyz",
-                "--json",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        assert result.returncode == 0
-        agents = json.loads(result.stdout)
-        assert agents == []
 
 
 class TestComposeRouter:

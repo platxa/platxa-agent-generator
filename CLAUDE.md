@@ -18,13 +18,24 @@ The repository is itself a Claude Code plugin — installable via `/plugin add h
 ```
 platxa-agent-generator/
 ├── .claude-plugin/plugin.json   # Plugin manifest — what /plugin add reads
-├── agents/                      # Subagent definitions (.md)
+├── agents/                      # 14 subagent definitions (.md) — inventory below
 ├── skills/platxa-agent-generator/
 │   ├── SKILL.md                 # Skill entry point
 │   ├── docs/                    # User-facing documentation
-│   ├── references/              # Pattern reference material
+│   ├── references/              # Agent design patterns (prompt-chaining, routing,
+│   │                            #   orchestrator-workers, evaluator-optimizer,
+│   │                            #   parallelization) + generation templates
+│   │                            #   (README, CLAUDE.md, command, MCP-config, hooks,
+│   │                            #   multi-agent, export) + classification rules
+│   │                            #   + tool-selection tables
 │   └── templates/               # Agent file templates
-├── src/platxa_agent_generator/  # Python source — CLI, generators, validators
+├── src/platxa_agent_generator/  # Python source — see "Source module roles" below
+│   ├── cli.py                   # Argparse dispatcher (~625 lines)
+│   ├── commands/                # Per-area subcommand modules: catalog, eval_run,
+│   │                            #   evolve, health, instincts, observations, plugin
+│   ├── shared/                  # Internal utilities (frontmatter, paths, tool_utils, constants)
+│   ├── templates/               # YAML rubric + sample agents (evaluation-criteria.yaml)
+│   └── *.py                     # Generators, validators, evaluators, stores
 ├── tests/                       # Test suite (one shard per source module)
 ├── .github/workflows/           # CI (ruff, pyright, pytest, plugin validate)
 ├── pyproject.toml               # Packaging + tool config with <major version ceilings
@@ -32,6 +43,22 @@ platxa-agent-generator/
 ```
 
 Anything outside these paths (excluding `LICENSE`, top-level `README.md`, `CLAUDE.md`, `docs/`) is either tooling scaffolding or explicitly out of scope — see the `packages/*` note below.
+
+### Source module roles
+
+Modules at the top level of `src/platxa_agent_generator/` group by responsibility:
+
+| Group | Modules |
+|-------|---------|
+| **Generation** | `agent_generator`, `agent_composer`, `multiagent_generator`, `hooks_generator`, `prompt_generator`, `agent_export` |
+| **Validation + quality** | `syntax_validator`, `quality_scorer`, `security_scanner`, `agent_linter` |
+| **Evaluation** | `eval_runner`, `eval_scenario`, `evaluation_criteria`, `test_harness` |
+| **Install + plugin** | `install_agent`, `plugin_installer` |
+| **Persistence + progress** | `state_persistence`, `observation_store`, `instinct_store`, `progress_log`, `progress_tracker` |
+| **Learning loop** | `promotion_engine`, `mutation_registry`, `observer_guard` |
+| **NL parsing + catalog** | `nlp_parser`, `agent_catalog`, `agent_versioning` |
+
+Many template renderings (READMEs, CLAUDE.md, command files, MCP configs, hooks, multi-agent systems, exports) are driven by skill references under `skills/platxa-agent-generator/references/` rather than dedicated Python modules; the modules above provide the generation orchestration, validation, evaluation, and persistence layers that complement those templates.
 
 ### `packages/*` is NOT part of the plugin
 
@@ -83,20 +110,22 @@ NLP Description → Discovery → Architecture → Generation → Validation →
 
 Each subagent operates in its own context window. The definitions live in the top-level `agents/` directory (14 agents):
 
+Tool grants shown below come from each agent's `tools:` frontmatter line — keep this list in sync with `agents/*.md`.
+
 **Core pipeline:**
 - **Discovery Subagent**: WebSearch, WebFetch, Glob, Grep, Read → Domain knowledge JSON
-- **Architecture Subagent**: Read, Grep → Architecture blueprint JSON
-- **Generation Subagent**: Write, Read → Agent files
-- **Validation Subagent**: Bash, Read, Grep → Validation report with score
+- **Architecture Subagent**: Read, Grep, Glob → Architecture blueprint JSON
+- **Generation Subagent**: Write, Read, Glob → Agent files
+- **Validation Subagent**: Read, Grep, Glob, Bash → Validation report with score
 
 **Orchestration:**
-- **Team Lead**: Goal-loop orchestrator — composes teams, dispatches phases, iterates until done
-- **Ralph Orchestrator**: Stop-hook completion-promise loop — re-prompts until marker or cap
+- **Team Lead**: Read, Grep, Glob, Task → Goal-loop orchestrator — composes teams, dispatches phases, iterates until done
+- **Ralph Orchestrator**: Read, Grep, Glob → Stop-hook completion-promise loop — re-prompts until marker or cap
 
 **Evaluation:**
-- **Evaluator Subagent**: Read, Grep → Semantic quality evaluation
-- **GAN Evaluator**: Adversarial orchestrator — fans out per-axis judges, aggregates verdicts
-- **GAN Axis Judge**: Single-axis evaluator — isolated per-criterion scoring (prevents anchoring)
+- **Evaluator Subagent**: Read, Grep, Glob → Semantic quality evaluation
+- **GAN Evaluator**: Read, Grep, Glob, Task → Adversarial orchestrator — fans out per-axis judges, aggregates verdicts
+- **GAN Axis Judge**: Read, Grep, Glob → Single-axis evaluator — isolated per-criterion scoring (prevents anchoring)
 
 **Continuous learning:**
 - **Observer Subagent**: Read, Grep, Glob → Extracts ObservationRecords from transcripts (read-only)
@@ -146,6 +175,7 @@ Expected structure.
 
 - **Primary**: `docs/PLATXA_AGENT_GENERATOR.md` — Full specification
 - **Research**: `docs/RESEARCH_SYNTHESIS.md` — Source analysis
+- **Migration guide**: `docs/MIGRATION_GUIDE.md` — Where eliminated Python modules went (Python → Claude Code tools)
 - **Active spec**: `.claude/spec.md` — Current sprint goals and criteria
 - **Features**: `.claude/generated_features.json` — Decomposed feature list
 

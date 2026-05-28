@@ -127,6 +127,5 @@ implements this protocol.
   harness patterns, HE1 generator/evaluator separation
 - `src/platxa_agent_generator/agent_composer.py` — composition functions
 - `src/platxa_agent_generator/multiagent_generator.py` — goal-loop prompts
-- `src/platxa_agent_generator/workflow_state.py` — state machine + iteration cap
 - `agents/team-lead.md` — team lead agent definition
 - `agents/ralph-orchestrator.md` — ralph loop agent definition

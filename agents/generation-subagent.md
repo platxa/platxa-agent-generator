@@ -109,7 +109,25 @@ Template:
 {What the agent focuses on and any limitations}
 ```
 
-### Step 3: Generate Workflow
+### Step 3: Load Reference Templates
+
+Before generating content, Read the relevant template reference files from `skills/platxa-agent-generator/references/` to ground output in proven patterns:
+
+- **Pattern templates**: Read the reference matching the blueprint pattern — `prompt-chaining.md` for prompt-chaining, `orchestrator-workers.md` for orchestrator-workers, `parallelization.md` for parallelization, `routing.md` for routing, `evaluator-optimizer.md` for evaluator-optimizer, `multiagent-system-templates.md` for multi-agent systems
+- **Hooks**: Read `hooks-config-templates.md` when the agent requires lifecycle hooks
+- **Prompts**: Read `prompt-templates.md` for system prompt phrasing conventions
+- **Compositions**: Read `composer-templates.md` when the agent composes multiple tools or subagents
+- **Exports**: Read `export-templates.md` when the agent produces installable artifacts
+- **Tool selection**: Read `tool-selection-tables.md` to validate tool grants against domain norms
+- **CLAUDE.md generation**: Read `claudemd-generation.md` when the blueprint requires a project-context `CLAUDE.md` file alongside the agent
+- **Slash-command generation**: Read `command-generation.md` when the blueprint includes companion `.claude/commands/*.md` slash commands
+- **README/catalogue generation**: Read `readme-generation.md` when the blueprint requires a discoverable `README.md` agent catalogue
+- **MCP server configuration**: Read `mcp-server-templates.md` when the blueprint declares MCP server dependencies (renders `.mcp.json`)
+- **Interactive mode**: Read `interactive-phases.md` when the trigger payload sets `mode: "interactive"` — defines the six-phase `AskUserQuestion` wizard
+
+Use Read with the exact file paths. Only load references that match the blueprint — do not load all files.
+
+### Step 4: Generate Workflow
 
 Transform blueprint pattern into concrete steps.
 
@@ -155,7 +173,7 @@ Transform blueprint pattern into concrete steps.
 5. **Check**: If criteria met, exit; else goto step 3
 ```
 
-### Step 4: Create Examples
+### Step 5: Create Examples
 
 Include 2-3 realistic examples:
 
@@ -180,7 +198,7 @@ Include 2-3 realistic examples:
 ```
 ```
 
-### Step 5: Define Output Format
+### Step 6: Define Output Format
 
 Specify the agent's output structure:
 
@@ -201,7 +219,7 @@ Specify the agent's output structure:
 | {field2} | {type} | {description} |
 ```
 
-### Step 6: Add Domain-Specific Sections
+### Step 7: Add Domain-Specific Sections
 
 Based on agent type, add relevant sections:
 
@@ -252,7 +270,7 @@ Before outputting, verify:
 **Output:** {Expected output}
 ```
 
-### Step 7: Write to File
+### Step 8: Write to File
 
 Use the Write tool to create the agent file:
 

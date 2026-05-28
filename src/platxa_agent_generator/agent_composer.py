@@ -1,43 +1,5 @@
 #!/usr/bin/env python3
-"""
-Agent Composer for Combining Multiple Agents
-
-Enables creation of composite agents that orchestrate multiple specialized agents.
-Supports various composition patterns: sequential, parallel, conditional, and hierarchical.
-
-Features:
-- Combine agents into pipelines
-- Create orchestrator agents from worker definitions
-- Merge complementary agent capabilities
-- Validate composition compatibility
-- Generate composite agent definitions
-
-Composition Patterns:
-- Sequential: A → B → C (prompt-chaining)
-- Parallel: A || B || C (parallelization)
-- Conditional: if X then A else B (routing)
-- Hierarchical: Orchestrator → Workers (orchestrator-workers)
-
-Usage:
-    from scripts.agent_composer import (
-        compose_sequential,
-        compose_parallel,
-        compose_conditional,
-        create_orchestrator,
-    )
-
-    # Sequential composition
-    pipeline = compose_sequential([agent_a, agent_b, agent_c])
-
-    # Parallel composition
-    parallel = compose_parallel([analyzer_1, analyzer_2, analyzer_3])
-
-    # Create orchestrator from workers
-    orchestrator = create_orchestrator(
-        name="feature-builder",
-        workers=[code_writer, test_writer, doc_writer],
-    )
-"""
+"""Agent composer for combining multiple agents into composite patterns."""
 
 from __future__ import annotations
 
@@ -52,15 +14,18 @@ try:
 except ImportError:
     from shared.paths import get_project_agents_dir  # type: ignore[import-not-found,no-redef]
 
-# Canonical ``tools`` normalizer (feature #27). Replaces the inline
-# ``[t.strip() for t in tools_str.split(",") if t.strip()]`` that
-# previously lived in ``parse_agent_spec_from_file`` with a single
-# reviewed implementation shared across the generator suite.
 try:
     from .shared.tool_utils import parse_tools_string
 except ImportError:
     from shared.tool_utils import (  # type: ignore[import-not-found,no-redef]
         parse_tools_string,
+    )
+
+try:
+    from .shared.frontmatter import parse_frontmatter_safe
+except ImportError:
+    from shared.frontmatter import (  # type: ignore[import-not-found,no-redef]
+        parse_frontmatter_safe,
     )
 
 
@@ -112,24 +77,7 @@ class CompatibilityCheck:
 
 @dataclass
 class RoutingRule:
-    """A single routing rule for the router-agent generator.
-
-    The router agent classifies an incoming request into a ``category``,
-    then dispatches to ``handler_name`` (which must match one of the
-    AgentSpec names passed to :func:`compose_router`).
-
-    Fields:
-        category: Short machine-friendly tag (e.g. ``"refactor"``,
-            ``"bug-fix"``). Surfaces in the generated routing table so
-            users can see categories at a glance.
-        description: One-line human-readable explanation of when this
-            rule fires. Becomes the rule's prose in the generated agent.
-        handler_name: The AgentSpec.name to dispatch to.
-        keywords: Optional list of substring matchers that bias the
-            classifier. The generated agent uses these as hints; the
-            actual classification still happens at runtime via Claude.
-            Empty list means "no automatic hints — rely on description".
-    """
+    """A single routing rule mapping a category to a handler agent."""
 
     category: str
     description: str
@@ -137,51 +85,17 @@ class RoutingRule:
     keywords: list[str] = field(default_factory=list)
 
 
-# Sentinel header emitted into generated router agents above the routing
-# table, so downstream parsers can locate the table without depending on
-# heading text. Kept as a module constant rather than an inline string so
-# the contract is one place and tests can assert on it.
 ROUTER_TABLE_HEADER: str = "## Routing Table"
-
-# Sentinel header for the fallback section. Same rationale as
-# ROUTER_TABLE_HEADER.
 ROUTER_FALLBACK_HEADER: str = "## Fallback Handler"
 
-
-# Maximum allowed depth for hierarchical composition (orchestrator → worker
-# → sub-worker chains). A composition at this depth is still valid; anything
-# strictly greater fails validation. Capped to keep generated agents
-# debuggable and to prevent runaway recursion when one orchestrator
-# composes another. Three levels matches the orchestrator-workers research
-# guidance: a top-level coordinator, a layer of specialized workers, and
-# at most one layer of helpers below each worker.
+# Max depth for hierarchical composition (orchestrator chains).
 MAX_COMPOSITION_DEPTH: int = 3
-
-# Depth at which a non-blocking warning is surfaced. Composing at this
-# depth is allowed (it sits within MAX_COMPOSITION_DEPTH) but the
-# composer flags it so the caller can reconsider whether the nesting
-# is justified before pushing closer to the hard cap.
+# Depth at which a non-blocking warning is surfaced.
 WARN_COMPOSITION_DEPTH: int = 2
 
 
 def validate_composition_depth(depth: int) -> tuple[list[str], list[str]]:
-    """Validate a hierarchical composition depth.
-
-    Args:
-        depth: The depth (1-indexed) of the composition being created.
-            Top-level orchestrators are depth=1; an orchestrator whose
-            workers are themselves orchestrators is depth=2; and so on.
-
-    Returns:
-        Tuple ``(errors, warnings)``:
-
-        - ``errors``: Non-empty when ``depth > MAX_COMPOSITION_DEPTH`` or
-          ``depth < 1``. Callers must treat a non-empty list as a
-          composition failure.
-        - ``warnings``: Non-empty when ``WARN_COMPOSITION_DEPTH <= depth
-          <= MAX_COMPOSITION_DEPTH``. Non-blocking — surface to the user
-          but allow composition to proceed.
-    """
+    """Validate hierarchical depth. Returns ``(errors, warnings)``."""
     errors: list[str] = []
     warnings: list[str] = []
     if depth < 1:
@@ -249,8 +163,9 @@ def check_compatibility(agents: list[AgentSpec]) -> CompatibilityCheck:
         issues.append("Circular dependencies detected between agents")
 
     # Validate I/O compatibility for sequential pipelines
-    seq_issues = validate_sequential_io(agents)
+    seq_issues, seq_warnings = validate_sequential_io(agents)
     issues.extend(seq_issues)
+    suggestions.extend(seq_warnings)
 
     return CompatibilityCheck(
         compatible=len(issues) == 0,
@@ -287,32 +202,7 @@ def _has_cycle(graph: dict[str, list[str]]) -> bool:
 
 @dataclass
 class DependencyGraph:
-    """A computed dependency graph across a set of AgentSpecs.
-
-    Captured separately from any rendering so the same graph can drive
-    multiple outputs (Mermaid diagram, README section, CLI output) and
-    so the cycle-detection results are inspectable by callers — not
-    just bundled into the rendered string.
-
-    Fields:
-        edges: ``{agent_name: [dependency_names...]}`` keyed by every
-            agent in the input set, including agents with no
-            dependencies (whose value is ``[]``). The list preserves
-            the order the dependencies were declared in the source
-            ``AgentSpec.dependencies``.
-        cycles: List of cycle paths as ``list[str]`` where the first
-            and last elements are the same agent (closing the loop).
-            Empty list means no cycles. Each cycle is reported once
-            even when multiple traversal paths reach it.
-        missing_dependencies: ``{agent_name: [missing_dep_names...]}``
-            for entries declared as dependencies but not present in
-            the input set. Empty dict means every dependency resolved.
-            Reported separately from cycles because a missing-dep is
-            a *naming* problem (typo, agent renamed) rather than a
-            structural one.
-        roots: Agents that nothing else depends on — the natural entry
-            points for a top-down read of the graph.
-    """
+    """Computed dependency graph with edges, cycles, missing deps, and roots."""
 
     edges: dict[str, list[str]] = field(default_factory=dict)
     cycles: list[list[str]] = field(default_factory=list)
@@ -321,38 +211,10 @@ class DependencyGraph:
 
 
 def build_dependency_graph(agents: list[AgentSpec]) -> DependencyGraph:
-    """Compute the dependency graph for a list of agents.
-
-    Walks each agent's ``dependencies`` list to build the adjacency
-    map, then surfaces three pieces of derived information that
-    callers commonly need:
-
-    1. **Cycles** — found via DFS with an explicit traversal path so
-       the cycle is reported as the actual ring of names rather than
-       just a boolean. The ring closes on the first revisited node so
-       the user can read the loop directly.
-    2. **Missing dependencies** — names referenced from a
-       ``dependencies`` list that don't match any agent in the input.
-       Common when an agent is renamed without updating its consumers.
-    3. **Roots** — agents that are not depended on by anyone. These
-       are the natural starting points for documenting or executing
-       the graph top-down.
-
-    Args:
-        agents: The agents whose dependency relationships should be
-            analyzed. May be empty.
-
-    Returns:
-        :class:`DependencyGraph` with the four populated fields.
-    """
-    # Build adjacency map keyed by every agent name (so isolated
-    # agents still appear in the graph).
+    """Compute edges, cycles, missing deps, and roots for agent dependencies."""
     edges: dict[str, list[str]] = {a.name: list(a.dependencies) for a in agents}
     known_names = set(edges)
 
-    # Surface unresolved dependency names. Don't drop them from the
-    # adjacency map — keeping them lets the cycle detector still see
-    # the declared edge, and the caller can render them as red nodes.
     missing: dict[str, list[str]] = {}
     for name, deps in edges.items():
         unresolved = [d for d in deps if d not in known_names]
@@ -361,8 +223,6 @@ def build_dependency_graph(agents: list[AgentSpec]) -> DependencyGraph:
 
     cycles = _find_dependency_cycles(edges)
 
-    # Roots: nodes that no other node depends on. Order preserved from
-    # input so the output is deterministic.
     referenced: set[str] = set()
     for deps in edges.values():
         for dep in deps:
@@ -378,16 +238,7 @@ def build_dependency_graph(agents: list[AgentSpec]) -> DependencyGraph:
 
 
 def _find_dependency_cycles(edges: dict[str, list[str]]) -> list[list[str]]:
-    """Find every distinct cycle in a directed dependency graph.
-
-    Returns each cycle as a list of names ending where it began (so
-    ``[a, b, c, a]`` reads as "a depends on b, b on c, c on a"). The
-    closing element makes the loop visually obvious in CLI output and
-    Mermaid diagrams without forcing the renderer to add it.
-
-    Cycles are deduplicated by their normalized rotation: a single
-    ring reached from two different start nodes is reported once.
-    """
+    """Find every distinct cycle in a directed dependency graph."""
     cycles_found: list[list[str]] = []
     seen_signatures: set[tuple[str, ...]] = set()
 
@@ -424,62 +275,28 @@ def _find_dependency_cycles(edges: dict[str, list[str]]) -> list[list[str]]:
 
 
 def render_dependency_diagram(graph: DependencyGraph) -> str:
-    """Render a DependencyGraph as a Mermaid flowchart.
-
-    Mermaid is the de-facto standard for Markdown-embedded diagrams
-    (GitHub, GitLab, and most documentation pipelines render it
-    natively), so the output drops straight into a README without any
-    extra tooling. The diagram uses ``graph TD`` (top-down) so root
-    agents appear at the top and leaves at the bottom, matching how
-    most readers walk a dependency tree.
-
-    The rendering deliberately surfaces structural problems visually:
-
-    - Missing dependencies render as nodes with the prefix
-      ``MISSING:`` so they stand out in the diagram.
-    - Cycle edges are tagged as ``-.->`` (dotted) so a reader sees the
-      cycle without needing to cross-reference the ``cycles`` field.
-
-    Args:
-        graph: The dependency graph to render.
-
-    Returns:
-        A complete Mermaid diagram block, including the fenced-code
-        wrapper Markdown renderers expect (``" ```mermaid ... ``` "``).
-        Empty graph returns the wrapper with just the directive line so
-        downstream parsers always see a valid Mermaid block.
-    """
+    """Render a DependencyGraph as a Mermaid flowchart."""
     lines: list[str] = ["```mermaid", "graph TD"]
 
     if not graph.edges:
         lines.append("```")
         return "\n".join(lines)
 
-    # Track edges that participate in a cycle so they can be rendered
-    # with the dotted arrow style. Build a set of (from, to) pairs by
-    # walking each cycle path.
     cycle_edges: set[tuple[str, str]] = set()
     for cycle in graph.cycles:
         for i in range(len(cycle) - 1):
             cycle_edges.add((cycle[i], cycle[i + 1]))
 
-    # Emit every node first so isolated agents (no dependencies, not
-    # depended on) still appear in the diagram.
     for name in graph.edges:
         safe = _mermaid_id(name)
         lines.append(f"    {safe}[{name}]")
 
-    # Emit edges. Mermaid uses ``A --> B`` for "A depends on B" — we
-    # follow the dependency direction (depender → dependency) so the
-    # arrow visually points at what each agent needs.
     for name, deps in graph.edges.items():
         src = _mermaid_id(name)
         for dep in deps:
             dst = _mermaid_id(dep)
             arrow = "-.->" if (name, dep) in cycle_edges else "-->"
             if dep in graph.missing_dependencies.get(name, []):
-                # Inline-declare the missing node with a MISSING: prefix
-                # so it stands out from regular agents.
                 lines.append(f"    {src} {arrow} {dst}[MISSING: {dep}]")
             else:
                 lines.append(f"    {src} {arrow} {dst}")
@@ -489,26 +306,12 @@ def render_dependency_diagram(graph: DependencyGraph) -> str:
 
 
 def _mermaid_id(name: str) -> str:
-    """Convert an agent name to a Mermaid-safe node identifier.
-
-    Mermaid identifiers cannot contain hyphens or special characters,
-    so we substitute underscores. The original name is preserved as
-    the node label (in square brackets) so the diagram still reads
-    naturally.
-    """
+    """Convert an agent name to a Mermaid-safe node identifier."""
     return "".join(c if c.isalnum() else "_" for c in name)
 
 
 def render_dependency_readme_section(graph: DependencyGraph) -> str:
-    """Render the dependency graph as a README-ready Markdown section.
-
-    Combines the Mermaid diagram with prose summaries the diagram
-    cannot convey: a roots list (entry points for top-down reading), a
-    cycle warning when applicable, and a missing-dependency callout.
-    Always emits the same heading (``## Agent Dependencies``) so the
-    section can be located and replaced by automated documentation
-    pipelines.
-    """
+    """Render the dependency graph as a README-ready Markdown section."""
     lines: list[str] = ["## Agent Dependencies", ""]
 
     if not graph.edges:
@@ -543,11 +346,7 @@ def render_dependency_readme_section(graph: DependencyGraph) -> str:
 
 
 def _schema_fields(schema: dict[str, Any]) -> set[str]:
-    """Extract top-level field names from a JSON-schema-like dict.
-
-    Supports schemas with "properties" (JSON Schema) or plain key→type dicts.
-    Returns an empty set for empty/missing schemas (treated as "any").
-    """
+    """Extract top-level field names from a JSON-schema-like dict."""
     if not schema:
         return set()
     # Standard JSON Schema with "properties" key
@@ -558,23 +357,55 @@ def _schema_fields(schema: dict[str, Any]) -> set[str]:
     return set(schema.keys()) - {"type", "description", "required"}
 
 
+def _is_typed_but_empty(schema: dict[str, Any]) -> bool:
+    """Return True for schemas like ``{"type": "object"}`` with no fields.
+
+    The two cases we need to distinguish:
+
+    * ``{}`` — caller did not declare a schema. ``_schemas_compatible``
+      treats this as "any" and waves it through.
+    * ``{"type": "object"}`` — caller explicitly typed the schema but
+      declared zero properties. This is almost always a documentation
+      bug, and rubber-stamping it as compatible with anything was the
+      silent failure we want to surface.
+    """
+    if not schema:
+        return False
+    fields = _schema_fields(schema)
+    return not fields
+
+
 def _schemas_compatible(
     output_schema: dict[str, Any],
     input_schema: dict[str, Any],
 ) -> tuple[bool, list[str]]:
     """Check if an output schema is compatible with an input schema.
 
-    Compatibility rules:
-    - If either schema is empty, they are compatible (untyped = "any").
-    - If input has required fields, the output must provide them.
-    - Extra output fields are always allowed (consumers may ignore them).
-
-    Returns:
-        (compatible, list_of_issues)
+    Returns ``(compatible, issues)``. ``issues`` is a list of strings;
+    the caller surfaces them as warnings (when ``compatible`` is True
+    but the schema is suspect) or errors (when ``compatible`` is False).
     """
-    # Empty schemas are always compatible — untyped means "any"
-    if not output_schema or not input_schema:
+    # Truly empty schemas (``{}``) mean "any" — compatible by definition.
+    # Typed-but-empty schemas (``{"type": "object"}`` with no properties)
+    # are most likely documentation bugs; flag them so the operator can
+    # decide rather than waving them through.
+    if not output_schema and not input_schema:
         return True, []
+
+    warnings: list[str] = []
+    if _is_typed_but_empty(output_schema):
+        warnings.append(
+            "Producer output schema is typed but declares no fields; "
+            "treating as opaque — downstream stages cannot validate against it"
+        )
+    if _is_typed_but_empty(input_schema):
+        warnings.append(
+            "Consumer input schema is typed but declares no fields; "
+            "treating as opaque — producer guarantees cannot be verified"
+        )
+
+    if not output_schema or not input_schema:
+        return True, warnings
 
     out_fields = _schema_fields(output_schema)
     in_fields = _schema_fields(input_schema)
@@ -587,51 +418,44 @@ def _schemas_compatible(
 
     missing = required - out_fields
     if missing:
-        return False, [f"Output missing required fields: {', '.join(sorted(missing))}"]
+        warnings.append(f"Output missing required fields: {', '.join(sorted(missing))}")
+        return False, warnings
 
-    return True, []
+    return True, warnings
 
 
-def validate_sequential_io(agents: list[AgentSpec]) -> list[str]:
-    """Validate that sequential pipeline stages have compatible I/O.
+def validate_sequential_io(agents: list[AgentSpec]) -> tuple[list[str], list[str]]:
+    """Validate that adjacent pipeline stages have compatible I/O schemas.
 
-    For each adjacent pair (stage N, stage N+1), checks that stage N's
-    output_schema provides the fields required by stage N+1's input_schema.
-
-    Args:
-        agents: Ordered list of agents in the pipeline.
-
-    Returns:
-        List of incompatibility issues (empty = all compatible).
+    Returns ``(issues, warnings)``. Issues are blocking — they prevent
+    composition. Warnings are non-blocking — for example, a producer
+    or consumer declared ``{"type": "object"}`` with no fields, so we
+    cannot actually verify the contract even though we are not blocking
+    on it.
     """
     issues: list[str] = []
+    warnings: list[str] = []
 
     for i in range(len(agents) - 1):
         producer = agents[i]
         consumer = agents[i + 1]
 
-        compatible, stage_issues = _schemas_compatible(
+        compatible, stage_messages = _schemas_compatible(
             producer.output_schema, consumer.input_schema
         )
+        prefix = f"Stage {i + 1}→{i + 2} ({producer.name}→{consumer.name})"
         if not compatible:
-            for issue in stage_issues:
-                issues.append(f"Stage {i + 1}→{i + 2} ({producer.name}→{consumer.name}): {issue}")
+            for msg in stage_messages:
+                issues.append(f"{prefix}: {msg}")
+        else:
+            for msg in stage_messages:
+                warnings.append(f"{prefix}: {msg}")
 
-    return issues
+    return issues, warnings
 
 
 def validate_parallel_outputs(agents: list[AgentSpec]) -> list[str]:
-    """Validate that parallel agents produce merge-compatible outputs.
-
-    For a merge aggregation to work, all agents with output schemas must
-    not have conflicting field types for the same field name.
-
-    Args:
-        agents: List of agents to run in parallel.
-
-    Returns:
-        List of merge-compatibility issues (empty = all compatible).
-    """
+    """Validate that parallel agents produce merge-compatible output schemas."""
     issues: list[str] = []
 
     # Collect field→type from all output schemas
@@ -685,25 +509,34 @@ def merge_tools(agents: list[AgentSpec]) -> list[str]:
     return tools
 
 
+def _render_frontmatter(
+    name: str,
+    description: str,
+    tools: list[str],
+    pattern: str,
+    components: list[AgentSpec] | None = None,
+) -> str:
+    """Render minimal agent frontmatter. Full templates live in skill references."""
+    tools_str = ", ".join(tools)
+    lines = [
+        f"---\nname: {name}\ndescription: {description}\n"
+        f"tools: {tools_str}\n---\n\n"
+        f"# {name.replace('-', ' ').title()}\n\n"
+        f"**Pattern:** {pattern}\n",
+    ]
+    if components:
+        lines.append("\n## Components\n")
+        for c in components:
+            lines.append(f"- **{c.name}**: {c.description}\n")
+    return "".join(lines)
+
+
 def compose_sequential(
     agents: list[AgentSpec],
     name: str | None = None,
     description: str | None = None,
 ) -> CompositionResult:
-    """
-    Compose agents into a sequential pipeline (prompt-chaining pattern).
-
-    Each agent's output becomes the next agent's input.
-
-    Args:
-        agents: Ordered list of agents for the pipeline
-        name: Name for composite agent (auto-generated if None)
-        description: Description (auto-generated if None)
-
-    Returns:
-        CompositionResult with the composite agent
-    """
-    # Validate
+    """Compose agents into a sequential pipeline (prompt-chaining pattern)."""
     compat = check_compatibility(agents)
     if not compat.compatible:
         return CompositionResult(
@@ -716,72 +549,12 @@ def compose_sequential(
             errors=compat.issues,
         )
 
-    # Generate name and description
     composite_name = name or f"{agents[0].name}-to-{agents[-1].name}-pipeline"
     composite_desc = description or (f"Sequential pipeline: {' → '.join(a.name for a in agents)}")
-
-    # Merge tools
     tools = merge_tools(agents)
-    tools_str = ", ".join(tools)
 
-    # Build workflow steps
-    workflow_steps = ""
-    for i, agent in enumerate(agents, 1):
-        workflow_steps += f"""
-### Step {i}: {agent.name}
-
-{agent.description}
-
-**Role:** {agent.role or "Processor"}
-**Tools:** {", ".join(agent.tools) if agent.tools else "Inherited"}
-
-"""
-
-    # Generate content
-    content = f"""---
-name: {composite_name}
-description: {composite_desc}
-tools: {tools_str}
----
-
-# {composite_name.replace("-", " ").title()}
-
-## Overview
-
-{composite_desc}
-
-**Pattern:** Sequential (Prompt-Chaining)
-**Components:** {len(agents)} agents
-
-## Pipeline Flow
-
-```
-{" → ".join(a.name for a in agents)}
-```
-
-## Workflow
-{workflow_steps}
-## Execution
-
-1. Receive input
-2. Execute each step in order
-3. Pass output to next step
-4. Return final result
-
-## Component Agents
-
-{chr(10).join(f"- **{a.name}**: {a.description}" for a in agents)}
-
-## Error Handling
-
-- If any step fails, stop pipeline and report error
-- Include which step failed and why
-- Provide partial results if available
-
----
-
-*Composite agent generated by Platxa Agent Composer*
-"""
+    # Minimal frontmatter — full template content is in skill references.
+    content = _render_frontmatter(composite_name, composite_desc, tools, "sequential", agents)
 
     return CompositionResult(
         success=True,
@@ -800,23 +573,9 @@ def compose_parallel(
     description: str | None = None,
     aggregation_strategy: str = "merge",
 ) -> CompositionResult:
-    """
-    Compose agents for parallel execution (parallelization pattern).
-
-    All agents run concurrently, results are aggregated.
-
-    Args:
-        agents: List of agents to run in parallel
-        name: Name for composite agent
-        description: Description
-        aggregation_strategy: How to combine results (merge, vote, first)
-
-    Returns:
-        CompositionResult with the composite agent
-    """
+    """Compose agents for parallel execution (parallelization pattern)."""
     compat = check_compatibility(agents)
 
-    # Additional merge-compatibility check for parallel outputs
     if aggregation_strategy == "merge":
         merge_issues = validate_parallel_outputs(agents)
         compat.issues.extend(merge_issues)
@@ -836,63 +595,9 @@ def compose_parallel(
 
     composite_name = name or f"parallel-{'-'.join(a.name for a in agents[:3])}"
     composite_desc = description or (f"Parallel execution of: {', '.join(a.name for a in agents)}")
-
     tools = merge_tools(agents)
-    tools_str = ", ".join(tools)
 
-    # Build parallel tasks section
-    parallel_tasks = ""
-    for agent in agents:
-        parallel_tasks += f"""
-### {agent.name}
-
-{agent.description}
-
-**Tools:** {", ".join(agent.tools) if agent.tools else "Inherited"}
-
-"""
-
-    content = f"""---
-name: {composite_name}
-description: {composite_desc}
-tools: {tools_str}
----
-
-# {composite_name.replace("-", " ").title()}
-
-## Overview
-
-{composite_desc}
-
-**Pattern:** Parallelization
-**Components:** {len(agents)} agents
-**Aggregation:** {aggregation_strategy}
-
-## Parallel Tasks
-{parallel_tasks}
-## Execution
-
-1. Spawn all component agents concurrently via Task tool
-2. Collect results as they complete
-3. Aggregate using {aggregation_strategy} strategy
-4. Return combined result
-
-## Aggregation Strategy: {aggregation_strategy.title()}
-
-{"- **Merge**: Combine all results into unified output" if aggregation_strategy == "merge" else ""}
-{"- **Vote**: Take majority consensus from results" if aggregation_strategy == "vote" else ""}
-{"- **First**: Return first successful result" if aggregation_strategy == "first" else ""}
-
-## Error Handling
-
-- Continue execution if some tasks fail
-- Report partial results with failed task list
-- Indicate which results are missing
-
----
-
-*Composite agent generated by Platxa Agent Composer*
-"""
+    content = _render_frontmatter(composite_name, composite_desc, tools, "parallel", agents)
 
     return CompositionResult(
         success=True,
@@ -911,20 +616,7 @@ def compose_conditional(
     name: str | None = None,
     description: str | None = None,
 ) -> CompositionResult:
-    """
-    Compose agents with conditional routing (routing pattern).
-
-    Input is classified and routed to appropriate agent.
-
-    Args:
-        agents: List of handler agents
-        routing_rules: Map of condition -> agent_name
-        name: Name for composite agent
-        description: Description
-
-    Returns:
-        CompositionResult with the composite agent
-    """
+    """Compose agents with conditional routing (routing pattern)."""
     compat = check_compatibility(agents)
     if not compat.compatible:
         return CompositionResult(
@@ -939,58 +631,15 @@ def compose_conditional(
 
     composite_name = name or f"router-{agents[0].name}"
     composite_desc = description or (f"Routes requests to: {', '.join(a.name for a in agents)}")
-
     tools = merge_tools(agents)
-    tools_str = ", ".join(tools)
 
-    # Build routing rules section
-    rules_section = ""
+    content = _render_frontmatter(composite_name, composite_desc, tools, "conditional", agents)
+    rules_section = "\n## Routing Rules\n\n"
     for condition, agent_name in routing_rules.items():
         agent = next((a for a in agents if a.name == agent_name), None)
         desc = agent.description if agent else "Handler"
         rules_section += f"- **{condition}** → `{agent_name}`: {desc}\n"
-
-    content = f"""---
-name: {composite_name}
-description: {composite_desc}
-tools: {tools_str}
----
-
-# {composite_name.replace("-", " ").title()}
-
-## Overview
-
-{composite_desc}
-
-**Pattern:** Routing (Conditional)
-**Components:** {len(agents)} handlers
-
-## Routing Rules
-
-{rules_section}
-
-## Classification Process
-
-1. Analyze input to determine category
-2. Match against routing rules
-3. Dispatch to appropriate handler
-4. Return handler result
-
-## Handlers
-
-{chr(10).join(f"### {a.name}{chr(10)}{chr(10)}{a.description}{chr(10)}" for a in agents)}
-
-## Fallback
-
-If no rule matches:
-1. Use default handler if defined
-2. Otherwise, ask for clarification
-3. Log unrouted requests for improvement
-
----
-
-*Composite agent generated by Platxa Agent Composer*
-"""
+    content += rules_section
 
     return CompositionResult(
         success=True,
@@ -1010,41 +659,7 @@ def compose_router(
     name: str | None = None,
     description: str | None = None,
 ) -> CompositionResult:
-    """Generate a router agent: classify input → dispatch to specialized handler.
-
-    Distinct from :func:`compose_conditional` (which takes a flat
-    ``{condition: agent_name}`` dict). This version:
-
-    - Treats categories as **first-class** (each rule has a category tag,
-      description, optional keyword hints).
-    - Requires every rule's ``handler_name`` to match one of ``handlers``,
-      so dangling references fail loud at compose time, not at runtime.
-    - Emits an explicit ``Fallback Handler`` section either pointing at
-      ``fallback_handler`` (when provided) or describing the
-      ask-for-clarification protocol (when not).
-
-    Args:
-        handlers: AgentSpecs for every specialized handler. Must include
-            ``fallback_handler`` if one is passed.
-        routing_rules: Ordered list of :class:`RoutingRule`. Order is
-            preserved in the generated table so authors can express
-            priority (first match wins).
-        fallback_handler: Optional handler to dispatch to when no rule
-            matches. When omitted, the generated agent's fallback
-            section instructs the agent to ask for clarification.
-        name: Override for the composite agent's frontmatter ``name``.
-            Defaults to ``router-{first-handler-name}``.
-        description: Override for the composite agent's frontmatter
-            ``description``. Defaults to a list of categories.
-
-    Returns:
-        :class:`CompositionResult`. ``success=False`` when handlers are
-        empty, when a rule references an unknown handler, or when
-        ``check_compatibility`` rejects the handler set.
-
-    Raises:
-        Never — all error conditions are reported via ``CompositionResult.errors``.
-    """
+    """Generate a router agent: classify input then dispatch to a handler."""
     errors: list[str] = []
 
     if not handlers:
@@ -1089,13 +704,9 @@ def compose_router(
     composite_desc = description or (
         f"Routes requests across categories: {', '.join(r.category for r in routing_rules)}"
     )
-
     tools = merge_tools(handlers)
     tools_str = ", ".join(tools)
 
-    # Routing table — first column is category, second is handler, third
-    # is one-line description. Markdown table so terminal renderers
-    # display it cleanly while machine parsers can still pluck rows.
     table_lines: list[str] = [
         "| Category | Handler | When to use |",
         "|----------|---------|-------------|",
@@ -1103,8 +714,6 @@ def compose_router(
     for rule in routing_rules:
         table_lines.append(f"| `{rule.category}` | `{rule.handler_name}` | {rule.description} |")
 
-    # Per-rule keyword hints — only emit the section when at least one
-    # rule has hints, so simple agents stay terse.
     hint_section = ""
     if any(r.keywords for r in routing_rules):
         hint_lines = ["## Classification Hints", ""]
@@ -1137,45 +746,26 @@ def compose_router(
 
     handler_index = "\n".join(f"### `{h.name}`\n\n{h.description}\n" for h in handlers)
 
-    content = f"""---
-name: {composite_name}
-description: {composite_desc}
-tools: {tools_str}
----
-
-# {composite_name.replace("-", " ").title()}
-
-## Overview
-
-{composite_desc}
-
-**Pattern:** Routing (classifier + specialized handlers)
-**Handlers:** {len(handlers)}
-**Routing rules:** {len(routing_rules)}
-
-## Classification Process
-
-1. Read the incoming request.
-2. Compare against each row of the routing table below in order — first match wins.
-3. If a match is found, dispatch to the named handler with the original input.
-4. If no rule matches, follow the {ROUTER_FALLBACK_HEADER.split("## ", 1)[1]} below.
-
-{ROUTER_TABLE_HEADER}
-
-{chr(10).join(table_lines)}
-
-{hint_section}{ROUTER_FALLBACK_HEADER}
-
-{fallback_body}
-
-## Handlers
-
-{handler_index}
-
----
-
-*Composite router agent generated by Platxa Agent Composer*
-"""
+    content = (
+        f"---\nname: {composite_name}\ndescription: {composite_desc}\n"
+        f"tools: {tools_str}\n---\n\n"
+        f"# {composite_name.replace('-', ' ').title()}\n\n"
+        f"**Pattern:** Routing (classifier + specialized handlers)\n"
+        f"**Handlers:** {len(handlers)}\n"
+        f"**Routing rules:** {len(routing_rules)}\n\n"
+        f"## Classification Process\n\n"
+        f"1. Read the incoming request.\n"
+        f"2. Compare against each row of the routing table below in order — first match wins.\n"
+        f"3. If a match is found, dispatch to the named handler with the original input.\n"
+        f"4. If no rule matches, follow the "
+        f"{ROUTER_FALLBACK_HEADER.split('## ', 1)[1]} below.\n\n"
+        f"{ROUTER_TABLE_HEADER}\n\n"
+        f"{chr(10).join(table_lines)}\n\n"
+        f"{hint_section}{ROUTER_FALLBACK_HEADER}\n\n"
+        f"{fallback_body}\n\n"
+        f"## Handlers\n\n"
+        f"{handler_index}\n"
+    )
 
     return CompositionResult(
         success=True,
@@ -1195,27 +785,7 @@ def create_orchestrator(
     decomposition_strategy: str = "dynamic",
     depth: int = 1,
 ) -> CompositionResult:
-    """
-    Create an orchestrator agent from worker specifications.
-
-    Implements the orchestrator-workers pattern.
-
-    Args:
-        name: Orchestrator name
-        workers: List of worker agent specifications
-        description: Description
-        decomposition_strategy: How to decompose tasks (dynamic, fixed, hybrid)
-        depth: 1-indexed depth of this orchestrator in a hierarchical
-            composition. Top-level orchestrators use ``depth=1`` (the
-            default). When this orchestrator's workers are themselves
-            orchestrators, callers should pass ``depth=2`` for the
-            outer orchestrator, ``depth=3`` for the next layer, etc.
-            Validation fails when ``depth > MAX_COMPOSITION_DEPTH`` and
-            a warning is emitted when ``depth >= WARN_COMPOSITION_DEPTH``.
-
-    Returns:
-        CompositionResult with the orchestrator agent
-    """
+    """Create an orchestrator agent from worker specifications."""
     depth_errors, depth_warnings = validate_composition_depth(depth)
     if depth_errors:
         return CompositionResult(
@@ -1240,87 +810,10 @@ def create_orchestrator(
         )
 
     composite_desc = description or (f"Orchestrates: {', '.join(w.name for w in workers)}")
-
-    # Orchestrator needs Task tool plus analysis tools
     tools = ["Read", "Grep", "Glob", "Task"]
-    tools_str = ", ".join(tools)
 
-    # Build workers section
-    workers_section = ""
-    for worker in workers:
-        workers_section += f"""
-### {worker.name}
-
-**Role:** {worker.role or "Worker"}
-**Description:** {worker.description}
-**Tools:** {", ".join(worker.tools) if worker.tools else "Specialized"}
-
-"""
-
-    content = f"""---
-name: {name}
-description: {composite_desc}
-tools: {tools_str}
----
-
-# {name.replace("-", " ").title()}
-
-## Overview
-
-{composite_desc}
-
-**Pattern:** Orchestrator-Workers
-**Workers:** {len(workers)}
-**Decomposition:** {decomposition_strategy}
-
-## Available Workers
-{workers_section}
-## Workflow
-
-### Phase 1: Analysis
-
-1. Receive and analyze the request
-2. Identify required capabilities
-3. Determine which workers are needed
-
-### Phase 2: Decomposition
-
-Strategy: **{decomposition_strategy.title()}**
-
-{"- Analyze task at runtime to determine subtasks" if decomposition_strategy == "dynamic" else ""}
-{"- Use predefined decomposition rules" if decomposition_strategy == "fixed" else ""}
-{"- Combine predefined and dynamic decomposition" if decomposition_strategy == "hybrid" else ""}
-
-### Phase 3: Execution
-
-1. Spawn workers via Task tool
-2. Manage dependencies between workers
-3. Handle worker failures gracefully
-4. Collect results progressively
-
-### Phase 4: Synthesis
-
-1. Combine worker outputs
-2. Verify integration points
-3. Generate unified result
-
-## Worker Coordination
-
-- Workers are spawned as needed
-- Dependencies are respected
-- Failed workers can be retried
-- Partial results are preserved
-
-## Error Handling
-
-- If critical worker fails, report error
-- If optional worker fails, continue with others
-- Always provide status of each worker
-
----
-
-*Composite agent generated by Platxa Agent Composer*
-"""
+    content = _render_frontmatter(name, composite_desc, tools, "orchestrator", workers)
+    content += f"\n**Decomposition:** {decomposition_strategy}\n"
 
     return CompositionResult(
         success=True,
@@ -1363,48 +856,22 @@ def save_composite_agent(
 
 
 def load_agent_spec(file_path: Path | str) -> AgentSpec | None:
-    """
-    Load an agent specification from a markdown file.
+    """Load an agent specification from a markdown file.
 
-    Args:
-        file_path: Path to agent .md file
-
-    Returns:
-        AgentSpec or None if invalid
+    Returns ``None`` for **per-file** failures (path missing or
+    frontmatter unparseable) so the caller can decide whether one bad
+    input aborts a composition or just gets reported. Packaging-level
+    failures (``shared.frontmatter`` unimportable) are NOT caught here
+    — they propagate as ``ImportError`` because they indicate a
+    corrupt install affecting *every* agent file, not a per-file
+    parse problem. Catching them used to make a broken install look
+    identical to a malformed agent file.
     """
     path = Path(file_path)
     if not path.exists():
         return None
 
     content = path.read_text(encoding="utf-8")
-
-    # Parse frontmatter via the shared canonical parser (feature #26).
-    # parse_frontmatter_safe handles opening/closing delimiter checks,
-    # YAML loading, MarkedYAMLError line reporting, and non-mapping
-    # root rejection — so the pre-refactor ImportError/YAMLError/
-    # AttributeError chain collapses into a single fail-with-warning
-    # path. The warning format is preserved (type + message) so that
-    # operators searching logs by "agent_composer failed to parse" still
-    # hit this branch.
-    #
-    # Import locally (same scope as before) so the module still loads in
-    # environments where shared.frontmatter transitively fails to import
-    # — the caller keeps getting a ``None`` return rather than a
-    # top-level ImportError at module load time.
-    try:
-        try:
-            from .shared.frontmatter import parse_frontmatter_safe
-        except ImportError:
-            from shared.frontmatter import (  # type: ignore[import-not-found,no-redef]
-                parse_frontmatter_safe,
-            )
-    except ImportError as e:
-        print(
-            f"warning: agent_composer failed to parse frontmatter "
-            f"in {path}: {type(e).__name__}: {e}",
-            file=sys.stderr,
-        )
-        return None
 
     frontmatter, errors = parse_frontmatter_safe(content)
     if frontmatter is None:
@@ -1420,16 +887,8 @@ def load_agent_spec(file_path: Path | str) -> AgentSpec | None:
 
     name = frontmatter.get("name", "")
     description = frontmatter.get("description", "")
-    # Tools value normalized via shared.tool_utils.parse_tools_string
-    # (feature #27). Handles None/empty/list inputs and drops empty
-    # tokens from trailing or doubled commas uniformly across the
-    # generator suite.
     tools = parse_tools_string(frontmatter.get("tools", ""))
 
-    # Dependencies may be declared as a YAML list (``dependencies: [a, b]``)
-    # or as a comma-separated string (``dependencies: "a, b"``). Accept both
-    # so authors can use whichever feels natural; downstream code only sees
-    # the parsed list.
     deps_raw = frontmatter.get("dependencies", [])
     if isinstance(deps_raw, str):
         dependencies = [d.strip() for d in deps_raw.split(",") if d.strip()]
@@ -1509,8 +968,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "sequential":
-        agents = [load_agent_spec(f) for f in args.agents]
-        agents = [a for a in agents if a is not None]
+        agents = _load_all_or_exit(args.agents)
         result = compose_sequential(agents, name=args.name)
         if result.success:
             output = args.output or ".claude/agents"
@@ -1520,8 +978,7 @@ def main() -> None:
             print(f"Error: {result.errors}")
 
     elif args.command == "parallel":
-        agents = [load_agent_spec(f) for f in args.agents]
-        agents = [a for a in agents if a is not None]
+        agents = _load_all_or_exit(args.agents)
         result = compose_parallel(agents, name=args.name, aggregation_strategy=args.strategy)
         if result.success:
             output = args.output or ".claude/agents"
@@ -1531,8 +988,7 @@ def main() -> None:
             print(f"Error: {result.errors}")
 
     elif args.command == "orchestrator":
-        workers = [load_agent_spec(f) for f in args.workers]
-        workers = [w for w in workers if w is not None]
+        workers = _load_all_or_exit(args.workers)
         result = create_orchestrator(args.name, workers)
         if result.success:
             output = args.output or ".claude/agents"
@@ -1542,8 +998,7 @@ def main() -> None:
             print(f"Error: {result.errors}")
 
     elif args.command == "deps":
-        agents = [load_agent_spec(f) for f in args.agents]
-        agents = [a for a in agents if a is not None]
+        agents = _load_all_or_exit(args.agents)
         graph = build_dependency_graph(agents)
         if args.format == "readme":
             print(render_dependency_readme_section(graph))
@@ -1554,8 +1009,7 @@ def main() -> None:
             raise SystemExit(2)
 
     elif args.command == "check":
-        agents = [load_agent_spec(f) for f in args.agents]
-        agents = [a for a in agents if a is not None]
+        agents = _load_all_or_exit(args.agents)
         compat = check_compatibility(agents)
         print(f"Compatible: {compat.compatible}")
         if compat.issues:
@@ -1569,6 +1023,28 @@ def main() -> None:
 
     else:
         parser.print_help()
+
+
+def _load_all_or_exit(paths: list[str]) -> list[AgentSpec]:
+    """Load every path or exit non-zero, naming the failures.
+
+    Used by all five composer subcommands (``sequential``, ``parallel``,
+    ``orchestrator``, ``deps``, ``check``). Pairs each input with its
+    load result so the operator sees which files failed instead of
+    silently composing whatever subset happened to parse — a typo'd
+    third agent must not produce a 2-agent pipeline marked success.
+    """
+    loaded = [(p, load_agent_spec(p)) for p in paths]
+    missing = [p for p, spec in loaded if spec is None]
+    if missing:
+        print(
+            f"Error: failed to load {len(missing)} of {len(paths)} agent file(s):",
+            file=sys.stderr,
+        )
+        for p in missing:
+            print(f"  - {p}", file=sys.stderr)
+        raise SystemExit(1)
+    return [spec for _, spec in loaded if spec is not None]
 
 
 if __name__ == "__main__":

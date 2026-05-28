@@ -90,8 +90,8 @@ python -m platxa_agent_generator.cli instincts --list
 # Check observation pipeline status
 python -m platxa_agent_generator.cli observations --stats
 
-# Check for weight drift
-python -m platxa_agent_generator.weight_drift_check
+# Check for weight drift in agent files (empty output = clean)
+grep -EHn '^\|[[:space:]]*[A-Za-z_]+[[:space:]]*\|[[:space:]]*[0-9]+\.[0-9]+[[:space:]]*\|' agents/*.md
 
 # Run full health dashboard
 python -m platxa_agent_generator.cli health --json

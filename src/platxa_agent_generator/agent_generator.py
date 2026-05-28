@@ -16,6 +16,7 @@ import json
 import re
 import shlex
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -390,6 +391,58 @@ def validate_tools(tools: list[str]) -> tuple[bool, str, list[str]]:
     return True, "", normalized
 
 
+_SEVERITY_ORDER: dict[str, int] = {
+    "CRITICAL": 0,
+    "HIGH": 1,
+    "MEDIUM": 2,
+    "LOW": 3,
+}
+
+
+def _partition_unmet_axes(
+    unmet_axes: Sequence[str],
+    rubric: EvaluationRubric,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Partition UNMET axes into (blocking, warning) using the rubric's severity floor.
+
+    Implements the 3-way severity-floor policy documented in
+    ``agents/gan-evaluator.md`` (Step 4: Compute the final verdict):
+
+    - CRITICAL UNMET present → blocking = CRITICAL UNMETs;
+      warning = all other UNMETs (HIGH + MEDIUM + LOW).
+    - No CRITICAL but HIGH UNMET present → blocking = HIGH UNMETs;
+      warning = MEDIUM + LOW UNMETs.
+    - Only MEDIUM/LOW UNMETs → blocking = ()
+      warning = MEDIUM + LOW UNMETs (advisory, non-blocking).
+
+    Both returned tuples are alphabetically sorted for deterministic
+    rendering. Unknown axis names raise ``ValueError`` so the caller
+    never silently emits a regeneration prompt against a stale rubric.
+    """
+    known = {axis.name for axis in rubric.axes}
+    unknown = sorted(set(unmet_axes) - known)
+    if unknown:
+        raise ValueError(f"unknown axis names not in rubric: {unknown}")
+
+    critical: list[str] = []
+    high: list[str] = []
+    advisory: list[str] = []
+    for name in unmet_axes:
+        severity = rubric.axis(name).severity_on_unmet
+        if severity == "CRITICAL":
+            critical.append(name)
+        elif severity == "HIGH":
+            high.append(name)
+        else:
+            advisory.append(name)
+
+    if critical:
+        return tuple(sorted(critical)), tuple(sorted(high + advisory))
+    if high:
+        return tuple(sorted(high)), tuple(sorted(advisory))
+    return (), tuple(sorted(advisory))
+
+
 def build_validation_failure_context(
     report: QualityReport,
     *,
@@ -398,24 +451,33 @@ def build_validation_failure_context(
 ) -> str:
     """Convert a failed QualityReport into a targeted regeneration prompt.
 
-    Bridges the per-criterion findings from ``quality_scorer`` into the
-    format expected by ``targeted_reprompt.build_regeneration_prompt()``,
-    using ``verdict_aggregator`` to classify axes as blocking or warning.
+    Renders per-axis failure evidence as a structured markdown fragment,
+    using ``_partition_unmet_axes`` to classify axes as blocking or warning
+    under the gan-evaluator severity-floor policy.
 
     Returns an empty string when the report passes (no regeneration needed).
     """
     if report.passed:
         return ""
 
-    from platxa_agent_generator.evaluation_criteria import EvaluationRubric as _Rubric
-    from platxa_agent_generator.targeted_reprompt import build_regeneration_prompt
-    from platxa_agent_generator.verdict_aggregator import aggregate_from_rubric
+    from platxa_agent_generator.evaluation_criteria import (
+        SEVERITIES as _SEVERITIES,
+    )
+    from platxa_agent_generator.evaluation_criteria import (
+        EvaluationRubric as _Rubric,
+    )
+
+    assert set(_SEVERITY_ORDER.keys()) == _SEVERITIES, (
+        f"_SEVERITY_ORDER drifted from SEVERITIES: "
+        f"extra={set(_SEVERITY_ORDER.keys()) - _SEVERITIES}, "
+        f"missing={_SEVERITIES - set(_SEVERITY_ORDER.keys())}"
+    )
 
     if rubric is None:
         rubric = _Rubric.load_default()
 
     unmet_axes: list[str] = []
-    findings_dicts: list[dict[str, str]] = []
+    axis_findings: dict[str, list[str]] = {}
     known_axes = _axis_names_from_rubric(rubric)
 
     for criterion in report.criteria:
@@ -424,37 +486,38 @@ def build_validation_failure_context(
             continue
         if criterion.score < min_score:
             unmet_axes.append(axis_name)
-            severity = rubric.axis(axis_name).severity_on_unmet
+            items: list[str] = []
             for finding_text in criterion.findings:
-                findings_dicts.append(
-                    {
-                        "axis": axis_name,
-                        "severity": severity,
-                        "summary": finding_text,
-                        "location": "",
-                    }
-                )
+                items.append(f"- {finding_text}")
             for suggestion_text in criterion.suggestions:
-                findings_dicts.append(
-                    {
-                        "axis": axis_name,
-                        "severity": severity,
-                        "summary": f"[suggestion] {suggestion_text}",
-                        "location": "",
-                    }
-                )
+                items.append(f"- [suggestion] {suggestion_text}")
+            axis_findings[axis_name] = items
 
     if not unmet_axes:
         return ""
 
-    verdict = aggregate_from_rubric(unmet_axes, rubric)
+    blocking, warning = _partition_unmet_axes(unmet_axes, rubric)
+    blocking_set = frozenset(blocking)
+    warning_set = frozenset(warning)
 
-    return build_regeneration_prompt(
-        findings=findings_dicts,
-        blocking_axes=list(verdict.blocking_axes),
-        warning_axes=list(verdict.warning_axes),
-        rubric=rubric,
+    all_axes = sorted(
+        blocking_set | warning_set,
+        key=lambda a: _SEVERITY_ORDER.get(rubric.axis(a).severity_on_unmet, 99),
     )
+
+    sections: list[str] = ["## Prior iteration findings to address", ""]
+    for axis_name in all_axes:
+        severity = rubric.axis(axis_name).severity_on_unmet
+        tier = "BLOCKING" if axis_name in blocking_set else "WARNING"
+        criteria_text = rubric.axis(axis_name).criteria.strip().rstrip(".")
+        sections.append(f"### {axis_name} — {severity} ({tier})")
+        sections.append("")
+        sections.extend(axis_findings.get(axis_name, []))
+        sections.append("")
+        sections.append(f"**Suggestion:** Ensure: {criteria_text}.")
+        sections.append("")
+
+    return "\n".join(sections).rstrip("\n") + "\n"
 
 
 def _axis_names_from_rubric(rubric: EvaluationRubric) -> frozenset[str]:
@@ -3409,9 +3472,9 @@ def generate(
         context_hint: Optional targeted-reprompt context from a prior iteration.
             Prepended to the description to steer regeneration toward fixing
             specific quality deficiencies.
-        discovery_context: Output from ``context_discovery.discovery_report()``.
-            Piped into the agent definition so downstream sections (e.g.
-            Related Agents) can reference actually-existing agents.
+        discovery_context: Optional discovery report dict. Piped into the
+            agent definition so downstream sections (e.g. Related Agents)
+            can reference actually-existing agents.
 
     Returns:
         (success, content_or_error, output_path)

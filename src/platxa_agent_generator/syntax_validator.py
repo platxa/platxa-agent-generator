@@ -713,14 +713,13 @@ def validate_mcp_servers(raw_frontmatter: dict, start_line: int = 1) -> list[Val
 
 
 # ---------------------------------------------------------------------------
-# Instinct frontmatter schema (feature #8)
+# Instinct frontmatter schema
 #
-# The instinct.md.j2 template (feature #4) renders these fields and the
-# InstinctStore (feature #6) writes the rendered file as opaque bytes,
-# deferring schema validation here. The validator surface is sibling to
-# ``validate_frontmatter_fields`` (agents) and ``validate_mcp_servers``
-# (MCP block) — same dataclass-collector pattern, distinct error-code
-# range so failures from the two shapes never collide.
+# InstinctStore (instinct_store.py) writes instinct markdown files with the
+# fields enforced below and defers schema validation here. The validator
+# surface is sibling to ``validate_frontmatter_fields`` (agents) and
+# ``validate_mcp_servers`` (MCP block) — same dataclass-collector pattern,
+# distinct error-code range so failures from the two shapes never collide.
 #
 # Verification (per spec): "Invalid frontmatter (oversized name, bad
 # confidence, unknown type) raises ValidationError with specific field

@@ -8,8 +8,6 @@ Complete API documentation for the Platxa Agent Generator Python modules.
 from scripts import (
     agent_generator,      # Core agent generation
     nlp_parser,           # Natural language parsing
-    type_classifier,      # Agent type classification
-    tool_selector,        # Tool permission selection
     prompt_generator,     # System prompt generation
     quality_scorer,       # Quality scoring
     syntax_validator,     # Syntax validation
@@ -18,9 +16,7 @@ from scripts import (
     agent_composer,       # Agent composition
     agent_versioning,     # Version management
     agent_export,         # Export/import
-    dry_run,              # Preview mode
     install_agent,        # Installation
-    workflow_state,       # State management
 )
 ```
 
@@ -88,163 +84,56 @@ class GenerationResult:
 
 ## nlp_parser
 
-Parse natural language descriptions into structured requirements.
+Structured output definitions and thin parse interface. Full NL understanding
+(type classification, tool selection, domain detection, constraint extraction,
+complexity estimation) is delegated to Claude's native reasoning via the
+discovery-subagent.
 
-### parse_description()
+### parse()
 
 ```python
-def parse_description(description: str) -> ParsedDescription
+def parse(description: str) -> AgentRequirements
 ```
 
-Extract agent requirements from natural language.
+Returns an `AgentRequirements` with minimal defaults (name slug, sanitized
+description, default tools). The discovery-subagent enriches these via
+Claude's reasoning.
 
 **Parameters:**
 - `description`: Natural language agent description
 
-**Returns:** `ParsedDescription` with extracted components
+**Returns:** `AgentRequirements` with defaults
 
 **Example:**
 ```python
-from scripts.nlp_parser import parse_description
+from platxa_agent_generator.nlp_parser import parse
 
-result = parse_description(
-    "Create an agent that reviews Python code for security vulnerabilities "
-    "and generates a detailed report with severity levels"
-)
+result = parse("Create an agent that reviews code for security issues")
 
-print(f"Name: {result.suggested_name}")
-print(f"Type: {result.agent_type}")
-print(f"Tools: {result.suggested_tools}")
-print(f"Keywords: {result.keywords}")
+print(f"Name: {result.name}")
+print(f"Type: {result.agent_type}")  # "analyzer" (default)
+print(f"Tools: {result.tools}")      # ["Bash", "Edit", "Glob", "Grep", "Read", "Write"]
 ```
 
-### ParsedDescription
+### AgentRequirements
 
 ```python
 @dataclass
-class ParsedDescription:
-    suggested_name: str
-    suggested_description: str
+class AgentRequirements:
+    name: str
     agent_type: str
-    suggested_tools: list[str]
-    keywords: list[str]
-    input_types: list[str]
-    output_types: list[str]
-    complexity: str  # "simple", "medium", "complex"
-    confidence: float
-```
-
----
-
-## type_classifier
-
-Classify agents into types based on requirements.
-
-### classify_agent()
-
-```python
-def classify_agent(
-    description: str,
-    parsed: ParsedDescription | None = None
-) -> ClassificationResult
-```
-
-Determine the appropriate agent type.
-
-**Parameters:**
-- `description`: Agent description
-- `parsed`: Optional pre-parsed description
-
-**Returns:** `ClassificationResult` with type and confidence
-
-**Example:**
-```python
-from scripts.type_classifier import classify_agent
-
-result = classify_agent(
-    "An orchestrator that coordinates multiple specialist agents"
-)
-
-print(f"Type: {result.agent_type}")
-print(f"Pattern: {result.recommended_pattern}")
-print(f"Confidence: {result.confidence}")
-```
-
-### ClassificationResult
-
-```python
-@dataclass
-class ClassificationResult:
-    agent_type: str  # "simple", "orchestrator", "multi-agent", "pipeline"
-    recommended_pattern: str
-    confidence: float
-    reasoning: str
-    alternative_patterns: list[str]
-```
-
----
-
-## tool_selector
-
-Select appropriate tools based on agent requirements.
-
-### select_tools()
-
-```python
-def select_tools(
-    description: str,
-    agent_type: str,
-    parsed: ParsedDescription | None = None
-) -> ToolSelectionResult
-```
-
-Select tools for an agent.
-
-**Parameters:**
-- `description`: Agent description
-- `agent_type`: Classified agent type
-- `parsed`: Optional parsed description
-
-**Returns:** `ToolSelectionResult` with tools and permissions
-
-**Example:**
-```python
-from scripts.tool_selector import select_tools
-
-result = select_tools(
-    description="Analyze files and search for patterns",
-    agent_type="simple"
-)
-
-print(f"Tools: {result.tools}")
-print(f"Rationale: {result.rationale}")
-```
-
-### ToolSelectionResult
-
-```python
-@dataclass
-class ToolSelectionResult:
+    description: str
     tools: list[str]
-    rationale: dict[str, str]  # tool -> reason
-    warnings: list[str]
-    required: list[str]
-    optional: list[str]
+    patterns: list[str]
+    confidence: float
+    domains: list[str]
+    disallowed_tools: list[str]
+    file_patterns: list[str]
+    constraint_phrases: list[str]
+    complexity: str   # "simple" | "moderate" | "complex"
+    max_turns: int
+    complexity_signals: dict[str, str]
 ```
-
-### Available Tools
-
-| Tool | Description |
-|------|-------------|
-| `Read` | Read file contents |
-| `Write` | Create/overwrite files |
-| `Edit` | Modify existing files |
-| `Glob` | Find files by pattern |
-| `Grep` | Search file contents |
-| `Bash` | Execute shell commands |
-| `WebSearch` | Search the internet |
-| `WebFetch` | Fetch web content |
-| `Task` | Spawn subagents |
 
 ---
 
@@ -544,91 +433,6 @@ def import_agent(
 ```
 
 Import agent from package.
-
----
-
-## dry_run
-
-Preview agent generation.
-
-### dry_run()
-
-```python
-def dry_run(
-    name: str,
-    description: str,
-    tools: list[str] | None = None,
-    pattern: str = "prompt-chaining"
-) -> DryRunResult
-```
-
-Preview without creating files.
-
-**Example:**
-```python
-from scripts.dry_run import dry_run
-
-result = dry_run(
-    name="my-agent",
-    description="Does something useful",
-    pattern="prompt-chaining"
-)
-
-print(f"Would create {len(result.files)} files")
-print(f"Total size: {result.total_size} bytes")
-print(f"Quality score: {result.quality_score}")
-```
-
-### DryRunResult
-
-```python
-@dataclass
-class DryRunResult:
-    agent_name: str
-    files: list[FilePreview]
-    total_size: int
-    quality_score: float
-    validation_passed: bool
-    warnings: list[str]
-```
-
----
-
-## workflow_state
-
-Manage generation workflow state.
-
-### WorkflowState
-
-```python
-class WorkflowState:
-    def __init__(self, agent_name: str)
-
-    def advance_phase(self) -> bool
-    def record_output(self, phase: str, data: Any) -> None
-    def get_output(self, phase: str) -> Any
-    def save(self) -> bool
-    def load(self) -> bool
-```
-
-**Example:**
-```python
-from scripts.workflow_state import WorkflowState, WorkflowPhase
-
-state = WorkflowState("my-agent")
-state.start()
-
-# Discovery phase
-state.advance_phase()
-state.record_output("discovery", {"keywords": ["code", "review"]})
-
-# Architecture phase
-state.advance_phase()
-state.record_output("architecture", {"pattern": "prompt-chaining"})
-
-# Save state
-state.save()
-```
 
 ---
 
