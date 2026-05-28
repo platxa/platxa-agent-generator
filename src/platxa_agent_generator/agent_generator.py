@@ -16,6 +16,7 @@ import json
 import re
 import shlex
 import sys
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -398,6 +399,50 @@ _SEVERITY_ORDER: dict[str, int] = {
 }
 
 
+def _partition_unmet_axes(
+    unmet_axes: Sequence[str],
+    rubric: EvaluationRubric,
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Partition UNMET axes into (blocking, warning) using the rubric's severity floor.
+
+    Implements the 3-way severity-floor policy documented in
+    ``agents/gan-evaluator.md`` (Step 4: Compute the final verdict):
+
+    - CRITICAL UNMET present → blocking = CRITICAL UNMETs;
+      warning = all other UNMETs (HIGH + MEDIUM + LOW).
+    - No CRITICAL but HIGH UNMET present → blocking = HIGH UNMETs;
+      warning = MEDIUM + LOW UNMETs.
+    - Only MEDIUM/LOW UNMETs → blocking = ()
+      warning = MEDIUM + LOW UNMETs (advisory, non-blocking).
+
+    Both returned tuples are alphabetically sorted for deterministic
+    rendering. Unknown axis names raise ``ValueError`` so the caller
+    never silently emits a regeneration prompt against a stale rubric.
+    """
+    known = {axis.name for axis in rubric.axes}
+    unknown = sorted(set(unmet_axes) - known)
+    if unknown:
+        raise ValueError(f"unknown axis names not in rubric: {unknown}")
+
+    critical: list[str] = []
+    high: list[str] = []
+    advisory: list[str] = []
+    for name in unmet_axes:
+        severity = rubric.axis(name).severity_on_unmet
+        if severity == "CRITICAL":
+            critical.append(name)
+        elif severity == "HIGH":
+            high.append(name)
+        else:
+            advisory.append(name)
+
+    if critical:
+        return tuple(sorted(critical)), tuple(sorted(high + advisory))
+    if high:
+        return tuple(sorted(high)), tuple(sorted(advisory))
+    return (), tuple(sorted(advisory))
+
+
 def build_validation_failure_context(
     report: QualityReport,
     *,
@@ -407,7 +452,8 @@ def build_validation_failure_context(
     """Convert a failed QualityReport into a targeted regeneration prompt.
 
     Renders per-axis failure evidence as a structured markdown fragment,
-    using ``verdict_aggregator`` to classify axes as blocking or warning.
+    using ``_partition_unmet_axes`` to classify axes as blocking or warning
+    under the gan-evaluator severity-floor policy.
 
     Returns an empty string when the report passes (no regeneration needed).
     """
@@ -420,7 +466,6 @@ def build_validation_failure_context(
     from platxa_agent_generator.evaluation_criteria import (
         EvaluationRubric as _Rubric,
     )
-    from platxa_agent_generator.verdict_aggregator import aggregate_from_rubric
 
     assert set(_SEVERITY_ORDER.keys()) == _SEVERITIES, (
         f"_SEVERITY_ORDER drifted from SEVERITIES: "
@@ -451,9 +496,9 @@ def build_validation_failure_context(
     if not unmet_axes:
         return ""
 
-    verdict = aggregate_from_rubric(unmet_axes, rubric)
-    blocking_set = frozenset(verdict.blocking_axes)
-    warning_set = frozenset(verdict.warning_axes)
+    blocking, warning = _partition_unmet_axes(unmet_axes, rubric)
+    blocking_set = frozenset(blocking)
+    warning_set = frozenset(warning)
 
     all_axes = sorted(
         blocking_set | warning_set,
