@@ -25,7 +25,7 @@ You receive the path to a generated agent file:
 ```json
 {
   "agent_file": ".claude/agents/security-reviewer.md",
-  "expected_sections": ["Overview", "Workflow", "Examples", "Output Format"],
+  "expected_sections": ["Overview", "Workflow", "Examples", "Error Handling", "Verification", "Output Format"],
   "agent_type": "analyzer"
 }
 ```
@@ -143,13 +143,17 @@ Flag dangerous tool combinations:
 
 ## Step 3: Completeness Check
 
+Validate that the agent file contains every section and content threshold required for production readiness. This check is **structural** — confirm presence and minimum length. Semantic quality (does the prose actually steer behavior?) belongs to `evaluator-subagent`; do not duplicate that work here.
+
 ### Required Sections by Type
 
-**All agents must have:**
-- [ ] Overview section
-- [ ] Workflow section
-- [ ] At least one example
-- [ ] Output format specification
+**All agents must have** (a missing section is an `error`-severity failure):
+- [ ] Overview — brief description of the agent's purpose
+- [ ] Workflow — step-by-step execution process
+- [ ] Examples — at least one realistic usage example
+- [ ] Error Handling — how the agent handles failures and recovers
+- [ ] Verification — how to confirm the agent's output is correct
+- [ ] Output Format — expected output structure and format
 
 **Analyzer agents also need:**
 - [ ] Checklist or criteria
@@ -163,6 +167,14 @@ Flag dangerous tool combinations:
 - [ ] Worker definitions
 - [ ] Synthesis/aggregation logic
 
+### Recommended Sections
+
+Present-but-not-required sections improve maintainability. Absence is a `warning`-severity flag, not a failure:
+
+- [ ] Notes — additional usage tips or caveats
+- [ ] Prerequisites — required setup, permissions, or environment
+- [ ] Related Agents — other agents that compose well with this one
+
 ### Content Quality Checks
 
 ```
@@ -172,14 +184,30 @@ Flag dangerous tool combinations:
 ✓ Output format has structure definition
 ```
 
+### Content Minimum Thresholds
+
+Use Grep + line-counting to enforce minimum substance per section. A section that exists but is below threshold is a `warning`-severity failure:
+
+| Field | Minimum length | Severity if shorter |
+|-------|----------------|---------------------|
+| `description` (frontmatter) | 20 chars | warning |
+| Overview section body | 50 chars | warning |
+| Each Workflow step | 10 chars | warning |
+| Each Example body | 30 chars | warning |
+
+These thresholds catch placeholder content (e.g. `Overview: TODO`) that passes the presence check but provides no signal to callers.
+
 ### Completeness Score (0-10)
 
-| Check | Points |
-|-------|--------|
-| All required sections | 4 |
-| Type-specific sections | 2 |
-| Adequate content depth | 2 |
-| Examples are realistic | 2 |
+Aggregate individual checks using severity weights so a single missing required section dominates over several minor warnings:
+
+| Severity | Weight per check |
+|----------|------------------|
+| `error` (missing required section, malformed frontmatter) | 3.0 |
+| `warning` (missing recommended section, below-threshold content) | 1.5 |
+| `info` (style hint) | 0.5 |
+
+Score = (weighted points earned / total weighted points possible) × 10. Round to one decimal place. The severity-weighted formula is authoritative — do not introduce a separate additive scheme alongside it.
 
 ## Step 4: Quality Scoring
 
@@ -241,9 +269,12 @@ Return validation report JSON:
       "status": "PASS",
       "score": 8,
       "details": {
-        "required_sections": ["Overview", "Workflow", "Examples", "Output Format"],
+        "required_sections": ["Overview", "Workflow", "Examples", "Error Handling", "Verification", "Output Format"],
         "missing_sections": [],
+        "recommended_sections_present": ["Notes"],
+        "recommended_sections_missing": ["Prerequisites", "Related Agents"],
         "type_specific": ["Checklist"],
+        "below_threshold": [],
         "content_depth": "adequate"
       }
     },
@@ -282,6 +313,8 @@ After emitting the JSON output, your **final line** must be the canonical comple
 The orchestrator uses this marker to detect that the subagent has finished. Omitting it causes the goal-loop to re-prompt indefinitely.
 
 ## Examples
+
+The example outputs below are **abbreviated** — they show only the top-level `checks` rollup for brevity. The canonical output schema (including the full `details` shape under each check with `recommended_sections_present`, `recommended_sections_missing`, `below_threshold`, etc.) is defined in the "Output Format" section above. Always emit the full schema at runtime, not the abbreviated form shown here.
 
 ### Example 1: Passing Validation
 
