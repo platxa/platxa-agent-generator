@@ -187,7 +187,9 @@ def _print_health_text(metrics: HealthMetrics) -> None:
     er = metrics.eval_pass_rates
     print(f"\n  Eval pass rate:      {er.passed}/{er.total} ({er.pass_rate:.0%})")
     if er.corrupt:
-        print(f"  Corrupt history:     {er.corrupt} run-*.json file(s) unreadable or missing verdict")
+        print(
+            f"  Corrupt history:     {er.corrupt} run-*.json file(s) unreadable or missing verdict"
+        )
     print(f"  Instinct count:      {metrics.instinct_count}")
     print(
         f"  Observations:        {metrics.observation_count} ({metrics.observation_promoted} promoted)"

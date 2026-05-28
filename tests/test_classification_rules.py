@@ -307,11 +307,7 @@ class TestWorkedExample:
         """
         desc_lower = WORKED_EXAMPLE_DESCRIPTION.lower()
         for level in ("high", "medium", "low"):
-            hits = {
-                ind
-                for ind in REQUIRED_COMPLEXITY_INDICATORS[level]
-                if ind in desc_lower
-            }
+            hits = {ind for ind in REQUIRED_COMPLEXITY_INDICATORS[level] if ind in desc_lower}
             assert not hits, (
                 f"Worked example claims {level}_count = 0 but description matches: {sorted(hits)}"
             )
