@@ -1,0 +1,101 @@
+{
+  "schema_version": "1.0.0",
+  "baseline_name": "post-reduction-v1",
+  "timestamp": "2026-05-28T15:34:22+00:00",
+  "head_commit": "4c715ed7",
+  "context": {
+    "feature_id": 48,
+    "sprint": "python-code-reduction",
+    "note": "First recorded baseline. The reduction sprint (features #1-#43) did not capture a pre-reduction snapshot, so no regression comparison is possible. This file records the post-reduction floor against which future drift is measured."
+  },
+  "methodology": {
+    "dispatch": "claude-code-task-tool",
+    "subagent_type": "general-purpose",
+    "rationale": "In-session execution. The eval_runner default executor (claude -p subprocess) hangs when invoked from inside Claude Code (parent process holds locks the child needs). Task-tool dispatch is the documented alternative — see eval_runner.py docstring lines 6-7. For external CI re-runs use: python -m platxa_agent_generator.cli --json eval-run --all --save-history (note: --json is a top-level parent-parser flag and must precede the subcommand).",
+    "scenario_filter": "one correctness_01.yaml per category (6 categories, axis=correctness)",
+    "criteria_checker": "case-insensitive substring matching (matches eval_runner._check_criteria)"
+  },
+  "threshold": {
+    "minimum_pass_rate": 0.80,
+    "rationale": "Capability scenarios are advisory (evaluate_exit returns 0 even on failure). The 80% threshold imposes an explicit quality floor without re-typing every scenario to regression."
+  },
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "pass_rate": 1.0,
+    "threshold_met": true
+  },
+  "scenarios": [
+    {
+      "path": ".claude/evals/scenarios/analyzer/correctness_01.yaml",
+      "axis": "correctness",
+      "type": "capability",
+      "verdict": "passed",
+      "duration_ms": 30321,
+      "criteria_count": 9,
+      "criteria_matched": 9,
+      "produced_agent_name": "python-security-auditor"
+    },
+    {
+      "path": ".claude/evals/scenarios/automation/correctness_01.yaml",
+      "axis": "correctness",
+      "type": "capability",
+      "verdict": "passed",
+      "duration_ms": 26180,
+      "criteria_count": 8,
+      "criteria_matched": 8,
+      "produced_agent_name": "ci-pipeline-runner"
+    },
+    {
+      "path": ".claude/evals/scenarios/builder/correctness_01.yaml",
+      "axis": "correctness",
+      "type": "capability",
+      "verdict": "passed",
+      "duration_ms": 24689,
+      "criteria_count": 9,
+      "criteria_matched": 9,
+      "produced_agent_name": "react-component-scaffolder"
+    },
+    {
+      "path": ".claude/evals/scenarios/guide/correctness_01.yaml",
+      "axis": "correctness",
+      "type": "capability",
+      "verdict": "passed",
+      "duration_ms": 33058,
+      "criteria_count": 8,
+      "criteria_matched": 8,
+      "produced_agent_name": "git-rebase-guide"
+    },
+    {
+      "path": ".claude/evals/scenarios/orchestrator/correctness_01.yaml",
+      "axis": "correctness",
+      "type": "capability",
+      "verdict": "passed",
+      "duration_ms": 27319,
+      "criteria_count": 8,
+      "criteria_matched": 8,
+      "produced_agent_name": "code-review-orchestrator"
+    },
+    {
+      "path": ".claude/evals/scenarios/validator/correctness_01.yaml",
+      "axis": "correctness",
+      "type": "capability",
+      "verdict": "passed",
+      "duration_ms": 22027,
+      "criteria_count": 9,
+      "criteria_matched": 9,
+      "produced_agent_name": "json-schema-validator"
+    }
+  ],
+  "limitations": {
+    "scope": "6 of 60 scenarios (one per category, correctness axis only). Remaining 54 scenarios (clarity, completeness, robustness, scope_adherence, security, tool_design axes) deferred to external CI run.",
+    "comparison_point": "None. No pre-reduction baseline was captured; this file IS the v1 baseline for all future comparisons.",
+    "executor_substitution": "Task tool with general-purpose subagent_type substitutes for the default claude -p subprocess. The general-purpose subagent has slightly richer context (CLAUDE.md, available skills/agents) than a bare claude -p invocation, which may inflate pass rate vs the external runner. Re-running externally is recommended to capture the apples-to-apples baseline."
+  },
+  "next_steps": [
+    "Run python -m platxa_agent_generator.cli --json eval-run --all --save-history > .claude/evals/baseline-external-YYYY-MM-DD.json from an external shell (not inside a Claude Code session) to capture the full 60-scenario baseline (--json must precede the subcommand).",
+    "Once captured, treat this in-session baseline as a smoke test and the external run as the authoritative figure.",
+    "Re-run after any agent definition, skill reference, or prompt-template change."
+  ]
+}
