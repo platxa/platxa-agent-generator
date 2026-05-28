@@ -717,7 +717,6 @@ class TestEndToEndGeneration:
     and verifies the output agent passes quality gates.
     """
 
-    CLI_SCRIPT = str(SCRIPTS_DIR / "cli.py")
     VALIDATOR_SCRIPT = str(SCRIPTS_DIR / "syntax_validator.py")
     SCORER_SCRIPT = str(SCRIPTS_DIR / "quality_scorer.py")
 
@@ -727,11 +726,17 @@ class TestEndToEndGeneration:
         Returns dict with keys: generate_result, agent_content,
         syntax_passed, quality_score.
         """
-        # Phase 1-3: Generate via CLI (non-interactive = JSON output)
+        # Phase 1-3: Generate via CLI invoked through the documented
+        # package entry point (matches the ``platxa-agent`` console
+        # script defined in pyproject.toml). Using ``python -m`` keeps
+        # the package import path intact so cli.py reaches its sibling
+        # modules and the ``commands`` subpackage without needing a
+        # standalone-script fallback.
         gen_result = subprocess.run(
             [
                 sys.executable,
-                self.CLI_SCRIPT,
+                "-m",
+                "platxa_agent_generator.cli",
                 "--non-interactive",
                 "generate",
                 description,
@@ -742,7 +747,6 @@ class TestEndToEndGeneration:
             capture_output=True,
             text=True,
             timeout=60,
-            cwd=str(SCRIPTS_DIR),
         )
         assert gen_result.returncode == 0, (
             f"Generation failed: {gen_result.stdout} {gen_result.stderr}"
