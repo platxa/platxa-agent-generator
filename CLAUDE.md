@@ -175,6 +175,7 @@ Expected structure.
 
 - **Primary**: `docs/PLATXA_AGENT_GENERATOR.md` — Full specification
 - **Research**: `docs/RESEARCH_SYNTHESIS.md` — Source analysis
+- **Migration guide**: `docs/MIGRATION_GUIDE.md` — Where eliminated Python modules went (Python → Claude Code tools)
 - **Active spec**: `.claude/spec.md` — Current sprint goals and criteria
 - **Features**: `.claude/generated_features.json` — Decomposed feature list
 
