@@ -119,6 +119,11 @@ Before generating content, Read the relevant template reference files from `skil
 - **Compositions**: Read `composer-templates.md` when the agent composes multiple tools or subagents
 - **Exports**: Read `export-templates.md` when the agent produces installable artifacts
 - **Tool selection**: Read `tool-selection-tables.md` to validate tool grants against domain norms
+- **CLAUDE.md generation**: Read `claudemd-generation.md` when the blueprint requires a project-context `CLAUDE.md` file alongside the agent
+- **Slash-command generation**: Read `command-generation.md` when the blueprint includes companion `.claude/commands/*.md` slash commands
+- **README/catalogue generation**: Read `readme-generation.md` when the blueprint requires a discoverable `README.md` agent catalogue
+- **MCP server configuration**: Read `mcp-server-templates.md` when the blueprint declares MCP server dependencies (renders `.mcp.json`)
+- **Interactive mode**: Read `interactive-phases.md` when the trigger payload sets `mode: "interactive"` — defines the six-phase `AskUserQuestion` wizard
 
 Use Read with the exact file paths. Only load references that match the blueprint — do not load all files.
 

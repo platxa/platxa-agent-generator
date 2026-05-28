@@ -92,9 +92,18 @@ def _resolve_promoter_thresholds(
     Resolution order: CLI flag > ``PLATXA_PROMOTION_THRESHOLDS`` env var
     (JSON object) > ``promotion_engine.DEFAULT_*`` constants. Mirrors the
     contract that ``PromotionThresholds.from_env`` / ``from_dict`` used
-    to expose. Invalid env-var JSON is silently ignored (falls through
-    to defaults) to preserve the deleted ``PromotionConfigError``
-    behaviour at a CLI boundary.
+    to expose.
+
+    Fails fast when the env var is set but malformed (invalid JSON,
+    non-object, or any present field has the wrong type). Silently
+    falling back to defaults would let an operator believe their
+    override applied when in fact the gate is using default thresholds
+    — a class of silent failure the project forbids.
+
+    Raises:
+        SystemExit: ``PLATXA_PROMOTION_THRESHOLDS`` is set but invalid.
+            Exit code is 2 so wrapping CI pipelines can distinguish
+            config errors from runtime promotion failures (exit 1).
     """
     resolved: dict[str, int | float] = {
         "occurrences": promotion_engine.DEFAULT_OCCURRENCES,
@@ -106,18 +115,26 @@ def _resolve_promoter_thresholds(
     if env_raw:
         try:
             env_obj = json.loads(env_raw)
-        except json.JSONDecodeError:
-            env_obj = None
-        if isinstance(env_obj, dict):
-            env_occ = env_obj.get("occurrences")
-            if isinstance(env_occ, int) and not isinstance(env_occ, bool):
-                resolved["occurrences"] = env_occ
-            env_conf = env_obj.get("confidence")
-            if isinstance(env_conf, (int, float)) and not isinstance(env_conf, bool):
-                resolved["confidence"] = float(env_conf)
-            env_sc = env_obj.get("success_count")
-            if isinstance(env_sc, int) and not isinstance(env_sc, bool):
-                resolved["success_count"] = env_sc
+        except json.JSONDecodeError as exc:
+            print(
+                f"error: PLATXA_PROMOTION_THRESHOLDS is not valid JSON ({exc}); "
+                "refusing to fall back to defaults",
+                file=sys.stderr,
+            )
+            raise SystemExit(2) from exc
+        if not isinstance(env_obj, dict):
+            print(
+                "error: PLATXA_PROMOTION_THRESHOLDS must be a JSON object, got "
+                f"{type(env_obj).__name__}; refusing to fall back to defaults",
+                file=sys.stderr,
+            )
+            raise SystemExit(2)
+        if "occurrences" in env_obj:
+            resolved["occurrences"] = _validate_env_int(env_obj, "occurrences")
+        if "confidence" in env_obj:
+            resolved["confidence"] = _validate_env_float(env_obj, "confidence")
+        if "success_count" in env_obj:
+            resolved["success_count"] = _validate_env_int(env_obj, "success_count")
 
     if getattr(args, "threshold", None) is not None:
         resolved["confidence"] = float(args.threshold)
@@ -129,6 +146,37 @@ def _resolve_promoter_thresholds(
     return resolved
 
 
+def _validate_env_int(env_obj: dict[str, Any], field: str) -> int:
+    """Return the int-valued ``field`` from the env-var JSON, or fail.
+
+    ``bool`` is rejected explicitly even though ``bool`` is a subclass
+    of ``int`` in Python — accepting ``true`` / ``false`` for
+    ``occurrences`` would mask a misconfigured env var.
+    """
+    raw = env_obj[field]
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        print(
+            f"error: PLATXA_PROMOTION_THRESHOLDS.{field} must be int, "
+            f"got {type(raw).__name__}; refusing to fall back to defaults",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    return raw
+
+
+def _validate_env_float(env_obj: dict[str, Any], field: str) -> float:
+    """Return the float-valued ``field`` from the env-var JSON, or fail."""
+    raw = env_obj[field]
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        print(
+            f"error: PLATXA_PROMOTION_THRESHOLDS.{field} must be int or float, "
+            f"got {type(raw).__name__}; refusing to fall back to defaults",
+            file=sys.stderr,
+        )
+        raise SystemExit(2)
+    return float(raw)
+
+
 def _dispatch_instinct_promoter(
     *,
     instincts_root: str,
@@ -137,17 +185,22 @@ def _dispatch_instinct_promoter(
     name_to_scope: dict[str, str],
     executor: PromoterExecutor | None = None,
     timeout: int = DEFAULT_PROMOTER_TIMEOUT,
-) -> tuple[list[dict[str, Any]], dict[str, int | float], str | None]:
+) -> tuple[list[dict[str, Any]], dict[str, int | float], str | None, int]:
     """Dispatch the instinct-promoter agent and map its output to CLI candidates.
 
-    Returns a triple of ``(candidates, resolved_thresholds, skipped_reason)``.
+    Returns a 4-tuple of
+    ``(candidates, resolved_thresholds, skipped_reason, dropped_count)``.
     ``candidates`` matches the CLI's ``candidates[]`` shape (name, scope,
     type, confidence, occurrences, success_count) so existing
     ``--json`` output schemas stay backward-compatible. ``type`` is
     populated from the agent's ``target`` field
     (skill/command/agent/template). ``scope`` is resolved via
     ``name_to_scope`` lookup against the caller's pre-loaded store
-    entries.
+    entries. ``dropped_count`` is the number of agent-returned
+    ``promotions[]`` entries that were filtered out as malformed
+    (non-object entries or missing/non-string ``name``); the caller
+    surfaces this in the CLI output so dropped entries are never
+    silently absorbed.
 
     Args:
         instincts_root: Filesystem path passed to the agent.
@@ -193,16 +246,18 @@ def _dispatch_instinct_promoter(
 
     resolved: dict[str, int | float] = dict(thresholds)
     parsed_thresholds = parsed.get("thresholds")
-    if isinstance(parsed_thresholds, dict):
-        occ_raw = parsed_thresholds.get("occurrences")
-        if isinstance(occ_raw, int):
-            resolved["occurrences"] = occ_raw
-        conf_raw = parsed_thresholds.get("confidence")
-        if isinstance(conf_raw, (int, float)) and not isinstance(conf_raw, bool):
-            resolved["confidence"] = float(conf_raw)
-        sc_raw = parsed_thresholds.get("success_count")
-        if isinstance(sc_raw, int):
-            resolved["success_count"] = sc_raw
+    if parsed_thresholds is not None:
+        if not isinstance(parsed_thresholds, dict):
+            raise PromotionDispatchError(
+                "instinct-promoter returned `thresholds` of type "
+                f"{type(parsed_thresholds).__name__}, expected object"
+            )
+        if "occurrences" in parsed_thresholds:
+            resolved["occurrences"] = _coerce_agent_int(parsed_thresholds, "occurrences")
+        if "confidence" in parsed_thresholds:
+            resolved["confidence"] = _coerce_agent_float(parsed_thresholds, "confidence")
+        if "success_count" in parsed_thresholds:
+            resolved["success_count"] = _coerce_agent_int(parsed_thresholds, "success_count")
 
     skipped_raw = parsed.get("skipped_reason")
     skipped_reason: str | None = skipped_raw if isinstance(skipped_raw, str) else None
@@ -211,11 +266,14 @@ def _dispatch_instinct_promoter(
     promotions: list[object] = promotions_raw if isinstance(promotions_raw, list) else []
 
     candidates: list[dict[str, Any]] = []
+    dropped: int = 0
     for p in promotions:
         if not isinstance(p, dict):
+            dropped += 1
             continue
         name = p.get("name")
         if not isinstance(name, str):
+            dropped += 1
             continue
         target_raw = p.get("target", "command")
         target_str = target_raw if isinstance(target_raw, str) else "command"
@@ -240,7 +298,33 @@ def _dispatch_instinct_promoter(
             }
         )
 
-    return candidates, resolved, skipped_reason
+    return candidates, resolved, skipped_reason, dropped
+
+
+def _coerce_agent_int(parsed_thresholds: dict[str, Any], field: str) -> int:
+    """Return an int-valued threshold field returned by the agent, or raise.
+
+    Rejects bool (subclass of int) explicitly so the agent's output
+    cannot silently degrade a threshold gate by sending `true`/`false`.
+    """
+    raw = parsed_thresholds[field]
+    if isinstance(raw, bool) or not isinstance(raw, int):
+        raise PromotionDispatchError(
+            f"instinct-promoter returned thresholds.{field} of type "
+            f"{type(raw).__name__}, expected int"
+        )
+    return raw
+
+
+def _coerce_agent_float(parsed_thresholds: dict[str, Any], field: str) -> float:
+    """Return a float-valued threshold field returned by the agent, or raise."""
+    raw = parsed_thresholds[field]
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        raise PromotionDispatchError(
+            f"instinct-promoter returned thresholds.{field} of type "
+            f"{type(raw).__name__}, expected int or float"
+        )
+    return float(raw)
 
 
 def register_parser(subparsers: Any) -> None:
@@ -341,7 +425,7 @@ def handle_evolve(
 
     instincts_root = str(evolve_root) if evolve_root is not None else ""
     try:
-        candidates, resolved, skipped_reason = _dispatch_instinct_promoter(
+        candidates, resolved, skipped_reason, dropped_count = _dispatch_instinct_promoter(
             instincts_root=instincts_root,
             scope="global",
             thresholds=thresholds,
@@ -378,6 +462,7 @@ def handle_evolve(
             "candidates": candidates,
             "total_evaluated": len(entries),
             "eligible": len(candidates),
+            "dropped_count": dropped_count,
             "dry_run": dry_run_flag,
             "thresholds": {
                 "confidence": conf_val,
@@ -412,5 +497,14 @@ def handle_evolve(
             print(f"  {name_str:<30} conf={conf:.2f} occ={occ} succ={succ}")
         if not candidates:
             print("  (none)")
+
+    if dropped_count > 0:
+        print(
+            f"warning: instinct-promoter returned {dropped_count} malformed "
+            "promotion entr"
+            + ("y" if dropped_count == 1 else "ies")
+            + " (filtered from candidates[]); inspect agent output for drift",
+            file=sys.stderr,
+        )
 
     return 0

@@ -626,3 +626,188 @@ class TestEvolveEnvVarThresholds:
         sent_thresholds = captured[0]["thresholds"]
         assert isinstance(sent_thresholds, dict)
         assert sent_thresholds["confidence"] == 0.5
+
+    def test_malformed_env_var_exits_two(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Invalid JSON in ``PLATXA_PROMOTION_THRESHOLDS`` exits 2 (B3 fix).
+
+        Pre-fix, malformed JSON silently fell back to defaults — an
+        operator's typo'd override applied without warning. Post-fix,
+        the CLI prints a stderr error and exits 2 so the misconfig is
+        impossible to miss.
+        """
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "any",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content("any"),
+                },
+            ],
+        )
+        monkeypatch.setenv("PLATXA_PROMOTION_THRESHOLDS", '{"confidence": 0.85,}')  # trailing comma
+        cli = CLI(promoter_executor=_make_executor())
+        with pytest.raises(SystemExit) as exc_info:
+            cli.run(["--json", "evolve", "--root", str(root)])
+        assert exc_info.value.code == 2
+        err = capsys.readouterr().err
+        assert "PLATXA_PROMOTION_THRESHOLDS" in err
+        assert "not valid JSON" in err
+
+    def test_non_object_env_var_exits_two(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """A JSON array (or scalar) in the env var exits 2 (B3 fix)."""
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "any",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content("any"),
+                },
+            ],
+        )
+        monkeypatch.setenv("PLATXA_PROMOTION_THRESHOLDS", "[1, 2, 3]")
+        cli = CLI(promoter_executor=_make_executor())
+        with pytest.raises(SystemExit) as exc_info:
+            cli.run(["--json", "evolve", "--root", str(root)])
+        assert exc_info.value.code == 2
+        err = capsys.readouterr().err
+        assert "must be a JSON object" in err
+
+    def test_env_var_wrong_field_type_exits_two(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """A wrong-typed env-var field exits 2 (B3 fix).
+
+        A string where an int is expected used to be silently dropped
+        with the default kept. Post-fix, the CLI exits 2 naming the
+        bad field.
+        """
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "any",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content("any"),
+                },
+            ],
+        )
+        monkeypatch.setenv("PLATXA_PROMOTION_THRESHOLDS", '{"occurrences": "3"}')
+        cli = CLI(promoter_executor=_make_executor())
+        with pytest.raises(SystemExit) as exc_info:
+            cli.run(["--json", "evolve", "--root", str(root)])
+        assert exc_info.value.code == 2
+        err = capsys.readouterr().err
+        assert "occurrences" in err
+        assert "must be int" in err
+
+    def test_agent_returned_threshold_wrong_type_raises_dispatch_error(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Agent-returned threshold with wrong type → exit 1 (I5 fix).
+
+        Distinguished from B3 (env var) which exits 2: an agent
+        returning malformed output is a runtime error, not a
+        configuration error.
+        """
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "any",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content("any"),
+                },
+            ],
+        )
+
+        def _bad_executor(_payload: str, _timeout: int) -> str:
+            return json.dumps(
+                {
+                    "promotions": [],
+                    # "true" (bool) is rejected even though bool is a
+                    # subclass of int — accepting it would let the
+                    # agent silently downgrade the gate.
+                    "thresholds": {"occurrences": True},
+                    "skipped_reason": None,
+                }
+            )
+
+        cli = CLI(promoter_executor=_bad_executor)
+        rc = cli.run(["--json", "evolve", "--root", str(root)])
+        # PromotionDispatchError is mapped to CLI exit 1, not 2.
+        assert rc == 1
+        out = json.loads(capsys.readouterr().out)
+        assert "error" in out
+        assert "thresholds.occurrences" in out["error"]
+
+    def test_dropped_promotion_entries_surfaced(
+        self,
+        tmp_path: Path,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        """Malformed promotion entries are counted in dropped_count (I6 fix).
+
+        Pre-fix, a 5-entry promotions[] with 2 malformed rows became a
+        3-entry candidates[] with no signal. Post-fix, dropped_count
+        appears in the JSON output and a stderr warning fires.
+        """
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "good",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content("good"),
+                },
+            ],
+        )
+
+        def _mixed_executor(_payload: str, _timeout: int) -> str:
+            return json.dumps(
+                {
+                    "promotions": [
+                        _promotion("good"),
+                        "not-an-object",  # dropped: not a dict
+                        {"target": "skill"},  # dropped: missing name
+                    ],
+                    "skipped_clusters": [],
+                    "thresholds": {
+                        "occurrences": 3,
+                        "confidence": 0.7,
+                        "success_count": 1,
+                    },
+                    "skipped_reason": None,
+                }
+            )
+
+        cli = CLI(promoter_executor=_mixed_executor)
+        rc = cli.run(["--json", "evolve", "--root", str(root)])
+        assert rc == 0
+        captured = capsys.readouterr()
+        out = json.loads(captured.out)
+        assert out["dropped_count"] == 2
+        assert out["eligible"] == 1
+        assert "warning" in captured.err
+        assert "malformed promotion entries" in captured.err

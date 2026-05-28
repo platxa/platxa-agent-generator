@@ -258,7 +258,14 @@ class ProgressTracker:
         return self._state
 
     def load_state(self) -> ProgressState | None:
-        """Load progress state from file."""
+        """Load progress state from file.
+
+        Returns ``None`` when no state exists yet *or* when the persisted
+        file is unreadable. Distinguishes "absent" from "unreadable" by
+        emitting a stderr warning in the latter case — symmetric with
+        :meth:`_save_state`, so an operator resuming a long-running
+        generation never loses the resume anchor with zero diagnostic.
+        """
         if not self.state_file.exists():
             return None
 
@@ -266,7 +273,12 @@ class ProgressTracker:
             data = json.loads(self.state_file.read_text(encoding="utf-8"))
             self._state = self._deserialize_state(data)
             return self._state
-        except (json.JSONDecodeError, OSError):
+        except (json.JSONDecodeError, OSError) as e:
+            print(
+                f"warning: progress_tracker failed to load state "
+                f"{self.state_file}: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
             return None
 
     # Private methods

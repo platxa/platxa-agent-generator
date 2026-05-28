@@ -6,8 +6,9 @@ of raw observations into instinct files both live elsewhere now:
 * The three-gate threshold check (``occurrences >= 3``,
   ``confidence >= 0.7``, ``success_count >= 1``) is owned by the
   ``instinct-promoter`` subagent (``agents/instinct-promoter.md``).
-  The CLI dispatches the agent via ``cli._dispatch_instinct_promoter``
-  and the agent enforces the floors.
+  The CLI dispatches the agent via
+  ``commands.evolve._dispatch_instinct_promoter`` and the agent
+  enforces the floors.
 * Distillation (observation → instinct frontmatter) is handled by the
   observer pipeline; ``promotion_engine`` no longer touches raw
   ``ObservationRecord`` rows.
@@ -15,12 +16,10 @@ of raw observations into instinct files both live elsewhere now:
 What remains here is the **target-classification** helper —
 ``cluster_instincts`` — which groups already-distilled principles by
 their promotion target (``skill`` / ``command`` / ``agent`` /
-``template``). The CLI does not call it directly anymore; it stays
-as a Python utility for the test suite and any future Python caller
-that wants the same classification logic the agent uses internally.
-
-Feature #28 (Phase 4: CLI Thinning) will likely delete this module
-entirely once the agent dispatch replaces every Python consumer.
+``template``). The CLI does not call it directly; it is retained as a
+Python utility for the test suite (``tests/test_promotion_engine.py``)
+and any future Python caller that wants the same classification logic
+the agent uses internally.
 """
 
 from __future__ import annotations

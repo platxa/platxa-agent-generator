@@ -90,8 +90,25 @@ Full record: `.claude/evals/baseline-2026-05-28.json`.
 
 Diff against the previous baseline JSON. Any verdict regression (PASS → FAIL) is a hard finding; any pass-rate drop below 80% blocks merge. Enforcement is currently manual in PR review (no CI gate is wired — `eval_runner.evaluate_exit()` always exits 0 for capability scenarios, so the merge block must come from a reviewer or a future workflow that parses the baseline JSON). When a *legitimate* improvement raises the floor (e.g. a new harder scenario is added and produces 92%), update this doc's v1 table and the threshold rationale rather than weakening the threshold.
 
+## Known deferral — axis coverage gap
+
+The v1 baseline covers **6 of 60 scenarios on a single axis** (`correctness`). The remaining 54 scenarios distributed across six axes (`clarity`, `completeness`, `robustness`, `scope_adherence`, `security`, `tool_design`) are **not yet baselined**.
+
+This matters because the 2026 reduction sprint moved ~20,400 lines of Python into agent definitions and skill references — exactly the surfaces those axes evaluate. Until the deferred axes are baselined, an agent prompt edit silently degrading completeness or security scoring will not be detected by `python -m platxa_agent_generator.cli health` or CI.
+
+### Closure criteria
+
+The deferral is considered closed when **all** of the following hold:
+
+1. The external authoritative executor (see *Methodology → External*) has been run end-to-end against all 60 scenarios from outside a Claude Code session.
+2. The result has been committed at `.claude/evals/baseline-external-2026-05-28.json` (or a later dated equivalent).
+3. The pass rate on each of the six deferred axes meets the ≥80% threshold.
+4. This document's *v1 Baseline (2026-05-28)* table has been expanded into an axis × category matrix so future drift surfaces at axis granularity.
+
+Until then, treat the v1 figure as a smoke test, not a regression floor. Hard-blocking on the 80% threshold for non-`correctness` axes is **not yet supported** by the data.
+
 ## Future work
 
-1. **Capture the authoritative 60-scenario baseline** by running the external executor path from outside a Claude Code session.
+1. **Capture the authoritative 60-scenario baseline** by running the external executor path from outside a Claude Code session. (Closes the deferral above.)
 2. **Promote stable scenarios to `type: regression`** with `regression_baseline` hashes so the runner's `evaluate_exit()` hard-fails on regression.
 3. **Replace substring matching with an LLM-as-judge axis grader** for the non-structural axes (clarity, robustness, scope_adherence, security) — substring matching is reliable only for the structural axes (correctness, completeness, tool_design).

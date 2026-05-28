@@ -108,21 +108,27 @@ class TestAgentComposerScan:
         assert "good_a.md" not in result.stderr
         assert "good_b.md" not in result.stderr
 
-    def test_import_missing_logged(self) -> None:
-        """If PyYAML is missing at runtime (simulated by making ``import
-        yaml`` raise ImportError inside load_agent_spec), the ImportError
-        path must also emit a stderr warning naming the agent file and
-        the error class. Result is still None — a missing parser means
-        we cannot interpret the frontmatter.
+    def test_packaging_import_failure_propagates(self) -> None:
+        """A packaging-level ImportError (e.g. PyYAML missing because the
+        install is corrupt) must propagate as ImportError rather than be
+        swallowed into a per-file "parse failure" warning.
+
+        Rationale: silently treating a missing parser as "every agent
+        file is unparseable" caused the composer CLI to produce empty
+        composite agents marked as success — the install is broken but
+        the operator sees no error. The fix moves the
+        ``shared.frontmatter`` import to module scope so the
+        ImportError surfaces at import time of agent_composer itself
+        and the subprocess exits non-zero.
         """
         result = self._run_py(
             "import sys\n"
-            "import tempfile\n"
-            "from pathlib import Path\n"
-            # Pre-poison sys.modules so the inline ``import yaml`` inside
-            # load_agent_spec raises ImportError. Any prior import of
-            # yaml at module load would shadow this, so we purge it.
+            # Pre-poison sys.modules so the module-level ``import yaml``
+            # inside shared.frontmatter raises ImportError when
+            # agent_composer is imported.
             "sys.modules.pop('yaml', None)\n"
+            "sys.modules.pop('platxa_agent_generator.shared.frontmatter', None)\n"
+            "sys.modules.pop('platxa_agent_generator.agent_composer', None)\n"
             "import builtins\n"
             "_real_import = builtins.__import__\n"
             "def _fake_import(name, *a, **k):\n"
@@ -130,18 +136,14 @@ class TestAgentComposerScan:
             "        raise ImportError('No module named yaml')\n"
             "    return _real_import(name, *a, **k)\n"
             "builtins.__import__ = _fake_import\n"
-            "from platxa_agent_generator.agent_composer import load_agent_spec\n"
-            "with tempfile.TemporaryDirectory() as td:\n"
-            "    agent_path = Path(td) / 'agent.md'\n"
-            "    agent_path.write_text('---\\nname: demo\\n"
-            "description: d\\ntools: Read\\n---\\n# Demo\\n', "
-            "encoding='utf-8')\n"
-            "    result = load_agent_spec(agent_path)\n"
-            "    print('result_is_none:', result is None)\n"
+            "try:\n"
+            "    from platxa_agent_generator.agent_composer import load_agent_spec\n"
+            "    print('UNEXPECTED: import succeeded')\n"
+            "except ImportError as exc:\n"
+            "    print(f'propagated: {exc}')\n"
         )
         assert result.returncode == 0, result.stderr
-        # Parser missing → None.
-        assert "result_is_none: True" in result.stdout
-        # Warning must name the agent file and the error class.
-        assert "agent.md" in result.stderr
-        assert "ImportError" in result.stderr
+        # ImportError must propagate, naming yaml in the message.
+        assert "propagated:" in result.stdout
+        assert "yaml" in result.stdout
+        assert "UNEXPECTED" not in result.stdout

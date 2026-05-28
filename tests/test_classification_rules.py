@@ -181,47 +181,13 @@ def _parse_pipe_cell(row: str) -> set[str]:
     return set(re.findall(r"`([^`]+)`", row))
 
 
-def _score_type(
-    description: str,
-    indicators: dict[str, set[str]],
-) -> tuple[float, list[str]]:
-    """Replicate the type-scoring algorithm documented in the reference."""
-    desc_lower = description.lower()
-    strong_matches = [ind for ind in indicators["strong"] if ind in desc_lower]
-    moderate_matches: list[str] = []
-    for ind in indicators["moderate"]:
-        if ".*" in ind:
-            if re.search(ind, desc_lower):
-                moderate_matches.append(ind)
-        elif ind in desc_lower:
-            moderate_matches.append(ind)
-    raw = 2.0 * len(strong_matches) + 1.0 * len(moderate_matches)
-    return min(raw / 6.0, 1.0), strong_matches + moderate_matches
-
-
-def _estimate_complexity(description: str) -> int:
-    """Replicate the complexity 1-5 algorithm documented in the reference."""
-    desc_lower = description.lower()
-    high = sum(1 for ind in REQUIRED_COMPLEXITY_INDICATORS["high"] if ind in desc_lower)
-    medium = sum(1 for ind in REQUIRED_COMPLEXITY_INDICATORS["medium"] if ind in desc_lower)
-    low = sum(1 for ind in REQUIRED_COMPLEXITY_INDICATORS["low"] if ind in desc_lower)
-    word_count = len(description.split())
-
-    if high >= 2 or word_count > 50:
-        base = 4
-    elif high >= 1 or medium >= 2:
-        base = 3
-    elif low >= 2:
-        base = 1
-    elif medium >= 1 or word_count > 20:
-        base = 2
-    else:
-        base = 2
-
-    if any(word in desc_lower for word in ["orchestrat", "multi-agent", "pipeline"]):
-        base = max(base, 3)
-
-    return min(max(base, 1), 5)
+def _extract_worked_example_block(content: str) -> str:
+    """Return the `## Worked Example` body, raising if absent."""
+    marker = "## Worked Example"
+    if marker not in content:
+        raise AssertionError("classification-rules.md is missing the `## Worked Example` section")
+    start = content.index(marker)
+    return content[start : start + 2500]
 
 
 class TestArchitectureIndicators:
@@ -255,40 +221,100 @@ class TestComplexityIndicators:
 
 
 class TestWorkedExample:
-    """The worked example in the reference must match its own algorithm."""
+    """The worked-example output claimed by the markdown must be self-consistent.
 
-    def test_orchestrator_wins_with_full_score(self) -> None:
-        score, matches = _score_type(
-            WORKED_EXAMPLE_DESCRIPTION,
-            REQUIRED_ARCHITECTURE_INDICATORS["Orchestrator"],
-        )
-        assert score == 1.0, f"Expected normalized score 1.0, got {score}"
-        assert {"orchestrat", "decompos", "subtasks"} <= set(matches)
+    Replaces the prior "Python re-implementation runs against itself"
+    pattern (PR #1 review I11). Now the tests parse the *claims* made
+    in the worked-example section and check them against the
+    description: every claimed strong indicator must actually be a
+    substring of the description, every type the markdown says scored
+    zero must have no strong indicators present, the documented word
+    count must match the description, and the documented winner must
+    appear in the documented architecture indicator table. A
+    drift-of-prose-only-but-not-table edit fails one of these checks.
+    """
 
-    def test_other_types_score_zero(self) -> None:
-        for arch_type in ("Multi-Agent", "Pipeline"):
-            score, _ = _score_type(
-                WORKED_EXAMPLE_DESCRIPTION,
-                REQUIRED_ARCHITECTURE_INDICATORS[arch_type],
+    def test_description_contains_claimed_strong_indicators(self) -> None:
+        """Worked example claims orchestrat/decompos/subtasks matched.
+
+        Each claimed-matched indicator must actually be a substring of
+        the description; otherwise the markdown's arithmetic is bogus.
+        """
+        desc_lower = WORKED_EXAMPLE_DESCRIPTION.lower()
+        # Indicators the markdown claims matched the description.
+        claimed_matches = {"orchestrat", "decompos", "subtasks"}
+        # And the markdown claims these are all in Orchestrator.strong.
+        orchestrator_strong = REQUIRED_ARCHITECTURE_INDICATORS["Orchestrator"]["strong"]
+        for ind in claimed_matches:
+            assert ind in desc_lower, (
+                f"Worked example claims '{ind}' matched but description does not contain it"
             )
-            assert score == 0.0, f"{arch_type} unexpectedly scored {score}"
+            assert ind in orchestrator_strong, (
+                f"Worked example claims '{ind}' is Orchestrator.strong but indicator table disagrees"
+            )
 
-    def test_simple_scores_zero(self) -> None:
-        score, _ = _score_type(
-            WORKED_EXAMPLE_DESCRIPTION,
-            REQUIRED_ARCHITECTURE_INDICATORS["Simple"],
-        )
-        assert score == 0.0
+    def test_non_winning_types_have_no_strong_matches(self) -> None:
+        """Markdown claims Multi-Agent, Pipeline, Simple all scored 0.0.
 
-    def test_complexity_resolves_to_three(self) -> None:
-        assert _estimate_complexity(WORKED_EXAMPLE_DESCRIPTION) == 3
+        Each must therefore have *no* strong indicator that appears in
+        the description. A future edit that adds e.g. "pipeline" to
+        the description without also revising the worked example's
+        claimed scores fails this test.
+        """
+        desc_lower = WORKED_EXAMPLE_DESCRIPTION.lower()
+        for arch_type in ("Multi-Agent", "Pipeline", "Simple"):
+            strong = REQUIRED_ARCHITECTURE_INDICATORS[arch_type]["strong"]
+            hits = {ind for ind in strong if ind in desc_lower}
+            assert not hits, (
+                f"Worked example claims {arch_type} scored 0.0 but description contains "
+                f"strong indicators: {sorted(hits)}"
+            )
 
-    def test_word_count_documented_correctly(self) -> None:
+    def test_word_count_claim_matches_description(self) -> None:
+        """Markdown states `word_count = 14` — must equal len(description.split())."""
         actual = len(WORKED_EXAMPLE_DESCRIPTION.split())
         content = _load_reference()
         assert f"word_count = {actual}" in content, (
-            f"Worked example must state word_count = {actual}; file disagrees with the algorithm"
+            f"Worked example must state word_count = {actual}; file says otherwise"
         )
+
+    def test_worked_example_outcome_claims_present(self) -> None:
+        """The worked-example prose must state the four canonical outcomes.
+
+        Winner = Orchestrator, score = 1.0, complexity base = 3 after
+        the orchestrator/multi-agent/pipeline pattern adjustment, and
+        the final pattern = parallelization (because 'parallel' fires
+        the override). A copy-edit that removes any of these silently
+        is the failure mode this test guards against.
+        """
+        block = _extract_worked_example_block(_load_reference())
+        for claim in (
+            "Winner: **Orchestrator**",
+            "`1.0`",
+            "max(2, 3) = 3",
+            "**parallelization**",
+        ):
+            assert claim in block, f"Worked example missing canonical claim: {claim!r}"
+
+    def test_worked_example_has_no_complexity_keyword_matches(self) -> None:
+        """Markdown claims high/medium/low counts are all 0 for the example.
+
+        Verifying that against the actual description guards the
+        complexity arithmetic the same way the architecture test
+        guards the type arithmetic — neither test is a replay of the
+        algorithm; both check the markdown's stated claims against
+        the actual content it claims about.
+        """
+        desc_lower = WORKED_EXAMPLE_DESCRIPTION.lower()
+        for level in ("high", "medium", "low"):
+            hits = {
+                ind
+                for ind in REQUIRED_COMPLEXITY_INDICATORS[level]
+                if ind in desc_lower
+            }
+            assert not hits, (
+                f"Worked example claims {level}_count = 0 but description matches: {sorted(hits)}"
+            )
 
 
 class TestReferenceFileShape:

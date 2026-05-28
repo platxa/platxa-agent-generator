@@ -237,7 +237,11 @@ was minor". The verdict line is authoritative.
 
 Compose the next iteration's regeneration prompt by serializing the
 gan-evaluator's per-axis findings into a structured markdown fragment.
-Build it inline — no external Python module is needed. The format is:
+Build it inline — no external Python module is needed. Read
+`skills/platxa-agent-generator/references/regeneration-prompts.md`
+before composing — it defines the canonical fragment format,
+severity-tier labels, and per-axis suggestion phrasing the loop
+expects. The format is:
 
 ```markdown
 ## Prior iteration findings to address
@@ -273,6 +277,14 @@ downstream tooling parses the closed shape. The terminal shapes
 (APPROVE / REJECT / ABORT / cap-reached) MUST end with the literal
 completion marker on its own line below the JSON. The CONTINUE-pending
 shape (ITERATE in-progress) MUST NOT.
+
+On terminal APPROVE turns where the harness requested a generation
+summary, Read
+`skills/platxa-agent-generator/references/generation-report.md`
+before rendering — it defines the canonical post-generation report
+shape (Overview, Quality Score, Phases, Artifacts) that downstream
+consumers parse. The report is inlined under `reason` in the
+APPROVE-shaped JSON output rather than emitted as a separate file.
 
 ## Output Format
 

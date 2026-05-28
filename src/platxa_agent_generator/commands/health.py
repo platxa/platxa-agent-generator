@@ -24,12 +24,19 @@ from .. import eval_runner, instinct_store, observation_store, quality_scorer
 
 @dataclass(frozen=True)
 class EvalPassRates:
-    """Eval history pass/fail counts and rate."""
+    """Eval history pass/fail counts and rate.
+
+    ``corrupt`` counts ``run-*.json`` files that failed to parse or
+    lacked a recognizable ``verdict`` field. Surfacing the count keeps
+    operators from reading an inflated pass rate when broken history
+    rows are silently excluded from the denominator.
+    """
 
     total: int
     passed: int
     failed: int
     pass_rate: float
+    corrupt: int = 0
 
 
 @dataclass(frozen=True)
@@ -123,27 +130,37 @@ def _collect_health_metrics(args: argparse.Namespace) -> HealthMetrics:
 
 
 def _eval_pass_rates(history_dir: Path) -> EvalPassRates:
-    """Compute pass rates from eval history JSON files."""
+    """Compute pass rates from eval history JSON files.
+
+    Corrupt files (unparseable JSON, missing ``verdict`` field, or read
+    errors) are counted in ``corrupt`` rather than silently skipped.
+    Reporting them in the dashboard prevents the pass rate from looking
+    artificially clean when history rows are unreadable.
+    """
     if not history_dir.is_dir():
         return EvalPassRates(total=0, passed=0, failed=0, pass_rate=0.0)
 
     files = sorted(history_dir.glob("run-*.json"))
     total = 0
     passed = 0
+    corrupt = 0
 
     for path in files:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
-            if isinstance(data, dict) and "verdict" in data:
-                total += 1
-                if data["verdict"] == "passed":
-                    passed += 1
         except (json.JSONDecodeError, OSError):
+            corrupt += 1
             continue
+        if isinstance(data, dict) and "verdict" in data:
+            total += 1
+            if data["verdict"] == "passed":
+                passed += 1
+        else:
+            corrupt += 1
 
     failed = total - passed
     rate = passed / total if total else 0.0
-    return EvalPassRates(total=total, passed=passed, failed=failed, pass_rate=rate)
+    return EvalPassRates(total=total, passed=passed, failed=failed, pass_rate=rate, corrupt=corrupt)
 
 
 def _last_evolve_timestamp(
@@ -169,6 +186,8 @@ def _print_health_text(metrics: HealthMetrics) -> None:
 
     er = metrics.eval_pass_rates
     print(f"\n  Eval pass rate:      {er.passed}/{er.total} ({er.pass_rate:.0%})")
+    if er.corrupt:
+        print(f"  Corrupt history:     {er.corrupt} run-*.json file(s) unreadable or missing verdict")
     print(f"  Instinct count:      {metrics.instinct_count}")
     print(
         f"  Observations:        {metrics.observation_count} ({metrics.observation_promoted} promoted)"

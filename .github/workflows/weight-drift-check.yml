@@ -15,18 +15,35 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: pip install -e .
+
       - name: Check for hardcoded weight tables in agent files
         run: |
           set -euo pipefail
-          # The single source of truth for axis weights is
-          # src/platxa_agent_generator/templates/evaluation-criteria.yaml.
-          # Agent .md files must reference it, not duplicate weight values.
-          # A row of the form "| <axis> | <float> |" indicates drift.
-          if grep -EHn '^\|[[:space:]]*[A-Za-z_]+[[:space:]]*\|[[:space:]]*[0-9]+\.[0-9]+[[:space:]]*\|' agents/*.md; then
-            echo ""
-            echo "ERROR: Hardcoded weight tables found in agent files (above)."
-            echo "Source of truth is src/platxa_agent_generator/templates/evaluation-criteria.yaml."
-            echo "Remove the table rows and reference the YAML via EvaluationRubric.load_default()."
-            exit 1
-          fi
-          echo "OK: No weight tables in agent files."
+          # Single source of truth for the drift regex is
+          # ``quality_scorer._AGENT_WEIGHT_TABLE_RE``. Invoking the Python
+          # helper here (rather than re-implementing the regex in bash)
+          # eliminates the character-class divergence that previously let
+          # axis names like ``score2`` slip past CI while still being
+          # flagged by the local pre-commit check.
+          python -c "
+          import sys
+          from platxa_agent_generator.quality_scorer import check_agent_weight_tables
+
+          drifted = check_agent_weight_tables()
+          if drifted:
+              print('Hardcoded weight tables found in agent files:', file=sys.stderr)
+              for path in drifted:
+                  print(f'  - {path}', file=sys.stderr)
+              print('', file=sys.stderr)
+              print('Source of truth is src/platxa_agent_generator/templates/evaluation-criteria.yaml.', file=sys.stderr)
+              print('Remove the table rows and reference the YAML via EvaluationRubric.load_default().', file=sys.stderr)
+              sys.exit(1)
+          print('OK: No weight tables in agent files.')
+          "

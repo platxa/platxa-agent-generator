@@ -21,6 +21,13 @@ except ImportError:
         parse_tools_string,
     )
 
+try:
+    from .shared.frontmatter import parse_frontmatter_safe
+except ImportError:
+    from shared.frontmatter import (  # type: ignore[import-not-found,no-redef]
+        parse_frontmatter_safe,
+    )
+
 
 class CompositionPattern(Enum):
     """Supported composition patterns."""
@@ -156,8 +163,9 @@ def check_compatibility(agents: list[AgentSpec]) -> CompatibilityCheck:
         issues.append("Circular dependencies detected between agents")
 
     # Validate I/O compatibility for sequential pipelines
-    seq_issues = validate_sequential_io(agents)
+    seq_issues, seq_warnings = validate_sequential_io(agents)
     issues.extend(seq_issues)
+    suggestions.extend(seq_warnings)
 
     return CompatibilityCheck(
         compatible=len(issues) == 0,
@@ -349,14 +357,55 @@ def _schema_fields(schema: dict[str, Any]) -> set[str]:
     return set(schema.keys()) - {"type", "description", "required"}
 
 
+def _is_typed_but_empty(schema: dict[str, Any]) -> bool:
+    """Return True for schemas like ``{"type": "object"}`` with no fields.
+
+    The two cases we need to distinguish:
+
+    * ``{}`` — caller did not declare a schema. ``_schemas_compatible``
+      treats this as "any" and waves it through.
+    * ``{"type": "object"}`` — caller explicitly typed the schema but
+      declared zero properties. This is almost always a documentation
+      bug, and rubber-stamping it as compatible with anything was the
+      silent failure we want to surface.
+    """
+    if not schema:
+        return False
+    fields = _schema_fields(schema)
+    return not fields
+
+
 def _schemas_compatible(
     output_schema: dict[str, Any],
     input_schema: dict[str, Any],
 ) -> tuple[bool, list[str]]:
-    """Check if an output schema is compatible with an input schema."""
-    # Empty schemas are always compatible — untyped means "any"
-    if not output_schema or not input_schema:
+    """Check if an output schema is compatible with an input schema.
+
+    Returns ``(compatible, issues)``. ``issues`` is a list of strings;
+    the caller surfaces them as warnings (when ``compatible`` is True
+    but the schema is suspect) or errors (when ``compatible`` is False).
+    """
+    # Truly empty schemas (``{}``) mean "any" — compatible by definition.
+    # Typed-but-empty schemas (``{"type": "object"}`` with no properties)
+    # are most likely documentation bugs; flag them so the operator can
+    # decide rather than waving them through.
+    if not output_schema and not input_schema:
         return True, []
+
+    warnings: list[str] = []
+    if _is_typed_but_empty(output_schema):
+        warnings.append(
+            "Producer output schema is typed but declares no fields; "
+            "treating as opaque — downstream stages cannot validate against it"
+        )
+    if _is_typed_but_empty(input_schema):
+        warnings.append(
+            "Consumer input schema is typed but declares no fields; "
+            "treating as opaque — producer guarantees cannot be verified"
+        )
+
+    if not output_schema or not input_schema:
+        return True, warnings
 
     out_fields = _schema_fields(output_schema)
     in_fields = _schema_fields(input_schema)
@@ -369,27 +418,40 @@ def _schemas_compatible(
 
     missing = required - out_fields
     if missing:
-        return False, [f"Output missing required fields: {', '.join(sorted(missing))}"]
+        warnings.append(f"Output missing required fields: {', '.join(sorted(missing))}")
+        return False, warnings
 
-    return True, []
+    return True, warnings
 
 
-def validate_sequential_io(agents: list[AgentSpec]) -> list[str]:
-    """Validate that adjacent pipeline stages have compatible I/O schemas."""
+def validate_sequential_io(agents: list[AgentSpec]) -> tuple[list[str], list[str]]:
+    """Validate that adjacent pipeline stages have compatible I/O schemas.
+
+    Returns ``(issues, warnings)``. Issues are blocking — they prevent
+    composition. Warnings are non-blocking — for example, a producer
+    or consumer declared ``{"type": "object"}`` with no fields, so we
+    cannot actually verify the contract even though we are not blocking
+    on it.
+    """
     issues: list[str] = []
+    warnings: list[str] = []
 
     for i in range(len(agents) - 1):
         producer = agents[i]
         consumer = agents[i + 1]
 
-        compatible, stage_issues = _schemas_compatible(
+        compatible, stage_messages = _schemas_compatible(
             producer.output_schema, consumer.input_schema
         )
+        prefix = f"Stage {i + 1}→{i + 2} ({producer.name}→{consumer.name})"
         if not compatible:
-            for issue in stage_issues:
-                issues.append(f"Stage {i + 1}→{i + 2} ({producer.name}→{consumer.name}): {issue}")
+            for msg in stage_messages:
+                issues.append(f"{prefix}: {msg}")
+        else:
+            for msg in stage_messages:
+                warnings.append(f"{prefix}: {msg}")
 
-    return issues
+    return issues, warnings
 
 
 def validate_parallel_outputs(agents: list[AgentSpec]) -> list[str]:
@@ -794,27 +856,22 @@ def save_composite_agent(
 
 
 def load_agent_spec(file_path: Path | str) -> AgentSpec | None:
-    """Load an agent specification from a markdown file."""
+    """Load an agent specification from a markdown file.
+
+    Returns ``None`` for **per-file** failures (path missing or
+    frontmatter unparseable) so the caller can decide whether one bad
+    input aborts a composition or just gets reported. Packaging-level
+    failures (``shared.frontmatter`` unimportable) are NOT caught here
+    — they propagate as ``ImportError`` because they indicate a
+    corrupt install affecting *every* agent file, not a per-file
+    parse problem. Catching them used to make a broken install look
+    identical to a malformed agent file.
+    """
     path = Path(file_path)
     if not path.exists():
         return None
 
     content = path.read_text(encoding="utf-8")
-
-    try:
-        try:
-            from .shared.frontmatter import parse_frontmatter_safe
-        except ImportError:
-            from shared.frontmatter import (  # type: ignore[import-not-found,no-redef]
-                parse_frontmatter_safe,
-            )
-    except ImportError as e:
-        print(
-            f"warning: agent_composer failed to parse frontmatter "
-            f"in {path}: {type(e).__name__}: {e}",
-            file=sys.stderr,
-        )
-        return None
 
     frontmatter, errors = parse_frontmatter_safe(content)
     if frontmatter is None:
@@ -911,8 +968,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "sequential":
-        agents = [load_agent_spec(f) for f in args.agents]
-        agents = [a for a in agents if a is not None]
+        agents = _load_all_or_exit(args.agents)
         result = compose_sequential(agents, name=args.name)
         if result.success:
             output = args.output or ".claude/agents"
@@ -922,8 +978,7 @@ def main() -> None:
             print(f"Error: {result.errors}")
 
     elif args.command == "parallel":
-        agents = [load_agent_spec(f) for f in args.agents]
-        agents = [a for a in agents if a is not None]
+        agents = _load_all_or_exit(args.agents)
         result = compose_parallel(agents, name=args.name, aggregation_strategy=args.strategy)
         if result.success:
             output = args.output or ".claude/agents"
@@ -933,8 +988,7 @@ def main() -> None:
             print(f"Error: {result.errors}")
 
     elif args.command == "orchestrator":
-        workers = [load_agent_spec(f) for f in args.workers]
-        workers = [w for w in workers if w is not None]
+        workers = _load_all_or_exit(args.workers)
         result = create_orchestrator(args.name, workers)
         if result.success:
             output = args.output or ".claude/agents"
@@ -944,8 +998,7 @@ def main() -> None:
             print(f"Error: {result.errors}")
 
     elif args.command == "deps":
-        agents = [load_agent_spec(f) for f in args.agents]
-        agents = [a for a in agents if a is not None]
+        agents = _load_all_or_exit(args.agents)
         graph = build_dependency_graph(agents)
         if args.format == "readme":
             print(render_dependency_readme_section(graph))
@@ -956,8 +1009,7 @@ def main() -> None:
             raise SystemExit(2)
 
     elif args.command == "check":
-        agents = [load_agent_spec(f) for f in args.agents]
-        agents = [a for a in agents if a is not None]
+        agents = _load_all_or_exit(args.agents)
         compat = check_compatibility(agents)
         print(f"Compatible: {compat.compatible}")
         if compat.issues:
@@ -971,6 +1023,28 @@ def main() -> None:
 
     else:
         parser.print_help()
+
+
+def _load_all_or_exit(paths: list[str]) -> list[AgentSpec]:
+    """Load every path or exit non-zero, naming the failures.
+
+    Used by all five composer subcommands (``sequential``, ``parallel``,
+    ``orchestrator``, ``deps``, ``check``). Pairs each input with its
+    load result so the operator sees which files failed instead of
+    silently composing whatever subset happened to parse — a typo'd
+    third agent must not produce a 2-agent pipeline marked success.
+    """
+    loaded = [(p, load_agent_spec(p)) for p in paths]
+    missing = [p for p, spec in loaded if spec is None]
+    if missing:
+        print(
+            f"Error: failed to load {len(missing)} of {len(paths)} agent file(s):",
+            file=sys.stderr,
+        )
+        for p in missing:
+            print(f"  - {p}", file=sys.stderr)
+        raise SystemExit(1)
+    return [spec for _, spec in loaded if spec is not None]
 
 
 if __name__ == "__main__":

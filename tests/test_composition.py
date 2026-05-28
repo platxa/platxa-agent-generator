@@ -35,7 +35,7 @@ class TestCompositionValidation:
             "output_schema={'properties': {'findings': {'type': 'array'}}}); "
             "b = AgentSpec(name='reporter', description='Report', "
             "input_schema={'properties': {'findings': {'type': 'array'}}}); "
-            "issues = validate_sequential_io([a, b]); "
+            "issues, _warnings = validate_sequential_io([a, b]); "
             "print(len(issues))"
         )
         assert out == "0", f"Expected 0 issues, got: {out}"
@@ -48,7 +48,7 @@ class TestCompositionValidation:
             "b = AgentSpec(name='reporter', description='Report', "
             "input_schema={'properties': {'findings': {'type': 'array'}}, "
             "'required': ['findings']}); "
-            "issues = validate_sequential_io([a, b]); "
+            "issues, _warnings = validate_sequential_io([a, b]); "
             "print(len(issues)); print(issues[0])"
         )
         lines = out.split("\n")
@@ -61,7 +61,7 @@ class TestCompositionValidation:
         out = self._run_composer(
             "a = AgentSpec(name='a', description='A', output_schema={}); "
             "b = AgentSpec(name='b', description='B', input_schema={}); "
-            "issues = validate_sequential_io([a, b]); "
+            "issues, _warnings = validate_sequential_io([a, b]); "
             "print(len(issues))"
         )
         assert out == "0"
@@ -77,7 +77,7 @@ class TestCompositionValidation:
             "c = AgentSpec(name='load', description='Load', "
             "input_schema={'properties': {'records': {'type': 'array'}}, "
             "'required': ['records']}); "
-            "issues = validate_sequential_io([a, b, c]); "
+            "issues, _warnings = validate_sequential_io([a, b, c]); "
             "print(len(issues)); print(issues[0])"
         )
         lines = out.split("\n")

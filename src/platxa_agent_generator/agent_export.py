@@ -8,6 +8,7 @@ import os
 import re
 import shutil
 import stat
+import sys
 import tarfile
 import tempfile
 import zipfile
@@ -157,15 +158,55 @@ SENSITIVE_PATTERNS = [
 ]
 
 
-def extract_agent_metadata(content: str) -> dict[str, Any]:
-    """Extract metadata from agent file content."""
+class InvalidFrontmatterError(ValueError):
+    """Raised when an agent file's frontmatter is absent or truncated.
+
+    Distinguished from "frontmatter present but missing fields" so
+    callers can decide what to do with each case:
+
+    * A single-file packaging operation must fail fast — a manifest
+      whose ``name`` silently defaulted to the file stem produces an
+      unusable package.
+    * A directory scan may want to skip-and-warn rather than abort.
+
+    Pass ``strict=False`` to :func:`extract_agent_metadata` to opt
+    into the scan-friendly behaviour.
+    """
+
+
+def extract_agent_metadata(content: str, *, strict: bool = True) -> dict[str, Any]:
+    """Extract metadata from agent file content.
+
+    Args:
+        content: Full agent file text.
+        strict: When ``True`` (default), missing or truncated
+            frontmatter raises :class:`InvalidFrontmatterError`. When
+            ``False``, returns an empty dict — used by directory-scan
+            callers that want to continue past bad files.
+
+    Returns:
+        Parsed frontmatter as a dict. Missing fields are absent from
+        the dict (not defaulted) so callers can detect them.
+
+    Raises:
+        InvalidFrontmatterError: ``strict`` is True and the input does
+            not start with ``---`` or has no closing ``---``.
+    """
     metadata: dict[str, Any] = {}
 
     if not content.startswith("---"):
+        if strict:
+            raise InvalidFrontmatterError(
+                "agent content does not start with '---' frontmatter delimiter"
+            )
         return metadata
 
     parts = content.split("---", 2)
     if len(parts) < 3:
+        if strict:
+            raise InvalidFrontmatterError(
+                "agent content has no closing '---' frontmatter delimiter"
+            )
         return metadata
 
     frontmatter = parts[1]
@@ -1080,7 +1121,18 @@ def list_exportable_agents(
 
     for agent_file in search_dir.glob("*.md"):
         content = agent_file.read_text()
-        metadata = extract_agent_metadata(content)
+        try:
+            metadata = extract_agent_metadata(content)
+        except InvalidFrontmatterError as exc:
+            # Scan-friendly path: bad files are skipped (so one corrupt
+            # agent doesn't blank the catalogue) but the failure is
+            # surfaced to stderr instead of silently defaulting the
+            # name to the filename stem.
+            print(
+                f"warning: skipping {agent_file} — {exc}",
+                file=sys.stderr,
+            )
+            continue
 
         agents.append(
             {

@@ -33,11 +33,13 @@ Modules that mixed template rendering with validation/orchestration logic. Templ
 
 | Feature | Module | LOC before → after | Commit | Replacement target |
 |---|---|---:|---|---|
-| #9 | `hooks_generator.py` | 2,710 → ~800 | `a6901945` | Skill ref `hooks-config-templates.md` + Python validation retained |
-| #10 | `multiagent_generator.py` | 2,122 → ~700 | `a6901945` | Skill ref `multiagent-system-templates.md` + pattern logic retained |
-| #11 | `prompt_generator.py` | 1,211 → ~400 | `a6901945` | Skill ref `prompt-templates.md` + domain injection retained |
-| #12 | `agent_export.py` | 1,761 → ~600 | `a6901945` | Skill ref `export-templates.md` + `Write` + `Bash`; manifest/checksum retained |
-| #13 | `agent_composer.py` | 1,575 → ~500 | `a6901945` | Skill ref `composer-templates.md` + cross-agent validation retained |
+| #9 | `hooks_generator.py` | 2,710 → 751 | `a6901945` | Skill ref `hooks-config-templates.md` + Python validation retained |
+| #10 | `multiagent_generator.py` | 2,122 (**deferred**) | n/a | Skill ref `multiagent-system-templates.md` authored; Python reduction deferred to a follow-up sprint. Python module remains authoritative; `tests/test_patterns.py` continues to invoke it as a subprocess. |
+| #11 | `prompt_generator.py` | 1,211 (**deferred**) | n/a | Skill ref `prompt-templates.md` authored; Python reduction deferred to a follow-up sprint. Python module remains authoritative; `tests/test_domain_docs.py` continues to invoke it as a subprocess. |
+| #12 | `agent_export.py` | 1,761 → 1,275 | `a6901945` | Skill ref `export-templates.md` + `Write` + `Bash`; manifest/checksum retained |
+| #13 | `agent_composer.py` | 1,575 → 977 | `a6901945` | Skill ref `composer-templates.md` + cross-agent validation retained |
+
+> **Deferred rows (#10, #11)**: the skill references were authored under feature #30 but the corresponding Python reductions never landed. Until they do, `multiagent_generator.py` and `prompt_generator.py` are the source of truth and the skill references serve as design-intent documentation only. Closing the deferral is tracked as a post-sprint follow-up; see issue tracker for the planned reduction PRs.
 
 ### Outright deletions (Phase-2 cohort)
 
