@@ -501,7 +501,6 @@ Examples:
                     result["quality_score"] = quality_score
                 print(json.dumps(result, indent=2))
             else:
-                print(tracker.render())
                 print("\nAgent generated successfully!")
                 print(f"Output: {output_path}")
                 if retry_count > 0:
@@ -549,7 +548,6 @@ Examples:
             }
             print(json.dumps(result, indent=2))
         else:
-            print(tracker.render())
             print(
                 f"\nESCALATE: Quality score {quality_score:.1f} < {args.min_quality} "
                 f"after {max_iterations} iterations."

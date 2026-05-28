@@ -43,10 +43,9 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | `tests/test_dryrun.py` | 2 | 14 |
 | `tests/test_conftest_check.py` | 1 | 12 |
 | `tests/test_analyzer.py` | 1 | 11 |
-| `tests/test_progress_tracking.py` | 1 | 11 |
 | `tests/test_generators.py` | 2 | 7 |
 | `tests/test_composer.py` | 1 | 2 |
-| **TOTAL** | **107** | **941** |
+| **TOTAL** | **106** | **930** |
 
 ## Class → Module Map
 
@@ -120,7 +119,6 @@ Maps each `TestXxx` class in `tests/test_generator.py` to its target shard file 
 | 67 | `TestAgentDiffComparison` | 10148 | 12 | `tests/test_versioning.py` |
 | 68 | `TestAgentVersioning` | 10354 | 3 | `tests/test_versioning.py` |
 | 69 | `TestPluginExport` | 10568 | 10 | `tests/test_plugin_export.py` |
-| 70 | `TestProgressTrackerTodoWrite` | 10815 | 11 | `tests/test_progress_tracking.py` |
 | 71 | `TestDomainKnowledgeImports` | 11036 | 10 | `tests/test_domain_docs.py` |
 | 72 | `TestAgentDependencyDocumentation` | 11225 | 11 | `tests/test_domain_docs.py` |
 | 73 | `TestGenerationAttributionFooter` | 11452 | 10 | `tests/test_domain_docs.py` |
