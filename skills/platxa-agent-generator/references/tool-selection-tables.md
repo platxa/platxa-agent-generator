@@ -88,6 +88,61 @@ When the agent purpose contains these keywords, add the corresponding tools:
 | Write + Bash | Creating and executing files requires careful validation |
 | Edit + Glob | Mass editing files can cause unintended changes |
 
+## Tool Dependencies
+
+When a tool is selected, also include any tools listed as its dependencies.
+This matches the runtime behaviour previously enforced by `tool_selector.py`
+(deleted in feature #8 / commit `be79d6d0`).
+
+| Tool | Required Dependencies |
+|------|------------------------|
+| Edit | Read (must read a file before editing it) |
+| Write | Read (should typically read surrounding context first) |
+
+Dependencies are added even when the agent purpose did not explicitly imply
+them. Mark them with the reason `"Dependency of <tool>"` in the selection
+output.
+
+## Selection Algorithm
+
+The architecture-subagent walks this 8-step algorithm in order. Each step
+either adds tools to a working set or removes/replaces them; steps never
+reorder earlier decisions except where explicitly noted.
+
+1. **Base tools by agent type** — look up `Base Tools by Agent Type` for
+   the resolved agent type (`analyzer`, `builder`, `automation`, `guide`,
+   `validator`, `orchestrator`). Default to `[Read, Glob, Grep]` for an
+   unknown type.
+2. **Recommended base** — merge any tools from the discovery output's
+   `tool_patterns.recommended_base` field that aren't already included.
+   Mark them with reason `"Recommended by existing agent patterns"`.
+3. **Domain additions** — if a domain is given, append tools from
+   `Domain-Specific Tool Additions` for that domain.
+4. **Purpose keywords** — tokenize the agent purpose, lowercase, and look
+   each token up in `Capability Keyword → Tool Mapping`. Add any implied
+   tools that aren't already in the set.
+5. **Capability keywords** — repeat step 4 for each entry in the
+   `capabilities` list (when the input provides one).
+6. **Explicit tools** — add tools the user listed by name. Warn if a name
+   is not in `Available Tools`.
+7. **Tool dependencies** — for every tool currently selected, add any
+   entries from `Tool Dependencies`.
+8. **Least-privilege enforcement** — apply `Least-Privilege Rules` to
+   remove or substitute tools (read-only types lose Write/Edit/Bash/
+   NotebookEdit; Write is replaced with Edit unless the purpose contains a
+   write-justification keyword; Bash is removed unless the purpose
+   contains a shell-justification keyword). Then check the result against
+   `Dangerous Combinations` and emit a warning per match — do **not**
+   remove the tools; the warning surfaces in the architecture blueprint.
+
+After step 8, sort the final tool list using this canonical order so
+generated agent definitions are stable:
+
+```
+Read, Write, Edit, Glob, Grep, Bash, WebSearch, WebFetch, Task,
+AskUserQuestion, TodoWrite, NotebookEdit, LSP
+```
+
 ## Tool Categories
 
 | Category | Tools |
@@ -100,3 +155,6 @@ When the agent purpose contains these keywords, add the corresponding tools:
 | shell | Bash |
 | coordination | Task, TodoWrite |
 | interaction | AskUserQuestion |
+| notebook | NotebookEdit |
+| code_intelligence | LSP |
+| skill_invocation | Skill |

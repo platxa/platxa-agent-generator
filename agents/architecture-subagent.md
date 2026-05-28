@@ -60,9 +60,17 @@ discovery-subagent's Glob+Grep+Read workflow. Use them to:
 
 ## Workflow
 
-### Step 1: Analyze Complexity
+### Step 1: Analyze Complexity and Classify Architecture Type
 
-Evaluate the task complexity to confirm architecture type:
+Use the qualitative tradeoff table below to confirm the architecture type the
+discovery output proposed (`architecture_type` field in the input). The table
+is the human-readable summary; the **authoritative classification rules**
+(keyword indicators, scoring formula, complexity 1-5 algorithm, pattern
+adjustments) live in
+`skills/platxa-agent-generator/references/classification-rules.md`. Consult
+that file when the input is ambiguous, when no `architecture_type` was
+provided, or when you need to (re-)derive the complexity score or the
+suggested workflow pattern.
 
 | Indicator | Simple | Orchestrator | Multi-Agent | Pipeline |
 |-----------|--------|--------------|-------------|----------|
@@ -70,6 +78,15 @@ Evaluate the task complexity to confirm architecture type:
 | Parallelization | None | Worker parallel | Agent parallel | None |
 | State sharing | N/A | Central | Distributed | Linear |
 | Best for | Quick tasks | Complex decomposition | Specialized roles | Data flow |
+
+**When to consult the reference file**:
+- The discovery output omits `architecture_type` or provides a value with
+  `< 0.5` confidence.
+- The description mentions parallel/concurrent execution, iterative
+  refinement, or routing/classification — these override the default
+  workflow pattern (see the *Pattern Adjustments* table in the reference).
+- You need to populate `estimated_complexity` (1-5) in the output
+  blueprint and the input does not provide one.
 
 ### Step 2: Select Workflow Pattern
 
@@ -211,7 +228,9 @@ Determine minimal necessary tools:
 }
 ```
 
-Consult `skills/platxa-agent-generator/references/tool-selection-tables.md` for detailed base-tool-by-type tables, domain additions, least-privilege rules, and dangerous-combination warnings.
+Consult `skills/platxa-agent-generator/references/tool-selection-tables.md` for the full tool-selection workflow: base-tools-by-type tables, domain additions, capability-keyword mapping, tool dependencies, the 8-step selection algorithm, least-privilege rules, and dangerous-combination warnings.
+
+The quick-reference guidelines below summarise the most common rules; the reference file is authoritative on any edge case.
 
 Tool selection guidelines:
 - **Read**: Any agent that needs file content
