@@ -1,8 +1,11 @@
 """Tests for the ``evolve`` CLI subcommand.
 
-Verification criterion for feature #53: platxa-agent evolve --dry-run
-produces same output as /evolve --dry-run (both surfaces call
-promotion_engine.promote() with matching flags).
+After feature #25, ``cli._handle_evolve`` dispatches the
+``instinct-promoter`` subagent via an injectable executor instead of
+running ``promotion_engine.promote`` directly. Tests inject a fake
+executor (mirroring the ``eval_runner._default_executor`` pattern)
+that returns a canned agent JSON payload and, when needed, captures
+the payload the CLI sent so threshold-routing assertions still hold.
 """
 
 from __future__ import annotations
@@ -12,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from platxa_agent_generator.cli import CLI
+from platxa_agent_generator.cli import CLI, PromoterExecutor, PromotionDispatchError
 from platxa_agent_generator.instinct_store import InstinctStore
 
 
@@ -63,6 +66,71 @@ def _seed_store(tmp_path: Path, instincts: list[dict[str, object]]) -> Path:
     return root
 
 
+def _promotion(
+    name: str,
+    *,
+    target: str = "command",
+    confidence: float = 0.9,
+    occurrences: int = 5,
+    success_count: int = 2,
+) -> dict[str, object]:
+    """Build one promotion entry shaped per agents/instinct-promoter.md."""
+    return {
+        "target": target,
+        "name": name,
+        "description": f"description of {name}",
+        "draft_path": f"commands/{name}.md",
+        "source_instincts": [name],
+        "occurrences": occurrences,
+        "confidence": confidence,
+        "success_count": success_count,
+        "rationale": "test promotion",
+        "examples": ["example"],
+    }
+
+
+def _make_executor(
+    *,
+    promotions: list[dict[str, object]] | None = None,
+    skipped_reason: str | None = None,
+    thresholds: dict[str, int | float] | None = None,
+    captured: list[dict[str, object]] | None = None,
+) -> PromoterExecutor:
+    """Build a fake executor that returns canned agent JSON.
+
+    When ``captured`` is supplied, the executor appends the decoded
+    payload to it on every call so tests can assert on what the CLI
+    sent. The default behaviour ignores the payload and returns the
+    canned response.
+    """
+
+    payload_promotions = promotions if promotions is not None else []
+    payload_thresholds = (
+        thresholds
+        if thresholds is not None
+        else {
+            "occurrences": 3,
+            "confidence": 0.7,
+            "success_count": 1,
+        }
+    )
+
+    def _exec(payload_json: str, _timeout: int) -> str:
+        if captured is not None:
+            captured.append(json.loads(payload_json))
+        return json.dumps(
+            {
+                "promotions": payload_promotions,
+                "skipped_clusters": [],
+                "thresholds": payload_thresholds,
+                "scope": "global",
+                "skipped_reason": skipped_reason,
+            }
+        )
+
+    return _exec
+
+
 class TestEvolveBasic:
     """Basic evolve subcommand behavior."""
 
@@ -71,7 +139,7 @@ class TestEvolveBasic:
     ) -> None:
         root = tmp_path / "empty-instincts"
         root.mkdir()
-        cli = CLI()
+        cli = CLI(promoter_executor=_make_executor())
         rc = cli.run(["--json", "evolve", "--dry-run", "--root", str(root)])
         assert rc == 0
         output = json.loads(capsys.readouterr().out)
@@ -94,7 +162,7 @@ class TestEvolveBasic:
                 },
             ],
         )
-        cli = CLI()
+        cli = CLI(promoter_executor=_make_executor(promotions=[_promotion("eligible-one")]))
         rc = cli.run(["--json", "evolve", "--dry-run", "--root", str(root)])
         assert rc == 0
         output = json.loads(capsys.readouterr().out)
@@ -118,7 +186,8 @@ class TestEvolveBasic:
                 },
             ],
         )
-        cli = CLI()
+        # Agent filters out the ineligible instinct → returns empty promotions
+        cli = CLI(promoter_executor=_make_executor(promotions=[]))
         rc = cli.run(["--json", "evolve", "--dry-run", "--root", str(root)])
         assert rc == 0
         output = json.loads(capsys.readouterr().out)
@@ -127,7 +196,13 @@ class TestEvolveBasic:
 
 
 class TestEvolveThresholdOverride:
-    """--threshold and --min-occurrences flag behavior."""
+    """--threshold and --min-occurrences flag behavior.
+
+    After delegation to the agent, the CLI is responsible for resolving
+    flags into the agent's ``thresholds`` payload field. These tests
+    capture the payload sent to the executor and assert the resolved
+    threshold appears in both the payload and the JSON output.
+    """
 
     def test_threshold_override_lowers_bar(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -145,22 +220,23 @@ class TestEvolveThresholdOverride:
                 },
             ],
         )
-        cli = CLI()
-        rc = cli.run(
-            [
-                "--json",
-                "evolve",
-                "--dry-run",
-                "--threshold",
-                "0.4",
-                "--root",
-                str(root),
-            ]
+        captured: list[dict[str, object]] = []
+        cli = CLI(
+            promoter_executor=_make_executor(
+                promotions=[_promotion("marginal", confidence=0.5)],
+                thresholds={"occurrences": 3, "confidence": 0.4, "success_count": 1},
+                captured=captured,
+            )
         )
+        rc = cli.run(["--json", "evolve", "--dry-run", "--threshold", "0.4", "--root", str(root)])
         assert rc == 0
         output = json.loads(capsys.readouterr().out)
         assert output["eligible"] == 1
         assert output["thresholds"]["confidence"] == 0.4
+        assert len(captured) == 1
+        sent_thresholds = captured[0]["thresholds"]
+        assert isinstance(sent_thresholds, dict)
+        assert sent_thresholds["confidence"] == 0.4
 
     def test_min_occurrences_override(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -178,8 +254,14 @@ class TestEvolveThresholdOverride:
                 },
             ],
         )
-        cli = CLI()
-        # Default threshold is 3, so usage_count=2 would fail
+        captured: list[dict[str, object]] = []
+        cli = CLI(
+            promoter_executor=_make_executor(
+                promotions=[_promotion("low-occ", occurrences=2)],
+                thresholds={"occurrences": 2, "confidence": 0.7, "success_count": 1},
+                captured=captured,
+            )
+        )
         rc = cli.run(
             [
                 "--json",
@@ -195,6 +277,9 @@ class TestEvolveThresholdOverride:
         output = json.loads(capsys.readouterr().out)
         assert output["eligible"] == 1
         assert output["thresholds"]["occurrences"] == 2
+        sent_thresholds = captured[0]["thresholds"]
+        assert isinstance(sent_thresholds, dict)
+        assert sent_thresholds["occurrences"] == 2
 
     def test_min_success_count_override(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -212,8 +297,14 @@ class TestEvolveThresholdOverride:
                 },
             ],
         )
-        cli = CLI()
-        # Default success_count threshold is 1, so success_count=0 would fail
+        captured: list[dict[str, object]] = []
+        cli = CLI(
+            promoter_executor=_make_executor(
+                promotions=[_promotion("low-succ", success_count=0)],
+                thresholds={"occurrences": 3, "confidence": 0.7, "success_count": 0},
+                captured=captured,
+            )
+        )
         rc = cli.run(
             [
                 "--json",
@@ -229,6 +320,9 @@ class TestEvolveThresholdOverride:
         output = json.loads(capsys.readouterr().out)
         assert output["eligible"] == 1
         assert output["thresholds"]["success_count"] == 0
+        sent_thresholds = captured[0]["thresholds"]
+        assert isinstance(sent_thresholds, dict)
+        assert sent_thresholds["success_count"] == 0
 
     def test_threshold_override_raises_bar(
         self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
@@ -246,7 +340,13 @@ class TestEvolveThresholdOverride:
                 },
             ],
         )
-        cli = CLI()
+        # Agent enforces the higher floor → returns empty promotions
+        cli = CLI(
+            promoter_executor=_make_executor(
+                promotions=[],
+                thresholds={"occurrences": 3, "confidence": 0.95, "success_count": 1},
+            )
+        )
         rc = cli.run(
             [
                 "--json",
@@ -286,7 +386,14 @@ class TestEvolveTargetFilter:
                 },
             ],
         )
-        cli = CLI()
+        cli = CLI(
+            promoter_executor=_make_executor(
+                promotions=[
+                    _promotion("inst-a", target="command"),
+                    _promotion("inst-b", target="skill"),
+                ]
+            )
+        )
         rc = cli.run(["--json", "evolve", "--dry-run", "--target", "all", "--root", str(root)])
         assert rc == 0
         output = json.loads(capsys.readouterr().out)
@@ -318,14 +425,21 @@ class TestEvolveTargetFilter:
                 },
             ],
         )
-        cli = CLI()
+        cli = CLI(
+            promoter_executor=_make_executor(
+                promotions=[
+                    _promotion("workflow-inst", target="skill"),
+                    _promotion("cmd-inst", target="command"),
+                ]
+            )
+        )
         rc = cli.run(["--json", "evolve", "--dry-run", "--target", "skill", "--root", str(root)])
         assert rc == 0
         output = json.loads(capsys.readouterr().out)
         assert output["target_filter"] == "skill"
-        # discovery type maps to skill target
         names = {c["name"] for c in output["candidates"]}
         assert "workflow-inst" in names
+        assert "cmd-inst" not in names
 
 
 class TestEvolveHumanOutput:
@@ -343,7 +457,7 @@ class TestEvolveHumanOutput:
                 },
             ],
         )
-        cli = CLI()
+        cli = CLI(promoter_executor=_make_executor(promotions=[_promotion("promoted-one")]))
         rc = cli.run(["evolve", "--dry-run", "--root", str(root)])
         assert rc == 0
         out = capsys.readouterr().out
@@ -364,9 +478,151 @@ class TestEvolveHumanOutput:
                 },
             ],
         )
-        cli = CLI()
+        cli = CLI(promoter_executor=_make_executor(promotions=[_promotion("ready-inst")]))
         rc = cli.run(["evolve", "--root", str(root)])
         assert rc == 0
         out = capsys.readouterr().out
         assert "Eligible for promotion" in out
         assert "ready-inst" in out
+
+
+class TestEvolveDispatchErrors:
+    """Failure modes for the agent dispatch."""
+
+    def test_malformed_json_returns_exit_one(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "any",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content("any"),
+                },
+            ],
+        )
+
+        def _bad_json_exec(_payload: str, _timeout: int) -> str:
+            return "not valid JSON {{{"
+
+        cli = CLI(promoter_executor=_bad_json_exec)
+        rc = cli.run(["--json", "evolve", "--dry-run", "--root", str(root)])
+        assert rc == 1
+        output = json.loads(capsys.readouterr().out)
+        assert "error" in output
+        assert "non-JSON" in output["error"]
+
+    def test_dispatch_error_propagates_exit_one(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "any",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content("any"),
+                },
+            ],
+        )
+
+        def _failing_exec(_payload: str, _timeout: int) -> str:
+            raise PromotionDispatchError("claude CLI not found; install Claude Code")
+
+        cli = CLI(promoter_executor=_failing_exec)
+        rc = cli.run(["evolve", "--root", str(root)])
+        assert rc == 1
+        captured = capsys.readouterr()
+        assert "dispatch failed" in captured.err
+        assert "claude CLI not found" in captured.err
+
+    def test_skipped_reason_surfaces_in_json_output(
+        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "any",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content("any"),
+                },
+            ],
+        )
+        cli = CLI(
+            promoter_executor=_make_executor(
+                promotions=[], skipped_reason="store had no clustered entries"
+            )
+        )
+        rc = cli.run(["--json", "evolve", "--root", str(root)])
+        assert rc == 0
+        output = json.loads(capsys.readouterr().out)
+        assert output["skipped_reason"] == "store had no clustered entries"
+        assert output["eligible"] == 0
+
+
+class TestEvolveEnvVarThresholds:
+    """``PLATXA_PROMOTION_THRESHOLDS`` env var feeds the agent payload."""
+
+    def test_env_var_overrides_defaults(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "from-env",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content("from-env"),
+                },
+            ],
+        )
+        monkeypatch.setenv(
+            "PLATXA_PROMOTION_THRESHOLDS",
+            json.dumps({"occurrences": 5, "confidence": 0.85, "success_count": 2}),
+        )
+        captured: list[dict[str, object]] = []
+        cli = CLI(promoter_executor=_make_executor(captured=captured))
+        rc = cli.run(["--json", "evolve", "--dry-run", "--root", str(root)])
+        assert rc == 0
+        capsys.readouterr()  # drain
+        sent_thresholds = captured[0]["thresholds"]
+        assert isinstance(sent_thresholds, dict)
+        assert sent_thresholds["occurrences"] == 5
+        assert sent_thresholds["confidence"] == 0.85
+        assert sent_thresholds["success_count"] == 2
+
+    def test_cli_flag_overrides_env_var(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str],
+    ) -> None:
+        root = _seed_store(
+            tmp_path,
+            [
+                {
+                    "name": "any",
+                    "scope": "global",
+                    "type": "tool_use",
+                    "content": _make_instinct_content("any"),
+                },
+            ],
+        )
+        monkeypatch.setenv("PLATXA_PROMOTION_THRESHOLDS", json.dumps({"confidence": 0.85}))
+        captured: list[dict[str, object]] = []
+        cli = CLI(promoter_executor=_make_executor(captured=captured))
+        rc = cli.run(["--json", "evolve", "--threshold", "0.5", "--root", str(root)])
+        assert rc == 0
+        capsys.readouterr()  # drain
+        sent_thresholds = captured[0]["thresholds"]
+        assert isinstance(sent_thresholds, dict)
+        assert sent_thresholds["confidence"] == 0.5
