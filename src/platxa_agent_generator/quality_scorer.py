@@ -85,6 +85,37 @@ def check_criteria_weights_integrity() -> None:
         )
 
 
+# Anchored at start-of-line to match true axis-weight rows
+# ("| <axis> | <float> |") and skip mid-row pairs from longer tables
+# such as gan-evaluator's "| <axis> | MET | MEDIUM | <float> |" or
+# prompt-evolver's "| <param> | no | <default> |".
+_AGENT_WEIGHT_TABLE_RE = re.compile(
+    r"^\|\s*\w+\s*\|\s*\d+\.\d+\s*\|",
+    re.MULTILINE,
+)
+
+
+def _default_agents_dir() -> Path:
+    return Path(__file__).resolve().parent.parent.parent / "agents"
+
+
+def check_agent_weight_tables(agents_dir: Path | None = None) -> list[Path]:
+    """Return agent ``.md`` files that contain hardcoded weight tables.
+
+    Agent files must defer to ``templates/evaluation-criteria.yaml`` for axis
+    weights; an empty list means every agent is clean. A non-empty result is
+    weight drift and should fail CI.
+    """
+    root = agents_dir or _default_agents_dir()
+    if not root.is_dir():
+        return []
+    return [
+        path
+        for path in sorted(root.glob("*.md"))
+        if _AGENT_WEIGHT_TABLE_RE.search(path.read_text(encoding="utf-8"))
+    ]
+
+
 # Security-related keywords
 SECURITY_KEYWORDS = [
     "security",

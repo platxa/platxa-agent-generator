@@ -71,7 +71,6 @@ try:
         quality_scorer,
         security_scanner,
         syntax_validator,
-        weight_drift_check,
     )
 except ImportError:
     # Standalone execution - type: ignore comments for pyright
@@ -90,7 +89,6 @@ except ImportError:
     import quality_scorer  # type: ignore[import-not-found,no-redef]
     import security_scanner  # type: ignore[import-not-found,no-redef]
     import syntax_validator  # type: ignore[import-not-found,no-redef]
-    import weight_drift_check  # type: ignore[import-not-found,no-redef]
 
 
 __version__ = "1.1.0"
@@ -1998,7 +1996,7 @@ Examples:
         inst_store = instinct_store.InstinctStore(root=instinct_root)
         obs_store = observation_store.ObservationStore(path=obs_file)
         obs_stats = obs_store.stats()
-        drift_report = weight_drift_check.check_drift()
+        drifted_agents = quality_scorer.check_agent_weight_tables()
 
         return _HealthMetrics(
             eval_pass_rates=eval_rates,
@@ -2006,8 +2004,8 @@ Examples:
             observation_count=obs_stats["total"]["count"],
             observation_promoted=obs_stats["promoted"]["count"],
             last_evolve_timestamp=self._last_evolve_timestamp(inst_store),
-            weight_drift_detected=drift_report.has_drift,
-            weight_drift_divergences=len(drift_report.divergences),
+            weight_drift_detected=len(drifted_agents) > 0,
+            weight_drift_divergences=len(drifted_agents),
         )
 
     @staticmethod

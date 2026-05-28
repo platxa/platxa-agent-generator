@@ -48,7 +48,7 @@ thresholds.
 
 ### 6. Weight Drift
 
-- [ ] Run `python -m platxa_agent_generator.weight_drift_check`
+- [ ] Run `grep -EHn '^\|[[:space:]]*[A-Za-z_]+[[:space:]]*\|[[:space:]]*[0-9]+\.[0-9]+[[:space:]]*\|' agents/*.md` (empty output = clean)
 - [ ] Fix any detected drift between YAML and agent files
 - [ ] Review whether axis weights still reflect project priorities
 

@@ -10,15 +10,19 @@ consumers stay synchronized.
 ```
 evaluation-criteria.yaml
         │
-        ├──▶ EvaluationRubric.load_default()  (runtime)
-        ├──▶ gan-axis-judge agents              (per-axis scoring)
-        ├──▶ gan-evaluator orchestrator          (verdict aggregation)
-        └──▶ weight_drift_check.py              (drift detection)
+        ├──▶ EvaluationRubric.load_default()           (runtime)
+        ├──▶ gan-axis-judge agents                     (per-axis scoring)
+        ├──▶ gan-evaluator orchestrator                (verdict aggregation)
+        ├──▶ quality_scorer.CRITERIA_WEIGHTS           (loaded from YAML)
+        └──▶ .github/workflows/weight-drift-check.yml  (grep guard against agent
+                                                         .md weight tables)
 ```
 
 All axis names, weights, severities, and criteria descriptions are
 defined in `evaluation-criteria.yaml`. No other file should hardcode
-these values.
+these values. `quality_scorer.CRITERIA_WEIGHTS` loads from the YAML
+at module init; the CI workflow uses `grep` to ensure no agent `.md`
+file reintroduces a hardcoded weight table.
 
 ## Update Procedure
 
@@ -39,35 +43,20 @@ axes:
 - Each weight must be in (0.0, 1.0]
 - Axis names must match the `severity_on_unmet` keys
 
-### Step 2: Run the drift check
+### Step 2: Confirm no agent `.md` weight tables
 
 ```bash
-python -m platxa_agent_generator.weight_drift_check
+grep -EHn '^\|[[:space:]]*[A-Za-z_]+[[:space:]]*\|[[:space:]]*[0-9]+\.[0-9]+[[:space:]]*\|' agents/*.md
 ```
 
-This compares the YAML weights against any hardcoded weight tables
-in agent `.md` files. If drift is detected, the tool reports which
-agents have stale weights and what the deltas are.
+Empty output (exit 1 from grep) means every agent correctly defers
+to the YAML. Any match is drift and must be removed — agent files
+should cite the YAML, not duplicate its values.
 
-### Step 3: Update drifted agents
+The same check runs in CI via
+`.github/workflows/weight-drift-check.yml`.
 
-If any agent `.md` files embed weight tables (for documentation
-purposes), update them to match the new YAML values. The drift
-checker reports exact line locations and expected values.
-
-### Step 4: Run tests
-
-```bash
-pytest tests/test_weight_drift_check.py -v
-```
-
-This verifies that:
-- The YAML loads without errors
-- Weights sum to 1.0
-- No agent files have drifted weights
-- The drift report structure is correct
-
-### Step 5: Verify evaluation pipeline
+### Step 3: Verify evaluation pipeline
 
 ```bash
 pytest tests/test_validation_failure_context.py -v
@@ -80,16 +69,22 @@ produce correct prompt formatting.
 ## What NOT to Do
 
 - **Do not hardcode weights in Python code** — load via
-  `EvaluationRubric.load_default()`.
-- **Do not duplicate weight tables in agent `.md` files** without
-  running the drift checker. If you must document weights in prose,
-  cite the YAML as the source and run `weight_drift_check.py` in CI.
+  `EvaluationRubric.load_default()`. If you must override
+  `CRITERIA_WEIGHTS` in a test, call
+  `quality_scorer.check_criteria_weights_integrity()` to surface a
+  `DeprecationWarning`.
+- **Do not duplicate weight tables in agent `.md` files**. The CI
+  `weight-drift-check.yml` workflow greps for `| <axis> | <float> |`
+  table rows and fails the build on any match.
 - **Do not change axis names** without updating all consumers — the
   axis name is the join key between the YAML, the evaluator agents,
-  and the drift checker.
+  and `CRITERIA_WEIGHTS`.
 
 ## CI Integration
 
-The `.github/workflows/` CI pipeline runs `weight_drift_check.py`
-on every PR that touches `evaluation-criteria.yaml` or any file under
-`agents/`. This catches weight drift before it reaches main.
+The `.github/workflows/weight-drift-check.yml` workflow runs `grep`
+against `agents/*.md` on every push to `main`/`develop` and every PR
+to `main`, failing the build if any agent file contains a hardcoded
+weight table. The `platxa-agent health` command surfaces the same
+check via `quality_scorer.check_agent_weight_tables()` so the
+learning-loop dashboard reports drift between releases.

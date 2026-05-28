@@ -17,7 +17,6 @@ import pytest
 from platxa_agent_generator.cli import CLI
 from platxa_agent_generator.instinct_store import InstinctStore
 from platxa_agent_generator.observation_store import ObservationRecord, ObservationStore
-from platxa_agent_generator.weight_drift_check import DriftReport, WeightDivergence
 
 
 def _seed_eval_history(history_dir: Path, passed: int, failed: int) -> None:
@@ -81,31 +80,21 @@ def _seed_observations(obs_path: Path, count: int, promoted: int = 0) -> None:
         store.append(record)
 
 
-def _no_drift_report(**_kw: object) -> DriftReport:
-    return DriftReport(yaml_path="stub.yaml", scorer_module="stub", agent_path="stub.md")
+def _no_drifted_agents(**_kw: object) -> list[Path]:
+    return []
 
 
-def _drift_report(**_kw: object) -> DriftReport:
-    return DriftReport(
-        yaml_path="stub.yaml",
-        scorer_module="stub",
-        agent_path="stub.md",
-        divergences=[
-            WeightDivergence(
-                criterion="correctness",
-                source_a="yaml",
-                source_b="scorer",
-                weight_a=0.35,
-                weight_b=0.30,
-            ),
-        ],
-    )
+def _drifted_agents(**_kw: object) -> list[Path]:
+    return [Path("agents/validation-subagent.md")]
 
 
 @pytest.fixture(autouse=True)
 def _stub_drift(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Default: stub weight_drift_check.check_drift to no-drift."""
-    monkeypatch.setattr("platxa_agent_generator.weight_drift_check.check_drift", _no_drift_report)
+    """Default: stub check_agent_weight_tables to return no drifted agents."""
+    monkeypatch.setattr(
+        "platxa_agent_generator.quality_scorer.check_agent_weight_tables",
+        _no_drifted_agents,
+    )
 
 
 # --- JSON output -----------------------------------------------------------
@@ -210,7 +199,10 @@ class TestHealthJson:
         capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setattr("platxa_agent_generator.weight_drift_check.check_drift", _drift_report)
+        monkeypatch.setattr(
+            "platxa_agent_generator.quality_scorer.check_agent_weight_tables",
+            _drifted_agents,
+        )
 
         cli = CLI()
         cli.run(
@@ -346,7 +338,10 @@ class TestHealthText:
         capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setattr("platxa_agent_generator.weight_drift_check.check_drift", _drift_report)
+        monkeypatch.setattr(
+            "platxa_agent_generator.quality_scorer.check_agent_weight_tables",
+            _drifted_agents,
+        )
 
         cli = CLI()
         cli.run(
